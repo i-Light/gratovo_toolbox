@@ -1,0 +1,15 @@
+# Frozen or generated: not reformatted
+legacy/
+design/
+.claude/
+.router/
+docs/
+node_modules/
+out/
+dist/
+coverage/
+services/pipeline/.venv/
+# Markdown is hand-written prose; the lockfile is written by pnpm
+*.md
+pnpm-lock.yaml
+packages/ui/src/tokens.css

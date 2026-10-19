@@ -1,0 +1,46 @@
+/* Design tokens, ported from design/workbench-prototype/index.html (the :root blocks, density, size and motion).
+   Values are copied, not retyped. Change them in the prototype first, then here (docs/architecture.md, UI).
+   Not run through Prettier, so the copied lines stay as they are in the prototype. */
+:root{
+  --bg:#f2f5f9; --panel:#ffffff; --sunk:#eaf0f6; --sunk-2:#dfe7f0; --line:#d9e2eb; --line-2:#c3d0dd;
+  --ink:#0b2540; --ink-2:#3a5169; --muted:#64778b; --faint:#7d8fa2;
+  --accent:#0079ba; --accent-ink:#ffffff; --accent-soft:#e0eef8; --accent-line:#a6cbe6; --accent-strong:#005f93;
+  --find:#0079ba; --find-soft:#e0eef8; --reach:#0a7f74; --reach-soft:#dcf1ee; --close:#7650c2; --close-soft:#eee7f9; --deliver:#b25c09; --deliver-soft:#fbeedd; --money:#1d7a3a; --money-soft:#e1f2e5;
+  --good:#17803a; --good-soft:#e1f3e6; --warn:#985a00; --warn-soft:#fcf0da; --crit:#c2261a; --crit-soft:#fbe4e1;
+  --shadow-1:0 1px 2px rgba(11,37,64,.06); --shadow-2:0 2px 6px rgba(11,37,64,.06),0 12px 32px rgba(11,37,64,.10); --shadow-3:0 24px 64px rgba(11,37,64,.22);
+  --scrim:rgba(9,25,41,.32);
+  --f-ui:"Readex Pro","Segoe UI",system-ui,-apple-system,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+  --r-s:6px; --r-m:9px; --r-l:13px;
+  --rail-w:236px; --top-h:54px; --peek-w:480px;
+  --pad:20px; --gap:14px; --row-h:42px; --fs:13.5px;
+  --ease-out:cubic-bezier(.23,1,.32,1); --ease-drawer:cubic-bezier(.32,.72,0,1);
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#06131d; --panel:#0c2131; --sunk:#091b29; --sunk-2:#122d41; --line:#1c3a51; --line-2:#29506d;
+    --ink:#e5eff8; --ink-2:#b0c3d6; --muted:#8aa0b5; --faint:#647d93;
+    --accent:#4cb6ef; --accent-ink:#04131d; --accent-soft:#103651; --accent-line:#245a80; --accent-strong:#7cccf5;
+    --find:#4cb6ef; --find-soft:#103651; --reach:#3cc3b2; --reach-soft:#0e3632; --close:#a98bea; --close-soft:#2a2149; --deliver:#e59a4c; --deliver-soft:#3a2711; --money:#5fd283; --money-soft:#123522;
+    --good:#5fd283; --good-soft:#123522; --warn:#f2b84b; --warn-soft:#3a2b0c; --crit:#ef7d70; --crit-soft:#3e1712;
+    --shadow-1:0 1px 2px rgba(0,0,0,.3); --shadow-2:0 2px 6px rgba(0,0,0,.3),0 12px 32px rgba(0,0,0,.4); --shadow-3:0 24px 64px rgba(0,0,0,.6);
+    --scrim:rgba(0,0,0,.5);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#06131d; --panel:#0c2131; --sunk:#091b29; --sunk-2:#122d41; --line:#1c3a51; --line-2:#29506d;
+  --ink:#e5eff8; --ink-2:#b0c3d6; --muted:#8aa0b5; --faint:#647d93;
+  --accent:#4cb6ef; --accent-ink:#04131d; --accent-soft:#103651; --accent-line:#245a80; --accent-strong:#7cccf5;
+  --find:#4cb6ef; --find-soft:#103651; --reach:#3cc3b2; --reach-soft:#0e3632; --close:#a98bea; --close-soft:#2a2149; --deliver:#e59a4c; --deliver-soft:#3a2711; --money:#5fd283; --money-soft:#123522;
+  --good:#5fd283; --good-soft:#123522; --warn:#f2b84b; --warn-soft:#3a2b0c; --crit:#ef7d70; --crit-soft:#3e1712;
+  --shadow-1:0 1px 2px rgba(0,0,0,.3); --shadow-2:0 2px 6px rgba(0,0,0,.3),0 12px 32px rgba(0,0,0,.4); --shadow-3:0 24px 64px rgba(0,0,0,.6);
+  --scrim:rgba(0,0,0,.5);
+  color-scheme:dark;
+}
+:root[data-density="compact"]{ --pad:14px; --gap:10px; --row-h:34px; --fs:12.8px }
+
+:root[data-size="large"]{--fs:15px}
+:root[data-size="large"][data-density="compact"]{--fs:14.2px}
+:root[data-motion="reduce"] *, :root[data-motion="reduce"] *::before, :root[data-motion="reduce"] *::after{animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important; scroll-behavior:auto !important}

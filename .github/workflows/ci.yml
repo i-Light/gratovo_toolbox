@@ -1,0 +1,78 @@
+# Lint, typecheck and tests on Ubuntu and Windows, plus a secret scan.
+# The Electron end-to-end test runs on both systems; on Linux it runs under xvfb.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Checks (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: services/pipeline/uv.lock
+
+      - name: Install JavaScript dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Python dependencies
+        run: uv sync --locked --directory services/pipeline
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Unit tests
+        run: pnpm exec vitest run
+
+      - name: Electron end-to-end test (Linux, under xvfb)
+        if: runner.os == 'Linux'
+        run: xvfb-run -a pnpm --filter @gratovo/desktop test:e2e
+
+      - name: Electron end-to-end test (Windows)
+        if: runner.os == 'Windows'
+        run: pnpm --filter @gratovo/desktop test:e2e
+
+      - name: Pipeline tests
+        run: uv run --directory services/pipeline pytest
+
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      # Organisation repositories need a GITLEAKS_LICENSE secret for this action.
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
