@@ -1,6 +1,6 @@
 # Migration plan: from gratovo_code to gratovo_toolbox
 
-Written 2026-10-19. This is a living document. Each step updates the status table and [handoff.md](handoff.md) in the same commit that finishes the work.
+Written 2026-10-19. This is a living document. Each step updates the status table in the same commit that finishes the work; while a step is in progress, `.router/PROGRESS.md` says where it stopped.
 
 ## 1. The goal
 
@@ -51,7 +51,7 @@ Replace the Flutter app (old repository `gratovo_code`) with a new desktop app t
 | 0 | Fresh repository | Done 2026-10-19 |
 | 1 | Agree the design | Prototype approved for building. The open questions in §9 were answered 2026-10-19 |
 | 2 | Choose the stack and record the decisions | Done as ADRs 0001 to 0006; the owner confirmed the stack (§9 Q8) |
-| 3 | Foundation | **In progress.** 3a (toolchain and skeleton) and 3b (security baseline) done 2026-10-19. 3c done 2026-10-20, in three parts: 3c-1 (the frame), 3c-2 (the overlays), 3c-3 (settings and checks; the app made dark only). 3d (the data layer) is next |
+| 3 | Foundation | **In progress.** 3a (toolchain and skeleton) and 3b (security baseline) done 2026-10-19. 3c done 2026-10-20, in three parts: 3c-1 (the frame), 3c-2 (the overlays), 3c-3 (settings and checks; the app made dark only). 3d (the data layer) is next. Branch protection on `main` (3g) isn't set yet. Ask the owner about A1 (key rotation) before any step touches R2 or YouTube |
 | 4 | Today | Not started |
 | 5 | Find | Not started |
 | 6 | Reach | Not started |
@@ -259,7 +259,7 @@ Nothing is sent without approval.
 | Secrets leak again | gitleaks before commit and in CI; secrets only in `safeStorage` or server-side; the renderer never sees them. |
 | Gemini account blocks | The owner's pacing rules are built into the bridge (3 tabs, 60 s gap, refusal toast means pause). |
 | Scope creep | The parity checklist is the scope. New ideas go to the owner as comments in prototype mode, not into the current step. |
-| The cloud session lacks context | `CLAUDE.md`, `handoff.md` and the step's `.router/` state are committed at the end of every working session. |
+| The cloud session lacks context | `CLAUDE.md`, this plan's status table and the step's `.router/` state are committed at the end of every working session. |
 | Electron performance | The speed rules from the plan, checked in step 10: one query per screen, the frame doesn't re-render on sync ticks, screens you leave stop work, database off the UI thread. |
 
 ## 9. Open questions
