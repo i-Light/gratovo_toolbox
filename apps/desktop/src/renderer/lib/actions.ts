@@ -2,8 +2,9 @@ import type { IconName } from "@gratovo/ui";
 import type { Store } from "@gratovo/core";
 
 import { strings } from "../strings";
-import { getPrefs, setPref } from "./prefs";
+import { getPrefs, nameMax, setPref } from "./prefs";
 import type { RecordRef, ScreenKey } from "./routes";
+import type { NotifyKind, RowId, SectionKey } from "./settings";
 import { appStore, go, selectRoute } from "./store";
 import type { AppData, AppUi, MenuItem, Toast, ToastAction } from "./store";
 
@@ -317,15 +318,60 @@ export function readNotification(id: string): void {
   });
 }
 
-/** Steps the theme: follow the system, then dark, then light, then the system again. Says which in a toast. */
-export function cycleTheme(): void {
-  const current = getPrefs().theme;
-  const next = current === "" ? "dark" : current === "dark" ? "light" : "";
-  setPref("theme", next);
-  toast({
-    msg: strings.theme.toast(next),
-    icon: next === "dark" ? "moon" : "sun",
-    tone: "info",
-    ms: 2000,
+/** How long a "Saved" mark stays on a setting, in milliseconds. */
+const settingFlashMs = 1700;
+
+let flashTimer: ReturnType<typeof setTimeout> | undefined;
+
+/** Shows "Saved" on a setting's row for 1700 ms. A new flash restarts the wait. */
+export function flashSetting(id: RowId): void {
+  appStore().ui((ui) => {
+    ui.settingFlash = { id, at: Date.now() };
+  });
+  clearTimeout(flashTimer);
+  flashTimer = setTimeout(() => {
+    appStore().ui((ui) => {
+      ui.settingFlash = null;
+    });
+  }, settingFlashMs);
+}
+
+/** Puts the saved `name` preference into the data (not undoable). Call once at start. */
+export function loadMyName(): void {
+  const name = getPrefs().name;
+  appStore().bg((data) => {
+    data.myName = name === "" ? null : name;
+  });
+}
+
+/**
+ * Sets your name: trimmed, at most 80 characters. Saved as a device preference, then copied into the
+ * data. Not undoable. An empty name puts "Add your name" back. Shows "Saved" on the name row.
+ */
+export function setMyName(name: string): void {
+  setPref("name", name.trim().slice(0, nameMax).trim());
+  loadMyName();
+  flashSetting("name");
+}
+
+/** Turns one kind of notification on or off for the bell. Undoable, no line in the activity log. */
+export function setNotify(kind: NotifyKind, on: boolean): void {
+  act(
+    on
+      ? strings.settings.turnedOn(strings.settings.notify[kind].noun)
+      : strings.settings.turnedOff(strings.settings.notify[kind].noun),
+    (data) => {
+      data.settings.notify = { ...data.settings.notify, [kind]: on };
+    },
+    { log: false },
+  );
+  flashSetting("notify");
+}
+
+/** Opens a section of Settings and, when a row is named, asks the screen to scroll to it, highlight it and focus it. */
+export function openSetting(section: SectionKey, row?: RowId): void {
+  go("settings", section);
+  appStore().ui((ui) => {
+    ui.settingTarget = row ?? null;
   });
 }

@@ -51,7 +51,7 @@ Replace the Flutter app (old repository `gratovo_code`) with a new desktop app t
 | 0 | Fresh repository | Done 2026-10-19 |
 | 1 | Agree the design | Prototype approved for building. The open questions in §9 were answered 2026-10-19 |
 | 2 | Choose the stack and record the decisions | Done as ADRs 0001 to 0006; the owner confirmed the stack (§9 Q8) |
-| 3 | Foundation | **In progress.** 3a (toolchain and skeleton) and 3b (security baseline) done 2026-10-19. 3c in three parts: 3c-1 (the frame) and 3c-2 (the overlays) done 2026-10-19; 3c-3 (settings and checks) is next |
+| 3 | Foundation | **In progress.** 3a (toolchain and skeleton) and 3b (security baseline) done 2026-10-19. 3c done 2026-10-20, in three parts: 3c-1 (the frame), 3c-2 (the overlays), 3c-3 (settings and checks; the app made dark only). 3d (the data layer) is next |
 | 4 | Today | Not started |
 | 5 | Find | Not started |
 | 6 | Reach | Not started |
@@ -105,8 +105,8 @@ The longest step. It builds everything the screens stand on, so every later step
 - Keyboard system: a key stack with barriers, single-letter keys off while typing, and a setting to turn them off. No animation after a key press.
 - Store pattern: actions with undo snapshots, UI-only state, background jobs that survive undo (as `W.act`, `W.ui` and `W.bg` do in the prototype's `core.js`).
 - Settings shell: the sections and the search from the prototype's `settings.js`. Real contents arrive with the features they control.
-- Accessibility: all of it works by keyboard, focus is visible, roles are correct, and contrast passes in both themes.
-- *Acceptance:* the frame matches the prototype at 1440 px and at 400 px in light and dark (screenshot comparison); Playwright tests for palette, peek, undo, menus, Esc order and key barriers; no layout shift or animation on keyboard actions.
+- Accessibility: all of it works by keyboard, focus is visible, roles are correct, and contrast passes (in dark: the app is dark only for now, owner 2026-10-20).
+- *Acceptance:* the frame matches the prototype at 1440 px in dark (the owner dropped the 400 px and light checks on 2026-10-20: Windows desktop only, dark only for now) (screenshot comparison); Playwright tests for palette, peek, undo, menus, Esc order and key barriers; no layout shift or animation on keyboard actions.
 
 **3d. Data layer**
 - A local SQLite database in the app's own data folder (better-sqlite3 in the main process, or in a utility process if profiling says so). Forward-only SQL migrations, and repositories with typed queries.

@@ -6,14 +6,18 @@ import {
   closeMenu,
   closePeek,
   closeTray,
-  cycleTheme,
   dismissToast,
+  flashSetting,
+  loadMyName,
   markAllRead,
   openMenu,
   openRecord,
+  openSetting,
   peek,
   readNotification,
   redo,
+  setMyName,
+  setNotify,
   setPalette,
   setShortcuts,
   stepPeek,
@@ -42,8 +46,8 @@ const setName =
 beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(now);
+  setPref("name", "");
   resetAppStoreForTests(today, now);
-  setPref("theme", "");
 });
 
 afterEach(() => {
@@ -331,21 +335,118 @@ describe("notifications", () => {
   });
 });
 
-describe("cycleTheme", () => {
-  it("goes system, dark, light, system with a toast each time", () => {
-    cycleTheme();
-    expect(getPrefs().theme).toBe("dark");
-    expect(ui().toasts.at(-1)).toMatchObject({
-      msg: "Theme: dark",
-      icon: "moon",
-      tone: "info",
-      ms: 2000,
+describe("setMyName", () => {
+  it("trims, saves the preference, copies it into the data and flashes the name row", () => {
+    setMyName("  Ada Lovelace ");
+    expect(getPrefs().name).toBe("Ada Lovelace");
+    expect(data().myName).toBe("Ada Lovelace");
+    expect(ui().settingFlash).toEqual({ id: "name", at: now });
+  });
+
+  it("keeps at most 80 characters", () => {
+    setMyName("x".repeat(100));
+    expect(getPrefs().name).toBe("x".repeat(80));
+    expect(data().myName).toBe("x".repeat(80));
+  });
+
+  it("puts null back when the name is empty", () => {
+    setMyName("Ada");
+    setMyName("   ");
+    expect(getPrefs().name).toBe("");
+    expect(data().myName).toBeNull();
+  });
+
+  it("is not undoable and leaves no log line", () => {
+    act("Renamed", setName("Ana"));
+    setMyName("Ada");
+    expect(data().log).toHaveLength(1);
+    undo();
+    expect(data().myName).toBe("Ada");
+    undo();
+    expect(data().myName).toBe("Ada");
+  });
+
+  it("is not put on the page", () => {
+    setMyName("Ada");
+    expect(document.documentElement.getAttributeNames().join(" ")).not.toContain("name");
+  });
+});
+
+describe("the saved name at start", () => {
+  it("loadMyName copies the name preference into the data", () => {
+    setPref("name", "Maya");
+    expect(data().myName).toBeNull();
+    loadMyName();
+    expect(data().myName).toBe("Maya");
+  });
+
+  it("a store made after the preference was read already holds the name", () => {
+    setPref("name", "Maya");
+    resetAppStoreForTests(today, now);
+    expect(data().myName).toBe("Maya");
+    setPref("name", "");
+    resetAppStoreForTests(today, now);
+    expect(data().myName).toBeNull();
+  });
+});
+
+describe("flashSetting", () => {
+  it("shows for 1700 ms", () => {
+    flashSetting("density");
+    expect(ui().settingFlash).toEqual({ id: "density", at: now });
+    vi.advanceTimersByTime(1699);
+    expect(ui().settingFlash).not.toBeNull();
+    vi.advanceTimersByTime(1);
+    expect(ui().settingFlash).toBeNull();
+  });
+
+  it("restarts the wait when another flash comes", () => {
+    flashSetting("density");
+    vi.advanceTimersByTime(1000);
+    flashSetting("size");
+    vi.advanceTimersByTime(1000);
+    expect(ui().settingFlash?.id).toBe("size");
+    vi.advanceTimersByTime(700);
+    expect(ui().settingFlash).toBeNull();
+  });
+});
+
+describe("setNotify", () => {
+  it("turns a kind off and on, with no log line, and flashes the row", () => {
+    setNotify("reply", false);
+    expect(data().settings.notify).toEqual({ reply: false });
+    expect(data().log).toEqual([]);
+    expect(ui().settingFlash?.id).toBe("notify");
+    setNotify("reply", true);
+    expect(data().settings.notify).toEqual({ reply: true });
+  });
+
+  it("is undone with Undo, with the prototype's label", () => {
+    setNotify("money", false);
+    expect(appStore().peekUndo()?.label).toBe("Turned off money notifications");
+    undo();
+    expect(data().settings.notify).toEqual({});
+    redo();
+    expect(data().settings.notify).toEqual({ money: false });
+    setNotify("money", true);
+    expect(appStore().peekUndo()?.label).toBe("Turned on money notifications");
+  });
+});
+
+describe("openSetting", () => {
+  it("goes to the section and names the row to reach", () => {
+    openSetting("appearance", "density");
+    expect(selectRoute(appStore().getState())).toMatchObject({
+      screen: "settings",
+      tab: "appearance",
     });
-    cycleTheme();
-    expect(getPrefs().theme).toBe("light");
-    expect(ui().toasts.at(-1)).toMatchObject({ msg: "Theme: light", icon: "sun" });
-    cycleTheme();
-    expect(getPrefs().theme).toBe("");
-    expect(ui().toasts.at(-1)).toMatchObject({ msg: "Theme: follows your system", icon: "sun" });
+    expect(ui().settingTarget).toBe("density");
+  });
+
+  it("clears the target when no row is named", () => {
+    openSetting("appearance", "density");
+    openSetting("keyboard");
+    expect(selectRoute(appStore().getState()).tab).toBe("keyboard");
+    expect(ui().settingTarget).toBeNull();
   });
 });

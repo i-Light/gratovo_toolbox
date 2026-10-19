@@ -47,7 +47,40 @@ P5, lead:
   - Recorded instead (ADR 0009, decisions 18 and 20): the empty palette's first five actions; the tooltip's warm-up counting from the last tip hiding.
 - First Windows run of the overlay e2e tests (run 39321168249): 32 of 33 passed. The account menu's first item never took focus: it was focused while the menu was still `visibility: hidden` for measuring (the prototype too; happy-dom doesn't check). Now focused once the menu is placed; checked in Chromium (open, ArrowDown, Tab, Esc).
 
-- Next: open the 3c-2 pull request, drive it green, merge; then 3c-3.
+- Merged as #7 (31df1c5), every check green. The branch took `main` back in with a merge commit (no force-push).
+
+## 3c-3 (settings and checks)
+
+- Plan: `.router/PLAN.md` (decisions F1 to F10); recon in `.router/CONTEXT.md` §10.
+- Measured before planning (axe 4.14.0 in Chromium against the built renderer, light and dark, 1440 and 400 px, frame and every overlay): WCAG failures are the light theme's `--muted` on sunk and accent-soft surfaces (3.96 to 4.26:1) and label-in-name on the account button and the bell; best-practice notes only otherwise (heading order, one region). Script: `scratchpad/axe-check.cjs`.
+- `@axe-core/playwright` 4.14.0 added to the desktop app's dev dependencies (published 2026-10-15).
+
+| Task | Tier | Commit | Note |
+|---|---|---|---|
+| Plan | lead | 62f6f72 | `.router/PLAN.md` (F1 to F10), recon `.router/CONTEXT.md` §10, the axe dependency |
+| R1 shared pieces | N | da9ceb1 | `Seg`, `Tag`, `Switch` in `packages/ui`; `IconBtn` `tip`; `.switch` and `.bucket` in `controls.css`; `settings/settings.css` (`.set*`, `setHl`, 900 px, `.tb-ic` from more.js as a listed deviation); light `--muted` `#566678` (F7, listed in `tokens.test.ts`) |
+| R2 model and data | N | 605526c (part in da9ceb1) | `lib/settings.ts` (sections with `arrives`, rows, `notifyKind`, `notifShown`, `searchSettings`), `data.settings.notify`, `ui.settingFlash` and `settingTarget`, the `name` pref, `setMyName`, `loadMyName` (in `main.tsx` and the store's creation), `setNotify`, `flashSetting`, `openSetting`; the bell and tray filter. `strings.settings` holds every word, plus option labels, On/Off, the profile hints, `rows.role.descOwner`, `agencyNote` |
+| R3 settings screen | N | df71cae | `settings/settings-screen.tsx`, `row.tsx`, `sections.tsx`, `results.tsx`; Content renders it; the palette's Settings group (after Go to, while typing, as the prototype); F8 (account button named by its text when expanded; the bell "Notifications, n unread" with tip "Notifications"). 491 tests. Brief: `.router/tasks/R3.md` |
+| R4 tests | N | 66279ab | two agents in parallel: 40 component tests (settings screen, sections, palette, F8 names) and `e2e/settings.spec.ts` + `e2e/accessibility.spec.ts` (axe, legacy mode, WCAG tags), run locally on Windows |
+| F11 dark only | lead | 2dd62b8 | the owner's call mid-step: dark only, desktop width only; theme pref, row, palette action and menu hint removed |
+| R5 lead | H | this commit and the one before | Windows CI, review fixes, docs; see below |
+
+R3 notes (lead): checked lint, typecheck, 491 tests, build, and looked at its screenshots (Appearance dark 1440 and Notifications 400 light next to the prototype): the nav, pane, rows and the 400 px chip row match; differences are the intended ones (F4's shorter sub, no Owner tools group (3f), no "The plan" rail item, shells where the prototype has rows). Its deviations, for ADR 0009 in R5: Esc in the name field really cancels (the prototype's blur still saved, so the draft is kept in a ref); the name row shows only for the owner's account (u1), since accounts come in 3d; opening a setting while a search is typed clears the search first. R3's agent tested the open-a-setting flow, the name keys and Ctrl F / Esc in a throwaway test: R4 must cover them.
+
+Notes for whoever continues 3c-3:
+- da9ceb1 (R1) also picked up R2's `strings.ts`, `prefs.ts` and two test files: R2's agent staged them while the lead committed. That commit alone doesn't typecheck; 605526c completes it. Don't commit while a build agent is still writing files.
+- The helper scripts (screenshots of app and prototype, axe in Chromium) are in `.router/scripts.md`.
+- R5, the lead's part: run R3 and R4 (check each: lint, typecheck, test, build; read the code); look at every settings section and the search next to the prototype (1440 light and dark, 400 light) and the frame and overlays once more; run the axe script with the WCAG tags (expect clean in light and dark); run Windows CI by workflow_dispatch before the PR (new Electron tests often find something on their first run); a review agent on the diff `origin/main..HEAD` against PLAN.md; ADR 0009 additions for F1 to F10 (and the architecture versions table: `@axe-core/playwright` 4.14.0); the hand-off, the plan's status ("3c done") and PROGRESS in the last commit; open the PR, drive it green, squash-merge it; then restart the branch from `main` with a merge commit (no force-push).
+
+R5, lead (2026-10-20, a local Windows session; the stale local clone was reset to the remote branch, kept as `backup/stale-local-pensive-bell`):
+- Tools installed under `~/.local` (portable Node 24.22.0, pnpm 12.14.0, uv 0.13.1, gitleaks 8.30.1, gh), each checked against its published checksum.
+- The pre-commit hook couldn't run its multi-line gitleaks script on Windows ("unexpected end of file"): moved to `tooling/hooks/scan-secrets.sh` (41de2aa). Checked: a clean commit passes, a planted fake key is blocked.
+- The owner's two rules mid-step: no phone or 400 px checks, and dark only for now (F11). Recorded in CLAUDE.md, owner-rules, workflow, the migration plan, PLAN and ADR 0009 (30).
+- Looked at next to the prototype (Edge, dark, 1440 px): every settings section, the search ("compact", no match), the palette, the sheet and the account menu. Same layout; the differences are the intended ones (no Theme row, F4's subtitle, no "The plan", no Owner tools). Found and fixed: the no-match hint suggested "dark", which finds nothing now; Team and money's sub line ran into "Applies to the whole team." (the prototype too).
+- Windows CI by workflow_dispatch (run 39330857445): 36 of 37 passed. One overlay test timed out in the e2e fixture with the frame on screen (its page snapshot): `waitForURL` waits for a load or navigation event, which Electron can fire before Playwright listens. The fixture now polls the URL with `toHaveURL`. Same cause, likely, as main's timeout after #6.
+- Review agent (12 findings, none critical or high). Fixed: the account menu's name row and the tray's gear open their rows with `openSetting` (the prototype's); Esc in the name field no longer also closes a peek or tray; axe also scans the jobs tray and a toast; `<html data-theme="dark">` and a dark window background from the first paint; docs left from before F11; the bell locator matched the Settings "Notifications" button; the undo label uses words from strings.ts ("hand-off", not "handoff"); the name is cut to 80 characters in the field and when read back; two tests fell back to the whole page. Recorded instead: "Saved" is a status added with its text, which some screen readers miss (ADR 0009, 25); the name is copied into the data both at store creation and in main.tsx (harmless, kept for the tests).
+- Removed `frame.spec.ts`'s 400 px drawer test (the owner's rule). The drawer itself stays in the app.
+- Checked: lint, typecheck, 532 Vitest tests and the pytest, all 36 Electron tests locally on Windows.
 
 ## Notes for 3c-2
 

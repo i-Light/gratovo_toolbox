@@ -23,14 +23,15 @@ These come from the owner and hold until the owner changes them. The detail and 
 - **Drafted emails** are never templated and never use the banned words. Rules come only from the course (lessons and coach calls).
 - **On hold:** the four noted gaps `search-1`, `first-1`, `mail-1` and `mail-2` wait for the owner. Don't build them.
 - **Cleanup is the last step.** Don't delete or merge files from `legacy/` or the docs until step 10 (the 100% check) has passed. Step 11 does the cleanup.
-- **Windows only:** the app targets Windows alone. Don't spend effort on Linux or macOS support (CI jobs, workarounds, docs) until the owner asks for another system.
+- **Windows only:** the app targets Windows desktop alone. Don't spend effort on Linux, macOS or phones (CI jobs, workarounds, docs, phone-sized or 400 px layout checks) until the owner asks for another system.
 - **Language:** English only for now. Keep every user-facing string in one place so other languages can come later.
+- **Dark only, for now:** the app always runs dark, with no theme switch. Don't build, test or check the light theme until the owner asks. The light tokens stay in `tokens.css`.
 - **Prototype mode** is owner-only and off by default. When off it leaves no trace: no buttons, keys, pins, bars or network calls.
 
 ## How to work
 
 - **Plan first:** non-trivial work starts from the plan step's acceptance checks. Big steps use the `smart-task-router` skill: `.router/` holds the state of the step in progress, and it is committed so another session can resume.
-- **Verify:** tests, typecheck and lint all pass before you call anything done. UI work is also checked by looking at it, in light and dark, at desktop width and at 400 px.
+- **Verify:** tests, typecheck and lint all pass before you call anything done. UI work is also checked by looking at it, in dark, at desktop width (1440 px). The app is dark only for now: no light-theme checks, and no phone or narrow-width (400 px) checks.
 - **Skills in `.claude/skills/`:** use them where they apply.
   - UI work: `impeccable`, `emil-design-eng`, `ui-ux-pro-max`, `web-design-guidelines`, `ux-heuristics`, `break-ui`.
   - React: `vercel-react-best-practices`.

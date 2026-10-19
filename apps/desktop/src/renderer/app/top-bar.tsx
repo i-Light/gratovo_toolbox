@@ -5,6 +5,7 @@ import { memo, useEffect, useMemo, useState } from "react";
 import { ago } from "../lib/format";
 import { setPalette, toggleTray } from "../lib/actions";
 import { screens } from "../lib/routes";
+import { notifShown } from "../lib/settings";
 import { back, forward, recordName, selectRoute, setRailOpen, useApp } from "../lib/store";
 import { strings } from "../strings";
 import { railId } from "./rail";
@@ -76,12 +77,15 @@ function HistoryButtons() {
 
 /** The bell, with the count of unread notifications. */
 function Bell() {
-  const unread = useApp((s) => s.data.notifications.filter((n) => !n.read).length);
+  const unread = useApp(
+    (s) => s.data.notifications.filter((n) => !n.read && notifShown(s.data, n)).length,
+  );
   const pressed = useApp((s) => s.ui.tray === "notifications");
   return (
     <IconBtn
       icon="bell"
-      label={strings.top.notifications}
+      label={unread > 0 ? strings.top.notificationsUnread(unread) : strings.top.notifications}
+      tip={strings.top.notifications}
       {...(unread > 0 ? { badge: unread } : {})}
       pressed={pressed}
       onClick={() => {

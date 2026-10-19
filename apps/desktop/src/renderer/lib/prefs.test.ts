@@ -5,7 +5,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { applyPrefs, getPrefs, initPrefs, prefsKey, readPrefs, setPref, usePref } from "./prefs";
 import type { Prefs } from "./prefs";
 
-const defaults: Prefs = { theme: "", density: "", size: "", motion: "", letters: "", rail: "" };
+const defaults: Prefs = {
+  density: "",
+  size: "",
+  motion: "",
+  letters: "",
+  rail: "",
+  name: "",
+};
 
 function storageWith(text: string | null): Pick<Storage, "getItem"> {
   return { getItem: () => text };
@@ -21,18 +28,27 @@ describe("readPrefs", () => {
 
   it("reads good JSON", () => {
     const saved = {
-      theme: "dark",
       density: "compact",
       size: "large",
       motion: "reduce",
       letters: "off",
       rail: "min",
+      name: "Ada",
     };
     expect(readPrefs(storageWith(JSON.stringify(saved)))).toEqual(saved);
   });
 
+  it("trims the name, cuts it to 80 characters, and falls back to empty when it is not text", () => {
+    expect(readPrefs(storageWith(JSON.stringify({ name: "  Ada  " }))).name).toBe("Ada");
+    expect(readPrefs(storageWith(JSON.stringify({ name: "x".repeat(80) }))).name).toHaveLength(80);
+    expect(readPrefs(storageWith(JSON.stringify({ name: "x".repeat(81) }))).name).toBe(
+      "x".repeat(80),
+    );
+    expect(readPrefs(storageWith(JSON.stringify({ name: 7 }))).name).toBe("");
+  });
+
   it("keeps the good fields when one is bad", () => {
-    const text = JSON.stringify({ theme: "purple", density: "compact", size: 3, rail: "min" });
+    const text = JSON.stringify({ motion: "purple", density: "compact", size: 3, rail: "min" });
     expect(readPrefs(storageWith(text))).toEqual({ ...defaults, density: "compact", rail: "min" });
   });
 
@@ -53,24 +69,38 @@ describe("readPrefs", () => {
 });
 
 describe("applyPrefs", () => {
-  it("sets and removes the data attributes", () => {
+  it("sets and removes the data attributes, and always sets the dark theme", () => {
     const root = document.createElement("div");
     applyPrefs(
-      { ...defaults, theme: "dark", density: "compact", size: "large", motion: "reduce" },
+      {
+        ...defaults,
+        density: "compact",
+        size: "large",
+        motion: "reduce",
+        name: "Ada",
+      },
       root,
     );
     expect(root.dataset["theme"]).toBe("dark");
     expect(root.dataset["density"]).toBe("compact");
     expect(root.dataset["size"]).toBe("large");
     expect(root.dataset["motion"]).toBe("reduce");
+    expect(root.getAttributeNames()).not.toContain("data-name");
     applyPrefs(defaults, root);
-    expect(root.getAttributeNames()).toEqual([]);
+    expect(root.getAttributeNames()).toEqual(["data-theme"]);
+    expect(root.dataset["theme"]).toBe("dark");
+  });
+
+  it("ignores a theme saved before the app went dark only", () => {
+    const root = document.createElement("div");
+    applyPrefs(readPrefs(storageWith(JSON.stringify({ theme: "light" }))), root);
+    expect(root.dataset["theme"]).toBe("dark");
   });
 
   it("leaves letters and rail off the element", () => {
     const root = document.createElement("div");
     applyPrefs({ ...defaults, letters: "off", rail: "min" }, root);
-    expect(root.getAttributeNames()).toEqual([]);
+    expect(root.getAttributeNames()).toEqual(["data-theme"]);
   });
 });
 
@@ -86,19 +116,21 @@ describe("setPref", () => {
   });
 
   it("saves, applies and notifies", () => {
-    const { result } = renderHook(() => usePref("theme"));
+    const { result } = renderHook(() => usePref("density"));
     expect(result.current).toBe("");
     act(() => {
-      setPref("theme", "dark");
+      setPref("density", "compact");
     });
-    expect(result.current).toBe("dark");
-    expect(getPrefs().theme).toBe("dark");
-    expect(document.documentElement.dataset["theme"]).toBe("dark");
-    expect(JSON.parse(localStorage.getItem(prefsKey) ?? "{}")).toMatchObject({ theme: "dark" });
+    expect(result.current).toBe("compact");
+    expect(getPrefs().density).toBe("compact");
+    expect(document.documentElement.dataset["density"]).toBe("compact");
+    expect(JSON.parse(localStorage.getItem(prefsKey) ?? "{}")).toMatchObject({
+      density: "compact",
+    });
     act(() => {
-      setPref("theme", "");
+      setPref("density", "");
     });
-    expect(document.documentElement.dataset["theme"]).toBeUndefined();
+    expect(document.documentElement.dataset["density"]).toBeUndefined();
   });
 
   it("does not re-render a component whose preference did not change", () => {
@@ -109,7 +141,7 @@ describe("setPref", () => {
     });
     const before = renders;
     act(() => {
-      setPref("theme", "light");
+      setPref("size", "large");
     });
     expect(renders).toBe(before);
   });

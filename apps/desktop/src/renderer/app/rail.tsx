@@ -4,9 +4,9 @@ import { memo, useEffect, useRef } from "react";
 
 import { duration } from "../lib/format";
 import { useNarrow } from "../lib/media";
-import { getPrefs, setPref, usePref } from "../lib/prefs";
+import { setPref, usePref } from "../lib/prefs";
 import { screens, type ScreenKey } from "../lib/routes";
-import { openMenu, setShortcuts } from "../lib/actions";
+import { openMenu, openSetting, setShortcuts } from "../lib/actions";
 import { go, selectRoute, useApp } from "../lib/store";
 import { strings } from "../strings";
 
@@ -141,8 +141,6 @@ export const Rail = memo(function Rail() {
           aria-haspopup="menu"
           aria-expanded={accountMenuOpen}
           onClick={(event) => {
-            // Read when the menu opens, so the rail doesn't re-render on every theme change.
-            const theme = getPrefs().theme;
             openMenu(
               event.currentTarget.getBoundingClientRect(),
               [
@@ -153,7 +151,7 @@ export const Rail = memo(function Rail() {
                   color: avatarColor(meId === "u1" ? "owner" : memberName),
                   unnamed: !named,
                   run: () => {
-                    go("settings", "profile");
+                    openSetting("profile", "name");
                   },
                 },
                 {
@@ -169,12 +167,6 @@ export const Rail = memo(function Rail() {
                   kind: "item",
                   label: strings.menu.appearance,
                   icon: "moon",
-                  hint:
-                    theme === "dark"
-                      ? strings.menu.themeDark
-                      : theme === "light"
-                        ? strings.menu.themeLight
-                        : strings.menu.themeSystem,
                   run: () => {
                     go("settings", "appearance");
                   },
@@ -210,7 +202,8 @@ export const Rail = memo(function Rail() {
             );
           }}
           aria-current={settingsOpen ? "page" : undefined}
-          aria-label={rail.account(memberName)}
+          // Expanded, the name and role on the button are its name; collapsed they are hidden.
+          aria-label={collapsed ? rail.account(memberName) : undefined}
           data-tip={collapsed ? rail.memberTip(memberName, role) : undefined}
         >
           <Avatar
@@ -218,6 +211,7 @@ export const Rail = memo(function Rail() {
             color={avatarColor(meId === "u1" ? "owner" : memberName)}
             status={me?.status === "away" ? "away" : "online"}
             unnamed={!named}
+            decorative={!collapsed}
           />
           <span className="nl">
             <b>{shownName}</b>

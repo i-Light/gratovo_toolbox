@@ -8,6 +8,9 @@ import { initPrefs } from "../lib/prefs";
 import { appStore, resetAppStoreForTests, selectRoute } from "../lib/store";
 import { strings } from "../strings";
 
+/** The bell's name starts with "Notifications" and adds the unread count while there is one. */
+const bellName = new RegExp(`^${strings.top.notifications}`);
+
 beforeEach(() => {
   localStorage.clear();
   initPrefs();
@@ -19,13 +22,25 @@ afterEach(cleanup);
 const press = (key: string, init: KeyboardEventInit = {}) =>
   fireEvent.keyDown(document, { key, ...init });
 const route = () => selectRoute(appStore().getState());
-const bell = () => screen.getByRole("button", { name: strings.top.notifications });
+const bell = () => screen.getByRole("button", { name: bellName });
 const jobsButton = () => screen.getByRole("button", { name: strings.top.jobs });
-const notificationsTray = () => screen.queryByRole("dialog", { name: strings.top.notifications });
+const notificationsTray = () => screen.queryByRole("dialog", { name: bellName });
 const markAll = () => screen.getByRole("button", { name: strings.trays.markAllRead });
 const badge = () => within(bell()).queryByText(/^\d+$/)?.textContent;
 
 describe("the notifications tray", () => {
+  it("opens Settings at what reaches the bell from its gear, as the prototype", async () => {
+    render(<App />);
+    await userEvent.click(bell());
+    await userEvent.click(screen.getByRole("button", { name: strings.trays.chooseBell }));
+    expect(notificationsTray()).toBeNull();
+    expect(route()).toEqual({ screen: "settings", tab: "notifications" });
+    const row = document.getElementById("set-notify");
+    if (row === null) throw new Error("no notify row");
+    expect(row.classList.contains("hl")).toBe(true);
+    expect(document.activeElement).toBe(within(row).getAllByRole("switch")[0]);
+  });
+
   it("gives focus back to the bell when Esc closes it with focus inside", async () => {
     render(<App />);
     await userEvent.click(bell());

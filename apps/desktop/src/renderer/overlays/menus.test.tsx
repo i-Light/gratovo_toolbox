@@ -8,6 +8,9 @@ import { initPrefs } from "../lib/prefs";
 import { appStore, resetAppStoreForTests, selectRoute } from "../lib/store";
 import { strings } from "../strings";
 
+/** Expanded, the account button is named by its text: the name (or "Add your name") and the role. */
+const accountName = new RegExp(strings.rail.roleOnline("Owner"));
+
 beforeEach(() => {
   localStorage.clear();
   initPrefs();
@@ -19,7 +22,7 @@ afterEach(cleanup);
 const press = (key: string, init: KeyboardEventInit = {}) =>
   fireEvent.keyDown(document, { key, ...init });
 const route = () => selectRoute(appStore().getState());
-const account = () => screen.getByRole("button", { name: /^Your account/ });
+const account = () => screen.getByRole("button", { name: accountName });
 const items = () => within(screen.getByRole("menu")).getAllByRole("menuitem");
 /** The menu listens for outside presses from the next tick on. */
 const tick = () =>
@@ -34,14 +37,14 @@ async function openAccountMenu() {
 }
 
 describe("the account menu", () => {
-  it("lists the who row, Settings, Appearance with the theme, shortcuts, Notifications, Connections", async () => {
+  it("lists the who row, Settings, Appearance, shortcuts, Notifications, Connections", async () => {
     render(<App />);
     const menu = await openAccountMenu();
     const { menu: text } = strings;
     expect(items().map((item) => item.textContent)).toEqual([
       expect.stringContaining(strings.rail.addName),
       expect.stringContaining(text.settings),
-      expect.stringContaining(`${text.appearance}${text.themeSystem}`),
+      expect.stringContaining(text.appearance),
       expect.stringContaining(text.shortcuts),
       expect.stringContaining(text.notifications),
       expect.stringContaining(text.connections),
@@ -102,6 +105,21 @@ describe("the account menu", () => {
     expect(route()).toEqual({ screen: "settings", tab: "profile" });
     const crumbs = screen.getByRole("navigation", { name: strings.top.crumbs });
     expect(within(crumbs).getByText(strings.screens.settings.tabs.profile)).toBeTruthy();
+  });
+
+  it("opens Profile at the name field from the who row, as the prototype", async () => {
+    render(<App />);
+    await openAccountMenu();
+    await userEvent.click(
+      screen.getByRole("menuitem", { name: new RegExp(`^${strings.rail.addName}`) }),
+    );
+    expect(route()).toEqual({ screen: "settings", tab: "profile" });
+    const row = document.getElementById("set-name");
+    if (row === null) throw new Error("no name row");
+    expect(row.classList.contains("hl")).toBe(true);
+    expect(document.activeElement).toBe(
+      screen.getByRole("textbox", { name: strings.settings.rows.name.label }),
+    );
   });
 
   it("is named, tells its button it is open, and keeps its items out of the Tab order", async () => {

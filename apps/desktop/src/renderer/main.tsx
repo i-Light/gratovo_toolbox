@@ -5,11 +5,13 @@ import "@gratovo/ui/controls.css";
 import "@gratovo/ui/motion.css";
 import "./app/frame.css";
 import "./overlays/overlays.css";
+import "./settings/settings.css";
 
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
 import { App } from "./app/app";
+import { loadMyName } from "./lib/actions";
 import { initPrefs } from "./lib/prefs";
 import { installHashSync } from "./lib/store";
 import { strings } from "./strings";
@@ -21,6 +23,7 @@ if (container === null) {
 
 document.title = strings.appName;
 initPrefs();
+loadMyName();
 installHashSync();
 
 createRoot(container).render(

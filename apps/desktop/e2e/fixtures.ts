@@ -5,6 +5,7 @@ import { join } from "node:path";
 
 import {
   _electron as electron,
+  expect,
   test as base,
   type ElectronApplication,
   type Page,
@@ -60,9 +61,14 @@ export const test = base.extend<{ app: ElectronApplication; page: Page }>({
   page: [
     async ({ app }, use) => {
       const page = await app.firstWindow({ timeout: startTimeout });
-      // firstWindow() can resolve before the app's page has loaded.
-      // The app writes "#/today" into the URL at start, so any fragment will do.
-      await page.waitForURL((url) => url.href.startsWith(appPage), { timeout: startTimeout });
+      // firstWindow() can resolve before the app's page has loaded. The URL is polled rather than
+      // waited for with waitForURL: that waits for a load or navigation event, and in Electron the
+      // page can finish loading before Playwright listens, so it hung with the frame on screen
+      // (Windows CI, 2026-10-20). The app writes "#/today" into the URL at start, so any fragment
+      // will do.
+      await expect(page).toHaveURL((url) => url.href.startsWith(appPage), {
+        timeout: startTimeout,
+      });
       // The frame is there once the rail is.
       await page
         .getByRole("navigation", { name: strings.rail.label })

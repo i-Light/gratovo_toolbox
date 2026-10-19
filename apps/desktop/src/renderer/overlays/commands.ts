@@ -1,9 +1,10 @@
 import type { IconName } from "@gratovo/ui";
 
-import { cycleTheme, peek, setShortcuts, undo } from "../lib/actions";
+import { openSetting, peek, setShortcuts, undo } from "../lib/actions";
 import { getPrefs, setPref } from "../lib/prefs";
 import { firstTab, goLetters, screenOrder, screens } from "../lib/routes";
 import type { RecordRef } from "../lib/routes";
+import { settingsRows, settingsSections } from "../lib/settings";
 import { dealName, findRecord, go, recordName } from "../lib/store";
 import type { AppData } from "../lib/store";
 import { strings } from "../strings";
@@ -60,7 +61,6 @@ export function actionCommands(): readonly Command[] {
       },
       strings.keys.help,
     ),
-    a("moon", actions.theme, cycleTheme),
     a(
       "gear",
       actions.settings,
@@ -87,6 +87,25 @@ export function goCommands(): readonly Command[] {
       ...(letter === undefined ? {} : { hint: strings.palette.goHint(letter) }),
       run: () => {
         go(key, firstTab(key));
+      },
+    };
+  });
+}
+
+/** One row for every setting that exists now: the section's icon, the row's name, the section's name beside it. */
+export function settingCommands(): readonly Command[] {
+  const tabs = strings.screens.settings.tabs;
+  return settingsRows.map((row): Command => {
+    const section = settingsSections.find((s) => s.key === row.section);
+    const r = strings.settings.rows[row.id];
+    return {
+      group: groups.settings,
+      icon: section?.icon ?? "gear",
+      label: r.label,
+      sub: tabs[row.section],
+      words: r.words,
+      run: () => {
+        openSetting(row.section, row.id);
       },
     };
   });
@@ -165,7 +184,7 @@ export function buildCommands(
   if (needle === "") {
     return [...recentCommands(data, recent), ...actions.slice(0, maxActionsShown), ...goTo];
   }
-  return [...actions, ...goTo, ...recordCommands(data)]
+  return [...actions, ...goTo, ...settingCommands(), ...recordCommands(data)]
     .filter((c) => `${c.label} ${c.sub ?? ""} ${c.words ?? ""}`.toLowerCase().includes(needle))
     .slice(0, maxResults);
 }

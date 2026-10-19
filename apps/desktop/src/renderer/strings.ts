@@ -30,6 +30,8 @@ export const strings = {
     jobs: "Background jobs",
     jobsNone: "Background jobs: none running",
     notifications: "Notifications",
+    /** The bell's accessible name while there are unread ones; it starts with the visible name (WCAG 2.5.3). */
+    notificationsUnread: (n: number): string => `Notifications, ${String(n)} unread`,
     saved: "Saved",
     saving: "Saving…",
     savedTip: (ago: string) => `Saved on this computer and synced ${ago}`,
@@ -62,13 +64,13 @@ export const strings = {
       creators: "Creators",
       brands: "Brands",
       deals: "Deals",
+      settings: "Settings",
     },
     actions: {
       reviewFinds: "Review new finds",
       confirmContacts: "Confirm contacts",
       undo: "Undo the last change",
       shortcuts: "Show keyboard shortcuts",
-      theme: "Switch light / dark",
       settings: "Open settings",
       density: "Switch density (comfortable / compact)",
     },
@@ -134,9 +136,6 @@ export const strings = {
     unnamedSub: "So the team knows who did what",
     settings: "Settings",
     appearance: "Appearance",
-    themeDark: "Dark",
-    themeLight: "Light",
-    themeSystem: "System",
     shortcuts: "Keyboard shortcuts",
     notifications: "Notifications",
     connections: "Connections",
@@ -158,6 +157,166 @@ export const strings = {
     chooseBell: "Choose what reaches the bell",
     nothingNew: "Nothing new.",
     notificationSub: (sub: string, ago: string): string => `${sub} · ${ago}`,
+  },
+  settings: {
+    title: "Settings",
+    sub: "How the Workbench behaves for you, on this computer and for the whole team. Changes apply at once.",
+    find: "Find a setting",
+    navLabel: "Settings sections",
+    groups: { you: "You", agency: "Agency" },
+    /** Each section's line under its name in the list, the words the search also matches, and the note under its heading. */
+    sections: {
+      profile: {
+        sub: "Your name and role",
+        words: "name account avatar role owner",
+        note: null,
+      },
+      appearance: {
+        sub: "Density, text size, motion, sidebar",
+        words: "compact density font text size large motion animation sidebar",
+        note: null,
+      },
+      day: {
+        sub: "Day length, snooze, Today",
+        words: "hours budget day length snooze morning welcome",
+        note: null,
+      },
+      keyboard: {
+        sub: "Shortcuts and single-letter keys",
+        words: "shortcuts keys letters screen reader dictation",
+        note: null,
+      },
+      notifications: {
+        sub: "What reaches the bell",
+        words: "alerts bell notify replies money hand-offs searches",
+        note: null,
+      },
+      search: {
+        sub: "What every search keeps",
+        words: "countries median views uploads keyword archive rules",
+        note: "Every search uses these from its next keyword. Also on Find \u203a Search.",
+      },
+      facts: {
+        sub: "Audience, pricing, send window",
+        words: "audience countries ages engagement margin floor cpm markup send window",
+        note: "The numbers the audience check, pricing and sending read. Change one and every check uses it at once.",
+      },
+      writing: {
+        sub: "House rules every draft follows",
+        words: "gemini drafts house rules writing banned words",
+        note: "Every Gemini draft says which of these it followed.",
+      },
+      team: {
+        sub: "Roles, who sees money",
+        words: "roles va money permissions invite",
+        note: "Who has which role, and who sees money.",
+      },
+      connections: {
+        sub: "Gmail, Gemini, YouTube, sync",
+        words: "gmail gemini bridge youtube quota pipeline sync updates health",
+        note: "Whether the pieces behind the app are connected and working.",
+      },
+    },
+    /** Added to the note of every Agency section. */
+    agencyNote: "Applies to the whole team.",
+    /** Each row's label, the words the search also matches, and what it says under the label. */
+    rows: {
+      name: {
+        label: "Your name",
+        words: "display name account",
+        desc: "How you appear to the team: in the sidebar, on records you own and in the activity log.",
+      },
+      role: {
+        label: "Your role",
+        words: "owner role",
+        desc: "What this role can do is listed in Team \u203a Roles.",
+        descOwner: "Owners see money, change the agency's rules and invite people.",
+      },
+      density: {
+        label: "Density",
+        words: "compact comfortable",
+        desc: "Compact fits more rows on a small screen; comfortable is easier on long days.",
+      },
+      size: {
+        label: "Text size",
+        words: "font large",
+        desc: "Large raises every text size one step. Layouts reflow to fit.",
+      },
+      motion: {
+        label: "Motion",
+        words: "animation reduce",
+        desc: "Reduce turns off slides and fades. Your computer's own reduce-motion setting is always respected.",
+      },
+      rail: {
+        label: "Sidebar",
+        words: "collapse expand",
+        desc: "Collapsed keeps only the icons. Press [ anywhere to switch.",
+      },
+      letters: {
+        label: "Single-letter shortcuts",
+        words: "keys screen reader dictation",
+        desc: "J, K, S, R, Z, F and the rest. Turn them off if you use a screen reader or dictation, so a stray letter never acts. Ctrl shortcuts keep working.",
+      },
+      notify: {
+        label: "What reaches the bell",
+        words: "alerts",
+        desc: "Turned-off kinds still happen and still show on their screens; they just don't ring the bell.",
+      },
+    },
+    scopes: { you: "Just you", device: "This computer", team: "Whole team" },
+    saved: "Saved",
+    /** Words inside the working sections. */
+    profile: {
+      namePlaceholder: "Your name",
+      setHere: "Set on this computer.",
+      notSet: "Not set yet.",
+      rolesInTeam: "Roles in Team",
+    },
+    options: {
+      comfortable: "Comfortable",
+      compact: "Compact",
+      normal: "Normal",
+      large: "Large",
+      followComputer: "Follow my computer",
+      reduce: "Reduce",
+      expanded: "Expanded",
+      collapsed: "Collapsed",
+    },
+    on: "On",
+    off: "Off",
+    notify: {
+      reply: { label: "Replies", noun: "reply", line: "When a creator or brand writes back." },
+      money: {
+        label: "Money",
+        noun: "money",
+        line: "Invoices due or late, brands paying, payouts unlocked.",
+      },
+      handoff: {
+        label: "Hand-offs",
+        noun: "hand-off",
+        line: "When a teammate hands something to you.",
+      },
+      search: {
+        label: "Searches",
+        noun: "search",
+        line: "When a search pauses, finishes or stops.",
+      },
+    },
+    problems: {
+      label: "Problems",
+      line: "A mailbox signed out, the Gemini bridge down, a search stopped. These always come through.",
+    },
+    /** The act labels of the notification switches, as the prototype writes them. */
+    turnedOn: (noun: string): string => `Turned on ${noun} notifications`,
+    turnedOff: (noun: string): string => `Turned off ${noun} notifications`,
+    noMatch: (query: string): string => `No setting matches \u201c${query}\u201d`,
+    noMatchHint: "Try a plainer word: name, hours, keys, money, Gmail.",
+    /** The empty state of a section whose rows come with a later step. */
+    shell: {
+      title: (step: number): string => `Arrives with step ${String(step)}`,
+      line: (step: number): string =>
+        `The rows of this section come with the screen that step ${String(step)} builds.`,
+    },
   },
   peek: {
     label: "Record",
@@ -238,10 +397,6 @@ export const strings = {
     newerChanges: "Newer changes came after this one",
     newerChangesSub: "Use Ctrl Z to step back through them in order.",
     markedRead: "Marked notifications read",
-  },
-  theme: {
-    toast: (mode: "dark" | "light" | ""): string =>
-      `Theme: ${mode === "" ? "follows your system" : mode}`,
   },
   record: {
     kinds: { creator: "Creator", brand: "Brand", deal: "Deal" },

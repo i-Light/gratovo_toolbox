@@ -364,3 +364,85 @@ Stubs in 3c: if the data layer is not ready, provide the seed shape above as a s
 8. Plain-key rule blocks arrows and Enter inside fields (dispatchKey l.183-185). The port must let fields own these keys.
 9. Focus mode is a Today feature (today.js l.219-248, `.focusbar` index.html l.383), not in app.js. Port it with Today, not the frame; only Start focus (palette) and F set it.
 10. `window.claude.use("user")` account hook (proto.js l.19-35) has no Electron equivalent here; account name comes from local setting only, unless the bridge offers one.
+
+## 10. Step 3c-3: what the settings shell needs
+
+Read-only recon. Prototype refs: `design/workbench-prototype/index.html` (CSS), `js/settings.js`, `js/ui.js`, `js/app.js`, `js/proto.js`, `js/data.js`. App refs under `apps/desktop/src/renderer/`. 
+
+### 10.1 CSS the settings screen uses (prototype l.n = index.html)
+
+Ported (already in `packages/ui/src` or `app/frame.css`):
+- `.grid2` (l.78, 81): ported `packages/ui/src/base.css:164,179` (900 px rule included).
+- `.cnt`, `.cnt.hot`: ported `frame.css:137,148`.
+- `.page` (l.134, 625): ported `frame.css:278,457`.
+- `.inp` (l.159-162): ported `controls.css:155-186`.
+- `.tag` and variants (l.166-170): ported `controls.css:203-245`.
+- `.seg`, `.seg button`, `[aria-pressed]` (l.175-177): ported `controls.css:272-300`.
+- `.card`, `.card.tight` (l.188-190): ported `controls.css:382-396`; `.card-h` at 400.
+- `.empty`, `.ei`, `b` (l.200-202): ported `controls.css:464-486`.
+- `.li`, `.li .lt`, `.li .lt b/small` (l.213-218): ported `controls.css:542-590`.
+- `.linkbtn` (l.512): ported `controls.css:600`.
+- Utilities `.row`, `.col`, `.col.tight`, `.col.t2`, `.grow`, `.ell`, `.small`, `.tiny`, `.top` (l.70-77, 116): ported `base.css:115-158`, `frame.css:186`.
+
+NOT ported (prototype line numbers):
+- `.bucket`, `.bucket-h`, `.bucket-h .bi/.m` (l.222-226): nav groups. Not in any ported file.
+- `.set` grid 260px/1fr (l.564); `.set-nav` (l.565-566); `.set-pane` (l.567); `.set-row` (l.568); `.set-row.hl` (l.569) and `@keyframes setHl` (l.570).
+- `.set-t`, `.set-t b`, `.set-t p` (l.571-572); `.set-c` (l.573); `.set-scope` (l.574); `.set-saved` (l.575).
+- `.set-search` and `:focus-within` / input (l.576-578); `.set-hero` (l.579).
+- `.switch`, `.switch i`, checked and RTL and disabled states (l.580-585).
+- `@media (max-width:900px)` settings block (l.586-592): `.set` one column, nav becomes a row of chips, `.set-row` one column. Ported base.css:179 only has the grid2 part.
+- `@media (max-width:560px)` `.scn-grid` one column (l.594).
+- `.tb-ic` icon tile (used in nav and search results): defined in JS at `js/more.js:60-61`, not in index.html, not ported.
+- Prototype section also uses `.scn`, `.scn-grid`, `.proto-how`, `.ph-flow`, `.ph-split`, `.ph-box`, `.ph-list` (l.525-537), not ported.
+- Mismatch: prototype nav uses `aria-current="page"` (`settings.js:216`, css l.566). Ported `.li` active rule is `[aria-current="true"]` only (`controls.css:561`). The active nav item would not highlight unless the port adds the `"page"` case.
+- `.hl` on `.set-row` is set by `W.openSetting` via classList (`settings.js:64`).
+
+### 10.2 Components (`js/ui.js` and settings.js)
+
+- `W.Btn` (ui.js:7-11): `button.btn` with kind, size, icon, kbd, caret, tip, disabled. Ported as `Btn` (`packages/ui/src/btn.tsx:26`, exported in `index.ts`). Check prop names against `BtnProps` (kind is a string; size only "sm").
+- `W.Tag` (ui.js:18-20): `span.tag` with tone (good/warn/crit/info/line), hue (adds `ph`), icon, children. NOT in packages/ui (no tag.tsx). Needs a port.
+- `W.Av` (ui.js:21-29): avatar with id/name, size (s/l/xl), sq, status dot, tip. Owner's own photo or initials; reads `W.myName()` and `profile.avatar`. Ported as `Avatar` (`avatar-view.tsx`, exported). Owner logic needs a port.
+- `W.Empty` (ui.js:57-59): `div.empty` with icon (default checkc), title, children as `p.hint`, action. Ported as `Empty` (`empty.tsx:18`).
+- `W.PageHead` (ui.js:63-68): title, sub, hue, right. Ported as `PageHead` (`page-head.tsx:14`). Settings passes a search box in `right` (settings.js:212).
+- `W.Seg` (ui.js:52-56): `div.seg role="group"` with aria-label; opts as `[value, label, icon?, tip?]`; onPick. NOT in packages/ui. Needs a port.
+- `W.Icon`: ported as `Icon` (`icon.tsx:15`).
+- Settings-local (settings.js, not in ui.js): `Row` (l.71-77: `div.set-row#set-<id>`, `.set-t` label/desc/scope/saved, `.set-c` children); `Switch` (l.78-80: `button role="switch" aria-checked`, aria-label, disabled); `Locked` (l.81: `.card.tight` + Empty with lock icon).
+- Also used: `W.Fragment`, `W.useState`, `W.useKeys` (mod+f focuses search, settings.js:206), `W.act`, `W.go`.
+
+### 10.3 Palette (`js/app.js` l.189-241)
+
+- Settings rows in the palette: `app.js:209`, group label "Settings". Source is `W.SETTINGS_ROWS` (settings.js:51-60). Each item: icon = section icon, label = row label, sub = section name, words = search words. Choosing one runs `W.openSetting(section, rowId)`.
+- The 17 rows (settings.js:52-58): profile name/role; appearance theme/density/size/motion/rail; day budget/morning/welcome; keyboard letters; notifications notify; team vamoney; prototype proto/scenario/viewas/comments (filtered out unless proto is on or account is owner, app.js:209).
+- `W.openSetting` (settings.js:62-65): `W.go("settings", sec)`; if a row is given, after a timeout it scrolls `#set-<row>` into view at center, removes then re-adds `.hl`, and focuses the first input or button.
+- Other settings entries in the palette: "Open settings" action (app.js:205, goes to profile, hint Ctrl ,); "Switch density" action (app.js:206); "Go to Settings" (app.js:208, G S). Palette filter is plain substring over label + sub + words (app.js:220).
+
+### 10.4 Data the working sections touch
+
+Prototype:
+- `settings.notify`: `settings.js:130-131` reads `(W.D().settings||{}).notify`; a kind is on unless it is `false`. data.js:296 sets only `settings:{density:"comfortable"}`. So no notify default is stored.
+- `settings.morning` (`settings.js:26`, default 9); `settings.vaMoney` (`settings.js:139`, more.js:799); `day.budget` (data.js:295, 240; settings.js:114).
+- Name: `W.myName` = `ui.profile.local || ui.profile.acct` (`proto.js:37`). `W.setMyName` writes `localStorage "wb-name"` and `ui.profile.local` (`proto.js:38-42`). `profile.acct` and `profile.avatar` come from `usr.me()` (`proto.js` ~l.30-34). `profile.id` is set too.
+- Members: `data.js:267-270`: u1 "You" Owner; u2 Sara Account manager; u3 Omar VA; u4 Lina VA · first week. `me:"u1"` (data.js:293).
+- Notification kinds (`settings.js:29-31`): reply, money (wallet, unlock), handoff (forward), search (scan, pause, else). `alert` maps to "problem", which always shows and cannot be turned off (`settings.js:31`, switch disabled at l.135). Icon per kind in NOTIFY (settings.js:29): reply, wallet, forward, scan.
+- Tray filter: `app.js:78` (unread count) and `app.js:157-158` (tray list) both use `W.notifShown`.
+- Notification sample icons (data.js:248-254): reply, pause, alert, wallet, unlock, forward.
+
+App (`apps/desktop/src/renderer/`):
+- `lib/store.ts:113-128` AppData: `me`, `myName: string|null` (l.117, comment: null until set in Settings > Profile), `team`, `counts`, `notifications`, `log`, `creators`, `brands`, `deals`, `mateRun`. No `settings` object, no notify, no morning, no budget, no vaMoney.
+- `lib/example-data.ts:19`: `myName: null`; team at l.21-32 (same people as prototype).
+- Rail name: `app/rail.tsx:88,95-97`: `myName` from store; `shownName = me is u1 ? myName ?? rail.addName : member name`. Rail line 151 uses `rail.addName` when unnamed. No setter for `myName` exists yet.
+- `lib/store.ts:117` `Notification` type in `store.ts:28-37` has `icon: IconName`; no kind field. `overlays/trays.tsx:124` already links to `settings/notifications`.
+
+### 10.5 Current app
+
+- `app/app.tsx:64`: `PlaceholderScreen` renders for every screen, including settings. `placeholder-screen.tsx:8-19` shows PageHead (title Settings, sub from routes) plus Empty "Settings is still being built". So Settings shows only the placeholder today.
+- `lib/routes.ts:71`: `settings: screen("settings", "gear", ...)`; tabs come from `strings.ts:211-226` (profile, appearance, day, keyboard, notifications, search, facts, writing, team, connections). Note: prototype has also `prototype` (settings.js:45); not in strings.ts. `routes.ts:98` `s` goes to settings; `routeFromHash` (routes.ts:134-140) falls back to first tab for unknown tab.
+- `lib/prefs.ts`: `Prefs` (l.5-15) keys theme (""/light/dark), density (""/compact), size (""/large), motion (""/reduce), letters (""/off), rail (""/min). Stored as one JSON under `gratovo.prefs` (l.18). `setPref` (l.103-119) applies, saves, notifies. `applyPrefs` (l.79-84) sets `data-theme`, `data-density`, `data-size`, `data-motion` on `<html>`, removing when empty. `letters` and `rail` are NOT applied to DOM: `usePref("rail")` in `rail.tsx:90` and `app.tsx:110`; letters has no consumer found in this recon.
+- `main.tsx:23` calls `initPrefs()` once before render. Prototype equivalents: `settings.js:12-25` (`W.pref`, `wb-` localStorage keys, boot applies data attributes).
+- Prototype `W.pref.set("letters")` also sets `W.lettersOff` (settings.js:20), which in the prototype also disables `?`, `[`, `/`, `g` (see handoff section 9, point 7).
+
+### 10.6 The three biggest gaps
+
+1. CSS for the whole screen is unported: `.set*`, `.switch`, `.bucket`, `.tb-ic`, `setHl`, both 900/560 media rules, `.scn`/`.proto-how`. Also fix the `aria-current="page"` case.
+2. Components missing from `packages/ui`: `Seg` and `Tag` (no file), `Switch`, `Row` and `Locked`, plus the owner-aware `Av` wrapper. The Settings screen is still `PlaceholderScreen` (`app.tsx:64`).
+3. Data and state: `AppData` has no `settings` (notify, morning, budget, vaMoney), no `setMyName` action, and the notification type has no kind. Prototype's name and notify live in `ui.profile` and `data.settings`. The Electron rail reads `myName` (`rail.tsx:88`), so it needs a writer and a persisted value.

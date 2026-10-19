@@ -3,8 +3,6 @@ import { z } from "zod";
 
 /** The settings that belong to this computer rather than to the team. An empty string means "default". */
 export interface Prefs {
-  /** "" follows the system. */
-  readonly theme: "" | "light" | "dark";
   readonly density: "" | "compact";
   readonly size: "" | "large";
   readonly motion: "" | "reduce";
@@ -12,21 +10,33 @@ export interface Prefs {
   readonly letters: "" | "off";
   /** "min" collapses the rail. */
   readonly rail: "" | "min";
+  /** Your name on this computer: trimmed, at most 80 characters. Not applied to the page. */
+  readonly name: string;
 }
+
+/** The longest name kept; a longer one is cut to this. */
+export const nameMax = 80;
 
 /** The one localStorage key that holds all preferences as JSON. */
 export const prefsKey = "gratovo.prefs";
 
-const defaults: Prefs = { theme: "", density: "", size: "", motion: "", letters: "", rail: "" };
+const defaults: Prefs = {
+  density: "",
+  size: "",
+  motion: "",
+  letters: "",
+  rail: "",
+  name: "",
+};
 
 // One schema per field, so a bad value in one field cannot reset the others.
 const fields = {
-  theme: z.enum(["", "light", "dark"]),
   density: z.enum(["", "compact"]),
   size: z.enum(["", "large"]),
   motion: z.enum(["", "reduce"]),
   letters: z.enum(["", "off"]),
   rail: z.enum(["", "min"]),
+  name: z.string().transform((v) => v.trim().slice(0, nameMax)),
 } as const;
 
 function parseStored(text: string | null): Record<string, unknown> {
@@ -58,12 +68,12 @@ export function readPrefs(storage: Pick<Storage, "getItem"> | null): Prefs {
   }
   const stored = parseStored(text);
   return {
-    theme: pick("theme", stored),
     density: pick("density", stored),
     size: pick("size", stored),
     motion: pick("motion", stored),
     letters: pick("letters", stored),
     rail: pick("rail", stored),
+    name: pick("name", stored),
   };
 }
 
@@ -75,9 +85,13 @@ function setOrRemove(root: HTMLElement, name: string, value: string): void {
   }
 }
 
+/** The one theme for now: the owner put the app on dark only (2026-10-20). The light tokens stay in
+ * `tokens.css`, so a theme choice can come back later. */
+export const theme = "dark";
+
 /** Puts the look-and-feel preferences on the root element as data attributes (removed when empty). */
 export function applyPrefs(prefs: Prefs, root: HTMLElement): void {
-  setOrRemove(root, "theme", prefs.theme);
+  root.setAttribute("data-theme", theme);
   setOrRemove(root, "density", prefs.density);
   setOrRemove(root, "size", prefs.size);
   setOrRemove(root, "motion", prefs.motion);

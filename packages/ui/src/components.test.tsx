@@ -2,7 +2,7 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { Avatar, Btn, Empty, Icon, IconBtn, Kbd, PageHead } from "./index";
+import { Avatar, Btn, Empty, Icon, IconBtn, Kbd, PageHead, Seg, Switch, Tag } from "./index";
 
 afterEach(cleanup);
 
@@ -51,6 +51,12 @@ describe("IconBtn", () => {
     expect(screen.getByRole("button").getAttribute("aria-pressed")).toBe("false");
     rerender(<IconBtn icon="bell" label="A" pressed onClick={vi.fn()} />);
     expect(screen.getByRole("button").getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("uses the tip for the tooltip and the label for the name", () => {
+    render(<IconBtn icon="bell" label="Alerts" tip="Show alerts" onClick={vi.fn()} />);
+    const button = screen.getByRole("button", { name: "Alerts" });
+    expect(button.getAttribute("data-tip")).toBe("Show alerts");
   });
 
   it("can be disabled and has no badge by default", () => {
@@ -194,5 +200,81 @@ describe("PageHead", () => {
     const { container } = render(<PageHead title="Team" />);
     expect(container.querySelector("p")).toBeNull();
     expect(container.querySelector(".ph")?.getAttribute("style")).toBeNull();
+  });
+});
+
+describe("Seg", () => {
+  it("is a named group with one pressed button, and picks on click", () => {
+    const onPick = vi.fn();
+    render(
+      <Seg
+        label="Theme"
+        value="dark"
+        options={[
+          { value: "light", label: "Light", icon: "sun" },
+          { value: "dark", label: "Dark" },
+        ]}
+        onPick={onPick}
+      />,
+    );
+    const group = screen.getByRole("group", { name: "Theme" });
+    expect(group.getAttribute("class")).toBe("seg");
+    const light = screen.getByRole("button", { name: "Light" });
+    const dark = screen.getByRole("button", { name: "Dark" });
+    expect(light.getAttribute("aria-pressed")).toBe("false");
+    expect(dark.getAttribute("aria-pressed")).toBe("true");
+    expect(light.querySelector("svg")).not.toBeNull();
+    expect(dark.querySelector("svg")).toBeNull();
+    light.click();
+    expect(onPick).toHaveBeenCalledWith("light");
+  });
+});
+
+describe("Tag", () => {
+  it("renders the text with its tone and icon", () => {
+    const { container } = render(
+      <Tag tone="good" icon="check">
+        On
+      </Tag>,
+    );
+    const tag = container.querySelector("span.tag");
+    expect(tag?.getAttribute("class")).toBe("tag good");
+    expect(tag?.textContent).toBe("On");
+    expect(tag?.querySelector("svg")).not.toBeNull();
+  });
+
+  it("is plain without a tone or icon", () => {
+    const { container } = render(<Tag>Owner</Tag>);
+    const tag = container.querySelector("span.tag");
+    expect(tag?.getAttribute("class")).toBe("tag");
+    expect(tag?.querySelector("svg")).toBeNull();
+  });
+});
+
+describe("Switch", () => {
+  it("has the switch role, a name and a checked state, and asks for the opposite on click", () => {
+    const onChange = vi.fn();
+    const { rerender } = render(<Switch on={false} label="Replies" onChange={onChange} />);
+    const off = screen.getByRole("switch", { name: "Replies" });
+    expect(off.getAttribute("type")).toBe("button");
+    expect(off.getAttribute("class")).toBe("switch");
+    expect(off.getAttribute("aria-checked")).toBe("false");
+    expect(off.querySelector("i")).not.toBeNull();
+    off.click();
+    expect(onChange).toHaveBeenLastCalledWith(true);
+    rerender(<Switch on label="Replies" onChange={onChange} />);
+    const on = screen.getByRole("switch", { name: "Replies" });
+    expect(on.getAttribute("aria-checked")).toBe("true");
+    on.click();
+    expect(onChange).toHaveBeenLastCalledWith(false);
+  });
+
+  it("does nothing when disabled", () => {
+    const onChange = vi.fn();
+    render(<Switch on label="Problems" disabled onChange={onChange} />);
+    const button = screen.getByRole<HTMLButtonElement>("switch");
+    expect(button.disabled).toBe(true);
+    button.click();
+    expect(onChange).not.toHaveBeenCalled();
   });
 });

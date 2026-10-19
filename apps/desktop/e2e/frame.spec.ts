@@ -102,26 +102,4 @@ test.describe("the app frame", () => {
       .poll(() => page.evaluate(() => (globalThis as { quietSeen?: object }).quietSeen))
       .toEqual({ input: "kbd", duration: "0s" });
   });
-
-  test("shows a drawer at 400 px that the Menu button opens and Esc closes", async ({
-    app,
-    page,
-  }) => {
-    await app.evaluate(({ BrowserWindow }) => {
-      BrowserWindow.getAllWindows()[0]?.setContentSize(400, 800);
-    });
-    await page.waitForFunction(() => matchMedia("(max-width: 760px)").matches);
-
-    const frame = page.locator(".app");
-    await page.getByRole("button", { name: top.menu }).click();
-    await expect(frame).toHaveClass(/rail-open/);
-
-    await page.keyboard.press("Escape");
-    await expect(frame).not.toHaveClass(/rail-open/);
-
-    const fits = await page.evaluate(
-      () => document.documentElement.scrollWidth <= window.innerWidth,
-    );
-    expect(fits).toBe(true);
-  });
 });

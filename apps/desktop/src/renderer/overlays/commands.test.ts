@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { initPrefs } from "../lib/prefs";
 import { screenOrder, screens } from "../lib/routes";
-import { appStore, resetAppStoreForTests } from "../lib/store";
+import { appStore, resetAppStoreForTests, selectRoute } from "../lib/store";
 import { strings } from "../strings";
 import { buildCommands, maxResults } from "./commands";
 
@@ -78,5 +78,26 @@ describe("buildCommands", () => {
   it("shows the G hint on screens", () => {
     const reach = buildCommands(data(), [], "").find((r) => r.label === screens.reach.name);
     expect(reach?.hint).toBe(strings.palette.goHint("r"));
+  });
+
+  it("lists the settings between the screens and the records, and opens the row", () => {
+    const rows = buildCommands(data(), [], "compact");
+    expect(rows.map((r) => [r.group, r.label])).toEqual([
+      [groups.actions, strings.palette.actions.density],
+      [groups.settings, strings.settings.rows.density.label],
+    ]);
+    const density = rows[1];
+    expect(density?.sub).toBe(strings.screens.settings.tabs.appearance);
+    expect(density?.icon).toBe("moon");
+    density?.run();
+    expect(appStore().getState().ui.settingTarget).toBe("density");
+    expect(selectRoute(appStore().getState())).toMatchObject({
+      screen: "settings",
+      tab: "appearance",
+    });
+  });
+
+  it("does not list settings when nothing is typed", () => {
+    expect(buildCommands(data(), [], "").some((r) => r.group === groups.settings)).toBe(false);
   });
 });

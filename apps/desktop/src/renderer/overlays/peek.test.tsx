@@ -9,6 +9,9 @@ import { initPrefs } from "../lib/prefs";
 import { appStore, resetAppStoreForTests, selectRoute } from "../lib/store";
 import { strings } from "../strings";
 
+/** The bell's name starts with "Notifications" and adds the unread count while there is one. */
+const bellName = new RegExp(`^${strings.top.notifications}`);
+
 beforeEach(() => {
   localStorage.clear();
   initPrefs();
@@ -42,7 +45,7 @@ describe("the peek", () => {
 
   it("gives focus back to what had it when Esc closes it with focus inside", () => {
     render(<App />);
-    const bell = screen.getByRole("button", { name: strings.top.notifications });
+    const bell = screen.getByRole("button", { name: bellName });
     bell.focus();
     act(() => {
       peek({ kind: "creator", id: "c1" });
