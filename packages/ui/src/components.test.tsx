@@ -1,0 +1,189 @@
+// @vitest-environment happy-dom
+import { cleanup, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { Avatar, Btn, Empty, Icon, IconBtn, Kbd, PageHead } from "./index";
+
+afterEach(cleanup);
+
+describe("Icon", () => {
+  it("draws paths, circles and rects, hidden from screen readers by default", () => {
+    const { container } = render(<Icon name="mail" />);
+    const svg = container.querySelector("svg");
+    expect(svg?.getAttribute("class")).toBe("ic");
+    expect(svg?.getAttribute("aria-hidden")).toBe("true");
+    expect(svg?.getAttribute("width")).toBe("16");
+    expect(svg?.getAttribute("viewBox")).toBe("0 0 24 24");
+    expect(svg?.querySelector("rect")?.getAttribute("width")).toBe("20");
+    expect(svg?.querySelector("rect")?.getAttribute("rx")).toBe("2");
+    expect(svg?.querySelector("path")).not.toBeNull();
+    const circle = render(<Icon name="dot" />).container.querySelector("circle");
+    expect(circle?.getAttribute("r")).toBe("3");
+  });
+
+  it("is an image with a title when titled", () => {
+    render(<Icon name="check" title="Done" size={20} className="x" />);
+    const img = screen.getByRole("img", { name: "Done" });
+    expect(img.getAttribute("aria-hidden")).toBeNull();
+    expect(img.getAttribute("class")).toBe("ic x");
+    expect(img.getAttribute("width")).toBe("20");
+  });
+});
+
+describe("IconBtn", () => {
+  it("sets the label, tip, key hint and badge", () => {
+    const onClick = vi.fn();
+    render(<IconBtn icon="bell" label="Alerts" kbd="N" badge={3} onClick={onClick} />);
+    const button = screen.getByRole("button", { name: "Alerts" });
+    expect(button.getAttribute("type")).toBe("button");
+    expect(button.getAttribute("class")).toBe("iconbtn");
+    expect(button.getAttribute("data-tip")).toBe("Alerts");
+    expect(button.getAttribute("data-kbd")).toBe("N");
+    expect(button.querySelector(".badge")?.textContent).toBe("3");
+    button.click();
+    expect(onClick).toHaveBeenCalledOnce();
+  });
+
+  it("writes aria-pressed only when pressed is given", () => {
+    const { rerender } = render(<IconBtn icon="bell" label="A" onClick={vi.fn()} />);
+    expect(screen.getByRole("button").hasAttribute("aria-pressed")).toBe(false);
+    rerender(<IconBtn icon="bell" label="A" pressed={false} onClick={vi.fn()} />);
+    expect(screen.getByRole("button").getAttribute("aria-pressed")).toBe("false");
+    rerender(<IconBtn icon="bell" label="A" pressed onClick={vi.fn()} />);
+    expect(screen.getByRole("button").getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("can be disabled and has no badge by default", () => {
+    render(<IconBtn icon="bell" label="A" disabled onClick={vi.fn()} />);
+    const button = screen.getByRole<HTMLButtonElement>("button");
+    expect(button.disabled).toBe(true);
+    expect(button.querySelector(".badge")).toBeNull();
+  });
+});
+
+describe("Btn", () => {
+  it("joins kind and size into the classes and shows the key hint of a primary button", () => {
+    render(
+      <Btn kind="pri" size="sm" icon="plus" kbd="Enter" tip="Add" onClick={vi.fn()}>
+        Add it
+      </Btn>,
+    );
+    const button = screen.getByRole("button");
+    expect(button.getAttribute("class")).toBe("btn pri sm");
+    expect(button.getAttribute("type")).toBe("button");
+    expect(button.getAttribute("data-tip")).toBe("Add");
+    expect(button.getAttribute("data-kbd")).toBe("Enter");
+    expect(button.querySelector("svg.ic")).not.toBeNull();
+    expect(button.querySelector(".kbd")?.textContent).toBe("Enter");
+  });
+
+  it("keeps the key hint in the tip for a non-primary button with a tip", () => {
+    render(
+      <Btn kind="ghost" kbd="Esc" tip="Close" onClick={vi.fn()}>
+        Close
+      </Btn>,
+    );
+    const button = screen.getByRole("button");
+    expect(button.querySelector(".kbd")).toBeNull();
+    expect(button.getAttribute("data-kbd")).toBe("Esc");
+  });
+
+  it("shows the key hint on a button with no tip, and passes label and disabled", () => {
+    render(
+      <Btn kbd="S" label="Save now" disabled onClick={vi.fn()}>
+        Save
+      </Btn>,
+    );
+    const button = screen.getByRole<HTMLButtonElement>("button", { name: "Save now" });
+    expect(button.getAttribute("class")).toBe("btn");
+    expect(button.querySelector(".kbd")?.textContent).toBe("S");
+    expect(button.hasAttribute("data-kbd")).toBe(false);
+    expect(button.disabled).toBe(true);
+  });
+});
+
+describe("Kbd", () => {
+  it("renders a key cap", () => {
+    const { container } = render(<Kbd>Ctrl K</Kbd>);
+    expect(container.querySelector("span.kbd")?.textContent).toBe("Ctrl K");
+  });
+});
+
+describe("Avatar", () => {
+  it("shows the initials on the colour with the name as its label", () => {
+    render(<Avatar name="Mira Chen" color="#2c6e9b" tip="Mira" />);
+    const avatar = screen.getByLabelText("Mira Chen");
+    expect(avatar.textContent).toBe("MC");
+    expect(avatar.getAttribute("class")).toBe("av");
+    expect(avatar.style.background).not.toBe("");
+    expect(avatar.getAttribute("data-tip")).toBe("Mira");
+    expect(avatar.querySelector("i")).toBeNull();
+  });
+
+  it("shows the user icon when unnamed", () => {
+    render(<Avatar name="You" color="#111" unnamed size="xl" />);
+    const avatar = screen.getByLabelText("You");
+    expect(avatar.textContent).toBe("");
+    expect(avatar.querySelector("svg.ic")?.getAttribute("width")).toBe("24");
+    expect(avatar.getAttribute("class")).toBe("av xl");
+  });
+
+  it("shows a photo when given", () => {
+    render(<Avatar name="Mira" color="#111" photo="mira.png" />);
+    expect(screen.getByLabelText("Mira").querySelector("img")?.getAttribute("src")).toBe(
+      "mira.png",
+    );
+  });
+
+  it("draws the status dot, with away as a second class", () => {
+    const { rerender } = render(<Avatar name="A B" color="#111" status="online" size="s" />);
+    expect(screen.getByLabelText("A B").getAttribute("class")).toBe("av s");
+    expect(screen.getByLabelText("A B").querySelector("i")?.getAttribute("class")).toBe("dot");
+    rerender(<Avatar name="A B" color="#111" status="away" size="l" />);
+    expect(screen.getByLabelText("A B").querySelector("i")?.getAttribute("class")).toBe("dot away");
+    expect(screen.getByLabelText("A B").getAttribute("class")).toBe("av l");
+  });
+});
+
+describe("Empty", () => {
+  it("renders the icon, title, hint and action", () => {
+    const { container } = render(
+      <Empty title="Nothing yet" action={<button type="button">Add</button>}>
+        Add a creator to begin.
+      </Empty>,
+    );
+    expect(container.querySelector(".empty .ei svg.ic")?.getAttribute("width")).toBe("20");
+    expect(container.querySelector("b")?.textContent).toBe("Nothing yet");
+    expect(container.querySelector("p.hint")?.textContent).toBe("Add a creator to begin.");
+    expect(screen.getByRole("button", { name: "Add" })).toBeTruthy();
+  });
+
+  it("leaves out the hint when there are no children", () => {
+    const { container } = render(<Empty title="Clear" icon="check" />);
+    expect(container.querySelector("p")).toBeNull();
+  });
+});
+
+describe("PageHead", () => {
+  it("renders the title, sub line, right side and hue", () => {
+    const { container } = render(
+      <PageHead
+        title="Find"
+        sub="Creators worth a look"
+        hue="var(--find)"
+        right={<span>R</span>}
+      />,
+    );
+    const head = container.querySelector<HTMLElement>(".ph");
+    expect(head?.style.getPropertyValue("--hue")).toBe("var(--find)");
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Find");
+    expect(container.querySelector(".t.grow p")?.textContent).toBe("Creators worth a look");
+    expect(head?.lastElementChild?.textContent).toBe("R");
+  });
+
+  it("has no sub line or hue by default", () => {
+    const { container } = render(<PageHead title="Team" />);
+    expect(container.querySelector("p")).toBeNull();
+    expect(container.querySelector(".ph")?.getAttribute("style")).toBeNull();
+  });
+});

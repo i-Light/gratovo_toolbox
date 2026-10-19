@@ -41,7 +41,7 @@ export default defineConfig(
   },
 
   {
-    files: ["apps/desktop/src/renderer/**/*.{ts,tsx}"],
+    files: ["apps/desktop/src/renderer/**/*.{ts,tsx}", "packages/ui/src/**/*.{ts,tsx}"],
     extends: [reactHooks.configs.flat.recommended, jsxA11y.flatConfigs.strict],
   },
 );
