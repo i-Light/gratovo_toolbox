@@ -1,6 +1,9 @@
+import { join } from "node:path";
+
 import { BrowserWindow, Menu, app, dialog, session } from "electron";
 
 import { registerAppScheme, serveAppFiles } from "./app-protocol";
+import { openExampleSource } from "./data";
 import { createHandlers } from "./handlers";
 import { registerBridge } from "./ipc-bridge";
 import { openSecretStore } from "./secrets";
@@ -48,7 +51,15 @@ function start(): void {
       denyAllPermissions(session.defaultSession);
       refuseDownloads(session.defaultSession);
       serveAppFiles(session.defaultSession, rendererRoot);
-      registerBridge(createHandlers({ version: app.getVersion(), secrets: openSecretStore() }));
+      // Until there is an account (3d-2) the app always shows the example data. A database that
+      // won't open lands in the start-up error dialog below.
+      const data = openExampleSource(join(app.getPath("userData"), "example.db"));
+      app.on("will-quit", () => {
+        data.close();
+      });
+      registerBridge(
+        createHandlers({ version: app.getVersion(), secrets: openSecretStore(), data }),
+      );
       // The app draws its whole frame. Electron's default menu (File, Edit, View…) would sit above
       // it on Windows and bring shortcuts the app doesn't want, such as reload and zoom. Copy,
       // paste and undo in text fields work without it on Windows.

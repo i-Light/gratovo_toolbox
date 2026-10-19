@@ -9,6 +9,7 @@
     "./bridge": "./src/bridge.ts"
   },
   "dependencies": {
+    "@gratovo/core": "workspace:*",
     "zod": "4.6.7"
   }
 }

@@ -10,5 +10,8 @@
     "scripts/**/*.ts",
     "electron.vite.config.ts"
   ],
-  "references": [{ "path": "../../packages/ipc/tsconfig.lib.json" }]
+  "references": [
+    { "path": "../../packages/core/tsconfig.lib.json" },
+    { "path": "../../packages/ipc/tsconfig.lib.json" }
+  ]
 }

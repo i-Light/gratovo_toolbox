@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { dataWriteSchema, frameSchema } from "./data";
+
 /**
  * A secret's name: lowercase words joined by dots or hyphens, such as "gemini.api-key" or
  * "gmail.token.mailbox-1". Names are not secret; values never cross the bridge.
@@ -27,6 +29,16 @@ export const channels = {
   "secrets:status": {
     request: z.strictObject({ name: secretName }),
     response: z.strictObject({ set: z.boolean() }),
+  },
+  /** Everything the frame shows, in one read. */
+  "frame:load": {
+    request: z.strictObject({}),
+    response: frameSchema,
+  },
+  /** Saves a batch of changes, in order, all or none. */
+  "data:write": {
+    request: z.strictObject({ writes: z.array(dataWriteSchema).min(1).max(100) }),
+    response: z.strictObject({}),
   },
 } as const;
 

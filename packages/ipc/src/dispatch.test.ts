@@ -1,3 +1,4 @@
+import { exampleFrame } from "@gratovo/core/data";
 import { describe, expect, it, vi } from "vitest";
 
 import { createDispatcher, type Handlers } from "./dispatch";
@@ -6,6 +7,8 @@ function setup(overrides: Partial<Handlers> = {}) {
   const handlers: Handlers = {
     "app:ping": vi.fn(() => ({ ok: true as const, version: "1.2.3" })),
     "secrets:status": vi.fn(({ name }) => Promise.resolve({ set: name === "gemini.api-key" })),
+    "frame:load": vi.fn(() => exampleFrame(0)),
+    "data:write": vi.fn(() => ({})),
     ...overrides,
   };
   const onError = vi.fn();
