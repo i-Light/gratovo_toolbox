@@ -36,7 +36,8 @@ export function guardWebContents(contents: WebContents): void {
     }
   });
 
-  // The same guard again for the top frame, and for redirects, which neither event above sees.
+  // The same check again for the top frame, and for redirects, which will-frame-navigate doesn't
+  // see.
   contents.on("will-navigate", (event) => {
     if (!isAppPage(event.url, appPageUrl)) {
       event.preventDefault();
@@ -49,6 +50,13 @@ export function guardWebContents(contents: WebContents): void {
   });
 
   contents.on("will-attach-webview", (event) => {
+    event.preventDefault();
+  });
+}
+
+/** Downloads are refused until a feature needs one, so a script can't offer a file to save. */
+export function refuseDownloads(target: Session): void {
+  target.on("will-download", (event) => {
     event.preventDefault();
   });
 }

@@ -7,18 +7,35 @@ const allowedHosts = new Set([
   "mail.google.com",
 ]);
 
+/**
+ * Gmail links may open a thread (named in the #fragment) and pick the account. Anything else, such
+ * as `view=cm&to=…&body=…`, could let a script open a compose window filled in for the user.
+ */
+function isGmailThreadLink({ hostname, pathname, searchParams, hash }: URL): boolean {
+  if (hostname !== "mail.google.com") {
+    return true;
+  }
+  const keys = [...searchParams.keys()];
+  return (
+    pathname.startsWith("/mail/") &&
+    keys.every((key) => key === "authuser") &&
+    !hash.toLowerCase().includes("compose")
+  );
+}
+
 /** True for a link the app may open in the browser: https, no credentials, default port, an allowed host. */
 export function isAllowedExternalLink(url: string): boolean {
   if (!URL.canParse(url)) {
     return false;
   }
   // URL lowercases the hostname, so the set only needs lowercase entries.
-  const { protocol, username, password, port, hostname } = new URL(url);
+  const link = new URL(url);
   return (
-    protocol === "https:" &&
-    username === "" &&
-    password === "" &&
-    port === "" &&
-    allowedHosts.has(hostname)
+    link.protocol === "https:" &&
+    link.username === "" &&
+    link.password === "" &&
+    link.port === "" &&
+    allowedHosts.has(link.hostname) &&
+    isGmailThreadLink(link)
   );
 }

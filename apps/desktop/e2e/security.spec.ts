@@ -1,8 +1,6 @@
 import type { ElectronApplication } from "@playwright/test";
 
-import { expect, test } from "./fixtures";
-
-const appPage = "app://gratovo/index.html";
+import { appPage, expect, test } from "./fixtures";
 
 /** Replaces shell.openExternal in the main process with a recorder, so no browser opens. */
 async function recordExternalLinks(app: ElectronApplication): Promise<() => Promise<string[]>> {
@@ -64,18 +62,41 @@ test.describe("the page", () => {
 
   test("gets only the app's own files", async ({ page }) => {
     const statuses = await page.evaluate(async () => {
+      // Each escape aims at a file that really exists next to the renderer folder (the built main
+      // process and preload, the app's package.json), so a broken guard would answer 200.
       const paths = [
         "/index.html",
         "/missing.js",
-        "/%2F..%2F..%2Fmain%2Findex.js",
-        "/..%5C..%5Cmain%5Cindex.js",
-        "/..%5C..%5C..%5Cpackage.json",
+        "/..%2Fmain%2Findex.js",
+        "/..%2Fpreload%2Findex.js",
+        "/..%5Cpreload%5Cindex.js",
+        "/..%2F..%2Fpackage.json",
+        "/NUL.js",
       ];
       const gets = paths.map(async (path) => (await fetch(path)).status);
       const post = fetch("/index.html", { method: "POST" }).then((response) => response.status);
       return Promise.all([...gets, post]);
     });
-    expect(statuses).toEqual([200, 404, 404, 404, 404, 404]);
+    expect(statuses).toEqual([200, 404, 404, 404, 404, 404, 404, 404]);
+  });
+
+  test("keeps its data apart from the installed app", async ({ app }) => {
+    const folder = await app.evaluate(({ app: electronApp }) => electronApp.getPath("userData"));
+    expect(folder).toContain("gratovo-e2e-");
+  });
+
+  test("refuses downloads", async ({ app }) => {
+    const refused = await app.evaluate(({ BrowserWindow, session }) => {
+      // This listener runs after the app's own, so it sees whether the app refused the download.
+      const seen = new Promise<boolean>((resolve) => {
+        session.defaultSession.once("will-download", (event) => {
+          resolve(event.defaultPrevented);
+        });
+      });
+      BrowserWindow.getAllWindows()[0]?.webContents.downloadURL("app://gratovo/index.html");
+      return seen;
+    });
+    expect(refused).toBe(true);
   });
 });
 
@@ -93,10 +114,11 @@ test.describe("the bridge", () => {
     const ping = await page.evaluate(() => window.gratovo.invoke("app:ping", {}));
     expect(ping).toEqual({ ok: true, value: { ok: true, version } });
 
+    // The test's data folder is new, so no secret is set.
     const status = await page.evaluate(() =>
       window.gratovo.invoke("secrets:status", { name: "gemini.api-key" }),
     );
-    expect(status.ok && typeof status.value.set).toBe("boolean");
+    expect(status).toEqual({ ok: true, value: { set: false } });
   });
 
   test("refuses every channel outside the allowlist", async ({ page }) => {
@@ -130,20 +152,20 @@ test.describe("the bridge", () => {
     }
   });
 
-  test("can't carry code: a function never leaves the page", async ({ page }) => {
-    const sent = await page.evaluate(async () => {
+  test("can't carry code: a call holding a function is refused", async ({ page }) => {
+    const outcome = await page.evaluate(async () => {
       const invoke = window.gratovo.invoke as (
         channel: unknown,
         input: unknown,
       ) => Promise<unknown>;
       try {
-        await invoke({ toString: () => "app:ping" }, {});
-        return true;
+        return await invoke({ toString: () => "app:ping" }, {});
       } catch {
-        return false;
+        // Today Electron refuses to send it at all; a refusal from the main process is as good.
+        return { ok: false, reason: "not sent" };
       }
     });
-    expect(sent).toBe(false);
+    expect(outcome).toMatchObject({ ok: false });
   });
 });
 
@@ -177,6 +199,9 @@ test.describe("leaving the app", () => {
     });
     await expect.poll(openedLinks).toEqual(["https://youtu.be/abc123"]);
     expect(page.url()).toBe(appPage);
-    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    // Read through evaluate: after a refused navigation, Playwright's locators keep waiting for it
+    // to finish.
+    const heading = await page.evaluate(() => document.querySelector("h1")?.textContent);
+    expect(heading).toBe("Gratovo Toolbox");
   });
 });

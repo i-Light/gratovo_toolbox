@@ -1,5 +1,6 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
+import { setTimeout as wait } from "node:timers/promises";
 
 import { secretName } from "@gratovo/ipc";
 import { z } from "zod";
@@ -27,7 +28,7 @@ const maxValueLength = 65536;
 
 const fileSchema = z.strictObject({
   version: z.literal(1),
-  secrets: z.record(z.string(), z.base64()),
+  secrets: z.record(secretName, z.base64()),
 });
 
 const damaged = "The secrets file is damaged";
@@ -39,8 +40,31 @@ function checkName(name: string): void {
   }
 }
 
+function errorCode(error: unknown): unknown {
+  return error instanceof Error && "code" in error ? error.code : undefined;
+}
+
 function isMissing(error: unknown): boolean {
-  return error instanceof Error && "code" in error && error.code === "ENOENT";
+  return errorCode(error) === "ENOENT";
+}
+
+/**
+ * Windows refuses a rename while another program (an antivirus scan, a backup or sync tool) has
+ * the file open, usually only for a moment, so a few short retries ride it out.
+ */
+async function replaceFile(from: string, to: string): Promise<void> {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      await rename(from, to);
+      return;
+    } catch (error) {
+      const busy = ["EPERM", "EACCES", "EBUSY"].includes(String(errorCode(error)));
+      if (!busy || attempt === 5) {
+        throw error;
+      }
+      await wait(attempt * 50);
+    }
+  }
 }
 
 /** Opens the store kept in `file`. The file is only read or written when an operation runs. */
@@ -79,13 +103,14 @@ export function createSecretStore(file: string, cipher: Cipher): SecretStore {
     return new Map(Object.entries(parsed.data.secrets));
   }
 
-  // Write a temporary file and rename it, so a crash never leaves a half-written secrets file.
+  // Write a temporary file, flush it to the disk, then rename it over the old one, so a crash or a
+  // power cut never leaves a half-written secrets file.
   async function save(entries: Map<string, string>): Promise<void> {
     const body = JSON.stringify({ version: 1, secrets: Object.fromEntries(entries) });
     await mkdir(dirname(file), { recursive: true });
     const temporary = `${file}.tmp`;
-    await writeFile(temporary, body, { mode: 0o600 });
-    await rename(temporary, file);
+    await writeFile(temporary, body, { mode: 0o600, flush: true });
+    await replaceFile(temporary, file);
   }
 
   return {

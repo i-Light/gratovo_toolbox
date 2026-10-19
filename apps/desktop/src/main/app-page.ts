@@ -26,13 +26,28 @@ export function isAppPage(url: string, pageUrl: string): boolean {
   return target.href === new URL(pageUrl).href;
 }
 
+/** True for any URL on the app page's origin: the same scheme, host and port. */
+export function isAppOrigin(url: string, pageUrl: string): boolean {
+  if (!URL.canParse(url)) {
+    return false;
+  }
+  // Node's URL.origin is "null" for app://, so the parts are compared one by one.
+  const target = new URL(url);
+  const page = new URL(pageUrl);
+  return target.protocol === page.protocol && target.host === page.host;
+}
+
 /** The part of Electron's WebFrameMain that the sender check reads. */
 export interface SenderFrame {
   readonly url: string;
   readonly parent: unknown;
 }
 
-/** True when an IPC call comes from the app page's top frame: not a subframe, not another page. */
+/**
+ * True when an IPC call comes from the top frame on the app's origin: not a subframe, not another
+ * site. The origin rather than the exact page, because `history.pushState` changes the page's URL
+ * without a navigation; the guards in security.ts already keep the frame on the app's page.
+ */
 export function isTrustedSender(frame: SenderFrame | null, pageUrl: string): boolean {
-  return frame !== null && frame.parent === null && isAppPage(frame.url, pageUrl);
+  return frame !== null && frame.parent === null && isAppOrigin(frame.url, pageUrl);
 }

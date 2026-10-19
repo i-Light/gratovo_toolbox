@@ -26,6 +26,8 @@ From the repository root: `pnpm dev` (the app with hot reload), `pnpm build`, `p
 
 The app supports Windows only, and the end-to-end tests run there: in CI on every pull request, and on team machines.
 
+An unpackaged app keeps its data apart from the installed one: `pnpm dev` uses a "Gratovo Toolbox (dev)" folder, and each end-to-end test gets a fresh temporary folder (through `GRATOVO_USER_DATA`, which a packaged app ignores). So the tests also run while the app is open.
+
 ## Dependencies
 
 electron-vite bundles everything the app uses, so all packages are `devDependencies`. Only a main-process module that must stay outside the bundle (a native one, such as the SQLite driver in step 3d) goes in `dependencies`.

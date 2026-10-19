@@ -27,6 +27,8 @@ env:
 jobs:
   checks:
     name: Checks (Windows)
+    # The weekly run is for new advisories only; nothing here changes without a push.
+    if: github.event_name != 'schedule'
     runs-on: windows-2025
     timeout-minutes: 30
     steps:
@@ -77,6 +79,7 @@ jobs:
   # supports. Windows minutes also count double on a private repository.
   secrets:
     name: Secret scan
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -99,7 +102,8 @@ jobs:
         run: '"$(go env GOPATH)/bin/gitleaks" git --redact --no-banner --verbose'
 
   # Fails on any known vulnerability in the two lockfiles. To ignore a reviewed false positive,
-  # add an osv-scanner.toml with an [[IgnoredVulns]] entry: an id, an ignoreUntil date and a
+  # add an osv-scanner.toml next to the lockfile it applies to (the root for pnpm-lock.yaml,
+  # services/pipeline/ for uv.lock) with an [[IgnoredVulns]] entry: an id, an ignoreUntil date and a
   # reason. Only these two lockfiles are scanned: legacy/ holds the old app's, for reference.
   audit:
     name: Dependency audit

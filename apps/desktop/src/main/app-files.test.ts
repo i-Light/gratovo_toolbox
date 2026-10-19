@@ -1,5 +1,7 @@
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
+
 import { describe, expect, it } from "vitest";
+
 import { contentType, resolveAppFile } from "./app-files";
 
 const root = resolve("renderer-root");
@@ -50,8 +52,8 @@ describe("resolveAppFile", () => {
   });
 
   it("decodes percent escapes", () => {
-    expect(resolveAppFile(root, "app://gratovo/assets/ai%20tools.css")).toBe(
-      join(root, "assets", "ai tools.css"),
+    expect(resolveAppFile(root, "app://gratovo/assets/index%2Dabc.css")).toBe(
+      join(root, "assets", "index-abc.css"),
     );
   });
 
@@ -67,6 +69,12 @@ describe("resolveAppFile", () => {
     ["executable", "app://gratovo/setup.exe"],
     ["no extension", "app://gratovo/LICENSE"],
     ["encoded traversal", "app://gratovo/%2F..%2F..%2Fmain%2Findex.js"],
+    ["a space, which the build never emits", "app://gratovo/assets/ai%20tools.css"],
+    ["a colon (an alternate data stream on Windows)", "app://gratovo/index.html:hidden.js"],
+    ["a dotfile", "app://gratovo/.env.json"],
+    ["a Windows device name", "app://gratovo/CON.js"],
+    ["a device name in a folder", "app://gratovo/assets/com1.css"],
+    ["a device name without an extension", "app://gratovo/nul"],
   ])("refuses %s", (_name, url) => {
     expect(resolveAppFile(root, url)).toBeUndefined();
   });

@@ -213,6 +213,7 @@ describe("createSecretStore", () => {
       '{"version":2,"secrets":{}}',
       '{"version":1,"secrets":{"token":"not base64!"}}',
       '{"version":1,"secrets":{},"extra":true}',
+      '{"version":1,"secrets":{"Bad Name":"c2stdGVzdA=="}}',
     ];
 
     it.each(bodies)("throws for every operation and stays unchanged: %s", async (body) => {

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+
 import { isAllowedExternalLink } from "./external-links";
 
 describe("isAllowedExternalLink", () => {
@@ -8,6 +9,8 @@ describe("isAllowedExternalLink", () => {
     "https://m.youtube.com/@matthew_berman/videos",
     "https://youtu.be/abc123",
     "https://mail.google.com/mail/u/0/#inbox",
+    "https://mail.google.com/mail/u/0/#all/18c2f4d9e1a7b3c5",
+    "https://mail.google.com/mail/?authuser=1#inbox/18c2f4d9e1a7b3c5",
     "https://WWW.YouTube.com/@AIExplained",
   ])("allows %s", (url) => {
     expect(isAllowedExternalLink(url)).toBe(true);
@@ -35,6 +38,17 @@ describe("isAllowedExternalLink", () => {
     "https://notyoutube.com/",
     "https://evil.example/@aiexplained",
   ])("rejects the lookalike %s", (url) => {
+    expect(isAllowedExternalLink(url)).toBe(false);
+  });
+
+  // A script could otherwise open the user's Gmail with a message filled in, one click from sent.
+  it.each([
+    "https://mail.google.com/mail/?view=cm&to=brand@example.com&body=hi",
+    "https://mail.google.com/mail/u/0/?fs=1&tf=cm&to=brand@example.com",
+    "https://mail.google.com/mail/?extsrc=mailto&url=mailto:brand@example.com",
+    "https://mail.google.com/mail/u/0/#inbox?compose=new",
+    "https://mail.google.com/a/example.com",
+  ])("rejects the Gmail link %s, which isn't a thread", (url) => {
     expect(isAllowedExternalLink(url)).toBe(false);
   });
 

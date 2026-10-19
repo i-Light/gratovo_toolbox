@@ -20,8 +20,8 @@ Where work stopped and exactly what to do next. Update this file at the end of e
 - `apps/desktop`: electron-vite app showing a blank frame with the tokens. The security baseline is in place ([decisions/0008-security-baseline.md](decisions/0008-security-baseline.md)):
   - the page runs isolated and sandboxed, loads from `app://gratovo/index.html`, and has a strict CSP as a meta tag and a header;
   - one bridge, `window.gratovo.invoke(channel, input)`, answered only for the app page's top frame;
-  - every navigation guarded; links open in the browser only for allowlisted hosts (`src/main/external-links.ts`);
-  - every permission denied; one copy of the app at a time;
+  - every navigation guarded; links open in the browser only for allowlisted hosts (`src/main/external-links.ts`); downloads refused;
+  - every permission denied; one copy of the app at a time; a startup error shows a message and quits;
   - `src/main/secret-store.ts`: secrets encrypted with `safeStorage` in `secrets.json` in the user data folder. The page can only ask whether one is set;
   - `scripts/release-fuses.ts`: the nine fuses for release builds (3h applies them).
   - Tests: unit tests for every pure module; Playwright `smoke` and `security` specs on the built app, and a `fuses` spec that flips the fuses on a copy of the Electron binary.
@@ -42,11 +42,12 @@ The goal and acceptance checks are in [migration-plan.md, step 3c](migration-pla
 
 1. **Read the prototype first:** `design/workbench-prototype/index.html` (tokens and the frame's markup), `js/core.js` (`W.act`, `W.ui`, `W.bg`, the key stack), `js/settings.js`, and the `WHY` notes in `js/plan.js`.
 2. **Tokens:** most are already in `packages/ui/src/tokens.css` (3a). Add the fonts (Readex Pro, IBM Plex Mono) as files served from `app://`. The CSP allows `font-src 'self'` only, so no Google Fonts link.
-3. **The frame:** rail, top bar, peek panel, toasts with Undo, menus, tooltips, the shortcut sheet and the problems bar, as React components in `apps/desktop/src/renderer/`. User-facing strings go in `strings.ts`.
-4. **Keyboard system** and **store pattern** as the plan says. Pure logic (the key stack, undo snapshots) goes in `packages/core` with unit tests.
-5. **Settings shell:** the sections and the search from `settings.js`.
-6. **Data from the main process** goes through `window.gratovo.invoke`. To add a channel, see `apps/desktop/README.md`.
-7. **Tests:** the Playwright tests the plan lists (palette, peek, undo, menus, Esc order, key barriers), using `e2e/fixtures.ts`, plus screenshot comparisons.
+3. **Routing:** use hash routes (`#/today`). A `pushState` URL isn't a file, so a reload there would get a 404 from `app://` (ADR 0008).
+4. **The frame:** rail, top bar, peek panel, toasts with Undo, menus, tooltips, the shortcut sheet and the problems bar, as React components in `apps/desktop/src/renderer/`. User-facing strings go in `strings.ts`.
+5. **Keyboard system** and **store pattern** as the plan says. Pure logic (the key stack, undo snapshots) goes in `packages/core` with unit tests.
+6. **Settings shell:** the sections and the search from `settings.js`.
+7. **Data from the main process** goes through `window.gratovo.invoke`. To add a channel, see `apps/desktop/README.md`.
+8. **Tests:** the Playwright tests the plan lists (palette, peek, undo, menus, Esc order, key barriers), using `e2e/fixtures.ts`, plus screenshot comparisons.
 
 **Then:** 3d (the data layer), in its own pull request.
 
@@ -55,8 +56,7 @@ The goal and acceptance checks are in [migration-plan.md, step 3c](migration-pla
 - **Cloud sessions run in Linux containers;** the app is Windows only. In a container, edit the code and run `pnpm lint`, `pnpm typecheck` and `pnpm test`. The Electron tests run on Windows in CI; don't set them up in the container.
 - **Tools a cloud container lacks** (it has Node 22, pnpm 10 and uv 0.11, and no gitleaks). Node 24.22.0 from nodejs.org (check `SHASUMS256.txt`) unpacked under `/root/.local/opt/`, then `npm i -g pnpm@12.14.0` with that Node first on `PATH`. uv: `UV_TOOL_BIN_DIR=/root/.local/opt/uv-bin uv tool install uv==0.13.1`. gitleaks: `GOBIN=/root/.local/bin go install github.com/zricethezav/gitleaks/v8@v8.30.1` (GitHub release downloads are blocked there; the Go proxy is not).
 - **What 3b leaves for later steps:**
-  - The Electron tests use the app's real user data folder. Before 3d writes data, give the tests their own folder.
-  - Only one copy of the app runs at a time, so on a team machine the Electron tests can't run while the app is open.
+  - Each Electron test gets a fresh data folder (`GRATOVO_USER_DATA`, read only by unpackaged builds), and `pnpm dev` uses "Gratovo Toolbox (dev)", so neither touches the installed app's data or its single-instance lock.
   - The fuse `EnableEmbeddedAsarIntegrityValidation` needs the packager (3h) to write the archive's hash into the app.
   - Dependabot's first run is on the Monday after this merge. Check that it works with pnpm 12 (its runs appear under Actions as "Dependabot Updates"), then treat its pull requests like any other.
   - A CodeQL result or a new advisory turns CI red. Fix it, or record a reviewed exception (ADR 0008 says how).

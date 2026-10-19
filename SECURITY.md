@@ -36,7 +36,7 @@ Earlier commits also held the Supabase service-role key and an AWS IAM key pair 
 - Renderer: `contextIsolation: true`, `sandbox: true` and `nodeIntegration: false`, a strict Content Security Policy (in the page and as a header), the page served from `app://` rather than `file://`, no remote content and no navigation away from the app.
 - One typed IPC bridge in the preload script. Every message, and every answer, is validated with a schema in the main process. Nothing outside the allowlist gets through, and only the app's own page may call.
 - External links open in the browser through an allowlist. The app denies permission requests (camera, location and others) by default.
-- Electron fuses are set for release builds: `RunAsNode` off, `NODE_OPTIONS` off, cookie encryption on, load the app only from its archive.
+- Electron fuses are set for release builds: `RunAsNode` off, `NODE_OPTIONS` off, `--inspect` off, cookie encryption on, the app loaded only from its archive and that archive's integrity checked, and no extra privileges for `file://`.
 - Local services (the Gemini bridge daemon) bind to `127.0.0.1` only and require a per-launch token.
 - Releases are code-signed, and the auto-updater only installs signed builds.
 - Dependencies are pinned through the lockfile, checked in CI by OSV-Scanner (on every pull request and weekly), updated through Dependabot, and reviewed before an upgrade. CodeQL checks the code itself.

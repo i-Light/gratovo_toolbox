@@ -16,10 +16,16 @@ export function registerAppScheme(): void {
   ]);
 }
 
+// Sent with every response, the 404s included.
+const securityHeaders = {
+  "Content-Security-Policy": contentSecurityPolicy(false),
+  "X-Content-Type-Options": "nosniff",
+};
+
 function notFound(): Response {
   return new Response("Not found", {
     status: 404,
-    headers: { "Content-Type": "text/plain; charset=utf-8" },
+    headers: { ...securityHeaders, "Content-Type": "text/plain; charset=utf-8" },
   });
 }
 
@@ -29,7 +35,6 @@ function notFound(): Response {
  * requests for known file types inside `root` are answered; everything else is a 404.
  */
 export function serveAppFiles(target: Session, root: string): void {
-  const policy = contentSecurityPolicy(false);
   target.protocol.handle(appScheme, async (request) => {
     const file = request.method === "GET" ? resolveAppFile(root, request.url) : undefined;
     const type = file === undefined ? undefined : contentType(file);
@@ -38,11 +43,7 @@ export function serveAppFiles(target: Session, root: string): void {
     }
     try {
       return new Response(await readFile(file), {
-        headers: {
-          "Content-Type": type,
-          "Content-Security-Policy": policy,
-          "X-Content-Type-Options": "nosniff",
-        },
+        headers: { ...securityHeaders, "Content-Type": type },
       });
     } catch {
       return notFound();
