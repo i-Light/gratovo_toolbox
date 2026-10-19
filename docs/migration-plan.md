@@ -41,8 +41,8 @@ Replace the Flutter app (old repository `gratovo_code`) with a new desktop app t
 | A2 | **Create the empty private GitHub repository `gratovo_toolbox`** (no README, no license), or tell a local session to do it with your credentials. Then push this repository to it. Cloud sessions can only see GitHub. | Every cloud session |
 | A3 | **Paste `legacy/backend/schema.sql` into Supabase before 2026-10-30.** After that date, new tables need explicit grants. Also set the agency sender name in the old app. These are carried over from the decisions build. | The old app's newest features |
 | A4 | Confirm or change the stack in [decisions/0002-stack.md](decisions/0002-stack.md). It is recorded as accepted because the owner asked for the migration to the new languages. | Step 3a |
-| A5 | Answer the open questions in §9. Each says which step needs it. | The step named |
-| A6 | Decide how team keys reach team members (§9 Q11) and where releases are published (§9 Q12). | Steps 3d and 3h |
+| A5 | ~~Answer the open questions in §9.~~ **Done 2026-10-19.** | — |
+| A6 | ~~Decide how team keys reach members (Q11) and where releases are published (Q12).~~ **Done 2026-10-19** (keys by server function; no code signing; installer location defaults to a private R2 bucket). | — |
 
 ## 5. Status
 
@@ -116,7 +116,7 @@ The longest step. It builds everything the screens stand on, so every later step
   The UI never knows which one it is using.
 - Port the sync engine from `legacy/lib/core/sync/`: pull by `updated_at` cursor with tombstones, the outbox, compare-and-set edits, conflicts. The design is in `legacy/PROJECT_STRUCTURE.md` §3.1 and §9.
 - Supabase: move `legacy/backend/schema.sql` into `supabase/migrations/` as a baseline migration that matches production exactly. Every later change is a new, additive migration. Port the SQL tests from `legacy/backend/tests/` to run in CI with Docker.
-- Team keys delivered per the owner's answer to §9 Q11. Never in the installer.
+- Team keys served after sign-in by a server function (the owner's answer, §9 Q11). Never in the installer or the repository.
 - *Acceptance:* repository tests on a temp database; sync tests against a local Supabase (CLI); the old app still works against the same Supabase project after the migrations run.
 
 **3e. Python pipeline, ported and cleaned**
@@ -140,7 +140,7 @@ The longest step. It builds everything the screens stand on, so every later step
   - See the app as a teammate.
   - The comment tool: press C, click anything, write. Pins anchor to stable `data-ui` ids that components carry.
 - In this mode the outbound adapters are stand-ins: Gmail send, Gemini, YouTube and R2 writes do nothing real.
-- Comments are stored where the owner chooses (§9 Q9). By default this is a `comments` table in the local database, exported to `docs/feedback/comments.json` on demand so a session can read and act on them.
+- Comments are kept in a `comments` table in the local database and exported to `docs/feedback/comments.json` on demand, so any session can read and act on them (the owner's answer, §9 Q9).
 - *Acceptance:* the prototype's `proto_flow.py` and `review_fixes.py` checks, rewritten as Playwright tests against the real app, all pass. With the mode off there is no trace (an automated check).
 
 **3g. Continuous integration**
@@ -150,8 +150,8 @@ The longest step. It builds everything the screens stand on, so every later step
 
 **3h. Packaging spike**
 - electron-builder NSIS installer for Windows; the Python runtime bundled with python-build-standalone via uv. The target machines have no Python.
-- Auto-update with electron-updater, from where §9 Q12 says, with signed builds only.
-- Code signing (for example Azure Trusted Signing): the owner decides cost and account.
+- Auto-update with electron-updater from a private location (default: a private R2 bucket, URLs handed out by the server function). Builds are unsigned by the owner's choice (§9 Q12); the updater is configured to accept them.
+- No code signing (§9 Q12): the app is for the owner and a few trusted members. Document the first-run Windows warning for them.
 - *Acceptance:* an installer built in CI installs on a clean Windows machine, runs a search on example data, and updates itself to a newer test build.
 
 ### Step 4. Today
@@ -266,15 +266,20 @@ Nothing is sent without approval.
 
 From the prototype's Plan page, plus new ones from today. Each one names the step that needs the answer.
 
-1. Should VAs see money (invoices, payouts, margins)? The prototype assumes no. (Step 4)
-2. One 4-hour budget for everyone, or set per person? (Step 4)
-3. Which emails need a second pair of eyes: prices above an amount, first emails from a new VA? (Step 6)
-4. When do Instagram and TikTok come in, and are DMs drafted like emails? (Step 5)
-5. Invoices: sent from the app as a PDF, or from an accounting tool and only tracked here? (Step 8)
-6. Contracts: files kept in the app with a mirrored template, or a link to an e-signature service? (Step 7)
-7. Reply reading: which mailboxes may the app read, and how long are messages kept? (Step 6)
-8. Confirm the stack: Electron, React and TypeScript (A4). (Step 3)
-9. Prototype comments: kept as a file in the repository that Claude reads, or in the team database? (Step 3f)
-10. Prototype mode: owner only, or also for training new VAs on example data? (Step 3f)
-11. Team keys (YouTube, R2): served after sign-in from a server function (recommended), or entered once per machine? (Step 3d)
-12. Releases: where are installers published (a public bucket, or a separate public releases repo), and is code signing bought now or before cutover? (Step 3h)
+All twelve were answered by the owner on 2026-10-19. The consequences are written into the steps they affect.
+
+| # | Question | Answer | Step |
+|---|---|---|---|
+| 1 | Should VAs see money (invoices, payouts, margins)? | **No.** As in the prototype: money screens and amounts are hidden for VAs, and brand work that needs prices routes to the owner. | 4 |
+| 2 | One 4-hour budget for everyone, or per person? | **Per person.** Each team member has their own daily hours. Default 4, set by the owner in Settings. | 4 |
+| 3 | Which emails need a second pair of eyes? | **Nothing is sent without approval.** Approve-all stays the rule for every email, so no price or new-VA threshold is needed. | 6 |
+| 4 | When do Instagram and TikTok come in? | **Not in this migration.** Email only. Social channels become a separate project after cutover. | 5 |
+| 5 | Invoices: sent from the app, or tracked only? | **Made in an accounting tool and only tracked here.** The app records status and amounts and links to the invoice. It does not generate PDFs. | 8 |
+| 6 | Contracts: files in the app, or an e-signature service? | **A link to an e-signature service.** The app tracks status and links to the signed document. | 7 |
+| 7 | Reply reading: which mailboxes, how long kept? | **Connected mailboxes only; keep everything.** No retention purge. The rule "never read the connected mailbox" for sessions still holds ([owner-rules.md](product/owner-rules.md)). | 6 |
+| 8 | Confirm the stack | **Accepted** (A4): Electron, React and TypeScript. | 3 |
+| 9 | Prototype comments: file or team database? | **A file in the repository** (`docs/feedback/comments.json`, exported on demand) so any session can read it. | 3f |
+| 10 | Prototype mode: owner only, or also VA training? | **Owner only.** | 3f |
+| 11 | Team keys (YouTube, R2) | **Served after sign-in from a server function.** Never in the installer or the repository. | 3d |
+| 12 | Releases and code signing | **No code signing.** The app is for the owner and a few trusted members, so no certificate is bought. Windows will warn on first install, and members click through it. Updates still work unsigned. Where installers live was not chosen: the default is a private R2 bucket, handed out through the same server function as the team keys (builder's call, change it if you prefer). | 3h |
+

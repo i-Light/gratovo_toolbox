@@ -25,4 +25,4 @@ The owner wants to develop and plan the app "no matter the app's state". That me
 
 - Every component that should be commentable carries a `data-ui` id ([conventions.md](../conventions.md)).
 - Outbound adapters are interfaces from day one, which also makes them testable.
-- Where comments are stored is open (migration plan §9 Q9).
+- Comments are exported to a file in the repository (owner's answer, migration plan §9 Q9). Prototype mode is owner only (Q10).

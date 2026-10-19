@@ -1,7 +1,7 @@
 # 0003. Secrets never in git, never in the installer
 
 - **Date:** 2026-10-19
-- **Status:** accepted. How team keys reach machines is still open (migration plan §9 Q11).
+- **Status:** accepted. Team keys reach machines through a server function after sign-in (owner's answer, migration plan §9 Q11).
 
 ## Context
 
