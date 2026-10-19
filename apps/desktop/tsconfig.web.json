@@ -6,5 +6,6 @@
     "jsx": "react-jsx",
     "types": ["vite/client"]
   },
-  "include": ["src/renderer/**/*.ts", "src/renderer/**/*.tsx"]
+  "include": ["src/renderer/**/*.ts", "src/renderer/**/*.tsx"],
+  "references": [{ "path": "../../packages/ipc/tsconfig.lib.json" }]
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { channels, isChannel, parseRequest } from "./channels";
+import { channels, isChannel, parseRequest, secretName } from "./channels";
 
 describe("parseRequest", () => {
   it("accepts a known channel with a valid request", () => {
@@ -38,5 +38,42 @@ describe("app:ping response", () => {
   it("refuses an empty version or a failure", () => {
     expect(response.safeParse({ ok: true, version: "" }).success).toBe(false);
     expect(response.safeParse({ ok: false, version: "0.0.0" }).success).toBe(false);
+  });
+});
+
+describe("secretName", () => {
+  it("accepts lowercase words joined by dots or hyphens", () => {
+    for (const name of ["gemini.api-key", "gmail.token.mailbox-1", "youtube"]) {
+      expect(secretName.safeParse(name).success).toBe(true);
+    }
+  });
+
+  it("refuses anything else", () => {
+    const refused = [
+      "",
+      "Gemini",
+      "a..b",
+      "a.",
+      "-a",
+      "a b",
+      "../x",
+      "a/b",
+      "__proto__",
+      "x".repeat(101),
+    ];
+    for (const name of refused) {
+      expect(secretName.safeParse(name).success).toBe(false);
+    }
+  });
+});
+
+describe("secrets:status", () => {
+  it("takes a secret's name and answers whether it is set, never its value", () => {
+    expect(parseRequest("secrets:status", { name: "gemini.api-key" }).ok).toBe(true);
+    expect(parseRequest("secrets:status", { name: "../keys" }).ok).toBe(false);
+    expect(channels["secrets:status"].response.safeParse({ set: true }).success).toBe(true);
+    expect(
+      channels["secrets:status"].response.safeParse({ set: true, value: "sk-test-000" }).success,
+    ).toBe(false);
   });
 });
