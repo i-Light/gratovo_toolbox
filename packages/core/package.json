@@ -5,7 +5,8 @@
   "description": "The domain model and engines. Pure TypeScript with no I/O.",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./data": "./src/data/index.ts"
   },
   "dependencies": {
     "immer": "11.1.21"
