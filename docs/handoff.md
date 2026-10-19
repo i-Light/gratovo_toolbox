@@ -45,7 +45,7 @@ The goal and acceptance checks are in [migration-plan.md, step 3c](migration-pla
 
 1. Read CLAUDE.md, this file, `.router/PLAN.md` and `.router/PROGRESS.md` (the 3c-3 section and its notes).
 2. Set up the tools (see "Tools a cloud container lacks" below; `.router/scripts.md` shows the PATH line), then `pnpm install`.
-3. `git fetch origin` and check out `claude/pensive-bell-7fy7xz` (or your session's branch, brought up to date with it and with `main` by merge commits, never a force-push). `git log --oneline origin/main..HEAD` should show the 3c-3 plan (62f6f72), R1 (da9ceb1), R2 (605526c), R3 (df71cae) and the hand-off commits.
+3. `git fetch origin` and check out `claude/pensive-bell-7fy7xz` (or your session's branch, brought up to date with it and with `main` by merge commits, never a force-push). `git log --oneline origin/main..HEAD` should show, newest first, the hand-off commits, R3 (df71cae), R2 (605526c), R1 (da9ceb1), the 3c-3 plan (62f6f72) and the merge of `main` (32b8263). The 3c-2 commits listed below them are already in `main` as #7 (squash-merged), so git still lists them, but `git diff origin/main` and the next pull request show only 3c-3.
 4. Run `pnpm lint`, `pnpm typecheck`, `pnpm test`: all should pass (491 tests after R3).
 
 **Then, in order:**
