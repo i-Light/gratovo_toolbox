@@ -10,6 +10,8 @@ import {
   type Page,
 } from "@playwright/test";
 
+import { strings } from "../src/renderer/strings";
+
 // Windows is the only system the app supports, so these tests run there (in CI and on team
 // machines).
 const appDir = join(__dirname, "..");
@@ -48,7 +50,10 @@ export const test = base.extend<{ app: ElectronApplication; page: Page }>({
   page: async ({ app }, use) => {
     const page = await app.firstWindow();
     // firstWindow() can resolve before the app's page has loaded.
-    await page.waitForURL(appPage);
+    // The app writes "#/today" into the URL at start, so any fragment will do.
+    await page.waitForURL((url) => url.href.startsWith(appPage));
+    // The frame is there once the rail is.
+    await page.getByRole("navigation", { name: strings.rail.label }).waitFor();
     await use(page);
   },
 });

@@ -7,7 +7,12 @@
     "types": ["node"]
   },
   // env.d.ts types window.gratovo, which the tests call inside the page.
-  "include": ["e2e/**/*.ts", "playwright.config.ts", "src/renderer/env.d.ts"],
+  "include": [
+    "e2e/**/*.ts",
+    "playwright.config.ts",
+    "src/renderer/env.d.ts",
+    "src/renderer/strings.ts"
+  ],
   "references": [
     { "path": "./tsconfig.node.json" },
     { "path": "../../packages/ipc/tsconfig.lib.json" }
