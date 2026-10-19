@@ -13,6 +13,7 @@ import { createRoot } from "react-dom/client";
 
 import { App } from "./app/app";
 import { toAppData } from "./lib/frame";
+import { installPersistence } from "./lib/persist";
 import { initPrefs } from "./lib/prefs";
 import { routeFromHash } from "./lib/routes";
 import { initAppStore, installHashSync } from "./lib/store";
@@ -30,6 +31,8 @@ const root = createRoot(container);
 const loaded = await window.gratovo.invoke("frame:load", {});
 if (loaded.ok) {
   initAppStore(toAppData(loaded.value), routeFromHash(location.hash));
+  // From here on every change to the data is written back; what was just loaded counts as saved.
+  installPersistence(window.gratovo.invoke);
   installHashSync();
   root.render(
     <StrictMode>

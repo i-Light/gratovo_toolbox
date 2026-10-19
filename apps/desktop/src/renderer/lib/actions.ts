@@ -1,19 +1,19 @@
 import type { IconName } from "@gratovo/ui";
 import type { Store } from "@gratovo/core";
+import { nameMax } from "@gratovo/core/data";
 
 import { strings } from "../strings";
-import { getPrefs, nameMax, setPref } from "./prefs";
+import { onPersistenceIdle } from "./persist";
 import type { RecordRef, ScreenKey } from "./routes";
 import type { NotifyKind, RowId, SectionKey } from "./settings";
 import { appStore, go, selectRoute } from "./store";
-import type { AppData, AppUi, MenuItem, Toast, ToastAction } from "./store";
+import type { AppData, AppUi, MenuItem, ToastAction } from "./store";
+import { toast } from "./toast";
 
-/** How long the "Saving…" state lasts, in milliseconds. */
+export { dismissToast, toast } from "./toast";
+
+/** The shortest time the "Saving…" state lasts, in milliseconds. */
 const savingMs = 700;
-/** How long a toast stays when it does not say, in milliseconds. */
-const defaultToastMs = 6500;
-/** How many toasts show at once; the oldest go first. */
-const maxToasts = 3;
 /** How many records `recent` keeps. */
 const maxRecent = 8;
 
@@ -22,60 +22,32 @@ type DataDraft = Parameters<Parameters<Store<AppData, AppUi>["bg"]>[0]>[0];
 /** The editable view of the UI state. */
 type UiDraft = Parameters<Parameters<Store<AppData, AppUi>["ui"]>[0]>[0];
 
-let idCounter = 0;
-
-/** A new id that has not been used before: "t1", "l2", and so on. */
-function uid(prefix: string): string {
-  idCounter += 1;
-  return `${prefix}${String(idCounter)}`;
-}
-
 let savingTimer: ReturnType<typeof setTimeout> | undefined;
+/** Grows with each `markSaving`, so only the newest wait turns the state to "Saved". */
+let savingRun = 0;
 
-/** Shows "Saving…", then "Saved" 700 ms later. A new change restarts the wait. */
+/**
+ * Shows "Saving…", then "Saved" once 700 ms have passed and every write has reached the database
+ * (whichever comes later). A new change restarts the wait.
+ */
 function markSaving(): void {
   appStore().ui((ui) => {
     ui.saving = true;
   });
   clearTimeout(savingTimer);
+  savingRun += 1;
+  const run = savingRun;
   savingTimer = setTimeout(() => {
-    appStore().ui((ui) => {
-      ui.saving = false;
-      ui.savedAt = Date.now();
+    onPersistenceIdle(() => {
+      if (run !== savingRun) {
+        return;
+      }
+      appStore().ui((ui) => {
+        ui.saving = false;
+        ui.savedAt = Date.now();
+      });
     });
   }, savingMs);
-}
-
-/** Shows a toast. Defaults: tone info, ms 6500 (also when ms is 0). Keeps the newest three. Returns its id. */
-export function toast(t: {
-  readonly msg: string;
-  readonly sub?: string;
-  readonly icon?: IconName;
-  readonly tone?: "good" | "info";
-  readonly ms?: number;
-  readonly actions?: readonly ToastAction[];
-}): string {
-  const tone = t.tone ?? "info";
-  const made: Toast = {
-    id: uid("t"),
-    msg: t.msg,
-    ...(t.sub === undefined ? {} : { sub: t.sub }),
-    icon: t.icon ?? (tone === "good" ? "check" : "info"),
-    tone,
-    ms: t.ms === undefined || t.ms === 0 ? defaultToastMs : t.ms,
-    actions: t.actions ?? [],
-  };
-  appStore().ui((ui) => {
-    ui.toasts = [...ui.toasts, made].slice(-maxToasts) as typeof ui.toasts; // immer drafts drop `readonly` on arrays
-  });
-  return made.id;
-}
-
-/** Removes a toast. */
-export function dismissToast(id: string): void {
-  appStore().ui((ui) => {
-    ui.toasts = ui.toasts.filter((t) => t.id !== id);
-  });
 }
 
 /** What `act` may show once the change is made. */
@@ -110,7 +82,7 @@ export function act<R>(
   const result = store.act(label, (data, ui) => {
     const value = recipe(data, ui);
     if (value !== false && options.log !== false) {
-      data.log.unshift({ id: uid("l"), at: Date.now(), who: data.me, text: label });
+      data.log.unshift({ id: crypto.randomUUID(), at: Date.now(), who: data.me, text: label });
     }
     return value;
   });
@@ -307,15 +279,19 @@ export function markAllRead(): void {
 
 /**
  * Marks one notification read. Not an undoable change (it goes through `bg`), so undoing an older
- * change never marks it unread again.
+ * change never marks it unread again. Shows "Saving…" when it changed something.
  */
 export function readNotification(id: string): void {
+  const before = appStore().getState().data;
   appStore().bg((data) => {
     const n = data.notifications.find((x) => x.id === id);
     if (n !== undefined) {
       n.read = true;
     }
   });
+  if (appStore().getState().data !== before) {
+    markSaving();
+  }
 }
 
 /** How long a "Saved" mark stays on a setting, in milliseconds. */
@@ -336,21 +312,20 @@ export function flashSetting(id: RowId): void {
   }, settingFlashMs);
 }
 
-/** Puts the saved `name` preference into the data (not undoable). Call once at start. */
-export function loadMyName(): void {
-  const name = getPrefs().name;
-  appStore().bg((data) => {
-    data.myName = name === "" ? null : name;
-  });
-}
-
 /**
- * Sets your name: trimmed, at most 80 characters. Saved as a device preference, then copied into the
- * data. Not undoable. An empty name puts "Add your name" back. Shows "Saved" on the name row.
+ * Sets your name: trimmed, at most 80 characters, on your account (the persister saves it). Not
+ * undoable. An empty name puts "Add your name" back. Shows "Saved" on the name row, and "Saving…"
+ * in the top bar when the name changed.
  */
 export function setMyName(name: string): void {
-  setPref("name", name.trim().slice(0, nameMax).trim());
-  loadMyName();
+  const next = name.trim().slice(0, nameMax).trim();
+  const before = appStore().getState().data;
+  appStore().bg((data) => {
+    data.myName = next === "" ? null : next;
+  });
+  if (appStore().getState().data !== before) {
+    markSaving();
+  }
   flashSetting("name");
 }
 

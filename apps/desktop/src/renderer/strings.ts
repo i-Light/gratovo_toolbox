@@ -9,6 +9,10 @@ export const strings = {
     title: "The app couldn't load its data",
     sub: "Close it and open it again.",
   },
+  saveFailed: {
+    title: "That change wasn't saved",
+    sub: "It will be gone after a restart.",
+  },
   team: {
     you: "You",
     roles: { unauthorized: "Waiting for access", basic: "Team member", full: "Full access" },

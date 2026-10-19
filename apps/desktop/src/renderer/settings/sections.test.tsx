@@ -24,6 +24,8 @@ const press = (key: string, init: KeyboardEventInit = {}) =>
   fireEvent.keyDown(document, { key, ...init });
 const route = () => selectRoute(appStore().getState());
 const ui = () => appStore().getState().ui;
+/** Your name in the data (3d-1 moved it from a preference to the account, so tests read it here). */
+const myName = () => appStore().getState().data.myName;
 const html = () => document.documentElement;
 const nameField = () => screen.getByRole("textbox", { name: text.rows.name.label });
 /** The expanded account button is named by its text: the name (or "Add your name") and the role. */
@@ -48,7 +50,7 @@ describe("Profile", () => {
     await userEvent.type(nameField(), "Maya Chen{Enter}");
     expect(account().textContent).toContain("Maya Chen");
     expect(screen.queryByText(strings.rail.addName)).toBeNull();
-    expect(getPrefs().name).toBe("Maya Chen");
+    expect(myName()).toBe("Maya Chen");
     expect(screen.getByText(text.profile.setHere)).toBeTruthy();
     // The row says Saved.
     expect(within(rowById("set-name")).getByRole("status").textContent).toBe(text.saved);
@@ -58,7 +60,7 @@ describe("Profile", () => {
     render(<App />);
     await userEvent.type(nameField(), "Maya Chen{Escape}");
     expect(nameField()).toHaveProperty("value", "");
-    expect(getPrefs().name).toBe("");
+    expect(myName()).toBeNull();
     expect(account().textContent).toContain(strings.rail.addName);
   });
 
@@ -84,7 +86,7 @@ describe("Profile", () => {
     expect(account().textContent).toContain(strings.rail.addName);
     await userEvent.tab();
     expect(account().textContent).toContain("Maya Chen");
-    expect(getPrefs().name).toBe("Maya Chen");
+    expect(myName()).toBe("Maya Chen");
   });
 
   it("brings 'Add your name' back when the name is emptied", async () => {
@@ -94,7 +96,7 @@ describe("Profile", () => {
     await userEvent.clear(nameField());
     await userEvent.type(nameField(), "{Enter}");
     expect(account().textContent).toContain(strings.rail.addName);
-    expect(getPrefs().name).toBe("");
+    expect(myName()).toBeNull();
     expect(screen.getByText(text.profile.notSet)).toBeTruthy();
   });
 

@@ -22,7 +22,6 @@ import { useSyncExternalStore } from "react";
 
 import { strings } from "../strings";
 import { exampleData } from "./example-data";
-import { getPrefs } from "./prefs";
 import { firstTab, routeFromHash, routeToHash, sameRoute, screens } from "./routes";
 import type { RecordRef, Route, ScreenKey } from "./routes";
 import type { RowId } from "./settings";
@@ -187,12 +186,6 @@ const emptyData: AppData = {
   settings: { notify: {} },
 };
 
-/** The data with `myName` taken from the saved `name` preference (null when none is saved). */
-function withSavedName(data: AppData): AppData {
-  const name = getPrefs().name;
-  return name === "" ? data : { ...data, myName: name };
-}
-
 /** Makes a store holding `data`, starting on `start`. */
 export function createAppStore(
   start: Route,
@@ -236,7 +229,7 @@ export function appStore(): Store<AppData, AppUi> {
  * store once, when this module loads, from the URL hash; replacing it would drop undo and history.
  */
 export function resetAppStoreForTests(start: Route, now: number = Date.now()): void {
-  current = createAppStore(start, now, withSavedName(exampleData(now)));
+  current = createAppStore(start, now, exampleData(now));
   for (const listener of [...resetListeners]) {
     listener();
   }
@@ -253,8 +246,11 @@ export function initAppStore(data: AppData, start: Route): void {
   }
 }
 
-/** Subscribes to whichever store is current, and keeps following after a reset. */
-function subscribeApp(listener: () => void): () => void {
+/**
+ * Subscribes to whichever store is current, and keeps following after a reset (the listener also
+ * runs once right after one; `appStore()` is then the new store).
+ */
+export function subscribeApp(listener: () => void): () => void {
   let unsubscribe = current.subscribe(listener);
   const onReset = (): void => {
     unsubscribe();

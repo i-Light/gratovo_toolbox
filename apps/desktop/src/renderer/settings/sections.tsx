@@ -1,10 +1,11 @@
+import { nameMax } from "@gratovo/core/data";
 import { Avatar, Btn, Empty, Icon, Seg, Switch, Tag, avatarColor } from "@gratovo/ui";
 import type { IconName } from "@gratovo/ui";
 import type { CSSProperties } from "react";
 import { useRef, useState } from "react";
 
 import { flashSetting, setMyName, setNotify } from "../lib/actions";
-import { nameMax, setPref, usePref } from "../lib/prefs";
+import { setPref, usePref } from "../lib/prefs";
 import type { NotifyKind, SettingsSection } from "../lib/settings";
 import { go, useApp } from "../lib/store";
 import { strings } from "../strings";

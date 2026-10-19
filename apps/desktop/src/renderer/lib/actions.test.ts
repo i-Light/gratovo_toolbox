@@ -8,7 +8,6 @@ import {
   closeTray,
   dismissToast,
   flashSetting,
-  loadMyName,
   markAllRead,
   openMenu,
   openRecord,
@@ -25,7 +24,7 @@ import {
   toggleTray,
   undo,
 } from "./actions";
-import { getPrefs, setPref } from "./prefs";
+import { getPrefs, initPrefs, prefsKey } from "./prefs";
 import type { Route } from "./routes";
 import { appStore, resetAppStoreForTests, selectRoute } from "./store";
 
@@ -46,7 +45,6 @@ const setName =
 beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(now);
-  setPref("name", "");
   resetAppStoreForTests(today, now);
 });
 
@@ -62,6 +60,16 @@ describe("act", () => {
     act("Renamed again", setName("Bo"));
     expect(data().log.map((l) => l.text)).toEqual(["Renamed again", "Renamed"]);
     expect(data().log[0]).toMatchObject({ at: now, who: "u1" });
+  });
+
+  it("gives each log line a UUID, so ids never collide with lines saved before a restart", () => {
+    act("One", setName("Ana"));
+    act("Two", setName("Bo"));
+    const ids = data().log.map((l) => l.id);
+    for (const id of ids) {
+      expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    }
+    expect(new Set(ids).size).toBe(2);
   });
 
   it("leaves out the log line with log: false", () => {
@@ -326,6 +334,15 @@ describe("notifications", () => {
     expect(unread()).toBe(2);
   });
 
+  it("shows Saving… when reading one changed something, and not otherwise", () => {
+    readNotification("missing");
+    expect(ui().saving).toBe(false);
+    readNotification("n1");
+    expect(ui().saving).toBe(true);
+    vi.advanceTimersByTime(700);
+    expect(ui().saving).toBe(false);
+  });
+
   it("keeps a read notification read when an older change is undone", () => {
     act("Renamed", setName("Ana"));
     readNotification("n1");
@@ -336,24 +353,31 @@ describe("notifications", () => {
 });
 
 describe("setMyName", () => {
-  it("trims, saves the preference, copies it into the data and flashes the name row", () => {
+  // Your name moved from a device preference to your account (3d-1, G13): the tests that read the
+  // `name` preference now read the data, which the persister writes to the database.
+  it("trims, puts it in the data, flashes the name row and shows Saving…", () => {
     setMyName("  Ada Lovelace ");
-    expect(getPrefs().name).toBe("Ada Lovelace");
     expect(data().myName).toBe("Ada Lovelace");
     expect(ui().settingFlash).toEqual({ id: "name", at: now });
+    expect(ui().saving).toBe(true);
   });
 
   it("keeps at most 80 characters", () => {
     setMyName("x".repeat(100));
-    expect(getPrefs().name).toBe("x".repeat(80));
     expect(data().myName).toBe("x".repeat(80));
   });
 
   it("puts null back when the name is empty", () => {
     setMyName("Ada");
     setMyName("   ");
-    expect(getPrefs().name).toBe("");
     expect(data().myName).toBeNull();
+  });
+
+  it("shows no Saving… when the name is the same", () => {
+    setMyName("Ada");
+    vi.advanceTimersByTime(700);
+    setMyName(" Ada ");
+    expect(ui().saving).toBe(false);
   });
 
   it("is not undoable and leaves no log line", () => {
@@ -372,20 +396,19 @@ describe("setMyName", () => {
   });
 });
 
-describe("the saved name at start", () => {
-  it("loadMyName copies the name preference into the data", () => {
-    setPref("name", "Maya");
-    expect(data().myName).toBeNull();
-    loadMyName();
-    expect(data().myName).toBe("Maya");
+describe("a name saved as a preference by an older build", () => {
+  // The `name` preference and `loadMyName` are gone (G13): the name comes from the database.
+  afterEach(() => {
+    localStorage.clear();
+    initPrefs();
   });
 
-  it("a store made after the preference was read already holds the name", () => {
-    setPref("name", "Maya");
+  it("is ignored: not in the preferences, not in the data", () => {
+    localStorage.setItem(prefsKey, JSON.stringify({ name: "Maya", rail: "min" }));
+    initPrefs();
     resetAppStoreForTests(today, now);
-    expect(data().myName).toBe("Maya");
-    setPref("name", "");
-    resetAppStoreForTests(today, now);
+    expect(getPrefs()).not.toHaveProperty("name");
+    expect(getPrefs().rail).toBe("min");
     expect(data().myName).toBeNull();
   });
 });
