@@ -90,7 +90,7 @@ gratovo_toolbox/
 └── .github/workflows/        CI and releases
 ```
 
-Step 3a created the workspace, the three packages, the desktop shell, the pipeline project, the CI workflow and the hooks. The Supabase migrations, the data layer and the frame come in steps 3b to 3d.
+Only `design/`, `docs/`, `legacy/` and `.claude/` exist so far. Step 3a creates the rest.
 
 ## Security model
 
@@ -117,24 +117,4 @@ Targets: the app opens in under 2 s, and every click answers in under 100 ms.
 
 ## Versions
 
-Pinned in step 3a (2026-10-19). The exact versions are in the lockfiles (`pnpm-lock.yaml`, `services/pipeline/uv.lock`). Why some are held back: [decisions/0007-toolchain-pins.md](decisions/0007-toolchain-pins.md).
-
-| Tool | Version | Where it is pinned |
-|---|---|---|
-| Node | 22.22.0 | `.nvmrc`, `engines` |
-| pnpm | 10.28.0 | `packageManager` |
-| Electron | 44.9.0 | `apps/desktop` |
-| electron-vite | 6.0.0 | `apps/desktop` |
-| Vite | 8.3.4 | `apps/desktop` |
-| React, react-dom | 19.3.1 | `apps/desktop` |
-| TypeScript | 6.0.3 | root (7.0 waits for typescript-eslint) |
-| Vitest | 5.0.5 | root |
-| Playwright | 1.64.1 | `apps/desktop` |
-| ESLint | 10.13.0 | root |
-| typescript-eslint | 8.71.2 | root |
-| Prettier | 3.9.10 | root |
-| zod | 4.6.7 | `packages/ipc`, `apps/desktop` |
-| lefthook | 2.2.2 | root |
-| Python | 3.13 (`.python-version`), 3.12 minimum | `services/pipeline` |
-| uv | 0.11.32 (the version used to lock) | not pinned in the repo; CI uses `astral-sh/setup-uv` |
-| ruff, pyright, pytest | as locked in `uv.lock` | `services/pipeline` |
+Recorded when step 3a pins them: Electron, Node, React, TypeScript, Vite, pnpm, Python and uv.

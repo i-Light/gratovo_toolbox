@@ -5,34 +5,40 @@ Where work stopped and exactly what to do next. Update this file at the end of e
 ## Now
 
 - **Date:** 2026-10-19
-- **Plan step:** 0 done; **3a built** (toolchain and skeleton). Next is **CI confirmation for 3a** on the pull request, then **3b** (security baseline).
-- **Branch:** `claude/pensive-bell-7fy7xz`. Not merged. No pull request opened unless the owner asks.
-- **Owner actions still open:** A1 to A6 in [migration-plan.md §4](migration-plan.md#4-owner-actions). For 3a: **A2** (the GitHub repository must exist for CI to run) and **A4** (stack confirmation, recorded as accepted). Ask the owner about A1 (key rotation) before any step touches R2 or YouTube.
-- **Owner setup for CI:** the secret scan uses `gitleaks/gitleaks-action`. If the repository belongs to an organisation, it needs a `GITLEAKS_LICENSE` secret. Branch protection on `main` is still to be set (step 3g).
-
-## Verified in 3a (on Linux, 2026-10-19)
-
-- `pnpm install --frozen-lockfile` (on a clean clone), `pnpm lint`, `pnpm typecheck`, `pnpm test` (Vitest 12 tests, Electron smoke test, pytest 1), and `uv run pytest` all green. The Electron test ran under `xvfb-run -a`.
-- **Not yet verified:** Windows, and the CI run itself. Check the Actions run on the pull request before calling 3a done.
+- **Plan step:** 0 done; **step 3 (foundation) is next, starting with 3a** (toolchain and skeleton).
+- **Branch:** `main`. One commit: the fresh repository.
+- **Owner actions still open:** A1 to A6 in [migration-plan.md §4](migration-plan.md#4-owner-actions). Before 3a, only **A2** (this repository on GitHub) and **A4** (stack confirmation, recorded as accepted) matter. Ask the owner about A1 (key rotation) before any step touches R2 or YouTube.
 
 ## What exists
 
-- `docs/`: the plan, architecture, conventions, workflow, decisions 0001 to 0007, and the product record ([product/README.md](product/README.md)).
+- `docs/`: the plan, architecture, conventions, workflow, decisions 0001 to 0006, and the product record ([product/README.md](product/README.md)).
 - `design/workbench-prototype/`: the approved prototype and its Playwright checks (all green on 2026-10-19).
 - `legacy/`: the old app's source, read only ([legacy/ABOUT.md](../legacy/ABOUT.md)).
-- `apps/desktop/`: the Electron shell. A blank window with the secure settings and the design tokens. Electron test in `e2e/`.
-- `packages/core`: the deal flow (`DEAL_FLOW`, ported from the prototype). `packages/ui`: the design tokens (`tokens.css`, copied from the prototype). `packages/ipc`: zod schemas for IPC channels (one: `app:ping`).
-- `services/pipeline/`: a uv project with ruff, pyright and pytest, and one placeholder test.
-- Root: pnpm workspace, ESLint, Prettier, Vitest, lefthook hooks (prettier, eslint, ruff, gitleaks if installed), `.github/workflows/ci.yml`.
 - `.claude/`: 27 project skills, the five `router-*` agents, and settings (plugins, deny rules for secret files).
 
-## Next
+## Next: step 3a, toolchain and repository skeleton
 
-1. **Confirm CI for 3a.** Push the branch and check the Actions run on Ubuntu and Windows. If Windows fails, fix it in this branch. Do not call 3a done until both systems are green.
-2. **Step 3b, security baseline** (migration plan §6). Start with `.router/`: write `PLAN.md` for 3b. Scope: the typed IPC bridge, the navigation and permission guards that already exist (check them against SECURITY.md), the `secrets` module on `safeStorage`, CSP and fuses, and the CI jobs for gitleaks, audit, CodeQL and Dependabot.
-3. Keep the checks green on every change: `pnpm lint`, `pnpm typecheck`, `xvfb-run -a pnpm test` on Linux, and `uv run --directory services/pipeline pytest`.
+The goal and acceptance checks are in [migration-plan.md, step 3a](migration-plan.md#step-3-foundation). Concretely:
 
-**Open for the owner:** A2 (create the GitHub repository) and A4. Upgrades held back by version: [decisions/0007-toolchain-pins.md](decisions/0007-toolchain-pins.md).
+1. **Plan the step** with the `smart-task-router` skill. Write `.router/CONTEXT.md` (this repository is small: docs plus the prototype) and `.router/PLAN.md` for 3a.
+2. **Workspace.**
+   - `pnpm-workspace.yaml` covering `apps/*` and `packages/*`.
+   - A root `package.json` with scripts `lint`, `typecheck`, `test`, `format`, `dev`, `build`.
+   - `packageManager` pinned; `.npmrc` with `engine-strict=true` and `save-exact=true`; `.nvmrc` with the Node version.
+3. **TypeScript:** a `tsconfig.base.json` with the strict options from [conventions.md](conventions.md#typescript); project references for each package.
+4. **Packages:**
+   - `packages/core`: an empty domain with one real export to prove the wiring, for example the `DEAL_FLOW` definition ported from the prototype's `data.js`, with a Vitest test.
+   - `packages/ui`: the design tokens ported from `design/workbench-prototype/index.html` (`:root`, both dark blocks, density, sizes, motion) as `tokens.css`.
+   - `packages/ipc`: zod, with one example channel schema.
+5. **App:** `apps/desktop` via electron-vite (React and TypeScript) showing a blank frame that loads `tokens.css`. The secure `BrowserWindow` settings from [SECURITY.md](../SECURITY.md) go in from the first commit.
+6. **Quality:** ESLint flat config (typescript-eslint strict-type-checked, react-hooks, jsx-a11y); Prettier; Vitest; Playwright with one Electron smoke test; lefthook (or simple-git-hooks) with lint-staged and gitleaks.
+7. **Python:** `services/pipeline/` with `pyproject.toml` (uv), ruff, pyright, pytest and one placeholder test. The real port is step 3e.
+8. **CI:** `.github/workflows/ci.yml` running lint, typecheck and tests on Ubuntu and Windows, plus gitleaks. Branch protection is set by the owner in GitHub settings; ask them.
+9. **Record** the pinned versions in [architecture.md](architecture.md#versions).
+
+**Done when:** a clean clone runs `pnpm install && pnpm lint && pnpm typecheck && pnpm test` and `uv run pytest` green; the Electron smoke test passes (on Linux CI use `xvfb-run`); CI is green on both systems.
+
+**Then:** 3b (security baseline) and 3c (app shell from the prototype), each in its own pull request.
 
 ## Notes for whoever picks this up
 
@@ -46,4 +52,3 @@ Where work stopped and exactly what to do next. Update this file at the end of e
 | Date | Session | What happened |
 |---|---|---|
 | 2026-10-19 | Local (Opus) | The old repo committed (`43596b8`) and backed up. This repository created: plan, docs, decisions, product record, prototype, project skills, `legacy/` with secrets excluded. A security finding: the old repo's tracked `data/.env` holds live keys, so the owner must rotate them (A1). |
-| 2026-10-19 | Cloud (Haiku 5.5) | Step 3a: planned with `smart-task-router` (`.router/`), toolchain and skeleton built, pins recorded (ADR 0007). Local checks green on Linux; CI not yet confirmed. |
