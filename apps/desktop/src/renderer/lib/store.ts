@@ -111,8 +111,11 @@ export function appStore(): Store<AppData, AppUi> {
   return current;
 }
 
-/** Replaces the app store with a fresh one starting on `start`. Used once at boot (from the URL hash) and by tests. */
-export function resetAppStore(start: Route, now: number = Date.now()): void {
+/**
+ * Tests only: replaces the app store with a fresh one starting on `start`. The app itself makes its
+ * store once, when this module loads, from the URL hash; replacing it would drop undo and history.
+ */
+export function resetAppStoreForTests(start: Route, now: number = Date.now()): void {
   current = createAppStore(start, now);
   for (const listener of [...resetListeners]) {
     listener();

@@ -1,24 +1,15 @@
 import { canGoBack, canGoForward } from "@gratovo/core";
 import { Avatar, Icon, IconBtn, avatarColor, cx } from "@gratovo/ui";
-import { memo, useEffect, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 
 import { ago } from "../lib/format";
 import { screens } from "../lib/routes";
-import {
-  back,
-  forward,
-  memo as memoize,
-  selectRoute,
-  setRailOpen,
-  appStore,
-  useApp,
-} from "../lib/store";
-import type { Member } from "../lib/store";
+import { back, forward, selectRoute, setRailOpen, useApp } from "../lib/store";
 import { strings } from "../strings";
+import { railId } from "./rail";
 
-const onlineOthers = memoize((input: { readonly team: readonly Member[]; readonly me: string }) =>
-  input.team.filter((m) => m.status === "online" && m.id !== input.me),
-);
+/** The Menu button's id, so focus can come back to it when the drawer closes. */
+export const menuButtonId = "menu-button";
 
 /** The crumbs: the screen's name, then the tab's name when the route has one. */
 function Crumbs() {
@@ -31,9 +22,9 @@ function Crumbs() {
     <nav className="crumbs hide-narrow" aria-label={strings.top.crumbs}>
       {crumbs.map((name, i) =>
         i === crumbs.length - 1 ? (
-          <b key={name}>{name}</b>
+          <b key={i}>{name}</b>
         ) : (
-          <span key={name} className="row" style={{ gap: "6px" }}>
+          <span key={i} className="row" style={{ gap: "6px" }}>
             {name}
             <Icon name="chevR" size={12} className="flip" />
           </span>
@@ -115,19 +106,43 @@ function SaveState() {
 function Presence() {
   const team = useApp((s) => s.data.team);
   const me = useApp((s) => s.data.me);
+  const online = useMemo(
+    () => team.filter((m) => m.status === "online" && m.id !== me),
+    [team, me],
+  );
   return (
     <span className="avs hide-narrow" style={{ marginInlineStart: "6px" }}>
-      {onlineOthers({ team, me }).map((m) => (
+      {online.map((m) => (
         <Avatar
           key={m.id}
           name={m.name}
           color={avatarColor(m.id === "u1" ? "owner" : m.name)}
           size="s"
           status="online"
-          tip={`${m.name} · ${m.role}`}
+          tip={strings.rail.memberTip(m.name, m.role)}
         />
       ))}
     </span>
+  );
+}
+
+/** Opens and closes the rail's drawer at narrow widths. */
+function MenuButton() {
+  const railOpen = useApp((s) => s.ui.railOpen);
+  return (
+    <button
+      type="button"
+      id={menuButtonId}
+      className="iconbtn only-narrow"
+      onClick={() => {
+        setRailOpen(!railOpen);
+      }}
+      aria-label={strings.top.menu}
+      aria-expanded={railOpen}
+      aria-controls={railId}
+    >
+      <Icon name="sidebar" />
+    </button>
   );
 }
 
@@ -138,16 +153,7 @@ function Presence() {
 export const TopBar = memo(function TopBar() {
   return (
     <header className="top">
-      <button
-        type="button"
-        className="iconbtn only-narrow"
-        onClick={() => {
-          setRailOpen(!appStore().getState().ui.railOpen);
-        }}
-        aria-label={strings.top.menu}
-      >
-        <Icon name="sidebar" />
-      </button>
+      <MenuButton />
       <HistoryButtons />
       <Crumbs />
       {/* The command palette arrives in step 3c-2; until then this button does nothing. */}

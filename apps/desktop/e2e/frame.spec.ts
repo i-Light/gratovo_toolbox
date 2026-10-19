@@ -13,8 +13,9 @@ test.describe("the app frame", () => {
   });
 
   test("follows the rail, Back and Forward", async ({ page }) => {
-    const back = page.getByRole("button", { name: top.back });
-    const forward = page.getByRole("button", { name: top.forward });
+    // Exact names: "Back" is also the start of "Background jobs".
+    const back = page.getByRole("button", { name: top.back, exact: true });
+    const forward = page.getByRole("button", { name: top.forward, exact: true });
     const find = page
       .getByRole("navigation", { name: rail.label })
       .getByRole("button", { name: new RegExp(`^${screens.find.name}`) });

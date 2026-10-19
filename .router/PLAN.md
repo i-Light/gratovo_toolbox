@@ -339,6 +339,13 @@ export const strings = {
 
 Time words: port `W.dur(min)` ("1 h 30 min", "45 min") and `W.ago(ts)` ("just now", "n min ago", "n h ago", "yesterday", "n days ago") into `lib/format.ts`, taking their words from `strings.time`.
 
+## Contract changes made while building (these win over the text above)
+
+- `lib/store.ts`: `appStore()` is a function (the current store), and `resetAppStoreForTests(start, now?)` replaces it in tests; the app makes its store once, when the module loads, from the URL hash. `installHashSync()` lives there too. Example data is in `lib/example-data.ts`.
+- `strings.rail.online` became `roleOnline(role)`; `memberTip(name, role)` was added.
+- `lib/media.ts`: `useNarrow()` (the 760 px query). The narrow drawer is inert while closed, closes when the window widens, takes focus when it opens and gives it back to the Menu button (`aria-expanded`, `aria-controls`).
+- `packages/ui`: the Avatar component lives in `avatar-view.tsx` (`avatar.ts` holds the helpers) and has `role="img"`.
+
 ## Tasks
 
 | id | title | tier | depends_on | files |

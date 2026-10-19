@@ -11,7 +11,7 @@ import {
   go,
   installHashSync,
   memo,
-  resetAppStore,
+  resetAppStoreForTests,
   selectProblems,
   selectRoute,
   setRailOpen,
@@ -24,7 +24,7 @@ const now = new Date(2026, 9, 19, 10, 24, 0).getTime();
 const route = (): Route => selectRoute(appStore().getState());
 
 beforeEach(() => {
-  resetAppStore(today, now);
+  resetAppStoreForTests(today, now);
 });
 
 afterEach(cleanup);
@@ -124,11 +124,11 @@ describe("back and forward", () => {
   });
 });
 
-describe("resetAppStore", () => {
+describe("resetAppStoreForTests", () => {
   it("replaces the store, starting on the given route", () => {
     go("find");
     const old = appStore();
-    resetAppStore({ screen: "close", tab: "brands" }, now);
+    resetAppStoreForTests({ screen: "close", tab: "brands" }, now);
     expect(appStore()).not.toBe(old);
     expect(route()).toEqual({ screen: "close", tab: "brands" });
     expect(appStore().getState().ui.history.entries).toHaveLength(1);
@@ -167,7 +167,7 @@ describe("installHashSync", () => {
     const spy = vi.spyOn(history, "replaceState");
     stop = installHashSync();
     spy.mockClear();
-    resetAppStore({ screen: "deliver", tab: "money" }, now);
+    resetAppStoreForTests({ screen: "deliver", tab: "money" }, now);
     expect(spy).toHaveBeenLastCalledWith(null, "", "#/deliver/money");
     stop();
     spy.mockClear();
@@ -198,7 +198,7 @@ describe("useApp", () => {
   it("keeps following after a reset", () => {
     const { result } = renderHook(() => useApp(selectRoute));
     act(() => {
-      resetAppStore({ screen: "team", tab: null }, now);
+      resetAppStoreForTests({ screen: "team", tab: null }, now);
     });
     expect(result.current).toEqual({ screen: "team", tab: null });
     act(() => {
@@ -222,5 +222,24 @@ describe("memo and problems", () => {
   it("returns the same empty problems array every time", () => {
     expect(selectProblems()).toEqual([]);
     expect(selectProblems()).toBe(selectProblems());
+  });
+});
+
+describe("the store at boot", () => {
+  afterEach(() => {
+    history.replaceState(null, "", "#");
+    vi.resetModules();
+  });
+
+  it.each([
+    ["#/close/brands", { screen: "close", tab: "brands" }],
+    ["#/find/nowhere", { screen: "find", tab: "search" }],
+    ["#/nowhere", { screen: "today", tab: null }],
+  ] as const)("starts from the URL hash %s", async (hash, expected) => {
+    history.replaceState(null, "", hash);
+    vi.resetModules();
+    // A fresh copy of the module makes its store from the hash, as the app does when it loads.
+    const fresh = await import("./store");
+    expect(fresh.selectRoute(fresh.appStore().getState())).toEqual(expected);
   });
 });

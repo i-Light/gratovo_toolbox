@@ -14,8 +14,10 @@ function prototypeIcons(): [string, string[]][] {
     throw new Error("No `var I = { ... };` block in the prototype's core.js");
   }
   const entries: [string, string[]][] = [];
-  for (const entry of block.matchAll(/(\w+):\[((?:"(?:[^"\\]|\\.)*"\s*,?\s*)*)\]/g)) {
-    const strings = [...(entry[2] ?? "").matchAll(/"((?:[^"\\]|\\.)*)"/g)].map((s) => s[1] ?? "");
+  // Icon strings hold only path data (no quotes, brackets or escapes), so plain character classes
+  // are enough and the patterns can't backtrack.
+  for (const entry of block.matchAll(/(\w+):\[([^\]]*)\]/g)) {
+    const strings = [...(entry[2] ?? "").matchAll(/"([^"]*)"/g)].map((s) => s[1] ?? "");
     entries.push([entry[1] ?? "", strings]);
   }
   return entries;

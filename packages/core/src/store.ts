@@ -130,17 +130,10 @@ export function createStore<D, U>(options: StoreOptions<D, U>): Store<D, U> {
     },
 
     bg(recipe) {
-      const changes = { count: 0 };
-      const apply = (data: D): D => {
-        const next = produce(data, (draft) => {
+      const apply = (data: D): D =>
+        produce(data, (draft) => {
           recipe(draft);
         });
-        if (next !== data) {
-          changes.count += 1;
-        }
-        return next;
-      };
-      const data = apply(state.data);
       const mapSteps = (steps: UndoStep<D>[]): UndoStep<D>[] =>
         steps.map((step) => {
           const stepData = apply(step.data);
@@ -148,7 +141,9 @@ export function createStore<D, U>(options: StoreOptions<D, U>): Store<D, U> {
         });
       undoSteps = mapSteps(undoSteps);
       redoSteps = mapSteps(redoSteps);
-      if (changes.count === 0) {
+      const data = apply(state.data);
+      // Listeners read the state, so they hear only of a change to the current data.
+      if (data === state.data) {
         return;
       }
       setState(data, state.ui);

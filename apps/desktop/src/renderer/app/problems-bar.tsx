@@ -27,6 +27,7 @@ export function ProblemsBar({ problems }: { readonly problems: readonly Problem[
             <button
               type="button"
               className="linkbtn"
+              aria-expanded={open}
               onClick={() => {
                 setOpen(!open);
               }}

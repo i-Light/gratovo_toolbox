@@ -2,13 +2,14 @@ import { cx } from "@gratovo/ui";
 import { memo, useEffect, useLayoutEffect, useRef } from "react";
 
 import { useKeys } from "../lib/keys";
+import { useNarrow } from "../lib/media";
 import { usePref } from "../lib/prefs";
 import { selectProblems, selectRoute, setRailOpen, useApp } from "../lib/store";
 import { useGlobalKeys, useKeyListener } from "./global-keys";
 import { PlaceholderScreen } from "./placeholder-screen";
 import { ProblemsBar } from "./problems-bar";
-import { Rail } from "./rail";
-import { TopBar } from "./top-bar";
+import { Rail, railId } from "./rail";
+import { TopBar, menuButtonId } from "./top-bar";
 
 /** The bars under the top bar. Writes their height to `--bars-h` so later overlays can sit below them. */
 const Bars = memo(function Bars() {
@@ -50,6 +51,27 @@ const Content = memo(function Content() {
 });
 
 /**
+ * Moves focus into the drawer when it opens (to the current screen's button), and back to the Menu
+ * button when it closes with focus inside it or lost (the closed drawer is inert).
+ */
+function useDrawerFocus(open: boolean): void {
+  const wasOpen = useRef(false);
+  useEffect(() => {
+    const rail = document.getElementById(railId);
+    if (open && !wasOpen.current) {
+      const current = rail?.querySelector<HTMLElement>('.nav[aria-current="page"]');
+      (current ?? rail?.querySelector<HTMLElement>(".nav"))?.focus();
+    } else if (!open && wasOpen.current) {
+      const active = document.activeElement;
+      if (active === null || active === document.body || rail?.contains(active) === true) {
+        document.getElementById(menuButtonId)?.focus();
+      }
+    }
+    wasOpen.current = open;
+  }, [open]);
+}
+
+/**
  * The app frame: rail, top bar, problems bar and the content area, plus the narrow-width drawer
  * and the document key listener. It subscribes only to the rail preference and the drawer state;
  * each part below reads its own slice, so a change to one does not re-render the others.
@@ -59,18 +81,27 @@ export function App() {
   useKeyListener();
   const railMin = usePref("rail") === "min";
   const railOpen = useApp((s) => s.ui.railOpen);
+  const narrow = useNarrow();
+  const drawerOpen = narrow && railOpen;
+  // A drawer left open while the window widens would come back open later, so it closes.
+  useEffect(() => {
+    if (!narrow) {
+      setRailOpen(false);
+    }
+  }, [narrow]);
+  useDrawerFocus(drawerOpen);
   useKeys(
     {
       escape: () => {
         setRailOpen(false);
       },
     },
-    { active: railOpen },
+    { active: drawerOpen },
   );
   return (
     <div className={cx("app", railMin && "rail-min", railOpen && "rail-open")}>
       <Rail />
-      {railOpen ? (
+      {drawerOpen ? (
         <div
           className="scrim only-narrow"
           role="presentation"

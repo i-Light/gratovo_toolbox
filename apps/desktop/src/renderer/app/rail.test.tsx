@@ -4,8 +4,8 @@ import userEvent from "@testing-library/user-event";
 import { Profiler } from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { initPrefs } from "../lib/prefs";
-import { appStore, go, resetAppStore } from "../lib/store";
+import { initPrefs, setPref } from "../lib/prefs";
+import { appStore, go, resetAppStoreForTests } from "../lib/store";
 import { strings } from "../strings";
 import { App } from "./app";
 import { Rail } from "./rail";
@@ -13,7 +13,7 @@ import { Rail } from "./rail";
 beforeEach(() => {
   localStorage.clear();
   initPrefs();
-  resetAppStore({ screen: "today", tab: null });
+  resetAppStoreForTests({ screen: "today", tab: null });
 });
 
 afterEach(cleanup);
@@ -88,6 +88,17 @@ describe("the rail", () => {
     const account = screen.getByRole("button", { name: strings.rail.account("You") });
     expect(within(account).getByText("Maya")).toBeTruthy();
     expect(within(account).queryByText(strings.rail.addName)).toBeNull();
+  });
+});
+
+describe("the collapsed rail", () => {
+  it("still names every screen's button, though its text is hidden", () => {
+    setPref("rail", "min");
+    render(<App />);
+    for (const key of ["today", "find", "reach", "close", "deliver"] as const) {
+      const name = strings.screens[key].name;
+      expect(within(rail()).getByRole("button", { name }).getAttribute("aria-label")).toBe(name);
+    }
   });
 });
 

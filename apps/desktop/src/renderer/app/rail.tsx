@@ -3,6 +3,7 @@ import type { CSSProperties } from "react";
 import { memo, useEffect, useRef } from "react";
 
 import { duration } from "../lib/format";
+import { useNarrow } from "../lib/media";
 import { setPref, usePref } from "../lib/prefs";
 import { screens, type ScreenKey } from "../lib/routes";
 import { go, selectRoute, useApp } from "../lib/store";
@@ -42,6 +43,8 @@ const NavItem = memo(function NavItem({
       className="nav"
       style={{ "--hue": info.hue } as CSSProperties}
       aria-current={current ? "page" : undefined}
+      // Collapsed, the name and count are hidden, so the button needs a name of its own.
+      aria-label={collapsed ? info.name : undefined}
       data-tip={collapsed ? info.name : undefined}
       onClick={() => {
         go(screen);
@@ -64,6 +67,9 @@ const NavItem = memo(function NavItem({
   );
 });
 
+/** The rail's id, so the Menu button can name the drawer it opens. */
+export const railId = "rail";
+
 /**
  * The left rail: brand, the screens with their counts, and the account button with the collapse
  * toggle. It shows a drawer at narrow widths. Memoized: it re-renders only when a slice it shows changes.
@@ -75,6 +81,8 @@ export const Rail = memo(function Rail() {
   const myName = useApp((s) => s.data.myName);
   const me = useApp((s) => s.data.team.find((m) => m.id === s.data.me));
   const collapsed = usePref("rail") === "min";
+  const railOpen = useApp((s) => s.ui.railOpen);
+  const narrow = useNarrow();
   const { rail } = strings;
 
   const named = meId !== "u1" || myName !== null;
@@ -93,7 +101,9 @@ export const Rail = memo(function Rail() {
   );
 
   return (
-    <nav className="rail" aria-label={rail.label}>
+    // At narrow widths the closed drawer is only moved off screen, so it is made inert: Tab
+    // must not reach buttons nobody can see.
+    <nav className="rail" id={railId} aria-label={rail.label} inert={narrow && !railOpen}>
       <div className="brand">
         <span className="logo" aria-hidden="true"></span>
         <div>
@@ -127,7 +137,7 @@ export const Rail = memo(function Rail() {
           }}
           aria-current={screen === "settings" ? "page" : undefined}
           aria-label={rail.account(memberName)}
-          data-tip={collapsed ? `${memberName} · ${role}` : undefined}
+          data-tip={collapsed ? rail.memberTip(memberName, role) : undefined}
         >
           <Avatar
             name={meId === "u1" ? (myName ?? memberName) : memberName}

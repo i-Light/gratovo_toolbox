@@ -186,6 +186,22 @@ describe("store.bg", () => {
     store.bg(() => undefined);
     expect(listener).toHaveBeenCalledTimes(1);
   });
+
+  it("doesn't notify when only older steps change", () => {
+    const store = make();
+    store.act("One", (d) => void (d.count = 1));
+    const listener = vi.fn();
+    store.subscribe(listener);
+    // Only the step before "One" has count 0, so only it changes.
+    store.bg((d) => {
+      if (d.count === 0) {
+        d.job = "x";
+      }
+    });
+    expect(listener).not.toHaveBeenCalled();
+    expect(store.peekUndo()?.data.job).toBe("x");
+    expect(store.getState().data.job).toBeUndefined();
+  });
 });
 
 describe("store.ui", () => {

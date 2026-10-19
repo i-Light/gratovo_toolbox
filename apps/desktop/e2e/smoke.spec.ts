@@ -25,8 +25,10 @@ test("loads both fonts from the app's own files", async ({ page }) => {
       status: face.status,
     }));
     return {
-      ui: document.fonts.check("16px 'Readex Pro'"),
-      mono: document.fonts.check("16px 'IBM Plex Mono'"),
+      // At the weights the page uses: check() says false for a face nobody has asked for yet,
+      // such as Plex 400 when only the 500 key hints are on screen.
+      ui: document.fonts.check("400 16px 'Readex Pro'"),
+      mono: document.fonts.check("500 16px 'IBM Plex Mono'"),
       faces,
     };
   });

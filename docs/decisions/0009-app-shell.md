@@ -16,13 +16,13 @@ Step 3c ports the prototype's frame into the real app: the rail, the top bar, th
 5. **Fonts are local files** from the Fontsource packages (Readex Pro variable, IBM Plex Mono 400, 500 and 600), in the latin and latin-ext subsets. Our own `@font-face` rules keep the family names the tokens use. The CSP allows fonts from the app only.
 6. **Routes live in the URL hash** (`#/find/triage`), written with `history.replaceState`. A `pushState` path isn't a file under `app://`, so a reload there would fail (ADR 0008). Back and forward use the app's own history list, capped at 100 entries.
 7. **Device preferences** (theme, density, text size, motion, single-letter keys, collapsed rail) sit in one `localStorage` key, checked with zod when read, and are applied to `<html>` before the first render.
-8. **Key rules are kept from the prototype.** Plain keys never fire while you type in a field. Turning single-letter keys off turns off every one-character key (`?`, `[`, `/`, `G` too). Esc, arrows, Enter, Ctrl and Alt keys still work. One addition: Esc closes the narrow drawer.
+8. **Key rules are kept from the prototype.** Plain keys never fire while you type in a field. Turning single-letter keys off turns off every one-character key (`?`, `[`, `/`, `G` too). Esc, arrows, Enter, Ctrl and Alt keys still work. Additions for keyboard and screen-reader users: Esc closes the narrow drawer, focus moves into it and back to the Menu button, the closed drawer is inert, and collapsed rail buttons keep their names.
 9. **Not ported:** the prototype's "The plan" page and its "Why is this here?" design-notes button and layer. They are review tools for the prototype, and the plan's list for 3c leaves them out. If the owner wants them in the app, they come with step 9.
 10. **Example frame data until 3d.** The rail counts, the team and the notifications are a typed example constant (the prototype's numbers and people) until the data layer replaces it.
 
 ## Alternatives considered
 
-- **zustand for the store:** its selector hooks are what decision 3 needs, but the undo, redo and background-job rules are the hard part and are ours either way. A small store on `useSyncExternalStore` covers it with no extra dependency.
+- **zustand for the store:** its selector hooks are what decision 3 needs, but the undo, redo and background-job rules are the hard part and are ours either way. A small store on `useSyncExternalStore` covers it with no dependency beyond immer.
 - **CSS modules:** scoped class names would make the port harder to compare with the prototype, and the screens share many classes (`.btn`, `.card`, `.li`).
 - **Copying the font files into the repository:** the Fontsource packages are versioned and Dependabot keeps them current.
 

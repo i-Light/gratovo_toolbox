@@ -3,15 +3,16 @@ import { act, cleanup, fireEvent, render, screen, within } from "@testing-librar
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { narrowQuery } from "../lib/media";
 import { getPrefs, initPrefs, prefsKey, setPref } from "../lib/prefs";
-import { appStore, go, resetAppStore, selectRoute } from "../lib/store";
+import { appStore, go, resetAppStoreForTests, selectRoute } from "../lib/store";
 import { strings } from "../strings";
 import { App } from "./app";
 
 beforeEach(() => {
   localStorage.clear();
   initPrefs();
-  resetAppStore({ screen: "today", tab: null });
+  resetAppStoreForTests({ screen: "today", tab: null });
   delete document.documentElement.dataset["input"];
 });
 
@@ -163,18 +164,61 @@ describe("the keys", () => {
   });
 });
 
+/**
+ * Makes `matchMedia` answer the narrow-window query with `narrow`. Returns a function that changes
+ * the answer and tells the listeners, as a resized window would.
+ */
+function mockNarrow(narrow: boolean): (next: boolean) => void {
+  let matches = narrow;
+  const listeners = new Set<() => void>();
+  vi.spyOn(window, "matchMedia").mockImplementation(
+    (query: string) =>
+      ({
+        get matches() {
+          return query === narrowQuery && matches;
+        },
+        media: query,
+        addEventListener: (_type: string, listener: () => void) => {
+          listeners.add(listener);
+        },
+        removeEventListener: (_type: string, listener: () => void) => {
+          listeners.delete(listener);
+        },
+      }) as unknown as MediaQueryList,
+  );
+  return (next) => {
+    matches = next;
+    act(() => {
+      for (const listener of listeners) {
+        listener();
+      }
+    });
+  };
+}
+
 describe("the narrow drawer", () => {
   const menu = () => screen.getByRole("button", { name: strings.top.menu });
+  const railNav = () => screen.getByRole("navigation", { name: strings.rail.label, hidden: true });
 
-  it("opens with the Menu button and closes with Esc", async () => {
+  it("opens with the Menu button and closes with Esc, moving focus in and back", async () => {
+    mockNarrow(true);
     const { container } = render(<App />);
+    expect(menu().getAttribute("aria-expanded")).toBe("false");
+    expect(railNav().hasAttribute("inert")).toBe(true);
+
     await userEvent.click(menu());
     expect(appElement(container)?.classList.contains("rail-open")).toBe(true);
+    expect(menu().getAttribute("aria-expanded")).toBe("true");
+    expect(railNav().hasAttribute("inert")).toBe(false);
+    expect(document.activeElement?.getAttribute("aria-current")).toBe("page");
+
     press("Escape");
     expect(appElement(container)?.classList.contains("rail-open")).toBe(false);
+    expect(document.activeElement).toBe(menu());
   });
 
   it("closes when the scrim is clicked", async () => {
+    mockNarrow(true);
     const { container } = render(<App />);
     await userEvent.click(menu());
     const scrim = container.querySelector(".scrim");
@@ -184,14 +228,24 @@ describe("the narrow drawer", () => {
   });
 
   it("closes when a screen is chosen", async () => {
+    mockNarrow(true);
     const { container } = render(<App />);
     await userEvent.click(menu());
     await userEvent.click(
-      within(screen.getByRole("navigation", { name: strings.rail.label })).getByRole("button", {
+      within(railNav()).getByRole("button", {
         name: new RegExp(`^${strings.screens.reach.name}`),
       }),
     );
     expect(route().screen).toBe("reach");
     expect(appElement(container)?.classList.contains("rail-open")).toBe(false);
+  });
+
+  it("closes when the window widens, so Esc is free again", async () => {
+    const resize = mockNarrow(true);
+    const { container } = render(<App />);
+    await userEvent.click(menu());
+    resize(false);
+    expect(appElement(container)?.classList.contains("rail-open")).toBe(false);
+    expect(railNav().hasAttribute("inert")).toBe(false);
   });
 });

@@ -18,6 +18,8 @@ export const strings = {
     account: (name: string) => `Your account: ${name}`,
     addName: "Add your name",
     roleOnline: (role: string) => `${role} · online`,
+    /** A teammate's tooltip: their name and role. */
+    memberTip: (name: string, role: string) => `${name} · ${role}`,
   },
   top: {
     menu: "Menu",

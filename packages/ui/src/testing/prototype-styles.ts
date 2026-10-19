@@ -21,9 +21,11 @@ export function normalizeSelector(selector: string): string {
   return selector
     .split(",")
     .map((part) =>
+      // Spaces are collapsed first, so the combinator pattern needs at most one on each side
+      // (no runs of `\s*` that could backtrack). `(?!=)` leaves `~=` in attribute selectors alone.
       part
-        .replace(/\s*([>+~])(?!=)\s*/g, " $1 ")
         .replace(/\s+/g, " ")
+        .replace(/ ?([>+~])(?!=) ?/g, " $1 ")
         .trim(),
     )
     .join(", ");

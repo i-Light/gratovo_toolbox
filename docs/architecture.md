@@ -53,7 +53,7 @@ The core has no I/O, so it is unit-tested exhaustively. The prototype's `engine.
 ## UI
 
 - **Design tokens:** CSS custom properties, ported from the prototype's `index.html`. Light and dark, phase hues, status colours used only for status, Readex Pro and IBM Plex Mono, density, and two easing curves (`--ease-out`, `--ease-drawer`).
-- **Components:** `packages/ui` holds the button, icon button, tag, avatar, menu, tooltip, toast, tabs, segmented control, meter, steps, empty state, callout, field and switch, ported from the prototype with its roles. No primitives library: the key stack owns Escape and outside clicks, and modal layers use the native `<dialog>` ([decisions/0009](decisions/0009-app-shell.md)).
+- **Components:** `packages/ui` holds (or will hold, as step 3c goes on) the button, icon button, tag, avatar, menu, tooltip, toast, tabs, segmented control, meter, steps, empty state, callout, field and switch, ported from the prototype with its roles. No primitives library: the key stack owns Escape and outside clicks, and modal layers use the native `<dialog>` ([decisions/0009](decisions/0009-app-shell.md)).
 - **The frame:** rail, top bar, peek panel, command palette, trays, bars, toasts.
 - **Screens:** Today, Find, Reach, Close, Deliver, Insights, Toolbox, Team, Settings, with record pages and peeks.
 - **State:**
