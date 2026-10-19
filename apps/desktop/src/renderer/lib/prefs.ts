@@ -12,12 +12,22 @@ export interface Prefs {
   readonly letters: "" | "off";
   /** "min" collapses the rail. */
   readonly rail: "" | "min";
+  /** Your name on this computer: trimmed, at most 80 characters. Not applied to the page. */
+  readonly name: string;
 }
 
 /** The one localStorage key that holds all preferences as JSON. */
 export const prefsKey = "gratovo.prefs";
 
-const defaults: Prefs = { theme: "", density: "", size: "", motion: "", letters: "", rail: "" };
+const defaults: Prefs = {
+  theme: "",
+  density: "",
+  size: "",
+  motion: "",
+  letters: "",
+  rail: "",
+  name: "",
+};
 
 // One schema per field, so a bad value in one field cannot reset the others.
 const fields = {
@@ -27,6 +37,10 @@ const fields = {
   motion: z.enum(["", "reduce"]),
   letters: z.enum(["", "off"]),
   rail: z.enum(["", "min"]),
+  name: z
+    .string()
+    .transform((v) => v.trim())
+    .pipe(z.string().max(80)),
 } as const;
 
 function parseStored(text: string | null): Record<string, unknown> {
@@ -64,6 +78,7 @@ export function readPrefs(storage: Pick<Storage, "getItem"> | null): Prefs {
     motion: pick("motion", stored),
     letters: pick("letters", stored),
     rail: pick("rail", stored),
+    name: pick("name", stored),
   };
 }
 

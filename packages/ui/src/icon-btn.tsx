@@ -7,8 +7,10 @@ import type { IconName } from "./icons";
 /** What `IconBtn` takes. */
 export interface IconBtnProps {
   readonly icon: IconName;
-  /** The accessible name and the tooltip. */
+  /** The accessible name. */
   readonly label: string;
+  /** The tooltip text (`data-tip`). Defaults to `label`. */
+  readonly tip?: string;
   /** A key hint for the tooltip (`data-kbd`). */
   readonly kbd?: string;
   /** Makes it a toggle: sets `aria-pressed`. Left out, the attribute is not written. */
@@ -27,6 +29,7 @@ export interface IconBtnProps {
 export function IconBtn({
   icon,
   label,
+  tip,
   kbd,
   pressed,
   badge,
@@ -42,7 +45,7 @@ export function IconBtn({
       className={cx("iconbtn", className)}
       onClick={onClick}
       aria-label={label}
-      data-tip={label}
+      data-tip={tip ?? label}
       data-kbd={kbd}
       aria-pressed={pressed === undefined ? undefined : pressed}
       disabled={disabled}

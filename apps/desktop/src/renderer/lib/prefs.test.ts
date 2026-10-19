@@ -5,7 +5,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { applyPrefs, getPrefs, initPrefs, prefsKey, readPrefs, setPref, usePref } from "./prefs";
 import type { Prefs } from "./prefs";
 
-const defaults: Prefs = { theme: "", density: "", size: "", motion: "", letters: "", rail: "" };
+const defaults: Prefs = {
+  theme: "",
+  density: "",
+  size: "",
+  motion: "",
+  letters: "",
+  rail: "",
+  name: "",
+};
 
 function storageWith(text: string | null): Pick<Storage, "getItem"> {
   return { getItem: () => text };
@@ -27,8 +35,16 @@ describe("readPrefs", () => {
       motion: "reduce",
       letters: "off",
       rail: "min",
+      name: "Ada",
     };
     expect(readPrefs(storageWith(JSON.stringify(saved)))).toEqual(saved);
+  });
+
+  it("trims the name and falls back to empty when it is too long or not text", () => {
+    expect(readPrefs(storageWith(JSON.stringify({ name: "  Ada  " }))).name).toBe("Ada");
+    expect(readPrefs(storageWith(JSON.stringify({ name: "x".repeat(80) }))).name).toHaveLength(80);
+    expect(readPrefs(storageWith(JSON.stringify({ name: "x".repeat(81) }))).name).toBe("");
+    expect(readPrefs(storageWith(JSON.stringify({ name: 7 }))).name).toBe("");
   });
 
   it("keeps the good fields when one is bad", () => {
@@ -56,13 +72,21 @@ describe("applyPrefs", () => {
   it("sets and removes the data attributes", () => {
     const root = document.createElement("div");
     applyPrefs(
-      { ...defaults, theme: "dark", density: "compact", size: "large", motion: "reduce" },
+      {
+        ...defaults,
+        theme: "dark",
+        density: "compact",
+        size: "large",
+        motion: "reduce",
+        name: "Ada",
+      },
       root,
     );
     expect(root.dataset["theme"]).toBe("dark");
     expect(root.dataset["density"]).toBe("compact");
     expect(root.dataset["size"]).toBe("large");
     expect(root.dataset["motion"]).toBe("reduce");
+    expect(root.getAttributeNames()).not.toContain("data-name");
     applyPrefs(defaults, root);
     expect(root.getAttributeNames()).toEqual([]);
   });

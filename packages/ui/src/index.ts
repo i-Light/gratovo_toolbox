@@ -8,3 +8,6 @@ export { IconBtn, type IconBtnProps } from "./icon-btn";
 export { icons, type IconName } from "./icons";
 export { Kbd } from "./kbd";
 export { PageHead, type PageHeadProps } from "./page-head";
+export { Seg, type SegOption, type SegProps } from "./seg";
+export { Switch, type SwitchProps } from "./switch";
+export { Tag, type TagProps } from "./tag";

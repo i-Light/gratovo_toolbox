@@ -159,6 +159,162 @@ export const strings = {
     nothingNew: "Nothing new.",
     notificationSub: (sub: string, ago: string): string => `${sub} · ${ago}`,
   },
+  settings: {
+    title: "Settings",
+    sub: "How the Workbench behaves for you, on this computer and for the whole team. Changes apply at once.",
+    find: "Find a setting",
+    navLabel: "Settings sections",
+    groups: { you: "You", agency: "Agency" },
+    /** Each section's line under its name in the list, the words the search also matches, and the note under its heading. */
+    sections: {
+      profile: {
+        sub: "Your name and role",
+        words: "name account avatar role owner",
+        note: null,
+      },
+      appearance: {
+        sub: "Theme, density, text size, motion",
+        words: "dark light theme compact density font text size large motion animation sidebar",
+        note: null,
+      },
+      day: {
+        sub: "Day length, snooze, Today",
+        words: "hours budget day length snooze morning welcome",
+        note: null,
+      },
+      keyboard: {
+        sub: "Shortcuts and single-letter keys",
+        words: "shortcuts keys letters screen reader dictation",
+        note: null,
+      },
+      notifications: {
+        sub: "What reaches the bell",
+        words: "alerts bell notify replies money hand-offs searches",
+        note: null,
+      },
+      search: {
+        sub: "What every search keeps",
+        words: "countries median views uploads keyword archive rules",
+        note: "Every search uses these from its next keyword. Also on Find \u203a Search.",
+      },
+      facts: {
+        sub: "Audience, pricing, send window",
+        words: "audience countries ages engagement margin floor cpm markup send window",
+        note: "The numbers the audience check, pricing and sending read. Change one and every check uses it at once.",
+      },
+      writing: {
+        sub: "House rules every draft follows",
+        words: "gemini drafts house rules writing banned words",
+        note: "Every Gemini draft says which of these it followed.",
+      },
+      team: {
+        sub: "Roles, who sees money",
+        words: "roles va money permissions invite",
+        note: null,
+      },
+      connections: {
+        sub: "Gmail, Gemini, YouTube, sync",
+        words: "gmail gemini bridge youtube quota pipeline sync updates health",
+        note: "Whether the pieces behind the app are connected and working.",
+      },
+    },
+    /** Added to the note of every Agency section. */
+    agencyNote: "Applies to the whole team.",
+    /** Each row's label, the words the search also matches, and what it says under the label. */
+    rows: {
+      name: {
+        label: "Your name",
+        words: "display name account",
+        desc: "How you appear to the team: in the sidebar, on records you own and in the activity log.",
+      },
+      role: {
+        label: "Your role",
+        words: "owner role",
+        desc: "What this role can do is listed in Team \u203a Roles.",
+        descOwner: "Owners see money, change the agency's rules and invite people.",
+      },
+      theme: {
+        label: "Theme",
+        words: "dark light system",
+        desc: "System follows your computer's light or dark setting through the day.",
+      },
+      density: {
+        label: "Density",
+        words: "compact comfortable",
+        desc: "Compact fits more rows on a small screen; comfortable is easier on long days.",
+      },
+      size: {
+        label: "Text size",
+        words: "font large",
+        desc: "Large raises every text size one step. Layouts reflow to fit.",
+      },
+      motion: {
+        label: "Motion",
+        words: "animation reduce",
+        desc: "Reduce turns off slides and fades. Your computer's own reduce-motion setting is always respected.",
+      },
+      rail: {
+        label: "Sidebar",
+        words: "collapse expand",
+        desc: "Collapsed keeps only the icons. Press [ anywhere to switch.",
+      },
+      letters: {
+        label: "Single-letter shortcuts",
+        words: "keys screen reader dictation",
+        desc: "J, K, S, R, Z, F and the rest. Turn them off if you use a screen reader or dictation, so a stray letter never acts. Ctrl shortcuts keep working.",
+      },
+      notify: {
+        label: "What reaches the bell",
+        words: "alerts",
+        desc: "Turned-off kinds still happen and still show on their screens; they just don't ring the bell.",
+      },
+    },
+    scopes: { you: "Just you", device: "This computer", team: "Whole team" },
+    saved: "Saved",
+    /** Words inside the working sections. */
+    profile: {
+      namePlaceholder: "Your name",
+      setHere: "Set on this computer.",
+      notSet: "Not set yet.",
+      rolesInTeam: "Roles in Team",
+    },
+    options: {
+      system: "System",
+      light: "Light",
+      dark: "Dark",
+      comfortable: "Comfortable",
+      compact: "Compact",
+      normal: "Normal",
+      large: "Large",
+      followComputer: "Follow my computer",
+      reduce: "Reduce",
+      expanded: "Expanded",
+      collapsed: "Collapsed",
+    },
+    on: "On",
+    off: "Off",
+    notify: {
+      reply: { label: "Replies", line: "When a creator or brand writes back." },
+      money: { label: "Money", line: "Invoices due or late, brands paying, payouts unlocked." },
+      handoff: { label: "Hand-offs", line: "When a teammate hands something to you." },
+      search: { label: "Searches", line: "When a search pauses, finishes or stops." },
+    },
+    problems: {
+      label: "Problems",
+      line: "A mailbox signed out, the Gemini bridge down, a search stopped. These always come through.",
+    },
+    /** The act labels of the notification switches, as the prototype writes them. */
+    turnedOn: (kind: string): string => `Turned on ${kind} notifications`,
+    turnedOff: (kind: string): string => `Turned off ${kind} notifications`,
+    noMatch: (query: string): string => `No setting matches \u201c${query}\u201d`,
+    noMatchHint: "Try a plainer word: dark, hours, keys, money, Gmail.",
+    /** The empty state of a section whose rows come with a later step. */
+    shell: {
+      title: (step: number): string => `Arrives with step ${String(step)}`,
+      line: (step: number): string =>
+        `The rows of this section come with the screen that step ${String(step)} builds.`,
+    },
+  },
   peek: {
     label: "Record",
     previous: "Previous",

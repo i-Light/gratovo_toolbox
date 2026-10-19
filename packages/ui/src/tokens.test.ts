@@ -20,6 +20,18 @@ const expectedRules = [
   "@media (prefers-reduced-motion: reduce) *, *::before, *::after",
 ];
 
+/**
+ * Values that differ from the prototype on purpose: rule -> property -> { value, why }.
+ */
+const deviations: Record<string, Record<string, { value: string; why: string }>> = {
+  ":root": {
+    "--muted": {
+      value: "#566678",
+      why: "Contrast (3c-3, F7): the prototype's #64778b reads 3.96 to 4.26:1 on the sunk and accent-soft surfaces; #566678 keeps the hue and reads at least 4.72:1 on every light surface.",
+    },
+  },
+};
+
 describe("tokens.css", () => {
   const tokens = declarationsByRule(postcss.parse(readFileSync(tokensFile, "utf8")));
   const prototype = declarationsByRule(postcss.parse(prototypeStyles()));
@@ -45,7 +57,10 @@ describe("tokens.css", () => {
 
   it.each(expectedRules)("matches the prototype for %s", (rule) => {
     expect(prototype.has(rule), `the prototype has no rule ${rule}`).toBe(true);
-    expect(tokens.get(rule)).toEqual(prototype.get(rule));
+    const changed = Object.fromEntries(
+      Object.entries(deviations[rule] ?? {}).map(([prop, { value }]) => [prop, value]),
+    );
+    expect(tokens.get(rule)).toEqual({ ...prototype.get(rule), ...changed });
   });
 
   it("gives both dark rules the same values", () => {
