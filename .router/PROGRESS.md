@@ -47,7 +47,14 @@ P5, lead:
   - Recorded instead (ADR 0009, decisions 18 and 20): the empty palette's first five actions; the tooltip's warm-up counting from the last tip hiding.
 - First Windows run of the overlay e2e tests (run 39321168249): 32 of 33 passed. The account menu's first item never took focus: it was focused while the menu was still `visibility: hidden` for measuring (the prototype too; happy-dom doesn't check). Now focused once the menu is placed; checked in Chromium (open, ArrowDown, Tab, Esc).
 
-- Next: open the 3c-2 pull request, drive it green, merge; then 3c-3.
+- Merged as #7 (31df1c5), every check green. The branch took `main` back in with a merge commit (no force-push).
+
+## 3c-3 (settings and checks)
+
+- Plan: `.router/PLAN.md` (decisions F1 to F10); recon in `.router/CONTEXT.md` §10.
+- Measured before planning (axe 4.14.0 in Chromium against the built renderer, light and dark, 1440 and 400 px, frame and every overlay): WCAG failures are the light theme's `--muted` on sunk and accent-soft surfaces (3.96 to 4.26:1) and label-in-name on the account button and the bell; best-practice notes only otherwise (heading order, one region). Script: `scratchpad/axe-check.cjs`.
+- `@axe-core/playwright` 4.14.0 added to the desktop app's dev dependencies (published 2026-10-15).
+- Next: R1 and R2 in parallel; then R3, R4; then R5.
 
 ## Notes for 3c-2
 

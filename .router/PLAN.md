@@ -1,122 +1,94 @@
-# Plan: step 3c-2, the overlays
+# Plan: step 3c-3, settings and checks
 
-The second of three pull requests for step 3c (3c-1, the frame, merged as #6; its plan is in git history at 3056c06). Read `.router/CONTEXT.md` §1d to §1k first, and the prototype's `design/workbench-prototype/js/app.js` l.141-347 (trays, peek, palette, shortcuts, menu, toasts, tooltip, theme) and `js/core.js` l.85-124 and l.196-212 (act, undo, redo, toasts, menus). The prototype is the spec; where this plan and the prototype differ, a decision below says why.
+The last of three pull requests for step 3c (3c-1, the frame, merged as #6; 3c-2, the overlays, as #7; their plans are in git history at 3056c06 and 7d50f77). Read `.router/CONTEXT.md` §3 and §10 first, and the prototype's `design/workbench-prototype/js/settings.js` (all of it) with its CSS (index.html l.222-226, 564-594) and `js/ui.js` l.18-20 and 52-56. The prototype is the spec; where this plan and the prototype differ, a decision below says why.
 
 ## Goal
 
-Everything that floats over the frame works as in the prototype: the command palette, the shortcut sheet, menus (the account menu), tooltips, the jobs and notifications trays, the peek panel and the full-page record, toasts with Undo and Redo, and the save state.
+The Settings screen works as in the prototype: its sections in two groups, the search, saved-in-place confirmation, and the rows whose features exist today (your name; theme, density, text size, motion, sidebar; single-letter keys; what reaches the bell). The other sections are there, saying which step brings their rows. Then step 3c's own checks: no accessibility violations (axe, WCAG 2.2 A and AA) in light and dark, and the whole shell looked at next to the prototype.
 
 ### Non-goals
 
-Settings content and its palette rows (3c-3). Screens and real records (steps 4 to 9: the peek shows a short record summary until then). Focus mode, wrap-up and starting searches from the palette (steps 4 and 5). The hand-off note (step 4). Prototype mode controls and comments (3f). Background jobs that actually run (3e); the tray shows none of yours and the teammate's example run.
+Prototype mode and its section (3f). The rows of Your day (step 4; per §9 Q2 the owner sets each person's hours), Search rules (5), Writing rules (6), Agency facts (7), Team and money and Connections (9). Locked sections for teammates who aren't the owner (the example data's "me" is the owner until 3d brings accounts). Persisting data across restarts (3d).
 
 ### Acceptance
 
 1. `pnpm lint`, `pnpm typecheck`, `pnpm test` pass; Windows CI passes.
-2. Every ported overlay CSS rule matches the prototype (`expectRulesMatchPrototype`), deviations listed with a reason.
-3. Component tests: the actions layer (act logs, marks saving, offers Undo only while newest, undo and redo toasts, "Nothing to undo", toasts cap at 3 and auto-dismiss, pause on hover), palette (empty list order, search, max 14, arrows and Enter, mouse, Esc), shortcut sheet, menus (arrows, Esc, outside click, focus back to the trigger), trays (toggle, outside click, Mark all read), peek (open from the palette, Alt+Up and Alt+Down, Full page, Esc), tooltips (delay, warm, hide on key).
-4. Playwright on Windows: palette (Ctrl K, type, Enter opens a record in the peek; `/` opens it), peek (Esc closes it), undo (Mark all read, Ctrl+Z brings the badge back with an "Undone" toast, Ctrl+Shift+Z redoes), menus (the account menu opens, Esc closes it and focus returns to the button), Esc order (palette over peek: Esc closes the palette and the peek stays; tray then peek), key barriers (with the palette or the sheet open, G then R doesn't move and Ctrl+Z doesn't undo), no animation on keyboard actions (the palette opened by Ctrl K has no animation).
-5. Looked at next to the prototype, light and dark, 1440 and 400 px: palette, sheet, account menu, notifications tray, peek, a toast.
+2. Every ported CSS rule matches the prototype (`expectRulesMatchPrototype`), deviations listed with a reason.
+3. Component tests: the sections and groups, the search (rows and sections, "No setting matches"), Esc clears the search, Ctrl F focuses it, choosing a result opens the section and highlights and focuses the row, saved-in-place, each working row changes what it says (prefs applied to `<html>`, the rail's name, the bell's count), the notification switches undo with Ctrl Z, the shell sections name their step, the palette's Settings rows.
+4. Playwright on Windows: settings (open from the account menu, change the theme and see it applied, find "dark" in the search and land on the Theme row, set your name and see it in the rail, turn off a notification kind and see the bell's count drop) and accessibility (axe finds no WCAG 2.2 A or AA violations on the frame, each overlay and each settings section, in light and dark, at 1440 and 400 px).
+5. Looked at next to the prototype, light and dark, 1440 and 400 px: every settings section, the search results, and the frame and overlays once more.
 
 ## Decisions
 
-- **E1. Modal layers are a native `<dialog>` opened with `showModal()`**, made transparent and full-screen, holding the prototype's own `.scrim` and `.pal`/`.modal` markup. The page behind becomes inert and focus stays inside; the ported CSS stays rule for rule. The dialog's own Esc (`cancel`) is prevented: the key stack closes it, so Esc order has one owner. Focus returns to what had it before the dialog opened.
-- **E2. Esc closes the most recently opened layer.** Each overlay pushes its own key layer while open: palette, sheet and menu as barriers; trays, peek and drawer as plain layers. So a tray opened after the peek closes first, and the peek opened after a tray closes first (the prototype closed the peek first in both cases, because its tray Esc sat in the bottom layer).
-- **E3. App undo stays out of text fields.** Ctrl+Z and Ctrl+Y return `false` while typing, so the field's own undo runs (the prototype took them).
-- **E4. Reading a notification uses `bg`**: it is not an undoable change, and undoing an older change must not mark it unread again. "Mark all read" is an undoable `act` with no log line, as in the prototype.
-- **E5. Records until their screens arrive:** example creators, brands and deals (a subset of the prototype's `data.js`, AI channels and AI brands) give the palette its records group and the peek and record page something to show: a short summary (name, kind, the prototype's sub line) and a line saying the full record comes with its screen.
-- **E6. The record page is a screen key `record`** with `record` and `from` on the route. It isn't restored from the hash after a reload (as in the prototype); the hash still shows it (`#/record/creator/c1`).
-- **E7. Not ported from the palette yet:** Start focus, Wrap up the day, Resume today's search (their features come in steps 4 and 5), Show the design notes (not ported, ADR 0009), and the Settings group (3c-3).
-- **E8. Menus, the palette and dialogs return focus** to the element that opened them. The prototype didn't.
+- **F1. Working rows are the ones whose feature exists:** Profile (your name; your role as a tag), Appearance (theme, density, text size, motion, sidebar), Keyboard (single-letter keys and the shortcut groups), Notifications (four kinds and the always-on Problems). The other sections show their head and note and an empty state saying which step brings their rows (`arrives`). Their rows aren't in the search or the palette until then.
+- **F2. Your name is a device preference** (`name` in the prefs, as the prototype's `wb-name`), copied into `data.myName` at start and on change with `bg`: not undoable, as in the prototype. An empty name puts "Add your name" back. 3d moves it to the account.
+- **F3. What reaches the bell is data** (`data.settings.notify`, a kind is on unless false), changed with `act` and no log line, so Ctrl Z undoes it, as in the prototype. The bell's count and the tray's list show only `notifShown` notifications; problems always show.
+- **F4. The page's subtitle drops "Ctrl Z undoes them".** Device preferences aren't undoable (in the prototype either), so the sentence would be untrue; it ends at "Changes apply at once."
+- **F5. Opening a setting** (from the search or the palette) goes to its section, then the section scrolls the row to the middle, replays its highlight and focuses its first control: through `ui.settingTarget`, read by the settings screen after it renders (the prototype used a 60 ms timer).
+- **F6. Saved-in-place** is UI state (`ui.settingFlash`, 1700 ms), as the prototype.
+- **F7. Contrast:** the light theme's `--muted` becomes `#566678` (the prototype's `#64778b` reads 3.96 to 4.26:1 on the sunk and accent-soft surfaces; the new value is at least 4.72:1 on every light surface, same hue). A listed deviation in `tokens.test.ts`. Dark passes as it is.
+- **F8. Names match what you see** (WCAG 2.5.3): the expanded account button takes its name from its text (its avatar is decorative there); collapsed, it keeps "Your account: …". The bell's name says the count ("Notifications, 3 unread") while its tooltip stays "Notifications".
+- **F9. axe runs in the Electron tests** through `@axe-core/playwright` (4.14.0, matching the `axe-core` already in the tree), with the WCAG 2.2 A and AA tags only. Best-practice rules (heading order, landmarks) aren't gates: the prototype's headings (h4 in trays and the sheet) stay.
+- **F10. The screenshot comparison is a look, not a pixel test:** the screens behind the frame differ from the prototype until steps 4 to 9, so pixel diffs would fail on content. The lead compares with the scratchpad scripts and records what was compared in PROGRESS and the hand-off.
 
 ## Contracts
 
-### Routes (`lib/routes.ts`)
+### Settings model (`apps/desktop/src/renderer/lib/settings.ts`, new)
 
 ```ts
-export type RecordKind = "creator" | "brand" | "deal";
-export interface RecordRef { readonly kind: RecordKind; readonly id: string }
-export type ScreenKey = /* the nine */ | "record";
-export interface Route {
-  readonly screen: ScreenKey;
-  readonly tab: string | null;
-  readonly record?: RecordRef; // only on "record"
-  readonly from?: ScreenKey; // the screen the record was opened from
+export type SectionKey = "profile" | "appearance" | "day" | "keyboard" | "notifications" | "search" | "facts" | "writing" | "team" | "connections";
+export interface SettingsSection {
+  readonly key: SectionKey;
+  readonly group: "you" | "agency";
+  readonly icon: IconName; // user, moon, sun, keyboard, bell, scan, sliders, pen, users, gauge
+  readonly owner: boolean; // the prototype's owner flag (facts, team, connections)
+  readonly arrives: number | null; // the plan step that brings its rows; null when they work now
 }
+export const settingsSections: readonly SettingsSection[]; // the prototype's order
+export type RowId = "name" | "role" | "theme" | "density" | "size" | "motion" | "rail" | "letters" | "notify";
+export interface SettingsRow { readonly section: SectionKey; readonly id: RowId }
+export const settingsRows: readonly SettingsRow[]; // only rows that exist now, in the prototype's order
+export type NotifyKind = "reply" | "money" | "handoff" | "search";
+export function notifyKind(icon: IconName): NotifyKind | "problem"; // the prototype's W.notifKind
+export function notifShown(data: AppData, n: Notification): boolean; // W.notifShown
+/** Rows whose label, words or section name contain the query; sections whose name, sub or words do (lower case). */
+export function searchSettings(query: string): { readonly rows: readonly SettingsRow[]; readonly sections: readonly SettingsSection[] };
 ```
 
-`screens.record`: name "Record", icon `user`, hue `var(--ink-2)`, no tabs; `screenOrder` and `goLetters` leave it out. `sameRoute` compares `record` and `from`. `routeToHash` writes `#/record/<kind>/<id>`; `routeFromHash` maps any `#/record/...` to Today.
+Words in `strings.ts` under `settings`: the page title and sub (F4), "Find a setting", the group names (You, Agency), each section's sub, search words and note (names stay in `screens.settings.tabs`), each row's label, words and description, the scopes (Just you, This computer, Whole team), "Saved", the notification kinds (label and line), Problems, the empty-search title and hint, and the shell section's "Arrives with step {n}" title and line.
 
-### Data and UI state (`lib/store.ts`, `lib/example-data.ts`)
+### Data, UI state, actions
 
 ```ts
-export interface Creator { readonly id: string; readonly name: string; readonly handle: string; readonly stage: CreatorStage; readonly email: string | null }
-export type CreatorStage = "new" | "shortlisted" | "contact" | "emailed" | "replied" | "kit" | "audience" | "signed" | "rejected" | "parked" | "never";
-export interface Brand { readonly id: string; readonly name: string; readonly sells: string; readonly status: string }
-export interface Deal { readonly id: string; readonly brand: string; readonly creator: string; readonly step: number /* index into DEAL_FLOW */; readonly price: number }
-export interface MateRun { readonly by: string; readonly at: number; readonly current: number; readonly total: number }
-// AppData gains: creators, brands, deals, mateRun: MateRun | null
-
-export interface ToastAction { readonly label: string; readonly kbd?: string; readonly run: () => void }
-export interface Toast {
-  readonly id: string; readonly msg: string; readonly sub?: string; readonly icon: IconName;
-  readonly tone: "good" | "info"; readonly ms: number; readonly actions: readonly ToastAction[];
-}
-export type MenuItem =
-  | { readonly kind: "item"; readonly label: string; readonly icon?: IconName; readonly hint?: string; readonly danger?: boolean; readonly checked?: boolean; readonly run: () => void }
-  | { readonly kind: "separator" }
-  | { readonly kind: "heading"; readonly label: string }
-  | { readonly kind: "who"; readonly name: string; readonly sub: string; readonly color: string; readonly unnamed: boolean; readonly run: () => void };
-export interface OpenMenu { readonly x: number; readonly y: number; readonly right: number; readonly top: number; readonly align: "start" | "end"; readonly items: readonly MenuItem[] }
-export interface Peek { readonly record: RecordRef; readonly list: readonly string[] | null }
-export interface Job { readonly id: string; readonly kind: "search" | "contacts"; readonly label: string; readonly progress: number; readonly total: number; readonly done: boolean }
-// AppUi gains: palette: boolean; shortcuts: boolean; tray: "jobs" | "notifications" | null;
-//   menu: OpenMenu | null; peek: Peek | null; toasts: readonly Toast[]; recent: readonly RecordRef[]; jobs: readonly Job[]
+// lib/store.ts
+// AppData gains: settings: { readonly notify: Readonly<Partial<Record<NotifyKind, boolean>>> } (example data: {})
+// AppUi gains: settingFlash: { readonly id: RowId; readonly at: number } | null; settingTarget: RowId | null
+// lib/prefs.ts: Prefs gains name: string (default "", at most 80 characters)
+// lib/actions.ts
+export function setMyName(name: string): void; // trims; saves the pref; bg: data.myName = name || null; flashes "name"
+export function setNotify(kind: NotifyKind, on: boolean): void; // act(strings…, { log: false }); flashes "notify"
+export function flashSetting(id: RowId): void; // ui.settingFlash for 1700 ms
+export function openSetting(section: SectionKey, row?: RowId): void; // go("settings", section); ui.settingTarget = row ?? null
 ```
 
-`go` also closes the menu and the peek (unless `go(screen, tab, { keepPeek: true })`); `back` and `forward` close the peek. Example data: creators c1 to c5 and two new finds, brands b1 to b5, deals d1 to d5 from the prototype's `data.js` (same names, stages, prices, deal steps), and its `mateRun`.
+At start (`main.tsx` after `initPrefs`): `data.myName` from the `name` pref (with `bg`, before the first render).
 
-### Actions (`lib/actions.ts`, new)
+### Components
 
-```ts
-export interface ActToast { readonly msg?: string; readonly sub?: string; readonly icon?: IconName; readonly tone?: "good" | "info"; readonly ms?: number; readonly go?: { readonly label?: string; readonly run: () => void }; readonly undo?: boolean }
-/** W.act: records an undo step, adds a log line (unless log is false), marks saving, and shows the toast (with Undo while this change is still the newest). */
-export function act<R>(label: string, recipe: (data: Draft<AppData>, ui: AppUi) => R, options?: { readonly log?: boolean; readonly toast?: ActToast }): R | false;
-export function undo(): void; // "Undone" (sub: label, icon undo, Redo action, 4000 ms) or "Nothing to undo" (2500 ms)
-export function redo(): void; // "Redone" (3000 ms); nothing when there is nothing to redo
-export function toast(t: { readonly msg: string; readonly sub?: string; readonly icon?: IconName; readonly tone?: "good" | "info"; readonly ms?: number; readonly actions?: readonly ToastAction[] }): string; // default ms 6500; keeps the newest 3
-export function dismissToast(id: string): void;
-export function peek(record: RecordRef, list?: readonly string[]): void; // also puts it first in `recent` (max 8, no duplicates)
-export function closePeek(): void;
-export function stepPeek(by: 1 | -1): void;
-export function openRecord(record: RecordRef): void; // go("record", null, { record, from }) and `recent`
-export function setPalette(open: boolean): void;
-export function setShortcuts(open: boolean): void;
-export function toggleTray(tray: "jobs" | "notifications"): void;
-export function closeTray(): void;
-export function openMenu(anchor: { readonly left: number; readonly right: number; readonly top: number; readonly bottom: number }, items: readonly MenuItem[], align?: "start" | "end"): void; // y = bottom + 4
-export function closeMenu(): void;
-export function markAllRead(): void; // act("Marked notifications read", ..., { log: false })
-export function readNotification(id: string): void; // bg
-export function cycleTheme(): void; // system → dark → light → system, with a 2000 ms toast
-```
-
-Saving: `act`, `undo` and `redo` set `ui.saving` for 700 ms, then `saving = false` and `savedAt = now`. Words from `strings.ts`.
-
-### Components (`apps/desktop/src/renderer/overlays/`, new)
-
-`modal-layer.tsx` (E1: the `<dialog>` wrapper, with `label`, `onClose`, children; pushes nothing itself), `palette.tsx`, `shortcuts.tsx`, `menu-layer.tsx`, `tooltip.tsx`, `trays.tsx`, `peek.tsx`, `record-summary.tsx` (used by the peek and the record page), `toasts.tsx`, `overlays.css` (index.html l.261-265 peek, l.389-426 overlays and tooltip, l.484 `.pal{--tx}`, l.509-511 menu extras, plus a small set of dialog-reset rules listed as deviations), `overlays-css.test.ts`. The App mounts them; the top bar's search box, jobs and bell, and the rail's account button, open them; the record page is a screen.
+- `packages/ui`: `Seg` (`div.seg[role=group][aria-label]`, buttons with `aria-pressed`; props `label`, `value`, `options: readonly { value, label, icon? }[]`, `onPick`), `Tag` (`span.tag`, props `tone?`, `icon?`, children), `Switch` (`button.switch[role=switch][aria-checked][aria-label]`, `on`, `label`, `onChange`, `disabled?`). Exported from `index.ts`, with tests.
+- `apps/desktop/src/renderer/settings/` (new): `settings-screen.tsx` (PageHead with `label.set-search`, `div.set` with `nav.card.tight.set-nav[aria-label]` of `.bucket`s and `button.li` with `aria-current="page"`, the pane `div.card.set-pane` with `.tb-ic`, `h2`, note, then the section or the results), `row.tsx` (`div.set-row#set-<id>`, `.set-t` with `b`, `.set-scope`, `.set-saved[role=status]`, `p`; `.set-c`), `sections.tsx` (Profile, Appearance, Keyboard, Notifications, and the shell), `results.tsx`, `settings.css` (+ `settings-css.test.ts`). `app/app.tsx`'s Content renders the settings screen for `screen === "settings"`.
+- Palette: a "Settings" group from `settingsRows` (icon = the section's, sub = the section's name, words = the row's), where the prototype puts it (app.js ~l.209); choosing one runs `openSetting`.
 
 ### Keys
 
-Global (bottom layer) adds: `mod+k` toggles the palette, `/` opens it, `?` opens the sheet, `mod+z` undo (`shift` held: redo), `mod+y` redo — the three undo keys return false while typing (E3). Palette layer (barrier): `mod+k` and `escape` close. Sheet (barrier): `escape` and `?` close. Menu (barrier): `escape`, `arrowdown`, `arrowup`, `home`, `end`. Tray layer: `escape` closes. Peek layer: `escape`, `alt+arrowdown`, `alt+arrowup`.
+The settings screen pushes `mod+f` (focus the search) while mounted. In the search, Esc clears it and leaves the field (the input's own handler, with preventDefault, so the key stack ignores it).
 
 ## Tasks
 
 | id | title | tier | depends_on | files |
 |---|---|---|---|---|
-| P1 | State, example records, actions, with tests | N | — | `lib/routes.ts`, `lib/store.ts`, `lib/example-data.ts`, `lib/actions.ts`, `lib/format.ts` (money), `strings.ts`, their tests |
-| P2 | Overlay CSS, the dialog wrapper, the parity test | N | — | `overlays/overlays.css`, `overlays/overlays-css.test.ts`, `overlays/modal-layer.tsx` (+ test) |
-| P3 | The overlays and their wiring | N | P1, P2 | `overlays/*.tsx`, `app/app.tsx`, `app/top-bar.tsx`, `app/rail.tsx`, `app/global-keys.ts`, `app/placeholder-screen.tsx` (record page), `main.tsx`, `strings.ts` |
-| P4 | Tests: components and Electron | N | P3 | `overlays/*.test.tsx`, `app/*.test.tsx`, `e2e/*` |
-| P5 | Verify, look, review, docs, PR (lead) | H | P4 | `.router/*`, `docs/*` |
+| R1 | Shared pieces: `Seg`, `Tag`, `Switch`; settings CSS; the `--muted` fix | N | — | `packages/ui/src/{seg,tag,switch}.tsx` + tests + `index.ts`; `packages/ui/src/controls.css` (`.switch`, `.bucket`, `.tb-ic` if shared) + `styles.test.ts`; `packages/ui/src/tokens.css` + `tokens.test.ts`; `apps/desktop/src/renderer/settings/settings.css` + `settings-css.test.ts` |
+| R2 | Settings model, data, actions, the bell filter | N | — | `lib/settings.ts` + test, `lib/store.ts`, `lib/example-data.ts`, `lib/prefs.ts`, `lib/actions.ts` + tests, `main.tsx`, `app/top-bar.tsx` (bell count, F8), `overlays/trays.tsx` (list), `strings.ts` |
+| R3 | The settings screen, its sections, the palette rows, F8's account button | N | R1, R2 | `settings/*.tsx`, `app/app.tsx`, `app/rail.tsx`, `overlays/commands.ts`, `main.tsx` (CSS import), `strings.ts`; fix tests the names change |
+| R4 | Tests: component and Electron (settings, axe) | N | R3 | `settings/*.test.tsx`, `overlays/commands.test.ts`, `e2e/settings.spec.ts`, `e2e/accessibility.spec.ts` |
+| R5 | Verify, look, review, docs, PR (lead) | H | R4 | `.router/*`, `docs/*` |
