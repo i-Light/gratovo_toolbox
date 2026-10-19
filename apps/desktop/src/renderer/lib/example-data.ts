@@ -1,8 +1,9 @@
-import type { AppData } from "./store";
+import type { AppData, Brand, Creator, Deal, MateRun } from "./store";
 
 /**
  * Example data for the frame until the data layer (step 3d) arrives: the team, the rail counts
- * and the notifications, all about AI creators and the brands that sponsor them. These words are
+ * and the notifications, and a few records (creators, brands, deals), all about AI creators and
+ * the brands that sponsor them. These words are
  * data, not interface strings, so they live here and not in strings.ts.
  */
 export function exampleData(now: number): AppData {
@@ -92,5 +93,77 @@ export function exampleData(now: number): AppData {
       },
     ],
     log: [],
+    creators,
+    brands,
+    deals,
+    mateRun: mateRun(at(0, 9, 2)),
   };
+}
+
+/** Five signed creators and two new finds, as in the prototype's data.js. */
+const creators: readonly Creator[] = [
+  {
+    id: "c1",
+    name: "Prompt Lab",
+    handle: "@promptlab",
+    stage: "signed",
+    email: "hello@promptlab.tv",
+  },
+  {
+    id: "c2",
+    name: "Neural Notes",
+    handle: "@neuralnotes",
+    stage: "signed",
+    email: "team@neuralnotes.io",
+  },
+  {
+    id: "c3",
+    name: "Code with Kai",
+    handle: "@codewithkai",
+    stage: "signed",
+    email: "kai@codewithkai.dev",
+  },
+  {
+    id: "c4",
+    name: "Tensor Talk",
+    handle: "@tensortalk",
+    stage: "signed",
+    email: "biz@tensortalk.com",
+  },
+  {
+    id: "c5",
+    name: "The AI Desk",
+    handle: "@theaidesk",
+    stage: "signed",
+    email: "desk@theaidesk.news",
+  },
+  {
+    id: "c11",
+    name: "Model Matters",
+    handle: "@modelmatters",
+    stage: "new",
+    email: "modelmatters.yt@gmail.com",
+  },
+  { id: "c12", name: "Prompt Daily", handle: "@promptdaily", stage: "new", email: null },
+];
+
+const brands: readonly Brand[] = [
+  { id: "b1", name: "Codewell", sells: "AI code review", status: "won" },
+  { id: "b2", name: "Lumen AI", sells: "AI writing assistant", status: "won" },
+  { id: "b3", name: "VoxCraft", sells: "AI voice-over", status: "won" },
+  { id: "b4", name: "Pagewise", sells: "AI notes and docs", status: "won" },
+  { id: "b5", name: "Clipforge", sells: "AI video editor", status: "negotiating" },
+];
+
+const deals: readonly Deal[] = [
+  { id: "d1", brand: "b1", creator: "c3", step: 1, price: 4800 },
+  { id: "d2", brand: "b2", creator: "c2", step: 3, price: 2600 },
+  { id: "d3", brand: "b3", creator: "c1", step: 6, price: 3400 },
+  { id: "d4", brand: "b4", creator: "c5", step: 7, price: 2200 },
+  { id: "d5", brand: "b5", creator: "c4", step: 0, price: 5200 },
+];
+
+/** A teammate's search in progress (Omar, keyword 12 of 40), started at `at`. */
+function mateRun(at: number): MateRun {
+  return { by: "u3", at, current: 12, total: 40 };
 }

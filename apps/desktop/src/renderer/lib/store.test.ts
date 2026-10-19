@@ -7,10 +7,13 @@ import type { Route } from "./routes";
 import {
   appStore,
   back,
+  dealName,
+  findRecord,
   forward,
   go,
   installHashSync,
   memo,
+  recordName,
   resetAppStoreForTests,
   selectProblems,
   selectRoute,
@@ -241,5 +244,118 @@ describe("the store at boot", () => {
     // A fresh copy of the module makes its store from the hash, as the app does when it loads.
     const fresh = await import("./store");
     expect(fresh.selectRoute(fresh.appStore().getState())).toEqual(expected);
+  });
+});
+
+describe("example records", () => {
+  it("has the prototype's creators, brands, deals and teammate run", () => {
+    const data = exampleData(now);
+    expect(data.creators.map((c) => c.id)).toEqual(["c1", "c2", "c3", "c4", "c5", "c11", "c12"]);
+    expect(data.creators.filter((c) => c.stage === "new")).toHaveLength(2);
+    expect(data.creators[0]).toEqual({
+      id: "c1",
+      name: "Prompt Lab",
+      handle: "@promptlab",
+      stage: "signed",
+      email: "hello@promptlab.tv",
+    });
+    expect(data.creators.find((c) => c.id === "c12")?.email).toBeNull();
+    expect(data.brands.map((b) => b.name)).toEqual([
+      "Codewell",
+      "Lumen AI",
+      "VoxCraft",
+      "Pagewise",
+      "Clipforge",
+    ]);
+    expect(data.brands[4]).toMatchObject({ sells: "AI video editor", status: "negotiating" });
+    expect(data.deals.map((d) => [d.id, d.step, d.price])).toEqual([
+      ["d1", 1, 4800],
+      ["d2", 3, 2600],
+      ["d3", 6, 3400],
+      ["d4", 7, 2200],
+      ["d5", 0, 5200],
+    ]);
+    expect(data.mateRun).toMatchObject({ by: "u3", current: 12, total: 40 });
+    expect(new Date(data.mateRun?.at ?? 0).getHours()).toBe(9);
+  });
+
+  it("starts with every overlay closed", () => {
+    const ui = appStore().getState().ui;
+    expect(ui).toMatchObject({
+      palette: false,
+      shortcuts: false,
+      tray: null,
+      menu: null,
+      peek: null,
+      toasts: [],
+      recent: [],
+      jobs: [],
+    });
+  });
+});
+
+describe("findRecord and names", () => {
+  const data = exampleData(now);
+
+  it("finds each kind of record, and nothing for a missing id", () => {
+    expect(findRecord(data, { kind: "creator", id: "c3" })).toBe(data.creators[2]);
+    expect(findRecord(data, { kind: "brand", id: "b2" })).toBe(data.brands[1]);
+    expect(findRecord(data, { kind: "deal", id: "d1" })).toBe(data.deals[0]);
+    expect(findRecord(data, { kind: "creator", id: "nope" })).toBeUndefined();
+    expect(findRecord(data, { kind: "deal", id: "c1" })).toBeUndefined();
+  });
+
+  it("names a deal after its brand and creator", () => {
+    expect(dealName(data, data.deals[0] as (typeof data.deals)[number])).toBe(
+      "Codewell \u00d7 Code with Kai",
+    );
+    expect(recordName(data, { kind: "deal", id: "d5" })).toBe("Clipforge \u00d7 Tensor Talk");
+    expect(recordName(data, { kind: "creator", id: "c1" })).toBe("Prompt Lab");
+    expect(recordName(data, { kind: "brand", id: "b4" })).toBe("Pagewise");
+    expect(recordName(data, { kind: "brand", id: "zzz" })).toBe("?");
+  });
+});
+
+describe("go with overlays", () => {
+  const ref = { kind: "creator", id: "c1" } as const;
+
+  function openOverlays(): void {
+    appStore().ui((ui) => {
+      ui.peek = { record: ref, list: null };
+      ui.menu = { x: 1, y: 2, right: 3, top: 0, align: "start", items: [] };
+    });
+  }
+
+  it("closes the menu and the peek", () => {
+    openOverlays();
+    go("find");
+    expect(appStore().getState().ui.menu).toBeNull();
+    expect(appStore().getState().ui.peek).toBeNull();
+  });
+
+  it("keeps the peek with keepPeek, but still closes the menu", () => {
+    openOverlays();
+    go("find", undefined, { keepPeek: true });
+    expect(appStore().getState().ui.menu).toBeNull();
+    expect(appStore().getState().ui.peek?.record).toEqual(ref);
+  });
+
+  it("closes the peek on back and forward", () => {
+    go("find");
+    openOverlays();
+    back();
+    expect(appStore().getState().ui.peek).toBeNull();
+    appStore().ui((ui) => {
+      ui.peek = { record: ref, list: null };
+    });
+    forward();
+    expect(appStore().getState().ui.peek).toBeNull();
+  });
+
+  it("opens a record route with its record and origin", () => {
+    go("record", null, { record: ref, from: "find" });
+    expect(route()).toEqual({ screen: "record", tab: null, record: ref, from: "find" });
+    go("record", null, { record: { kind: "creator", id: "c2" }, from: "find" });
+    expect(appStore().getState().ui.history.entries).toHaveLength(3);
   });
 });

@@ -10,10 +10,10 @@ import type { History, Store, StoreState } from "@gratovo/core";
 import type { IconName } from "@gratovo/ui";
 import { useSyncExternalStore } from "react";
 
+import { strings } from "../strings";
 import { exampleData } from "./example-data";
 import { firstTab, routeFromHash, routeToHash, sameRoute, screens } from "./routes";
 import type { RecordRef, Route, ScreenKey } from "./routes";
-import { strings } from "../strings";
 
 /** A person on the team. */
 export interface Member {
