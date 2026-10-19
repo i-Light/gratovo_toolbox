@@ -28,13 +28,13 @@ This repository is the **rebuild**. It replaces the Flutter app in the old `grat
 On Windows, install the tools once:
 
 ```
-winget install OpenJS.NodeJS.LTS
+winget install OpenJS.NodeJS.LTS --version 24.22.0
 winget install astral-sh.uv
 winget install Gitleaks.Gitleaks
-corepack enable pnpm
+npm install -g pnpm@12.14.0
 ```
 
-Node must be 24.22.0 or a later 24.x. Then, in this folder:
+Node must be 24.22.0 or a later 24.x: a newer LTS line (26) is refused at install. Then, in this folder:
 
 ```
 pnpm install

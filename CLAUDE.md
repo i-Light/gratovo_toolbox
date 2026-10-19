@@ -15,6 +15,7 @@ When you finish a piece of work, update `docs/handoff.md` and the plan's status 
 These come from the owner and hold until the owner changes them. The detail and the reasons are in [docs/product/owner-rules.md](docs/product/owner-rules.md).
 
 - **Git:** commit only when the owner asks, or when the task is a plan step that ends in a commit. Never push to `main` directly; work on a branch and open a pull request. Never force-push or rewrite history.
+- **GitHub is yours to run:** open the pull request, get CI green, fix the review findings, then merge it yourself. Never ask the owner to merge or to do anything by hand on GitHub. Stop only for a critical question about the workflow or the migration that the docs don't answer.
 - **Secrets:** never print, log, commit or copy a secret. This includes `.env*` files, `*.local.json` files, tokens and keys. See [SECURITY.md](SECURITY.md).
 - **Email:** never send an email, and never read the connected mailbox. Every outgoing message waits for a person to approve it.
 - **Gemini:** one prompt per fresh chat, thinking level verified as high, at most 3 tabs, 60 s between sends. Never run two Gemini bridge runs at once (port 8765).

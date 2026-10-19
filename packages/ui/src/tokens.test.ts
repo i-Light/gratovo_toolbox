@@ -70,6 +70,21 @@ describe("tokens.css", () => {
     expect([...tokens.keys()]).toEqual(expectedRules);
   });
 
+  it("ports every page-wide token rule the prototype has", () => {
+    // Rules scoped to a component (".pal", ".app.rail-min") set their own tokens and come with
+    // that component in 3c. Rules on :root set tokens for the whole page and belong here.
+    const pageWide = [...prototype]
+      .filter(([rule, declarations]) => {
+        const selector = rule.replace(/^@\S+ \([^)]*\) /, "");
+        return (
+          selector.startsWith(":root") && Object.keys(declarations).some((p) => p.startsWith("--"))
+        );
+      })
+      .map(([rule]) => rule);
+    expect(pageWide.length).toBeGreaterThan(0);
+    expect(expectedRules).toEqual(expect.arrayContaining(pageWide));
+  });
+
   it.each(expectedRules)("matches the prototype for %s", (rule) => {
     expect(prototype.has(rule), `the prototype has no rule ${rule}`).toBe(true);
     expect(tokens.get(rule)).toEqual(prototype.get(rule));

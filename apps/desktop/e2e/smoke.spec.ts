@@ -1,3 +1,4 @@
+import { createRequire } from "node:module";
 import { join } from "node:path";
 
 import {
@@ -13,11 +14,20 @@ import {
 // docs/handoff.md for how to run them there).
 const appDir = join(__dirname, "..");
 
+// Run from Node, the electron package exports the path to its binary.
+const requireFromHere = createRequire(__filename);
+const electronBinary = requireFromHere("electron") as string;
+
 let app: ElectronApplication;
 let page: Page;
 
 test.beforeEach(async () => {
-  app = await electron.launch({ args: [appDir] });
+  // Without chromiumSandbox, Playwright adds --no-sandbox on Linux.
+  app = await electron.launch({
+    executablePath: electronBinary,
+    args: [appDir],
+    chromiumSandbox: true,
+  });
   page = await app.firstWindow();
 });
 

@@ -15,7 +15,7 @@ interface PrototypeStep {
 /** Reads the `W.DEAL_FLOW = [...]` literal out of the prototype's data file. */
 function prototypeDealFlow(): PrototypeStep[] {
   const source = readFileSync(prototypeData, "utf8");
-  const literal = /W\.DEAL_FLOW = (\[[\s\S]*?\]);\n/.exec(source)?.[1];
+  const literal = /W\.DEAL_FLOW = (\[[\s\S]*?\]);\r?\n/.exec(source)?.[1];
   if (literal === undefined) {
     throw new Error("W.DEAL_FLOW not found in the prototype's data.js");
   }
