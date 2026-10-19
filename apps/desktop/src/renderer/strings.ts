@@ -1,4 +1,104 @@
-/** The app shell's user-facing words, in one place so other languages can come later. */
+/**
+ * The app shell's user-facing words, in one place so other languages can come later.
+ * Nothing else in the renderer may hold English words (the example data is the one exception).
+ */
 export const strings = {
   appName: "Gratovo Toolbox",
+  brand: { name: "Gratovo", sub: "Workbench" },
+  rail: {
+    label: "Main",
+    pipeline: "Pipeline",
+    workbench: "Workbench",
+    planned: (time: string) => `${time} planned`,
+    allClear: "All clear",
+    collapse: "Collapse the sidebar",
+    expand: "Expand the sidebar",
+    collapseTip: "Collapse",
+    expandTip: "Expand",
+    account: (name: string) => `Your account: ${name}`,
+    addName: "Add your name",
+    online: "online",
+  },
+  top: {
+    menu: "Menu",
+    back: "Back",
+    forward: "Forward",
+    crumbs: "You are here",
+    search: "Search or run a command",
+    jobs: "Background jobs",
+    jobsNone: "Background jobs: none running",
+    notifications: "Notifications",
+    saved: "Saved",
+    saving: "Saving…",
+    savedTip: (ago: string) => `Saved on this computer and synced ${ago}`,
+    savingTip: "Saving to this computer, then syncing to the team",
+  },
+  keys: { ctrlK: "Ctrl K", altLeft: "Alt ←", altRight: "Alt →", rail: "[" },
+  placeholder: {
+    title: (name: string) => `${name} is still being built`,
+    body: "This screen arrives in a later build step.",
+  },
+  problems: {
+    more: (n: number) => `+${String(n)} more`,
+    hide: "Hide",
+  },
+  screens: {
+    today: { name: "Today", sub: null, tabs: {} },
+    find: {
+      name: "Find",
+      sub: "Search, triage, contacts",
+      tabs: { search: "Search", triage: "Review new", gallery: "Gallery", contacts: "Contacts" },
+    },
+    reach: {
+      name: "Reach",
+      sub: "Emails, replies, sequences",
+      tabs: { board: "Board", sequences: "Sequences", inbox: "Replies", mailboxes: "Mailboxes" },
+    },
+    close: {
+      name: "Close",
+      sub: "Audience, brands, pitch, terms",
+      tabs: {
+        roster: "Roster",
+        brands: "Brands",
+        match: "Match",
+        pitch: "Pitch",
+        negotiate: "Negotiate",
+        contracts: "Contracts",
+      },
+    },
+    deliver: {
+      name: "Deliver",
+      sub: "Deals and money",
+      tabs: { board: "Deal board", money: "Money" },
+    },
+    insights: { name: "Insights", sub: "Analytics, keywords, funnel", tabs: {} },
+    toolbox: { name: "Toolbox", sub: "Calculator, archive, logs, setup", tabs: {} },
+    team: { name: "Team", sub: "People, load, mailboxes", tabs: {} },
+    settings: {
+      name: "Settings",
+      sub: "You, this computer, the agency",
+      tabs: {
+        profile: "Profile",
+        appearance: "Appearance",
+        day: "Your day",
+        keyboard: "Keyboard",
+        notifications: "Notifications",
+        search: "Search rules",
+        facts: "Agency facts",
+        writing: "Writing rules",
+        team: "Team and money",
+        connections: "Connections",
+      },
+    },
+  },
+  time: {
+    justNow: "just now",
+    minutesAgo: (n: number) => `${String(n)} min ago`,
+    hoursAgo: (n: number) => `${String(n)} h ago`,
+    yesterday: "yesterday",
+    daysAgo: (n: number) => `${String(n)} days ago`,
+    minutes: (n: number) => `${String(n)} min`,
+    hours: (n: number) => `${String(n)} h`,
+    hoursMinutes: (h: number, m: number) => `${String(h)} h ${String(m)} min`,
+  },
 } as const;
