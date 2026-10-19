@@ -1,5 +1,7 @@
 import { useLayoutEffect, useRef, type ReactNode } from "react";
 
+import { hostFloating } from "./floating";
+
 /** What {@link ModalLayer} needs. */
 export interface ModalLayerProps {
   /** The accessible name of the dialog, read out when it opens. */
@@ -9,18 +11,33 @@ export interface ModalLayerProps {
   /** The `.scrim` and the `.pal` or `.modal` panel. */
   children: ReactNode;
   className?: string;
+  /**
+   * Focus the dialog itself rather than its first control. For a dialog you read rather than fill
+   * in (the shortcut sheet): its name is read out, Tab reaches the controls, and no focus ring shows
+   * on a button the user did not choose.
+   */
+  focusSelf?: boolean;
 }
 
 /**
  * A full-screen, invisible native `<dialog>` opened with `showModal()` (E1). The browser then
  * makes the page behind inert and keeps focus inside, so we do not need our own focus trap.
  * Its own Esc (`cancel`) is blocked: the key stack closes the layer, so Esc has one owner.
- * It pushes no key layer itself; the caller does. On close, focus goes back to the element
+ * It pushes no key layer itself; the caller does. While open it holds the floating container, so
+ * toasts, menus and the tooltip still show above it. On close, focus goes back to the element
  * that had it before (E8).
  */
-export function ModalLayer({ label, onClose, children, className }: ModalLayerProps) {
+export function ModalLayer({
+  label,
+  onClose,
+  children,
+  className,
+  focusSelf = false,
+}: ModalLayerProps) {
   const ref = useRef<HTMLDialogElement>(null);
   const onCloseRef = useRef(onClose);
+  // Where focus goes is decided once, when the dialog opens.
+  const focusSelfOnOpen = useRef(focusSelf);
   useLayoutEffect(() => {
     onCloseRef.current = onClose;
   });
@@ -39,6 +56,10 @@ export function ModalLayer({ label, onClose, children, className }: ModalLayerPr
         dialog.setAttribute("open", "");
       }
     }
+    if (focusSelfOnOpen.current) {
+      dialog.focus();
+    }
+    const releaseFloating = hostFloating(dialog);
     // Native listener: the dialog is not a control, and Esc and keys are handled by the key stack.
     const onClick = (event: MouseEvent) => {
       if (event.target === dialog) {
@@ -48,6 +69,7 @@ export function ModalLayer({ label, onClose, children, className }: ModalLayerPr
     dialog.addEventListener("click", onClick);
     return () => {
       dialog.removeEventListener("click", onClick);
+      releaseFloating();
       if (dialog.open) {
         if (typeof dialog.close === "function") {
           dialog.close();
@@ -66,6 +88,7 @@ export function ModalLayer({ label, onClose, children, className }: ModalLayerPr
       ref={ref}
       className={className === undefined ? "layer" : `layer ${className}`}
       aria-label={label}
+      tabIndex={focusSelf ? -1 : undefined}
       onCancel={(event) => {
         event.preventDefault();
       }}

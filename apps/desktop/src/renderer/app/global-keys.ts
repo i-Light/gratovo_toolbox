@@ -1,6 +1,7 @@
 import { createGoPrefix } from "@gratovo/core";
 import { useEffect } from "react";
 
+import { redo, setPalette, setShortcuts, undo } from "../lib/actions";
 import { isTyping, keyStack, quietAnimations, useKeys } from "../lib/keys";
 import { getPrefs, setPref } from "../lib/prefs";
 import { firstTab, goLetters, type ScreenKey } from "../lib/routes";
@@ -9,11 +10,40 @@ import { appStore, back, forward, go, selectRoute } from "../lib/store";
 const goPrefix = createGoPrefix();
 
 /**
- * The bottom key layer, always on: Alt+Left and Alt+Right for history, `[` for the rail, Ctrl+,
+ * The bottom key layer, always on: Ctrl+K and `/` for the palette, `?` for the shortcut sheet,
+ * Ctrl+Z, Ctrl+Shift+Z and Ctrl+Y for undo and redo (left to the field while typing in one, so a
+ * text field keeps its own undo), Alt+Left and Alt+Right for history, `[` for the rail, Ctrl+,
  * for Settings, and `g` to start "G then a letter".
  */
 export function useGlobalKeys(): void {
   useKeys({
+    "mod+k": () => {
+      setPalette(!appStore().getState().ui.palette);
+    },
+    "/": () => {
+      setPalette(true);
+    },
+    "?": () => {
+      setShortcuts(true);
+    },
+    "mod+z": (event) => {
+      if (isTyping(event.target)) {
+        return false;
+      }
+      if (event.shiftKey) {
+        redo();
+      } else {
+        undo();
+      }
+      return true;
+    },
+    "mod+y": (event) => {
+      if (isTyping(event.target)) {
+        return false;
+      }
+      redo();
+      return true;
+    },
     "alt+arrowleft": back,
     "alt+arrowright": forward,
     "[": () => {

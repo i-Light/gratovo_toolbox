@@ -23,7 +23,21 @@ Then T6 (tests, b847b1c), the review agent's findings and the first Windows run'
 ## 3c-2 (the overlays)
 
 - Plan: `.router/PLAN.md` (decisions E1 to E8).
-- Next: P1 and P2 in parallel; then P3, P4; then P5.
+
+| Task | Tier | Commit | Note |
+|---|---|---|---|
+| P2 overlay CSS, dialog wrapper | N | 45630aa, b62d18b | `overlays.css` rule for rule, `ModalLayer` (E1) |
+| P1 state, records, actions | N | 5839b5c | routes `record`, example records, `actions.ts` |
+| P3 overlays and wiring | N | (this commit) | palette, sheet, menus, tooltip, trays, peek, record page, toasts; lead review below |
+
+Lead review of P3 (looked at `scratchpad/shots/p3/*` next to the prototype, light and dark, 1440 and 400 px):
+- A modal `<dialog>` sits in the browser's top layer, so toasts, menus and the tooltip (z-index 85 to 99 in the prototype, above its scrim at 80) drew under it and were inert. New `overlays/floating.tsx`: one container they render into, which `ModalLayer` moves into the newest open dialog (no remount). Checked: a toast shown with the palette open is on top in Chromium, as in the prototype.
+- The prototype's 52 px palette search row shrank while the list was long (flex column with a capped height), so the input jumped as typing shortened the list. `.pal > .pal-in { flex-shrink: 0 }`, a listed deviation.
+- The prototype's menus (z-index 85) opened under the narrow drawer (86): the account menu was invisible at 400 px. `.menu[role="menu"] { z-index: 87 }`, a listed deviation.
+- The sheet takes focus itself (`ModalLayer focusSelf`): with the native dialog, focus went to its Close button (a ring the prototype didn't show), or at 400 px to the scrolling panel (a ring round the whole sheet). `dialog.layer:focus-visible { outline: none }`, an E1 deviation.
+- Playwright's `Shift+/` sends `/` (opens the palette, in the prototype too); a real `?` is `page.keyboard.press("?")`.
+
+- Next: P4 (tests), then P5.
 
 ## Notes for 3c-2
 

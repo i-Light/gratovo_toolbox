@@ -380,3 +380,22 @@ dialog.layer {
 dialog.layer::backdrop {
   background: none;
 }
+dialog.layer:focus-visible {
+  outline: none;
+}
+
+/*
+ * Not in the prototype: its 52 px search row shrank while the list was long (the palette is a
+ * flex column with a capped height), so the input jumped down as typing shortened the list.
+ */
+.pal > .pal-in {
+  flex-shrink: 0;
+}
+
+/*
+ * Not in the prototype: its menus (z-index 85) opened under the narrow-width drawer (86), so the
+ * account menu, opened from inside the drawer, could not be seen. Menus sit just above the drawer.
+ */
+.menu[role="menu"] {
+  z-index: 87;
+}

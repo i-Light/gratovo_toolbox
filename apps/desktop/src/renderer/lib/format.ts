@@ -44,3 +44,10 @@ export function money(n: number): string {
   const text = `$${rounded.toLocaleString("en-US")}`;
   return n < 0 && rounded > 0 ? `\u2212${text}` : text;
 }
+
+/** A time of day as "09:02" (24 hours, local time). */
+export function clock(ts: number): string {
+  const date = new Date(ts);
+  const two = (n: number): string => String(n).padStart(2, "0");
+  return `${two(date.getHours())}:${two(date.getMinutes())}`;
+}

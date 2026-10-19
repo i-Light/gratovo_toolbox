@@ -3,21 +3,35 @@ import { Avatar, Icon, IconBtn, avatarColor, cx } from "@gratovo/ui";
 import { memo, useEffect, useMemo, useState } from "react";
 
 import { ago } from "../lib/format";
+import { setPalette, toggleTray } from "../lib/actions";
 import { screens } from "../lib/routes";
-import { back, forward, selectRoute, setRailOpen, useApp } from "../lib/store";
+import { back, forward, recordName, selectRoute, setRailOpen, useApp } from "../lib/store";
 import { strings } from "../strings";
 import { railId } from "./rail";
 
 /** The Menu button's id, so focus can come back to it when the drawer closes. */
 export const menuButtonId = "menu-button";
 
-/** The crumbs: the screen's name, then the tab's name when the route has one. */
+/**
+ * The crumbs: the screen's name, then the tab's name when the route has one. On a record page they
+ * are the screen it was opened from ("Records" when unknown) and the record's name.
+ */
 function Crumbs() {
   const screen = useApp((s) => selectRoute(s).screen);
   const tab = useApp((s) => selectRoute(s).tab);
+  const from = useApp((s) => selectRoute(s).from);
+  const recordLabel = useApp((s) => {
+    const record = selectRoute(s).record;
+    return record === undefined ? null : recordName(s.data, record);
+  });
   const info = screens[screen];
   const tabName = info.tabs.find((t) => t.key === tab)?.name;
-  const crumbs = tabName === undefined ? [info.name] : [info.name, tabName];
+  const crumbs =
+    screen === "record" && recordLabel !== null
+      ? [from === undefined ? strings.record.crumbFallback : screens[from].name, recordLabel]
+      : tabName === undefined
+        ? [info.name]
+        : [info.name, tabName];
   return (
     <nav className="crumbs hide-narrow" aria-label={strings.top.crumbs}>
       {crumbs.map((name, i) =>
@@ -63,16 +77,66 @@ function HistoryButtons() {
 /** The bell, with the count of unread notifications. */
 function Bell() {
   const unread = useApp((s) => s.data.notifications.filter((n) => !n.read).length);
+  const pressed = useApp((s) => s.ui.tray === "notifications");
   return (
     <IconBtn
       icon="bell"
       label={strings.top.notifications}
       {...(unread > 0 ? { badge: unread } : {})}
-      pressed={false}
+      pressed={pressed}
       onClick={() => {
-        // The notifications tray arrives in step 3c-2.
+        toggleTray("notifications");
       }}
     />
+  );
+}
+
+/**
+ * The jobs button: a ring with the first running job's progress and a count badge while jobs run,
+ * the layers icon otherwise. Its name and tip come from the first running job.
+ */
+function JobsButton() {
+  const jobs = useApp((s) => s.ui.jobs);
+  const pressed = useApp((s) => s.ui.tray === "jobs");
+  const running = useMemo(() => jobs.filter((j) => !j.done), [jobs]);
+  const first = running[0];
+  const pct = first === undefined ? 0 : first.progress / (first.total || 1);
+  const label = first === undefined ? strings.top.jobs : first.label;
+  return (
+    <button
+      type="button"
+      className="iconbtn"
+      aria-label={label}
+      data-tip={first === undefined ? strings.top.jobsNone : first.label}
+      aria-pressed={pressed}
+      onClick={() => {
+        toggleTray("jobs");
+      }}
+    >
+      {first === undefined ? (
+        <Icon name="layers" size={17} />
+      ) : (
+        <svg className="ring-prog" viewBox="0 0 20 20" aria-hidden="true">
+          <circle cx="10" cy="10" r="7.5" fill="none" stroke="var(--sunk-2)" strokeWidth="2.5" />
+          <circle
+            cx="10"
+            cy="10"
+            r="7.5"
+            fill="none"
+            stroke="var(--accent)"
+            strokeWidth="2.5"
+            strokeDasharray="47.1"
+            strokeDashoffset={47.1 * (1 - Math.max(0.08, pct))}
+            strokeLinecap="round"
+          />
+        </svg>
+      )}
+      {first === undefined ? null : (
+        <span className="badge" style={{ background: "var(--accent)" }}>
+          {running.length}
+        </span>
+      )}
+    </button>
   );
 }
 
@@ -156,23 +220,19 @@ export const TopBar = memo(function TopBar() {
       <MenuButton />
       <HistoryButtons />
       <Crumbs />
-      {/* The command palette arrives in step 3c-2; until then this button does nothing. */}
-      <button type="button" className="cmdk">
+      <button
+        type="button"
+        className="cmdk"
+        onClick={() => {
+          setPalette(true);
+        }}
+      >
         <Icon name="search" />
         <span className="grow">{strings.top.search}</span>
         <span className="kbd">{strings.keys.ctrlK}</span>
       </button>
       <div className="row" style={{ gap: "2px" }}>
-        {/* Background jobs arrive in step 3c-2; for now none are running. */}
-        <button
-          type="button"
-          className="iconbtn"
-          aria-label={strings.top.jobs}
-          data-tip={strings.top.jobsNone}
-          aria-pressed={false}
-        >
-          <Icon name="layers" size={17} />
-        </button>
+        <JobsButton />
         <Bell />
         <SaveState />
         <Presence />
