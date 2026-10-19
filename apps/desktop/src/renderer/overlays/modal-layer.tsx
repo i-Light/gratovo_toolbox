@@ -27,25 +27,37 @@ export function ModalLayer({ label, onClose, children, className }: ModalLayerPr
 
   useLayoutEffect(() => {
     const dialog = ref.current;
-    if (dialog === null) return;
+    if (dialog === null) {
+      return undefined;
+    }
     const opener = document.activeElement;
     if (!dialog.open) {
       // happy-dom may lack showModal(); the open attribute is the fallback.
-      if (typeof dialog.showModal === "function") dialog.showModal();
-      else dialog.setAttribute("open", "");
+      if (typeof dialog.showModal === "function") {
+        dialog.showModal();
+      } else {
+        dialog.setAttribute("open", "");
+      }
     }
     // Native listener: the dialog is not a control, and Esc and keys are handled by the key stack.
     const onClick = (event: MouseEvent) => {
-      if (event.target === dialog) onCloseRef.current();
+      if (event.target === dialog) {
+        onCloseRef.current();
+      }
     };
     dialog.addEventListener("click", onClick);
     return () => {
       dialog.removeEventListener("click", onClick);
       if (dialog.open) {
-        if (typeof dialog.close === "function") dialog.close();
-        else dialog.removeAttribute("open");
+        if (typeof dialog.close === "function") {
+          dialog.close();
+        } else {
+          dialog.removeAttribute("open");
+        }
       }
-      if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
+      if (opener instanceof HTMLElement && opener.isConnected) {
+        opener.focus();
+      }
     };
   }, []);
 
