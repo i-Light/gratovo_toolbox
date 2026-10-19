@@ -53,7 +53,11 @@ describe("exampleData", () => {
   });
 
   it("puts notification times on the right calendar days", () => {
-    const [first, , third] = exampleData(now).notifications;
+    // The list is newest first now (G6), so n1 and n3 are found by id, not by position.
+    const list = exampleData(now).notifications;
+    const first = list.find((n) => n.id === "n1");
+    const third = list.find((n) => n.id === "n3");
+    expect(list.map((n) => n.at)).toEqual([...list.map((n) => n.at)].sort((a, b) => b - a));
     expect(new Date(first?.at ?? 0).getDate()).toBe(19);
     expect(new Date(first?.at ?? 0).getHours()).toBe(8);
     expect(new Date(third?.at ?? 0).getDate()).toBe(18);

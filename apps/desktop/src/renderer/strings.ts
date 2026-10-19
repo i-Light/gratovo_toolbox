@@ -5,6 +5,14 @@
 export const strings = {
   appName: "Gratovo Toolbox",
   brand: { name: "Gratovo", sub: "Workbench" },
+  loadFailed: {
+    title: "The app couldn't load its data",
+    sub: "Close it and open it again.",
+  },
+  team: {
+    you: "You",
+    roles: { unauthorized: "Waiting for access", basic: "Team member", full: "Full access" },
+  },
   rail: {
     label: "Main",
     pipeline: "Pipeline",
