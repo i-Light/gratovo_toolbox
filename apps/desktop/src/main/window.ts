@@ -1,29 +1,21 @@
 import { join } from "node:path";
-import { pathToFileURL } from "node:url";
 
 import { BrowserWindow, app } from "electron";
 
-const indexHtml = join(__dirname, "../renderer/index.html");
+import { builtPageUrl, localDevServer } from "./app-page";
 
-/**
- * electron-vite sets this in development. A packaged app ignores it, and a local run accepts only
- * a dev server on this machine, so a stray environment variable can't point the app elsewhere.
- */
+/** The built renderer's folder. app-protocol.ts serves it as app://gratovo/. */
+export const rendererRoot = join(__dirname, "../renderer");
+
+const preloadScript = join(__dirname, "../preload/index.js");
+
+// A packaged app ignores the dev server variable altogether.
 const devServerUrl = app.isPackaged
   ? undefined
   : localDevServer(process.env["ELECTRON_RENDERER_URL"]);
 
-function localDevServer(url: string | undefined): string | undefined {
-  if (url === undefined || !URL.canParse(url)) {
-    return undefined;
-  }
-  const { protocol, hostname } = new URL(url);
-  const local = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
-  return protocol === "http:" && local ? url : undefined;
-}
-
 /** The one page the app shows. The guards in security.ts refuse to navigate anywhere else. */
-export const appPageUrl = devServerUrl ?? pathToFileURL(indexHtml).href;
+export const appPageUrl = devServerUrl ?? builtPageUrl;
 
 export function createMainWindow(): BrowserWindow {
   const window = new BrowserWindow({
@@ -33,6 +25,7 @@ export function createMainWindow(): BrowserWindow {
     minHeight: 600,
     show: false,
     webPreferences: {
+      preload: preloadScript,
       contextIsolation: true,
       sandbox: true,
       nodeIntegration: false,
@@ -47,11 +40,7 @@ export function createMainWindow(): BrowserWindow {
     window.show();
   });
 
-  if (devServerUrl === undefined) {
-    void window.loadFile(indexHtml);
-  } else {
-    void window.loadURL(devServerUrl);
-  }
+  void window.loadURL(appPageUrl);
 
   return window;
 }

@@ -5,7 +5,8 @@
   "description": "The IPC contract between the main process and the renderer: zod schemas and their types.",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./bridge": "./src/bridge.ts"
   },
   "dependencies": {
     "zod": "4.6.7"

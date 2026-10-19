@@ -92,7 +92,7 @@ gratovo_toolbox/
 └── .github/workflows/        CI and releases
 ```
 
-Step 3a created the workspace, the three packages, the desktop app (a blank, hardened window), the pipeline project, placeholders for `services/gemini-extension/` and `supabase/`, the hooks and CI. `src/preload/` comes with the IPC bridge in 3b, `resources/` with the frame in 3c, and the migrations in 3d.
+Step 3a created the workspace, the three packages, the desktop app (a blank, hardened window), the pipeline project, placeholders for `services/gemini-extension/` and `supabase/`, the hooks and CI. Step 3b added `src/preload/` (the IPC bridge) and `apps/desktop/scripts/` (the release fuses). `resources/` comes with the frame in 3c, and the migrations in 3d.
 
 TypeScript projects use references: the root `tsconfig.json` lists every project, and `pnpm typecheck` runs TypeScript 7's `tsc -b`. The linter runs on TypeScript 6 from `tooling/eslint-config`, because typescript-eslint doesn't support 7 yet ([decisions/0007](decisions/0007-toolchain-pins.md)). Packages export their TypeScript source and have no build step; electron-vite and Vitest compile them. `packages/core` is type-checked without Node or DOM types, so code that does I/O there fails the typecheck.
 
@@ -100,12 +100,14 @@ TypeScript projects use references: the root `tsconfig.json` lists every project
 
 The policy is [SECURITY.md](../SECURITY.md). In code:
 
-1. **Renderer isolation:** `contextIsolation`, `sandbox`, no Node integration, a strict CSP, no remote content, blocked navigation and `window.open`, and a deny-all permission handler.
-2. **IPC:** every channel is declared in `packages/ipc` with a zod schema for input and output. The main process validates every call and rejects anything else. No channel accepts a file path or URL without checking it against an allowlist.
+1. **Renderer isolation:** `contextIsolation`, `sandbox`, no Node integration, a strict CSP (meta tag and header), the page served from `app://gratovo/`, no remote content, blocked navigation (`will-navigate`, `will-frame-navigate`, `will-redirect`) and `window.open`, links opened in the browser only through an allowlist, and a deny-all permission handler.
+2. **IPC:** every channel is declared in `packages/ipc` with a zod schema for input and output. The page has one function, `window.gratovo.invoke`, over one Electron channel. The main process accepts calls only from the app page's top frame, validates the request and the handler's response, and rejects anything else. No channel accepts a file path or URL without checking it against an allowlist.
 3. **Secrets:** a main-process `secrets` module over `safeStorage`. The renderer can ask whether a secret is set; it can never read one. Python processes get the secrets they need through their stdin at launch, never through the command line or environment of a long-lived shell.
 4. **Local services:** the Gemini bridge daemon binds `127.0.0.1` and requires a random per-launch token from the extension.
 5. **Supabase:** row-level security on every table, with roles (owner, account manager, VA) enforced in policies, not only in the UI. The service-role key never ships.
-6. **Supply chain:** the lockfile is committed; Dependabot, audit, CodeQL and gitleaks run in CI; release builds are signed and fused.
+6. **Supply chain:** the lockfile is committed; Dependabot, OSV-Scanner, CodeQL and gitleaks run in CI; release builds are signed and fused (`apps/desktop/scripts/release-fuses.ts`).
+
+The choices behind each of these are in [decisions/0008-security-baseline.md](decisions/0008-security-baseline.md).
 
 ## Performance rules
 
@@ -136,7 +138,10 @@ Pinned in step 3a on 2026-10-19, at the current stable releases. Every package v
 | Prettier | 3.9.10 | root |
 | Vitest | 5.0.5 | root |
 | Playwright | 1.64.1 | `apps/desktop` |
-| zod | 4.6.7 | `packages/ipc` |
+| zod | 4.6.7 | `packages/ipc`, `apps/desktop` |
+| @electron/fuses | 2.1.3 | `apps/desktop` |
+| OSV-Scanner | 2.7.0 | CI (`go install`) |
+| CodeQL action | 4.39.0 | CI |
 | lefthook, lint-staged | 2.2.2, 17.6.0 | root |
 | gitleaks | 8.30.1 | `lefthook.yml` (install hint), CI |
 | Python | 3.14 | `services/pipeline/.python-version`, `requires-python` |

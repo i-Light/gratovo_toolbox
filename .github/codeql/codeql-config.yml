@@ -1,0 +1,21 @@
+# What CodeQL scans: the code we ship and build with. legacy/ (the old app) and design/ (the
+# prototype) are reference copies that never ship, so they are left out.
+name: Gratovo CodeQL
+
+queries:
+  - uses: security-extended
+
+paths:
+  - apps
+  - packages
+  - tooling
+  - services
+
+paths-ignore:
+  - legacy
+  - design
+  - .claude
+  - "**/node_modules"
+  - "**/out"
+  - "**/.tsbuild"
+  - "**/test-results"

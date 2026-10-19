@@ -1,6 +1,6 @@
 # Lint, typecheck, unit tests and the Electron end-to-end tests on Windows, the only system the
-# app supports, and a secret scan of the whole history. Step 3g adds the SQL tests, the
-# dependency audit and CodeQL. Actions are pinned by commit, with their release beside each one.
+# app supports, a secret scan of the whole history, a dependency audit and CodeQL. Step 3g adds
+# the SQL tests. Actions are pinned by commit, with their release beside each one.
 name: CI
 
 on:
@@ -8,6 +8,9 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  # Once a week, so new advisories surface even when nobody pushes.
+  schedule:
+    - cron: "23 5 * * 1"
 
 permissions:
   contents: read
@@ -24,6 +27,8 @@ env:
 jobs:
   checks:
     name: Checks (Windows)
+    # The weekly run is for new advisories only; nothing here changes without a push.
+    if: github.event_name != 'schedule'
     runs-on: windows-2025
     timeout-minutes: 30
     steps:
@@ -69,10 +74,12 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-  # This job only reads the repository's history, so it runs on the quicker Linux runner. It has
-  # nothing to do with which systems the app supports.
+  # The three analysis jobs (secret scan, dependency audit, CodeQL) only read files and never run
+  # the app, so they use the quicker Linux runner. It has nothing to do with which systems the app
+  # supports. Windows minutes also count double on a private repository.
   secrets:
     name: Secret scan
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -93,3 +100,83 @@ jobs:
       # Known false positives are listed, by fingerprint, in .gitleaksignore.
       - name: Scan every commit
         run: '"$(go env GOPATH)/bin/gitleaks" git --redact --no-banner --verbose'
+
+  # Fails on any known vulnerability in the two lockfiles. To ignore a reviewed false positive,
+  # add an osv-scanner.toml next to the lockfile it applies to (the root for pnpm-lock.yaml,
+  # services/pipeline/ for uv.lock) with an [[IgnoredVulns]] entry: an id, an ignoreUntil date and a
+  # reason. Only these two lockfiles are scanned: legacy/ holds the old app's, for reference.
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.27.2"
+          cache: false
+
+      # Built from source at a pinned release. Go's checksum database verifies what is downloaded.
+      - name: Install OSV-Scanner
+        run: go install github.com/google/osv-scanner/v2/cmd/osv-scanner@v2.7.0
+
+      - name: Scan the lockfiles
+        run: >-
+          "$(go env GOPATH)/bin/osv-scanner" scan source
+          --lockfile pnpm-lock.yaml
+          --lockfile services/pipeline/uv.lock
+
+  # The repository has no GitHub Advanced Security, so results can't go to code scanning
+  # (upload: never). The last step reads the report and fails the job on any result instead. The
+  # action's warning that code scanning isn't enabled is expected for the same reason.
+  codeql:
+    name: CodeQL (${{ matrix.language }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [javascript-typescript, python]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: github/codeql-action/init@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+          config-file: ./.github/codeql/codeql-config.yml
+
+      - uses: github/codeql-action/analyze@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+        with:
+          category: "/language:${{ matrix.language }}"
+          upload: never
+          output: ${{ runner.temp }}/codeql
+
+      - name: Fail on any finding
+        env:
+          CODEQL_OUT: ${{ runner.temp }}/codeql
+        run: |
+          shopt -s nullglob
+          files=("$CODEQL_OUT"/*.sarif)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No SARIF report found in $CODEQL_OUT" >&2
+            exit 1
+          fi
+          total=0
+          for f in "${files[@]}"; do
+            jq -r '.runs[].results[]? | "\(.ruleId): \(.message.text) (\(.locations[0].physicalLocation.artifactLocation.uri):\(.locations[0].physicalLocation.region.startLine))"' "$f"
+            n=$(jq '[.runs[].results[]?] | length' "$f")
+            total=$((total + n))
+          done
+          if [ "$total" -gt 0 ]; then
+            echo "CodeQL found $total result(s)." >&2
+            exit 1
+          fi

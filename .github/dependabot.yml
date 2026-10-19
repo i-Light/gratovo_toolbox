@@ -1,0 +1,54 @@
+# Dependabot pull requests are handled like any other: a session checks CI and merges
+# (see docs/workflow.md).
+version: 2
+
+updates:
+  # The pnpm workspace. Minor and patch updates come together; each major gets its own pull request.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    # pnpm itself refuses versions younger than a day (minimumReleaseAge). Waiting a few days
+    # more lets the community catch a compromised release first.
+    cooldown:
+      default-days: 3
+      semver-major-days: 7
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: uv
+    directory: /services/pipeline
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    # Same waiting time as above, for the same reason.
+    cooldown:
+      default-days: 3
+      semver-major-days: 7
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    # Same waiting time as above, for the same reason.
+    cooldown:
+      default-days: 3
+      semver-major-days: 7
+    groups:
+      actions:
+        patterns: ["*"]
