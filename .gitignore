@@ -23,6 +23,7 @@ out/
 build/
 release/
 *.tsbuildinfo
+.tsbuild/
 .vite/
 coverage/
 .turbo/

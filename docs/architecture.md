@@ -90,7 +90,9 @@ gratovo_toolbox/
 └── .github/workflows/        CI and releases
 ```
 
-Only `design/`, `docs/`, `legacy/` and `.claude/` exist so far. Step 3a creates the rest.
+Step 3a created the workspace, the three packages, the desktop app (a blank, hardened window), the pipeline project, placeholders for `services/gemini-extension/` and `supabase/`, the hooks and CI. `src/preload/` comes with the IPC bridge in 3b, `resources/` with the frame in 3c, and the migrations in 3d.
+
+TypeScript projects use references: the root `tsconfig.json` lists every project, and `pnpm typecheck` runs `tsc -b`. Packages export their TypeScript source and have no build step; electron-vite and Vitest compile them. `packages/core` is type-checked without Node or DOM types, so code that does I/O there fails the typecheck.
 
 ## Security model
 
@@ -117,4 +119,24 @@ Targets: the app opens in under 2 s, and every click answers in under 100 ms.
 
 ## Versions
 
-Recorded when step 3a pins them: Electron, Node, React, TypeScript, Vite, pnpm, Python and uv.
+Pinned in step 3a on 2026-10-19, at the current stable releases. Every package version is exact, and the lockfiles (`pnpm-lock.yaml`, `services/pipeline/uv.lock`) pin the rest. The reasons for the four choices that weren't simply "the latest" are in [decisions/0007-toolchain-pins.md](decisions/0007-toolchain-pins.md).
+
+| Tool | Version | Pinned in |
+|---|---|---|
+| Node | 24.22.0 (LTS; the same Node Electron 44.9.0 bundles) | `.nvmrc`, `engines` |
+| pnpm | 12.14.0 | `packageManager` |
+| Electron | 44.9.0 (Chrome 152) | `apps/desktop` |
+| electron-vite | 6.0.0 | `apps/desktop` |
+| Vite | 8.3.4 | `apps/desktop` |
+| React, react-dom | 19.3.1 | `apps/desktop` |
+| TypeScript | 6.0.3 (7.0 waits for typescript-eslint) | root |
+| ESLint, typescript-eslint | 10.13.0, 8.71.2 | root |
+| Prettier | 3.9.10 | root |
+| Vitest | 5.0.5 | root |
+| Playwright | 1.64.1 | `apps/desktop` |
+| zod | 4.6.7 | `packages/ipc` |
+| lefthook, lint-staged | 2.2.2, 17.6.0 | root |
+| gitleaks | 8.30.1 | `lefthook.yml` (install hint), CI |
+| Python | 3.14 | `services/pipeline/.python-version`, `requires-python` |
+| uv | 0.13.1 or newer | `tool.uv.required-version`, CI |
+| ruff, pyright, pytest | 0.17.1, 1.1.414, 9.1.1 | `services/pipeline` |

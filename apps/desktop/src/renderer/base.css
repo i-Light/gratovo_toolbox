@@ -1,0 +1,36 @@
+/* Page basics from the prototype. Every colour, size and font comes from the tokens. */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 400 var(--fs) / 1.45 var(--f-ui);
+  -webkit-font-smoothing: antialiased;
+}
+
+.frame {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  padding: var(--pad);
+}
+
+.frame-title {
+  margin: 0;
+  font-size: 1.55rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}

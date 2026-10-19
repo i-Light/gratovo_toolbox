@@ -1,0 +1,17 @@
+# Git hooks. `pnpm install` installs them (lefthook's own install script runs on install).
+# The jobs run in order: fix and check the staged files, then scan what is about to be committed.
+pre-commit:
+  jobs:
+    - name: format and lint the staged files
+      run: pnpm exec lint-staged
+
+    - name: scan the staged changes for secrets
+      run: |
+        if ! command -v gitleaks >/dev/null 2>&1; then
+          echo "gitleaks is not installed, so this commit can't be checked for secrets."
+          echo "Install it, then commit again:"
+          echo "  Windows: winget install Gitleaks.Gitleaks"
+          echo "  Any system with Go: go install github.com/zricethezav/gitleaks/v8@v8.30.1"
+          exit 1
+        fi
+        gitleaks git --pre-commit --staged --redact --no-banner

@@ -41,4 +41,11 @@ These come from the owner and hold until the owner changes them. The detail and 
 
 ## Commands
 
-None yet: the foundation step creates the toolchain. The prototype runs as it is. Open `design/workbench-prototype/index.html`, or run its tests as described in [its README](design/workbench-prototype/README.md).
+Node 24.22.0, pnpm 12, uv and gitleaks. A cloud container lacks most of them: [docs/handoff.md](docs/handoff.md) says how to get them.
+
+- `pnpm install`: dependencies and the git hooks.
+- `pnpm lint`, `pnpm typecheck`, `pnpm test`: each covers TypeScript and Python. All three must pass.
+- `pnpm test:e2e`: builds the app and runs the Electron tests. They need a display (`xvfb-run -a` on Linux) and a non-root user; the hand-off has the command for cloud sessions.
+- `pnpm dev`, `pnpm build`, `pnpm format`.
+
+The prototype runs as it is. Open `design/workbench-prototype/index.html`, or run its tests as described in [its README](design/workbench-prototype/README.md).

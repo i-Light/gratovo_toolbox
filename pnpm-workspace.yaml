@@ -1,0 +1,22 @@
+packages:
+  - apps/*
+  - packages/*
+
+# pnpm 12 reads its settings from this file. It ignores them in .npmrc.
+saveExact: true
+engineStrict: true
+
+# Don't install a version until it has been public for a day, so a hijacked release
+# is usually pulled before it reaches us.
+minimumReleaseAge: 1440
+
+# Install scripts run only for the packages listed here.
+# lefthook's script installs the git hooks (it skips itself in CI).
+allowBuilds:
+  lefthook: true
+
+# eslint-plugin-jsx-a11y 6.10.2 has not widened its peer range to ESLint 10 yet.
+# Its rules were checked to work under ESLint 10; see docs/decisions/0007-toolchain-pins.md.
+peerDependencyRules:
+  allowedVersions:
+    eslint-plugin-jsx-a11y>eslint: "10"

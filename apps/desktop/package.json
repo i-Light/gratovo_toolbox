@@ -1,0 +1,26 @@
+{
+  "name": "@gratovo/desktop",
+  "version": "0.0.0",
+  "private": true,
+  "productName": "Gratovo Toolbox",
+  "description": "The Electron app: main process, renderer and their end-to-end tests.",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "test:e2e": "electron-vite build && playwright test"
+  },
+  "devDependencies": {
+    "@gratovo/ui": "workspace:*",
+    "@playwright/test": "1.64.1",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.2",
+    "electron": "44.9.0",
+    "electron-vite": "6.0.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "vite": "8.3.4"
+  }
+}

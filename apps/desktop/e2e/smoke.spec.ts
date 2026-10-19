@@ -1,0 +1,94 @@
+import { join } from "node:path";
+
+import {
+  _electron as electron,
+  expect,
+  test,
+  type ElectronApplication,
+  type Page,
+} from "@playwright/test";
+
+// The app forces Chromium's sandbox on, and Chromium will not run sandboxed as root. Run these
+// tests as an ordinary user (CI runners and team machines are; cloud containers are root, see
+// docs/handoff.md for how to run them there).
+const appDir = join(__dirname, "..");
+
+let app: ElectronApplication;
+let page: Page;
+
+test.beforeEach(async () => {
+  app = await electron.launch({ args: [appDir] });
+  page = await app.firstWindow();
+});
+
+test.afterEach(async () => {
+  await app.close();
+});
+
+test("opens one window with the app's name", async () => {
+  await expect(page.getByRole("heading", { level: 1, name: "Gratovo Toolbox" })).toBeVisible();
+  await expect(page).toHaveTitle("Gratovo Toolbox");
+  expect(app.windows()).toHaveLength(1);
+});
+
+test("applies the design tokens in light and in dark", async () => {
+  const light = "rgb(242, 245, 249)"; // --bg, light
+  const dark = "rgb(6, 19, 29)"; // --bg, dark
+  const background = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  const chooseTheme = (theme: "light" | "dark") =>
+    page.evaluate((value) => {
+      document.documentElement.dataset["theme"] = value;
+    }, theme);
+
+  await page.emulateMedia({ colorScheme: "light" });
+  expect(await background()).toBe(light);
+
+  await page.emulateMedia({ colorScheme: "dark" });
+  expect(await background()).toBe(dark);
+
+  // A theme chosen in Settings wins over the system's.
+  await chooseTheme("light");
+  expect(await background()).toBe(light);
+
+  await page.emulateMedia({ colorScheme: "light" });
+  await chooseTheme("dark");
+  expect(await background()).toBe(dark);
+});
+
+test("keeps Node out of the page", async () => {
+  const globals = await page.evaluate(() => {
+    const scope = globalThis as Record<string, unknown>;
+    return [typeof scope["require"], typeof scope["process"], typeof scope["module"]];
+  });
+  expect(globals).toEqual(["undefined", "undefined", "undefined"]);
+});
+
+test("runs the page in the operating system's sandbox", async () => {
+  test.skip(
+    process.platform !== "win32" && process.platform !== "darwin",
+    "Electron reports the sandbox state only on Windows and macOS",
+  );
+  const renderers = await app.evaluate(({ app: electronApp }) =>
+    electronApp
+      .getAppMetrics()
+      .filter((metric) => metric.type === "Tab")
+      .map((metric) => metric.sandboxed),
+  );
+  expect(renderers.length).toBeGreaterThan(0);
+  expect(renderers.every((sandboxed) => sandboxed === true)).toBe(true);
+});
+
+test("refuses to open new windows", async () => {
+  const opened = await page.evaluate(() => window.open("https://example.com") === null);
+  expect(opened).toBe(true);
+  expect(app.windows()).toHaveLength(1);
+});
+
+test("ships a strict content security policy", async () => {
+  const policy = await page
+    .locator('meta[http-equiv="Content-Security-Policy"]')
+    .getAttribute("content");
+  expect(policy).toContain("default-src 'none'");
+  expect(policy).toContain("script-src 'self';");
+  expect(policy).not.toContain("unsafe-inline");
+});

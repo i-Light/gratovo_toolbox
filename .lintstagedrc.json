@@ -1,0 +1,11 @@
+{
+  "*.{ts,tsx,mts,cts,js,mjs,cjs}": [
+    "prettier --write",
+    "eslint --fix --no-warn-ignored --max-warnings=0"
+  ],
+  "*.{json,css,html,yml,yaml}": "prettier --write",
+  "services/pipeline/**/*.py": [
+    "uv run --directory services/pipeline ruff format",
+    "uv run --directory services/pipeline ruff check --fix"
+  ]
+}
