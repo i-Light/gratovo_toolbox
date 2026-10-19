@@ -143,6 +143,15 @@ describe("Avatar", () => {
     expect(screen.getByLabelText("A B").querySelector("i")?.getAttribute("class")).toBe("dot away");
     expect(screen.getByLabelText("A B").getAttribute("class")).toBe("av l");
   });
+
+  it("is hidden from screen readers when decorative, since its name is written beside it", () => {
+    const { container } = render(<Avatar name="Mira Chen" color="#111" decorative />);
+    const avatar = container.querySelector(".av");
+    expect(avatar?.getAttribute("aria-hidden")).toBe("true");
+    expect(avatar?.getAttribute("role")).toBeNull();
+    expect(avatar?.getAttribute("aria-label")).toBeNull();
+    expect(avatar?.textContent).toBe("MC");
+  });
 });
 
 describe("Empty", () => {

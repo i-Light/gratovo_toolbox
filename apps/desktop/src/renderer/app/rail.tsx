@@ -4,8 +4,9 @@ import { memo, useEffect, useRef } from "react";
 
 import { duration } from "../lib/format";
 import { useNarrow } from "../lib/media";
-import { setPref, usePref } from "../lib/prefs";
+import { getPrefs, setPref, usePref } from "../lib/prefs";
 import { screens, type ScreenKey } from "../lib/routes";
+import { openMenu, setShortcuts } from "../lib/actions";
 import { go, selectRoute, useApp } from "../lib/store";
 import { strings } from "../strings";
 
@@ -75,7 +76,13 @@ export const railId = "rail";
  * toggle. It shows a drawer at narrow widths. Memoized: it re-renders only when a slice it shows changes.
  */
 export const Rail = memo(function Rail() {
-  const screen = useApp((s) => selectRoute(s).screen);
+  // On a record page the screen it was opened from is the one marked.
+  const screen = useApp((s) => {
+    const route = selectRoute(s);
+    return route.screen === "record" ? route.from : route.screen;
+  });
+  const settingsOpen = useApp((s) => selectRoute(s).screen === "settings");
+  const accountMenuOpen = useApp((s) => s.ui.menu?.label === strings.menu.account);
   const counts = useApp((s) => s.data.counts);
   const meId = useApp((s) => s.data.me);
   const myName = useApp((s) => s.data.myName);
@@ -131,11 +138,78 @@ export const Rail = memo(function Rail() {
         <button
           type="button"
           className="me"
-          // The account menu arrives in step 3c-2; until then this opens Settings > Profile.
-          onClick={() => {
-            go("settings", "profile");
+          aria-haspopup="menu"
+          aria-expanded={accountMenuOpen}
+          onClick={(event) => {
+            // Read when the menu opens, so the rail doesn't re-render on every theme change.
+            const theme = getPrefs().theme;
+            openMenu(
+              event.currentTarget.getBoundingClientRect(),
+              [
+                {
+                  kind: "who",
+                  name: named ? shownName : rail.addName,
+                  sub: named ? role : strings.menu.unnamedSub,
+                  color: avatarColor(meId === "u1" ? "owner" : memberName),
+                  unnamed: !named,
+                  run: () => {
+                    go("settings", "profile");
+                  },
+                },
+                {
+                  kind: "item",
+                  label: strings.menu.settings,
+                  icon: "gear",
+                  hint: strings.keys.ctrlComma,
+                  run: () => {
+                    go("settings", "profile");
+                  },
+                },
+                {
+                  kind: "item",
+                  label: strings.menu.appearance,
+                  icon: "moon",
+                  hint:
+                    theme === "dark"
+                      ? strings.menu.themeDark
+                      : theme === "light"
+                        ? strings.menu.themeLight
+                        : strings.menu.themeSystem,
+                  run: () => {
+                    go("settings", "appearance");
+                  },
+                },
+                {
+                  kind: "item",
+                  label: strings.menu.shortcuts,
+                  icon: "keyboard",
+                  hint: strings.keys.help,
+                  run: () => {
+                    setShortcuts(true);
+                  },
+                },
+                { kind: "separator" },
+                {
+                  kind: "item",
+                  label: strings.menu.notifications,
+                  icon: "bell",
+                  run: () => {
+                    go("settings", "notifications");
+                  },
+                },
+                {
+                  kind: "item",
+                  label: strings.menu.connections,
+                  icon: "gauge",
+                  run: () => {
+                    go("settings", "connections");
+                  },
+                },
+              ],
+              strings.menu.account,
+            );
           }}
-          aria-current={screen === "settings" ? "page" : undefined}
+          aria-current={settingsOpen ? "page" : undefined}
           aria-label={rail.account(memberName)}
           data-tip={collapsed ? rail.memberTip(memberName, role) : undefined}
         >

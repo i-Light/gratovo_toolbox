@@ -66,12 +66,17 @@ describe("the rail", () => {
     expect(within(crumbs()).getByText(strings.screens.find.tabs.triage)).toBeTruthy();
   });
 
-  it("asks for your name while none is set, and the account button opens Settings > Profile", async () => {
+  it("asks for your name while none is set, and the account button opens a menu whose first row opens Settings > Profile", async () => {
     render(<App />);
     const account = screen.getByRole("button", { name: strings.rail.account("You") });
     expect(within(account).getByText(strings.rail.addName)).toBeTruthy();
     expect(within(account).getByText(strings.rail.roleOnline("Owner"))).toBeTruthy();
     await userEvent.click(account);
+    await userEvent.click(
+      within(screen.getByRole("menu")).getByRole("menuitem", {
+        name: new RegExp(strings.rail.addName),
+      }),
+    );
     expect(
       screen.getByRole("heading", { level: 1, name: strings.screens.settings.name }),
     ).toBeTruthy();

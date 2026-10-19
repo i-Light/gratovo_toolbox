@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { ago, duration } from "./format";
+import { ago, duration, money } from "./format";
 
 describe("duration", () => {
   it("writes minutes under an hour", () => {
@@ -48,5 +48,23 @@ describe("ago", () => {
     expect(ago(before(86400), now)).toBe("yesterday");
     expect(ago(before(30 * 3600), now)).toBe("yesterday");
     expect(ago(before(3 * 86400), now)).toBe("3 days ago");
+  });
+});
+
+describe("money", () => {
+  it("writes dollars with thousands separators", () => {
+    expect(money(0)).toBe("$0");
+    expect(money(950)).toBe("$950");
+    expect(money(1200)).toBe("$1,200");
+    expect(money(1234567)).toBe("$1,234,567");
+  });
+
+  it("writes a negative amount with a real minus sign", () => {
+    expect(money(-300)).toBe("\u2212$300");
+  });
+
+  it("rounds to whole dollars", () => {
+    expect(money(1199.6)).toBe("$1,200");
+    expect(money(-0.2)).toBe("$0");
   });
 });

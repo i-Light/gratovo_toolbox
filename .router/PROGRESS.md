@@ -1,6 +1,6 @@
 # Progress: step 3c (the app shell)
 
-Started 2026-10-19, after #5 (the owner's answers) merged. `CONTEXT.md` is the scout's read of the prototype; `PLAN.md` is the plan for the first of three pull requests (3c-1, the frame).
+Started 2026-10-19, after #5 (the owner's answers) merged. `CONTEXT.md` is the scout's read of the prototype. **3c-1 (the frame) merged as #6** (82d310e). `PLAN.md` now holds the plan for 3c-2 (the overlays); the 3c-1 plan is in git history (3056c06).
 
 ## Done (3c-1)
 
@@ -18,10 +18,36 @@ Started 2026-10-19, after #5 (the owner's answers) merged. `CONTEXT.md` is the s
 
 Looked at (lead): `scratchpad/shots/app-*.png` against `scratchpad/ref/proto-*.png`, light and dark, 1440 and 400 px. Same rail and top bar; differences are the intended ones (no "The plan", no design-notes button, placeholder content). The scripts `scratchpad/proto-ref.cjs` and `scratchpad/app-shots.cjs` aren't committed; a later session rewrites them from this description if needed.
 
-## Next
+Then T6 (tests, b847b1c), the review agent's findings and the first Windows run's failures (3056c06), and #6 merged with every check green.
 
-- T6 (running): component tests and the Electron tests (`frame.spec.ts`, fixture and smoke/security updates, no-menu check).
-- T7: full checks, Windows CI by workflow_dispatch, review agent, hand-off and plan status, pull request, merge.
+## 3c-2 (the overlays)
+
+- Plan: `.router/PLAN.md` (decisions E1 to E8).
+
+| Task | Tier | Commit | Note |
+|---|---|---|---|
+| P2 overlay CSS, dialog wrapper | N | 45630aa, b62d18b | `overlays.css` rule for rule, `ModalLayer` (E1) |
+| P1 state, records, actions | N | 5839b5c | routes `record`, example records, `actions.ts` |
+| P3 overlays and wiring | N | (this commit) | palette, sheet, menus, tooltip, trays, peek, record page, toasts; lead review below |
+
+Lead review of P3 (looked at `scratchpad/shots/p3/*` next to the prototype, light and dark, 1440 and 400 px):
+- A modal `<dialog>` sits in the browser's top layer, so toasts, menus and the tooltip (z-index 85 to 99 in the prototype, above its scrim at 80) drew under it and were inert. New `overlays/floating.tsx`: one container they render into, which `ModalLayer` moves into the newest open dialog (no remount). Checked: a toast shown with the palette open is on top in Chromium, as in the prototype.
+- The prototype's 52 px palette search row shrank while the list was long (flex column with a capped height), so the input jumped as typing shortened the list. `.pal > .pal-in { flex-shrink: 0 }`, a listed deviation.
+- The prototype's menus (z-index 85) opened under the narrow drawer (86): the account menu was invisible at 400 px. `.menu[role="menu"] { z-index: 87 }`, a listed deviation.
+- The sheet takes focus itself (`ModalLayer focusSelf`): with the native dialog, focus went to its Close button (a ring the prototype didn't show), or at 400 px to the scrolling panel (a ring round the whole sheet). `dialog.layer:focus-visible { outline: none }`, an E1 deviation.
+- Playwright's `Shift+/` sends `/` (opens the palette, in the prototype too); a real `?` is `page.keyboard.press("?")`.
+
+| P4 tests | N | (this commit) | component tests for every overlay (445 Vitest in all), `e2e/overlays.spec.ts` (9 Electron tests) |
+
+Lead review of P4: Playwright's `getByText(…, { exact: true })` compares an element's whole text, children included, so "Undone" (with its sub line) never matched; toasts are now found by role and the words they contain. The Tab test now checks that focus never lands behind the palette (past its last control Chromium may leave focus on the page). Starting the app in the e2e fixture has its own 60 s limit: on main after #6, a busy runner took over 30 s to start the app (the re-run passed).
+
+P5, lead:
+- Review agent (13 findings, none critical or high), all handled:
+  - Fixed: toasts kept their animation place when the floating container moves (`onFloatingMoved`; checked in Chromium: the life bar goes on at 37 %, 54 %, 68 % across the palette opening and closing, where it restarted before); Tab and Shift+Tab close a menu, whose items leave the Tab order; "Go to" rows open the first tab; each tray has its own Esc layer, so switching trays puts it on top; `go` keeps the menu and peek when the route doesn't change, and back and forward keep the peek when they can't move (as the prototype); the selected palette row scrolls into view; palette rows sit in `role="group"`s named by their headings; `Avatar decorative` where the name is written beside it; the account menu is named and its button has `aria-expanded`; the peek and trays give focus back when closed with focus inside (`lib/focus.ts`); the record summary shows its kind and unused strings are gone; the rail no longer re-renders on a theme change.
+  - Recorded instead (ADR 0009, decisions 18 and 20): the empty palette's first five actions; the tooltip's warm-up counting from the last tip hiding.
+- First Windows run of the overlay e2e tests (run 39321168249): 32 of 33 passed. The account menu's first item never took focus: it was focused while the menu was still `visibility: hidden` for measuring (the prototype too; happy-dom doesn't check). Now focused once the menu is placed; checked in Chromium (open, ArrowDown, Tab, Esc).
+
+- Next: open the 3c-2 pull request, drive it green, merge; then 3c-3.
 
 ## Notes for 3c-2
 

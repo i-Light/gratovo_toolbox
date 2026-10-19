@@ -6,8 +6,16 @@ import { useNarrow } from "../lib/media";
 import { usePref } from "../lib/prefs";
 import { selectProblems, selectRoute, setRailOpen, useApp } from "../lib/store";
 import { useGlobalKeys, useKeyListener } from "./global-keys";
+import { MenuLayer } from "../overlays/menu-layer";
+import { Palette } from "../overlays/palette";
+import { Peek } from "../overlays/peek";
+import { Shortcuts } from "../overlays/shortcuts";
+import { Toasts } from "../overlays/toasts";
+import { Tooltip } from "../overlays/tooltip";
+import { Trays } from "../overlays/trays";
 import { PlaceholderScreen } from "./placeholder-screen";
 import { ProblemsBar } from "./problems-bar";
+import { RecordPage } from "./record-page";
 import { Rail, railId } from "./rail";
 import { TopBar, menuButtonId } from "./top-bar";
 
@@ -39,14 +47,34 @@ const Bars = memo(function Bars() {
 const Content = memo(function Content() {
   const screen = useApp((s) => selectRoute(s).screen);
   const tab = useApp((s) => selectRoute(s).tab);
+  const kind = useApp((s) => selectRoute(s).record?.kind);
+  const id = useApp((s) => selectRoute(s).record?.id);
   const ref = useRef<HTMLElement>(null);
   useEffect(() => {
     ref.current?.scrollTo({ top: 0, behavior: "instant" });
-  }, [screen, tab]);
+  }, [screen, tab, kind, id]);
   return (
     <main className="content" id="content" ref={ref}>
-      <PlaceholderScreen key={screen} screen={screen} />
+      {screen === "record" ? (
+        <RecordPage
+          key={`${String(kind)}${String(id)}`}
+          record={kind === undefined || id === undefined ? undefined : { kind, id }}
+        />
+      ) : (
+        <PlaceholderScreen key={screen} screen={screen} />
+      )}
     </main>
+  );
+});
+
+/** The area under the bars: the content, and the peek panel beside it while one is open. */
+const Body = memo(function Body() {
+  const peeking = useApp((s) => s.ui.peek !== null);
+  return (
+    <div className={cx("body", peeking && "has-peek")}>
+      <Content />
+      <Peek />
+    </div>
   );
 });
 
@@ -114,10 +142,14 @@ export function App() {
       <div className="main">
         <TopBar />
         <Bars />
-        <div className="body">
-          <Content />
-        </div>
+        <Body />
       </div>
+      <Trays />
+      <Palette />
+      <Shortcuts />
+      <MenuLayer />
+      <Toasts />
+      <Tooltip />
     </div>
   );
 }

@@ -34,3 +34,20 @@ export function ago(at: number, now: number): string {
   const days = Math.round(seconds / 86400);
   return days === 1 ? time.yesterday : time.daysAgo(days);
 }
+
+/**
+ * An amount of money in dollars: "$1,200", "\u2212$300" (a real minus sign). Whole dollars only;
+ * a fraction rounds. Which roles may see money is decided where it is shown.
+ */
+export function money(n: number): string {
+  const rounded = Math.round(Math.abs(n));
+  const text = `$${rounded.toLocaleString("en-US")}`;
+  return n < 0 && rounded > 0 ? `\u2212${text}` : text;
+}
+
+/** A time of day as "09:02" (24 hours, local time). */
+export function clock(ts: number): string {
+  const date = new Date(ts);
+  const two = (n: number): string => String(n).padStart(2, "0");
+  return `${two(date.getHours())}:${two(date.getMinutes())}`;
+}

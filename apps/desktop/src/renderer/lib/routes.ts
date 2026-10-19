@@ -4,12 +4,34 @@ import { strings } from "../strings";
 
 /** Every screen the rail and the URL can name. */
 export type ScreenKey =
-  "today" | "find" | "reach" | "close" | "deliver" | "insights" | "toolbox" | "team" | "settings";
+  | "today"
+  | "find"
+  | "reach"
+  | "close"
+  | "deliver"
+  | "insights"
+  | "toolbox"
+  | "team"
+  | "settings"
+  | "record";
+
+/** The kinds of record the app keeps. */
+export type RecordKind = "creator" | "brand" | "deal";
+
+/** Names one record: its kind and its id. */
+export interface RecordRef {
+  readonly kind: RecordKind;
+  readonly id: string;
+}
 
 /** Where the user is: a screen and, for screens with tabs, one of its tabs. */
 export interface Route {
   readonly screen: ScreenKey;
   readonly tab: string | null;
+  /** Only on the "record" screen: the record shown. */
+  readonly record?: RecordRef;
+  /** The screen a record was opened from. */
+  readonly from?: ScreenKey;
 }
 
 /** What the frame knows about a screen. */
@@ -47,9 +69,10 @@ export const screens: Readonly<Record<ScreenKey, ScreenInfo>> = {
   toolbox: screen("toolbox", "wrench", "var(--ink-2)"),
   team: screen("team", "users", "var(--ink-2)"),
   settings: screen("settings", "gear", "var(--ink-2)"),
+  record: screen("record", "user", "var(--ink-2)"),
 };
 
-/** The screens in the order the rail lists them. */
+/** The screens in the order the rail lists them (the record page is not one of them). */
 export const screenOrder: readonly ScreenKey[] = [
   "today",
   "find",
@@ -84,23 +107,33 @@ export function firstTab(screen: ScreenKey): string | null {
   return screens[screen].tabs[0]?.key ?? null;
 }
 
-/** True when both routes point at the same screen and tab. */
+/** True when both routes point at the same screen, tab and record. */
 export function sameRoute(a: Route, b: Route): boolean {
-  return a.screen === b.screen && a.tab === b.tab;
+  return (
+    a.screen === b.screen &&
+    a.tab === b.tab &&
+    a.record?.kind === b.record?.kind &&
+    a.record?.id === b.record?.id &&
+    a.from === b.from
+  );
 }
 
-/** The URL hash for a route: "#/today" or "#/find/triage". */
+/** The URL hash for a route: "#/today", "#/find/triage" or "#/record/creator/c1". */
 export function routeToHash(route: Route): string {
+  if (route.screen === "record" && route.record !== undefined) {
+    return `#/record/${route.record.kind}/${route.record.id}`;
+  }
   return route.tab === null ? `#/${route.screen}` : `#/${route.screen}/${route.tab}`;
 }
 
 /**
  * Reads a URL hash. Accepts "#/screen", "#/screen/tab" and the prototype's old "#screen". An unknown
- * screen gives Today; an unknown tab gives the screen's first tab.
+ * screen gives Today; an unknown tab gives the screen's first tab. A record page is not restored
+ * from the hash (as in the prototype), so "#/record/..." gives Today.
  */
 export function routeFromHash(hash: string): Route {
   const [first = "", second = ""] = hash.replace(/^#\/?/, "").split("/");
-  if (!isScreenKey(first)) {
+  if (!isScreenKey(first) || first === "record") {
     return { screen: "today", tab: null };
   }
   const known = screens[first].tabs.some((tab) => tab.key === second);

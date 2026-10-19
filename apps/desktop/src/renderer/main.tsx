@@ -4,6 +4,7 @@ import "@gratovo/ui/base.css";
 import "@gratovo/ui/controls.css";
 import "@gratovo/ui/motion.css";
 import "./app/frame.css";
+import "./overlays/overlays.css";
 
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
