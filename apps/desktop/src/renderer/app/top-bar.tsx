@@ -84,7 +84,8 @@ function Bell() {
   return (
     <IconBtn
       icon="bell"
-      label={strings.top.notifications}
+      label={unread > 0 ? strings.top.notificationsUnread(unread) : strings.top.notifications}
+      tip={strings.top.notifications}
       {...(unread > 0 ? { badge: unread } : {})}
       pressed={pressed}
       onClick={() => {

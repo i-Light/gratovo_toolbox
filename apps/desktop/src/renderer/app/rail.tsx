@@ -210,7 +210,8 @@ export const Rail = memo(function Rail() {
             );
           }}
           aria-current={settingsOpen ? "page" : undefined}
-          aria-label={rail.account(memberName)}
+          // Expanded, the name and role on the button are its name; collapsed they are hidden.
+          aria-label={collapsed ? rail.account(memberName) : undefined}
           data-tip={collapsed ? rail.memberTip(memberName, role) : undefined}
         >
           <Avatar
@@ -218,6 +219,7 @@ export const Rail = memo(function Rail() {
             color={avatarColor(meId === "u1" ? "owner" : memberName)}
             status={me?.status === "away" ? "away" : "online"}
             unnamed={!named}
+            decorative={!collapsed}
           />
           <span className="nl">
             <b>{shownName}</b>

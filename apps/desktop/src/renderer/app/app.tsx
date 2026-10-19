@@ -10,6 +10,7 @@ import { MenuLayer } from "../overlays/menu-layer";
 import { Palette } from "../overlays/palette";
 import { Peek } from "../overlays/peek";
 import { Shortcuts } from "../overlays/shortcuts";
+import { SettingsScreen } from "../settings/settings-screen";
 import { Toasts } from "../overlays/toasts";
 import { Tooltip } from "../overlays/tooltip";
 import { Trays } from "../overlays/trays";
@@ -60,6 +61,8 @@ const Content = memo(function Content() {
           key={`${String(kind)}${String(id)}`}
           record={kind === undefined || id === undefined ? undefined : { kind, id }}
         />
+      ) : screen === "settings" ? (
+        <SettingsScreen key={screen} />
       ) : (
         <PlaceholderScreen key={screen} screen={screen} />
       )}

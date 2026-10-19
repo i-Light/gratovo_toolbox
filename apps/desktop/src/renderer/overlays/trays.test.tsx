@@ -8,6 +8,9 @@ import { initPrefs } from "../lib/prefs";
 import { appStore, resetAppStoreForTests, selectRoute } from "../lib/store";
 import { strings } from "../strings";
 
+/** The bell's name starts with "Notifications" and adds the unread count while there is one. */
+const bellName = new RegExp(`^${strings.top.notifications}`);
+
 beforeEach(() => {
   localStorage.clear();
   initPrefs();
@@ -19,9 +22,9 @@ afterEach(cleanup);
 const press = (key: string, init: KeyboardEventInit = {}) =>
   fireEvent.keyDown(document, { key, ...init });
 const route = () => selectRoute(appStore().getState());
-const bell = () => screen.getByRole("button", { name: strings.top.notifications });
+const bell = () => screen.getByRole("button", { name: bellName });
 const jobsButton = () => screen.getByRole("button", { name: strings.top.jobs });
-const notificationsTray = () => screen.queryByRole("dialog", { name: strings.top.notifications });
+const notificationsTray = () => screen.queryByRole("dialog", { name: bellName });
 const markAll = () => screen.getByRole("button", { name: strings.trays.markAllRead });
 const badge = () => within(bell()).queryByText(/^\d+$/)?.textContent;
 

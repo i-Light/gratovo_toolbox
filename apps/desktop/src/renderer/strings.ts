@@ -30,6 +30,8 @@ export const strings = {
     jobs: "Background jobs",
     jobsNone: "Background jobs: none running",
     notifications: "Notifications",
+    /** The bell's accessible name while there are unread ones; it starts with the visible name (WCAG 2.5.3). */
+    notificationsUnread: (n: number): string => `Notifications, ${String(n)} unread`,
     saved: "Saved",
     saving: "Saving…",
     savedTip: (ago: string) => `Saved on this computer and synced ${ago}`,
@@ -62,6 +64,7 @@ export const strings = {
       creators: "Creators",
       brands: "Brands",
       deals: "Deals",
+      settings: "Settings",
     },
     actions: {
       reviewFinds: "Review new finds",

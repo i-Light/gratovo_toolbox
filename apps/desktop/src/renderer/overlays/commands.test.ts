@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { initPrefs } from "../lib/prefs";
 import { screenOrder, screens } from "../lib/routes";
-import { appStore, resetAppStoreForTests } from "../lib/store";
+import { appStore, resetAppStoreForTests, selectRoute } from "../lib/store";
 import { strings } from "../strings";
 import { buildCommands, maxResults } from "./commands";
 
@@ -78,5 +78,26 @@ describe("buildCommands", () => {
   it("shows the G hint on screens", () => {
     const reach = buildCommands(data(), [], "").find((r) => r.label === screens.reach.name);
     expect(reach?.hint).toBe(strings.palette.goHint("r"));
+  });
+
+  it("lists the settings between the screens and the records, and opens the row", () => {
+    const rows = buildCommands(data(), [], "dark");
+    expect(rows.map((r) => [r.group, r.label])).toEqual([
+      [groups.actions, strings.palette.actions.theme],
+      [groups.settings, strings.settings.rows.theme.label],
+    ]);
+    const theme = rows[1];
+    expect(theme?.sub).toBe(strings.screens.settings.tabs.appearance);
+    expect(theme?.icon).toBe("moon");
+    theme?.run();
+    expect(appStore().getState().ui.settingTarget).toBe("theme");
+    expect(selectRoute(appStore().getState())).toMatchObject({
+      screen: "settings",
+      tab: "appearance",
+    });
+  });
+
+  it("does not list settings when nothing is typed", () => {
+    expect(buildCommands(data(), [], "").some((r) => r.group === groups.settings)).toBe(false);
   });
 });

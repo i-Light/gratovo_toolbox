@@ -8,9 +8,11 @@ const { palette, shortcuts, peek, trays, top, actions, menu } = strings;
 const paletteDialog = (page: Page) => page.getByRole("dialog", { name: palette.label });
 const sheetDialog = (page: Page) => page.getByRole("dialog", { name: shortcuts.label });
 const peekPanel = (page: Page) => page.getByRole("complementary", { name: peek.label });
-const bell = (page: Page) => page.getByRole("button", { name: top.notifications, exact: true });
+const bell = (page: Page) =>
+  page.getByRole("button", { name: new RegExp(`^${top.notifications}`) });
 const bellBadge = (page: Page) => bell(page).locator(".badge");
-const accountButton = (page: Page) => page.getByRole("button", { name: /^Your account/ });
+const accountButton = (page: Page) =>
+  page.getByRole("button", { name: new RegExp(strings.rail.roleOnline("Owner")) });
 // A toast's text also holds its sub line ("Undone" + "Marked notifications read"), so it is found
 // by the words it contains, not by an exact text match.
 const toastSaying = (page: Page, text: string) =>

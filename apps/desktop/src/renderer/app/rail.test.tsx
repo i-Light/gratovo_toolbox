@@ -10,6 +10,9 @@ import { strings } from "../strings";
 import { App } from "./app";
 import { Rail } from "./rail";
 
+/** Expanded, the account button is named by its text: the name (or "Add your name") and the role. */
+const accountName = new RegExp(strings.rail.roleOnline("Owner"));
+
 beforeEach(() => {
   localStorage.clear();
   initPrefs();
@@ -68,7 +71,7 @@ describe("the rail", () => {
 
   it("asks for your name while none is set, and the account button opens a menu whose first row opens Settings > Profile", async () => {
     render(<App />);
-    const account = screen.getByRole("button", { name: strings.rail.account("You") });
+    const account = screen.getByRole("button", { name: accountName });
     expect(within(account).getByText(strings.rail.addName)).toBeTruthy();
     expect(within(account).getByText(strings.rail.roleOnline("Owner"))).toBeTruthy();
     await userEvent.click(account);
@@ -90,13 +93,19 @@ describe("the rail", () => {
         d.myName = "Maya";
       });
     });
-    const account = screen.getByRole("button", { name: strings.rail.account("You") });
+    const account = screen.getByRole("button", { name: accountName });
     expect(within(account).getByText("Maya")).toBeTruthy();
     expect(within(account).queryByText(strings.rail.addName)).toBeNull();
   });
 });
 
 describe("the collapsed rail", () => {
+  it('names the account button "Your account: …" because its text is hidden', () => {
+    setPref("rail", "min");
+    render(<App />);
+    expect(screen.getByRole("button", { name: strings.rail.account("You") })).toBeTruthy();
+  });
+
   it("still names every screen's button, though its text is hidden", () => {
     setPref("rail", "min");
     render(<App />);

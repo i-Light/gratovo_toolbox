@@ -8,6 +8,9 @@ import { initPrefs } from "../lib/prefs";
 import { appStore, resetAppStoreForTests, selectRoute } from "../lib/store";
 import { strings } from "../strings";
 
+/** Expanded, the account button is named by its text: the name (or "Add your name") and the role. */
+const accountName = new RegExp(strings.rail.roleOnline("Owner"));
+
 beforeEach(() => {
   localStorage.clear();
   initPrefs();
@@ -19,7 +22,7 @@ afterEach(cleanup);
 const press = (key: string, init: KeyboardEventInit = {}) =>
   fireEvent.keyDown(document, { key, ...init });
 const route = () => selectRoute(appStore().getState());
-const account = () => screen.getByRole("button", { name: /^Your account/ });
+const account = () => screen.getByRole("button", { name: accountName });
 const items = () => within(screen.getByRole("menu")).getAllByRole("menuitem");
 /** The menu listens for outside presses from the next tick on. */
 const tick = () =>
