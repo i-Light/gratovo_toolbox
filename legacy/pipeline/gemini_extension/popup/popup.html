@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Gemini Bridge</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <h1>Gemini Bridge <span id="version" class="muted"></span></h1>
+    <div class="row">
+      <span id="conn-dot" class="dot"></span>
+      <span id="conn-text">checking…</span>
+      <span id="browser" class="muted"></span>
+    </div>
+  </header>
+
+  <section>
+    <h2>Connection</h2>
+    <div class="row">
+      <label for="port">Port</label>
+      <input id="port" type="number" min="1" max="65535" value="8765">
+      <button id="save-port">Save &amp; reconnect</button>
+    </div>
+    <div id="conn-error" class="error"></div>
+  </section>
+
+  <section>
+    <h2>Bridge tab</h2>
+    <div id="tab-info" class="muted">none</div>
+    <div class="row">
+      <button id="open-gemini">Open Gemini</button>
+      <button id="focus-tab">Focus tab</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Elements</h2>
+    <table id="elements">
+      <thead><tr><th>element</th><th>found</th><th>strategy</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <div id="elements-note" class="muted"></div>
+  </section>
+
+  <section>
+    <h2>Queue</h2>
+    <div id="queue-info" class="muted"></div>
+    <div class="row">
+      <button id="queue-pause">Pause</button>
+      <button id="queue-resume">Resume</button>
+      <button id="queue-clear">Clear queued</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Diagnostics</h2>
+    <div class="row">
+      <button id="run-diag">Run diagnostics</button>
+      <button id="copy-diag" disabled>Copy JSON</button>
+    </div>
+    <pre id="diag-out" class="hidden"></pre>
+  </section>
+
+  <script src="../compat.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

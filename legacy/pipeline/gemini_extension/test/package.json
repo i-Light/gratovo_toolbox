@@ -1,0 +1,12 @@
+{
+  "name": "gemini-extension-tests",
+  "version": "0.1.0",
+  "private": true,
+  "description": "jsdom unit tests for the Gemini Bridge extension (content/locators.js + content/content.js)",
+  "scripts": {
+    "test": "node --test"
+  },
+  "devDependencies": {
+    "jsdom": "^24.1.0"
+  }
+}

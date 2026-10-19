@@ -1,0 +1,13 @@
+{
+  "$schema_note": "Per-release list of local files a new build invalidates, so every teammate's app converges on the new shape instead of quietly keeping stale data. Read this before changing ANY database in the repo.",
+  "$when_to_add_an_action": "DECIDE by whether an existing on-disk file keeps working. (a) Additive change -- a new column via ALTER TABLE, a new CREATE TABLE IF NOT EXISTS, a new index: SELF-HEALS. Old and new clients read the same file; add NOTHING here. (b) Breaking change -- a column retyped or renamed, a table restructured, rows that must be recomputed, a bundled database (email_library.db) whose contents you rewrote: does NOT self-heal. Add ONE action naming the file. (c) The Supabase schema in backend/schema.sql: clients never hold it, and the local mirror (gratovo_mirror.db) rebuilds itself when lib/core/sync/mirror_schema.dart's kMirrorSchemaVersion is bumped -- so bump that instead; add something here ONLY if the same release also breaks a pipeline database (gratovo.db / mailbox.db / email_library.db).",
+  "$how_an_action_works": "On the next launch every client applies each unseen id exactly once: the named files (paths relative to the pipeline data dir) are MOVED into data/database/_needs_merge/ with a timestamp prefix -- never deleted -- and the fresh copy (re-seeded from the zip, or rebuilt from Supabase / by the pipeline) takes their place. Settings shows each person what was set aside and the team board shows who still has one to merge. Paths must be relative and inside the data dir; '..' and absolute paths are ignored. Implementation: lib/core/native/pipeline_reset.dart.",
+  "$example": { "id": "2026-09-08-email-lib", "paths": ["database/email_library.db"], "note": "Critique library restructured; old local copy set aside for merge." },
+  "actions": [
+    {
+      "id": "2026-10-01-drafter-rules-headings",
+      "paths": ["gemini skills/email drafter rules.json"],
+      "note": "The drafter skill's opening heading was renamed and an Intro section added, so the rule file's first core ref ('cold-email-drafter') stopped resolving and every Gemini draft lost the skill's preamble. The corrected file is re-seeded; your old one is here if you had edited it."
+    }
+  ]
+}

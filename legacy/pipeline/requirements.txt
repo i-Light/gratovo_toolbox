@@ -1,0 +1,36 @@
+# Install with:  pip install -r requirements.txt
+#
+# Only needed on a machine that actually RUNS searches. Syncing already-collected
+# data (`search.py --push-only`, `search.py --status`, `tools/import_existing_data.py`)
+# uses nothing but the standard library — see gratovo/pipeline.py's configure()
+# for why those imports are deliberately lazy.
+
+google-api-python-client==2.140.0   # YouTube Data API v3 — channel/video metadata
+curl_cffi>=0.16.0                   # used by the vendored scrapetube for TLS-fingerprint impersonation
+requests>=2.31.0                    # tools/aws_gateway_setup.py's plain health check only
+typing_extensions>=4.7.0            # ditto
+google-auth-oauthlib==1.2.1
+google-auth-httplib2==0.2.0
+python-dotenv==1.0.1
+
+# Outreach email -- only needed on the machine that SENDS (tools/email_send.py).
+# google-api-python-client above is the same client the YouTube calls use; the
+# two below are what turn a stored refresh token into a live Gmail session and
+# what opens the browser once, during `--authorize`.
+#   google-auth-oauthlib   the one-time interactive authorization
+#   google-auth-httplib2   the transport the Gmail client runs on
+
+# Sharing through Cloudflare R2 -- gratovo/r2.py. Needed on any machine that
+# uploads or downloads shared channel data (every machine that runs the app's
+# sync). Without them the pipeline runs local-only and says so.
+# boto3 doubles as the client for tools/aws_gateway_setup.py (outbound IP
+# rotation via API Gateway, see that file) -- only needed on whichever
+# machine actually runs that script, not on every machine that searches.
+boto3>=1.34.0
+zstandard>=0.22.0
+
+# Gemini bridge (gemini_bridge/) -- the local WebSocket server the browser
+# extension connects to; only needed on the machine that drives Gemini.
+# Everything else in the bridge (the JSON-lines daemon the app talks to, the
+# CLI, the email actions) is standard library.
+websockets>=13.0

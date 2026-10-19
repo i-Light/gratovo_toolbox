@@ -1,0 +1,80 @@
+{
+  "normal_pacing": {
+    "human_scroll_delay": {
+      "range": [1.5, 3.5]
+    },
+    "jitter_delay": {
+      "range": [2.5, 6.0]
+    },
+    "recent_videos_delay": {
+      "range": [1.5, 4.0]
+    },
+    "fast_sub_count_check_delay": {
+      "range": [0.5, 1.0]
+    },
+    "found_channels_delay": {
+      "range": [4.0, 9.0]
+    },
+    "ip_cooldown": {
+      "range": [30.0, 70.5],
+      "chance": 50
+    }
+  },
+  "catchup_videos_delay": {
+    "range": [0.8, 2.0]
+  },
+  "channel_sweep_break": {
+    "range": [40.0, 100.0],
+    "every": 30
+  },
+  "handles_to_search_limit": {
+    "value": 200
+  },
+  "backfill_batch_size": {
+    "value": 25
+  },
+  "auto_clean": {
+    "enabled": true,
+    "min_subscribers": 50000,
+    "max_subscribers": 2000000,
+    "below_min_action": "sweep",
+    "above_max_action": "delay",
+    "label": "inactive"
+  },
+  "found_channels_data_path": {
+    "path": "/data/found_channels_data"
+  },
+  "data_path": {
+    "path": "/data"
+  },
+  "proxies": {
+    "enabled": false,
+    "include_direct": true,
+    "list": []
+  },
+  "fast_pacing": {
+    "human_scroll_delay": {
+      "range": [0.3, 0.8]
+    },
+    "jitter_delay": {
+      "range": [0.5, 1.5]
+    },
+    "recent_videos_delay": {
+      "range": [0.3, 1.0]
+    },
+    "fast_sub_count_check_delay": {
+      "range": [0.1, 0.3]
+    },
+    "found_channels_delay": {
+      "range": [0.5, 1.5]
+    },
+    "ip_cooldown": {
+      "range": [5.0, 15.0],
+      "chance": 10
+    }
+  },
+  "parallel_search": {
+    "enabled": false,
+    "max_workers": 4
+  }
+}

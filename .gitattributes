@@ -1,0 +1,27 @@
+# Text files are stored with LF and checked out per platform. Scripts that Windows runs keep CRLF.
+* text=auto eol=lf
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.iss text eol=crlf
+
+# Binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
+*.sqlite3 binary
+*.db binary
+*.zip binary
+*.pdf binary
+
+# Generated or vendored: collapsed in diffs
+design/workbench-prototype/vendor/** linguist-vendored -diff
+legacy/** linguist-vendored
+.claude/skills/** linguist-documentation

@@ -1,0 +1,62 @@
+# --- secrets: never commit (see SECURITY.md) ---
+.env
+.env.*
+*.local.json
+*.pem
+*.key
+*.p12
+*.pfx
+credentials*.json
+service-account*.json
+
+# --- dependencies ---
+node_modules/
+.pnpm-store/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# --- build output ---
+dist/
+out/
+build/
+release/
+*.tsbuildinfo
+.vite/
+coverage/
+.turbo/
+
+# --- test output ---
+playwright-report/
+test-results/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+blob-report/
+
+# --- local data: databases, logs, caches ---
+*.db
+*.db-wal
+*.db-shm
+*.sqlite3-wal
+*.sqlite3-shm
+*.log
+*.log.err
+/logs/
+.cache/
+
+# --- editors and OS ---
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Claude Code: personal settings stay local; project skills, agents and settings are shared ---
+.claude/settings.local.json
+.claude/worktrees/
+

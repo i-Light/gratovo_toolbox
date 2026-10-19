@@ -1,0 +1,126 @@
+print_project_outputs
+# Flutter / Dart gitignore
+generated_plugin*
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+android/.gradle
+android/captures/
+android/gradlew
+android/gradlew.bat
+android/local.properties
+android/GeneratedPluginRegistrant.java
+ios/.generated/
+ios/Flutter/App.framework
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+ios/Flutter/Generated.xcconfig
+ios/Flutter/app.flx
+ios/Flutter/app.zip
+ios/Flutter/flutter_assets/
+ios/Flutter/flutter_export_environment.sh
+ios/ServiceDefinitions.json
+ios/Runner/GeneratedPluginRegistrant.h
+ios/Runner/GeneratedPluginRegistrant.m
+*.lock
+# ...except the one that decides what the app is actually built from.
+#
+# `*.lock` above is aimed at the scratch locks under .dart_tool/, but it caught
+# pubspec.lock with them, and that is the file that pins every dependency
+# version. Untracked, it is rewritten by any `flutter pub get` and the change
+# leaves no commit, no diff and no way to tell what a given build contained --
+# so "it worked last commit" can be true of the commit and false of the build,
+# and two machines on the same revision can ship different code.
+#
+# An application checks this in (a package, which must work across a range,
+# does not). See https://dart.dev/guides/libraries/private-files#pubspeclock
+!pubspec.lock
+*.log
+*.log.err
+# Widget Preview related
+.widget_preview/
+
+__pycache__/
+*.pyc
+
+# Scratch outputs of the outreach loop in data/gemini skills/WORKFLOW.md:
+# `outreach_block.py ... > block.json`, Gemini's reply saved as reply.md.
+# One channel's draft at a time, never the same twice -- not source.
+pipeline/tools/block.json
+pipeline/tools/reply.md
+
+# Editor and OS droppings. .idea/ itself is shared (run configs, SDK paths);
+# workspace.xml is one person's open tabs and window layout.
+.idea/workspace.xml
+*.lnk
+.fuse_hidden*
+
+# This machine's own overrides on top of the shared, committed data/settings.json
+# (config.py's LOCAL_SETTINGS_PATH; currently just the per-device Auto-Clean rule,
+# see auto_clean_controller.dart). Same per-person reasoning as OLD/data/settings.local.json
+# above -- never meant to be pushed to the team.
+data/settings.local.json
+
+# Supabase service key — never commit
+backend/.env
+*/.env
+.env
+
+# Packaged Windows builds (scripts/build_windows.ps1) -- artifacts, not source.
+dist/
+
+# Every SQLite database this machine keeps, in one folder and out of git.
+#
+# These are per-machine working copies, not source. gratovo.db is 100+ MB that
+# `search.py` rewrites on every run, so tracking it meant a nine-figure blob in
+# the history for each scrape and a file that showed as modified every time
+# anybody looked. What is IN it is not lost by ignoring it: every row is pushed
+# to Supabase, and `sync.pull_all` rebuilds the file from scratch on a machine
+# that has none.
+#
+# That includes the .bak snapshots search.py takes before a risky migration:
+# a 40 MB binary blob in git is a backup nobody can diff, review or expire,
+# and Supabase already holds every row. Keep those on the machine (or in
+# object storage), not in the history.
+data/database/
+
+# Per-run console logs written by search.py (search-<timestamp>-<mode>.log).
+# Local debugging aid, pruned to the last few dozen on each run -- nothing
+# here is worth committing.
+data/logs/
+
+
+# Live credentials. `data/.env.local` is where the outreach mailbox's legacy
+# single OAuth refresh token used to land, and where GOOGLE_CLIENT_ID/SECRET
+# still do (tools/email_send.py --authorize --save writes it there precisely
+# because data/.env is tracked). `data/gmail_accounts.local.json` is where
+# every connected mailbox's refresh token lands now that a machine can have
+# more than one. The third rule catches any .env left in a working folder
+# under pipeline/tools/.
+data/.env.local
+data/gmail_accounts.local.json
+pipeline/tools/**/.env
+
+# data/.env is TRACKED (the release build stages the team's shared keys from
+# it); this rule only stops a stray copy elsewhere. Anything private goes in
+# data/.env.local above.
+data/.env
+data/migration/
+
+# Written by tools/aws_gateway_setup.py -- embeds this AWS account's own API
+# Gateway ids, so account-specific in the same way data/.env is.
+data/aws_gateways.json
+
+# jsdom devDependency for the Gemini Bridge extension tests (pipeline/gemini_extension/test).
+pipeline/gemini_extension/test/node_modules/
+pipeline/gemini_extension/test/package-lock.json
+
+# Generated from assets/images/logo.svg by tool/generate_app_icon.dart
+/windows/runner/resources/app_icon.ico
+
+# The 30-day report pages: brand names and prices (plan step 7)
+data/reports/

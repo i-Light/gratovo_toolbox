@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "apps": [
+    {
+      "id": "dhikr_reminder",
+      "name": "Dhikr Reminder",
+      "description": {
+        "en": "Gentle dhikr reminders that float above your work.",
+        "ar": "تذكيرات بالأذكار تظهر فوق عملك بهدوء."
+      },
+      "icon": "mosque",
+      "github": { "repo": "i-Light/dhikr_reminder", "private": false },
+      "windows": {
+        "exe": ["%LOCALAPPDATA%/Programs/Dhikr Reminder/dhikr_reminder.exe"]
+      },
+      "android": {
+        "package": "com.gratovo.dhikr_reminder",
+        "playStore": false,
+        "apk": false
+      }
+    }
+  ]
+}

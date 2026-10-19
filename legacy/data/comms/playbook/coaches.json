@@ -1,0 +1,22 @@
+{
+  "about": "Who counts as a coach when a rule quotes a call transcript. Fathom labels speakers, sometimes wrongly, so a call quote is accepted only from these labels and still ranks below a lesson quote. Built 2026-10-14 from the speakers of all 574 transcripts: the staff accounts (\"(Imaccelerator)\"), the lesson coaches, and the partner coach Fawaz; students with similar names (Younes Bekhti, Ammar M, Kamal) are not coaches. 2026-10-15: Eyoub El Habib is Abu Lahya (students call him Ayyub/Eyub), the head coach who presents most lesson videos (videos.json).",
+  "coaches": {
+    "Ammar Halilovic": ["Ammar Halilovic (Imaccelerator)", "Ammar Halilović", "Ammar Halilovic"],
+    "Younes Jilani": ["Younes Jilani (Imaccelerator)", "Younes Jileni (Live)", "Younes Jilani"],
+    "Osama Lakehal": ["Osama Lakehal (Imaccelerator)", "Osama Lag", "Osama Lakehal"],
+    "Kushtrim Vishi": ["Kushtrim IMA (Imaccelerator)", "Kushtrim Vishi", "Kushtrim IMA"],
+    "Ahmed Mahamed": ["Ahmed Mahamed (Imaccelerator)", "Ahmed Mahamed"],
+    "Izak Al Hamamsha": ["Izak Al Hamamsha (Imaccelerator)", "Izak Al Hamamsha"],
+    "Abu Numaan": ["Abu Numaan", "Numaan Ahmed"],
+    "Michael Coppotelli": ["Michael Coppotelli (Imaccelerator)", "Michael Coppotelli", "Michael Coppotelli (Lumen House)"],
+    "Imam Baba": ["Imam Baba (Imaccelerator)", "Imam Baba"],
+    "Kamal Holmes": ["Kamal Holmes (Imaccelerator)", "Kamal Holmes"],
+    "Himzo Polimac": ["Himzo Polimac (Imaccelerator)", "Himzo Polimac"],
+    "Kamil Echchihab": ["Kamil Echchihab (Imaccelerator)", "Kamil Echchihab"],
+    "Dylan Anderson": ["Dylan Anderson (Imaccelerator)", "Dylan Anderson"],
+    "Farhad Dlir": ["Farhad Dlir (Imaccelerator)", "Farhad Dlir"],
+    "Liban Sharmarke": ["Liban Sharmarke (Imaccelerator)"],
+    "Eyoub El Habib": ["Eyoub El Habib", "Eyoub El habib", "Abu Lahya"],
+    "Fawaz Ishola": ["Fawaz Ishola (Fawaz Central)", "Fawaz Ishola"]
+  }
+}

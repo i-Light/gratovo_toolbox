@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "Gemini Bridge",
+  "version": "0.3.8",
+  "description": "Lets a local Python process drive the Gemini web UI over a localhost WebSocket.",
+  "permissions": ["tabs", "scripting", "storage", "alarms", "webNavigation"],
+  "host_permissions": ["https://gemini.google.com/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://gemini.google.com/*"],
+      "js": ["compat.js", "content/locators.js", "content/gems.js", "content/skills.js", "content/content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "Gemini Bridge",
+    "default_popup": "popup/popup.html"
+  }
+}

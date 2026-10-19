@@ -1,0 +1,3880 @@
+{
+  "@@locale": "en",
+  "appTitle": "Gratovo IMA ToolBox",
+  "@appTitle": {
+    "description": "App title shown in the OS task switcher / browser tab."
+  },
+  "navDashboard": "Home",
+  "navSearch": "Search",
+  "navRoster": "Roster",
+  "navInfluencers": "Influencers",
+  "navBrands": "Brands",
+  "navDeals": "Deals",
+  "navOutreach": "Outreach",
+  "navSettings": "Settings",
+  "navNews": "News",
+  "newsTitle": "Industry news",
+  "newsAllSources": "All sources",
+  "newsAllNiches": "All niches",
+  "newsEmpty": "Nothing stored yet. Run `python tools/news.py --refresh` on the machine that runs the pipeline to fetch the feeds.",
+  "newsNoMatches": "No stories from this source yet.",
+  "newsOpenArticle": "Read the article",
+  "newsUndated": "No date",
+  "newsBySource": "{value}",
+  "@newsBySource": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "newsRefresh": "Fetch feeds now",
+  "newsRefreshStarted": "Fetching feeds…",
+  "newsRefreshFinished": "Feeds updated.",
+  "newsRefreshFailed": "Couldn't fetch the feeds.",
+  "newsRefreshDesktopOnly": "Feeds are fetched by the pipeline machine. A browser is not allowed to read them directly, which is why the stories are stored rather than loaded live.",
+  "newsSourcesTitle": "Feeds",
+  "newsSourceFailing": "This feed failed on its last fetch",
+  "newsSourceDisabled": "Not being fetched",
+  "newsSourceLastFetched": "Fetched {date}",
+  "@newsSourceLastFetched": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "newsSourceNeverFetched": "Never fetched",
+  "newsAddSourceTitle": "Add a feed",
+  "newsAddSourceUrl": "Feed URL",
+  "newsAddSourceUrlHint": "https://example.com/feed/",
+  "newsAddSourceUrlInvalid": "That is not a valid http(s) URL.",
+  "newsAddSourceNiche": "Niche (optional)",
+  "newsAddSourceTitleField": "Name (optional)",
+  "newsAddSourceTitleHelp": "Left blank, the feed names itself on the first successful fetch.",
+  "newsAddSourceSubmit": "Add feed",
+  "newsAddSourceAdded": "Feed added. Fetch to pull its stories in.",
+  "newsAddSourceFailed": "Couldn't add that feed.",
+  "newsRemoveSource": "Remove feed",
+  "newsRemoveSourceConfirm": "Remove this feed and every story it produced? The stories cannot be recovered without fetching again.",
+  "newsSourceEnable": "Fetch this feed",
+  "newsSourceDisable": "Stop fetching this feed",
+  "newsSinceLastFetch": "New stories since the last fetch",
+  "newsClearAll": "Clear stored stories",
+  "newsClearAllConfirm": "Delete every stored story? The feeds stay put and the next fetch pulls them all back in. This is here to test the new-stories badge.",
+  "newsClearAllDone": "Stored stories cleared.",
+  "newsClearAllFailed": "Couldn't clear the stored stories.",
+  "dashboardWelcomeTitle": "Welcome back",
+  "dashboardWelcomeUser": "Welcome back, ",
+  "dashboardWelcomeBody": "Here's where the pipeline stands right now — new finds, active negotiations, upcoming outreach, and what the team is working on.",
+  "comingSoonTitle": "{pageName} is coming soon",
+  "@comingSoonTitle": {
+    "description": "Placeholder screen title.",
+    "placeholders": {
+      "pageName": {
+        "type": "String"
+      }
+    }
+  },
+  "comingSoonBody": "This page is scaffolded and routable, but its real content is built in a later phase of the rebuild.",
+  "desktopOnlyNotice": "This is only available on the desktop app, where the sourcing pipeline runs.",
+  "themeModeLight": "Light",
+  "themeModeDark": "Dark",
+  "themeModeSystem": "System",
+  "languageEnglish": "English",
+  "languageArabic": "Arabic",
+  "commonError": "Something went wrong.",
+  "commonRetry": "Retry",
+  "dashboardNewFinds": "New finds",
+  "dashboardActiveNegotiations": "Active negotiations",
+  "dashboardEmailsSentToday": "Emails sent today",
+  "dashboardDraftedToday": "Drafted today",
+  "dashboardOfTarget": "{count} of {target}",
+  "@dashboardOfTarget": {"placeholders": {"count": {"type": "String"}, "target": {"type": "String"}}},
+  "dashboardRosterReady": "Roster ready to pitch",
+  "dashboardUpcomingRemindersTitle": "Upcoming reminders",
+  "dashboardNoReminders": "No reminders due — you're all caught up.",
+  "dashboardReminderDue": "Due {date}",
+  "@dashboardReminderDue": {
+    "description": "Subtitle under a reminder's title, e.g. 'Due Aug 24, 2026'.",
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dashboardNewsNewCount": "{count} new",
+  "@dashboardNewsNewCount": {
+    "description": "Chip on the dashboard's News peek card — how many stories arrived on the last fetch.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dashboardArchiveDueCount": "+{count} archive due",
+  "@dashboardArchiveDueCount": {
+    "description": "Badge on the dashboard's 'New finds' tile — how many channels are currently counting down to being archived.",
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "dashboardNewsPeekEmpty": "No news yet",
+  "dashboardLogsPeekEmpty": "No activity yet",
+  "vettingStatusNewlyFound": "New",
+  "vettingStatusShortlisted": "Shortlisted",
+  "vettingStatusRejected": "Rejected",
+  "dealStageProposed": "Proposed",
+  "dealStageNegotiating": "Negotiating",
+  "dealStageAgreed": "Agreed",
+  "dealStageContractSent": "Contract sent",
+  "dealStageSigned": "Signed",
+  "dealStageLive": "Live",
+  "dealStageClosed": "Closed",
+  "dealStageLost": "Lost",
+  "influencerListEmpty": "No influencers yet — run a search to find some.",
+  "influencerListFilterAll": "All",
+  "influencerListSortLabel": "Sort by",
+  "influencerListSortSubscribers": "Subscribers",
+  "influencerListSortRecentActivity": "Recent activity",
+  "influencerListSortAverageViews": "Median views (30d)",
+  "influencerSubscribersCount": "{count} subscribers",
+  "@influencerSubscribersCount": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    },
+    "description": "Subscriber count. decimalPattern applies the project rule that any number over three digits is grouped, in whatever way the active locale groups numbers."
+  },
+  "influencerFoundVia": "Found via: {keywords}",
+  "@influencerFoundVia": {
+    "placeholders": {
+      "keywords": {
+        "type": "String"
+      }
+    }
+  },
+  "influencerNotFound": "Influencer not found.",
+  "influencerProfileSubscribers": "Subscribers",
+  "influencerProfileMedianViews30": "Median views · 30 days",
+  "influencerProfileMedianViewsAll": "Median views · all stored",
+  "influencerProfileCountry": "Country",
+  "influencerProfileLastVideo": "Last video",
+  "influencerProfileVettingLabel": "Vetting status",
+  "influencerProfileRecentVideosTitle": "Recent videos",
+  "influencerProfileRefreshVideos": "Refresh",
+  "influencerProfileRefreshStarted": "Refreshing recent videos…",
+  "influencerProfileRefreshFailed": "Couldn't refresh this channel's videos.",
+  "influencerProfileNoVideos": "No recent videos yet.",
+  "influencerProfileDetailsSyncing": "Details syncing — this channel was found on a teammate's machine and its videos have not reached this one yet.",
+  "influencerDetailsSyncingShort": "details syncing…",
+  "dashboardSearchingTitle": "Searching now",
+  "dashboardSearchingLine": "{name} · {keyword} · {count} found",
+  "@dashboardSearchingLine": {"placeholders": {"name": {"type": "String"}, "keyword": {"type": "String"}, "count": {"type": "int"}}},
+  "dashboardSearchingBlockedLine": "{name} · {reason} — retrying in {seconds}s",
+  "@dashboardSearchingBlockedLine": {"placeholders": {"name": {"type": "String"}, "reason": {"type": "String"}, "seconds": {"type": "int"}}},
+  "searchBackoffReasonRateLimited": "IP refused / rate-limited",
+  "searchBackoffReasonCaptcha": "blocked by a CAPTCHA check",
+  "influencerProfileRelevanceCriteriaTitle": "What I'm looking for in this channel's videos",
+  "influencerProfileRelevanceCriteriaHint": "e.g. sponsorship mentions, upload frequency",
+  "influencerProfileAddCriterion": "Add",
+  "influencerProfileNotesTitle": "Notes",
+  "influencerProfileNotesHint": "Notes for future deals with this channel",
+  "influencerProfileSaveNotes": "Save notes",
+  "influencerProfileNotesSaved": "Notes saved.",
+  "influencerProfileDealHistoryTitle": "Deal history",
+  "influencerProfileNoDeals": "No deals yet with this influencer.",
+  "influencerProfileOpenChannel": "Open channel",
+  "influencerProfileLastUpdated": "Channel data updated {date}",
+  "@influencerProfileLastUpdated": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "influencerProfileNeverUpdated": "Never refreshed",
+  "influencerProfileVideosThisMonth": "Videos this month",
+  "influencerProfileStageTitle": "Progress and tags",
+  "influencerProfileStageLabel": "Pipeline stage",
+  "influencerProfileChannelTagsLabel": "Channel tags",
+  "influencerProfileAddTagHint": "e.g. tech, fitness",
+  "influencerProfileSaveFailed": "Couldn't save that change.",
+  "influencerProfilePullMonths": "Months to cover",
+  "influencerProfilePullMore": "Pull more",
+  "influencerProfilePullStarted": "Backfill started — see the Search page for progress.",
+  "influencerProfilePullAlreadyRunning": "A backfill is already running — wait for it to finish, then try again.",
+  "influencerProfilePullSearchRunning": "A search is running — wait for it to finish, then try again.",
+  "influencerProfilePullFailed": "Couldn't start the backfill.",
+  "influencerProfileCrmTitle": "What a video is worth",
+  "influencerProfileCrmBasis": "Basis",
+  "influencerProfileCrmIncluded": "{count} videos included",
+  "@influencerProfileCrmIncluded": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "influencerProfileCrmUnusable": "{count} have no view count and can't be used",
+  "@influencerProfileCrmUnusable": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "influencerProfileCrmSelectAll": "Select all",
+  "influencerProfileCrmSelectNone": "Select none",
+  "influencerProfileCrmMedian": "Median views",
+  "influencerProfileCrmAverage": "Average views",
+  "influencerProfileCrmRange": "Range",
+  "influencerProfileCrmUploadRate": "Uploads / month",
+  "influencerProfileCrmSkewWarning": "The average is well above the median — one or two videos are carrying it. Quote from the median.",
+  "influencerProfileCrmPrice": "Price",
+  "influencerProfileCrmCpm": "CPM",
+  "cpmNicheLabel": "Niche (CPM range)",
+  "cpmNicheLine": "{niche}: ${low}-{high} CPM, so ${lowPrice}-{highPrice} for this channel",
+  "@cpmNicheLine": {"placeholders": {"niche": {"type": "String"}, "low": {"type": "String"}, "high": {"type": "String"}, "lowPrice": {"type": "String"}, "highPrice": {"type": "String"}}},
+  "cpmSliderHelp": "Slide to try a CPM within the range; the price follows.",
+  "cpmNicheTech": "Tech",
+  "cpmNicheFinance": "Finance",
+  "cpmNicheFitness": "Fitness",
+  "cpmNicheEntertainment": "Entertainment",
+  "cpmNicheGaming": "Gaming",
+  "cpmNicheBeauty": "Beauty",
+  "cpmNicheTravel": "Travel",
+  "cpmNicheEducation": "Education",
+  "cpmNicheFood": "Food",
+  "cpmNicheLuxury": "Luxury",
+  "brandNew": "New brand",
+  "brandEdit": "Edit brand",
+  "brandFormName": "Brand name",
+  "brandFormNameRequired": "A brand needs a name.",
+  "brandFormWebsite": "Website",
+  "brandFormCategory": "What they sell",
+  "brandFormCountry": "Country (two letters)",
+  "brandFormCountryInvalid": "Two letters, like US.",
+  "brandFormBudget": "Budget",
+  "brandFormCurrency": "Currency",
+  "brandFormContacts": "Contacts",
+  "brandFormContactName": "Name",
+  "brandFormContactEmail": "Email",
+  "brandFormContactRole": "Role",
+  "brandFormContactPrimary": "Write to this one first",
+  "brandFormAddContact": "Add a contact",
+  "brandFormRemoveContact": "Remove",
+  "brandFormEmailInvalid": "Not an email address.",
+  "brandFormBrief": "Campaign brief",
+  "brandSaved": "Brand saved.",
+  "brandBoycottCountry": "Boycotted country ({country}): no pitch and no creator for this brand.",
+  "@brandBoycottCountry": {"placeholders": {"country": {"type": "String"}}},
+  "brandBoycottBrand": "On the boycott list ({brand}): no pitch and no creator for this brand.",
+  "@brandBoycottBrand": {"placeholders": {"brand": {"type": "String"}}},
+  "brandSourceSeen": "Found sponsoring creators",
+  "brandSourceLabel": "How we found them",
+  "seenBrandsTitle": "Brands seen sponsoring",
+  "seenBrandsSubtitle": "Brands found in the sponsorship lines of creators' videos. One click makes a brand record.",
+  "seenBrandsSummary": "{brands, plural, =1{1 brand seen} other{{brands} brands seen}} across {channels, plural, =1{1 channel} other{{channels} channels}}",
+  "@seenBrandsSummary": {"placeholders": {"brands": {"type": "int"}, "channels": {"type": "int"}}},
+  "seenBrandsEmpty": "No sponsorships found in the stored videos yet.",
+  "seenBrandsChannels": "{count, plural, =1{1 channel} other{{count} channels}}: {handles}",
+  "@seenBrandsChannels": {"placeholders": {"count": {"type": "int"}, "handles": {"type": "String"}}},
+  "seenBrandsLatest": "Latest upload among them: {date}",
+  "@seenBrandsLatest": {"placeholders": {"date": {"type": "String"}}},
+  "seenBrandsSaved": "Saved",
+  "seenBrandsCreate": "Create brand",
+  "seenBrandsShowAll": "Show all {count}",
+  "@seenBrandsShowAll": {"placeholders": {"count": {"type": "int"}}},
+  "seenBrandsShowFewer": "Show fewer",
+  "dealStart": "Start deal",
+  "dealStartTitle": "Start a deal with {handle}",
+  "@dealStartTitle": {"placeholders": {"handle": {"type": "String"}}},
+  "dealStarted": "Deal started.",
+  "dealFormBrand": "Brand",
+  "dealFormBrandRequired": "Pick a brand.",
+  "dealFormBrandPrice": "Brand pays",
+  "dealFormPayout": "Creator receives",
+  "dealFormCurrency": "Currency",
+  "dealFormDeliverables": "Deliverables",
+  "dealFormDeadline": "Deadline",
+  "dealFormPickDate": "Pick a date",
+  "dealFormPaymentTerms": "Payment terms",
+  "dealFormPaymentTermsHint": "Set per deal, e.g. 50% upfront, 50% on publish",
+  "dealFormTrackingLink": "Tracking link",
+  "dealFormNumberRequired": "Enter an amount.",
+  "dealEditTerms": "Edit terms",
+  "dealTermsSaved": "Terms saved.",
+  "dealPaymentTermsLine": "Payment terms: {terms}",
+  "@dealPaymentTermsLine": {"placeholders": {"terms": {"type": "String"}}},
+  "dealPaymentTermsNone": "Payment terms not set yet",
+  "dealTrackingLinkLine": "Tracking link: {link}",
+  "@dealTrackingLinkLine": {"placeholders": {"link": {"type": "String"}}},
+  "dealContractsTitle": "Contracts",
+  "dealContractCreator": "Creator's contract",
+  "dealContractBrand": "Brand's contract",
+  "dealContractOrderNote": "The brand's contract is the template. The creator signs first, then the brand.",
+  "contractStatusNone": "Not started",
+  "contractStatusDraft": "Draft",
+  "contractStatusSent": "Sent",
+  "contractStatusSigned": "Signed",
+  "dealContractSignedOn": "Signed {date}",
+  "@dealContractSignedOn": {"placeholders": {"date": {"type": "String"}}},
+  "dealContractUpdate": "Update",
+  "dealContractUrl": "Contract link",
+  "dealContractStatus": "Status",
+  "dealContractBrandWaits": "The brand signs after the creator.",
+  "dealContractSaved": "Contract saved.",
+  "navComms": "Comms queue",
+  "commsToday": "{sent} of {target} today",
+  "@commsToday": {"placeholders": {"sent": {"type": "int"}, "target": {"type": "int"}}},
+  "commsMailboxLeft": "{left} left in the mailbox today",
+  "@commsMailboxLeft": {"placeholders": {"left": {"type": "int"}}},
+  "commsSectionReplies": "New replies",
+  "commsSectionFollowUps": "Follow-ups due",
+  "commsSectionDecisions": "Decisions",
+  "commsSectionNewOutreach": "New outreach",
+  "commsSectionEmpty": "Nothing here right now.",
+  "commsDraft": "Draft",
+  "commsDrafting": "Drafting with Gemini. This takes a few minutes.",
+  "commsDraftFailed": "The draft did not come back: {error}",
+  "@commsDraftFailed": {"placeholders": {"error": {"type": "String"}}},
+  "commsFollowUpNumber": "Follow-up {number} of 3",
+  "@commsFollowUpNumber": {"placeholders": {"number": {"type": "int"}}},
+  "commsKindFirst": "First email",
+  "commsKindReply": "Reply",
+  "commsKindFollowUp": "Follow-up",
+  "commsKindDecision": "Decision",
+  "commsNeedsYou": "Needs you",
+  "commsBlocked": "Not sendable",
+  "commsLessons": "Lessons used",
+  "commsSubject": "Subject",
+  "commsBody": "Message",
+  "commsSend": "Send",
+  "commsEdit": "Edit",
+  "commsDoneEditing": "Done",
+  "commsRedo": "Redo",
+  "commsSkip": "Skip",
+  "commsSent": "Sent.",
+  "commsTo": "To: {address}",
+  "@commsTo": {"placeholders": {"address": {"type": "String"}}},
+  "commsRecipientUnconfirmed": "This address was found on their channel and has not been confirmed by anyone. Check it, or add the right one to their contacts, before sending.",
+  "commsSkipped": "Skipped.",
+  "commsNoRecipient": "No email address for them yet. Add one in their contacts first.",
+  "commsSendError": "It did not send: {error}",
+  "@commsSendError": {"placeholders": {"error": {"type": "String"}}},
+  "commsSentNotRecorded": "Sent, but it could not be added to the conversation: {error}. It will not be offered again; add it to the thread by hand.",
+  "@commsSentNotRecorded": {"placeholders": {"error": {"type": "String"}}},
+  "commsCheckFailed": "The text failed the checks. Nothing was sent.",
+  "commsGatesTitle": "Confirm before it goes",
+  "commsGatesBody": "This message needs a person's yes on:",
+  "commsConfirmSend": "Confirm and send",
+  "commsNothingToSend": "The engine says nothing needs sending now.",
+  "commsSteerTitle": "Steer and redo",
+  "commsSteerHelp": "Optional corrections to what the engine read. Leave anything that is right as it is.",
+  "commsSteerAsRead": "As read",
+  "commsSteerNote": "Anything else the engine should know",
+  "commsSteerMore": "More",
+  "commsSteerCash": "Allow a straight cash offer for this case only",
+  "commsSteerCashHelp": "House choice HC-10: off by default; a person may switch it on for one case.",
+  "steerReader": "Who reads it",
+  "steerReaderOption": "{option, select, creator{Creator} manager{Creator's manager / agency} brand{Brand} other{{option}}}",
+  "@steerReaderOption": {"placeholders": {"option": {"type": "String"}}},
+  "steerStage": "What this message is",
+  "steerStageOption": "{option, select, first{First email} fu1{Follow-up 1} fu2{Follow-up 2} closing{Last follow-up (closing)} reply{Answering their reply} reengage{Re-engaging an old lead} other{{option}}}",
+  "@steerStageOption": {"placeholders": {"option": {"type": "String"}}},
+  "steerChannel": "Channel",
+  "steerChannelOption": "{option, select, email{Email} dm{Instagram DM} linkedin{LinkedIn DM} other{{option}}}",
+  "@steerChannelOption": {"placeholders": {"option": {"type": "String"}}},
+  "steerHave": "What I have",
+  "steerHaveOption": "{option, select, nothing{Nothing yet} roster{Creators on my roster} brand{A brand in hand} deal{A deal with a budget} other{{option}}}",
+  "@steerHaveOption": {"placeholders": {"option": {"type": "String"}}},
+  "steerInmind": "Brands in mind",
+  "steerInmindOption": "{option, select, none{None} yes{Yes, brands that fit them} other{{option}}}",
+  "@steerInmindOption": {"placeholders": {"option": {"type": "String"}}},
+  "steerState": "Their sponsors",
+  "steerStateOption": "{option, select, unknown{Unknown} unsponsored{No sponsors lately} some{Some sponsors} full{Every video sponsored} own{Sells own product} other{{option}}}",
+  "@steerStateOption": {"placeholders": {"option": {"type": "String"}}},
+  "steerPitch": "What I'm pitching",
+  "steerPitchOption": "{option, select, one{One creator} several{Several creators} other{{option}}}",
+  "@steerPitchOption": {"placeholders": {"option": {"type": "String"}}},
+  "steerProof": "Closed deals / case studies",
+  "steerProofOption": "{option, select, none{None yet} some{I have some} other{{option}}}",
+  "@steerProofOption": {"placeholders": {"option": {"type": "String"}}},
+  "steerBtype": "Brand type",
+  "steerBtypeOption": "{option, select, active{Already runs influencer campaigns} never{Never did influencer marketing} b2b{B2B / SaaS / software} apps{Apps / games} ecom{E-commerce / DTC} affiliate{Only does affiliate / gifting} other{{option}}}",
+  "@steerBtypeOption": {"placeholders": {"option": {"type": "String"}}},
+  "steerBsize": "Brand size",
+  "steerBsizeOption": "{option, select, small{Small (50 employees or fewer)} big{Big} other{{option}}}",
+  "@steerBsizeOption": {"placeholders": {"option": {"type": "String"}}},
+  "steerCreply": "Their reply",
+  "steerCreplyOption": "{option, select, interested{Interested} which{Which brand? What are the details?} kit{Sent media kit / analytics} who{Who are you? Send your website} budget{What's the budget?} affiliate{Affiliate only / wants a flat fee} gifting{Send me the product (gifting)} manager{My manager handles this} notint{Not interested} silent{Replied, then went silent} other{{option}}}",
+  "@steerCreplyOption": {"placeholders": {"option": {"type": "String"}}},
+  "steerBreply": "Their reply",
+  "steerBreplyOption": "{option, select, creators{Send creators / who do you have?} budget{States their budget or rates} cases{Asks for case studies} notnow{Not now / maybe next month} ignored{Ignored my rate question} kit{Asks for a media kit} affiliate{We only do affiliate / gifting} other{{option}}}",
+  "@steerBreplyOption": {"placeholders": {"option": {"type": "String"}}},
+  "steerEnglish": "Their English",
+  "steerEnglishOption": "{option, select, native{Native / fluent} nonnative{Non-native} other{{option}}}",
+  "@steerEnglishOption": {"placeholders": {"option": {"type": "String"}}},
+  "influencerProfileCrmCpmExplain": "Cost per 1,000 views, from the median. Change either box.",
+  "influencerProfileCrmCut": "Your cut %",
+  "influencerProfileCrmSplitYours": "You earn",
+  "influencerProfileCrmSplitTheirs": "They earn",
+  "influencerProfileCrmSplitOf": "of {price} at {percent}%",
+  "@influencerProfileCrmSplitOf": {
+    "placeholders": {
+      "price": {
+        "type": "String"
+      },
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "influencerProfileCrmSplitHint": "Enter a price and your cut % below to see who earns what.",
+  "influencerProfileCrmEmpty": "No usable videos yet. Every stored upload is missing its view count — run the enrichment tool, or pull more uploads above.",
+  "influencerProfileCrmNoViewCount": "No view count",
+  "influencerProfileProvidedTitle": "Data the influencer sent us",
+  "influencerProfileProvidedEmpty": "Nothing recorded. Add what they sent — audience split, their own analytics — as name/value pairs.",
+  "influencerProfileProvidedKey": "Field",
+  "influencerProfileProvidedValue": "Value",
+  "influencerProfileProvidedAdd": "Add field",
+  "influencerProfileProvidedUnverified": "Reported by the influencer, not measured by us.",
+  "influencerProfileEmailsTitle": "Email history",
+  "influencerProfileEmailsSource": "Read-only here. The Emails page is where these are managed.",
+  "influencerProfileEmailsOpen": "Open in Emails",
+  "influencerProfileNoEmails": "No emails logged with this influencer yet.",
+  "influencerProfileEmailOutbound": "Sent",
+  "influencerProfileEmailInbound": "Received",
+  "influencerProfileEmailEventSent": "Sent an email on {date}",
+  "@influencerProfileEmailEventSent": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "influencerProfileEmailEventFollowUp": "Sent a follow-up on {date}",
+  "@influencerProfileEmailEventFollowUp": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "influencerProfileEmailEventReply": "Received a reply on {date}",
+  "@influencerProfileEmailEventReply": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "influencerListSearchHint": "Search name or handle",
+  "influencerListViewAsList": "List view",
+  "influencerListViewAsCards": "Card view",
+  "influencerListFilters": "Filters",
+  "influencerListClearFilters": "Clear filters",
+  "influencerListNoMatches": "No channels match these filters.",
+  "influencerListLoadingMore": "Loading more…",
+  "influencerListEndOfList": "That's everyone.",
+  "influencerListShowingCount": "{count} shown",
+  "@influencerListShowingCount": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "influencerFilterCountry": "Country",
+  "influencerFilterChannelTag": "Channel tag",
+  "influencerFilterInclude": "Include",
+  "influencerFilterExclude": "Exclude",
+  "influencerFilterStage": "Stage",
+  "influencerFilterAny": "Any",
+  "influencerFilterMinSubscribers": "Min subscribers",
+  "influencerFilterMaxSubscribers": "Max subscribers",
+  "influencerFilterMedianViews": "Median views this month",
+  "influencerFilterDaysSinceDeal": "Days since last deal",
+  "influencerFilterMin": "Min",
+  "influencerFilterMax": "Max",
+  "influencerFilterDealsOnlyNote": "Only channels that have had a deal can match this.",
+  "influencerListSortVideosThisMonth": "Videos this month",
+  "influencerListSortDaysSinceDeal": "Time since last deal",
+  "influencerListSortDiscovered": "Recently discovered",
+  "influencerVideosThisMonth": "{count} videos this month",
+  "@influencerVideosThisMonth": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "influencerAverageViewsShort": "{count} median views",
+  "@influencerAverageViewsShort": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "influencerNoUploadsThisMonth": "No uploads this month",
+  "influencerCountryUnknown": "Country unknown",
+  "influencerTagContactAttempts": "{count} attempts",
+  "@influencerTagContactAttempts": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "influencerTagDaysSinceDeal": "{count}d since deal",
+  "@influencerTagDaysSinceDeal": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "influencerTagNeverContacted": "Not contacted",
+  "pipelineStageNew": "New",
+  "pipelineStageContacted": "Contacted",
+  "pipelineStageInterested": "Interested",
+  "pipelineStageRoster": "Roster",
+  "pipelineStageNegotiating": "Negotiating",
+  "pipelineStageContract": "Contract",
+  "pipelineStageAwaitingDelivery": "Awaiting delivery",
+  "pipelineStagePaid": "Paid",
+  "pipelineStageLost": "Lost",
+  "influencerAddTitle": "Add a channel",
+  "influencerAddIntro": "For a channel you found by hand that no keyword search has surfaced.",
+  "influencerAddHandle": "Handle",
+  "influencerAddHandleHint": "@channelname",
+  "influencerAddHandleRequired": "A handle is required.",
+  "influencerAddChannelId": "YouTube channel ID (optional)",
+  "influencerAddChannelIdHelp": "Starts with UC. Without it this entry cannot merge with the same channel when a search later finds it.",
+  "influencerAddName": "Channel name (optional)",
+  "influencerAddUrl": "Channel URL (optional)",
+  "influencerAddSubscribers": "Subscribers (optional)",
+  "influencerAddCountry": "Country (optional)",
+  "influencerAddNotes": "Notes (optional)",
+  "influencerAddSubmit": "Add channel",
+  "influencerAddSucceeded": "Channel added.",
+  "influencerAddFailed": "Couldn't add that channel.",
+  "searchKeywordsLabel": "Keywords",
+  "searchKeywordsHint": "One keyword per line",
+  "searchKeywordsCount": "{count} keywords",
+  "@searchKeywordsCount": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "searchKeywordsProgressCount": "{done}/{total} keywords",
+  "@searchKeywordsProgressCount": {
+    "description": "The keyword-box count while a run is going. Reverts to searchKeywordsCount the moment the run ends, however it ended.",
+    "placeholders": {
+      "done": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "searchKeywordsReopenTooltip": "Run a finished keyword again",
+  "searchKeywordsDoneCount": "{count} done",
+  "@searchKeywordsDoneCount": {
+    "description": "Label on the button that reopens finished keywords, so they run again on the next Start.",
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "searchKeywordsReopenAll": "Redo all",
+  "searchKeywordsReopenTitle": "Redo a finished keyword",
+  "searchKeywordsReopenHeader": "Finished — pick one to run again",
+  "searchKeywordsStartAtTooltip": "Start at a specific keyword",
+  "searchKeywordsStartAtTitle": "Start at keyword #",
+  "searchKeywordsStartAtHint": "Skips everything before it for this run only — it doesn't change which keywords are marked done.",
+  "searchKeywordsStartAtLabel": "Keyword number (1–{max})",
+  "@searchKeywordsStartAtLabel": {
+    "placeholders": {
+      "max": {
+        "type": "String"
+      }
+    }
+  },
+  "searchKeywordsStartAtAction": "Start here",
+  "searchProgressStarting": "Starting the pipeline…",
+  "searchWarmupRunning": "Getting the team's latest data — a search started now waits a few seconds for it.",
+  "searchWarmupReady": "Team data is up to date.",
+  "searchWarmupReadyAge": "Team data updated {minutes} min ago.",
+  "@searchWarmupReadyAge": {
+    "description": "Search page shared-data line once the background pull has finished and some time has passed. Says nothing about searches, which never wait for it.",
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "searchWarmupStale": "Team data refreshes in the background, before you search.",
+  "searchWarmupFailed": "Couldn't refresh the team's data — the search will fetch it itself.",
+  "searchWarmupRefresh": "Refresh now",
+  "searchProgressOnKeyword": "Keyword {index} of {total} — {keyword}",
+  "@searchProgressOnKeyword": {
+    "description": "Headline of the progress panel while a keyword is being worked.",
+    "placeholders": {
+      "index": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      },
+      "keyword": {
+        "type": "String"
+      }
+    }
+  },
+  "searchProgressCompleted": "Run complete — {channelsFound} channels found",
+  "@searchProgressCompleted": {
+    "placeholders": {
+      "channelsFound": {
+        "type": "int"
+      }
+    }
+  },
+  "searchProgressStopped": "Stopped after {done} keyword(s) — everything found is saved",
+  "@searchProgressStopped": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      }
+    }
+  },
+  "searchProgressFailed": "The run ended unexpectedly. Check the log below.",
+  "searchProgressChannels": "{count} channels",
+  "@searchProgressChannels": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "searchProgressVideos": "{count} videos",
+  "@searchProgressVideos": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "searchBackoffWaiting": "Waiting {seconds}s before retrying...",
+  "@searchBackoffWaiting": {
+    "description": "Countdown shown while a run is waiting out a YouTube rate limit.",
+    "placeholders": {
+      "seconds": {
+        "type": "String"
+      }
+    }
+  },
+  "searchTryAgainNow": "Try again now",
+  "searchRouteDirectOnly": "No AWS or proxies: every request goes out from this computer",
+  "searchRouteAwsInUse": "AWS in use · {count} requests",
+  "@searchRouteAwsInUse": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "searchRouteAwsIdle": "AWS ready · not used yet",
+  "searchRouteProxiesInUse": "Proxies in use · {count} requests",
+  "@searchRouteProxiesInUse": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "searchRouteProxiesIdle": "Proxies ready · not used yet",
+  "searchRouteThisMachine": "This computer · {count} requests",
+  "@searchRouteThisMachine": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "searchRouteParallel": "{workers} keywords at a time · Normal speed",
+  "@searchRouteParallel": {
+    "placeholders": {
+      "workers": {
+        "type": "int"
+      }
+    }
+  },
+  "searchRouteOneAtATimeFast": "One keyword at a time · Fast speed",
+  "searchRouteOneAtATimeNormal": "One keyword at a time · Normal speed",
+  "searchRouteLast": "Last request through {label}",
+  "@searchRouteLast": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "searchAlsoRunning": "Also running: {keywords}",
+  "@searchAlsoRunning": {
+    "placeholders": {
+      "keywords": {
+        "type": "String"
+      }
+    }
+  },
+  "searchStopButton": "Stop searching",
+  "searchStopRequested": "Stopping — the run finishes its current step first.",
+  "searchResumeButton": "Resume searching",
+  "searchStartFromTop": "Start from the top",
+  "searchAllKeywordsDone": "Every keyword in the list is already done. Start from the top to run them again.",
+  "searchResumeNotice": "{done} of {total} done — Start resumes at “{nextKeyword}”.",
+  "@searchResumeNotice": {
+    "description": "Shown under the keyword box between runs when the last run did not finish the list.",
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      },
+      "nextKeyword": {
+        "type": "String"
+      }
+    }
+  },
+  "searchSettingsTitle": "Search settings",
+  "searchSortByLabel": "Sort by",
+  "searchSortByRelevance": "Relevance",
+  "searchSortByUploadDate": "Upload date",
+  "searchSortByViewCount": "View count",
+  "searchSortByRating": "Rating",
+  "searchResultsTypeLabel": "Results type",
+  "searchResultsTypeVideo": "Videos",
+  "searchResultsTypeChannel": "Channels",
+  "searchCountryLabel": "Countries",
+  "searchCountryHint": "e.g. US, EG — leave blank for any",
+  "searchCountryPickTitle": "Target countries",
+  "searchCountryClearAll": "Clear all",
+  "searchCountryEnglishMarkets": "English markets",
+  "searchHandleLimitLabel": "Handle limit",
+  "searchOverrideHint": "Leave blank to use the shared default",
+  "searchStartButton": "Start searching",
+  "searchNoKeywordsError": "Add at least one keyword first.",
+  "searchStartedByThisDevice": "This device",
+  "searchStarted": "Search started — it's now running on this machine.",
+  "searchStartFailed": "Couldn't start the search: {error}",
+  "@searchStartFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "searchUploadButtonLabel": "Send keywords",
+  "searchUploadDialogTitle": "Send keywords to a teammate",
+  "searchUploadDialogTitleTo": "Send keywords to {name}",
+  "@searchUploadDialogTitleTo": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "searchUploadKeywordsHint": "One keyword per line",
+  "searchUploadRecipientSectionTitle": "Send to",
+  "searchUploadOnlineLabel": "Online",
+  "searchUploadOfflineLabel": "Offline",
+  "searchUploadSendButton": "Send",
+  "searchUploadNoTeammates": "No other teammates yet.",
+  "searchUploadNoRecipientError": "Choose who to send these keywords to.",
+  "searchUploadSent": "Sent {name} {count} keyword(s).",
+  "@searchUploadSent": {
+    "placeholders": {
+      "name": {"type": "String"},
+      "count": {"type": "int"}
+    }
+  },
+  "searchUploadSendFailed": "Couldn't send: {error}",
+  "@searchUploadSendFailed": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "searchProgressTitle": "Progress",
+  "progressMaximizeTooltip": "Maximize progress",
+  "progressRestoreTooltip": "Restore",
+  "searchProgressEmpty": "No search has been run yet.",
+  "backfillProgressTitle": "Video backfill",
+  "backfillProgressRunning": "Pulling older uploads for @{handle}",
+  "@backfillProgressRunning": {
+    "description": "Headline of the backfill progress panel while it is running.",
+    "placeholders": {
+      "handle": {
+        "type": "String"
+      }
+    }
+  },
+  "backfillProgressCompleted": "{count, plural, =0{No new videos found} =1{1 new video added} other{{count} new videos added}} for @{handle}",
+  "@backfillProgressCompleted": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "handle": {
+        "type": "String"
+      }
+    }
+  },
+  "backfillProgressFailed": "The backfill for @{handle} ended unexpectedly. Check the log below.",
+  "@backfillProgressFailed": {
+    "placeholders": {
+      "handle": {
+        "type": "String"
+      }
+    }
+  },
+  "reenrichProgressTitle": "Freed from the archive",
+  "reenrichProgressRunning": "Enriching {handle}…",
+  "@reenrichProgressRunning": {
+    "description": "Headline of the re-enrich progress panel while it is running.",
+    "placeholders": {
+      "handle": {
+        "type": "String"
+      }
+    }
+  },
+  "reenrichProgressCompleted": "{handle} enriched — it is back in the Influencers list",
+  "@reenrichProgressCompleted": {
+    "placeholders": {
+      "handle": {
+        "type": "String"
+      }
+    }
+  },
+  "reenrichProgressFailed": "Enriching {handle} ended unexpectedly. Check the log below.",
+  "@reenrichProgressFailed": {
+    "placeholders": {
+      "handle": {
+        "type": "String"
+      }
+    }
+  },
+  "navBadgeRunning": "Something is running in the background",
+  "navBadgeSuccess": "Finished — open Search to see the result",
+  "navBadgeError": "Something went wrong — open Search for details",
+  "commonAdd": "Add",
+  "commonCopy": "Copy",
+  "commonSave": "Save",
+  "commonCancel": "Cancel",
+  "commonDelete": "Delete",
+  "commonCreate": "Create",
+  "brandListEmpty": "No brands yet.",
+  "brandNotFound": "Brand not found.",
+  "brandProfileContactTitle": "Contact",
+  "brandProfileContactPhone": "Phone",
+  "brandProfileWebsite": "Website",
+  "brandProfileBudget": "Budget",
+  "brandProfileCampaignBrief": "Campaign brief",
+  "brandProfilePreferredCriteriaTitle": "Preferred influencer criteria",
+  "brandProfileNotesHint": "Notes for future deals with this brand",
+  "brandProfileDealHistoryEmpty": "No deals yet with this brand.",
+  "dealListEmpty": "No deals yet.",
+  "dealNotFound": "Deal not found.",
+  "dealDetailStageLabel": "Stage",
+  "dealDetailPricingTitle": "Pricing",
+  "dealDetailBrandPays": "Brand pays",
+  "dealDetailInfluencerReceives": "Influencer receives",
+  "dealDetailMargin": "Agency margin",
+  "dealDetailDeliverablesTitle": "Deliverables",
+  "dealDetailDeadlineLabel": "Deadline",
+  "dealDetailNoDeadline": "No deadline set",
+  "dealDetailContractTitle": "Contract",
+  "dealDetailCopyContractLink": "Copy link",
+  "dealDetailWorkingDaysLabel": "Working days",
+  "dealDetailPartiesTitle": "Parties",
+  "dealDetailBrandLabel": "Brand",
+  "dealDetailInfluencerLabel": "Influencer",
+  "dealDetailNotesHint": "Notes about this specific deal round",
+  "dealDetailCreatedAt": "Created {date}",
+  "@dealDetailCreatedAt": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "dealDetailUpdatedAt": "Last updated {date}",
+  "@dealDetailUpdatedAt": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "outreachTemplatesTitle": "Template library",
+  "outreachAddTemplate": "New template",
+  "outreachEditTemplateTitle": "Edit template",
+  "outreachNewTemplateTitle": "New template",
+  "outreachTemplateNameLabel": "Name",
+  "outreachTemplateSubjectLabel": "Subject",
+  "outreachTemplateBodyLabel": "Body",
+  "outreachTemplateKindEmail": "Email",
+  "outreachTemplateKindDm": "DM",
+  "outreachTemplateTokenHint": "Placeholders in double curly braces are filled from the influencer: handle, name, lastVideoTitle, lastVideoDate, subscriberCount, country",
+  "outreachThreadsTitle": "Conversations",
+  "outreachThreadListEmpty": "No outreach threads yet.",
+  "outreachSelectThreadHint": "Select a conversation to see its history and draft a message.",
+  "outreachStatusNotContactedYet": "Not contacted",
+  "outreachStatusAwaitingReply": "Awaiting reply",
+  "outreachStatusReplied": "Replied",
+  "outreachStatusNeedsFollowUp": "Needs follow-up",
+  "outreachMessagesTitle": "Messages",
+  "outreachNoMessages": "No messages yet.",
+  "outreachComposeTitle": "Draft a message",
+  "outreachComposeWordCount": "{count, plural, =0{0 words} =1{1 word} other{{count} words}}",
+  "@outreachComposeWordCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "outreachSelectTemplateLabel": "Template",
+  "outreachNoTemplateOption": "No template — write from scratch",
+  "outreachAiProviderLabel": "AI provider",
+  "outreachGenerateDraft": "Generate draft",
+  "outreachDraftGenerated": "Draft generated.",
+  "outreachSubjectLabel": "Subject",
+  "outreachBodyLabel": "Body",
+  "outreachRecordSent": "Record as sent",
+  "outreachMessageRecorded": "Message recorded.",
+  "outreachMarkReplied": "Mark as replied",
+  "outreachThreadMarkedReplied": "Marked as replied.",
+  "outreachWritingRulesTitle": "My writing rules",
+  "outreachWritingRulesHint": "e.g. always mention we're a boutique agency, keep it under 120 words",
+  "outreachBackToList": "Back to conversations",
+  "outreachDraftGenerationFailed": "Couldn't generate a draft: {error}",
+  "@outreachDraftGenerationFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsGeneralTitle": "General",
+  "settingsLanguageLabel": "Language",
+  "settingsLanguageEnglish": "English",
+  "settingsLanguageArabic": "Arabic",
+  "settingsThemeLabel": "Theme",
+  "settingsThemeSystem": "System",
+  "settingsThemeLight": "Light",
+  "settingsThemeDark": "Dark",
+  "settingsTimeZoneLabel": "Display time zone",
+  "settingsTimeZoneSubtitle": "Every date and time in the app is shown in this zone. Stored data always stays in UTC, so changing this is safe.",
+  "settingsTimeZoneSystemDefault": "Device default ({zone})",
+  "@settingsTimeZoneSystemDefault": {
+    "placeholders": {
+      "zone": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsTimeZoneChange": "Change zone",
+  "settingsTimeZoneChangeButton": "{zone} - Change zone",
+  "@settingsTimeZoneChangeButton": {
+    "placeholders": {
+      "zone": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsTimeZoneUseDevice": "Use device default",
+  "settingsTimeZoneSearchHint": "Search zones — e.g. Cairo",
+  "settingsTimeZoneNoMatches": "No matching time zones.",
+
+  "settingsStartupTitle": "Launch at startup",
+  "settingsStartupNoSupport": "Not available on this platform.",
+  "settingsLaunchAtStartupLabel": "Open automatically when you log in",
+  "settingsLaunchAtStartupOn": "On: the app will open automatically next time you log in.",
+  "settingsLaunchAtStartupOff": "Off: you'll need to open the app yourself.",
+
+  "settingsAlwaysOnTopTitle": "Always on top",
+  "settingsAlwaysOnTopNoSupport": "Not supported on this platform.",
+  "settingsAlwaysOnTopLabel": "Keep window on top",
+  "settingsAlwaysOnTopOn": "Currently on top of other windows.",
+  "settingsAlwaysOnTopOff": "Not pinned above other windows.",
+
+  "settingsAiProvidersTitle": "AI providers",
+  "settingsAiProvidersSubtitle": "Register your own API key to draft outreach emails with a real AI model. The template-fill fallback always stays available and needs no key.",
+  "settingsAiProvidersEmpty": "No AI providers registered yet — drafts fall back to template-fill only.",
+  "settingsAiProviderSubtitle": "{model} · key {maskedKey}",
+  "@settingsAiProviderSubtitle": {
+    "placeholders": {
+      "model": {
+        "type": "String"
+      },
+      "maskedKey": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsAddAiProvider": "Add provider",
+  "settingsNewAiProviderTitle": "New AI provider",
+  "settingsEditAiProviderTitle": "Edit AI provider",
+  "settingsAiProviderNameLabel": "Name",
+  "settingsAiProviderKeyLabel": "API key",
+  "settingsAiProviderModelLabel": "Model",
+  "settingsAiProviderKeyHint": "Stored encrypted on this device only — never synced or shared with the team.",
+  "settingsTeamSyncTitle": "Team sync",
+  "settingsTeamSyncSubtitle": "Connect to the team's shared PocketBase instance so brands, deals, and outreach sync across everyone's devices. Leave the URL blank to keep working locally on this device only.",
+  "settingsTeamSyncUrlLabel": "PocketBase URL",
+  "settingsTeamSyncEmailLabel": "Superuser email",
+  "settingsTeamSyncPasswordLabel": "Superuser password",
+  "settingsTeamSyncHint": "The whole team signs in with this same login — it isn't a personal account, so anyone can enter it here from any device.",
+  "settingsTeamSyncTestConnection": "Test connection",
+  "settingsTeamSyncTestSuccess": "Connected successfully.",
+  "settingsTeamSyncTestFailure": "Connection failed: {error}",
+  "@settingsTeamSyncTestFailure": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsTeamSyncEnterUrlFirst": "Enter a PocketBase URL first.",
+  "settingsTeamSyncSaved": "Team sync settings saved.",
+  "settingsTeamSyncStatusNotConfigured": "Local-only",
+  "settingsTeamSyncStatusChecking": "Checking…",
+  "settingsTeamSyncStatusConnected": "Connected",
+  "settingsTeamSyncStatusFailed": "Not connected",
+
+  "settingsPythonEnvironmentTitle": "Python environment",
+  "settingsPythonEnvironmentSubtitle": "How this machine launches the local search pipeline — per-device, not shared with the team.",
+  "settingsPythonExecutableLabel": "Python executable (blank = the one shipped with the app)",
+  "settingsProjectRootOverrideLabel": "Project root override",
+  "settingsProjectRootOverrideHint": "Leave blank unless the pipeline lives in another folder",
+  "settingsPythonEnvironmentSaved": "Python environment settings saved.",
+  "settingsSearchTuningTitle": "Advanced Search Tuning",
+  
+  "settingsSearchTuningSubtitle": "Pacing, proxy, and threshold settings the scraper uses",
+  "settingsSearchTuningSaved": "Search tuning settings saved.",
+  "settingsSearchTuningDesktopOnly": "Search tuning only applies on the desktop machine that runs the scraper.",
+  "settingsThresholdsTitle": "Thresholds",
+  "settingsMinimumSubscribersLabel": "Minimum subscribers",
+  "settingsHandlesLimitLabel": "Handles per search run",
+  "settingsRecentVideosMonthsLabel": "Recent-video window (months)",
+  "settingsPacingTitle": "Pacing",
+  "settingsPacingHint": "Each delay is sampled randomly between its min and max on every request.",
+  "settingsPacingNormalTab": "Normal",
+  "settingsPacingFastTab": "Fast (rotated IP)",
+  "settingsPacingFastLockedHint": "Only applied while proxy rotation or the AWS Gateway is on -- every request goes out under a different IP then, so these can run much faster without burning one address. Safe to edit now; the scraper won't use it until rotation is enabled.",
+  "settingsHumanScrollDelayLabel": "Human scroll delay",
+  "settingsJitterDelayLabel": "Jitter delay",
+  "settingsRecentVideosDelayLabel": "Recent-videos fetch delay",
+  "settingsFastSubCountDelayLabel": "Fast sub-count check delay",
+  "settingsFoundChannelsDelayLabel": "Found-channels delay",
+  "settingsIpCooldownLabel": "IP cooldown duration",
+  "settingsIpCooldownChanceLabel": "IP cooldown chance: {percent}%",
+  "@settingsIpCooldownChanceLabel": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsProxyTitle": "Proxy",
+  "settingsProxyHostLabel": "Host",
+  "settingsProxyPortLabel": "Port",
+  "settingsProxyUsernameLabel": "Username",
+  "settingsProxyPasswordLabel": "Password",
+  "settingsProxyEnableRotationLabel": "Enable proxy rotation",
+  "settingsProxyIncludeDirectLabel": "Include this machine (no proxy)",
+  "settingsProxyIncludeDirectHint": "Lets requests keep going out from this machine's own connection sometimes, not only through the proxies below.",
+  "settingsProxyLabelField": "Label",
+  "settingsProxyEnabledLabel": "Enabled",
+  "settingsProxyListEmpty": "No proxies added yet.",
+  "settingsAddProxy": "Add proxy",
+  "settingsNewProxyTitle": "New proxy",
+  "settingsEditProxyTitle": "Edit proxy",
+  "settingsAwsGatewayTitle": "AWS Gateway IP rotation",
+  "settingsAwsGatewayHint": "Routes requests through AWS API Gateway endpoints in different regions instead of a proxy list. Deployed and destroyed separately, with tools/aws_gateway_setup.py.",
+  "settingsAwsGatewayEmpty": "No gateways deployed yet. Run \"python tools/aws_gateway_setup.py deploy\" on the machine that runs searches.",
+  "settingsAwsGatewayEnabledToast": "AWS Gateway rotation enabled.",
+  "settingsAwsGatewayDisabledToast": "AWS Gateway rotation disabled.",
+  "settingsParallelTitle": "Parallel search",
+  "settingsParallelHint": "Works several keywords at once, one per AWS gateway or proxy (never two on the same one), at the Normal speed. Off by default.",
+  "settingsParallelMaxWorkersLabel": "Most keywords at once",
+  "settingsParallelNeedsTwo": "Needs at least two AWS gateways or proxies. With {count}, runs stay one keyword at a time.",
+  "@settingsParallelNeedsTwo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsParallelActive": "The next run works {workers} keywords at a time, at the Normal speed.",
+  "@settingsParallelActive": {
+    "placeholders": {
+      "workers": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsAwsAccountsTitle": "AWS Accounts",
+  "settingsAwsAccountsSubtitle": "Each teammate's own AWS IAM key for the gateway-deployer script, with history.",
+  "settingsAwsAccountsNoTeammates": "No teammates yet — once people sign in, each gets a tab here.",
+  "settingsAwsAccountsOthersLocked": "Only {name} can view or edit their own AWS credentials.",
+  "@settingsAwsAccountsOthersLocked": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsAwsAccountsNotSignedIn": "Sign in to manage your own AWS credentials.",
+  "settingsAwsAccountsLoadFailed": "Couldn't load your AWS credentials.",
+  "settingsAwsAccountsAccessKeyLabel": "Access key ID",
+  "settingsAwsAccountsSecretKeyLabel": "Secret access key",
+  "settingsAwsAccountsShowSecret": "Show",
+  "settingsAwsAccountsHideSecret": "Hide",
+  "settingsAwsAccountsRegionsLabel": "Default region(s)",
+  "settingsAwsAccountsRegionsHint": "Comma-separated, e.g. us-east-1, eu-west-1",
+  "settingsAwsAccountsSaveButton": "Save",
+  "settingsAwsAccountsSavedToast": "AWS credentials saved.",
+  "settingsAwsAccountsSaveFailedToast": "Couldn't save: {error}",
+  "@settingsAwsAccountsSaveFailedToast": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsAwsAccountsNotWiredNote": "This just records your key for the team. tools/aws_gateway_setup.py still reads its own data/.env on whichever machine runs it, independently of what's saved here — wiring the two together is a planned follow-up.",
+  "settingsAwsAccountsSetupTitle": "How to set this up",
+  "settingsAwsAccountsSetupStep1": "1. Sign in to the AWS console (console.aws.amazon.com), or create a free account if you don't have one.",
+  "settingsAwsAccountsSetupStep2": "2. Open IAM → Users → Create user. Give it a name such as gratovo-gateway-deployer — it doesn't need console access, only programmatic access.",
+  "settingsAwsAccountsSetupStep3": "3. Attach a permissions policy: the AWS managed policy \"AmazonAPIGatewayAdministrator\" is the simplest choice. For a tighter scope, a custom policy allowing just the apigateway:* actions is enough — this only ever creates/deletes HTTP APIs, integrations, routes and stages.",
+  "settingsAwsAccountsSetupStep4": "4. Open the new user → Security credentials tab → Create access key → choose \"Application running outside AWS\". The secret access key is shown only once, so copy both values immediately.",
+  "settingsAwsAccountsSetupStep5": "5. Paste the Access key ID and Secret access key below, add the region(s) you plan to deploy to (e.g. us-east-1, eu-west-1), and press Save.",
+  "settingsAwsAccountsSetupStep6": "6. To actually deploy the gateways, run \"python tools/aws_gateway_setup.py deploy --regions <your regions>\" on the machine that runs searches, with the same key pair set as AWS_IAM_ACCESS_KEY_ID / AWS_IAM_SECRET_ACCESS_KEY in its data/.env.local file.",
+  "settingsAwsAccountsHistoryTitle": "History",
+  "settingsAwsAccountsHistoryEmpty": "No saved versions yet.",
+  "settingsAwsAccountsHistoryRestore": "Restore",
+  "settingsAwsAccountsHistoryRestoredToast": "Loaded into the fields below — press Save to keep it.",
+  "settingsAwsAccountsHistoryEntryBlank": "Cleared",
+  "settingsAwsAccountsHistoryEntryKey": "Key ending {last4}",
+  "@settingsAwsAccountsHistoryEntryKey": {
+    "placeholders": {
+      "last4": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsAwsAccountsRetry": "Try again",
+  "settingsAwsAccountsRotationOn": "IP rotation on",
+  "settingsAwsAccountsRotationOff": "IP rotation off",
+  "searchKeywordsExpand": "Expand to full height",
+  "searchKeywordsCollapse": "Shrink back down",
+  "searchInputsReadOnlyHint": "Read-only here — keywords and search settings can only be edited on a desktop.",
+  "searchCountryAny": "Any",
+  "searchMaxVideosValue": "max {count}",
+  "@searchMaxVideosValue": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "searchMaxVideosLabel": "Max videos/search",
+  "searchMaxVideosTooltip": "How many YouTube search results this run pulls in for each keyword before moving on — videos when Results Type is Video, channel entries when it's Channel.\n\nThis is a raw result cap, not a count of channels. Many videos come from the same uploader, and results for channels already in your database still count against it, so a higher number finds proportionally fewer new channels. The scraper keeps paging until it reaches this many results or YouTube runs out, whichever comes first.\n\nLeave blank to use the team's shared default.",
+  "searchInstalledAppRequired": "Searching runs the scraper on your own machine, which a browser tab can't do. Open the installed desktop app to start a run — everything else on this page works here.",
+  "settingsFontScaleLabel": "Text size",
+  "settingsFontScaleLabelWithPercent": "Text size - {percent}%",
+  "@settingsFontScaleLabelWithPercent": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsFontScaleReset": "Reset to 100%",
+  "commonUnknown": "Unknown",
+  "emailsAccessLevelTitle": "Your access level",
+  "emailsAccessLevelFull": "Full access. You see every email in full, including names, brands and prices.",
+  "emailsAccessLevelBasic": "Basic access. You see that emails happened and when, but names, channels, brands, prices and addresses are removed before they leave the server.",
+  "emailsAccessDeniedTitle": "No access to email data",
+  "emailsAccessDeniedBody": "This account has not been granted access to email data. An admin has to raise your access level before anything here will load — it is refused by the database, not hidden by the app.",
+  "emailsRedactedNote": "The ••• marks are deliberate. Those fields were removed on the server for your access level, not lost.",
+  "emailsRedactedFieldTooltip": "Hidden at your access level",
+  "emailsActionUnavailable": "Not available at your access level",
+  "authSignInSubtitle": "Sign in with the account you were given.",
+  "authEmailLabel": "Email",
+  "authEmailInvalid": "Enter a valid email address.",
+  "authPasswordLabel": "Password",
+  "authPasswordRequired": "Enter your password.",
+  "authSignInButton": "Sign in",
+  "authSignOutButton": "Sign out",
+  "authNoSelfSignupNotice": "Accounts are created by your administrator — there is no sign-up here.",
+  "authAdvancedToggle": "Advanced — server address",
+  "authServerUnreachable": "Can't reach the server. Check the address under Advanced, then restart the app.\n{error}",
+  "@authServerUnreachable": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "authErrorInvalidCredentials": "That email and password don't match an account.",
+  "authErrorEmailNotConfirmed": "This account hasn't been confirmed yet. Ask your administrator to confirm it.",
+  "authErrorOffline": "No connection. Check your internet and try again.",
+  "authErrorNotConfigured": "No server is configured. Open Advanced below and enter the address.",
+  "authErrorUnknown": "Couldn't sign in: {detail}",
+  "@authErrorUnknown": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "authAccessPendingTitle": "Waiting for access",
+  "authAccessPendingBody": "You're signed in as {email}, but your account hasn't been given an access level yet. Ask your administrator to grant it, then check again.",
+  "@authAccessPendingBody": {
+    "placeholders": {
+      "email": {
+        "type": "String"
+      }
+    }
+  },
+  "authAccessPendingRecheck": "Check again",
+  "settingsAboutTitle": "About",
+  "settingsAboutVersion": "Version {version} (build {build})",
+  "@settingsAboutVersion": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      },
+      "build": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsAboutCopyVersion": "Copy",
+  "settingsAboutVersionCopied": "Version copied to clipboard.",
+  "settingsUpdateAvailable": "Version {version} is ready to install.",
+  "@settingsUpdateAvailable": {
+    "placeholders": { "version": { "type": "String" } }
+  },
+  "settingsUpdateDownloading": "Downloading version {version}…",
+  "@settingsUpdateDownloading": {
+    "placeholders": { "version": { "type": "String" } }
+  },
+  "settingsUpdateInstalling": "Restarting to install…",
+  "settingsUpdateInstall": "Update",
+  "settingsUpdateUpToDate": "Up to date",
+  "settingsUpdateCheckNow": "Check for updates",
+  "settingsUpdateConfirmTitle": "Finish syncing first?",
+  "settingsUpdateConfirmBody": "Changes made on this machine are still being uploaded. Installing now restarts the app before they finish.",
+  "settingsUpdateConfirmSideBySide": "Version {version} installs in its own folder. Your current version stays where it is until you delete it.",
+  "@settingsUpdateConfirmSideBySide": {
+    "placeholders": { "version": { "type": "String" } }
+  },
+  "settingsUpdateConfirmWait": "Wait for it",
+  "settingsUpdateConfirmCountdown": "Install anyway ({seconds})",
+  "@settingsUpdateConfirmCountdown": {
+    "placeholders": { "seconds": { "type": "String" } }
+  },
+  "settingsUpdateConfirmInstall": "Install anyway",
+  "settingsUpdateConfirmPaused": "Move the mouse or press a key to continue.",
+  "settingsAttentionUpdate": "Update ready",
+  "settingsAttentionRejected": "Sign-in refused",
+  "settingsAttentionExpiring": "Expiring soon",
+  "settingsGithubTitle": "GitHub (app updates)",
+  "settingsGithubBody": "Updates come from the private repository. Sign in with the GitHub account that has access to it.",
+  "settingsGithubSignIn": "Sign in with GitHub",
+  "settingsGithubSignOut": "Sign out",
+  "settingsGithubRecheck": "Check access",
+  "settingsGithubSignedInAs": "Signed in as {login}",
+  "@settingsGithubSignedInAs": {
+    "placeholders": { "login": { "type": "String" } }
+  },
+  "settingsGithubCodeInstruction": "Open {url} and enter this code:",
+  "@settingsGithubCodeInstruction": {
+    "placeholders": { "url": { "type": "String" } }
+  },
+  "settingsGithubCodeCopied": "Code copied.",
+  "settingsGithubAccessGranted": "This account can see the releases.",
+  "settingsGithubAccessDenied": "This account cannot see the releases. Add {login} to the repository on GitHub, then check again.",
+  "@settingsGithubAccessDenied": {
+    "placeholders": { "login": { "type": "String" } }
+  },
+  "settingsGithubTokenRejected": "GitHub rejected the stored sign-in. Sign in again.",
+  "settingsGithubAccessUnknown": "Couldn't reach GitHub to check access.",
+  "settingsGithubNotConfigured": "This build has no GitHub client ID, so sign-in is unavailable. Rebuild with --dart-define=GRATOVO_GITHUB_CLIENT_ID=...",
+  "settingsGithubDenied": "The sign-in was refused in the browser.",
+  "settingsGithubExpired": "The code expired before it was entered. Try again.",
+  "settingsGithubUnreachable": "Couldn't reach GitHub.",
+  "settingsGithubStorageFailed": "GitHub signed you in, but this computer couldn't save the token. Try again.",
+  "settingsGithubSharedToken": "Updates use a shared access token built into this app.",
+  "settingsGithubSharedTokenOk": "The built-in token can read the releases.",
+  "settingsGithubSharedRejected": "The built-in token was refused — expired or revoked. Everyone on this version is affected; a new build is needed. You can sign in with your own GitHub account to keep updating meanwhile.",
+  "settingsGithubNoToken": "This build has no way to reach the releases, so it will never find an update.",
+  "settingsGithubSignInOptional": "Sign in as yourself (optional)",
+  "settingsAccountTitle": "Supabase Account",
+  "settingsAccountSignedOut": "Not signed in.",
+  "settingsAccountProfileError": "Couldn't load your profile: {error}",
+  "@settingsAccountProfileError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsAccountColorLabel": "Your color",
+  "settingsAccountColorHelp": "Teammates see this color around whatever you're editing.",
+  "settingsAccountColorButton": "Change your color",
+  "settingsAccountColorOthersLabel": "Other accounts, for reference",
+  "settingsAccountStatusConnected": "Connected",
+  "settingsAccountStatusSignedOut": "Signed out",
+  "settingsAccountStatusUnreachable": "Unreachable",
+  "settingsServerAdvancedTitle": "Advanced — server address",
+  "settingsServerAdvancedHelp": "Only change these if you're moving to a different Supabase project. Neither value is a secret; the key that is (service_role) is never stored in this app.",
+  "settingsServerUrlLabel": "Project URL",
+  "settingsServerAnonKeyLabel": "Public (anon) key",
+  "settingsServerAnonKeyHelp": "The anon/public key — safe to store here. Never paste the service_role key.",
+  "settingsSyncTitle": "Team sync",
+  "settingsSyncDisabled": "No local database on this machine, so nothing can be saved or synced. The app is showing sample data.",
+  "settingsSyncPreparing": "Not synced with the team yet. Everything shown is what this machine already holds; your edits are saved here and upload once the first sync runs.",
+  "settingsSyncActive": "In sync with the team. Edits save here first and upload in the background; teammates’ changes and the shared catalog come down on each tick.",
+  "settingsSyncOffline": "Offline. Your edits are saved here and will upload when you reconnect.",
+  "settingsSyncBusy": "Syncing with the server…",
+  "settingsSyncConnecting": "Connecting to the server…",
+  "settingsSyncUploading": "Sending your changes to the server…",
+  "settingsSyncDownloading": "Downloading changes from the server…",
+  "settingsSyncDetailTable": "Updating {table} — {rows} rows",
+  "@settingsSyncDetailTable": {
+    "placeholders": {
+      "table": { "type": "String" },
+      "rows": { "type": "String" }
+    }
+  },
+  "settingsSyncProgress": "{done} of {total} tables",
+  "@settingsSyncProgress": {
+    "placeholders": {
+      "done": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
+  "settingsSyncDetailUpload": "{count, plural, =1{Sending 1 local change} other{Sending {count} local changes}}",
+  "@settingsSyncDetailUpload": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "settingsSyncLastSynced": "Last synced at {when}",
+  "@settingsSyncLastSynced": {
+    "placeholders": {
+      "when": { "type": "String" }
+    }
+  },
+  "settingsSyncDeferred": "Paused while a search runs, so the search keeps the connection. Your edits still upload.",
+  "settingsSyncError": "Sync problem: {detail}",
+  "@settingsSyncError": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsSyncLocalFault": "The database on this machine stopped responding. Nothing already saved is lost, but nothing new can be saved until it answers again — check the disk. {detail}",
+  "@settingsSyncLocalFault": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsSyncLogButton": "Sync details",
+  "settingsSyncLogTitle": "What the sync has been doing",
+  "settingsSyncLogIntro": "Every request this machine has made to the server since the app started, newest at the bottom. Copy this into a bug report — it says which table was being downloaded, how long each page took and what the server answered.",
+  "settingsSyncLogEmpty": "Nothing recorded yet. The first sync writes here.",
+  "settingsSyncLogFile": "The full history, across restarts, is kept at:\n{path}",
+  "@settingsSyncLogFile": {
+    "placeholders": {
+      "path": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsSyncLogCopy": "Copy",
+  "settingsSyncLogCopied": "Sync log copied.",
+  "settingsSyncLogCounts": "{passes, plural, =0{No passes yet} =1{1 pass so far} other{{passes} passes so far}}, {failed, plural, =0{none with problems} =1{1 with problems} other{{failed} with problems}}.",
+  "@settingsSyncLogCounts": {
+    "placeholders": {
+      "passes": {
+        "type": "int"
+      },
+      "failed": {
+        "type": "int"
+      }
+    }
+  },
+  "syncNowTooltip": "Sync data with server",
+  "syncNowInProgress": "Syncing…",
+  "syncNowDone": "Up to date",
+  "syncNowLocalPushFailed": "Synced, but this machine's search results could not be uploaded.",
+  "syncNowLocalPullFailed": "Synced your edits, but the latest search data could not be downloaded.",
+  "syncNowPipelineBusy": "Synced your edits. Search results are shared by the search itself while it runs.",
+  "syncNowError": "Could not reach the server: {detail}",
+  "@syncNowError": {
+    "placeholders": {
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsSyncLastManual": "Last manual sync at {when}: {detail}",
+  "@settingsSyncLastManual": {
+    "placeholders": {
+      "when": {
+        "type": "String"
+      },
+      "detail": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsServerResetDefaults": "Reset to defaults",
+  "settingsServerSavedRestart": "Saved. Restart the app for it to take effect.",
+  "settingsServerClearSaved": "Clear saved values",
+  "settingsServerResetDone": "Back to the defaults this build shipped with.",
+  "settingsServerCleared": "Saved values cleared.",
+  "settingsServerActionFailed": "Could not change the server address: {error}",
+  "@settingsServerActionFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsServerStatusRestart": "Restart the app to use these values.",
+  "settingsServerStatusUnsaved": "Unsaved changes.",
+  "settingsServerStatusCustom": "This computer uses its own values.",
+  "settingsServerStatusDefaults": "Using the defaults this build shipped with.",
+  "settingsServerShippedTitle": "Shipped with this build",
+  "settingsServerShippedNone": "This build shipped without a server address. Enter one above.",
+  "accessLevelFull": "Full authority",
+  "accessLevelFullExplanation": "You can see everything, including email contents, prices, brands, and contact addresses.",
+  "accessLevelBasic": "Basic authority",
+  "accessLevelBasicExplanation": "You can see that emails and deals happened, and their status and timing. Influencer names, channels, brands, prices, and email addresses are removed by the server before they reach you.",
+  "accessLevelUnauthorized": "No access yet",
+  "accessLevelUnauthorizedExplanation": "Your account hasn't been given an access level. Ask your administrator to grant one.",
+  "navLogs": "Logs",
+  "logsSearchHint": "Search people, records, fields",
+  "logsFilterActor": "Person",
+  "logsFilterAction": "Action",
+  "logsFilterEntity": "Record",
+  "logsFilterAllPeople": "Everyone",
+  "logsFilterAllActions": "All actions",
+  "logsFilterAllEntities": "All records",
+  "logsRangeToday": "Today",
+  "logsRange7Days": "Last 7 days",
+  "logsRange30Days": "Last 30 days",
+  "logsClearFilters": "Clear filters",
+  "logsEmpty": "Nothing has been recorded yet. Actions show up here as they happen.",
+  "logsNoMatches": "No actions match these filters.",
+  "logsEndOfList": "That is the whole log.",
+  "logsShowingCount": "{count} entries so far",
+  "@logsShowingCount": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "logsNewCount": "{count} new",
+  "@logsNewCount": {
+    "description": "Badge beside the Logs title — how many of the shown entries were recorded today.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "logsLoadingMore": "Loading more…",
+  "logsDeletedAccount": "account deleted",
+  "logsDeletedAccountTooltip": "This account has been removed. What they did is kept.",
+  "logsActorRole": "as {role}",
+  "@logsActorRole": {
+    "placeholders": {
+      "role": {
+        "type": "String"
+      }
+    },
+    "description": "The authority the person held AT THE TIME of the action, not the authority they hold now."
+  },
+  "logsValueChange": "{from} → {to}",
+  "@logsValueChange": {
+    "placeholders": {
+      "from": {
+        "type": "String"
+      },
+      "to": {
+        "type": "String"
+      }
+    }
+  },
+  "logsNotesLengthChange": "{before} → {after} characters",
+  "@logsNotesLengthChange": {
+    "placeholders": {
+      "before": {
+        "type": "int",
+        "format": "decimalPattern"
+      },
+      "after": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    },
+    "description": "Notes are recorded by length only, never by content."
+  },
+  "logsContentNotRecorded": "Contents are deliberately not recorded.",
+  "logsOpenRecord": "Open",
+  "logsActionCreated": "Created",
+  "logsActionUpdated": "Updated",
+  "logsActionDeleted": "Deleted",
+  "logsActionTagsChanged": "Tags changed",
+  "logsActionStageChanged": "Stage changed",
+  "logsActionVettingChanged": "Vetting changed",
+  "logsActionNotesChanged": "Notes edited",
+  "logsActionContactsChanged": "Contacts changed",
+  "logsActionContactAttempt": "Outreach attempt",
+  "logsActionEmailSent": "Email sent",
+  "logsActionSearchStarted": "Search started",
+  "logsActionVideosPulled": "Videos pulled",
+  "logsActionUnknown": "Other",
+  "logsEntityChannel": "Channel",
+  "logsEntityDeal": "Deal",
+  "logsEntityBrand": "Brand",
+  "logsEntityThread": "Email thread",
+  "logsEntityRun": "Search run",
+  "logsEntitySettings": "Settings",
+  "logsEntityOther": "Other",
+  "logsActivityTitle": "Activity",
+  "logsActivityEmpty": "Nothing recorded for this channel yet.",
+  "logsActivitySeeAll": "See the whole log",
+  "notificationsTitle": "Notifications",
+  "notificationsBellTooltip": "Notifications",
+  "notificationsEmpty": "Nothing yet. Toasts you see will be kept here.",
+  "notificationsClearAll": "Clear all",
+  "notificationsUnreadCount": "{count} new",
+  "@notificationsUnreadCount": {
+    "description": "Badge on the Dashboard's notifications bell — how many notifications haven't been looked at yet.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "commonExpand": "Expand",
+  "commonCollapse": "Collapse",
+  "commonCopied": "Copied to the clipboard",
+  "commonDay": "Day",
+  "commonMonth": "Month",
+  "commonYear": "Year",
+  "commonHour": "Hour",
+  "commonMinute": "Minute",
+  "commonSpinHint": "Scroll or use the arrow keys over a box to change it.",
+  "influencerProfileNoDescription": "This channel has no description.",
+  "influencerProfileShowFullDescription": "Show the full description",
+  "influencerProfileShowLessDescription": "Show less",
+  "influencerProfileViewProfilePicture": "View the profile picture",
+  "influencerProfileViewBanner": "View the banner",
+  "influencerProfileImageZoomHint": "Scroll or pinch to zoom · drag to move",
+  "influencerProfileImageResetZoom": "Reset zoom",
+  "influencerProfileImageClose": "Close",
+  "influencerProfileContactsTitle": "How to reach them",
+  "influencerProfileNoContacts": "No contact method recorded yet.",
+  "influencerProfileAddContact": "Add a contact",
+  "influencerProfileContactValueHint": "Address, number or handle",
+  "influencerProfileContactLabelHint": "Whose? (optional)",
+  "influencerProfileContactPrimary": "Primary",
+  "influencerProfileContactMakePrimary": "Make this the primary contact",
+  "influencerProfileContactRemove": "Remove this contact",
+  "influencerProfileContactCopy": "Copy",
+  "influencerProfileContactsSaved": "Contacts saved",
+  "contactMethodEmail": "Email",
+  "contactMethodWhatsapp": "WhatsApp",
+  "contactMethodPhone": "Phone",
+  "contactMethodInstagram": "Instagram",
+  "contactMethodTelegram": "Telegram",
+  "contactMethodTwitter": "X / Twitter",
+  "contactMethodDiscord": "Discord",
+  "contactMethodOther": "Other",
+  "influencerProfileCrmBasisCount": "Based on {count} stored uploads",
+  "@influencerProfileCrmBasisCount": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "influencerProfileCrmBasisWindow": "A search stores roughly the last month of uploads. Pull more to widen what this is calculated from.",
+  "influencerProfileCrmSpanDays": "covering {days} days",
+  "@influencerProfileCrmSpanDays": {
+    "placeholders": {
+      "days": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "influencerProfileVideosAsList": "List view",
+  "influencerProfileVideosAsCards": "Card view",
+  "influencerProfileVideoNoDescription": "No description stored.",
+  "influencerProfileVideoCount": "{count} stored",
+  "@influencerProfileVideoCount": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "influencerListHideImages": "Turn pictures off for this page",
+  "influencerListShowImages": "Turn pictures back on",
+  "influencerListShowLatestVideo": "Show the latest upload on each card",
+  "influencerListHideLatestVideo": "Hide the latest upload",
+  "influencerListNoLatestVideo": "No uploads stored",
+  "influencerListOpenChannel": "Open this channel",
+  "influencerListRightClickHint": "Right-click a channel to change its status or tags.",
+  "influencerListScrollToBottom": "Scroll to bottom",
+  "influencerListPinPosition": "Pin this position",
+  "influencerListReturnToPin": "Return to pinned position",
+  "influencerContextMenuStatus": "Status",
+  "influencerContextMenuChannelTag": "Channel tag",
+  "influencerQuickTagPresetTooltip": "Quick-tag preset",
+  "influencerQuickTagPresetDialogTitle": "Quick-tag preset",
+  "influencerQuickTagPresetDialogDescription": "Pick the tags to add with Ctrl + right-click, or remove with Alt + right-click, on a channel.",
+  "influencerQuickTagPresetEmpty": "No quick-tag preset set. Pick one with the brush icon first.",
+  "channelTagUndecided": "Undecided",
+  "channelTagQualified": "Qualified",
+  "channelTagHaramStuff": "Haram stuff",
+  "channelTagIrrelevant": "Irrelevant",
+  "channelTagInactive": "Inactive",
+  "settingsImagesTitle": "Saved Pictures",
+  "settingsAutoDownloadImagesLabel": "Save pictures on this machine",
+  "settingsAutoDownloadImagesOn": "Profile pictures, banners and thumbnails are kept after they load once, so this machine never fetches the same picture twice.",
+  "settingsAutoDownloadImagesOff": "Pictures are fetched when they are shown and nothing is written to disk. A picture already saved is still used before the network either way.",
+  "settingsImagesNoStorage": "This build has no filesystem to save into, so every picture is fetched when it is shown.",
+  "settingsImageCacheSize": "{size} saved",
+  "@settingsImageCacheSize": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsImageCacheEmpty": "Nothing saved yet.",
+  "settingsClearImageCache": "Delete {size} saved pictures",
+  "@settingsClearImageCache": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsImageCacheCleared": "Deleted {size} of saved pictures.",
+  "@settingsImageCacheCleared": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "logsRangeAny": "Any time",
+  "outreachNewMessage": "New message",
+  "outreachPickInfluencerTitle": "Who do you want to message?",
+  "outreachPickInfluencerHint": "Search channels by name or handle",
+  "outreachPickInfluencerEmpty": "No channels match.",
+  "outreachNotifyReplyTitle": "{who} replied",
+  "@outreachNotifyReplyTitle": {
+    "description": "OS notification title when a creator's reply lands. {who} is their handle.",
+    "placeholders": {
+      "who": {
+        "type": "String"
+      }
+    }
+  },
+  "outreachNotifyReplyAnonymousTitle": "A creator replied",
+  "outreachNotifyFollowUpFailedTitle": "A follow-up could not be sent",
+  "archiveBulkCleanStop": "Stop",
+  "outreachComposeOpening": "Opening conversation…",
+  "outreachReminderDueToday": "Due today",
+  "outreachReminderDueInDays": "Due in {count} days",
+  "@outreachReminderDueInDays": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "outreachReminderOverdueByDays": "Overdue by {count} days",
+  "@outreachReminderOverdueByDays": {
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "format": "decimalPattern"
+      }
+    }
+  },
+  "outreachLogReply": "Log a reply",
+  "outreachShowProfile": "Show profile",
+  "outreachHideProfile": "Hide profile",
+  "outreachOpenFullProfile": "Open full profile",
+  "outreachComposeMethodLabel": "Contact method",
+  "outreachComposeSendVia": "Sending via {method}",
+  "@outreachComposeSendVia": {
+    "placeholders": {
+      "method": {
+        "type": "String"
+      }
+    }
+  },
+  "outreachComposeToLabel": "To",
+  "outreachComposeMessageLabel": "Message",
+  "outreachComposeNoContactYet": "No contact on file for this channel. Add one to start the conversation.",
+  "outreachComposeAddContactFor": "Add a {method} contact",
+  "@outreachComposeAddContactFor": {
+    "placeholders": {
+      "method": {
+        "type": "String"
+      }
+    }
+  },
+  "outreachComposeNothingToSend": "Write a message before marking it sent.",
+  "outreachOpenMailApp": "Open mail app",
+  "outreachMailAppRefused": "Couldn't open a mail app — the message is on your clipboard instead.",
+  "outreachBodyTooLongForMail": "The draft is long, so the mail app opened with just the subject — the body is on your clipboard to paste in.",
+  "outreachCopyBody": "Copy body",
+  "outreachCopyMessage": "Copy message",
+  "outreachCopyContactValue": "Copy {method}",
+  "@outreachCopyContactValue": {
+    "placeholders": {
+      "method": {
+        "type": "String"
+      }
+    }
+  },
+  "outreachOpenContactLink": "Open link",
+  "outreachMarkSent": "Mark as sent",
+  "outreachMessageSentVia": "Logged as sent via {method}.",
+  "@outreachMessageSentVia": {
+    "placeholders": {
+      "method": {
+        "type": "String"
+      }
+    }
+  },
+  "outreachAddContactValueHint": "Address, number or handle",
+  "outreachAddContactAdd": "Add & use",
+  "outreachRecentUploadsTitle": "Recent uploads — timing reference",
+  "commonDateUnknown": "date unknown",
+  "outreachScheduleFollowUp": "Schedule follow-up",
+  "outreachFollowUpDefaultTitle": "Follow up with {handle}",
+  "@outreachFollowUpDefaultTitle": {
+    "placeholders": {
+      "handle": {
+        "type": "String"
+      }
+    }
+  },
+  "outreachFollowUpReminderLabel": "Reminder note",
+  "outreachFollowUpWhenLabel": "When",
+  "outreachFollowUpTomorrow": "Tomorrow",
+  "outreachFollowUpIn3Days": "In 3 days",
+  "outreachFollowUpInAWeek": "In a week",
+  "outreachFollowUpCustom": "Custom…",
+  "outreachFollowUpPickDateTime": "Pick date & time",
+  "outreachFollowUpScheduled": "Follow-up set for {date}.",
+  "@outreachFollowUpScheduled": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "outreachFollowUpSavedNoNotif": "Follow-up saved — you'll see it on the dashboard.",
+  "outreachFollowUpMarkedDone": "Follow-up cleared.",
+  "outreachFollowUpsSectionTitle": "Scheduled follow-ups",
+  "outreachFollowUpClear": "Mark done",
+  "outreachFollowUpNumbered": "Follow-up {number} of {total}",
+  "@outreachFollowUpNumbered": {"placeholders": {"number": {"type": "int"}, "total": {"type": "int"}}},
+  "outreachFollowUpLeft": "{duration} left",
+  "@outreachFollowUpLeft": {"placeholders": {"duration": {"type": "String"}}},
+  "outreachFollowUpOverdue": "{duration} overdue",
+  "@outreachFollowUpOverdue": {"placeholders": {"duration": {"type": "String"}}},
+  "outreachDurationDaysHours": "{days}d {hours}h",
+  "@outreachDurationDaysHours": {"placeholders": {"days": {"type": "int"}, "hours": {"type": "int"}}},
+  "outreachDurationHoursMinutes": "{hours}h {minutes}m",
+  "@outreachDurationHoursMinutes": {"placeholders": {"hours": {"type": "int"}, "minutes": {"type": "int"}}},
+  "outreachDurationMinutes": "{minutes}m",
+  "@outreachDurationMinutes": {"placeholders": {"minutes": {"type": "int"}}},
+  "outreachFollowUpsEmpty": "No follow-up scheduled.",
+  "outreachFollowUpsSequenceDone": "Three follow-ups sent with no reply. Wait two weeks to two months, then start a new thread with a new angle.",
+  "outreachFollowUpsApproval": "Each follow-up is written and approved when it's due. Nothing is sent by itself.",
+  "outreachNoFollowUps": "No follow-ups scheduled.",
+  "outreachLogReplyTitle": "Log a reply",
+  "outreachLogReplyBodyLabel": "What they said",
+  "outreachLogReplyMethodLabel": "Came in via",
+  "outreachLogReplyReceivedLabel": "Received",
+  "outreachReplyLogged": "Reply logged.",
+  "influencerProfileContactAction": "Contact",
+  "influencerProfileOpenConversation": "Open conversation",
+  "navArchive": "Archive",
+  "archiveTitle": "Archive",
+  "archiveExplanation": "Channels tagged haram stuff or irrelevant are reduced to a short record 7 days after tagging, and everything else about them is deleted: videos, notes, contacts, description. Only what you see here is kept.",
+  "archiveHoldingCount": "{count, plural, =0{Nothing archived yet} =1{1 archived channel} other{{count} archived channels}}",
+  "@archiveHoldingCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "archiveSearchHint": "Search by handle",
+  "archiveFilterLabel": "Reason",
+  "archiveFilterAllLabels": "All reasons",
+  "archiveSortLabel": "Sort by",
+  "archiveSortArchivedAt": "Date archived",
+  "archiveSortHandle": "Handle",
+  "archiveSortSubscribers": "Subscribers",
+  "archiveSortVideos": "Videos found",
+  "archiveSortAverageViews": "Median views",
+  "archiveEmpty": "Nothing has been archived yet.",
+  "archiveEmptyHint": "A channel arrives here 7 days after it is tagged haram stuff or irrelevant.",
+  "archiveNoMatches": "No archived channel matches this filter.",
+  "archiveColumnSubscribers": "Subscribers",
+  "archiveColumnAvgViews": "Median views",
+  "archiveColumnVideos": "Videos found",
+  "archiveArchivedOn": "Archived {date}",
+  "@archiveArchivedOn": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "archiveFoundOn": "Found {date}",
+  "@archiveFoundOn": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "archiveNoAverage": "No view counts were ever recorded",
+  "archiveMedianNotFetched": "Rejected on its subscriber count during the search, before any video was fetched — there was never a median to record",
+  "archiveMedianLifetime": "Median over every stored video. Nothing was uploaded in the 30 days before this channel was last read, so the usual 30-day figure has nothing to average",
+  "archiveMedianWindow30": "Median views over the 30 days before this channel was last read — the same figure the Influencers list shows",
+  "archiveVideosNotCounted": "Never counted — no videos were fetched for this channel before it was archived",
+  "archiveVideosNone": "The channel's videos were read and there were none",
+  "archiveOpenOnYoutube": "Open on YouTube",
+  "archiveLoadMore": "Load more",
+  "archiveLoadFailed": "Couldn't load the archive.",
+  "archiveRestoreNote": "Use the ✕ on a row to free a channel: it is queued for enrichment and comes back to the Influencers list as a new find. Nothing that was deleted returns.",
+  "archiveChangeReasonTooltip": "Change the reason",
+  "archiveReasonChanged": "Reason changed to {reason}",
+  "@archiveReasonChanged": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "archiveReasonChangeFailed": "Couldn't change the reason.",
+  "archiveFreeTooltip": "Free this channel and re-enrich it",
+  "archiveFreeUnavailable": "Freeing a channel re-enriches it, which needs the installed desktop app.",
+  "archiveFreeConfirmTitle": "Free {handle} from the archive?",
+  "@archiveFreeConfirmTitle": {
+    "placeholders": {
+      "handle": {
+        "type": "String"
+      }
+    }
+  },
+  "archiveFreeConfirmBody": "The record is removed and the channel is queued for enrichment. It comes back to the Influencers list as a new, un-vetted find — with no tags and no countdown. Nothing that was deleted when it was archived returns.",
+  "archiveFreeConfirmAction": "Free & enrich",
+  "archiveFreeStarted": "Freed {handle} — enriching now. See the Search page for progress.",
+  "@archiveFreeStarted": {
+    "placeholders": {
+      "handle": {
+        "type": "String"
+      }
+    }
+  },
+  "archiveFreeBusy": "The pipeline is busy right now. Try again once the current run finishes.",
+  "archiveFreeFailed": "Couldn't free the channel.",
+  "influencerArchivesIn": "{days, plural, =0{Archives today} =1{Archives tomorrow} other{Archives in {days} days}}",
+  "@influencerArchivesIn": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "influencerArchivePendingTitle": "Scheduled for archiving",
+  "influencerArchivePendingBody": "This channel is tagged {label}. On {date} it will be reduced to a handle, its counts and that label, and everything else — every video, note and contact — will be deleted. Remove the tag to keep it.",
+  "@influencerArchivePendingBody": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      },
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "influencerArchiveNow": "Archive now",
+  "influencerArchiveNowConfirmTitle": "Archive this channel now?",
+  "influencerArchiveNowConfirmBody": "It will be reduced to its handle, subscriber count, median views, video count and label right now. Its videos, notes and contacts will be deleted and cannot be recovered.",
+  "influencerArchiveNowConfirm": "Archive it",
+  "influencerArchiveScheduled": "Archiving now.",
+  "influencerArchiveKeep": "Keep this channel",
+  "influencerArchiveKept": "Archiving cancelled.",
+  "commonRefresh": "Refresh",
+  "commonSortAscending": "Ascending",
+  "commonSortDescending": "Descending",
+  "navConflicts": "Conflicts",
+  "conflictDetectedSnack": "Somebody edited this first. Your version is saved on the Conflicts page.",
+  "conflictChannelGone": "That channel no longer exists.",
+  "conflictsTitle": "Conflicts",
+  "conflictsExplanation": "An edit lands here only when it was written against a value somebody had already changed — so neither version contains the other. Editing on top of a colleague's saved work never appears here.",
+  "conflictsNone": "No conflicts.",
+  "conflictsNoneHint": "Edits that build on each other are applied silently; only genuinely diverging ones need a decision.",
+  "conflictsOpenSection": "Waiting for a decision",
+  "conflictsResolvedSection": "Recently settled",
+  "conflictsOpenCount": "{count, plural, =0{No conflicts} =1{1 conflict} other{{count} conflicts}}",
+  "@conflictsOpenCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "conflictsShellBanner": "{count, plural, =1{An edit is waiting for a decision} other{{count} edits are waiting for a decision}}",
+  "@conflictsShellBanner": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "conflictFieldNotes": "Notes",
+  "conflictFieldTags": "Channel tags",
+  "conflictFieldStage": "Pipeline stage",
+  "conflictFieldVetting": "Vetting status",
+  "conflictFieldCriteria": "Relevance criteria",
+  "conflictFieldProvided": "Provided data",
+  "conflictFieldContacts": "Contacts",
+  "conflictOnChannel": "{field} on {channel}",
+  "@conflictOnChannel": {
+    "placeholders": {
+      "field": {
+        "type": "String"
+      },
+      "channel": {
+        "type": "String"
+      }
+    }
+  },
+  "conflictMineBy": "{name} wrote",
+  "@conflictMineBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "conflictTheirsBy": "{name} wrote",
+  "@conflictTheirsBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "conflictTheirsUnknown": "Someone else wrote",
+  "conflictBaseWas": "Both started from",
+  "conflictKeepMine": "Keep this one",
+  "conflictKeepTheirs": "Keep this one",
+  "conflictMerge": "Write something else",
+  "conflictMergeTitle": "Combine both versions",
+  "conflictMergeHint": "Both versions are above. Edit this into what the field should say.",
+  "conflictMergeSave": "Save this",
+  "conflictResolvedBy": "Settled by {name}",
+  "@conflictResolvedBy": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "conflictResolutionMine": "kept {name}'s version",
+  "@conflictResolutionMine": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "conflictResolutionTheirs": "kept {name}'s version",
+  "@conflictResolutionTheirs": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "conflictResolutionMerged": "combined both",
+  "conflictResolveFailed": "Couldn't settle that conflict.",
+  "conflictAlreadyResolved": "Somebody already settled that one.",
+  "conflictOpenChannel": "Open the channel",
+  "conflictProfileBannerTitle": "{count, plural, =1{An edit to this channel needs a decision} other{{count} edits to this channel need a decision}}",
+  "@conflictProfileBannerTitle": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "conflictProfileBannerAction": "Review",
+  "conflictDetectedAt": "Detected {date}",
+  "@conflictDetectedAt": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "conflictEmptyValue": "(empty)",
+  "archiveBulkCleanAction": "Bulk clean",
+  "archiveBulkCleanTitle": "Reject many channels at once, by size",
+  "archiveBulkCleanBody": "Tags every channel whose size falls inside the ranges below as rejected, in one pass. Nothing is deleted today: a tagged channel is archived 7 days later, and clearing the tag before then keeps it.",
+  "archiveBulkCleanSubsSection": "Subscriber range to reject",
+  "archiveBulkCleanAvgSection": "Median-views range to reject",
+  "archiveBulkCleanRangeTip": "A reject band — the opposite of the search page's keep band. A channel inside every range you fill in is tagged; anything outside is left alone.",
+  "archiveBulkCleanMinLabel": "From (subscribers)",
+  "archiveBulkCleanMaxLabel": "To (subscribers)",
+  "archiveBulkCleanAvgMinLabel": "From (median views)",
+  "archiveBulkCleanAvgMaxLabel": "To (median views)",
+  "archiveBulkCleanBoundsHint": "Leave a side empty for an open end. A channel is rejected only when it is inside every range you fill in.",
+  "archiveBulkCleanNeedsBound": "Set at least one end of one range.",
+  "archiveBulkCleanLabelLabel": "Tag them as",
+  "archiveBulkCleanImmediate": "Delete now, skipping the 7 days",
+  "archiveBulkCleanImmediateHint": "Permanent, and it cascades: every video, note and contact on these channels goes with them. The grace period is the only thing standing between a mistyped range and losing them all.",
+  "archiveBulkCleanPreview": "Check the range",
+  "archiveBulkCleanRecheck": "Re-check",
+  "archiveBulkCleanDeleting": "Deleting {done} of {total}…",
+  "@archiveBulkCleanDeleting": {
+    "placeholders": {
+      "done": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "archiveBulkCleanMatched": "{count, plural, =0{No channel matches this range} =1{1 channel matches} other{{count} channels match}}",
+  "@archiveBulkCleanMatched": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "archiveBulkCleanSkippedTagged": "{count, plural, =0{} =1{1 more is already tagged and counting down.} other{{count} more are already tagged and counting down.}}",
+  "@archiveBulkCleanSkippedTagged": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "archiveBulkCleanSkippedProtected": "{count, plural, =0{} =1{1 is left alone because there is a deal or an outreach history with them.} other{{count} are left alone because there are deals or outreach histories with them.}}",
+  "@archiveBulkCleanSkippedProtected": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "archiveBulkCleanSkippedUnknown": "{count, plural, =0{} =1{1 channel is missing a number these ranges need, and is in no range at all.} other{{count} channels are missing a number these ranges need, and are in no range at all.}}",
+  "@archiveBulkCleanSkippedUnknown": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "archiveBulkCleanConfirmTag": "Tag {count}",
+  "@archiveBulkCleanConfirmTag": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "archiveBulkCleanConfirmDelete": "Delete {count} now",
+  "@archiveBulkCleanConfirmDelete": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "archiveBulkCleanTagged": "{count, plural, =1{1 channel tagged. It is archived in 7 days.} other{{count} channels tagged. They are archived in 7 days.}}",
+  "@archiveBulkCleanTagged": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "archiveBulkCleanArchived": "{count, plural, =1{1 channel archived.} other{{count} channels archived.}}",
+  "@archiveBulkCleanArchived": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "archiveBulkCleanFailed": "Couldn't run the bulk clean.",
+  "archiveBulkCleanUnavailable": "Bulk cleaning needs full authority.",
+  "archiveBulkCleanModeLive": "Live",
+  "archiveBulkCleanModeScheduled": "Scheduled for archive",
+  "archiveBulkCleanDueTitle": "Act on channels already counting down",
+  "archiveBulkCleanDueBody": "Acts on channels already tagged and counting down to being archived. Narrow by the ranges below, or leave them blank to reach every channel currently due.",
+  "archiveBulkCleanDueMatched": "{count, plural, =0{No channel is currently due in this range} =1{1 channel is currently due} other{{count} channels are currently due}}",
+  "@archiveBulkCleanDueMatched": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "archiveBulkCleanConfirmArchiveNow": "Archive {count} now",
+  "@archiveBulkCleanConfirmArchiveNow": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "archiveBulkCleanConfirmUndo": "Undo archive for {count}",
+  "@archiveBulkCleanConfirmUndo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "archiveBulkCleanArchiveNowHint": "Skips whatever is left of the 7 days and deletes now. Permanent, and it cascades: every video, note and contact on these channels goes with them.",
+  "archiveBulkCleanUndoHint": "Clears every tag on these channels, the same as unchecking them by hand. Cancels the countdown — nothing is deleted.",
+  "archiveBulkCleanUndone": "{count, plural, =1{1 channel untagged. The countdown is cancelled.} other{{count} channels untagged. The countdown is cancelled.}}",
+  "@archiveBulkCleanUndone": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "searchAutoCleanTitle": "Auto-clean results",
+  "searchAutoCleanBody": "Two keep bands — a subscriber range and an average-views range. A channel that lands inside both is collected as normal. A channel outside either one is acted on: for the subscriber band, during the run itself, before its videos cost anything; for both bands, by a sweep of that run's finds after it ends.",
+  "searchAutoCleanEnable": "Apply this to every run",
+  "searchAutoCleanEnableHint": "Runs on its own, with no confirmation step. The below/above actions decide what that means — leave it off unless those are choices you would make without reading a count first.",
+  "searchAutoCleanOff": "Off — finished runs are left alone",
+  "searchAutoCleanNoBounds": "On, but no range set — nothing will be cleaned",
+  "searchAutoCleanSubsSectionTitle": "Subscriber range to keep",
+  "searchAutoCleanAvgSectionTitle": "Median-views range to keep",
+  "searchAutoCleanKeepBandTip": "A keep band. A channel whose number lands inside it is collected as normal; one outside it — on either side — is what this rule acts on.",
+  "searchAutoCleanActionSweepNote": "Archive during the run — the channel is tagged rejected and synced up before its videos are fetched, and the after-the-run sweep tags it too.",
+  "searchAutoCleanActionDelayNote": "Keep, fetch videos later — the channel stays and is not archived; its videos are skipped now and read later from the backlog.",
+  "searchAutoCleanActionOffNote": "Treat as in range — nothing special; collected exactly like a channel inside the band.",
+  "searchAutoCleanAvgNote": "Same keep band as above, but a channel's median views are not known until its videos are read — so one outside this range is always handled by the after-the-run sweep, never deferred.",
+  "searchAutoCleanHousePreset": "Use the house rule: about 50K views, no size cap",
+  "searchAutoCleanKeepAvgMinLabel": "Keep from (median views)",
+  "searchAutoCleanKeepAvgMaxLabel": "Keep up to (median views)",
+  "searchAutoCleanKeepSummary": "Keeps {range}",
+  "@searchAutoCleanKeepSummary": {
+    "placeholders": {
+      "range": {
+        "type": "String"
+      }
+    }
+  },
+  "searchAutoCleanRejectsSummary": "Rejects new finds {ranges}",
+  "@searchAutoCleanRejectsSummary": {
+    "placeholders": {
+      "ranges": {
+        "type": "String"
+      }
+    }
+  },
+  "searchAutoCleanGateBelow": "below → {action}",
+  "@searchAutoCleanGateBelow": {
+    "placeholders": { "action": { "type": "String" } }
+  },
+  "searchAutoCleanGateAbove": "above → {action}",
+  "@searchAutoCleanGateAbove": {
+    "placeholders": { "action": { "type": "String" } }
+  },
+  "searchAutoCleanAlsoRejects": "also rejects {ranges}",
+  "@searchAutoCleanAlsoRejects": {
+    "placeholders": { "ranges": { "type": "String" } }
+  },
+  "searchAutoCleanActionSweep": "archived",
+  "searchAutoCleanActionDelay": "videos deferred",
+  "searchAutoCleanActionOff": "left in range",
+  "searchAutoCleanBelowMinLabel": "Below the range",
+  "searchAutoCleanAboveMaxLabel": "Above the range",
+  "searchAutoCleanKeepMinLabel": "Keep from (subscribers)",
+  "searchAutoCleanKeepMaxLabel": "Keep up to (subscribers)",
+  "searchAutoCleanActionSweepOption": "Archive it during the run",
+  "searchAutoCleanActionDelayOption": "Keep it, fetch its videos later",
+  "searchAutoCleanActionOffOption": "Treat it as in range",
+  "searchAutoCleanAnd": " and ",
+  "searchAutoCleanSubscribersWord": "subscribers",
+  "searchAutoCleanAvgViewsWord": "median views",
+  "searchAutoCleanUnder": "under {value} {what}",
+  "@searchAutoCleanUnder": {
+    "placeholders": {
+      "what": {
+        "type": "String"
+      },
+      "value": {
+        "type": "int",
+        "format": "compact"
+      }
+    }
+  },
+  "searchAutoCleanOver": "over {value} {what}",
+  "@searchAutoCleanOver": {
+    "placeholders": {
+      "what": {
+        "type": "String"
+      },
+      "value": {
+        "type": "int",
+        "format": "compact"
+      }
+    }
+  },
+  "searchAutoCleanBetween": "{from}–{to} {what}",
+  "@searchAutoCleanBetween": {
+    "placeholders": {
+      "what": {
+        "type": "String"
+      },
+      "from": {
+        "type": "int",
+        "format": "compact"
+      },
+      "to": {
+        "type": "int",
+        "format": "compact"
+      }
+    }
+  },
+  "searchAutoCleanBoundsHint": "Leave a side of a range empty for an open end. With no range set at all, nothing is cleaned.",
+  "searchAutoCleanNeedsBound": "Set at least one end of one range, or nothing will be cleaned.",
+  "searchAutoCleanScopeNote": "Only channels the finished run itself found. A channel discovered by an earlier run, or one somebody has already looked at, is never touched.",
+  "searchAutoCleanGraceNote": "Tagging only. The tagged channels are archived 7 days later, so removing the tag before then keeps them. Nothing is deleted automatically.",
+  "searchAutoCleanRan": "{count, plural, =0{Last run: nothing matched the ranges} =1{Last run: 1 channel tagged, archived in 7 days} other{Last run: {count} channels tagged, archived in 7 days}}",
+  "@searchAutoCleanRan": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "searchAutoCleanSkippedUnknown": "{count, plural, =0{} =1{1 more was left alone: no median views have been recorded for it, so it is in no range at all.} other{{count} more were left alone: no median views have been recorded for them, so they are in no range at all.}}",
+  "@searchAutoCleanSkippedUnknown": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "searchAutoCleanFailed": "The automatic clean couldn't run. The search itself finished normally.",
+  "searchAutoCleanMinVideosLabel": "Min videos (last 30 days)",
+  "searchAutoCleanMinVideosHint": "Reject a channel that posted fewer than this many videos in the last 30 days. Leave blank to ignore how active a channel is.",
+  "searchAutoCleanFewerVideos": "fewer than {value} videos in 30 days",
+  "@searchAutoCleanFewerVideos": {
+    "placeholders": {
+      "value": {
+        "type": "int",
+        "format": "compact"
+      }
+    }
+  },
+  "dashboardAnalyticsTitle": "Channel analytics",
+  "dashboardAnalyticsBody": "Everything the pipeline has found, and what is in it. The filters only narrow what is shown and counted here — they change nothing and archive nothing. Min/Max are inclusive: a channel is shown when it sits at or inside every bound you set. Every figure below follows the filter.",
+  "dashboardAnalyticsFailed": "Couldn't load the analytics.",
+  "dashboardAnalyticsNoChannels": "No channel matches this filter.",
+  "dashboardAnalyticsFilterCountry": "Country",
+  "dashboardAnalyticsFilterStage": "Pipeline stage",
+  "dashboardAnalyticsFilterVetting": "Vetting",
+  "dashboardAnalyticsFilterTag": "Tag",
+  "dashboardAnalyticsFilterAny": "Any",
+  "dashboardAnalyticsFilterMinSubs": "Min subscribers",
+  "dashboardAnalyticsFilterMaxSubs": "Max subscribers",
+  "dashboardAnalyticsFilterMinAvgViews": "Min median views (30d)",
+  "dashboardAnalyticsFilterMaxAvgViews": "Max median views (30d)",
+  "dashboardAnalyticsFilterMinVideos": "Min videos uploaded last month",
+  "dashboardAnalyticsClearFilters": "Clear filters",
+  "dashboardAnalyticsLegendLive": "Live",
+  "dashboardAnalyticsLegendArchiveDue": "Archive due",
+  "dashboardAnalyticsLegendArchived": "Archived",
+  "dashboardAnalyticsArchivedCount": "+{count} archived",
+  "@dashboardAnalyticsArchivedCount": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "dashboardAnalyticsArchivedValue": "+{value} archived",
+  "@dashboardAnalyticsArchivedValue": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "dashboardAnalyticsArchivedViewsNote": "Archived channels' median views are taken over every stored video at archive time — a slightly wider span than the live 30-day figure.",
+  "dashboardAnalyticsArchiveDueCount": "-{count} archive due",
+  "@dashboardAnalyticsArchiveDueCount": {
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "dashboardAnalyticsArchiveDueValue": "-{value} archive due",
+  "@dashboardAnalyticsArchiveDueValue": {
+    "placeholders": {
+      "value": {
+        "type": "String"
+      }
+    }
+  },
+  "dashboardAnalyticsStatChannels": "Channels",
+  "dashboardAnalyticsStatMedianSubs": "Median subscribers",
+  "dashboardAnalyticsStatMeanSubs": "Mean subscribers",
+  "dashboardAnalyticsStatTotalSubs": "Combined reach",
+  "dashboardAnalyticsStatFound": "Found channels this month",
+  "dashboardAnalyticsStatUploads": "Uploads this month",
+  "dashboardAnalyticsStatAvgViews": "Median views (30d)",
+  "dashboardAnalyticsStatWithDeal": "Have had a deal",
+  "dashboardAnalyticsSubsCoverage": "{known} of {total} have a subscriber count",
+  "@dashboardAnalyticsSubsCoverage": {
+    "placeholders": {
+      "known": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "dashboardAnalyticsMeanVsMedian": "Subscriber counts are skewed: one large channel pulls the mean up, so the median is the one that describes a typical row.",
+  "dashboardAnalyticsChartTiers": "Subscriber distribution",
+  "dashboardAnalyticsChartCountries": "Countries",
+  "dashboardAnalyticsChartStages": "Pipeline stage",
+  "dashboardAnalyticsChartVetting": "Vetting",
+  "dashboardAnalyticsChartTags": "Tags",
+  "dashboardAnalyticsChartDiscovered": "Found per month",
+  "dashboardAnalyticsChartViewTiers": "Median views distribution",
+  "dashboardAnalyticsToggleIndependent": "Toggle independent scale",
+  "dashboardAnalyticsViewsNote": "{known} of {total} have a measured 30-day median; the rest count as 0 under <10K. Same buckets as the subscriber chart above.",
+  "@dashboardAnalyticsViewsNote": {
+    "placeholders": {
+      "known": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "dashboardAnalyticsCountriesNote": "{count, plural, =0{Top 12 by channel count.} =1{Top 12 by channel count. 1 channel has no country recorded.} other{Top 12 by channel count. {count} channels have no country recorded.}}",
+  "@dashboardAnalyticsCountriesNote": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dashboardAnalyticsTagsNote": "A channel carrying two tags is counted under both, so these add up to more than the total.",
+  "dashboardAnalyticsUntagged": "No tag",
+  "dashboardAnalyticsNothingHere": "Nothing to draw yet.",
+  "navEmailLibrary": "Email critique library",
+  "emailLibraryTitle": "Email critique library",
+  "emailLibraryTabInfluencers": "Influencers",
+  "emailLibraryTabBrands": "Brands",
+  "emailLibraryNewRecord": "New email record",
+  "emailLibraryNewRecordTitle": "New email record",
+  "emailLibraryEditRecordTitle": "Email record",
+  "emailLibraryManageTags": "Manage tags",
+  "emailLibrarySearchHint": "Search subject, body, context and critique",
+  "emailLibrarySourceAll": "All",
+  "emailLibrarySourceVideo": "From videos",
+  "emailLibrarySourceTestDraft": "Test drafts",
+  "emailLibrarySourceAppDraft": "My drafts",
+  "emailLibrarySourceMine": "My examples",
+  "emailLibraryBadgeTestDraft": "Test draft",
+  "emailLibraryBadgeAppDraft": "My draft",
+  "emailLibraryBadgeMine": "My example",
+  "emailLibraryVerdictGood": "Good",
+  "emailLibraryVerdictBad": "Bad",
+  "emailLibraryUnrated": "Not rated",
+  "emailLibraryFieldVerdict": "Verdict",
+  "emailLibraryVerdictWhyBad": "Why is it bad?",
+  "emailLibraryVerdictWhyGood": "What makes it good? (optional)",
+  "emailLibraryVerdictWhyHint": "Good drafts become cases later skill versions must still pass. A bad one is drafted again with your reason, to check the fault is gone.",
+  "emailLibraryVerdictWhyRequired": "Say what's wrong, so the next run knows what to look for.",
+  "emailLibraryBenchImported": "{count, plural, =1{1 test draft} other{{count} test drafts}} imported from the last bench run.",
+  "@emailLibraryBenchImported": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "emailLibraryMyExample": "My example",
+  "emailLibraryMyExampleHint": "One of your own emails that worked. The skill factory reads it as an example, never as wording to copy.",
+  "emailLibraryKnobs": "Written for: {knobs}",
+  "@emailLibraryKnobs": {
+    "placeholders": {
+      "knobs": {
+        "type": "String"
+      }
+    }
+  },
+  "emailLibraryClearFilters": "Clear filters",
+  "emailLibrarySortLastEdited": "Last edited",
+  "emailLibrarySortLastCreated": "Last created",
+  "emailLibrarySortVideoDate": "Video date",
+  "emailLibraryEmpty": "Nothing here yet. Add the first email and what the expert said about it.",
+  "emailLibraryNoMatches": "No records match this filter.",
+  "emailLibraryLoadFailed": "Could not read the local library.",
+  "emailLibraryUnavailable": "There is no local email critique library on this machine.",
+  "emailLibraryUnavailableDetail": "The library is a single file, data/database/email_library.db, next to the pipeline's own database. It is only available in the installed desktop app. If you are on desktop and still see this, check Settings -> Search Tuning -> Project root.",
+  "emailLibraryFieldVideoDate": "Video date",
+  "emailLibraryNoDate": "No date",
+  "emailLibraryVideoDateDay": "Day",
+  "emailLibraryVideoDateMonth": "Month",
+  "emailLibraryVideoDateYear": "Year",
+  "emailLibraryFieldVideoUrl": "Video URL",
+  "emailLibraryVideoUrlHint": "Link to the training video",
+  "emailLibraryFieldTimecode": "Timecode",
+  "emailLibraryTimecodeHint": "1:05:30",
+  "emailLibraryTimecodeInvalid": "Use h:mm:ss, m:ss, or plain seconds.",
+  "emailLibraryTimecodeHours": "Hours",
+  "emailLibraryTimecodeMinutes": "Minutes",
+  "emailLibraryTimecodeSeconds": "Seconds",
+  "emailLibraryTimecodeScrollHint": "Scroll or use the arrow keys over a box to change it.",
+  "emailLibraryOpenAtTimecode": "Open the video at this point",
+  "emailLibraryOpenVideo": "Open the source video",
+  "emailLibraryOpenFailed": "Could not open that link.",
+  "emailLibraryFieldStage": "Stage",
+  "emailLibraryFieldNiche": "Niches",
+  "emailLibraryNicheSearchHint": "Search niches",
+  "emailLibraryNoNicheTags": "No tags yet. Use + to add one.",
+  "emailLibraryFieldContext": "Context",
+  "emailLibraryContextHint": "Who it was written to, and what had happened before it",
+  "emailLibraryFieldSubject": "Subject",
+  "emailLibraryFieldBody": "Email body",
+  "emailLibraryBodyHint": "Paste the email exactly as it was written",
+  "emailLibraryFieldCritique": "Expert critique",
+  "emailLibraryCritiqueHint": "What the expert said about it, and why",
+  "emailLibraryAddTag": "Add tag",
+  "emailLibraryAddStageTag": "New stage tag",
+  "emailLibraryAddNicheTag": "New niche tag",
+  "emailLibraryTagLabel": "Label",
+  "emailLibraryTagLabelHelp": "An existing tag with this name is reused.",
+  "emailLibraryQuotedToContext": "Added to the context note.",
+  "emailLibraryAddKeyword": "Add a keyword",
+  "emailLibraryAddKeywordNamed": "Add \"@{keyword}\"",
+  "@emailLibraryAddKeywordNamed": {
+    "description": "The + row in the @-mention menu, naming the keyword it would add.",
+    "placeholders": {
+      "keyword": {
+        "type": "String"
+      }
+    }
+  },
+  "emailLibraryAddPlaceholderTag": "New keyword",
+  "emailLibraryPlaceholderHelp": "One word. Spaces become underscores, so it can be typed back as @word.",
+  "emailLibrarySaveAndAnother": "Save & add another",
+  "emailLibrarySaved": "Saved.",
+  "emailLibrarySaveFailed": "Could not save to the local library.",
+  "emailLibraryNothingToSave": "Nothing typed yet.",
+  "emailLibraryDiscardTitle": "Discard this record?",
+  "emailLibraryDiscardBody": "What is typed here has not been saved.",
+  "emailLibraryDiscard": "Discard",
+  "emailLibraryDeleteTitle": "Delete this record?",
+  "emailLibraryDeleteBody": "The email and its critique are removed from the local library. This cannot be undone.",
+  "emailLibraryNoSubject": "No subject",
+  "emailLibraryRenameTag": "Rename",
+  "emailLibraryTagUsage": "{count, plural, =0{On no records} =1{On 1 record} other{On {count} records}}",
+  "@emailLibraryTagUsage": {
+    "description": "How many email records carry a tag, in the manage-tags sheet.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "emailLibraryDeleteTagTitle": "Delete \"{label}\"?",
+  "@emailLibraryDeleteTagTitle": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "emailLibraryDeleteTagBody": "{count, plural, =0{No records use this tag.} =1{It is removed from 1 record as well.} other{It is removed from {count} records as well.}}",
+  "@emailLibraryDeleteTagBody": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "logsActionReplyReceived": "Reply received",
+  "outreachSendWithGmail": "Send with Gmail",
+  "outreachSendingWithGmail": "Sending…",
+  "outreachGmailSentAs": "Sent from {account}.",
+  "@outreachGmailSentAs": {
+    "placeholders": {
+      "account": {
+        "type": "String"
+      }
+    }
+  },
+  "outreachGmailSentWithFollowUps": "Sent from {account}. {count, plural, =1{1 follow-up is queued} other{{count} follow-ups are queued}} — cancelled the moment they reply.",
+  "@outreachGmailSentWithFollowUps": {
+    "placeholders": {
+      "account": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "outreachGmailSendFailed": "Couldn’t send: {reason}",
+  "@outreachGmailSendFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "outreachGmailNotEmail": "The mailbox sends email. Use the copy and open actions for {method}.",
+  "@outreachGmailNotEmail": {
+    "placeholders": {
+      "method": {
+        "type": "String"
+      }
+    }
+  },
+  "outreachGmailNotConnected": "No outreach mailbox is connected on this machine.",
+  "outreachGmailConnectAction": "Connect one",
+  "outreachGmailReconnectAction": "Reconnect",
+  "outreachGmailSendUnavailableHint": "Connect a mailbox in Settings to send from inside the app. Until then, the mail-app hand-off still works.",
+  "outreachFollowUpBodyLabel": "Follow-up message",
+  "outreachCheckReplies": "Check for replies",
+  "outreachCheckingReplies": "Checking the mailbox…",
+  "outreachNoNewReplies": "No new replies.",
+  "outreachRepliesApplied": "{count, plural, =1{1 new reply} other{{count} new replies}} recorded.",
+  "@outreachRepliesApplied": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "outreachRepliesAppliedWithCancels": "{replies, plural, =1{1 new reply} other{{replies} new replies}} recorded, {cancelled, plural, =1{1 queued follow-up cancelled} other{{cancelled} queued follow-ups cancelled}}.",
+  "@outreachRepliesAppliedWithCancels": {
+    "placeholders": {
+      "replies": {
+        "type": "int"
+      },
+      "cancelled": {
+        "type": "int"
+      }
+    }
+  },
+  "outreachFollowUpsSentNote": "{count, plural, =1{1 follow-up went out} other{{count} follow-ups went out}}.",
+  "@outreachFollowUpsSentNote": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "outreachMarkedInterested": "{count, plural, =1{1 channel moved to Interested} other{{count} channels moved to Interested}}.",
+  "@outreachMarkedInterested": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "outreachSweepFailed": "Couldn’t check the mailbox: {reason}",
+  "@outreachSweepFailed": {
+    "placeholders": {
+      "reason": {
+        "type": "String"
+      }
+    }
+  },
+  "outreachQueuedFollowUps": "{count, plural, =0{No follow-ups queued} =1{1 follow-up queued} other{{count} follow-ups queued}}",
+  "@outreachQueuedFollowUps": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "outreachCancelFollowUps": "Cancel the queued follow-ups",
+  "outreachFollowUpsCancelled": "{count, plural, =0{Nothing was queued} =1{1 follow-up cancelled} other{{count} follow-ups cancelled}}.",
+  "@outreachFollowUpsCancelled": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsMailboxTitle": "Outreach mailbox",
+  "settingsMailboxSubtitle": "The Gmail account outreach is sent from, and the follow-ups waiting behind it. Set up per machine — whoever runs the pipeline sends the mail.",
+  "settingsMailboxConnectedAs": "Connected as {account}",
+  "@settingsMailboxConnectedAs": {
+    "placeholders": {
+      "account": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsMailboxNotConnected": "No mailbox connected",
+  "settingsMailboxLabelledAs": "Sent mail is labelled “{label}”",
+  "@settingsMailboxLabelledAs": {
+    "placeholders": {
+      "label": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsMailboxConnectHint": "Connect the Gmail account outreach is sent from. A browser window opens for you to sign in as that address.",
+  "settingsMailboxSignIn": "Sign in",
+  "settingsMailboxAddAnother": "Add another mailbox",
+  "settingsMailboxConnecting": "Waiting for browser…",
+  "settingsMailboxConnectingHint": "Finish signing in in the browser window that just opened.",
+  "settingsMailboxConnected": "Mailbox connected.",
+  "settingsMailboxSignOut": "Sign out",
+  "settingsMailboxSignedOut": "Mailbox signed out on this machine.",
+  "settingsMailboxSignedOutOf": "Signed out of {account}.",
+  "@settingsMailboxSignedOutOf": {
+    "placeholders": {
+      "account": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsMailboxSignOutTitle": "Sign out of this mailbox?",
+  "settingsMailboxSignOutBody": "This machine stops sending outreach and following up until a mailbox is connected again. The Google account keeps its access until you revoke it at myaccount.google.com/permissions.",
+  "settingsMailboxSignOutTitleFor": "Sign out of {account}?",
+  "@settingsMailboxSignOutTitleFor": {
+    "placeholders": {
+      "account": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsMailboxSignOutBodyFor": "This machine stops sending outreach as {account} and following up on its conversations until it is connected again. The Google account keeps its access until you revoke it at myaccount.google.com/permissions.",
+  "@settingsMailboxSignOutBodyFor": {
+    "placeholders": {
+      "account": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsMailboxTokenExpiryNote": "While the Google app is in Testing mode the connection lapses after seven days — sign in again to renew it.",
+  "settingsMailboxRefresh": "Refresh",
+  "settingsMailboxTestSend": "Send a test email",
+  "settingsMailboxTestSent": "Test message sent to {to}.",
+  "@settingsMailboxTestSent": {
+    "placeholders": {
+      "to": {
+        "type": "String"
+      }
+    }
+  },
+  "settingsMailboxCountersSent": "{count, plural, =1{1 message sent} other{{count} messages sent}}",
+  "@settingsMailboxCountersSent": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsMailboxCountersAwaiting": "{count, plural, =1{1 awaiting a reply} other{{count} awaiting a reply}}",
+  "@settingsMailboxCountersAwaiting": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsMailboxCountersQueued": "{count, plural, =1{1 follow-up queued} other{{count} follow-ups queued}}",
+  "@settingsMailboxCountersQueued": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsMailboxFailedSteps": "{count, plural, =1{1 follow-up gave up after repeated failures} other{{count} follow-ups gave up after repeated failures}}",
+  "@settingsMailboxFailedSteps": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "settingsMailboxDesktopOnly": "Sending is done by the installed desktop app on the machine that runs the pipeline.",
+  "settingsMailboxAccountsRowTitle": "Signed in",
+  "settingsMailboxCapLine": "{cap} cold emails a day · {left} left today",
+  "@settingsMailboxCapLine": {"placeholders": {"cap": {"type": "int"}, "left": {"type": "int"}}},
+  "settingsMailboxWarmupWarming": "Warming up: day {days} of at least 14",
+  "@settingsMailboxWarmupWarming": {"placeholders": {"days": {"type": "int"}}},
+  "settingsMailboxWarmupDone": "Warmed up {days} days",
+  "@settingsMailboxWarmupDone": {"placeholders": {"days": {"type": "int"}}},
+  "settingsMailboxWarmupNotSet": "Warm-up start not set",
+  "settingsMailboxEditLimits": "Daily cap and warm-up",
+  "settingsMailboxLimitsTitle": "Daily cap and warm-up for {account}",
+  "@settingsMailboxLimitsTitle": {"placeholders": {"account": {"type": "String"}}},
+  "settingsMailboxCapLabel": "Cold emails a day: {cap}",
+  "@settingsMailboxCapLabel": {"placeholders": {"cap": {"type": "int"}}},
+  "settingsMailboxCapHelp": "35 is the house default; anywhere from 10 to 50. Replies to people who wrote back never count.",
+  "settingsMailboxWarmupLabel": "Warm-up started on",
+  "settingsMailboxWarmupHelp": "The warm-up itself runs in Instantly. 14 days is the minimum before cold email; 30 to 90 is better.",
+  "settingsMailboxWarmupPick": "Pick a date",
+  "settingsMailboxWarmupClear": "Clear date",
+  "settingsMailboxLimitsSaved": "Saved. The next send uses the new limits.",
+  "settingsAgencyTitle": "Agency facts",
+  "settingsAgencySubtitle": "What the drafting engine may say about the agency, who it refuses to work with, and the team's daily target. Shared with the whole team.",
+  "settingsAgencyName": "Agency name",
+  "settingsAgencySender": "Who signs the emails",
+  "settingsAgencyWhatWeDo": "What we do",
+  "settingsAgencyWebsite": "Website",
+  "settingsAgencyTrueClaims": "True claims",
+  "settingsAgencyTrueClaimsHelp": "One fact per line. The engine only claims what is here, in its own words, and only when it answers something.",
+  "settingsAgencyPastCampaigns": "Past campaigns",
+  "settingsAgencyPastCampaignsHelp": "One per line, for example the brand and the creator.",
+  "settingsAgencyIncubator": "We are part of a group of experienced agency owners who review our work",
+  "settingsAgencyIncubatorHelp": "Only if it is true. The engine uses it only as a last resort.",
+  "settingsAgencyBoycottSection": "Boycott",
+  "settingsAgencyBoycottCountries": "Boycotted countries",
+  "settingsAgencyBoycottCountriesHelp": "Two-letter country codes, separated by commas. A brand from one of these gets no pitch and no creator.",
+  "settingsAgencyBoycottBrands": "Boycotted brands",
+  "settingsAgencyBoycottBrandsHelp": "One brand per line, including brands that support the occupation of Palestine.",
+  "settingsAgencyCountryInvalid": "Use two-letter country codes, like IL.",
+  "settingsAgencyDailyTarget": "Good emails a day (team target)",
+  "settingsAgencyDailyTargetInvalid": "Enter a whole number from 1 to 500.",
+  "settingsAgencySaved": "Agency facts saved for the team.",
+  "creatorPrescreenTitle": "Pre-screen",
+  "creatorPrescreenViewsMet": "{views} median views in 30 days, meets the ~50K bar",
+  "@creatorPrescreenViewsMet": {"placeholders": {"views": {"type": "String"}}},
+  "creatorPrescreenViewsBelow": "{views} median views in 30 days, under the ~50K bar",
+  "@creatorPrescreenViewsBelow": {"placeholders": {"views": {"type": "String"}}},
+  "creatorPrescreenViewsUnknown": "Views not measured yet",
+  "creatorPrescreenUploads": "{count, plural, =0{No uploads in the last 30 days} =1{1 upload in the last 30 days} other{{count} uploads in the last 30 days}}",
+  "@creatorPrescreenUploads": {"placeholders": {"count": {"type": "int"}}},
+  "creatorPrescreenSponsored": "Sponsorship disclosures in {percent}% of the stored videos",
+  "@creatorPrescreenSponsored": {"placeholders": {"percent": {"type": "int"}}},
+  "creatorPrescreenNotSponsored": "No sponsorship disclosures in the stored videos",
+  "creatorPrescreenSponsorUnknown": "Videos not read for sponsorships yet",
+  "creatorPrescreenBrands": "Seen with: {brands}",
+  "@creatorPrescreenBrands": {"placeholders": {"brands": {"type": "String"}}},
+  "creatorPrescreenCountry": "Country: {country}",
+  "@creatorPrescreenCountry": {"placeholders": {"country": {"type": "String"}}},
+  "creatorPrescreenCountryUnknown": "Country not listed",
+  "creatorPrescreenAgent": "Has an agent: take the discount path, buy below their ask and sell at it.",
+  "creatorGoldMine": "Gold mine",
+  "creatorGoldMineHelp": "No agent, and strong views or engagement for their size. Start with discounted deals; after 2-3 deals that prove we deliver, a person may propose exclusive management at 20-40% (about 25% to start).",
+  "creatorFlagLabel": "Creator",
+  "creatorFlagNotRecorded": "Not recorded",
+  "creatorFlagMale": "Male",
+  "creatorFlagFemale": "Female",
+  "creatorFlagCouple": "Couple",
+  "creatorFlagUnknown": "Can't tell",
+  "creatorFlagOutOfScope": "Out of scope: the agency does not contact or pitch female creators or couple channels.",
+  "creatorFlagSaved": "Creator flag saved.",
+  "mediaKitTitle": "Media kit",
+  "mediaKitEdit": "Edit media kit",
+  "mediaKitEmpty": "No media kit yet. Ask the creator for their audience analytics (top countries, age) and their rates.",
+  "mediaKitReady": "Ready to pitch",
+  "mediaKitNotReady": "Not ready to pitch yet",
+  "mediaKitAudienceShare": "{share}% of the audience in the US, UK and Canada",
+  "@mediaKitAudienceShare": {"placeholders": {"share": {"type": "String"}}},
+  "mediaKitGapAnalytics": "Missing: audience analytics (top countries and age band)",
+  "mediaKitGapRate": "Missing: a rate agreed with the creator",
+  "mediaKitGapAudience": "Under 20% of the audience in the US, UK and Canada, too little even in tech",
+  "mediaKitGapOutOfScope": "Out of scope: female or couple channel",
+  "mediaKitCountriesLine": "Top countries: {countries}",
+  "@mediaKitCountriesLine": {"placeholders": {"countries": {"type": "String"}}},
+  "mediaKitAgeLine": "Main age band: {age}",
+  "@mediaKitAgeLine": {"placeholders": {"age": {"type": "String"}}},
+  "mediaKitEngagementLine": "Engagement: {rate}%",
+  "@mediaKitEngagementLine": {"placeholders": {"rate": {"type": "String"}}},
+  "mediaKitLinkLine": "Kit: {link}",
+  "@mediaKitLinkLine": {"placeholders": {"link": {"type": "String"}}},
+  "mediaKitRateAgreed": "{format}: {price}, agreed",
+  "@mediaKitRateAgreed": {"placeholders": {"format": {"type": "String"}, "price": {"type": "String"}}},
+  "mediaKitRateAsking": "{format}: {price}, asking",
+  "@mediaKitRateAsking": {"placeholders": {"format": {"type": "String"}, "price": {"type": "String"}}},
+  "mediaKitCountriesLabel": "Top countries",
+  "mediaKitCountryCode": "Country code",
+  "mediaKitShare": "Share (%)",
+  "mediaKitAddCountry": "Add a country",
+  "mediaKitAgeBand": "Main age band",
+  "mediaKitAgeBandHint": "e.g. 18-34",
+  "mediaKitEngagement": "Engagement (%)",
+  "mediaKitLink": "Media kit link",
+  "mediaKitRatesLabel": "Rate card (USD)",
+  "mediaKitFormat": "Format",
+  "mediaKitPrice": "Price",
+  "mediaKitAgreed": "Agreed with the creator",
+  "mediaKitAddRate": "Add a rate",
+  "mediaKitRemoveRow": "Remove",
+  "mediaKitInvalidCode": "Two letters",
+  "mediaKitInvalidNumber": "A number",
+  "mediaKitSaved": "Media kit saved.",
+  "influencerFilterShowOnly": "Show only",
+  "influencerFilterHasEmail": "Has an email",
+  "influencerFilterSponsored": "Sponsored before",
+  "influencerFilterShortlisted": "Shortlisted",
+  "influencerFilterReadyToPitch": "Ready to pitch",
+  "influencerFilterNeverContacted": "Never contacted",
+  "influencerContextMenuShortlist": "Shortlist",
+  "influencerContextMenuUnshortlist": "Remove from shortlist",
+  "influencerContextMenuAddToCampaign": "Add to campaign",
+  "influencerContextMenuNoCampaigns": "No active campaign to add to. Create one from a brand first.",
+  "influencerContextMenuAddedToCampaign": "Added to {campaign}.",
+  "@influencerContextMenuAddedToCampaign": {"placeholders": {"campaign": {"type": "String"}}},
+  "influencerContextMenuAddedNotReady": "Added to {campaign}, but not ready to pitch yet: get their audience analytics and an agreed rate before the proposal goes out.",
+  "@influencerContextMenuAddedNotReady": {"placeholders": {"campaign": {"type": "String"}}},
+  "commonClose": "Close",
+  "navRailCollapse": "Show icons only",
+  "navRailExpand": "Show labels",
+  "outreachHideThreadList": "Hide the conversation list",
+  "outreachShowThreadList": "Show the conversation list",
+  "outreachDeleteThread": "Delete conversation",
+  "outreachDeleteThreadConfirm": "This removes the conversation and every message in it, for everyone. A later reply to it will arrive with no conversation to attach to.",
+  "outreachThreadDeleted": "Conversation deleted.",
+  "outreachDeleteMessage": "Delete message",
+  "outreachDeleteMessageConfirm": "This removes the record of this message. A message that really went out is not recalled by deleting it here.",
+  "outreachMessageDeleted": "Message deleted.",
+  "outreachCopyAiBrief": "Copy brief for AI",
+  "outreachAiBriefCopied": "Channel brief and prompt copied — paste it into your AI.",
+  "outreachBriefDialogTitle": "Brief for AI",
+  "outreachBriefDialogSubtitle": "Everything the AI is given about this channel — and what it is asked to do with it. It is already on your clipboard.",
+  "outreachBriefCopyAgain": "Copy again",
+  "outreachBriefPromptSection": "What the AI is asked to do",
+  "outreachBriefSectionChannel": "Channel",
+  "outreachBriefSectionAudience": "Audience",
+  "outreachBriefSectionLatestUpload": "Latest upload",
+  "outreachBriefSectionRecentUploads": "Recent uploads",
+  "outreachBriefSectionFit": "Why this channel",
+  "outreachBriefSectionDraft": "Drafting with",
+  "outreachBriefSectionOther": "Also included",
+  "outreachBriefFieldChannelName": "Name",
+  "outreachBriefFieldChannelHandle": "Handle",
+  "outreachBriefFieldContactName": "Contact",
+  "outreachBriefFieldCountry": "Country",
+  "outreachBriefFieldChannelUrl": "Channel link",
+  "outreachBriefFieldChannelDescription": "Description",
+  "outreachBriefFieldSubscriberCount": "Subscribers",
+  "outreachBriefFieldMedianViews": "Median views",
+  "outreachBriefFieldLastVideoTitle": "Title",
+  "outreachBriefFieldLastVideoPublishedAt": "Published",
+  "outreachBriefFieldLastVideoViews": "Views",
+  "outreachBriefFieldLastVideoUrl": "Link",
+  "outreachBriefFieldLastVideoDescription": "Description",
+  "outreachBriefFieldRecentVideoTitles": "Titles",
+  "outreachBriefFieldRelevanceCriteria": "Relevance criteria",
+  "outreachBriefFieldNotes": "Notes",
+  "outreachBriefFieldSenderName": "Sending as",
+  "outreachBriefFieldWritingRules": "Writing rules",
+  "outreachBriefFieldTemplateName": "Template",
+  "outreachBriefFieldTemplateSubject": "Template subject",
+  "outreachBriefFieldTemplateBody": "Template body",
+  "outreachBriefThin": "Almost nothing is recorded for this channel, so the draft has almost nothing to work with. Adding notes, relevance criteria or fresh uploads is what makes the difference here.",
+  "videoCatchUpTitle": "Filling in missing videos",
+  "videoCatchUpWhat": "Channels found by earlier searches that never had their recent uploads read. This runs quietly in the background so their median views fill in, and steps aside the moment you start a search.",
+  "videoCatchUpProgress": "{read} read · {saved} saved of {total}",
+  "@videoCatchUpProgress": {
+    "description": "Video catch-up panel headline while the sweep is working. 'read' is how many channels' upload lists have been fetched, 'saved' how many of those have had their video details written; 'read' always leads 'saved'. All three numbers arrive already grouped with thousands separators.",
+    "placeholders": {
+      "read": {
+        "type": "String"
+      },
+      "saved": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "videoCatchUpStarting": "Counting how many channels are still missing videos…",
+  "videoCatchUpEta": "≈ {rate} channels/min · about {timeLeft} left",
+  "@videoCatchUpEta": {
+    "description": "Video catch-up panel: a rough throughput and time-to-finish estimate, shown once enough of the pass has run to mean anything. 'timeLeft' is a pre-formatted span like '4h 10m' or '35m'.",
+    "placeholders": {
+      "rate": {
+        "type": "String"
+      },
+      "timeLeft": {
+        "type": "String"
+      }
+    }
+  },
+  "videoCatchUpResumeNote": "Progress is saved as it goes — closing the app or starting a search won't lose it; the next run carries on from here.",
+  "@videoCatchUpResumeNote": {
+    "description": "Video catch-up panel: reassurance that the sweep resumes rather than restarting. Shown while it is running or paused."
+  },
+  "videoCatchUpCurrentChannel": "Now reading {handle}",
+  "@videoCatchUpCurrentChannel": {
+    "placeholders": {
+      "handle": {
+        "type": "String"
+      }
+    }
+  },
+  "videoCatchUpSharing": "Sharing finished channels with the team — {shared} of {total} uploaded. Reading resumes when this is done.",
+  "@videoCatchUpSharing": {
+    "description": "Video catch-up panel: shown in place of 'Now reading …' while the sweep pauses reading to upload finished channels to the team store. Usually seconds; after an upgrade it can be thousands of objects and many minutes, which is why it gets its own line. Both counts are pre-formatted.",
+    "placeholders": {
+      "shared": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
+  "videoCatchUpLayerReading": "Uploads read",
+  "@videoCatchUpLayerReading": {
+    "description": "Legend for the lighter fill of the video catch-up progress bar: how far the sweep has got through reading channels' upload lists."
+  },
+  "videoCatchUpLayerFetching": "Details saved",
+  "@videoCatchUpLayerFetching": {
+    "description": "Legend for the solid fill of the video catch-up progress bar: how many of those channels' videos have actually been fetched from the API and written."
+  },
+  "videoCatchUpDone": "{count, plural, =0{Nothing left to fill in} =1{Filled in 1 channel — done for now} other{Filled in {count} channels — done for now}}",
+  "@videoCatchUpDone": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "videoCatchUpPaused": "{count, plural, =0{Paused so the pipeline is free — it picks up where it left off} other{Paused after {count} channel(s) so the pipeline is free — it picks up where it left off}}",
+  "@videoCatchUpPaused": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "videoCatchUpFailed": "Stopped early. Nothing is lost — it tries again on its own.",
+  "channelArrivalsFromSearch": "{count, plural, =1{1 new channel just arrived from the search running on this computer} other{{count} new channels just arrived from the search running on this computer}}",
+  "@channelArrivalsFromSearch": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "channelArrivalsFromTeam": "{count, plural, =1{1 new channel just arrived from the team's shared data} other{{count} new channels just arrived from the team's shared data}}",
+  "@channelArrivalsFromTeam": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "channelArrivalsDismiss": "Dismiss",
+  "searchResumedNotice": "{count, plural, =1{Picked up last session's interrupted search — 1 keyword left} other{Picked up last session's interrupted search — {count} keywords left}}",
+  "@searchResumedNotice": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "searchResumedAction": "View",
+  "dashboardKeywordsTitle": "Keyword evaluation",
+  "dashboardKeywordsBody": "Every keyword the pipeline has searched, and how watched the channels it brought in are. Each channel sits in a tier by its trailing-30-day median views.",
+  "dashboardKeywordsFilterHint": "Filter keywords",
+  "dashboardKeywordsSortLabel": "Sort by",
+  "dashboardKeywordsSortWeighted": "Tier-weighted score",
+  "dashboardKeywordsSortChannels": "Channel count",
+  "dashboardKeywordsSortMedian": "Median views",
+  "dashboardKeywordsSortHighestFirst": "Highest first — tap for lowest",
+  "dashboardKeywordsSortLowestFirst": "Lowest first — tap for highest",
+  "dashboardKeywordsEmpty": "No keyword has brought in a measured channel yet.",
+  "dashboardKeywordsScoreCaption": "score",
+  "dashboardKeywordsRowSummary": "{channels} ch · ~{views} vid",
+  "@dashboardKeywordsRowSummary": {
+    "placeholders": {
+      "channels": { "type": "String" },
+      "views": { "type": "String" }
+    }
+  },
+  "dashboardKeywordsShowingCount": "Showing {shown} of {total}",
+  "@dashboardKeywordsShowingCount": {
+    "placeholders": {
+      "shown": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
+  "dashboardKeywordsSheetSummary": "Tier-weighted score {score} · {channels} channels measured",
+  "@dashboardKeywordsSheetSummary": {
+    "placeholders": {
+      "score": { "type": "String" },
+      "channels": { "type": "int" }
+    }
+  },
+  "dashboardKeywordsTierOver1m": "1M+ median views",
+  "dashboardKeywordsTier250kTo1m": "250K–1M median views",
+  "dashboardKeywordsTier50kTo250k": "50K–250K median views",
+  "dashboardKeywordsTierUnder50k": "Under 50K median views",
+  "navScratchpad": "Scratchpad",
+  "scratchpadYouTab": "you",
+  "scratchpadNoTeammates": "No teammates yet — once people sign in, each gets a tab here.",
+  "scratchpadOthersReadOnly": "Read-only. You can only edit your own box.",
+  "scratchpadHint": "Shared with the team. Saves a moment after you stop typing.",
+  "scratchpadLastSaved": "Last saved",
+  "scratchpadLastSyncedHere": "This device last synced",
+  "scratchpadNever": "never",
+  "scratchpadSyncLog": "Sync log (this device)",
+  "scratchpadLoadFailed": "Couldn't load the scratchpad.",
+  "scratchpadRetry": "Try again",
+  "scratchpadEmptyBox": "Nothing here yet.",
+  "settingsMergeTitle": "Databases needing manual merge",
+  "settingsMergeSubtitle": "When a new build ships a rebuilt database, this machine's older copy is set aside rather than deleted. The current copy is in use; the old one waits in the folder below for you to merge anything you still need.",
+  "settingsMergeThisDevice": "This device",
+  "settingsMergeAcrossTeam": "Across the team",
+  "settingsMergeNoneThisDevice": "Nothing on this device needs merging.",
+  "settingsMergePendingCount": "{count, plural, =1{1 file needs merging} other{{count} files need merging}}",
+  "@settingsMergePendingCount": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "settingsMergeSetAside": "Set aside {when}",
+  "@settingsMergeSetAside": {
+    "placeholders": { "when": { "type": "String" } }
+  },
+  "settingsMergeFromRelease": "From: {note}",
+  "@settingsMergeFromRelease": {
+    "placeholders": { "note": { "type": "String" } }
+  },
+  "settingsMergeOpenFolder": "Open folder",
+  "settingsMergeMarkResolved": "Mark resolved",
+  "settingsMergeRefresh": "Refresh",
+  "settingsMergeResolveTitle": "Mark this merge resolved?",
+  "settingsMergeResolveBody": "You've merged anything you need from the set-aside copy of {name}. Delete that copy now, or keep it in the folder just in case.",
+  "@settingsMergeResolveBody": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "settingsMergeResolveKeepFile": "Keep file",
+  "settingsMergeResolveDeleteFile": "Delete file",
+  "settingsMergeCancel": "Cancel",
+  "settingsMergeTeamNobody": "No one on the team has a database waiting to be merged.",
+  "settingsMergeTeamUpdated": "Updated {when}",
+  "@settingsMergeTeamUpdated": {
+    "placeholders": { "when": { "type": "String" } }
+  },
+  "settingsMergeYou": "you",
+  "settingsMergeLoadFailed": "Couldn't read the merge status.",
+  "templatePerfSectionTitle": "Performance",
+  "templatePerfUsage": "{count, plural, =0{Not sent yet} =1{Sent once} other{Sent {count} times}}",
+  "@templatePerfUsage": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "templatePerfReplyRate": "{percent}% replied",
+  "@templatePerfReplyRate": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
+  "templatePerfNoRepliesYet": "No replies yet",
+  "templatePerfAvgReplyDays": "{days, plural, =1{Avg. reply: 1 day} other{Avg. reply: {days} days}}",
+  "@templatePerfAvgReplyDays": {
+    "placeholders": {
+      "days": {
+        "type": "int"
+      }
+    }
+  },
+  "templatePerfAvgReplyHours": "{hours, plural, =1{Avg. reply: 1 hour} other{Avg. reply: {hours} hours}}",
+  "@templatePerfAvgReplyHours": {
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
+  },
+  "templatePerfAvgReplyMinutes": "{minutes, plural, =1{Avg. reply: 1 minute} other{Avg. reply: {minutes} minutes}}",
+  "@templatePerfAvgReplyMinutes": {
+    "placeholders": {
+      "minutes": {
+        "type": "int"
+      }
+    }
+  },
+  "workingDaysSuggestionText": "{count, plural, =1{Pipeline suggests: 1 working day, based on deal created → last updated} other{Pipeline suggests: {count} working days, based on deal created → last updated}}",
+  "@workingDaysSuggestionText": {
+    "description": "Auto-computed working-days assist shown next to the manually-entered estimate on the deal detail screen. Not the manual field's value -- a suggestion the user can accept with the 'use this' action.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "workingDaysSuggestionUseThis": "Use this",
+  "workingDaysSuggestionApplied": "Working days estimate updated.",
+  "workingDaysSuggestionFieldHint": "e.g. 6",
+  "contactDiscoveryScanAction": "Scan for contacts",
+  "contactDiscoverySuggestionsTitle": "Found in the description",
+  "contactDiscoveryNoneFound": "No likely contacts found in the description.",
+  "contactDiscoveryBusinessInquiry": "Business inquiry",
+  "contactDiscoveryAddSuggestion": "Add this contact",
+  "onboardingWizardTitle": "Let's get this machine set up",
+  "onboardingWizardSubtitle": "Five things worth checking once. Fix what you can right here, or skip anything and handle it later in Settings.",
+  "onboardingStepStatusDone": "Done",
+  "onboardingStepStatusPending": "Needs a look",
+  "onboardingSignInStepTitle": "Sign in",
+  "onboardingSignInStepSubtitle": "This machine reaches the team's shared data through your account.",
+  "onboardingSignInDoneDetail": "Signed in as {email}.",
+  "@onboardingSignInDoneDetail": {
+    "placeholders": { "email": { "type": "String" } }
+  },
+  "onboardingSignInPendingDetail": "Not signed in on this machine yet.",
+  "onboardingPythonStepTitle": "Python & pipeline",
+  "onboardingPythonStepSubtitle": "Where this machine looks for the scraper, and which Python interpreter runs it.",
+  "onboardingPythonDoneDetail": "A pipeline location was found for this machine.",
+  "onboardingPythonPendingDetail": "Searching isn't run from this build, so there's nothing to check here.",
+  "onboardingMailboxStepTitle": "Outreach mailbox",
+  "onboardingMailboxStepSubtitle": "Connect the Gmail account this machine sends outreach from.",
+  "onboardingMailboxDoneDetail": "A mailbox is connected and ready to send.",
+  "onboardingMailboxPendingDetail": "No mailbox connected yet.",
+  "onboardingTimeZoneStepTitle": "Time zone",
+  "onboardingTimeZoneStepSubtitle": "Every date and time in the app is shown in this zone.",
+  "onboardingTimeZoneDoneDetail": "Matches this device's own time zone.",
+  "onboardingTimeZonePendingDetail": "Doesn't match this device's time zone.",
+  "onboardingAwsStepTitle": "AWS setup",
+  "onboardingAwsStepSubtitle": "Connect the AWS access key this machine's pipeline runs searches through.",
+  "onboardingAwsDoneDetail": "AWS credentials are saved for this account.",
+  "onboardingAwsPendingDetail": "No AWS credentials saved yet.",
+  "onboardingFinishButton": "Continue to the app",
+  "onboardingSkipToSettingsButton": "Skip — handle this later in Settings",
+
+  "fullBismillah": "Bismillah Ar-Rahman Ar-Raheem",
+  "shortBismillah": "Bismillah",
+  "fullSalam": "As-Salamu 'Alaykum Wa-rahmatullahi Wa-barakatuh",
+  "shortSalam": "As-Salamu 'Alaykum",
+
+  "teamDashboardNavLabel": "Team",
+  "teamDashboardTitle": "Team performance",
+  "teamDashboardWeekRange": "{start} – {end}",
+  "@teamDashboardWeekRange": {
+    "placeholders": { "start": { "type": "String" }, "end": { "type": "String" } }
+  },
+  "teamDashboardPreviousWeek": "Previous week",
+  "teamDashboardNextWeek": "Next week",
+  "teamDashboardThisWeek": "This week",
+  "teamDashboardColumnMember": "Team member",
+  "teamDashboardColumnMessagesSent": "Messages sent",
+  "teamDashboardColumnRepliesReceived": "Replies received",
+  "teamDashboardColumnReplyRate": "Reply rate",
+  "teamDashboardColumnMedianResponse": "Median first response",
+  "teamDashboardNoData": "—",
+  "teamDashboardEmptyState": "No outreach activity recorded for this week.",
+  "teamDashboardAttributionNote": "Replies received and first-response time are credited to whoever sent the message being replied to — outreach_messages itself doesn't record a sender, so this is inferred from the activity log rather than stored directly.",
+  "teamDashboardDealsSummaryTitle": "Team deals this week",
+  "teamDashboardDealsClosedLabel": "Deals closed",
+  "teamDashboardMarginClosedLabel": "Margin closed",
+  "teamDashboardDealsCaveat": "Not broken out per person: no record in the database says who moved a deal's stage, only that it changed.",
+  "teamDashboardDurationDaysHours": "{days}d {hours}h",
+  "@teamDashboardDurationDaysHours": {
+    "placeholders": { "days": { "type": "int" }, "hours": { "type": "int" } }
+  },
+  "teamDashboardDurationHoursMinutes": "{hours}h {minutes}m",
+  "@teamDashboardDurationHoursMinutes": {
+    "placeholders": { "hours": { "type": "int" }, "minutes": { "type": "int" } }
+  },
+  "teamDashboardDurationMinutes": "{minutes}m",
+  "@teamDashboardDurationMinutes": {
+    "placeholders": { "minutes": { "type": "int" } }
+  },
+  "teamDashboardLoadError": "Couldn't load the team dashboard.",
+
+  "rateHistoryTitle": "Rate history",
+  "rateHistoryEmpty": "No closed deals yet for this channel.",
+  "rateHistoryMedianViewsLabel": "Median views at deal",
+  "rateHistoryViewsNotMeasured": "Not measured",
+  "ownerPickerUnassigned": "Unassigned",
+  "deliverableSectionTitle": "Deliverables",
+  "deliverableSectionSubtitle": "Individual pieces of content for this deal, tracked one by one — separate from the summary line above.",
+  "deliverableEmptyState": "No deliverables tracked yet.",
+  "deliverableAddButton": "Add deliverable",
+  "deliverableAddDialogTitle": "Add a deliverable",
+  "deliverableTypeIntegration": "Integration",
+  "deliverableTypeDedicated": "Dedicated video",
+  "deliverableTypeShort": "Short",
+  "deliverableTypeCommunityPost": "Community post",
+  "deliverableTypeOther": "Other",
+  "deliverableStatusPending": "Pending",
+  "deliverableStatusDrafted": "Drafted",
+  "deliverableStatusApproved": "Approved",
+  "deliverableStatusPublished": "Published",
+  "deliverableAgreedDateLabel": "Agreed",
+  "deliverableDraftReceivedDateLabel": "Draft received",
+  "deliverableApprovedDateLabel": "Approval date",
+  "deliverableDateNotSet": "Not set",
+  "deliverablePublishedUrlLabel": "Published link",
+  "deliverablePublishedUrlHint": "https://…",
+  "deliverableNotesHint": "Notes for this deliverable",
+  "deliverableMoveUpTooltip": "Move up",
+  "deliverableMoveDownTooltip": "Move down",
+  "deliverableDeleteTooltip": "Delete deliverable",
+  "deliverableDeleteConfirmTitle": "Delete this deliverable?",
+  "deliverableDeleteConfirmBody": "This removes it from the deal. This can't be undone.",
+  "deliverableAddedToast": "Deliverable added",
+  "deliverableDeletedToast": "Deliverable deleted",
+  "deliverableLoadError": "Couldn't load deliverables.",
+  "manualEngagementTitle": "Manual engagement",
+  "manualEngagementDisclaimer": "Entered by hand — never pulled automatically from any API.",
+  "manualEngagementRateLabel": "Engagement rate",
+  "manualEngagementRateNotSet": "Not entered",
+  "manualEngagementRateHint": "e.g. 4.2",
+  "manualEngagementNoteLabel": "Note",
+  "manualEngagementNoteNotSet": "No note",
+  "manualEngagementNeverEntered": "No manual engagement entered yet.",
+  "manualEngagementUpdatedToday": "Updated today",
+  "manualEngagementUpdatedDaysAgo": "Updated {count}d ago",
+  "@manualEngagementUpdatedDaysAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "manualEngagementEditTitle": "Edit manual engagement",
+  "manualEngagementEditRateHelp": "A percentage you looked up yourself — from a media kit, the channel's own analytics, wherever. Leave blank to clear it.",
+  "manualEngagementEditNoteHelp": "Where this number came from, or any context worth keeping.",
+  "manualEngagementEditAction": "Edit manual engagement",
+  "manualEngagementClearAction": "Clear",
+  "manualEngagementSaved": "Manual engagement saved.",
+  "manualEngagementCleared": "Manual engagement cleared.",
+  "manualEngagementRateInvalid": "Enter a percentage between 0 and 100, or leave it blank.",
+  "jobSchedulerCardTitle": "Scheduled jobs",
+  "jobSchedulerCardSubtitle": "Background jobs this machine runs on its own schedule, checked once a minute.",
+  "jobSchedulerRefresh": "Refresh",
+  "jobSchedulerLoadError": "Couldn't load the scheduled jobs.",
+  "jobSchedulerEmptyState": "No scheduled jobs on this machine.",
+  "jobSchedulerDisabledBadge": "Disabled",
+  "jobSchedulerLastRunNever": "Last run: never",
+  "jobSchedulerLastRunLabel": "Last run: {when}",
+  "@jobSchedulerLastRunLabel": {
+    "placeholders": { "when": { "type": "String" } }
+  },
+  "jobSchedulerNextRunNone": "Next run: not scheduled",
+  "jobSchedulerNextRunLabel": "Next run: {when}",
+  "@jobSchedulerNextRunLabel": {
+    "placeholders": { "when": { "type": "String" } }
+  },
+  "jobSchedulerDeleteTooltip": "Delete",
+  "jobSchedulerDeleteConfirmTitle": "Delete this scheduled job?",
+  "jobSchedulerDeleteConfirmBody": "\"{kind}\" will stop running on this machine. This can't be undone.",
+  "@jobSchedulerDeleteConfirmBody": {
+    "placeholders": { "kind": { "type": "String" } }
+  },
+  "jobSchedulerDeleteConfirmCancel": "Cancel",
+  "jobSchedulerDeleteConfirmDelete": "Delete",
+  "paymentSectionTitle": "Payment",
+  "paymentMarginLabel": "Your margin",
+  "paymentCurrencyLabel": "Currency",
+  "paymentMethodLabel": "Payment method",
+  "paymentMethodHint": "e.g. wire, PayPal, Instapay",
+  "paymentReferenceLabel": "Payment reference",
+  "paymentReferenceHint": "Transaction ID, wire reference…",
+  "paymentInvoiceSentLabel": "Invoice sent",
+  "paymentInvoicePaidLabel": "Invoice paid",
+  "paymentPayoutDueLabel": "Payout due",
+  "paymentPayoutPaidLabel": "Payout paid",
+  "paymentNotSet": "Not set",
+  "paymentMarkSentNow": "Mark sent now",
+  "paymentMarkPaidNow": "Mark paid now",
+  "paymentMarkDueToday": "Set due today",
+  "paymentPickDateTooltip": "Pick a date",
+  "paymentClearDateTooltip": "Clear",
+  "paymentDetailsSaved": "Payment details saved",
+  "paymentDateSaved": "Saved",
+
+  "financeNavLabel": "Finance",
+  "financeTitle": "Finance",
+  "financeSummaryBrandRevenue": "Total brand revenue",
+  "financeSummaryMargin": "Total margin",
+  "financeSummaryOutstanding": "Outstanding (invoiced, unpaid)",
+  "financeSummaryOwedToCreators": "Owed to creators",
+  "financeFilterAll": "All deals",
+  "financeFilterInvoiceUnpaid": "Invoice sent, unpaid",
+  "financeFilterInvoiceOverdue": "Invoice overdue",
+  "financeFilterPayoutDue": "Payout due",
+  "financeFilterPayoutOverdue": "Payout overdue",
+  "financeFilterSettled": "Fully settled",
+  "financeColumnDeal": "Deal",
+  "financeColumnBrandPrice": "Brand pays",
+  "financeColumnMargin": "Margin",
+  "financeColumnInvoiceSent": "Invoice sent",
+  "financeColumnInvoicePaid": "Invoice paid",
+  "financeColumnPayoutDue": "Payout due",
+  "financeColumnPayoutPaid": "Payout paid",
+  "financeNotSet": "—",
+  "financeEmptyState": "No deals match this filter.",
+  "financeLoadError": "Couldn't load the finance ledger.",
+  "myDaySectionTitle": "My Day",
+  "myDaySectionEmpty": "Nothing urgent right now — nice work.",
+  "myDaySectionLoadError": "Couldn't load My Day.",
+  "myDayGroupOverdue": "Overdue",
+  "myDayGroupDueSoon": "Due soon",
+  "myDayPayoutDueTitle": "Payout due — {influencer}",
+  "@myDayPayoutDueTitle": {
+    "placeholders": { "influencer": { "type": "String" } }
+  },
+  "myDayInvoiceUnpaidTitle": "Invoice unpaid — {influencer}",
+  "@myDayInvoiceUnpaidTitle": {
+    "placeholders": { "influencer": { "type": "String" } }
+  },
+  "myDayDeliverableDueTitle": "{type} due — {influencer}",
+  "@myDayDeliverableDueTitle": {
+    "placeholders": {
+      "type": { "type": "String" },
+      "influencer": { "type": "String" }
+    }
+  },
+  "myDayOutreachReplyTitle": "Reply needed — {influencer}",
+  "@myDayOutreachReplyTitle": {
+    "placeholders": { "influencer": { "type": "String" } }
+  },
+  "myDayOutreachWaitingSince": "Waiting since {date}",
+  "@myDayOutreachWaitingSince": {
+    "placeholders": { "date": { "type": "String" } }
+  },
+  "myDayDeliverableDeadline": "Deal deadline {date}",
+  "@myDayDeliverableDeadline": {
+    "placeholders": { "date": { "type": "String" } }
+  },
+  "myDayReportDueTitle": "30-day report — {influencer}",
+  "@myDayReportDueTitle": {"placeholders": {"influencer": {"type": "String"}}},
+  "myDayReportDueOn": "Due {date}",
+  "@myDayReportDueOn": {"placeholders": {"date": {"type": "String"}}},
+  "reportTitle": "30-day report",
+  "reportDueOn": "Report due {date}",
+  "@reportDueOn": {"placeholders": {"date": {"type": "String"}}},
+  "reportFetchViews": "Read the views now",
+  "reportFetching": "Asking YouTube for the views…",
+  "reportNeedsLink": "Add the video's link first: the views are read from it.",
+  "reportEarly": "It is due on {date}. Views read before then are not 30-day views.",
+  "@reportEarly": {"placeholders": {"date": {"type": "String"}}},
+  "reportFetchFailed": "The views could not be read: {error}",
+  "@reportFetchFailed": {"placeholders": {"error": {"type": "String"}}},
+  "reportClicksLabel": "Clicks on the tracking link",
+  "reportClicksHelper": "Read them off the link's own dashboard.",
+  "reportSaveClicks": "Save clicks",
+  "reportCopy": "Copy for email",
+  "reportCopied": "The report is copied.",
+  "reportSavePage": "Save a page to print",
+  "reportPageSaved": "Saved: {path}",
+  "@reportPageSaved": {"placeholders": {"path": {"type": "String"}}},
+  "reportPageFailed": "The page could not be saved.",
+  "reportRemindPitch": "Results are good: remind me to pitch {brand} its next creator",
+  "@reportRemindPitch": {"placeholders": {"brand": {"type": "String"}}},
+  "reportPitchReminder": "Pitch {brand} its next creator",
+  "@reportPitchReminder": {"placeholders": {"brand": {"type": "String"}}},
+  "reportReminderSet": "Reminder set for tomorrow.",
+  "reportTextHeading": "{creator} × {brand}: results after 30 days",
+  "@reportTextHeading": {"placeholders": {"creator": {"type": "String"}, "brand": {"type": "String"}}},
+  "reportTextVideo": "Video: {url}",
+  "@reportTextVideo": {"placeholders": {"url": {"type": "String"}}},
+  "reportTextLive": "Went live: {date}",
+  "@reportTextLive": {"placeholders": {"date": {"type": "String"}}},
+  "reportTextViews": "Views on {date}: {views}",
+  "@reportTextViews": {"placeholders": {"date": {"type": "String"}, "views": {"type": "String"}}},
+  "reportTextPrice": "Price: {price}",
+  "@reportTextPrice": {"placeholders": {"price": {"type": "String"}}},
+  "reportTextPriceShare": "Price (an even share of the deal across {count} deliverables): {price}",
+  "@reportTextPriceShare": {"placeholders": {"count": {"type": "int"}, "price": {"type": "String"}}},
+  "reportTextCpm": "CPM achieved: {cpm}",
+  "@reportTextCpm": {"placeholders": {"cpm": {"type": "String"}}},
+  "reportTextClicks": "Clicks on the tracking link: {clicks}",
+  "@reportTextClicks": {"placeholders": {"clicks": {"type": "String"}}},
+  "myDayDeliverableTypeIntegration": "Integration",
+  "myDayDeliverableTypeDedicated": "Dedicated video",
+  "myDayDeliverableTypeShort": "Short",
+  "myDayDeliverableTypeCommunityPost": "Community post",
+  "myDayDeliverableTypeOther": "Deliverable",
+  "myDayReminderKindFollowUp": "Follow-up",
+  "myDayReminderKindDealDeadline": "Deal deadline",
+  "myDayReminderKindCustom": "Reminder",
+  "outreachSlaMinutesShort": "{minutes}m",
+  "@outreachSlaMinutesShort": {
+    "placeholders": { "minutes": { "type": "int" } }
+  },
+  "outreachSlaHoursShort": "{hours}h",
+  "@outreachSlaHoursShort": {
+    "placeholders": { "hours": { "type": "int" } }
+  },
+  "outreachSlaDaysShort": "{days}d",
+  "@outreachSlaDaysShort": {
+    "placeholders": { "days": { "type": "int" } }
+  },
+  "outreachSlaTooltipWaiting": "Waiting on our reply",
+  "outreachSlaTooltipOverdue": "Waiting on our reply — past the 24-hour window",
+  "outreachClassificationInterested": "Interested",
+  "outreachClassificationAskingRate": "Asking rate",
+  "outreachClassificationNotNow": "Not now",
+  "outreachClassificationDecline": "Decline",
+  "outreachClassificationWrongContact": "Wrong contact",
+  "outreachClassificationAutoReply": "Auto-reply",
+  "outreachClassificationClear": "Clear tag",
+  "outreachClassificationFilterAll": "All conversations",
+  "outreachClassificationFilterEmpty": "No threads with this classification yet.",
+  "outreachClassifyMessage": "Tag this reply",
+
+  "campaignSectionTitle": "Campaigns",
+  "campaignAddButton": "Add campaign",
+  "campaignSectionEmpty": "No campaigns yet — group this brand's deals under one to plan a proposal or report around it.",
+  "campaignAddedToast": "Campaign created",
+  "campaignStartDateValue": "Starts {date}",
+  "@campaignStartDateValue": {
+    "placeholders": { "date": { "type": "String" } }
+  },
+  "campaignLiveDateValue": "Live {date}",
+  "@campaignLiveDateValue": {
+    "placeholders": { "date": { "type": "String" } }
+  },
+  "campaignAddDialogTitle": "Add a campaign",
+  "campaignNameLabel": "Name",
+  "campaignNameRequired": "A name is required.",
+  "campaignNotesLabel": "Notes",
+  "campaignStartDateLabel": "Start date",
+  "campaignLiveDateLabel": "Live date",
+  "campaignDateNotSet": "Not set",
+  "campaignStatusActive": "Active",
+  "campaignStatusClosed": "Closed",
+  "campaignDetailTitle": "Campaign",
+  "campaignDeleteTooltip": "Delete campaign",
+  "campaignNotFound": "Campaign not found.",
+  "campaignNotesHint": "Anything worth remembering about this campaign.",
+  "campaignNotesSaved": "Notes saved",
+  "campaignDeleteConfirmTitle": "Delete this campaign?",
+  "campaignDeleteConfirmBody": "This removes the campaign and its shortlist. Deals already linked to it are not affected.",
+  "campaignDeletedToast": "Campaign deleted",
+  "campaignShortlistTitle": "Shortlist",
+  "campaignShortlistAddButton": "Add channel",
+  "campaignDraftPitch": "Draft pitch to brand",
+  "campaignPitchDrafting": "Drafting the pitch…",
+  "campaignPitchNoContact": "The brand has no contact email yet. Add one on the brand's page first.",
+  "campaignPitchNobodyReady": "Nobody on this shortlist is ready to pitch yet: each needs a media kit and an agreed rate (BRD-PRES-15).",
+  "campaignPitchLeftOutTitle": "Some are not ready to pitch",
+  "campaignPitchLeftOut": "These are not ready to pitch yet and will be left out: {handles}",
+  "@campaignPitchLeftOut": {"placeholders": {"handles": {"type": "String"}}},
+  "campaignPitchConfirm": "Draft pitch",
+  "campaignPitchDrafted": "Pitch drafted. It is waiting in Outreach → Comms queue; nothing has been sent.",
+  "campaignShortlistSubtitle": "Channels under consideration for this campaign, before any of them becomes a deal.",
+  "campaignShortlistEmpty": "No channels shortlisted yet.",
+  "campaignShortlistAddedToast": "Channel added to the shortlist",
+  "campaignShortlistRemoveTooltip": "Remove from shortlist",
+  "campaignShortlistSnapshotBrandPrice": "Brand paid {value}",
+  "@campaignShortlistSnapshotBrandPrice": {
+    "placeholders": { "value": { "type": "String" } }
+  },
+  "campaignShortlistSnapshotInfluencerPayout": "Creator received {value}",
+  "@campaignShortlistSnapshotInfluencerPayout": {
+    "placeholders": { "value": { "type": "String" } }
+  },
+  "campaignShortlistSnapshotMedianViews": "{value} median views",
+  "@campaignShortlistSnapshotMedianViews": {
+    "placeholders": { "value": { "type": "String" } }
+  },
+  "campaignShortlistRemoveConfirmTitle": "Remove this channel?",
+  "campaignShortlistRemoveConfirmBody": "This only drops it from the shortlist — nothing about the channel itself changes.",
+  "campaignShortlistRemovedToast": "Removed from the shortlist",
+  "campaignShortlistAddDialogTitle": "Add a channel to the shortlist",
+  "campaignShortlistChannelIdLabel": "Channel ID",
+  "campaignShortlistChannelIdHint": "The channel's id, e.g. a YouTube channel id",
+  "campaignShortlistChannelIdRequired": "A channel id is required.",
+  "campaignShortlistWhyFitLabel": "Why this fits (optional)",
+  "campaignShortlistWhyFitHint": "What made this channel worth shortlisting",
+  "geminiBridgeStateStopped": "Stopped",
+  "geminiBridgeStateStarting": "Starting…",
+  "geminiBridgeStateListening": "Listening on port {port} — waiting for the extension",
+  "@geminiBridgeStateListening": {"placeholders": {"port": {"type": "String"}}},
+  "geminiBridgeStateConnected": "Connected as {account}",
+  "@geminiBridgeStateConnected": {"placeholders": {"account": {"type": "String"}}},
+  "geminiBridgeStateConnectedNoAccount": "Connected",
+  "geminiBridgeStateFailed": "Failed",
+  "geminiBridgeFailure": "{code}: {message}",
+  "@geminiBridgeFailure": {"placeholders": {"code": {"type": "String"}, "message": {"type": "String"}}},
+  "geminiBridgeFailureHint": "Fix this in Settings → Gemini in browser.",
+  "geminiBridgeTitle": "Gemini in browser",
+  "geminiBridgeSubtitle": "Draft emails and generate keywords through the Gemini tab in Edge — no API key needed.",
+  "geminiBridgeNotAvailable": "Not available on this platform — the bridge needs the desktop app with the Python pipeline.",
+  "geminiBridgeModelLine": "Model: {model}",
+  "@geminiBridgeModelLine": {"placeholders": {"model": {"type": "String"}}},
+  "geminiBridgeStart": "Start",
+  "geminiBridgeStop": "Stop",
+  "geminiBridgeTest": "Test",
+  "geminiBridgeOpenGemini": "Open Gemini",
+  "geminiBridgeRunDiagnostics": "Run diagnostics",
+  "geminiBridgeCopyJson": "Copy JSON",
+  "geminiBridgeTestListening": "Daemon listening on port {port}",
+  "@geminiBridgeTestListening": {"placeholders": {"port": {"type": "String"}}},
+  "geminiBridgeTestNotListening": "Daemon not listening",
+  "geminiBridgeTestExtensionConnected": "Extension connected",
+  "geminiBridgeTestExtensionMissing": "Extension not connected — load it in Edge and check the port",
+  "geminiBridgeTestAccount": "Account: {account}",
+  "@geminiBridgeTestAccount": {"placeholders": {"account": {"type": "String"}}},
+  "geminiBridgeTestAccountUnknown": "Account: unknown",
+  "geminiBridgeTestModel": "Model: {model}",
+  "@geminiBridgeTestModel": {"placeholders": {"model": {"type": "String"}}},
+  "geminiBridgeTestModelUnknown": "Model: unknown",
+  "geminiBridgeTestSignedOut": "The Gemini tab is signed out.",
+  "geminiBridgeTestSignedIn": "Signed in",
+  "geminiBridgePortLabel": "Port",
+  "geminiBridgePortInvalid": "Enter a port between 1 and 65535.",
+  "geminiBridgeAccountMatchLabel": "Account must match (name or email)",
+  "geminiBridgeAccountMatchHint": "Blank: any signed-in account will do",
+  "geminiBridgeGemHint": "Blank: plain chat with the skill file prepended",
+  "geminiBridgeDefaultModelLabel": "Default model",
+  "geminiBridgeDefaultModelHint": "e.g. Pro — blank leaves the switcher as it is",
+  "geminiBridgeSettingsSaved": "Gemini bridge settings saved.",
+  "geminiBridgeSettingsRestartHint": "A new port takes effect the next time the bridge starts.",
+  "geminiBridgeAccountTitle": "Google account",
+  "geminiBridgeSignedInAs": "Signed in as {account}",
+  "@geminiBridgeSignedInAs": {"placeholders": {"account": {"type": "String"}}},
+  "geminiBridgeLastSeen": "Last seen signed in: {account}",
+  "@geminiBridgeLastSeen": {"placeholders": {"account": {"type": "String"}}},
+  "geminiBridgeNoAccountSeen": "No account seen yet. Open Gemini and sign in once; it is remembered from then on.",
+  "geminiBridgeUseAccount": "Use {email} for actions",
+  "@geminiBridgeUseAccount": {"placeholders": {"email": {"type": "String"}}},
+  "geminiBridgeAccountPinned": "Actions use {account}.",
+  "@geminiBridgeAccountPinned": {"placeholders": {"account": {"type": "String"}}},
+  "geminiBridgeBrowserTitle": "Browser",
+  "geminiBridgeBrowserLabel": "Open Gemini in",
+  "geminiBridgeBrowserFirefox": "Firefox (recommended)",
+  "geminiBridgeBrowserEdge": "Microsoft Edge",
+  "geminiBridgeBrowserChrome": "Google Chrome",
+  "geminiBridgeBrowserSystem": "System default browser",
+  "geminiBridgeDetectBrowsers": "Detect browsers",
+  "geminiBridgeBrowserFound": "{name} {version}",
+  "@geminiBridgeBrowserFound": {"placeholders": {"name": {"type": "String"}, "version": {"type": "String"}}},
+  "geminiBridgeBrowserNoneFound": "No supported browser was found on this PC.",
+  "geminiBridgeBrowserSelectedMissing": "The selected browser was not found on this PC.",
+  "geminiBridgeAddonMissing": "Add-on: not installed yet. It is added automatically when the Gemini window opens.",
+  "geminiBridgeAddonTemporary": "Add-on: added for this browser session. It is added again automatically on every launch.",
+  "geminiBridgeAddonInstalled": "Add-on: installed.",
+  "geminiBridgeAddonOutdated": "Add-on: outdated. It is updated automatically on the next launch.",
+  "geminiBridgeAddonBlocked": "Add-on: blocked by Firefox because it is not signed.",
+  "geminiBridgeAddonUnknown": "Add-on: known once the browser runs.",
+  "geminiBridgeBrowserPathLabel": "Browser program (optional)",
+  "geminiBridgeBrowserPathHint": "Blank: found automatically",
+  "geminiBridgeWindowLaunching": "Starting {browser}…",
+  "@geminiBridgeWindowLaunching": {"placeholders": {"browser": {"type": "String"}}},
+  "geminiBridgeWindowInstalling": "Adding the Gemini add-on…",
+  "geminiBridgeAutoStartLabel": "Start the bridge when the app opens",
+  "geminiBridgeAutoOpenLabel": "Open a Gemini window in the background when none is connected",
+  "geminiBridgeKeywordsGemLabel": "Keywords gem URL",
+  "geminiBridgeExtensionFolderCopy": "Copy the extension folder (load it once: extensions page, Developer mode, Load unpacked)",
+  "geminiBridgeDiagnosticsTitle": "Diagnostics",
+  "geminiBridgeDiagnosticsEmpty": "Run diagnostics to see how each element on the Gemini page is found — and what to do when one is not.",
+  "geminiBridgeDiagnosticsRunning": "Asking the extension…",
+  "geminiBridgeDiagnosticsJsonCopied": "Diagnostics JSON copied.",
+  "geminiBridgeDiagnosticsAllFound": "{count, plural, =1{The one element was found.} other{All {count} elements found.}}",
+  "@geminiBridgeDiagnosticsAllFound": {"placeholders": {"count": {"type": "int"}}},
+  "geminiBridgeDiagnosticsMissing": "{missing} of {total} elements missing.",
+  "@geminiBridgeDiagnosticsMissing": {"placeholders": {"missing": {"type": "int"}, "total": {"type": "int"}}},
+  "geminiBridgeDiagnosticsPageChanged": "The page's components changed since the locators last worked.",
+  "geminiBridgeElementFound": "Found",
+  "geminiBridgeElementMissing": "Missing — none of the strategies matched",
+  "geminiBridgeElementStrategy": "Found by: {strategy}",
+  "@geminiBridgeElementStrategy": {"placeholders": {"strategy": {"type": "String"}}},
+  "geminiBridgeElementTried": "Tried",
+  "geminiBridgeTriedLine": "{strategy} — {matched} matched, {visible} visible",
+  "@geminiBridgeTriedLine": {"placeholders": {"strategy": {"type": "String"}, "matched": {"type": "int"}, "visible": {"type": "int"}}},
+  "geminiBridgeElementLastKnown": "How it used to be found",
+  "geminiBridgeElementLastKnownNone": "Never found before on this machine.",
+  "geminiBridgeElementSuggestions": "Suggestions",
+  "geminiBridgeElementNoSuggestions": "No suggestions — the extension found nothing similar on the page.",
+  "geminiBridgeApplyFix": "Apply fix",
+  "geminiBridgeApplyingFix": "Applying…",
+  "geminiBridgeFixApplied": "Fix applied to {element}; diagnostics re-run.",
+  "@geminiBridgeFixApplied": {"placeholders": {"element": {"type": "String"}}},
+  "geminiKeywordsButton": "Generate keywords with Gemini",
+  "geminiKeywordsNotConnected": "The Gemini extension is not connected — see Settings → Gemini in browser.",
+  "geminiKeywordsTitle": "Generate keywords",
+  "geminiKeywordsSubtitle": "Long-tail YouTube search phrases from Gemini, deduped against everything already searched.",
+  "geminiKeywordsTopicLabel": "Topic",
+  "geminiKeywordsTopicHint": "e.g. AI coding tools for beginners",
+  "geminiKeywordsTopicRequired": "A topic is required.",
+  "geminiKeywordsCountLabel": "How many",
+  "geminiKeywordsLanguageLabel": "Language",
+  "geminiKeywordsLanguageHint": "Blank: English",
+  "geminiKeywordsStylesLabel": "Phrasing styles",
+  "geminiKeywordsStylesHint": "Comma separated, e.g. how to, best, review, vs",
+  "geminiKeywordsExclusionsLabel": "Exclude",
+  "geminiKeywordsExclusionsHint": "Sub-topics to leave out, comma or newline separated",
+  "geminiKeywordsNotesLabel": "Notes for Gemini",
+  "geminiKeywordsAvoiding": "{count, plural, =0{Nothing to avoid yet — the list and the search history are empty.} =1{Avoiding 1 keyword already in the list or already searched.} other{Avoiding {count} keywords already in the list or already searched.}}",
+  "@geminiKeywordsAvoiding": {"placeholders": {"count": {"type": "int"}}},
+  "geminiKeywordsGenerate": "Generate",
+  "geminiKeywordsGenerating": "Asking Gemini… this can take a minute.",
+  "geminiKeywordsResultCount": "{fresh, plural, =0{No new phrases} =1{1 new phrase} other{{fresh} new phrases}} · {known} already known or dropped as duplicates.",
+  "@geminiKeywordsResultCount": {"placeholders": {"fresh": {"type": "int"}, "known": {"type": "int"}}},
+  "geminiKeywordsAlreadyKnown": "Already in the list or already searched",
+  "geminiKeywordsSelectAll": "Select all",
+  "geminiKeywordsSelectNone": "Select none",
+  "geminiKeywordsAdd": "{count, plural, =0{Add to list} =1{Add 1 to list} other{Add {count} to list}}",
+  "@geminiKeywordsAdd": {"placeholders": {"count": {"type": "int"}}},
+  "geminiKeywordsAdded": "{count, plural, =1{Added 1 keyword to the list.} other{Added {count} keywords to the list.}}",
+  "@geminiKeywordsAdded": {"placeholders": {"count": {"type": "int"}}},
+  "geminiKeywordsEmpty": "Gemini returned no keywords. Try a broader topic or fewer exclusions.",
+  "geminiKeywordsChatsLabel": "Separate chats",
+  "geminiKeywordsChatsHint": "1–8 · more chats, more variety",
+  "geminiKeywordsProgress": "Chat {done} of {total} done · {keywords} keywords so far",
+  "@geminiKeywordsProgress": {"placeholders": {"done": {"type": "int"}, "total": {"type": "int"}, "keywords": {"type": "int"}}},
+  "geminiKeywordsPartial": "{failed} of {total} chats failed — showing what the others found.",
+  "@geminiKeywordsPartial": {"placeholders": {"failed": {"type": "int"}, "total": {"type": "int"}}},
+  "geminiKeywordsChatFailed": "Chat {number}: {error}",
+  "@geminiKeywordsChatFailed": {"placeholders": {"number": {"type": "int"}, "error": {"type": "String"}}},
+  "geminiKeywordsBack": "Back",
+
+  "navSkills": "Skills",
+  "skillsTitle": "Skills",
+  "skillsUnavailable": "Skills need a project folder to write to — open this on the desktop app with the pipeline set up.",
+  "skillsEmpty": "No skills yet. A skill becomes a deck of cards that combine into one file for Gemini to read.",
+  "skillsNewSkill": "New skill",
+  "skillsNameHint": "Skill name — also the file it exports as",
+  "skillsDeleteSkill": "Delete skill",
+  "skillsDeleteSkillConfirm": "Delete \"{name}\" and every card in it? This does not remove the exported file already on disk.",
+  "@skillsDeleteSkillConfirm": {"placeholders": {"name": {"type": "String"}}},
+  "skillsExportAll": "Re-export every skill",
+  "skillsExportAllDone": "Every skill's file is up to date.",
+  "skillsExportAllPartial": "{count, plural, one{1 skill} other{{count} skills}} could not be exported.",
+  "@skillsExportAllPartial": {"placeholders": {"count": {"type": "int"}}},
+  "skillsNeverExported": "Never exported",
+  "skillsLastExported": "Exported {date}",
+  "@skillsLastExported": {"placeholders": {"date": {"type": "String"}}},
+  "skillsWordCount": "{count, plural, one{1 word} other{{count} words}}",
+  "@skillsWordCount": {"placeholders": {"count": {"type": "int"}}},
+  "skillsAddCard": "Add card",
+  "skillsDeckEmpty": "No cards yet. Add one to start writing this skill.",
+  "skillsCardUntitled": "Untitled card",
+  "skillsCardEmptyBody": "Empty",
+  "skillsCardHeadingHint": "Card heading",
+  "skillsCardBodyHint": "Write this card's prompt text. Type @ to reference another card — it is transcluded in full when this skill is exported.",
+  "skillsDeleteCard": "Delete card",
+  "skillsDeleteCardConfirm": "Delete \"{heading}\"? Any \"@\" reference to it elsewhere will stop resolving.",
+  "@skillsDeleteCardConfirm": {"placeholders": {"heading": {"type": "String"}}},
+  "skillsEditTab": "Edit",
+  "skillsPreviewTab": "Preview",
+  "skillsNameRequired": "Name this card before closing it — an unnamed card is never exported.",
+  "skillsTeamOnlyToggle": "Team only — never exported to Gemini",
+  "skillsTeamOnlyBadge": "Team only",
+  "skillsCollapseAll": "Collapse all",
+  "skillsExpandAll": "Expand all",
+  "skillsTogglePreview": "Show/hide preview",
+  "skillsImport": "Import from a file",
+  "skillsImportNothingToImport": "Every skill file in \"data/gemini skills\" is already a deck here.",
+  "skillsImportDone": "Imported \"{name}\" as a new skill.",
+  "@skillsImportDone": {"placeholders": {"name": {"type": "String"}}},
+  "skillsImportFailed": "Could not read that file.",
+  "skillsGemBlockTitle": "Gemini Gem",
+  "skillsGemBlockNote": "Set up here and kept in this app. Never exported to the skill file, counted in its words or sent to Gemini in a prompt.",
+  "skillsGemNameCardTitle": "Gem · name & description",
+  "skillsGemInstructionsCardTitle": "Gem · instructions",
+  "skillsGemNameLabel": "Gem name",
+  "skillsGemDescriptionLabel": "Description",
+  "skillsGemInstructionsLabel": "Instructions",
+  "skillsGemInstructionsHint": "What this Gem should always do. Kept here, apart from the skill's cards.",
+  "skillsGemInstructionsWords": "{count, plural, one{1 word} other{{count} words}}",
+  "@skillsGemInstructionsWords": {"placeholders": {"count": {"type": "int"}}},
+  "skillsGemNotExportedBadge": "Not exported",
+  "skillsGemNotExportedTooltip": "Stays in the app: never exported to the skill file, counted in its words or sent in a prompt.",
+  "skillsGemRoleLabel": "Used for: {role}",
+  "@skillsGemRoleLabel": {"placeholders": {"role": {"type": "String"}}},
+  "skillsGemRoleTooltip": "Which Gem this skill sets up. A created Gem's link goes into that Gem's field in Settings.",
+  "skillsGemSyncUpToDate": "Up to date in Gemini",
+  "skillsGemSyncPending": "Changes go to the Gem in Gemini automatically",
+  "skillsGemSyncWillCreate": "The Gem is created in Gemini automatically",
+  "skillsGemSyncDefaults": "Edit these to create the Gem in Gemini automatically",
+  "skillsGemRoleKeywords": "Keywords",
+  "skillsGemAddAction": "Set up a Gem for this skill",
+  "skillsGemAddDialogTitle": "Set up a Gem",
+  "skillsGemAddDialogBody": "Which Gem does this skill configure?",
+  "myAppsTitle": "My apps",
+  "myAppsSubtitle": "Your other apps: open them, install them, or find them on GitHub and Google Play.",
+  "myAppsRefresh": "Check again what is installed",
+  "myAppsEmpty": "No apps listed yet. docs/MY_APPS.md says how to add one.",
+  "myAppsProblems": "Some entries in my_apps.json could not be read:",
+  "myAppsOpen": "Open",
+  "myAppsInstall": "Install",
+  "myAppsDownloadApk": "Download APK",
+  "myAppsGooglePlay": "Google Play",
+  "myAppsGithub": "Open {repo} on GitHub",
+  "@myAppsGithub": {
+    "placeholders": {
+      "repo": {
+        "type": "String"
+      }
+    }
+  },
+  "myAppsPrivateHelp": "Private repository: installing needs a GitHub sign-in (Accounts → GitHub) that can see it.",
+  "myAppsInstalled": "Installed on this computer",
+  "myAppsNotInstalled": "Not installed on this computer",
+  "myAppsChecking": "Checking the latest release…",
+  "myAppsDownloadingStarted": "Downloading…",
+  "myAppsDownloading": "Downloading… {percent}%",
+  "@myAppsDownloading": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "myAppsWaitingForInstaller": "The installer is open. Finish it there; Open appears here when it is done.",
+  "myAppsInstallerStarted": "Installer started.",
+  "myAppsOpenFailed": "Could not start {name}.",
+  "@myAppsOpenFailed": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "myAppsDownloadFailed": "The download did not finish. Try again.",
+  "myAppsInstallerFailed": "The installer was downloaded but could not be started.",
+  "myAppsNoInstaller": "The latest release of {name} has no Windows installer (a file ending in setup.exe). Opening the release page instead.",
+  "@myAppsNoInstaller": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "myAppsNoApk": "The latest release of {name} has no .apk file. Opening the release page instead.",
+  "@myAppsNoApk": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "myAppsNotVisible": "{repo} has no published release, or the GitHub account on this computer cannot see it. For a private repository, sign in under Accounts → GitHub with an account that has access.",
+  "@myAppsNotVisible": {
+    "placeholders": {
+      "repo": {
+        "type": "String"
+      }
+    }
+  },
+  "myAppsTokenRejected": "GitHub rejected the saved sign-in. Sign in again under Accounts → GitHub.",
+  "myAppsUnreachable": "GitHub could not be reached. Check the connection and try again.",
+  "outreachSendLater": "Send later",
+  "outreachSendLaterInAnHour": "In an hour",
+  "outreachSendLaterTomorrowMorning": "Tomorrow, 09:00",
+  "outreachSendLaterMondayMorning": "Monday, 09:00",
+  "outreachSendLaterZone": "Times are in {zone}.",
+  "@outreachSendLaterZone": {"placeholders": {"zone": {"type": "String"}}},
+  "outreachSendLaterInPast": "That time has already passed.",
+  "outreachSendLaterSchedule": "Schedule",
+  "outreachSendLaterHowItWorks": "The app sends it at that time while it is open. If it is closed then, you decide what happens when you next open it.",
+  "outreachSendLaterScheduled": "Scheduled for {when}.",
+  "@outreachSendLaterScheduled": {"placeholders": {"when": {"type": "String"}}},
+  "outreachSendLaterSentTitle": "Scheduled email to {handle} sent",
+  "@outreachSendLaterSentTitle": {"placeholders": {"handle": {"type": "String"}}},
+  "outreachScheduledFor": "Scheduled for {when}",
+  "@outreachScheduledFor": {"placeholders": {"when": {"type": "String"}}},
+  "outreachScheduledLate": "Was due {when}",
+  "@outreachScheduledLate": {"placeholders": {"when": {"type": "String"}}},
+  "outreachScheduledFailed": "Not sent: {error}",
+  "@outreachScheduledFailed": {"placeholders": {"error": {"type": "String"}}},
+  "outreachScheduledMaybeSent": "An earlier try stopped before Gmail answered, so it may already have gone out. Check the Sent folder in Gmail first.",
+  "outreachScheduledSendNow": "Send now",
+  "outreachScheduledSendAnyway": "Send anyway",
+  "outreachScheduledChangeTime": "Change time",
+  "outreachScheduledEdit": "Edit",
+  "outreachScheduledDontSend": "Don't send",
+  "outreachScheduledCancelled": "The scheduled email will not be sent.",
+  "outreachScheduledSentTo": "Sent to {to}.",
+  "@outreachScheduledSentTo": {"placeholders": {"to": {"type": "String"}}},
+  "outreachScheduledBusy": "It is being sent right now.",
+  "outreachScheduledClearDraftFirst": "Send or clear the draft in the composer first.",
+  "outreachScheduledBanner": "{count, plural, =1{1 scheduled email is waiting for a decision} other{{count} scheduled emails are waiting for a decision}}",
+  "@outreachScheduledBanner": {"placeholders": {"count": {"type": "int"}}},
+  "outreachScheduledReview": "Review",
+  "outreachScheduledReviewTitle": "Scheduled emails waiting",
+  "outreachScheduledReviewIntro": "These did not go out at their time: the app was closed, or sending failed. Nothing late is sent without you.",
+  "outreachScheduledReviewEmpty": "Nothing is waiting.",
+  "outreachScheduledChipTooltip": "Email scheduled for {when}",
+  "@outreachScheduledChipTooltip": {"placeholders": {"when": {"type": "String"}}},
+  "influencerSearchScopeTooltip": "Search in: {scopes}",
+  "@influencerSearchScopeTooltip": {"placeholders": {"scopes": {"type": "String"}}},
+  "influencerSearchScopeNames": "Names and handles",
+  "influencerSearchScopeChannelDescriptions": "Channel descriptions",
+  "influencerSearchScopeVideoDescriptions": "Video descriptions"
+}

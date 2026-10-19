@@ -1,0 +1,17 @@
+flutter_launcher_icons:
+  image_path: "assets/images/logo.svg"
+  android:
+    generate: true
+  ios:
+    generate: true
+  # Handled separately by scripts/generate_icons.ps1, which builds a proper
+  # multi-resolution .ico (16/24/32/48/256) with Pillow. This package writes
+  # only a single 48x48 bitmap into the Windows .ico, leaving Windows to
+  # crudely scale it down for the title bar (no 16x16 entry to pick from),
+  # which is what produced the pixelated/jagged title-bar icon.
+  windows:
+    generate: false
+  macos:
+    generate: true
+  web:
+    generate: true

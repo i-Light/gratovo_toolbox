@@ -1,0 +1,21 @@
+{
+  "sort_by": "upload_date",
+  "results_type": "video",
+  "countries": [
+    "AU",
+    "CA",
+    "GB",
+    "IE",
+    "NZ",
+    "US"
+  ],
+  "handle_limit": 200,
+  "auto_clean": {
+    "enabled": true,
+    "min_subscribers": 50000,
+    "max_subscribers": 2000000,
+    "below_min_action": "sweep",
+    "above_max_action": "delay",
+    "label": "inactive"
+  }
+}

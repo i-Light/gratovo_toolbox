@@ -1,0 +1,401 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Quote review</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        margin: 16px;
+        /* max-width: 900px; */
+      }
+      textarea {
+        width: 100%;
+        font-size: 17px;
+      }
+      .edited {
+        color: #b00;
+        font-weight: bold;
+      }
+      .ok {
+        color: #070;
+      }
+      .warn {
+        color: #a60;
+      }
+      .small {
+        color: #555;
+        font-size: 13px;
+      }
+      button {
+        font-size: 15px;
+        margin-right: 6px;
+      }
+    </style>
+  </head>
+  <body>
+    <p id="count"></p>
+    <p id="notice" class="warn"></p>
+    <video id="v" controls width="450"></video>
+    <p>
+      Speed
+      <select id="speed">
+        <option>0.5</option>
+        <option>0.75</option>
+        <option selected>1</option>
+        <option>1.25</option>
+        <option>1.5</option>
+        <option>1.75</option>
+        <option>2</option>
+      </select>
+      &nbsp; Loop from
+      <input id="start" type="number" step="1" style="width: 70px" /> to
+      <input id="end" type="number" step="1" style="width: 70px" /> seconds
+      <button id="earlier">5 s earlier</button
+      ><button id="later">5 s later</button>
+      <span id="clock" class="small"></span>
+    </p>
+    <p class="small">
+      <span class="small" id="meta"></span>
+      ==========
+      <span class="small">Backs: </span>
+      <span id="rules"></span>
+    </p>
+    <p class="small" style="color: #555">
+      <span style="color: blueviolet">Transcript wording:</span><br />
+      <span id="orig"></span>
+    </p>
+    <textarea id="q" rows="3"></textarea>
+    <p><span id="state"></span></p>
+    <p class="small" style="color: #555">
+      <span style="color: blueviolet">Whisper Heard:</span><br />
+      <span class="warn" id="heard"></span>
+    </p>
+    <p class="small">
+      <span style="color: blueviolet">Transcript around it:</span><br />
+      <span id="ctx"></span>
+    </p>
+    <p>
+      <button id="done">Done (Enter)</button>
+      <button id="revert">Revert to transcript</button>
+      <button id="flag">Doesn't make its point alone</button>
+      <button id="prev">Previous</button>
+      <button id="next">Skip</button>
+      <label class="small"
+        ><input type="checkbox" id="all" /> show checked quotes too</label
+      >
+    </p>
+    <script>
+      // One id per browser tab (kept across reloads of the same tab), so two tabs never get the same quote.
+      let tab = sessionStorage.getItem('tab');
+      if (!tab) {
+        tab = Math.random().toString(36).slice(2, 12);
+        sessionStorage.setItem('tab', tab);
+      }
+
+      let list = [],
+        shown = [],
+        i = 0,
+        saved = '',
+        held = null,
+        lastActive = Date.now();
+      const v = document.getElementById('v'),
+        q = document.getElementById('q');
+      const $ = (id) => document.getElementById(id);
+      const IDLE_MS = 10 * 60 * 1000; // after 10 minutes without input the quote is let go
+
+      function clock(s) {
+        s = Math.max(0, Math.floor(s));
+        return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+      }
+
+      async function post(path, body) {
+        const r = await fetch(path, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        return r.json();
+      }
+      function draftKey(it) {
+        return 'draft:' + it.key;
+      }
+      function getDraft(it) {
+        try {
+          return localStorage.getItem(draftKey(it));
+        } catch (e) {
+          return null;
+        }
+      }
+      function setDraft(it, text) {
+        try {
+          if (text === null) localStorage.removeItem(draftKey(it));
+          else localStorage.setItem(draftKey(it), text);
+        } catch (e) {}
+      }
+
+      async function release() {
+        if (held) {
+          const k = held;
+          held = null;
+          await post('/api/release', { key: k, tab });
+        }
+      }
+
+      async function load(keepKey) {
+        list = await (await fetch('/api/items?tab=' + tab)).json();
+        const open = (it) =>
+          !it.checked && !it.flagged && it.whisper !== 'agreed';
+        shown = $('all').checked
+          ? list
+          : list.filter((it) => open(it) && !it.busy);
+        const left = list.filter(open).length;
+        const whisper = list.filter(
+          (it) => !it.checked && it.whisper === 'agreed',
+        ).length;
+        const busy = list.filter((it) => it.busy && open(it)).length;
+        $('count').textContent =
+          left +
+          ' quotes need checking (' +
+          busy +
+          ' being worked on elsewhere right now), ' +
+          list.filter((it) => it.checked).length +
+          ' checked by you, ' +
+          whisper +
+          ' confirmed by Whisper, ' +
+          list.filter((it) => it.flagged).length +
+          ' flagged for Claude to fix.';
+        let at = shown.findIndex((it) => it.key === keepKey);
+        await show(at < 0 ? 0 : at, 1);
+      }
+
+      // Show quote number `at`; if someone else holds it, move on in direction `step`.
+      async function show(at, step) {
+        for (; at >= 0 && at < shown.length; at += step) {
+          const it = shown[at];
+          if (held === it.key) break;
+          await release();
+          const r = await post('/api/claim', { key: it.key, tab });
+          if (r.ok) {
+            held = it.key;
+            break;
+          }
+          it.busy = it.busy || 'another worker';
+          if ($('all').checked) break; // in "show all", still display it, read-only
+        }
+        i = Math.max(0, Math.min(at, shown.length - 1));
+        render();
+      }
+
+      function render() {
+        const it = shown[i];
+        $('notice').textContent = '';
+        if (!it) {
+          $('meta').textContent = 'Nothing to check right now.';
+          q.value = '';
+          v.removeAttribute('src');
+          held = null;
+          return;
+        }
+        const src = '/video?doc=' + encodeURIComponent(it.doc);
+        $('start').value = it.start;
+        $('end').value = it.end;
+        const go = () => {
+          v.currentTime = it.start;
+          v.playbackRate = parseFloat($('speed').value);
+          v.play().catch(() => {});
+        };
+        if (v.dataset.doc !== it.doc) {
+          v.dataset.doc = it.doc;
+          v.addEventListener('loadedmetadata', go, { once: true });
+          v.src = src;
+        } else go();
+        const mine = held === it.key;
+        $('meta').textContent =
+          i +
+          1 +
+          ' / ' +
+          shown.length +
+          ' - ' +
+          it.title +
+          (it.whisper ? ' - Whisper ' + it.whisper : '') +
+          (it.checked ? ' - CHECKED' : '') +
+          (it.found ? '' : ' - TIME NOT FOUND') +
+          (mine
+            ? ''
+            : ' - BUSY (' + (it.busy || 'someone else') + '), read-only');
+        $('rules').textContent = it.rule_titles.join('  |  ');
+        $('heard').textContent = it.heard ? it.heard : '';
+        $('ctx').textContent = it.context;
+        $('orig').textContent = it.original;
+        saved = it.current;
+        const draft = mine ? getDraft(it) : null;
+        q.value = draft !== null && draft !== it.current ? draft : it.current;
+        if (draft !== null && draft !== it.current)
+          $('notice').textContent =
+            'Restored your unsaved typing for this quote.';
+        q.readOnly = !mine;
+        $('done').disabled = !mine;
+        $('revert').disabled = !mine;
+        $('flag').disabled = !mine;
+        $('flag').textContent = it.flagged
+          ? 'Take back the flag'
+          : "Doesn't make its point alone";
+        mark();
+        if (mine) q.focus();
+      }
+
+      function mark() {
+        const it = shown[i];
+        if (!it) return;
+        let s = '';
+        if (q.value.trim() !== saved)
+          s = "<span class='edited'>unsaved change</span> ";
+        if (saved !== it.original)
+          s +=
+            "<span class='edited'>EDITED (differs from the transcript)</span>";
+        else if (it.checked) s += "<span class='ok'>checked</span>";
+        $('state').innerHTML = s;
+        if (it.flagged)
+          $('state').append(
+            ' FLAGGED for Claude to quote the whole point' +
+              (it.flag_note ? ': ' + it.flag_note : ''),
+          );
+      }
+
+      async function done() {
+        const it = shown[i];
+        if (!it || held !== it.key) return;
+        await post('/api/save', { key: it.key, text: q.value, done: true });
+        setDraft(it, null);
+        const next = shown[i + 1] ? shown[i + 1].key : null;
+        await release();
+        await load($('all').checked ? it.key : next);
+      }
+
+      // The words may be right but the quote cuts off its point ("they need two things" without the two things):
+      // hand it to Claude, who quotes the whole passage from the transcript. Don't type the missing words in.
+      async function flagQuote() {
+        const it = shown[i];
+        if (!it || held !== it.key) return;
+        let note = '';
+        if (!it.flagged) {
+          note = prompt(
+            "What's missing? (optional, e.g. 'the two things come right after')",
+            '',
+          );
+          if (note === null) return; // cancelled
+        }
+        await post('/api/flag', { key: it.key, flagged: !it.flagged, note });
+        const next = shown[i + 1] ? shown[i + 1].key : null;
+        await release();
+        await load($('all').checked ? it.key : next);
+      }
+
+      async function revert() {
+        const it = shown[i];
+        if (!it || held !== it.key) return;
+        await post('/api/revert', { key: it.key });
+        setDraft(it, null);
+        await load(it.key);
+      }
+
+      // Keep the lease while the person is active; let it go when idle so Whisper can take the quote.
+      setInterval(async () => {
+        const it = shown[i];
+        if (!it || held !== it.key) return;
+        if (Date.now() - lastActive > IDLE_MS) {
+          await release();
+          $('notice').textContent =
+            'Paused while you were away: this quote was released. Click anywhere to continue.';
+          return;
+        }
+        const r = await post('/api/claim', { key: it.key, tab });
+        if (!r.ok) {
+          held = null;
+          $('notice').textContent =
+            'Whisper took this quote while you were away; moving on.';
+          await load(null);
+        }
+      }, 30000);
+      async function active() {
+        const was = Date.now() - lastActive > IDLE_MS;
+        lastActive = Date.now();
+        if (was) await load(shown[i] ? shown[i].key : null);
+      }
+      ['keydown', 'mousedown', 'wheel'].forEach((ev) =>
+        document.addEventListener(ev, active, true),
+      );
+      window.addEventListener('pagehide', () => {
+        if (held)
+          navigator.sendBeacon(
+            '/api/release',
+            JSON.stringify({ key: held, tab }),
+          );
+      });
+
+      v.addEventListener('timeupdate', () => {
+        const s = parseFloat($('start').value),
+          e = parseFloat($('end').value);
+        $('clock').textContent =
+          clock(v.currentTime) + ' (loop ' + clock(s) + ' - ' + clock(e) + ')';
+        if (v.currentTime >= e || v.currentTime < s - 1) v.currentTime = s;
+      });
+      // The chosen speed becomes the default (remembered in this browser).
+      function saveSpeed(s) {
+        try {
+          localStorage.setItem('speed', s);
+        } catch (e) {}
+      }
+      try {
+        const sp = localStorage.getItem('speed');
+        if (sp && [...$('speed').options].some((o) => o.value === sp))
+          $('speed').value = sp;
+      } catch (e) {}
+      v.defaultPlaybackRate = parseFloat($('speed').value); // a newly loaded video starts at the chosen speed
+      $('speed').addEventListener('change', () => {
+        v.defaultPlaybackRate = v.playbackRate = parseFloat($('speed').value);
+        saveSpeed($('speed').value);
+      });
+      v.addEventListener('ratechange', () => {
+        const s = String(v.playbackRate);
+        if (
+          v.readyState > 0 &&
+          [...$('speed').options].some((o) => o.value === s)
+        ) {
+          $('speed').value = s;
+          v.defaultPlaybackRate = v.playbackRate;
+          saveSpeed(s);
+        }
+      });
+      $('earlier').onclick = () => {
+        $('start').value = Math.max(0, parseFloat($('start').value) - 5);
+        v.currentTime = parseFloat($('start').value);
+      };
+      $('later').onclick = () => {
+        $('end').value = parseFloat($('end').value) + 5;
+      };
+      $('start').onchange = () => {
+        v.currentTime = parseFloat($('start').value);
+      };
+      q.addEventListener('input', () => {
+        const it = shown[i];
+        if (it && held === it.key) setDraft(it, q.value);
+        mark();
+      });
+      q.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter' && !ev.shiftKey) {
+          ev.preventDefault();
+          done();
+        }
+      });
+      $('done').onclick = done;
+      $('revert').onclick = revert;
+      $('flag').onclick = flagQuote;
+      $('next').onclick = () => show(i + 1, 1);
+      $('prev').onclick = () => show(i - 1, -1);
+      $('all').onchange = () => load(shown[i] ? shown[i].key : null);
+      load(null);
+    </script>
+  </body>
+</html>

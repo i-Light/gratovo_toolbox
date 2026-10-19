@@ -1,0 +1,185 @@
+name: gratovo_toolbox
+description: "Gratovo IMA ToolBox — internal sourcing, outreach, and deal-management tool for Gratovo's influencer-marketing brokerage."
+publish_to: 'none'
+version: 1.5.1+17
+environment:
+  sdk: '>=3.5.0 <4.0.0'
+  # withValues(alpha:), OverlayPortal and other APIs already used across
+  # the codebase require a recent Flutter. Bumped for Phase 6: the
+  # `sqlite3` package (reading gratovo.db's live run/keyword-claim state
+  # directly, see lib/core/native/local_pipeline_db_io.dart) relies on
+  # Dart's native-assets/hooks build system to auto-bundle SQLite, which
+  # is stable and on-by-default starting Flutter 3.38 — below that,
+  # native builds fail to link libsqlite3.
+  flutter: '>=3.38.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  win32_registry: ^3.0.0
+  window_manager: ^0.5.2
+
+  # State management — hand-written Riverpod 3 providers, no codegen
+  # (no build_runner step in this project; keep it that way for now).
+  flutter_riverpod: ^3.4.2
+
+  # Routing — StatefulShellRoute.indexedStack drives the persistent
+  # nav rail / bottom nav shell across the 7 top-level sections.
+  go_router: ^17.5.0
+
+  # Shared team backend: Postgres + auth + realtime.
+  #
+  # Chosen over self-hosting because it costs nothing and needs no server to
+  # maintain, and over a shared-file approach (Google Drive) for two reasons
+  # that mattered more than convenience: realtime presence pushes "who is
+  # editing what" in well under a second, where a file store can only be
+  # polled; and row level security enforces the three access levels inside
+  # the database, where a shared folder is all-or-nothing by nature.
+  #
+  # Replaced `pocketbase`, whose single shared superuser credential (typed
+  # into every device via the old Settings -> Team Sync card) could not
+  # coexist with per-person access levels.
+  supabase_flutter: ^2.8.0
+
+  # Persists the locale/theme-mode toggles per device.
+  shared_preferences: ^2.5.5
+
+  # Pinned to the version flutter_localizations already resolves on this
+  # SDK, so this doesn't introduce a second, conflicting constraint.
+  intl: ^0.20.3
+
+  # Real hosted-provider AI drafting (Phase 4 — Anthropic's Messages API,
+  # see lib/core/ai/anthropic_api_provider.dart). Works on every platform
+  # this project targets, including web, unlike dart:io's HttpClient.
+  http: ^1.6.0
+
+  # Encrypted per-device storage for AI provider API keys (Keychain on
+  # macOS/iOS, DPAPI-backed storage on Windows, libsecret on Linux,
+  # Keystore-backed on Android) — everything else in Settings is a plain
+  # preference and stays in shared_preferences; an API key is a real
+  # secret and gets real secret storage. See
+  # lib/data/repositories/secure/secure_ai_provider_config_repository.dart.
+  flutter_secure_storage: ^11.0.0
+
+  # Phase 6 — reads gratovo.db (the Python pipeline's local SQLite store)
+  # directly and read-only, for live run progress / active keyword claims
+  # on the machine actually running search.py. See
+  # lib/core/native/local_pipeline_db_io.dart. Native-assets-based, no
+  # companion *_flutter_libs package needed (see the environment.flutter
+  # comment above).
+  sqlite3: ^3.5.2
+
+  # Renders assets/images/logo.svg (AppBar branding, nav-rail Home icon).
+  # Kept as a vector rather than shipping the ~1MB PNG export: the same
+  # mark at 6.5KB, crisp at every size it's drawn at.
+  flutter_svg: ^2.2.1
+
+  # Where the on-disk image cache lives (Settings -> "save pictures for
+  # offline use"). Already transitive via shared_preferences and
+  # flutter_secure_storage, so it is registered on every platform this project
+  # targets and adds no new native surface -- promoted to a direct dependency
+  # only because lib/core/images/image_store_io.dart imports it by name.
+  path_provider: ^2.1.6
+
+  # Names the cached files. A cache keyed on a cheap non-cryptographic hash of
+  # the URL would collide, and the failure mode of a collision here is showing
+  # one channel's avatar on another channel's row -- silently, and in the one
+  # place where telling two creators apart is the whole job. SHA-256 makes that
+  # impossible in practice. Also already transitive via supabase_flutter.
+  crypto: ^3.0.0
+
+  # Opening an article from the News page in the real browser.
+  #
+  # The first plugin dependency with native code in this project, which is
+  # worth noting: it registers on Windows, and the web build resolves to
+  # window.open. Everywhere it is used the URL comes from a feed, so the call
+  # is guarded and a launch that is refused falls back to copying the link
+  # rather than failing silently.
+  url_launcher: ^6.3.1
+
+  # Reads the version/build number this binary was actually compiled with
+  # (from pubspec.yaml at build time), for the About row in Settings ->
+  # General. Works on every platform this project targets, web included, so
+  # it needs no io/web conditional export like local_pipeline_db.dart's.
+  package_info_plus: ^10.2.1
+
+  # Display-timezone subsystem (Outreach overhaul). Every instant is stored
+  # and transported in UTC; every user-facing timestamp is rendered in the
+  # zone the user picks in Settings, defaulting to the device's current zone.
+  # See lib/core/time/.
+  #
+  # Pure-Dart IANA tz database + TZDateTime — no native code. Also arrives
+  # transitively via flutter_local_notifications later; pinned here once so
+  # the two can never disagree on the version.
+  timezone: ^0.10.1
+
+  # Reads the device's IANA zone name (e.g. "Africa/Cairo") to seed the
+  # default. Must stay >= 4: older releases handed back Windows zone ids
+  # ("Egypt Standard Time") on Windows, which the `timezone` package cannot
+  # look up. Anything `timezone` does not recognise falls back to "UTC".
+  flutter_timezone: ^4.1.1
+
+  # Desktop follow-up notifications (Outreach overhaul, Phase H). Best-effort
+  # by contract: the in-app due/overdue list (Dashboard card + Outreach thread
+  # chip) is the source of truth, a toast is a bonus. Every call into these is
+  # wrapped so a machine with no plugin registered (the test env) is a silent
+  # no-op, never a failed launch. See lib/core/notifications/.
+  #
+  # `flutter_local_notifications` 19 folded in Windows toast support: it
+  # depends on `flutter_local_notifications_windows` and routes `zonedSchedule`
+  # there itself on Windows, so the service needs no `Platform.isWindows`
+  # branch and this pubspec needs no second entry. It also depends on
+  # `timezone`, already pinned above so the versions can never disagree.
+  flutter_local_notifications: ^19.5.0
+
+  # The local-first mirror (Phase 3). Each machine keeps a SQLite copy of the
+  # channels/videos tables that the app reads and writes instantly, and
+  # `lib/core/sync/` keeps it in step with Supabase in the background.
+  #
+  # There is NO sync package here, and that is the design. This used to be
+  # `powersync`, which meant provisioning and paying attention to a third hosted
+  # service alongside Supabase. The replacement is roughly 900 lines in
+  # `lib/core/sync/`: a puller that asks PostgREST "what changed since I last
+  # looked?" using the watermark columns `backend/schema.sql` adds, and
+  # an outbox that queues edits made offline and drains them through the same
+  # `apply_channel_edit` RPC the online repositories already call.
+  #
+  # It runs on the `sqlite3` dependency above rather than bringing its own
+  # SQLite, which is the other thing dropping PowerSync bought: one SQLite in
+  # the build instead of two (`powersync_flutter_libs` + `powersync-sqlite-core`
+  # sat alongside it). The mirror and the pipeline's gratovo.db open different
+  # files through the same library and do not interact.
+  #
+  # Reached only through lib/core/sync/sync_engine.dart's conditional export, so
+  # the web build never imports it -- the same pattern local_pipeline_db.dart
+  # uses. Switchable per machine from Settings -> Account, on by default.
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: '>=3.0.0 <6.0.0'
+  # Winds timers forward without the suite actually waiting. Already here
+  # transitively through flutter_test; declared so a test can import it
+  # without the analyzer objecting to a dependency nobody wrote down.
+  fake_async: ^1.3.1
+  flutter_launcher_icons: ^0.13.0
+
+flutter:
+  uses-material-design: true
+
+  # Drives `flutter gen-l10n` (see l10n.yaml) — generates lib/l10n/gen/app_localizations.dart
+  # from lib/l10n/app_en.arb + app_ar.arb on every `flutter pub get`/`flutter run`.
+  generate: true
+
+  fonts:
+    - family: Bismillah
+      fonts:
+        - asset: assets/fonts/Besmellah-2.ttf
+  assets:
+    - assets/images/logo.svg
+    # The Settings -> My apps list (see docs/MY_APPS.md). Bundled rather than
+    # fetched so it works offline and reaches teammates with the normal update.
+    - assets/my_apps.json

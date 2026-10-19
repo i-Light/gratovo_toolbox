@@ -1,0 +1,93 @@
+name: CI
+
+# Every push to main and every pull request. release.yml, which only fires on
+# a version tag, builds but never tests -- until this, the suites only ran on
+# whichever machine remembered to run them before pushing.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A newer push to the same branch supersedes the run in progress.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  flutter:
+    name: analyze + flutter test
+    # Linux, not the windows-2022 the release uses: it is a fraction of the
+    # cost per minute and the suite is platform-neutral apart from the two
+    # files tagged @TestOn('windows'), which skip themselves here. The Windows
+    # behaviour those cover (the updater's command-line quoting, pending
+    # resets) is exercised by every developer's local `flutter test`.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          # Pinned so "CI is red" means the code changed, not the SDK. Bump
+          # deliberately, together with the local toolchain.
+          flutter-version: 3.47.0
+          channel: stable
+          cache: true
+
+      # `sqlite3` builds SQLite through Dart's native-assets hooks, which
+      # needs a C toolchain; the runner has one. Nothing else to install.
+      - run: flutter pub get
+
+      # `flutter pub get` regenerates lib/l10n/gen; the tree must not differ
+      # from what is committed, or the app is being built from ARB files
+      # nobody regenerated.
+      - name: generated l10n is up to date
+        run: git diff --exit-code -- lib/l10n/gen
+
+      # The tree was reformatted in one commit; from then on every file is
+      # held to the formatter, so a diff is only ever about code.
+      - run: dart format --output=none --set-exit-if-changed lib test
+
+      - run: flutter analyze --fatal-infos
+
+      - run: flutter test --reporter expanded --no-pub
+
+  pipeline:
+    name: pytest (pipeline/)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          # The pipeline runs on whatever Python a teammate has (3.12+); 3.12
+          # is the oldest with wheels for everything in requirements.txt.
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: pipeline/requirements.txt
+
+      # The full requirements rather than a test subset: most of the
+      # third-party imports are lazy, but test_scrapetube_request.py imports
+      # curl_cffi at the top, and a test that has to guess which of the rest
+      # are safe to skip is a test that rots.
+      - run: pip install -r pipeline/requirements.txt pytest
+
+      - run: python -m pytest -q
+        working-directory: pipeline
+
+  backend:
+    name: SQL tests (backend/)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # run.sh replays the previous schema out of git history for its
+          # migration pass (OLD_SCHEMA_REF); a shallow clone has no history.
+          fetch-depth: 0
+
+      # Docker is preinstalled on the runner; run.sh manages its own
+      # postgres:16 container and removes it on exit.
+      - run: ./run.sh
+        working-directory: backend/tests

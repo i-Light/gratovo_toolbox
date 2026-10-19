@@ -1,0 +1,20 @@
+# Config for `flutter gen-l10n`, run automatically by `flutter pub get` / `flutter run`
+# because pubspec.yaml sets `flutter: generate: true`.
+#
+# An explicit output-dir means the generated file lands in a normal,
+# project-local path (lib/l10n/gen/app_localizations.dart) and is imported
+# like any other file in this package, rather than via the
+# `package:flutter_gen/...` synthetic package (the synthetic-package option
+# that used to control this was removed by the Flutter team — leaving it in
+# here just produced a deprecation warning on `flutter gen-l10n`, since an
+# explicit output-dir already opts out of the synthetic package on its own).
+#
+# nullable-getter: false makes `AppLocalizations.of(context)` return
+# non-nullable directly (it asserts internally instead) — every call site
+# in lib/ relies on this and does NOT append `!`.
+arb-dir: lib/l10n
+template-arb-file: app_en.arb
+output-localization-file: app_localizations.dart
+output-class: AppLocalizations
+output-dir: lib/l10n/gen
+nullable-getter: false

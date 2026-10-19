@@ -1,0 +1,84 @@
+name: Release Windows build
+
+# Fires when a version tag is pushed. That normally happens on its own --
+# build_windows.ps1 pushes the tag itself after a successful local build,
+# via scripts/auto_version.ps1 -- but pushing any `vX.Y.Z` tag by hand also
+# triggers this. Builds the Windows release the same way build_windows.ps1
+# does locally, then attaches the .zip to a GitHub Release named after the
+# tag. No installer .exe -- see the Build + stage step below.
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write # required for softprops/action-gh-release to create the release
+
+jobs:
+  build-windows:
+    # Pinned, not windows-latest: that label moved to windows-2025-vs2026 (VS
+    # 2026 preview) and its MSVC hard-errors compiling
+    # flutter_local_notifications_windows -- STL1011, <experimental/coroutine>
+    # deprecated to a static_assert failure. windows-2022 is the newest image
+    # with an MSVC that still accepts it.
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: flutter pub get
+        run: flutter pub get
+
+      # windows-2022 ships Python and Inno Setup preinstalled, which is
+      # everything build_windows.ps1 needs beyond the Flutter SDK.
+      # -Installer: the in-app updater prefers the setup .exe over the .zip
+      # when a release carries one, because unzipping cannot register the app,
+      # write the Start-menu shortcuts, or leave an Add/Remove Programs entry
+      # -- and the side-by-side install of a minor/major release is Inno's
+      # /DIR switch. Without this flag the updater silently falls back to the
+      # .zip forever.
+      # -NoAutoRelease: this checkout is already sitting on the tag that
+      # triggered the run, in a detached HEAD with no push credentials meant
+      # for this -- versioning happens on the machine that built it, not here.
+      - name: Build + stage
+        shell: pwsh
+        # GRATOVO_GITHUB_TOKEN is the shared read-only token the shipped app
+        # reads this private repo's releases with. A *secret*, at Settings ->
+        # Secrets and variables -> Actions -> Secrets.
+        #
+        # Storing it as a secret does not make it secret in the shipped .exe --
+        # anyone with the binary can read it out, which is the accepted trade
+        # of one shared credential over a sign-in per person. What it does buy
+        # is that it never appears in the workflow log, the Actions UI, or a
+        # pull request from a fork. build_windows.ps1 redacts it from the
+        # command it echoes for the same reason.
+        #
+        # GRATOVO_GITHUB_CLIENT_ID is optional and enables the per-person
+        # sign-in that covers an expired shared token. A *variable*, not a
+        # secret: a device-flow client id is public by design.
+        env:
+          GRATOVO_GITHUB_TOKEN: ${{ secrets.GRATOVO_GITHUB_TOKEN }}
+          GRATOVO_GITHUB_CLIENT_ID: ${{ vars.GRATOVO_GITHUB_CLIENT_ID }}
+        run: .\scripts\build_windows.ps1 -NoAutoRelease -Installer
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          # ${{ github.ref_name }} is the pushed tag, e.g. "v0.2.0".
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
+          # Relative, forward-slash globs -- not absolute Windows paths
+          # (C:\...\dist\...zip). This action's glob matcher expects
+          # forward slashes; a Windows absolute path with backslashes
+          # silently matches nothing on this runner, and with
+          # fail_on_unmatched_files defaulting to false that used to produce
+          # exactly the failure this comment is warning about: a Release
+          # published with no .zip attached and no error anywhere in the log.
+          fail_on_unmatched_files: true
+          files: |
+            dist/*.zip
+            dist/*-setup.exe
