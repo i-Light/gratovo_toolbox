@@ -1,6 +1,6 @@
 # Progress: step 3c (the app shell)
 
-Started 2026-10-19, after #5 (the owner's answers) merged. `CONTEXT.md` is the scout's read of the prototype; `PLAN.md` is the plan for the first of three pull requests (3c-1, the frame).
+Started 2026-10-19, after #5 (the owner's answers) merged. `CONTEXT.md` is the scout's read of the prototype. **3c-1 (the frame) merged as #6** (82d310e). `PLAN.md` now holds the plan for 3c-2 (the overlays); the 3c-1 plan is in git history (3056c06).
 
 ## Done (3c-1)
 
@@ -18,10 +18,12 @@ Started 2026-10-19, after #5 (the owner's answers) merged. `CONTEXT.md` is the s
 
 Looked at (lead): `scratchpad/shots/app-*.png` against `scratchpad/ref/proto-*.png`, light and dark, 1440 and 400 px. Same rail and top bar; differences are the intended ones (no "The plan", no design-notes button, placeholder content). The scripts `scratchpad/proto-ref.cjs` and `scratchpad/app-shots.cjs` aren't committed; a later session rewrites them from this description if needed.
 
-## Next
+Then T6 (tests, b847b1c), the review agent's findings and the first Windows run's failures (3056c06), and #6 merged with every check green.
 
-- T6 (running): component tests and the Electron tests (`frame.spec.ts`, fixture and smoke/security updates, no-menu check).
-- T7: full checks, Windows CI by workflow_dispatch, review agent, hand-off and plan status, pull request, merge.
+## 3c-2 (the overlays)
+
+- Plan: `.router/PLAN.md` (decisions E1 to E8).
+- Next: P1 and P2 in parallel; then P3, P4; then P5.
 
 ## Notes for 3c-2
 
