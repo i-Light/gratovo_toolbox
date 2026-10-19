@@ -14,7 +14,7 @@ The Electron app, built with electron-vite.
 
 From the repository root: `pnpm dev` (the app with hot reload), `pnpm build`, `pnpm test:e2e` (builds, then runs the Playwright tests).
 
-**The end-to-end tests need a normal user and a display.** The app forces Chromium's sandbox on, and Chromium will not run sandboxed as root. On Linux without a screen, wrap the command in `xvfb-run -a`. Cloud sessions run as root: see [docs/handoff.md](../../docs/handoff.md) for the one-line way to run them as an unprivileged user.
+The app supports Windows only, and the end-to-end tests run there: in CI on every pull request, and on team machines.
 
 ## Dependencies
 

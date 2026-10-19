@@ -144,7 +144,7 @@ The longest step. It builds everything the screens stand on, so every later step
 - *Acceptance:* the prototype's `proto_flow.py` and `review_fixes.py` checks, rewritten as Playwright tests against the real app, all pass. With the mode off there is no trace (an automated check).
 
 **3g. Continuous integration**
-- GitHub Actions on Windows and Ubuntu: lint, typecheck, unit tests, Electron end-to-end tests (Windows), pytest, the SQL tests (Ubuntu, Docker), gitleaks, audit, CodeQL.
+- GitHub Actions on Windows (the only system the app supports): lint, typecheck, unit tests, Electron end-to-end tests, pytest, the SQL tests, gitleaks, audit, CodeQL. The SQL tests use Supabase's local stack in Docker, which needs Linux containers that GitHub's Windows runners don't offer: decide in 3d where they run. That tests the backend, not the app on Linux.
 - Branch protection on `main`: pull requests only, CI green.
 - *Acceptance:* a pull request with a failing test cannot merge.
 

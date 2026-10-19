@@ -9,9 +9,8 @@ import {
   type Page,
 } from "@playwright/test";
 
-// The app forces Chromium's sandbox on, and Chromium will not run sandboxed as root. Run these
-// tests as an ordinary user (CI runners and team machines are; cloud containers are root, see
-// docs/handoff.md for how to run them there).
+// Windows is the only system the app supports, so these tests run there (in CI and on team
+// machines).
 const appDir = join(__dirname, "..");
 
 // Run from Node, the electron package exports the path to its binary.
@@ -22,12 +21,7 @@ let app: ElectronApplication;
 let page: Page;
 
 test.beforeEach(async () => {
-  // Without chromiumSandbox, Playwright adds --no-sandbox on Linux.
-  app = await electron.launch({
-    executablePath: electronBinary,
-    args: [appDir],
-    chromiumSandbox: true,
-  });
+  app = await electron.launch({ executablePath: electronBinary, args: [appDir] });
   page = await app.firstWindow();
 });
 
@@ -74,10 +68,6 @@ test("keeps Node out of the page", async () => {
 });
 
 test("runs the page in the operating system's sandbox", async () => {
-  test.skip(
-    process.platform !== "win32" && process.platform !== "darwin",
-    "Electron reports the sandbox state only on Windows and macOS",
-  );
   const renderers = await app.evaluate(({ app: electronApp }) =>
     electronApp
       .getAppMetrics()

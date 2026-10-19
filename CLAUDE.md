@@ -23,6 +23,7 @@ These come from the owner and hold until the owner changes them. The detail and 
 - **Drafted emails** are never templated and never use the banned words. Rules come only from the course (lessons and coach calls).
 - **On hold:** the four noted gaps `search-1`, `first-1`, `mail-1` and `mail-2` wait for the owner. Don't build them.
 - **Cleanup is the last step.** Don't delete or merge files from `legacy/` or the docs until step 10 (the 100% check) has passed. Step 11 does the cleanup.
+- **Windows only:** the app targets Windows alone. Don't spend effort on Linux or macOS support (CI jobs, workarounds, docs) until the owner asks for another system.
 - **Language:** English only for now. Keep every user-facing string in one place so other languages can come later.
 - **Prototype mode** is owner-only and off by default. When off it leaves no trace: no buttons, keys, pins, bars or network calls.
 
@@ -46,7 +47,7 @@ Node 24.22.0, pnpm 12, uv and gitleaks. A cloud container lacks most of them: [d
 
 - `pnpm install`: dependencies and the git hooks.
 - `pnpm lint`, `pnpm typecheck`, `pnpm test`: each covers TypeScript and Python. All three must pass.
-- `pnpm test:e2e`: builds the app and runs the Electron tests. They need a display (`xvfb-run -a` on Linux) and a non-root user; the hand-off has the command for cloud sessions.
+- `pnpm test:e2e`: builds the app and runs the Electron tests, on Windows. CI runs them on every pull request; cloud sessions (Linux containers) don't run them locally.
 - `pnpm dev`, `pnpm build`, `pnpm format`.
 
 The prototype runs as it is. Open `design/workbench-prototype/index.html`, or run its tests as described in [its README](design/workbench-prototype/README.md).

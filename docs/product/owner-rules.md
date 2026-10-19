@@ -5,6 +5,7 @@ What the owner has asked for, with the reasons, collected from past sessions so 
 ## Who the app is for
 
 - **For the next six months, mostly the owner.** Employees (account managers, VAs) come later and must learn fast, so every screen explains itself and roles are built in from the start.
+- **Windows only** (owner, 2026-10-19). The app is built, tested and supported on Windows alone, for the long term. Put no effort into Linux or macOS (no CI jobs, test workarounds or docs for them) until the owner asks for another system. Cloud sessions still run in Linux containers; there they edit code and run lint, typecheck and unit tests, and the app itself is tested on Windows in CI.
 - **English only for now.** The old app had Arabic; strings stay in one place per feature so a language can be added later.
 - **The niche is AI.** Creators who cover AI tools, chatbots, coding with AI (Claude Code, Cursor, MCP), AI video and AI news; brands that sponsor them (for example Higgsfield, Wispr Flow, Zapier, invideo, GoDaddy Airo, Vanta, Even Realities). Every example, persona, fixture and test channel comes from this niche. Woodworking or travel channels were rejected as "irrelevant to my niche".
 
