@@ -51,7 +51,7 @@ Replace the Flutter app (old repository `gratovo_code`) with a new desktop app t
 | 0 | Fresh repository | Done 2026-10-19 |
 | 1 | Agree the design | Prototype approved for building. The open questions in §9 were answered 2026-10-19 |
 | 2 | Choose the stack and record the decisions | Done as ADRs 0001 to 0006; the owner confirmed the stack (§9 Q8) |
-| 3 | Foundation | **In progress.** 3a (toolchain and skeleton) and 3b (security baseline) done 2026-10-19. 3c in three parts: 3c-1 (the frame) and 3c-2 (the overlays) done 2026-10-19; 3c-3 (settings and checks) is next |
+| 3 | Foundation | **In progress.** 3a (toolchain and skeleton) and 3b (security baseline) done 2026-10-19. 3c in three parts: 3c-1 (the frame) and 3c-2 (the overlays) done 2026-10-19; 3c-3 (settings and checks) in progress (planned; 2 of 5 tasks built) |
 | 4 | Today | Not started |
 | 5 | Find | Not started |
 | 6 | Reach | Not started |

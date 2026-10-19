@@ -54,7 +54,20 @@ P5, lead:
 - Plan: `.router/PLAN.md` (decisions F1 to F10); recon in `.router/CONTEXT.md` §10.
 - Measured before planning (axe 4.14.0 in Chromium against the built renderer, light and dark, 1440 and 400 px, frame and every overlay): WCAG failures are the light theme's `--muted` on sunk and accent-soft surfaces (3.96 to 4.26:1) and label-in-name on the account button and the bell; best-practice notes only otherwise (heading order, one region). Script: `scratchpad/axe-check.cjs`.
 - `@axe-core/playwright` 4.14.0 added to the desktop app's dev dependencies (published 2026-10-15).
-- Next: R1 and R2 in parallel; then R3, R4; then R5.
+
+| Task | Tier | Commit | Note |
+|---|---|---|---|
+| Plan | lead | 62f6f72 | `.router/PLAN.md` (F1 to F10), recon `.router/CONTEXT.md` §10, the axe dependency |
+| R1 shared pieces | N | da9ceb1 | `Seg`, `Tag`, `Switch` in `packages/ui`; `IconBtn` `tip`; `.switch` and `.bucket` in `controls.css`; `settings/settings.css` (`.set*`, `setHl`, 900 px, `.tb-ic` from more.js as a listed deviation); light `--muted` `#566678` (F7, listed in `tokens.test.ts`) |
+| R2 model and data | N | 605526c (part in da9ceb1) | `lib/settings.ts` (sections with `arrives`, rows, `notifyKind`, `notifShown`, `searchSettings`), `data.settings.notify`, `ui.settingFlash` and `settingTarget`, the `name` pref, `setMyName`, `loadMyName` (in `main.tsx` and the store's creation), `setNotify`, `flashSetting`, `openSetting`; the bell and tray filter. `strings.settings` holds every word, plus option labels, On/Off, the profile hints, `rows.role.descOwner`, `agencyNote` |
+| R3 settings screen | N | not yet | brief: `.router/tasks/R3.md`. Was running when the session ended; if no R3 commit is on the branch, run it again from the brief |
+| R4 tests | N | not yet | brief: `.router/tasks/R4.md` (component tests, `e2e/settings.spec.ts`, `e2e/accessibility.spec.ts` with `setLegacyMode(true)`) |
+| R5 lead | H | not yet | see below |
+
+Notes for whoever continues 3c-3:
+- da9ceb1 (R1) also picked up R2's `strings.ts`, `prefs.ts` and two test files: R2's agent staged them while the lead committed. That commit alone doesn't typecheck; 605526c completes it. Don't commit while a build agent is still writing files.
+- The helper scripts (screenshots of app and prototype, axe in Chromium) are in `.router/scripts.md`.
+- R5, the lead's part: run R3 and R4 (check each: lint, typecheck, test, build; read the code); look at every settings section and the search next to the prototype (1440 light and dark, 400 light) and the frame and overlays once more; run the axe script with the WCAG tags (expect clean in light and dark); run Windows CI by workflow_dispatch before the PR (new Electron tests often find something on their first run); a review agent on the diff `origin/main..HEAD` against PLAN.md; ADR 0009 additions for F1 to F10 (and the architecture versions table: `@axe-core/playwright` 4.14.0); the hand-off, the plan's status ("3c done") and PROGRESS in the last commit; open the PR, drive it green, squash-merge it; then restart the branch from `main` with a merge commit (no force-push).
 
 ## Notes for 3c-2
 
