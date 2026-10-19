@@ -78,6 +78,8 @@ gratovo_toolbox/
 │   ├── core/                 domain model and engines (pure TS, no I/O)
 │   ├── ui/                   design tokens and components
 │   └── ipc/                  IPC contract: zod schemas and the types generated from them
+├── tooling/
+│   └── eslint-config/        the lint plugins, on TypeScript 6 (see decision 0007)
 ├── services/
 │   ├── pipeline/             Python: src/gratovo_pipeline/..., tests/, pyproject.toml
 │   └── gemini-extension/     the browser extension
@@ -92,7 +94,7 @@ gratovo_toolbox/
 
 Step 3a created the workspace, the three packages, the desktop app (a blank, hardened window), the pipeline project, placeholders for `services/gemini-extension/` and `supabase/`, the hooks and CI. `src/preload/` comes with the IPC bridge in 3b, `resources/` with the frame in 3c, and the migrations in 3d.
 
-TypeScript projects use references: the root `tsconfig.json` lists every project, and `pnpm typecheck` runs `tsc -b`. Packages export their TypeScript source and have no build step; electron-vite and Vitest compile them. `packages/core` is type-checked without Node or DOM types, so code that does I/O there fails the typecheck.
+TypeScript projects use references: the root `tsconfig.json` lists every project, and `pnpm typecheck` runs TypeScript 7's `tsc -b`. The linter runs on TypeScript 6 from `tooling/eslint-config`, because typescript-eslint doesn't support 7 yet ([decisions/0007](decisions/0007-toolchain-pins.md)). Packages export their TypeScript source and have no build step; electron-vite and Vitest compile them. `packages/core` is type-checked without Node or DOM types, so code that does I/O there fails the typecheck.
 
 ## Security model
 
@@ -129,8 +131,8 @@ Pinned in step 3a on 2026-10-19, at the current stable releases. Every package v
 | electron-vite | 6.0.0 | `apps/desktop` |
 | Vite | 8.3.4 | `apps/desktop` |
 | React, react-dom | 19.3.1 | `apps/desktop` |
-| TypeScript | 6.0.3 (7.0 waits for typescript-eslint) | root |
-| ESLint, typescript-eslint | 10.13.0, 8.71.2 | root |
+| TypeScript | 7.0.2 (the linter uses 6.0.3 through `@typescript/typescript6`) | root; `tooling/eslint-config` |
+| ESLint, typescript-eslint | 10.13.0, 8.71.2 | root, `tooling/eslint-config` |
 | Prettier | 3.9.10 | root |
 | Vitest | 5.0.5 | root |
 | Playwright | 1.64.1 | `apps/desktop` |

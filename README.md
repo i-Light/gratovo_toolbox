@@ -12,6 +12,7 @@ This repository is the **rebuild**. It replaces the Flutter app in the old `grat
 |---|---|
 | [apps/desktop/](apps/desktop/README.md) | The Electron app: main process, React renderer, end-to-end tests. |
 | `packages/` | Shared TypeScript: `core` (the domain, no I/O), `ui` (design tokens, later components), `ipc` (the contract between the app's processes). |
+| `tooling/` | Repository tools: `eslint-config` holds the lint plugins (they run on TypeScript 6; the rest uses TypeScript 7). |
 | [services/pipeline/](services/pipeline/README.md) | The Python pipeline (search, enrichment, mail, the comms engine), ported in step 3e. |
 | [docs/](docs/README.md) | The migration plan, the hand-off for the next session, architecture, conventions, workflow, decisions, and the product record. |
 | [design/workbench-prototype/](design/workbench-prototype/README.md) | The approved interactive prototype of the new app. It is the design reference for every screen. |
