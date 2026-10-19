@@ -53,7 +53,7 @@ The core has no I/O, so it is unit-tested exhaustively. The prototype's `engine.
 ## UI
 
 - **Design tokens:** CSS custom properties, ported from the prototype's `index.html`. Light and dark, phase hues, status colours used only for status, Readex Pro and IBM Plex Mono, density, and two easing curves (`--ease-out`, `--ease-drawer`).
-- **Components:** `packages/ui` holds the button, icon button, tag, avatar, menu, tooltip, toast, tabs, segmented control, meter, steps, empty state, callout, field and switch. Popovers, menus and dialogs use accessible primitives (Radix or React Aria; pick one in 3c with the `pick-ui-library` skill).
+- **Components:** `packages/ui` holds (or will hold, as step 3c goes on) the button, icon button, tag, avatar, menu, tooltip, toast, tabs, segmented control, meter, steps, empty state, callout, field and switch, ported from the prototype with its roles. No primitives library: the key stack owns Escape and outside clicks, and modal layers use the native `<dialog>` ([decisions/0009](decisions/0009-app-shell.md)).
 - **The frame:** rail, top bar, peek panel, command palette, trays, bars, toasts.
 - **Screens:** Today, Find, Reach, Close, Deliver, Insights, Toolbox, Team, Settings, with record pages and peeks.
 - **State:**
@@ -139,6 +139,9 @@ Pinned in step 3a on 2026-10-19, at the current stable releases. Every package v
 | Vitest | 5.0.5 | root |
 | Playwright | 1.64.1 | `apps/desktop` |
 | zod | 4.6.7 | `packages/ipc`, `apps/desktop` |
+| immer | 11.1.21 (added in 3c) | `packages/core` |
+| Fontsource Readex Pro (variable), IBM Plex Mono | 5.3.0, 5.3.0 (added in 3c) | `packages/ui` |
+| Testing Library React, user-event; happy-dom | 16.3.3, 14.6.8; 21.0.3 (added in 3c) | root |
 | @electron/fuses | 2.1.3 | `apps/desktop` |
 | OSV-Scanner | 2.7.0 | CI (`go install`) |
 | CodeQL action | 4.39.0 | CI |

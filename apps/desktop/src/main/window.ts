@@ -40,6 +40,16 @@ export function createMainWindow(): BrowserWindow {
     window.show();
   });
 
+  // With no menu there is no shortcut for the developer tools, so unpackaged runs open them with F12.
+  if (!app.isPackaged) {
+    window.webContents.on("before-input-event", (event, input) => {
+      if (input.type === "keyDown" && input.key === "F12") {
+        event.preventDefault();
+        window.webContents.toggleDevTools();
+      }
+    });
+  }
+
   void window.loadURL(appPageUrl);
 
   return window;

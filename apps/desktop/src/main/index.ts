@@ -1,4 +1,4 @@
-import { BrowserWindow, app, dialog, session } from "electron";
+import { BrowserWindow, Menu, app, dialog, session } from "electron";
 
 import { registerAppScheme, serveAppFiles } from "./app-protocol";
 import { createHandlers } from "./handlers";
@@ -49,6 +49,10 @@ function start(): void {
       refuseDownloads(session.defaultSession);
       serveAppFiles(session.defaultSession, rendererRoot);
       registerBridge(createHandlers({ version: app.getVersion(), secrets: openSecretStore() }));
+      // The app draws its whole frame. Electron's default menu (File, Edit, View…) would sit above
+      // it on Windows and bring shortcuts the app doesn't want, such as reload and zoom. Copy,
+      // paste and undo in text fields work without it on Windows.
+      Menu.setApplicationMenu(null);
       createMainWindow();
     })
     .catch((error: unknown) => {

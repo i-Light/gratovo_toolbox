@@ -2,6 +2,9 @@ import type { ElectronApplication } from "@playwright/test";
 
 import { appPage, expect, test } from "./fixtures";
 
+/** The page's URL without its "#/route" part. */
+const withoutFragment = (url: string): string => url.split("#")[0] ?? url;
+
 /** Replaces shell.openExternal in the main process with a recorder, so no browser opens. */
 async function recordExternalLinks(app: ElectronApplication): Promise<() => Promise<string[]>> {
   await app.evaluate(({ shell }) => {
@@ -17,7 +20,7 @@ async function recordExternalLinks(app: ElectronApplication): Promise<() => Prom
 
 test.describe("the page", () => {
   test("loads from the app's own protocol, not from file://", ({ page }) => {
-    expect(page.url()).toBe(appPage);
+    expect(withoutFragment(page.url())).toBe(appPage);
   });
 
   test("can't reach Node", async ({ page }) => {
@@ -198,10 +201,10 @@ test.describe("leaving the app", () => {
       link.click();
     });
     await expect.poll(openedLinks).toEqual(["https://youtu.be/abc123"]);
-    expect(page.url()).toBe(appPage);
+    expect(withoutFragment(page.url())).toBe(appPage);
     // Read through evaluate: after a refused navigation, Playwright's locators keep waiting for it
     // to finish.
-    const heading = await page.evaluate(() => document.querySelector("h1")?.textContent);
-    expect(heading).toBe("Gratovo Toolbox");
+    const title = await page.evaluate(() => document.title);
+    expect(title).toBe("Gratovo Toolbox");
   });
 });

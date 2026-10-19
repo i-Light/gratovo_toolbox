@@ -1,10 +1,11 @@
 import { readFileSync } from "node:fs";
 
-import postcss, { AtRule, type Root } from "postcss";
+import postcss from "postcss";
 import { describe, expect, it } from "vitest";
 
+import { declarationsByRule, prototypeStyles } from "./testing/prototype-styles.js";
+
 const tokensFile = new URL("./tokens.css", import.meta.url);
-const prototypeFile = new URL("../../../design/workbench-prototype/index.html", import.meta.url);
 
 /** Every rule tokens.css holds, keyed by its at-rule (if any) and selector. */
 const expectedRules = [
@@ -18,49 +19,6 @@ const expectedRules = [
   ':root[data-motion="reduce"] *, :root[data-motion="reduce"] *::before, :root[data-motion="reduce"] *::after',
   "@media (prefers-reduced-motion: reduce) *, *::before, *::after",
 ];
-
-/** Writes a value the same way whatever the formatting: `.10` and `0.1` compare equal. */
-function normalizeValue(value: string): string {
-  return value
-    .replace(/#[0-9a-f]+|-?\d*\.?\d+/gi, (token) =>
-      token.startsWith("#") ? token.toLowerCase() : String(Number(token)),
-    )
-    .replace(/\s*,\s*/g, ",")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function normalizeSelector(selector: string): string {
-  return selector
-    .split(",")
-    .map((part) => part.replace(/\s+/g, " ").trim())
-    .join(", ");
-}
-
-/** Maps each rule to its declarations, for example `":root" => { "--bg": "#f2f5f9", ... }`. */
-function declarationsByRule(root: Root): Map<string, Record<string, string>> {
-  const rules = new Map<string, Record<string, string>>();
-  root.walkRules((rule) => {
-    const parent = rule.parent;
-    const atRule = parent instanceof AtRule ? `@${parent.name} ${parent.params} ` : "";
-    const key = atRule + normalizeSelector(rule.selector);
-    const declarations = rules.get(key) ?? {};
-    rule.walkDecls((decl) => {
-      declarations[decl.prop] = normalizeValue(decl.value) + (decl.important ? " !important" : "");
-    });
-    rules.set(key, declarations);
-  });
-  return rules;
-}
-
-function prototypeStyles(): string {
-  const html = readFileSync(prototypeFile, "utf8");
-  const style = /<style>([\s\S]*?)<\/style>/.exec(html)?.[1];
-  if (style === undefined) {
-    throw new Error("No <style> block in the prototype's index.html");
-  }
-  return style;
-}
 
 describe("tokens.css", () => {
   const tokens = declarationsByRule(postcss.parse(readFileSync(tokensFile, "utf8")));

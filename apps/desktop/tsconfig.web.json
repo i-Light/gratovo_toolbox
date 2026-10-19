@@ -7,5 +7,10 @@
     "types": ["vite/client"]
   },
   "include": ["src/renderer/**/*.ts", "src/renderer/**/*.tsx"],
-  "references": [{ "path": "../../packages/ipc/tsconfig.lib.json" }]
+  "exclude": ["src/renderer/**/*.test.ts", "src/renderer/**/*.test.tsx"],
+  "references": [
+    { "path": "../../packages/ipc/tsconfig.lib.json" },
+    { "path": "../../packages/core/tsconfig.lib.json" },
+    { "path": "../../packages/ui/tsconfig.lib.json" }
+  ]
 }

@@ -5,7 +5,7 @@ Where work stopped and exactly what to do next. Update this file at the end of e
 ## Now
 
 - **Date:** 2026-10-19
-- **Plan step:** **3b (security baseline) is done** (pull request #4). Before it: 3a ([#1](https://github.com/i-Light/gratovo_toolbox/pull/1)), TypeScript 7 with the linter on TypeScript 6 ([#2](https://github.com/i-Light/gratovo_toolbox/pull/2)), Windows only ([#3](https://github.com/i-Light/gratovo_toolbox/pull/3)). **3c (the app shell from the prototype) is next**, on a branch brought up to date with `main`.
+- **Plan step:** **3c-1 (the frame) is done** ([#6](https://github.com/i-Light/gratovo_toolbox/pull/6)), the first of three parts of 3c. Before it: 3a ([#1](https://github.com/i-Light/gratovo_toolbox/pull/1)), TypeScript 7 with the linter on TypeScript 6 ([#2](https://github.com/i-Light/gratovo_toolbox/pull/2)), Windows only ([#3](https://github.com/i-Light/gratovo_toolbox/pull/3)), 3b ([#4](https://github.com/i-Light/gratovo_toolbox/pull/4)), the owner's answers ([#5](https://github.com/i-Light/gratovo_toolbox/pull/5)). **3c-2 (the overlays) is next**, on a branch brought up to date with `main`.
 - **Windows only** (the owner's rule, 2026-10-19): the app is built, tested and supported on Windows alone. Put no effort into Linux or macOS until the owner asks.
 - **GitHub is the session's job.** Open the pull request, get CI green, fix the review findings, merge it. Never ask the owner to merge or do anything by hand on GitHub ([owner-rules.md](product/owner-rules.md)). That includes Dependabot's pull requests.
 - **Owner actions still open:** A1 and A3 in [migration-plan.md §4](migration-plan.md#4-owner-actions). A2 is done (this repository is on GitHub); A4, A5 and A6 are done: all twelve open questions were answered on 2026-10-19 ([migration-plan.md §9](migration-plan.md#9-open-questions)). Read the answers before steps 3d, 3f, 3h, 4, 5, 6, 7 and 8. Ask about A1 (key rotation) before any step touches R2 or YouTube; that is a migration question, not GitHub work.
@@ -14,10 +14,10 @@ Where work stopped and exactly what to do next. Update this file at the end of e
 ## What exists
 
 - **Workspace:** pnpm 12 workspace (`apps/*`, `packages/*`, `tooling/*`), Node 24.22.0, TypeScript 7 (the linter alone runs on TypeScript 6, from `tooling/eslint-config`), every version pinned exactly. Versions and reasons: [architecture.md](architecture.md#versions) and [decisions/0007-toolchain-pins.md](decisions/0007-toolchain-pins.md).
-- `packages/core`: `DEAL_FLOW`, ported from the prototype, with a test that compares it with the prototype's `data.js`.
-- `packages/ui`: `tokens.css`, the prototype's tokens (light, both dark rules, density, size, motion), with a test that compares every value with the prototype's `index.html`.
+- `packages/core`: `DEAL_FLOW`, ported from the prototype, with a test that compares it with the prototype's `data.js`. From 3c-1: the store (`createStore`: business data with undo and redo, UI state, background changes that reach every undo step; on immer), the navigation history, and the key stack (layers, barriers, the typing rule, letters off, G then a letter).
+- `packages/ui`: `tokens.css`, the prototype's tokens (light, both dark rules, density, size, motion), with a test that compares every value with the prototype's `index.html`. From 3c-1: the fonts as local files (`fonts.css`), the shared styles (`base.css`, `controls.css`, `motion.css`, checked rule by rule against the prototype by `styles.test.ts`), the icon set (checked against `core.js`), and the first components (Icon, Btn, IconBtn, Kbd, Avatar, Empty, PageHead).
 - `packages/ipc`: the contract. `channels` (zod) holds `app:ping` and `secrets:status`; `createDispatcher` checks each request and each response; `bridge.ts` holds the bridge's types and names, with no zod, for the preload.
-- `apps/desktop`: electron-vite app showing a blank frame with the tokens. The security baseline is in place ([decisions/0008-security-baseline.md](decisions/0008-security-baseline.md)):
+- `apps/desktop`: electron-vite app. From 3c-1 it shows the frame (`src/renderer/app/`): the rail with the example counts, the top bar, the problems bar, a placeholder page for each screen, the narrow drawer, hash routes (`#/find/triage`), device preferences, and the global keys (Alt+Left and Alt+Right, `[`, Ctrl+,, G then a letter). `src/renderer/lib/` holds routes, preferences, the app store and its example data, and the key hook; every word is in `src/renderer/strings.ts`. Electron's default menu is removed. The choices are in [decisions/0009-app-shell.md](decisions/0009-app-shell.md). The security baseline is in place ([decisions/0008-security-baseline.md](decisions/0008-security-baseline.md)):
   - the page runs isolated and sandboxed, loads from `app://gratovo/index.html`, and has a strict CSP as a meta tag and a header;
   - one bridge, `window.gratovo.invoke(channel, input)`, answered only for the app page's top frame;
   - every navigation guarded; links open in the browser only for allowlisted hosts (`src/main/external-links.ts`); downloads refused;
@@ -34,20 +34,16 @@ Where work stopped and exactly what to do next. Update this file at the end of e
   CodeQL can't upload results (the repository is private without Advanced Security), so its job fails on any result itself. Actions are pinned by commit.
 - **Dependabot** (`.github/dependabot.yml`): weekly, npm, uv and Actions, minor and patch grouped, 3 days' cooldown (7 for majors).
 - `.gitleaksignore`: five findings in the first commit, checked by hand and found to be fake (a mock token in a skill, a docstring example, a test fixture). Anything new still fails.
-- Earlier material: `docs/` (decisions 0001 to 0008), `design/workbench-prototype/`, `legacy/` (read only), `.claude/`.
+- Earlier material: `docs/` (decisions 0001 to 0009), `design/workbench-prototype/`, `legacy/` (read only), `.claude/`.
 
-## Next: step 3c, the app shell
+## Next: step 3c-2, the overlays
 
-The goal and acceptance checks are in [migration-plan.md, step 3c](migration-plan.md#step-3-foundation). It is UI work, so use the UI skills listed in CLAUDE.md, and check the result in light and dark, at 1440 px and 400 px.
+Step 3c ships as three pull requests ([.router/PLAN.md](../.router/PLAN.md) has the split, the decisions and the contracts; [.router/PROGRESS.md](../.router/PROGRESS.md) has what is done and notes for 3c-2). The goal and acceptance checks are in [migration-plan.md, step 3c](migration-plan.md#step-3-foundation). It is UI work, so use the UI skills listed in CLAUDE.md, and check the result in light and dark, at 1440 px and 400 px.
 
-1. **Read the prototype first:** `design/workbench-prototype/index.html` (tokens and the frame's markup), `js/core.js` (`W.act`, `W.ui`, `W.bg`, the key stack), `js/settings.js`, and the `WHY` notes in `js/plan.js`.
-2. **Tokens:** most are already in `packages/ui/src/tokens.css` (3a). Add the fonts (Readex Pro, IBM Plex Mono) as files served from `app://`. The CSP allows `font-src 'self'` only, so no Google Fonts link.
-3. **Routing:** use hash routes (`#/today`). A `pushState` URL isn't a file, so a reload there would get a 404 from `app://` (ADR 0008).
-4. **The frame:** rail, top bar, peek panel, toasts with Undo, menus, tooltips, the shortcut sheet and the problems bar, as React components in `apps/desktop/src/renderer/`. User-facing strings go in `strings.ts`.
-5. **Keyboard system** and **store pattern** as the plan says. Pure logic (the key stack, undo snapshots) goes in `packages/core` with unit tests.
-6. **Settings shell:** the sections and the search from `settings.js`.
-7. **Data from the main process** goes through `window.gratovo.invoke`. To add a channel, see `apps/desktop/README.md`.
-8. **Tests:** the Playwright tests the plan lists (palette, peek, undo, menus, Esc order, key barriers), using `e2e/fixtures.ts`, plus screenshot comparisons.
+1. **Write the 3c-2 plan** in `.router/PLAN.md` (replace the 3c-1 plan; it stays in git history). Read `.router/CONTEXT.md` §1d to §1j and the prototype's `js/app.js` first.
+2. **3c-2, the overlays:** the command palette, the shortcut sheet, menus (the account menu replaces the account button's interim jump to Settings), tooltips (`data-tip`, delay on the first, instant on the next), the jobs and notifications trays, the peek panel, toasts with Undo and Redo, the save state and job ticks. Modal layers use the native `<dialog>`; each overlay puts a layer on the key stack ([decisions/0009](decisions/0009-app-shell.md)). Playwright tests for the palette, peek, undo, menus, Esc order and key barriers.
+3. **3c-3, settings and checks:** the settings shell (sections, search, appearance and keyboard rows working), screenshot comparison with the prototype, accessibility checks, and the plan's status for 3c.
+4. **Data from the main process** goes through `window.gratovo.invoke`. To add a channel, see `apps/desktop/README.md`.
 
 **Then:** 3d (the data layer), in its own pull request.
 
@@ -76,3 +72,4 @@ The goal and acceptance checks are in [migration-plan.md, step 3c](migration-pla
 | 2026-10-19 | Cloud | The owner made the app Windows only. CI now runs its checks and Electron tests on Windows alone; the Ubuntu job, the Linux sandbox and virtual-display steps, the Linux-only test workaround and the cloud e2e instructions are gone. Rule recorded in owner-rules.md and CLAUDE.md. |
 | 2026-10-19 | Cloud | Step 3b, the security baseline. Built: the typed bridge (one channel; requests and responses checked; calls only from the app page), the `app://` protocol with the CSP as a header, navigation guards, a link allowlist, the secrets store over `safeStorage`, one copy of the app at a time, the release fuses, and CI jobs for OSV-Scanner and CodeQL plus Dependabot. Agents built the secret store, the file and link checks, the fuses and the CI jobs from written contracts; each was checked again. Checked: lint, typecheck, unit tests (120 Vitest, 1 pytest), the Electron tests on Windows in CI. ADR 0008 records the choices. |
 | 2026-10-19 | Cloud | The owner recorded answers to all twelve open questions (§9) on branch `owner-answers-section-9`. Merged here with the hand-off conflict resolved, and the lines the answers made stale brought in line: no code signing (SECURITY.md, architecture, the parity checklist), team keys by server function and comments as a repository file (steps 3d and 3f). |
+| 2026-10-19 | Cloud | Step 3c-1, the frame. Split 3c into three pull requests and planned the first with contracts (`.router/PLAN.md`). Agents built the store, history and key stack (`packages/core`), the icons, components and shared styles (`packages/ui`), the renderer's routes, preferences and store, the frame, and the tests, each from the contracts; each was checked again. The lead removed Electron's default menu and wrote ADR 0009. Checked: lint, typecheck, unit and component tests (328 Vitest), tests that compare every ported style rule and the icons with the prototype, screenshots next to the prototype's in light and dark at 1440 and 400 px, and the Electron tests on Windows in CI. |
