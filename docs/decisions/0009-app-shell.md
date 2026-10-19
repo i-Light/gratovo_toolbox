@@ -1,7 +1,7 @@
 # 0009. How the app shell is built
 
 - **Date:** 2026-10-19
-- **Status:** accepted for 3c-1 (the frame); 3c-2 (overlays) and 3c-3 (settings) add to it
+- **Status:** accepted for 3c-1 (the frame) and 3c-2 (the overlays); 3c-3 (settings) adds to it
 
 ## Context
 
@@ -20,6 +20,19 @@ Step 3c ports the prototype's frame into the real app: the rail, the top bar, th
 9. **Not ported:** the prototype's "The plan" page and its "Why is this here?" design-notes button and layer. They are review tools for the prototype, and the plan's list for 3c leaves them out. If the owner wants them in the app, they come with step 9.
 10. **Example frame data until 3d.** The rail counts, the team and the notifications are a typed example constant (the prototype's numbers and people) until the data layer replaces it.
 
+### Added in 3c-2 (the overlays)
+
+11. **Modal layers are a native `<dialog>` opened with `showModal()`** (`overlays/modal-layer.tsx`), made invisible and full-screen, holding the prototype's own `.scrim` and `.pal` or `.modal`. The browser makes the page behind inert and keeps focus inside. The dialog's own Esc is blocked, so the key stack is the one owner of Esc. The palette focuses its input; the shortcut sheet, which you read rather than fill in, focuses the dialog itself, so no button shows a ring the user didn't ask for.
+12. **Toasts, menus and the tooltip float above modals.** A modal dialog sits in the browser's top layer, above every z-index. The prototype drew these three above its dialogs, so they render into one container (`overlays/floating.tsx`) that the dialog moves inside itself while it is open. Moving it doesn't remount anything, so a toast keeps its time.
+13. **Esc closes the newest layer.** Each overlay puts its own layer on the key stack while it is open: the palette, the sheet and menus as barriers (keys behind them don't fire), trays and the peek as plain layers. So a tray opened after the peek closes first. The prototype closed the peek first either way, because its tray's Esc sat in the bottom layer.
+14. **Ctrl Z, Ctrl Shift Z and Ctrl Y stay out of text fields,** so a field keeps its own undo. The prototype took them everywhere.
+15. **Reading one notification isn't an undoable change** (it is a background change), so undoing something older never marks it unread again. "Mark all read" is undoable and leaves no line in the activity log, as in the prototype.
+16. **Records until their screens arrive (steps 4 to 9):** a few of the prototype's example creators, brands and deals (AI channels and AI brands) give the palette its records and the peek and record page something true to show. Both show a short summary and say the full record comes with its screen.
+17. **The record page is a screen, `record`,** with the record and the screen it came from on the route. The rail marks that screen, and the crumbs name it. Like the prototype, a reload doesn't bring it back; it opens Today.
+18. **Left out of the palette until their features exist:** Start focus, Wrap up the day, Resume today's search (steps 4 and 5) and the Settings rows (3c-3). Show the design notes is not ported (decision 9).
+19. **Menus, the palette and dialogs give focus back** to what had it when they opened. The prototype didn't.
+20. **Three fixes to the prototype's CSS,** each listed with its reason in `overlays-css.test.ts`: the palette's 52 px search row no longer shrinks while the list is long (the input jumped as you typed); menus sit above the narrow-width drawer (the account menu, opened from the drawer, showed under it); the invisible dialog wrapper shows no focus ring.
+
 ## Alternatives considered
 
 - **zustand for the store:** its selector hooks are what decision 3 needs, but the undo, redo and background-job rules are the hard part and are ours either way. A small store on `useSyncExternalStore` covers it with no dependency beyond immer.
@@ -29,5 +42,7 @@ Step 3c ports the prototype's frame into the real app: the rail, the top bar, th
 ## Consequences
 
 - A change to the prototype's CSS, icons or tokens fails a test until the port follows it.
-- Each overlay in 3c-2 registers its keys on the shared stack, and the Playwright tests check the Esc order and the barriers.
+- Each overlay registers its keys on the shared stack, and the Playwright tests check the Esc order and the barriers.
+- The shortcut sheet lists the prototype's keys for Today and for reviewing finds. They start working when those screens arrive (steps 4 and 5).
+- A new overlay that must show above a modal renders through `Floating`; one that should sit under modals (trays, the peek) doesn't.
 - Step 3d decides how a store action reaches the `DataSource` (for example, immer patches turned into row writes) and how undo works for data that lives in SQLite.
