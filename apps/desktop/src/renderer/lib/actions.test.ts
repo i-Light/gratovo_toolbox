@@ -286,11 +286,19 @@ describe("palette, sheet, trays and menus", () => {
 
   it("opens a menu 4 px under its anchor and closes it", () => {
     const items = [{ kind: "separator" }] as const;
-    openMenu({ left: 10, right: 90, top: 20, bottom: 50 }, items, "end");
-    expect(ui().menu).toEqual({ x: 10, y: 54, right: 90, top: 20, align: "end", items });
+    openMenu({ left: 10, right: 90, top: 20, bottom: 50 }, items, "Account", "end");
+    expect(ui().menu).toEqual({
+      label: "Account",
+      x: 10,
+      y: 54,
+      right: 90,
+      top: 20,
+      align: "end",
+      items,
+    });
     closeMenu();
     expect(ui().menu).toBeNull();
-    openMenu({ left: 1, right: 2, top: 3, bottom: 4 }, items);
+    openMenu({ left: 1, right: 2, top: 3, bottom: 4 }, items, "Account");
     expect(ui().menu?.align).toBe("start");
   });
 });

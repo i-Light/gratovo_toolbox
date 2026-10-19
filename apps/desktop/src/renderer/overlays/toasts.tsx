@@ -5,7 +5,7 @@ import { dismissToast } from "../lib/actions";
 import { useApp } from "../lib/store";
 import type { Toast as ToastData } from "../lib/store";
 import { strings } from "../strings";
-import { Floating } from "./floating";
+import { Floating, onFloatingMoved } from "./floating";
 
 /** How often a toast checks how much of its time is left, in milliseconds. */
 const tickMs = 200;
@@ -16,6 +16,7 @@ const tickMs = 200;
  */
 function Toast({ toast }: { readonly toast: ToastData }) {
   const element = useRef<HTMLDivElement>(null);
+  const life = useRef<HTMLElement>(null);
   const hover = useRef(false);
   const left = useRef(toast.ms);
   const last = useRef(0);
@@ -30,6 +31,19 @@ function Toast({ toast }: { readonly toast: ToastData }) {
     };
     el?.addEventListener("mouseenter", enter);
     el?.addEventListener("mouseleave", leave);
+    // A dialog opening or closing moves the toasts, and the browser restarts their animations:
+    // the toast would slide in again and its life bar fill up again. The slide-in is over, and the
+    // bar starts from the time already spent.
+    const stopMoved = onFloatingMoved(() => {
+      const running = !hover.current && !document.hidden;
+      const spent = toast.ms - left.current + (running ? Date.now() - last.current : 0);
+      if (el !== null) {
+        el.style.animation = "none";
+      }
+      if (life.current !== null) {
+        life.current.style.animationDelay = `${String(-Math.min(spent, toast.ms))}ms`;
+      }
+    });
     const timer = setInterval(() => {
       const now = Date.now();
       const dt = now - last.current;
@@ -45,10 +59,11 @@ function Toast({ toast }: { readonly toast: ToastData }) {
     }, tickMs);
     return () => {
       clearInterval(timer);
+      stopMoved();
       el?.removeEventListener("mouseenter", enter);
       el?.removeEventListener("mouseleave", leave);
     };
-  }, [toast.id]);
+  }, [toast.id, toast.ms]);
   return (
     <div ref={element} className="toast" role="status">
       <span className={cx("ti", toast.tone === "good" && "good")}>
@@ -82,7 +97,7 @@ function Toast({ toast }: { readonly toast: ToastData }) {
       >
         <Icon name="x" size={14} />
       </button>
-      <i className="life" style={{ animationDuration: `${String(toast.ms)}ms` }}></i>
+      <i ref={life} className="life" style={{ animationDuration: `${String(toast.ms)}ms` }}></i>
     </div>
   );
 }

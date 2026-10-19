@@ -1,15 +1,33 @@
 import { Avatar, Icon, avatarColor } from "@gratovo/ui";
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { setPalette } from "../lib/actions";
 import { quietAnimations, useKeys } from "../lib/keys";
 import { useApp } from "../lib/store";
 import { strings } from "../strings";
 import { buildCommands } from "./commands";
+import type { Command } from "./commands";
 import { ModalLayer } from "./modal-layer";
 
 const listId = "palette-list";
 const optionId = (i: number): string => `palette-option-${String(i)}`;
+const groupId = (i: number): string => `palette-group-${String(i)}`;
+
+/** The rows in runs of the same group, each with the index of its first row. */
+function groupRuns(
+  list: readonly Command[],
+): { readonly start: number; readonly rows: Command[] }[] {
+  const runs: { start: number; rows: Command[] }[] = [];
+  list.forEach((command, i) => {
+    const last = runs.at(-1);
+    if (last !== undefined && last.rows[0]?.group === command.group) {
+      last.rows.push(command);
+    } else {
+      runs.push({ start: i, rows: [command] });
+    }
+  });
+  return runs;
+}
 
 function close(): void {
   setPalette(false);
@@ -33,7 +51,11 @@ function PaletteBody() {
 
   const list = useMemo(() => buildCommands(data, recent, query), [data, recent, query]);
   const index = Math.min(selected, Math.max(0, list.length - 1));
-  const run = (i: number): void => {
+  // Keep the selected row in sight while the arrows move past the bottom (or top) of the list.
+  useEffect(() => {
+    document.getElementById(optionId(index))?.scrollIntoView({ block: "nearest" });
+  }, [index]);
+  const choose = (i: number): void => {
     const command = list[i];
     if (command !== undefined) {
       close();
@@ -64,7 +86,7 @@ function PaletteBody() {
               } else if (event.key === "Enter") {
                 event.preventDefault();
                 quietAnimations();
-                run(index);
+                choose(index);
               } else if (event.key === "Escape") {
                 event.preventDefault();
                 close();
@@ -81,50 +103,62 @@ function PaletteBody() {
           <span className="kbd">{strings.keys.esc}</span>
         </div>
         <div className="pal-list" role="listbox" id={listId} aria-label={strings.palette.label}>
-          {list.map((command, i) => {
-            const heading = list[i - 1]?.group === command.group ? null : command.group;
-            return (
-              <Fragment key={`${command.group}${command.label}${String(i)}`}>
-                {heading === null ? null : <div className="pal-g">{heading}</div>}
-                <button
-                  type="button"
-                  id={optionId(i)}
-                  className="pal-i"
-                  role="option"
-                  aria-selected={i === index}
-                  tabIndex={-1}
-                  onMouseMove={() => {
-                    if (i !== index) {
-                      setSelected(i);
-                    }
-                  }}
-                  onClick={() => {
-                    run(i);
-                  }}
-                >
-                  {command.avatar === undefined ? (
-                    <Icon name={command.icon} />
-                  ) : (
-                    <Avatar
-                      name={command.avatar.name}
-                      color={avatarColor(command.avatar.seed)}
-                      size="s"
-                    />
-                  )}
-                  <span className="grow ell">
-                    {command.label}
-                    {command.sub === undefined ? null : (
-                      <>
-                        {" "}
-                        <small>{command.sub}</small>
-                      </>
+          {groupRuns(list).map((group) => (
+            <div
+              key={`${group.rows[0]?.group ?? ""}${String(group.start)}`}
+              role="group"
+              aria-labelledby={groupId(group.start)}
+            >
+              <div className="pal-g" id={groupId(group.start)} role="presentation">
+                {group.rows[0]?.group}
+              </div>
+              {group.rows.map((command, k) => {
+                const i = group.start + k;
+                return (
+                  <button
+                    key={`${command.label}${String(i)}`}
+                    type="button"
+                    id={optionId(i)}
+                    className="pal-i"
+                    role="option"
+                    aria-selected={i === index}
+                    tabIndex={-1}
+                    onMouseMove={() => {
+                      if (i !== index) {
+                        setSelected(i);
+                      }
+                    }}
+                    onClick={() => {
+                      choose(i);
+                    }}
+                  >
+                    {command.avatar === undefined ? (
+                      <Icon name={command.icon} />
+                    ) : (
+                      <Avatar
+                        name={command.avatar.name}
+                        color={avatarColor(command.avatar.seed)}
+                        size="s"
+                        decorative
+                      />
                     )}
-                  </span>
-                  {command.hint === undefined ? null : <span className="kbd">{command.hint}</span>}
-                </button>
-              </Fragment>
-            );
-          })}
+                    <span className="grow ell">
+                      {command.label}
+                      {command.sub === undefined ? null : (
+                        <>
+                          {" "}
+                          <small>{command.sub}</small>
+                        </>
+                      )}
+                    </span>
+                    {command.hint === undefined ? null : (
+                      <span className="kbd">{command.hint}</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
           {list.length === 0 ? (
             <p className="hint" style={{ padding: "14px" }}>
               {strings.palette.empty(query)}

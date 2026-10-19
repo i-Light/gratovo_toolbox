@@ -71,13 +71,25 @@ test.describe("the overlays", () => {
     await expect(toastSaying(page, actions.redone)).toBeVisible();
   });
 
-  test("opens the account menu on the first item and gives focus back on Esc", async ({ page }) => {
+  test("opens the account menu on the first item and gives focus back on Esc and Tab", async ({
+    page,
+  }) => {
     await accountButton(page).click();
     const menuBox = page.getByRole("menu");
     await expect(menuBox.getByRole("menuitem", { name: menu.settings })).toBeVisible();
     await expect(menuBox.getByRole("menuitem").first()).toBeFocused();
 
+    await page.keyboard.press("ArrowDown");
+    await expect(menuBox.getByRole("menuitem").nth(1)).toBeFocused();
+
     await page.keyboard.press("Escape");
+    await expect(menuBox).toBeHidden();
+    await expect(accountButton(page)).toBeFocused();
+
+    // Tab leaves the menu: it closes, and focus is back on its button.
+    await accountButton(page).click();
+    await expect(menuBox.getByRole("menuitem").first()).toBeFocused();
+    await page.keyboard.press("Tab");
     await expect(menuBox).toBeHidden();
     await expect(accountButton(page)).toBeFocused();
   });

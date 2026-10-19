@@ -322,7 +322,7 @@ describe("go with overlays", () => {
   function openOverlays(): void {
     appStore().ui((ui) => {
       ui.peek = { record: ref, list: null };
-      ui.menu = { x: 1, y: 2, right: 3, top: 0, align: "start", items: [] };
+      ui.menu = { label: "Account", x: 1, y: 2, right: 3, top: 0, align: "start", items: [] };
     });
   }
 
@@ -350,6 +350,22 @@ describe("go with overlays", () => {
     });
     forward();
     expect(appStore().getState().ui.peek).toBeNull();
+  });
+
+  it("keeps the menu and the peek when the route doesn't change, as the prototype does", () => {
+    go("find", "search");
+    openOverlays();
+    go("find", "search");
+    expect(appStore().getState().ui.menu).not.toBeNull();
+    expect(appStore().getState().ui.peek?.record).toEqual(ref);
+  });
+
+  it("keeps the peek when back or forward has nowhere to go", () => {
+    openOverlays();
+    back();
+    expect(appStore().getState().ui.peek?.record).toEqual(ref);
+    forward();
+    expect(appStore().getState().ui.peek?.record).toEqual(ref);
   });
 
   it("opens a record route with its record and origin", () => {

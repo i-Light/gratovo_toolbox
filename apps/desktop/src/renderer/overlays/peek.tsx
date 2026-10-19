@@ -1,6 +1,7 @@
 import { Btn, IconBtn } from "@gratovo/ui";
 
 import { closePeek, openRecord, stepPeek } from "../lib/actions";
+import { useReturnFocus } from "../lib/focus";
 import { useKeys } from "../lib/keys";
 import { useApp } from "../lib/store";
 import { strings } from "../strings";
@@ -10,7 +11,7 @@ import { RecordSummary } from "./record-summary";
  * The side panel that shows a record next to the list. Previous and Next step through the list the
  * record was opened from; Full page opens the record on its own page. Its key layer is on only
  * while it is open (Esc, Alt+Up, Alt+Down) and is not a barrier, so keys it ignores still reach
- * the screen.
+ * the screen. Closed with focus inside it, it gives focus back to what had it before.
  */
 export function Peek() {
   const peek = useApp((s) => s.ui.peek);
@@ -26,6 +27,7 @@ export function Peek() {
     },
     { active: peek !== null },
   );
+  useReturnFocus(peek !== null);
   if (peek === null) {
     return null;
   }

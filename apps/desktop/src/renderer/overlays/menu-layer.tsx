@@ -45,8 +45,16 @@ function MenuBody({ menu }: { readonly menu: OpenMenu }) {
     const x = clamp(wanted, 8, window.innerWidth - w - 8);
     const y = menu.y + h > window.innerHeight - 8 ? Math.max(8, menu.top - h - 4) : menu.y;
     setPos({ x, y });
-    el.querySelector("button")?.focus();
   }, [menu]);
+
+  // The first item takes focus once the menu is placed and shown: while it is still hidden for
+  // measuring, the browser refuses to focus anything in it.
+  const placed = pos !== null;
+  useLayoutEffect(() => {
+    if (placed) {
+      ref.current?.querySelector("button")?.focus();
+    }
+  }, [placed]);
 
   // A press outside closes it. Added after a tick so the press that opened it does not count.
   useEffect(() => {
@@ -71,6 +79,10 @@ function MenuBody({ menu }: { readonly menu: OpenMenu }) {
   useKeys(
     {
       escape: closeMenu,
+      // Tab leaves the menu: it closes, and focus goes back to its button (as Esc does), so the
+      // menu never stays open, holding the keys, after focus has moved on.
+      tab: closeMenu,
+      "shift+tab": closeMenu,
       arrowdown: () => {
         focusButton(ref.current, (at) => at + 1);
       },
@@ -104,8 +116,15 @@ function MenuBody({ menu }: { readonly menu: OpenMenu }) {
     }
     if (item.kind === "who") {
       return (
-        <button key={i} type="button" role="menuitem" className="mwho" onClick={choose(item.run)}>
-          <Avatar name={item.name} color={item.color} size="l" unnamed={item.unnamed} />
+        <button
+          key={i}
+          type="button"
+          role="menuitem"
+          className="mwho"
+          tabIndex={-1}
+          onClick={choose(item.run)}
+        >
+          <Avatar name={item.name} color={item.color} size="l" unnamed={item.unnamed} decorative />
           <span className="col t2" style={{ minWidth: 0 }}>
             <b className="ell">{item.name}</b>
             <small>{item.sub}</small>
@@ -119,6 +138,7 @@ function MenuBody({ menu }: { readonly menu: OpenMenu }) {
         type="button"
         role={item.checked === undefined ? "menuitem" : "menuitemradio"}
         aria-checked={item.checked}
+        tabIndex={-1}
         {...(item.danger === true ? { style: { color: "var(--crit)" } } : {})}
         onClick={choose(item.run)}
       >
@@ -135,6 +155,7 @@ function MenuBody({ menu }: { readonly menu: OpenMenu }) {
       ref={ref}
       className="menu"
       role="menu"
+      aria-label={menu.label}
       style={{
         left: `${String(pos?.x ?? menu.x)}px`,
         top: `${String(pos?.y ?? menu.y)}px`,
@@ -148,9 +169,9 @@ function MenuBody({ menu }: { readonly menu: OpenMenu }) {
 
 /**
  * Shows the open dropdown menu (the account menu, for one). Keyed by its position so a menu opened
- * again elsewhere is placed afresh. It holds the keys as a barrier: arrows, Home, End move focus,
- * Esc closes. It shows above any open dialog. Reads only `ui.menu`, so the frame does not
- * re-render when it opens.
+ * again elsewhere is placed afresh. It holds the keys as a barrier: arrows, Home, End move focus
+ * (its items are out of the Tab order), Esc and Tab close it. It shows above any open dialog.
+ * Reads only `ui.menu`, so the frame does not re-render when it opens.
  */
 export function MenuLayer() {
   const menu = useApp((s) => s.ui.menu);

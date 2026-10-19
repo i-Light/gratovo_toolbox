@@ -51,6 +51,16 @@ describe("Esc closes the layer opened last (E2)", () => {
     expect(peekPanel()).toBeNull();
   });
 
+  it("closes a tray switched to after the peek first", async () => {
+    render(<App />);
+    await userEvent.click(screen.getByRole("button", { name: strings.top.jobs }));
+    openPeek();
+    await userEvent.click(screen.getByRole("button", { name: strings.top.notifications }));
+    escape();
+    expect(tray()).toBeNull();
+    expect(peekPanel()).not.toBeNull();
+  });
+
   it("closes a peek opened after the tray first", async () => {
     render(<App />);
     await userEvent.click(screen.getByRole("button", { name: strings.top.notifications }));

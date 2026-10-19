@@ -259,7 +259,7 @@ export function closeTray(): void {
   });
 }
 
-/** Opens a menu 4 px under the control it belongs to (`anchor` is that control's box). */
+/** Opens a menu, named `label`, 4 px under the control it belongs to (`anchor` is that control's box). */
 export function openMenu(
   anchor: {
     readonly left: number;
@@ -268,10 +268,12 @@ export function openMenu(
     readonly bottom: number;
   },
   items: readonly MenuItem[],
+  label: string,
   align: "start" | "end" = "start",
 ): void {
   appStore().ui((ui) => {
     ui.menu = {
+      label,
       x: anchor.left,
       y: anchor.bottom + 4,
       right: anchor.right,

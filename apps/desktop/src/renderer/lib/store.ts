@@ -169,6 +169,8 @@ export type MenuItem =
 
 /** A dropdown menu that is open: where it sits and what it holds. */
 export interface OpenMenu {
+  /** The menu's accessible name; it also tells which menu is open (the account button's `aria-expanded`). */
+  readonly label: string;
   readonly x: number;
   readonly y: number;
   readonly right: number;
@@ -359,9 +361,10 @@ export interface GoOptions {
 /**
  * Opens a screen and adds it to the history (not when it is the route already). An explicit `tab`
  * is used if the screen has it, otherwise the first tab. With no `tab`, the last tab used on that
- * screen, else the first. Closes the narrow drawer and any open menu, and the peek unless
- * `options.keepPeek`. `options.record` and `options.from` make the record page's route. The frame
- * scrolls the content to the top.
+ * screen, else the first. Closes the narrow drawer; when the route changes it also closes any open
+ * menu, and the peek unless `options.keepPeek` (staying put keeps them, as in the prototype).
+ * `options.record` and `options.from` make the record page's route. The frame scrolls the content
+ * to the top.
  */
 export function go(screen: ScreenKey, tab?: string | null, options: GoOptions = {}): void {
   const store = current;
@@ -376,21 +379,28 @@ export function go(screen: ScreenKey, tab?: string | null, options: GoOptions = 
     ...(options.from === undefined ? {} : { from: options.from }),
   };
   const history = pushRoute(ui.history, route, sameRoute);
+  const moved = history !== ui.history;
   store.ui((draft) => {
     draft.history = history as typeof draft.history; // immer drafts drop `readonly` on arrays
     draft.railOpen = false;
-    draft.menu = null;
-    if (options.keepPeek !== true) {
-      draft.peek = null;
+    if (moved) {
+      draft.menu = null;
+      if (options.keepPeek !== true) {
+        draft.peek = null;
+      }
     }
     recordLastTab(draft, route);
   });
 }
 
-/** One step back in the app's own history. Closes the peek. */
-export function back(): void {
+/** Moves through the app's own history; closes the peek when it actually moves. */
+function stepHistory(step: typeof stepBack): void {
   const store = current;
-  const history = stepBack(store.getState().ui.history);
+  const before = store.getState().ui.history;
+  const history = step(before);
+  if (history === before) {
+    return;
+  }
   store.ui((draft) => {
     draft.history = history as typeof draft.history; // immer drafts drop `readonly` on arrays
     draft.peek = null;
@@ -398,15 +408,14 @@ export function back(): void {
   });
 }
 
-/** One step forward in the app's own history. Closes the peek. */
+/** One step back in the app's own history (nothing at the start). Closes the peek. */
+export function back(): void {
+  stepHistory(stepBack);
+}
+
+/** One step forward in the app's own history (nothing at the end). Closes the peek. */
 export function forward(): void {
-  const store = current;
-  const history = stepForward(store.getState().ui.history);
-  store.ui((draft) => {
-    draft.history = history as typeof draft.history; // immer drafts drop `readonly` on arrays
-    draft.peek = null;
-    recordLastTab(draft, currentRoute(history));
-  });
+  stepHistory(stepForward);
 }
 
 /** Opens or closes the narrow-width drawer. */

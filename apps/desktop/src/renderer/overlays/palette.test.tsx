@@ -6,7 +6,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { App } from "../app/app";
 import { peek } from "../lib/actions";
 import { initPrefs } from "../lib/prefs";
-import { appStore, resetAppStoreForTests, selectRoute } from "../lib/store";
+import { firstTab } from "../lib/routes";
+import { appStore, go, resetAppStoreForTests, selectRoute } from "../lib/store";
 import { strings } from "../strings";
 
 const text = strings.palette;
@@ -33,6 +34,31 @@ const headings = (dialog: HTMLElement) =>
   Array.from(dialog.querySelectorAll(".pal-g"), (el) => el.textContent);
 
 describe("the command palette", () => {
+  it("puts its rows in groups named by their headings", () => {
+    render(<App />);
+    openPalette();
+    const list = screen.getByRole("listbox");
+    expect(within(list).getByRole("group", { name: text.groups.actions })).toBeTruthy();
+    const goTo = within(list).getByRole("group", { name: text.groups.goTo });
+    expect(within(goTo).getAllByRole("option")[0]?.textContent).toContain(
+      strings.screens.today.name,
+    );
+  });
+
+  it("opens a screen from Go to on its first tab, as G then its letter does", async () => {
+    render(<App />);
+    act(() => {
+      go("find", "contacts");
+      go("today");
+    });
+    openPalette();
+    await userEvent.type(input(), strings.screens.find.name);
+    const row = options().find((o) => o.textContent.startsWith(strings.screens.find.name));
+    if (row === undefined) throw new Error("no Find row");
+    await userEvent.click(row);
+    expect(route()).toEqual({ screen: "find", tab: firstTab("find") });
+  });
+
   it("opens with Ctrl+K, focuses the input and lists Actions then Go to", () => {
     render(<App />);
     expect(screen.queryByRole("dialog", { name: text.label })).toBeNull();

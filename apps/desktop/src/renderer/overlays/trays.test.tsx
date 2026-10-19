@@ -26,6 +26,15 @@ const markAll = () => screen.getByRole("button", { name: strings.trays.markAllRe
 const badge = () => within(bell()).queryByText(/^\d+$/)?.textContent;
 
 describe("the notifications tray", () => {
+  it("gives focus back to the bell when Esc closes it with focus inside", async () => {
+    render(<App />);
+    await userEvent.click(bell());
+    markAll().focus();
+    press("Escape");
+    expect(notificationsTray()).toBeNull();
+    expect(document.activeElement).toBe(bell());
+  });
+
   it("toggles with the bell and shows it pressed", async () => {
     render(<App />);
     expect(bell().getAttribute("aria-pressed")).toBe("false");

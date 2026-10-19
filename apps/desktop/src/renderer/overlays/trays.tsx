@@ -3,6 +3,7 @@ import { Fragment, useEffect, useRef, useState } from "react";
 
 import { closeTray, markAllRead, readNotification } from "../lib/actions";
 import { ago, clock } from "../lib/format";
+import { useReturnFocus } from "../lib/focus";
 import { useKeys } from "../lib/keys";
 import { go, useApp } from "../lib/store";
 import type { Job } from "../lib/store";
@@ -43,8 +44,14 @@ function JobRow({ job }: { readonly job: Job }) {
   );
 }
 
+/** Esc closes the open tray. Each tray adds its own layer, so the one opened last is on top (E2). */
+function useTrayKeys(): void {
+  useKeys({ escape: closeTray });
+}
+
 /** What is running in the background: your own jobs, then a teammate's search. */
 function JobsTray() {
+  useTrayKeys();
   const jobs = useApp((s) => s.ui.jobs);
   const mate = useApp((s) => s.data.mateRun);
   const mateName = useApp((s) => s.data.team.find((m) => m.id === mate?.by));
@@ -71,6 +78,7 @@ function JobsTray() {
               size="s"
               status="online"
               tip={strings.rail.memberTip(mateName.name, mateName.role)}
+              decorative
             />
             <div className="tx">
               {trays.mateRunning(mateName.name, mate.current, mate.total)}
@@ -98,6 +106,7 @@ function JobsTray() {
 
 /** The bell's list: newest first as stored, unread ones marked with a dot. */
 function NotificationsTray() {
+  useTrayKeys();
   const notifications = useApp((s) => s.data.notifications);
   const [now] = useState(() => Date.now());
   return (
@@ -158,12 +167,13 @@ function NotificationsTray() {
 /**
  * The jobs and notifications trays under the top bar. One tray is open at a time (`ui.tray`). A
  * press outside closes it, except on the top bar, whose buttons toggle it; Esc closes it too, as
- * a plain key layer, so the layer opened last closes first (E2).
+ * a plain key layer, so the layer opened last closes first (E2). Closed with focus inside it, it
+ * gives focus back to the button that opened it.
  */
 export function Trays() {
   const tray = useApp((s) => s.ui.tray);
   const ref = useRef<HTMLDivElement>(null);
-  useKeys({ escape: closeTray }, { active: tray !== null });
+  useReturnFocus(tray !== null);
   useEffect(() => {
     if (tray === null) {
       return undefined;

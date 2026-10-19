@@ -17,9 +17,9 @@ const tileStyle: CSSProperties = {
 };
 
 /**
- * A short summary of one record: who or what it is, its main line and a note that the full record
- * arrives with its screen. It stands in for the real record (steps 4 to 9) in the peek panel and
- * on the record page, so both already have something true to show.
+ * A short summary of one record: its kind, who or what it is, its main line and a note that the
+ * full record arrives with its screen. It stands in for the real record (steps 4 to 9) in the peek
+ * panel and on the record page, so both already have something true to show.
  */
 export function RecordSummary({ record }: { readonly record: RecordRef }) {
   const data = useApp((s) => s.data);
@@ -27,48 +27,41 @@ export function RecordSummary({ record }: { readonly record: RecordRef }) {
   if (found === undefined) {
     return <p className="hint">{strings.record.notFound}</p>;
   }
-  let head;
+  let face;
+  let title: string;
+  let sub: string;
   if (record.kind === "creator" && "handle" in found) {
-    head = (
-      <>
-        <Avatar name={found.name} color={avatarColor(found.handle)} size="xl" />
-        <div className="col tight" style={{ minWidth: 0 }}>
-          <h2 className="ell">{found.name}</h2>
-          <span className="small muted">{creatorSub(found)}</span>
-        </div>
-      </>
-    );
+    face = <Avatar name={found.name} color={avatarColor(found.handle)} size="xl" decorative />;
+    title = found.name;
+    sub = creatorSub(found);
   } else if (record.kind === "brand" && "sells" in found) {
-    head = (
-      <>
-        <span style={tileStyle}>
-          <Icon name="flag" size={20} />
-        </span>
-        <div className="col tight" style={{ minWidth: 0 }}>
-          <h2 className="ell">{found.name}</h2>
-          <span className="small muted">{brandSub(found)}</span>
-        </div>
-      </>
+    face = (
+      <span style={tileStyle}>
+        <Icon name="flag" size={20} />
+      </span>
     );
+    title = found.name;
+    sub = brandSub(found);
   } else if ("brand" in found) {
-    head = (
-      <>
-        <span style={tileStyle}>
-          <Icon name="box" size={20} />
-        </span>
-        <div className="col tight" style={{ minWidth: 0 }}>
-          <h2 className="ell">{dealName(data, found)}</h2>
-          <span className="small muted">{dealSub(found)}</span>
-        </div>
-      </>
+    face = (
+      <span style={tileStyle}>
+        <Icon name="box" size={20} />
+      </span>
     );
+    title = dealName(data, found);
+    sub = dealSub(found);
   } else {
     return <p className="hint">{strings.record.notFound}</p>;
   }
   return (
     <>
       <div className="row" style={{ gap: "12px" }}>
-        {head}
+        {face}
+        <div className="col tight" style={{ minWidth: 0 }}>
+          <span className="small muted">{strings.record.kinds[record.kind]}</span>
+          <h2 className="ell">{title}</h2>
+          <span className="small muted">{sub}</span>
+        </div>
       </div>
       <p className="hint">{strings.record.fullRecordLater}</p>
     </>

@@ -41,7 +41,13 @@ Lead review of P3 (looked at `scratchpad/shots/p3/*` next to the prototype, ligh
 
 Lead review of P4: Playwright's `getByText(…, { exact: true })` compares an element's whole text, children included, so "Undone" (with its sub line) never matched; toasts are now found by role and the words they contain. The Tab test now checks that focus never lands behind the palette (past its last control Chromium may leave focus on the page). Starting the app in the e2e fixture has its own 60 s limit: on main after #6, a busy runner took over 30 s to start the app (the re-run passed).
 
-- Next: P5 (review agent, Windows CI, docs, PR).
+P5, lead:
+- Review agent (13 findings, none critical or high), all handled:
+  - Fixed: toasts kept their animation place when the floating container moves (`onFloatingMoved`; checked in Chromium: the life bar goes on at 37 %, 54 %, 68 % across the palette opening and closing, where it restarted before); Tab and Shift+Tab close a menu, whose items leave the Tab order; "Go to" rows open the first tab; each tray has its own Esc layer, so switching trays puts it on top; `go` keeps the menu and peek when the route doesn't change, and back and forward keep the peek when they can't move (as the prototype); the selected palette row scrolls into view; palette rows sit in `role="group"`s named by their headings; `Avatar decorative` where the name is written beside it; the account menu is named and its button has `aria-expanded`; the peek and trays give focus back when closed with focus inside (`lib/focus.ts`); the record summary shows its kind and unused strings are gone; the rail no longer re-renders on a theme change.
+  - Recorded instead (ADR 0009, decisions 18 and 20): the empty palette's first five actions; the tooltip's warm-up counting from the last tip hiding.
+- First Windows run of the overlay e2e tests (run 39321168249): 32 of 33 passed. The account menu's first item never took focus: it was focused while the menu was still `visibility: hidden` for measuring (the prototype too; happy-dom doesn't check). Now focused once the menu is placed; checked in Chromium (open, ArrowDown, Tab, Esc).
+
+- Next: open the 3c-2 pull request, drive it green, merge; then 3c-3.
 
 ## Notes for 3c-2
 

@@ -2,7 +2,7 @@ import type { IconName } from "@gratovo/ui";
 
 import { cycleTheme, peek, setShortcuts, undo } from "../lib/actions";
 import { getPrefs, setPref } from "../lib/prefs";
-import { goLetters, screenOrder, screens } from "../lib/routes";
+import { firstTab, goLetters, screenOrder, screens } from "../lib/routes";
 import type { RecordRef } from "../lib/routes";
 import { dealName, findRecord, go, recordName } from "../lib/store";
 import type { AppData } from "../lib/store";
@@ -75,7 +75,7 @@ export function actionCommands(): readonly Command[] {
   ];
 }
 
-/** "Go to" rows: every screen in the rail's order, with its "G then a letter" hint. */
+/** "Go to" rows: every screen in the rail's order, on its first tab, as "G then a letter" opens it. */
 export function goCommands(): readonly Command[] {
   const letterOf = new Map(Object.entries(goLetters).map(([letter, key]) => [key, letter]));
   return screenOrder.map((key) => {
@@ -86,7 +86,7 @@ export function goCommands(): readonly Command[] {
       label: screens[key].name,
       ...(letter === undefined ? {} : { hint: strings.palette.goHint(letter) }),
       run: () => {
-        go(key);
+        go(key, firstTab(key));
       },
     };
   });

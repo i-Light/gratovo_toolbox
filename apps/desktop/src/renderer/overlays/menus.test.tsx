@@ -104,6 +104,31 @@ describe("the account menu", () => {
     expect(within(crumbs).getByText(strings.screens.settings.tabs.profile)).toBeTruthy();
   });
 
+  it("is named, tells its button it is open, and keeps its items out of the Tab order", async () => {
+    render(<App />);
+    expect(account().getAttribute("aria-expanded")).toBe("false");
+    const menu = await openAccountMenu();
+    expect(menu.getAttribute("aria-label")).toBe(strings.menu.account);
+    expect(account().getAttribute("aria-expanded")).toBe("true");
+    for (const item of items()) {
+      expect(item.getAttribute("tabindex")).toBe("-1");
+    }
+    // The who row's avatar is hidden from screen readers, so the name is read once.
+    expect(items()[0]?.querySelector('[role="img"]')).toBeNull();
+  });
+
+  it("closes on Tab and Shift+Tab, giving focus back to the account button", async () => {
+    render(<App />);
+    await openAccountMenu();
+    press("Tab");
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(document.activeElement).toBe(account());
+    expect(account().getAttribute("aria-expanded")).toBe("false");
+    await openAccountMenu();
+    press("Tab", { shiftKey: true });
+    expect(screen.queryByRole("menu")).toBeNull();
+  });
+
   it("opens the shortcut sheet from Keyboard shortcuts", async () => {
     render(<App />);
     await openAccountMenu();

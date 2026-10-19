@@ -7,6 +7,7 @@ import { toast } from "../lib/actions";
 import { initPrefs } from "../lib/prefs";
 import { appStore, resetAppStoreForTests } from "../lib/store";
 import { strings } from "../strings";
+import { hostFloating } from "./floating";
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -37,6 +38,23 @@ const dispatchMouse = (el: Element, type: "mouseenter" | "mouseleave") => {
 };
 
 describe("toasts", () => {
+  it("picks its animations up where they were when a dialog opens and moves it", () => {
+    render(<App />);
+    show("Moved", 4000);
+    advance(1000);
+    const dialog = document.createElement("dialog");
+    document.body.append(dialog);
+    const release = hostFloating(dialog);
+    const el = document.querySelector<HTMLElement>(".toast");
+    if (el === null) throw new Error("no toast");
+    expect(el.closest("dialog")).toBe(dialog);
+    // The slide-in is over, and the life bar goes on from 1 s in, not from the start.
+    expect(el.style.animation).toBe("none");
+    expect(el.querySelector<HTMLElement>(".life")?.style.animationDelay).toBe("-1000ms");
+    release();
+    dialog.remove();
+  });
+
   it("shows at most three, dropping the oldest", () => {
     render(<App />);
     for (const msg of ["one", "two", "three", "four"]) {

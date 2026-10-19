@@ -29,6 +29,32 @@ const openFromPalette = async (name: string) => {
 };
 
 describe("the peek", () => {
+  it("says what kind of record it shows", () => {
+    render(<App />);
+    act(() => {
+      peek({ kind: "brand", id: "b4" });
+    });
+    const side = panel();
+    if (side === null) throw new Error("no peek");
+    expect(within(side).getByText(strings.record.kinds.brand)).toBeTruthy();
+    expect(within(side).getByRole("heading", { name: "Pagewise" })).toBeTruthy();
+  });
+
+  it("gives focus back to what had it when Esc closes it with focus inside", () => {
+    render(<App />);
+    const bell = screen.getByRole("button", { name: strings.top.notifications });
+    bell.focus();
+    act(() => {
+      peek({ kind: "creator", id: "c1" });
+    });
+    const side = panel();
+    if (side === null) throw new Error("no peek");
+    within(side).getByRole("button", { name: strings.peek.close }).focus();
+    press("Escape");
+    expect(panel()).toBeNull();
+    expect(document.activeElement).toBe(bell);
+  });
+
   it("opens from the palette with the record's summary", async () => {
     render(<App />);
     expect(hasPeek()).toBe(false);
