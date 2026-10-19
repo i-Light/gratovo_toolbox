@@ -4,11 +4,12 @@ The rebuild of Gratovo's internal app. Electron, React and TypeScript for the de
 
 ## Read first, every session
 
-1. [docs/handoff.md](docs/handoff.md): where work stopped, what is next, and how to check it.
-2. [docs/migration-plan.md](docs/migration-plan.md): the steps, in order, with acceptance checks.
-3. Before you touch a topic, read the matching doc in [docs/](docs/README.md): architecture, conventions, workflow, or a decision record.
+1. [docs/migration-plan.md](docs/migration-plan.md): the steps, in order, with acceptance checks. Its status table (§5) says where work stands and what is next.
+2. `.router/PROGRESS.md`, if it exists: the step in progress, where it stopped and what is next.
+3. [docs/workflow.md](docs/workflow.md): how a step runs, how to set up the tools, and the lessons so far.
+4. Before you touch a topic, read the matching doc in [docs/](docs/README.md): architecture, conventions, workflow, or a decision record.
 
-When you finish a piece of work, update `docs/handoff.md` and the plan's status table **in the same commit**. Cloud sessions see only this repository, so anything not committed is lost.
+When you finish a piece of work, update the plan's status table (and `.router/PROGRESS.md` while a step is in progress) **in the same commit**. There is no hand-off file: the owner removed it on 2026-10-20. Cloud sessions see only this repository, so anything not committed is lost.
 
 ## The owner's standing rules
 
@@ -44,7 +45,7 @@ These come from the owner and hold until the owner changes them. The detail and 
 
 ## Commands
 
-Node 24.22.0, pnpm 12, uv and gitleaks. A cloud container lacks most of them: [docs/handoff.md](docs/handoff.md) says how to get them.
+Node 24.22.0, pnpm 12, uv and gitleaks. A cloud container lacks most of them: [docs/workflow.md](docs/workflow.md#setting-up-and-things-to-know) says how to get them, on Windows and in the cloud.
 
 - `pnpm install`: dependencies and the git hooks.
 - `pnpm lint`, `pnpm typecheck`, `pnpm test`: each covers TypeScript and Python. All three must pass.

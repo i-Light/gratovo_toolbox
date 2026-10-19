@@ -1,12 +1,12 @@
 # Helper scripts for the lead's checks
 
-These lived in a session's scratch folder; they are kept here (as text, so lint and Prettier leave them alone) so a new session can recreate them. Copy one into your scratch folder as a `.cjs` file and run it with `node` after `pnpm --filter @gratovo/desktop build`. They are dev aids, not part of the app.
+These lived in a session's scratch folder; they are kept here as text so a new session can recreate them. Accessibility is now checked by `apps/desktop/e2e/accessibility.spec.ts`, so the axe script below is only for a quick look outside Electron. Copy one into your scratch folder as a `.cjs` file and run it with `node` after `pnpm --filter @gratovo/desktop build`. They are dev aids, not part of the app.
 
 The browser path is the cloud container's (`ls /opt/pw-browsers` if it differs). `<repo>` paths assume the clone is at `/home/user/gratovo_toolbox`.
 
 ## Toolchain on PATH (cloud container)
 
-After installing Node 24.22.0, pnpm 12 and uv as `docs/handoff.md` says ("Tools a cloud container lacks"), each shell starts with:
+After installing Node 24.22.0, pnpm 12 and uv as [workflow.md](workflow.md#setting-up-and-things-to-know) says ("Tools a cloud container lacks"), each shell starts with:
 
 ```sh
 export PATH=/root/.local/opt/uv-bin:/root/.local/opt/node-v24.22.0-linux-x64/bin:/root/.local/bin:$PATH
