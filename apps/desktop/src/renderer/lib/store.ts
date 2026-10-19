@@ -12,8 +12,10 @@ import { useSyncExternalStore } from "react";
 
 import { strings } from "../strings";
 import { exampleData } from "./example-data";
+import { getPrefs } from "./prefs";
 import { firstTab, routeFromHash, routeToHash, sameRoute, screens } from "./routes";
 import type { RecordRef, Route, ScreenKey } from "./routes";
+import type { NotifyKind, RowId } from "./settings";
 
 /** A person on the team. */
 export interface Member {
@@ -124,6 +126,8 @@ export interface AppData {
   readonly brands: readonly Brand[];
   readonly deals: readonly Deal[];
   readonly mateRun: MateRun | null;
+  /** Team-wide settings. A notification kind is on unless it is false here. */
+  readonly settings: { readonly notify: Readonly<Partial<Record<NotifyKind, boolean>>> };
 }
 
 /** A button on a toast. */
@@ -220,15 +224,25 @@ export interface AppUi {
   /** Records opened lately, newest first, at most 8. */
   readonly recent: readonly RecordRef[];
   readonly jobs: readonly Job[];
+  /** The setting that just saved, for its "Saved" mark. */
+  readonly settingFlash: { readonly id: RowId; readonly at: number } | null;
+  /** The setting to scroll to, highlight and focus once its section shows. */
+  readonly settingTarget: RowId | null;
 }
 
 /** The whole state the app store holds. */
 export type AppState = StoreState<AppData, AppUi>;
 
+/** The data with `myName` taken from the saved `name` preference (null when none is saved). */
+function withSavedName(data: AppData): AppData {
+  const name = getPrefs().name;
+  return name === "" ? data : { ...data, myName: name };
+}
+
 /** Makes a store holding the example data, starting on `start`. */
 export function createAppStore(start: Route, now: number = Date.now()): Store<AppData, AppUi> {
   return createStore<AppData, AppUi>({
-    data: exampleData(now),
+    data: withSavedName(exampleData(now)),
     ui: {
       history: startHistory(start),
       railOpen: false,
@@ -243,6 +257,8 @@ export function createAppStore(start: Route, now: number = Date.now()): Store<Ap
       toasts: [],
       recent: [],
       jobs: [],
+      settingFlash: null,
+      settingTarget: null,
     },
   });
 }

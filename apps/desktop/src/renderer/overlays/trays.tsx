@@ -1,10 +1,11 @@
 import { Avatar, Btn, Icon, IconBtn, avatarColor, cx } from "@gratovo/ui";
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 
 import { closeTray, markAllRead, readNotification } from "../lib/actions";
 import { ago, clock } from "../lib/format";
 import { useReturnFocus } from "../lib/focus";
 import { useKeys } from "../lib/keys";
+import { notifShown } from "../lib/settings";
 import { go, useApp } from "../lib/store";
 import type { Job } from "../lib/store";
 import { strings } from "../strings";
@@ -107,7 +108,11 @@ function JobsTray() {
 /** The bell's list: newest first as stored, unread ones marked with a dot. */
 function NotificationsTray() {
   useTrayKeys();
-  const notifications = useApp((s) => s.data.notifications);
+  const data = useApp((s) => s.data);
+  const notifications = useMemo(
+    () => data.notifications.filter((n) => notifShown(data, n)),
+    [data],
+  );
   const [now] = useState(() => Date.now());
   return (
     <div className="tray" role="dialog" aria-label={strings.top.notifications}>

@@ -97,6 +97,7 @@ export function exampleData(now: number): AppData {
     brands,
     deals,
     mateRun: mateRun(at(0, 9, 2)),
+    settings: { notify: {} },
   };
 }
 
