@@ -29,33 +29,48 @@ function environmentWith(extra: Record<string, string>): Record<string, string> 
   return { ...Object.fromEntries(current), ...extra };
 }
 
+/**
+ * Starting the app has its own time limit, apart from the test's 30 s: a busy CI runner once took
+ * over 30 s to start it (main, 2026-10-19; the re-run passed), and a slow start isn't the test's fault.
+ */
+const startTimeout = 60_000;
+
 /** Each test gets a fresh copy of the built app, with its own data folder, and its one window. */
 export const test = base.extend<{ app: ElectronApplication; page: Page }>({
-  // Playwright reads a fixture's dependencies from this pattern, so it can't be left out.
-  // eslint-disable-next-line no-empty-pattern
-  app: async ({}, use) => {
-    // Nothing is shared with the installed app, `pnpm dev` or the test before, so a test also
-    // runs while the app is open on the same machine.
-    const userData = await mkdtemp(join(tmpdir(), "gratovo-e2e-"));
-    const app = await electron.launch({
-      executablePath: electronBinary,
-      args: [appDir],
-      env: environmentWith({ GRATOVO_USER_DATA: userData }),
-    });
-    await use(app);
-    await app.close();
-    // Windows can hold a file for a moment after the app exits.
-    await rm(userData, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
-  },
-  page: async ({ app }, use) => {
-    const page = await app.firstWindow();
-    // firstWindow() can resolve before the app's page has loaded.
-    // The app writes "#/today" into the URL at start, so any fragment will do.
-    await page.waitForURL((url) => url.href.startsWith(appPage));
-    // The frame is there once the rail is.
-    await page.getByRole("navigation", { name: strings.rail.label }).waitFor();
-    await use(page);
-  },
+  app: [
+    // Playwright reads a fixture's dependencies from this pattern, so it can't be left out.
+    // eslint-disable-next-line no-empty-pattern
+    async ({}, use) => {
+      // Nothing is shared with the installed app, `pnpm dev` or the test before, so a test also
+      // runs while the app is open on the same machine.
+      const userData = await mkdtemp(join(tmpdir(), "gratovo-e2e-"));
+      const app = await electron.launch({
+        executablePath: electronBinary,
+        args: [appDir],
+        env: environmentWith({ GRATOVO_USER_DATA: userData }),
+        timeout: startTimeout,
+      });
+      await use(app);
+      await app.close();
+      // Windows can hold a file for a moment after the app exits.
+      await rm(userData, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+    },
+    { timeout: startTimeout },
+  ],
+  page: [
+    async ({ app }, use) => {
+      const page = await app.firstWindow({ timeout: startTimeout });
+      // firstWindow() can resolve before the app's page has loaded.
+      // The app writes "#/today" into the URL at start, so any fragment will do.
+      await page.waitForURL((url) => url.href.startsWith(appPage), { timeout: startTimeout });
+      // The frame is there once the rail is.
+      await page
+        .getByRole("navigation", { name: strings.rail.label })
+        .waitFor({ timeout: startTimeout });
+      await use(page);
+    },
+    { scope: "test", timeout: startTimeout },
+  ],
 });
 
 export { expect } from "@playwright/test";

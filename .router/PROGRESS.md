@@ -37,7 +37,11 @@ Lead review of P3 (looked at `scratchpad/shots/p3/*` next to the prototype, ligh
 - The sheet takes focus itself (`ModalLayer focusSelf`): with the native dialog, focus went to its Close button (a ring the prototype didn't show), or at 400 px to the scrolling panel (a ring round the whole sheet). `dialog.layer:focus-visible { outline: none }`, an E1 deviation.
 - Playwright's `Shift+/` sends `/` (opens the palette, in the prototype too); a real `?` is `page.keyboard.press("?")`.
 
-- Next: P4 (tests), then P5.
+| P4 tests | N | (this commit) | component tests for every overlay (445 Vitest in all), `e2e/overlays.spec.ts` (9 Electron tests) |
+
+Lead review of P4: Playwright's `getByText(…, { exact: true })` compares an element's whole text, children included, so "Undone" (with its sub line) never matched; toasts are now found by role and the words they contain. The Tab test now checks that focus never lands behind the palette (past its last control Chromium may leave focus on the page). Starting the app in the e2e fixture has its own 60 s limit: on main after #6, a busy runner took over 30 s to start the app (the re-run passed).
+
+- Next: P5 (review agent, Windows CI, docs, PR).
 
 ## Notes for 3c-2
 
