@@ -9,7 +9,9 @@ const paletteDialog = (page: Page) => page.getByRole("dialog", { name: palette.l
 const sheetDialog = (page: Page) => page.getByRole("dialog", { name: shortcuts.label });
 const peekPanel = (page: Page) => page.getByRole("complementary", { name: peek.label });
 const bell = (page: Page) =>
-  page.getByRole("button", { name: new RegExp(`^${top.notifications}`) });
+  // The whole name ("Notifications" or "Notifications, 3 unread"), so the Settings section button
+  // "Notifications" with its sub line never matches too.
+  page.getByRole("button", { name: new RegExp(`^${top.notifications}(, \\d+ unread)?$`) });
 const bellBadge = (page: Page) => bell(page).locator(".badge");
 const accountButton = (page: Page) =>
   page.getByRole("button", { name: new RegExp(strings.rail.roleOnline("Owner")) });

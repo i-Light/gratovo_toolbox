@@ -1,7 +1,7 @@
 import { Avatar, Btn, Icon, IconBtn, avatarColor, cx } from "@gratovo/ui";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 
-import { closeTray, markAllRead, readNotification } from "../lib/actions";
+import { closeTray, markAllRead, openSetting, readNotification } from "../lib/actions";
 import { ago, clock } from "../lib/format";
 import { useReturnFocus } from "../lib/focus";
 import { useKeys } from "../lib/keys";
@@ -126,7 +126,7 @@ function NotificationsTray() {
           label={trays.chooseBell}
           onClick={() => {
             closeTray();
-            go("settings", "notifications");
+            openSetting("notifications", "notify");
           }}
         />
       </div>

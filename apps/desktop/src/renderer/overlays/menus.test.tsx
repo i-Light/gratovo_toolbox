@@ -107,6 +107,21 @@ describe("the account menu", () => {
     expect(within(crumbs).getByText(strings.screens.settings.tabs.profile)).toBeTruthy();
   });
 
+  it("opens Profile at the name field from the who row, as the prototype", async () => {
+    render(<App />);
+    await openAccountMenu();
+    await userEvent.click(
+      screen.getByRole("menuitem", { name: new RegExp(`^${strings.rail.addName}`) }),
+    );
+    expect(route()).toEqual({ screen: "settings", tab: "profile" });
+    const row = document.getElementById("set-name");
+    if (row === null) throw new Error("no name row");
+    expect(row.classList.contains("hl")).toBe(true);
+    expect(document.activeElement).toBe(
+      screen.getByRole("textbox", { name: strings.settings.rows.name.label }),
+    );
+  });
+
   it("is named, tells its button it is open, and keeps its items out of the Tab order", async () => {
     render(<App />);
     expect(account().getAttribute("aria-expanded")).toBe("false");

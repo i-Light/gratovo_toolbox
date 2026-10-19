@@ -99,10 +99,25 @@ async function runScenes(page: Page): Promise<void> {
   await closeWithEscape(page, menuBox);
 
   const trayHeading = page.getByRole("heading", { name: strings.trays.notificationsHeading });
-  await page.getByRole("button", { name: new RegExp(`^${top.notifications}`) }).click();
+  await page
+    .getByRole("button", { name: new RegExp(`^${top.notifications}(, \\d+ unread)?$`) })
+    .click();
   await expect(trayHeading).toBeVisible();
   await report("notifications tray");
   await closeWithEscape(page, trayHeading);
+
+  const jobsHeading = page.getByRole("heading", { name: strings.trays.jobsHeading });
+  await page.getByRole("button", { name: top.jobs, exact: true }).click();
+  await expect(jobsHeading).toBeVisible();
+  await report("jobs tray");
+  await closeWithEscape(page, jobsHeading);
+
+  // Nothing has changed yet, so Ctrl+Z shows the "Nothing to undo" toast.
+  await page.keyboard.press("Control+Z");
+  await expect(
+    page.getByRole("status").filter({ hasText: strings.actions.nothingToUndo }),
+  ).toBeVisible();
+  await report("toast");
 
   await page.keyboard.press("Control+K");
   await expect(paletteDialog).toBeVisible();

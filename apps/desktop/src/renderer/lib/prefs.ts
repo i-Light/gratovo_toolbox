@@ -14,6 +14,9 @@ export interface Prefs {
   readonly name: string;
 }
 
+/** The longest name kept; a longer one is cut to this. */
+export const nameMax = 80;
+
 /** The one localStorage key that holds all preferences as JSON. */
 export const prefsKey = "gratovo.prefs";
 
@@ -33,10 +36,7 @@ const fields = {
   motion: z.enum(["", "reduce"]),
   letters: z.enum(["", "off"]),
   rail: z.enum(["", "min"]),
-  name: z
-    .string()
-    .transform((v) => v.trim())
-    .pipe(z.string().max(80)),
+  name: z.string().transform((v) => v.trim().slice(0, nameMax)),
 } as const;
 
 function parseStored(text: string | null): Record<string, unknown> {

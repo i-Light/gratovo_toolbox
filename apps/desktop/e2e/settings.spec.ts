@@ -7,7 +7,9 @@ const { settings, top, rail, menu } = strings;
 const { tabs } = strings.screens.settings;
 
 const bell = (page: Page) =>
-  page.getByRole("button", { name: new RegExp(`^${top.notifications}`) });
+  // The whole name ("Notifications" or "Notifications, 3 unread"), so the Settings section button
+  // "Notifications" with its sub line never matches too.
+  page.getByRole("button", { name: new RegExp(`^${top.notifications}(, \\d+ unread)?$`) });
 const bellBadge = (page: Page) => bell(page).locator(".badge");
 const accountButton = (page: Page) =>
   page.getByRole("button", { name: new RegExp(rail.roleOnline("Owner")) });

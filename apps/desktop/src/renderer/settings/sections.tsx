@@ -4,7 +4,7 @@ import type { CSSProperties } from "react";
 import { useRef, useState } from "react";
 
 import { flashSetting, setMyName, setNotify } from "../lib/actions";
-import { setPref, usePref } from "../lib/prefs";
+import { nameMax, setPref, usePref } from "../lib/prefs";
 import type { NotifyKind, SettingsSection } from "../lib/settings";
 import { go, useApp } from "../lib/store";
 import { strings } from "../strings";
@@ -63,6 +63,7 @@ export function ProfileSection() {
               value={draft ?? myName ?? ""}
               placeholder={text.profile.namePlaceholder}
               aria-label={rows.name.label}
+              maxLength={nameMax}
               onChange={(event) => {
                 update(event.currentTarget.value);
               }}
@@ -73,6 +74,8 @@ export function ProfileSection() {
                   save();
                   event.currentTarget.blur();
                 } else if (event.key === "Escape") {
+                  // preventDefault keeps the key stack from also closing a peek or tray.
+                  event.preventDefault();
                   update(null);
                   event.currentTarget.blur();
                 }

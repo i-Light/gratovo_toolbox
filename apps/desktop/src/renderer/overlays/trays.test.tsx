@@ -29,6 +29,18 @@ const markAll = () => screen.getByRole("button", { name: strings.trays.markAllRe
 const badge = () => within(bell()).queryByText(/^\d+$/)?.textContent;
 
 describe("the notifications tray", () => {
+  it("opens Settings at what reaches the bell from its gear, as the prototype", async () => {
+    render(<App />);
+    await userEvent.click(bell());
+    await userEvent.click(screen.getByRole("button", { name: strings.trays.chooseBell }));
+    expect(notificationsTray()).toBeNull();
+    expect(route()).toEqual({ screen: "settings", tab: "notifications" });
+    const row = document.getElementById("set-notify");
+    if (row === null) throw new Error("no notify row");
+    expect(row.classList.contains("hl")).toBe(true);
+    expect(document.activeElement).toBe(within(row).getAllByRole("switch")[0]);
+  });
+
   it("gives focus back to the bell when Esc closes it with focus inside", async () => {
     render(<App />);
     await userEvent.click(bell());

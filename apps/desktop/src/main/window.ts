@@ -24,6 +24,8 @@ export function createMainWindow(): BrowserWindow {
     minWidth: 400,
     minHeight: 600,
     show: false,
+    // The dark --bg, so nothing light shows before the page paints (the app is dark only for now).
+    backgroundColor: "#06131d",
     webPreferences: {
       preload: preloadScript,
       contextIsolation: true,

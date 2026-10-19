@@ -1,9 +1,10 @@
 // @vitest-environment happy-dom
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { App } from "../app/app";
+import { peek } from "../lib/actions";
 import { getPrefs, initPrefs } from "../lib/prefs";
 import { appStore, resetAppStoreForTests, selectRoute } from "../lib/store";
 import { strings } from "../strings";
@@ -31,6 +32,11 @@ const account = () =>
 const bell = () => screen.getByRole("button", { name: /^Notifications, \d+ unread$/ });
 const openSection = (name: string) =>
   userEvent.click(within(screen.getByRole("navigation", { name: text.navLabel })).getByText(name));
+const rowById = (id: string): HTMLElement => {
+  const row = document.getElementById(id);
+  if (row === null) throw new Error(`no row ${id}`);
+  return row;
+};
 const group = (label: string) => screen.getByRole("group", { name: label });
 const pick = (label: string, option: string) =>
   userEvent.click(within(group(label)).getByRole("button", { name: option }));
@@ -45,9 +51,7 @@ describe("Profile", () => {
     expect(getPrefs().name).toBe("Maya Chen");
     expect(screen.getByText(text.profile.setHere)).toBeTruthy();
     // The row says Saved.
-    expect(
-      within(document.getElementById("set-name") ?? document.body).getByRole("status").textContent,
-    ).toBe(text.saved);
+    expect(within(rowById("set-name")).getByRole("status").textContent).toBe(text.saved);
   });
 
   it("cancels on Esc: nothing is saved and the field is empty again", async () => {
@@ -56,6 +60,22 @@ describe("Profile", () => {
     expect(nameField()).toHaveProperty("value", "");
     expect(getPrefs().name).toBe("");
     expect(account().textContent).toContain(strings.rail.addName);
+  });
+
+  it("keeps Esc in the name field: an open peek stays open", async () => {
+    render(<App />);
+    act(() => {
+      peek({ kind: "creator", id: "c1" });
+    });
+    expect(ui().peek).not.toBeNull();
+    await userEvent.type(nameField(), "Maya{Escape}");
+    expect(nameField()).toHaveProperty("value", "");
+    expect(ui().peek).not.toBeNull();
+  });
+
+  it("takes at most 80 characters", () => {
+    render(<App />);
+    expect(nameField()).toHaveProperty("maxLength", 80);
   });
 
   it("saves when the field loses focus", async () => {
@@ -220,10 +240,7 @@ describe("Notifications", () => {
     render(<App />);
     await openSection(tabs.notifications);
     await userEvent.click(sw(text.notify.money.label));
-    expect(
-      within(document.getElementById("set-notify") ?? document.body).getByRole("status")
-        .textContent,
-    ).toBe(text.saved);
+    expect(within(rowById("set-notify")).getByRole("status").textContent).toBe(text.saved);
   });
 
   it("keeps Problems on: a disabled switch that does nothing", async () => {

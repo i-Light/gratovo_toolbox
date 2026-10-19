@@ -285,18 +285,30 @@ export const strings = {
     on: "On",
     off: "Off",
     notify: {
-      reply: { label: "Replies", line: "When a creator or brand writes back." },
-      money: { label: "Money", line: "Invoices due or late, brands paying, payouts unlocked." },
-      handoff: { label: "Hand-offs", line: "When a teammate hands something to you." },
-      search: { label: "Searches", line: "When a search pauses, finishes or stops." },
+      reply: { label: "Replies", noun: "reply", line: "When a creator or brand writes back." },
+      money: {
+        label: "Money",
+        noun: "money",
+        line: "Invoices due or late, brands paying, payouts unlocked.",
+      },
+      handoff: {
+        label: "Hand-offs",
+        noun: "hand-off",
+        line: "When a teammate hands something to you.",
+      },
+      search: {
+        label: "Searches",
+        noun: "search",
+        line: "When a search pauses, finishes or stops.",
+      },
     },
     problems: {
       label: "Problems",
       line: "A mailbox signed out, the Gemini bridge down, a search stopped. These always come through.",
     },
     /** The act labels of the notification switches, as the prototype writes them. */
-    turnedOn: (kind: string): string => `Turned on ${kind} notifications`,
-    turnedOff: (kind: string): string => `Turned off ${kind} notifications`,
+    turnedOn: (noun: string): string => `Turned on ${noun} notifications`,
+    turnedOff: (noun: string): string => `Turned off ${noun} notifications`,
     noMatch: (query: string): string => `No setting matches \u201c${query}\u201d`,
     noMatchHint: "Try a plainer word: name, hours, keys, money, Gmail.",
     /** The empty state of a section whose rows come with a later step. */

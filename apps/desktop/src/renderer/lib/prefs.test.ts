@@ -38,10 +38,12 @@ describe("readPrefs", () => {
     expect(readPrefs(storageWith(JSON.stringify(saved)))).toEqual(saved);
   });
 
-  it("trims the name and falls back to empty when it is too long or not text", () => {
+  it("trims the name, cuts it to 80 characters, and falls back to empty when it is not text", () => {
     expect(readPrefs(storageWith(JSON.stringify({ name: "  Ada  " }))).name).toBe("Ada");
     expect(readPrefs(storageWith(JSON.stringify({ name: "x".repeat(80) }))).name).toHaveLength(80);
-    expect(readPrefs(storageWith(JSON.stringify({ name: "x".repeat(81) }))).name).toBe("");
+    expect(readPrefs(storageWith(JSON.stringify({ name: "x".repeat(81) }))).name).toBe(
+      "x".repeat(80),
+    );
     expect(readPrefs(storageWith(JSON.stringify({ name: 7 }))).name).toBe("");
   });
 

@@ -2,7 +2,7 @@ import type { IconName } from "@gratovo/ui";
 import type { Store } from "@gratovo/core";
 
 import { strings } from "../strings";
-import { getPrefs, setPref } from "./prefs";
+import { getPrefs, nameMax, setPref } from "./prefs";
 import type { RecordRef, ScreenKey } from "./routes";
 import type { NotifyKind, RowId, SectionKey } from "./settings";
 import { appStore, go, selectRoute } from "./store";
@@ -320,8 +320,6 @@ export function readNotification(id: string): void {
 
 /** How long a "Saved" mark stays on a setting, in milliseconds. */
 const settingFlashMs = 1700;
-/** The longest name kept. */
-const maxNameLength = 80;
 
 let flashTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -351,7 +349,7 @@ export function loadMyName(): void {
  * data. Not undoable. An empty name puts "Add your name" back. Shows "Saved" on the name row.
  */
 export function setMyName(name: string): void {
-  setPref("name", name.trim().slice(0, maxNameLength).trim());
+  setPref("name", name.trim().slice(0, nameMax).trim());
   loadMyName();
   flashSetting("name");
 }
@@ -359,7 +357,9 @@ export function setMyName(name: string): void {
 /** Turns one kind of notification on or off for the bell. Undoable, no line in the activity log. */
 export function setNotify(kind: NotifyKind, on: boolean): void {
   act(
-    on ? strings.settings.turnedOn(kind) : strings.settings.turnedOff(kind),
+    on
+      ? strings.settings.turnedOn(strings.settings.notify[kind].noun)
+      : strings.settings.turnedOff(strings.settings.notify[kind].noun),
     (data) => {
       data.settings.notify = { ...data.settings.notify, [kind]: on };
     },

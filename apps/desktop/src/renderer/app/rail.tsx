@@ -6,7 +6,7 @@ import { duration } from "../lib/format";
 import { useNarrow } from "../lib/media";
 import { setPref, usePref } from "../lib/prefs";
 import { screens, type ScreenKey } from "../lib/routes";
-import { openMenu, setShortcuts } from "../lib/actions";
+import { openMenu, openSetting, setShortcuts } from "../lib/actions";
 import { go, selectRoute, useApp } from "../lib/store";
 import { strings } from "../strings";
 
@@ -151,7 +151,7 @@ export const Rail = memo(function Rail() {
                   color: avatarColor(meId === "u1" ? "owner" : memberName),
                   unnamed: !named,
                   run: () => {
-                    go("settings", "profile");
+                    openSetting("profile", "name");
                   },
                 },
                 {
