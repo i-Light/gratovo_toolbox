@@ -1,0 +1,19 @@
+{
+  "name": "@gratovo/eslint-config",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The lint plugins, in their own package so typescript-eslint runs on TypeScript 6 while the repository uses TypeScript 7.",
+  "type": "module",
+  "exports": {
+    ".": "./index.js"
+  },
+  "dependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint": "10.13.0",
+    "eslint-plugin-jsx-a11y": "6.10.2",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "globals": "17.13.0",
+    "typescript": "npm:@typescript/typescript6@6.0.2",
+    "typescript-eslint": "8.71.2"
+  }
+}

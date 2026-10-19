@@ -1,6 +1,7 @@
 packages:
   - apps/*
   - packages/*
+  - tooling/*
 
 # pnpm 12 reads its settings from this file. It ignores them in .npmrc.
 saveExact: true

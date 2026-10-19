@@ -1,10 +1,8 @@
 // @ts-check
-import js from "@eslint/js";
+// The plugins come from @gratovo/eslint-config, which gives typescript-eslint TypeScript 6
+// while the rest of the repository uses TypeScript 7 (docs/decisions/0007-toolchain-pins.md).
+import { globals, js, jsxA11y, reactHooks, tseslint } from "@gratovo/eslint-config";
 import { defineConfig, globalIgnores } from "eslint/config";
-import jsxA11y from "eslint-plugin-jsx-a11y";
-import reactHooks from "eslint-plugin-react-hooks";
-import globals from "globals";
-import tseslint from "typescript-eslint";
 
 export default defineConfig(
   globalIgnores([
