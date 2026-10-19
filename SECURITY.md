@@ -14,7 +14,7 @@ This app holds creators' and brands' contact details, deal terms, money, and the
 
 | Secret | Where it lives |
 |---|---|
-| A person's own credentials (Gmail OAuth tokens, personal tokens, AI provider keys) | The operating system's keychain, through Electron `safeStorage`. Never in plain files. |
+| A person's own credentials (Gmail OAuth tokens, personal tokens, AI provider keys) | Encrypted with the Windows account's key through Electron `safeStorage`, in the app's data folder. Never in plain text. |
 | Team keys (YouTube Data API, Cloudflare R2) | Never shipped in the installer. Served to signed-in team members only: short-lived R2 links from a server function, and the YouTube key through Supabase Vault behind a members-only function. The details are decided in step 3. |
 | Supabase service-role key | Server side only (Edge Functions, CI secrets). Never on a team member's machine. |
 | Release signing and CI tokens | GitHub Actions secrets. |
@@ -33,13 +33,15 @@ Earlier commits also held the Supabase service-role key and an AWS IAM key pair 
 
 ## Desktop app hardening (applies from step 3)
 
-- Renderer: `contextIsolation: true`, `sandbox: true` and `nodeIntegration: false`, a strict Content Security Policy, no remote content and no navigation away from the app.
-- One typed IPC bridge in the preload script. Every message is validated with a schema in the main process, and nothing outside an allowlist gets through.
+- Renderer: `contextIsolation: true`, `sandbox: true` and `nodeIntegration: false`, a strict Content Security Policy (in the page and as a header), the page served from `app://` rather than `file://`, no remote content and no navigation away from the app.
+- One typed IPC bridge in the preload script. Every message, and every answer, is validated with a schema in the main process. Nothing outside the allowlist gets through, and only the app's own page may call.
 - External links open in the browser through an allowlist. The app denies permission requests (camera, location and others) by default.
 - Electron fuses are set for release builds: `RunAsNode` off, `NODE_OPTIONS` off, cookie encryption on, load the app only from its archive.
 - Local services (the Gemini bridge daemon) bind to `127.0.0.1` only and require a per-launch token.
 - Releases are code-signed, and the auto-updater only installs signed builds.
-- Dependencies are pinned through the lockfile, checked by `npm audit` / OSV and Dependabot, and reviewed before an upgrade.
+- Dependencies are pinned through the lockfile, checked in CI by OSV-Scanner (on every pull request and weekly), updated through Dependabot, and reviewed before an upgrade. CodeQL checks the code itself.
+
+How each of these is built, and why: [docs/decisions/0008-security-baseline.md](docs/decisions/0008-security-baseline.md).
 
 ## Reporting
 

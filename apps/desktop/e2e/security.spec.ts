@@ -115,7 +115,8 @@ test.describe("the bridge", () => {
         ["APP:PING", {}],
         ["", {}],
         [42, {}],
-        [{ toString: () => "app:ping" }, {}],
+        [{ name: "app:ping" }, {}],
+        [["app:ping"], {}],
         ["app:ping", { extra: true }],
         ["app:ping", "ping"],
         ["secrets:status", { name: "../keys" }],
@@ -123,10 +124,26 @@ test.describe("the bridge", () => {
       ];
       return Promise.all(calls.map(([channel, input]) => invoke(channel, input)));
     });
-    expect(results).toHaveLength(13);
+    expect(results).toHaveLength(14);
     for (const result of results) {
       expect(result).toMatchObject({ ok: false, reason: expect.any(String) });
     }
+  });
+
+  test("can't carry code: a function never leaves the page", async ({ page }) => {
+    const sent = await page.evaluate(async () => {
+      const invoke = window.gratovo.invoke as (
+        channel: unknown,
+        input: unknown,
+      ) => Promise<unknown>;
+      try {
+        await invoke({ toString: () => "app:ping" }, {});
+        return true;
+      } catch {
+        return false;
+      }
+    });
+    expect(sent).toBe(false);
   });
 });
 

@@ -126,7 +126,8 @@ jobs:
           --lockfile services/pipeline/uv.lock
 
   # The repository has no GitHub Advanced Security, so results can't go to code scanning
-  # (upload: never). The last step reads the report and fails the job on any result instead.
+  # (upload: never). The last step reads the report and fails the job on any result instead. The
+  # action's warning that code scanning isn't enabled is expected for the same reason.
   codeql:
     name: CodeQL (${{ matrix.language }})
     runs-on: ubuntu-24.04

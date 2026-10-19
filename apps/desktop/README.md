@@ -4,11 +4,21 @@ The Electron app, built with electron-vite.
 
 | Folder | What it holds |
 |---|---|
-| `src/main/` | The main process: windows and the security guards. Later the IPC handlers, data, sync, secrets and jobs. |
+| `src/main/` | The main process: the window, the `app://` protocol, the security guards, the IPC bridge and its handlers, and the secrets store. Later data, sync and jobs. |
+| `src/preload/` | The bridge: one function, `window.gratovo.invoke`, and nothing else. |
 | `src/renderer/` | The React UI. Every user-facing string lives in `strings.ts`. |
-| `e2e/` | Playwright tests that launch the built app. |
+| `scripts/` | Build-time code: the fuses every release build ships with. |
+| `e2e/` | Playwright tests: the built app (`smoke`, `security`) and the release fuses. |
 
-`src/preload/` arrives with the typed IPC bridge in step 3b; until then the page gets no bridge at all. `resources/` (icons, installer assets) arrives in step 3c.
+`resources/` (icons, installer assets) arrives in step 3c.
+
+## Adding an IPC channel
+
+1. Add it to `channels` in `packages/ipc/src/channels.ts`, with a zod schema for the request and the response. Name it `domain:verb`.
+2. TypeScript then asks for its handler in `src/main/handlers.ts`.
+3. The page calls it with `window.gratovo.invoke("domain:verb", input)` and gets `{ ok: true, value }` or `{ ok: false, reason }`.
+
+A channel never returns a secret's value, and never takes a file path or URL without checking it against an allowlist.
 
 ## Commands
 

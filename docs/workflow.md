@@ -15,7 +15,7 @@
 3. **Verify** the step's acceptance checks, then look at the result yourself: light and dark, 1440 px and 400 px.
 4. **Review.** Run an independent reviewer (the `router-reviewer` agent, or a fresh agent), fix what it finds, and re-run the checks.
 5. **Finish.** Update [handoff.md](handoff.md) and the plan's status table, and remove `.router/` if the step is complete. Commit, push the branch, and open a pull request that lists what was checked and how.
-6. **Merge.** When CI is green on both systems and the review findings are fixed, the session merges its own pull request. The owner doesn't merge or do anything by hand on GitHub (their rule of 2026-10-19).
+6. **Merge.** When CI is green and the review findings are fixed, the session merges its own pull request. The owner doesn't merge or do anything by hand on GitHub (their rule of 2026-10-19).
 7. **Owner check.** The owner tries it, with prototype mode on for new screens, and comments. Their comments start the next round.
 
 **Stopping mid-step.** Commit the work in progress on the branch, with `.router/PROGRESS.md` and `handoff.md` saying exactly where you stopped and what is next. A cloud session sees only what is pushed.
@@ -29,7 +29,7 @@
 | unit | Vitest, pytest |
 | e2e | Playwright against the Electron build on Windows, on example data |
 | sql | Supabase migrations plus SQL and RLS tests in Docker |
-| security | gitleaks, dependency audit, CodeQL |
+| security | gitleaks, OSV-Scanner (dependency audit), CodeQL; also weekly |
 
 ## Releases (from step 3h)
 

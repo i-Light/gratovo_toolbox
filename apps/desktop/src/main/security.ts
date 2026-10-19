@@ -25,16 +25,19 @@ export function guardWebContents(contents: WebContents): void {
     return { action: "deny" };
   });
 
-  // A link or script moving the page.
-  contents.on("will-navigate", (event) => {
+  // A link or script moving any frame. Electron emits this before will-navigate and skips
+  // will-navigate once it's refused, so allowlisted links are opened from here.
+  contents.on("will-frame-navigate", (event) => {
     if (!isAppPage(event.url, appPageUrl)) {
       event.preventDefault();
-      openOutside(event.url);
+      if (event.isMainFrame) {
+        openOutside(event.url);
+      }
     }
   });
 
-  // The same for every frame, and for redirects, which will-navigate doesn't see.
-  contents.on("will-frame-navigate", (event) => {
+  // The same guard again for the top frame, and for redirects, which neither event above sees.
+  contents.on("will-navigate", (event) => {
     if (!isAppPage(event.url, appPageUrl)) {
       event.preventDefault();
     }
