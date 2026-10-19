@@ -40,7 +40,7 @@ Replace the Flutter app (old repository `gratovo_code`) with a new desktop app t
 | A1 | **Rotate the leaked keys** listed in [SECURITY.md](../SECURITY.md#known-exposure-in-the-old-repository-action-for-the-owner): GitHub token, R2 keys, YouTube key, and any Supabase service-role or AWS keys still active. | Step 3d, before the new app talks to R2 or YouTube |
 | A2 | **Create the empty private GitHub repository `gratovo_toolbox`** (no README, no license), or tell a local session to do it with your credentials. Then push this repository to it. Cloud sessions can only see GitHub. | Every cloud session |
 | A3 | **Paste `legacy/backend/schema.sql` into Supabase before 2026-10-30.** After that date, new tables need explicit grants. Also set the agency sender name in the old app. These are carried over from the decisions build. | The old app's newest features |
-| A4 | Confirm or change the stack in [decisions/0002-stack.md](decisions/0002-stack.md). It is recorded as accepted because the owner asked for the migration to the new languages. | Step 3a |
+| A4 | ~~Confirm or change the stack in [decisions/0002-stack.md](decisions/0002-stack.md).~~ **Done 2026-10-19:** confirmed (§9 Q8). | — |
 | A5 | ~~Answer the open questions in §9.~~ **Done 2026-10-19.** | — |
 | A6 | ~~Decide how team keys reach members (Q11) and where releases are published (Q12).~~ **Done 2026-10-19** (keys by server function; no code signing; installer location defaults to a private R2 bucket). | — |
 
@@ -49,8 +49,8 @@ Replace the Flutter app (old repository `gratovo_code`) with a new desktop app t
 | Step | What | Status |
 |---|---|---|
 | 0 | Fresh repository | Done 2026-10-19 |
-| 1 | Agree the design | Prototype approved for building. Open questions in §9 |
-| 2 | Choose the stack and record the decisions | Done as ADRs 0001 to 0006. Owner confirmation pending (A4) |
+| 1 | Agree the design | Prototype approved for building. The open questions in §9 were answered 2026-10-19 |
+| 2 | Choose the stack and record the decisions | Done as ADRs 0001 to 0006; the owner confirmed the stack (§9 Q8) |
 | 3 | Foundation | **In progress.** 3a (toolchain and skeleton) and 3b (security baseline) done 2026-10-19. 3c is next |
 | 4 | Today | Not started |
 | 5 | Find | Not started |
@@ -79,7 +79,7 @@ A clean history: no secrets and no build output. It holds docs, the design refer
 
 **Goal:** the big choices are written down before code.
 **Done:** ADRs for the fresh repo, the stack, secrets, prototype mode, the legacy folder, and local-first data. See [decisions/](decisions/).
-**Remaining:** the owner's confirmation (A4).
+**Confirmed** by the owner on 2026-10-19 (A4, §9 Q8).
 
 ### Step 3. Foundation
 
