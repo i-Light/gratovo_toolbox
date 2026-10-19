@@ -1,0 +1,14 @@
+# Prettier also skips everything in .gitignore.
+
+# Frozen or reference material: never reformatted.
+legacy/
+design/
+.claude/
+
+# Prose: written by hand, not reflowed.
+*.md
+docs/
+
+# Generated, or formatted by their own tools.
+pnpm-lock.yaml
+services/pipeline/

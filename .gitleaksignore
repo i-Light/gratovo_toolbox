@@ -1,0 +1,14 @@
+# Findings checked by hand and found not to be secrets. One fingerprint per line; a new finding
+# anywhere else still fails the scan. Checked 2026-10-19 (step 3a).
+
+# A mock token in an example test ("test-..."), in a project skill's docs.
+b782af77f03d308922b3aa17b9f0a5288851f5d1:.claude/skills/playwright-best-practices/advanced/authentication-flows.md:generic-api-key:54
+
+# A docstring showing the format of a sync key: a UTC timestamp and a short random tail.
+b782af77f03d308922b3aa17b9f0a5288851f5d1:legacy/pipeline/gratovo/sync.py:generic-api-key:104
+
+# The old app's config tests use a made-up fixture, "shipped-anon-key-...". Real Supabase keys are
+# JWTs or sb_publishable_... values, and the real one was never copied into legacy/.
+b782af77f03d308922b3aa17b9f0a5288851f5d1:legacy/test/core/config/supabase_config_test.dart:generic-api-key:7
+b782af77f03d308922b3aa17b9f0a5288851f5d1:legacy/test/core/config/supabase_config_test.dart:generic-api-key:68
+b782af77f03d308922b3aa17b9f0a5288851f5d1:legacy/test/core/config/supabase_config_test.dart:generic-api-key:79

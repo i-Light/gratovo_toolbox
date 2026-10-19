@@ -1,0 +1,108 @@
+# Lint, typecheck, unit tests and the Electron end-to-end tests on Ubuntu and Windows, and a
+# secret scan of the whole history. Step 3g adds the SQL tests, the dependency audit and CodeQL.
+# Actions are pinned by commit, with the release they belong to beside each one.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A new push to a pull request cancels its older run. Runs on main always finish.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # A uv.lock that doesn't match pyproject.toml fails the run instead of being rewritten.
+  UV_LOCKED: "1"
+
+jobs:
+  checks:
+    name: Checks (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Installs the pnpm version named in package.json's packageManager.
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: "0.13.1"
+          enable-cache: true
+          cache-dependency-glob: services/pipeline/uv.lock
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Unit tests
+        run: pnpm test
+
+      # Ubuntu 24.04 blocks the user namespaces that Chromium's sandbox needs. Allow them for this
+      # run, so the app is tested with its sandbox on.
+      - name: Allow the Chromium sandbox (Linux)
+        if: runner.os == 'Linux'
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+      - name: End-to-end tests (Linux, on a virtual display)
+        if: runner.os == 'Linux'
+        run: xvfb-run -a pnpm test:e2e
+
+      - name: End-to-end tests (Windows)
+        if: runner.os == 'Windows'
+        run: pnpm test:e2e
+
+      - name: Keep the end-to-end results
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-results-${{ matrix.os }}
+          path: apps/desktop/test-results/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.27.2"
+          cache: false
+
+      # Built from source at a pinned release. Go's checksum database verifies what is downloaded.
+      - name: Install gitleaks
+        run: go install github.com/zricethezav/gitleaks/v8@v8.30.1
+
+      # Known false positives are listed, by fingerprint, in .gitleaksignore.
+      - name: Scan every commit
+        run: '"$(go env GOPATH)/bin/gitleaks" git --redact --no-banner --verbose'

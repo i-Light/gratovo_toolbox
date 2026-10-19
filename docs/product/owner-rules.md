@@ -14,6 +14,7 @@ What the owner has asked for, with the reasons, collected from past sessions so 
 - **Never read the connected mailbox,** and never use real inbox content as test data. Test data comes from the course examples and real public channel data.
 - **Never send email automatically.** Every outgoing message waits for a person's approval. Auto-send may be unlocked per message type later, after about 95% of drafts are approved unedited, and only by the owner.
 - Don't commit or push unless the owner asks, or a plan step's planned end is a commit.
+- **Sessions run the GitHub side themselves** (owner, 2026-10-19). Open the pull request, get CI green, fix the review findings, then merge it. Never ask the owner to merge or to do anything by hand on GitHub. Stop to ask only a critical question about the workflow or the migration that the docs don't answer.
 - Cleanup comes last: nothing is deleted from `legacy/` or merged in the docs until the 100% check (step 10) has passed.
 
 ## Replies and drafting
