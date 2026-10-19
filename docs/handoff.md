@@ -12,7 +12,7 @@ Where work stopped and exactly what to do next. Update this file at the end of e
 
 ## Verified in 3a (on Linux, 2026-10-19)
 
-- `pnpm install --frozen-lockfile` (on a clean clone), `pnpm lint`, `pnpm typecheck`, `pnpm test` (Vitest 12 tests, Electron smoke test, pytest 1), and `uv run pytest` all green. The Electron test ran under `xvfb-run -a`.
+- On a fresh clone of the commit: `pnpm install --frozen-lockfile`, `pnpm lint`, `pnpm typecheck` and `xvfb-run -a pnpm test` (Vitest 12 tests, the Electron smoke test, pytest 1) all pass.
 - **Not yet verified:** Windows, and the CI run itself. Check the Actions run on the pull request before calling 3a done.
 
 ## What exists

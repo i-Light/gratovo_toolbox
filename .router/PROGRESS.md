@@ -14,4 +14,4 @@
 
 ## Open
 - Confirm CI on the pull request (Ubuntu and Windows). Not run yet.
-- Clean-clone run (`pnpm install --frozen-lockfile && pnpm lint && pnpm typecheck && pnpm test`) before the commit.
+- Clean-clone run: done, all green (see handoff).
