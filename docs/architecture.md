@@ -26,7 +26,7 @@ The target design of the new app. Step 3 builds it. Anything marked *(to decide)
 - **Python pipeline:** the work that is better in Python, kept from the old app. It covers YouTube search and enrichment, R2 storage, Gmail, and the comms engine (playbook, drafting checks). Each run is a child process the main process supervises.
 - **Gemini bridge:** a Python daemon plus a browser extension that drives the signed-in Gemini web app. Prompts live in the pipeline, never in the UI.
 - **Supabase:** shared, typed-in data (creators' notes and stages, brands, deals, outreach, team), auth and realtime presence. Row-level security on every table.
-- **Cloudflare R2:** scraped channel data, one object per channel plus a catalog. It is reached only through short-lived access the server grants *(to decide: §9 Q11)*.
+- **Cloudflare R2:** scraped channel data, one object per channel plus a catalog. It is reached only through short-lived access the server grants (owner's answer: §9 Q11).
 
 ## Local-first data
 
@@ -105,7 +105,7 @@ The policy is [SECURITY.md](../SECURITY.md). In code:
 3. **Secrets:** a main-process `secrets` module over `safeStorage`. The renderer can ask whether a secret is set; it can never read one. Python processes get the secrets they need through their stdin at launch, never through the command line or environment of a long-lived shell.
 4. **Local services:** the Gemini bridge daemon binds `127.0.0.1` and requires a random per-launch token from the extension.
 5. **Supabase:** row-level security on every table, with roles (owner, account manager, VA) enforced in policies, not only in the UI. The service-role key never ships.
-6. **Supply chain:** the lockfile is committed; Dependabot, OSV-Scanner, CodeQL and gitleaks run in CI; release builds are signed and fused (`apps/desktop/scripts/release-fuses.ts`).
+6. **Supply chain:** the lockfile is committed; Dependabot, OSV-Scanner, CodeQL and gitleaks run in CI; release builds are fused (`apps/desktop/scripts/release-fuses.ts`) but not code-signed, by the owner's choice (§9 Q12).
 
 The choices behind each of these are in [decisions/0008-security-baseline.md](decisions/0008-security-baseline.md).
 

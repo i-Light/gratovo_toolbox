@@ -34,7 +34,7 @@
 ## Releases (from step 3h)
 
 - The version follows SemVer from commit types: `feat` → minor, `fix` → patch, breaking → major.
-- A tag `vX.Y.Z` builds the signed Windows installer and publishes it where the owner decides (migration plan §9 Q12). The in-app updater installs signed builds only.
+- A tag `vX.Y.Z` builds the Windows installer and publishes it to the private release location (migration plan §9 Q12). Builds are unsigned by the owner's choice.
 - The release notes come from the merged pull requests.
 
 ## The prototype

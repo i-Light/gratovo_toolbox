@@ -474,7 +474,7 @@ Things the Flutter app does that the 127 tasks don't name. Each is ported, repla
 | Activity log | `features/logs` | Port: Toolbox › Activity log (in the prototype) | ☐ |
 | Notification history | `features/notifications` | Port: the bell plus Toolbox › Notifications (in the prototype) | ☐ |
 | Presence: who is online, what each person is viewing | `core/presence` | Port: in the prototype's top bar and records | ☐ |
-| In-app updater | `core/update` | Port in step 3h (signed builds only) | ☐ |
+| In-app updater | `core/update` | Port in step 3h (unsigned builds from the private release location, §9 Q12) | ☐ |
 | Windows notifications for due follow-ups | `core/notifications` | Port | ☐ |
 | Dhikr reminder overlay | `core/toast/dhikr_reminder_overlay.dart` | Decide (the owner's personal feature) | ☐ |
 | Time zone setting and one date formatter | `core/time` | Port: Settings › Your day plus one formatter | ☐ |

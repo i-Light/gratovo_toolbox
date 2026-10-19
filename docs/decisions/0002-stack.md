@@ -1,7 +1,7 @@
 # 0002. Electron, React and TypeScript for the desktop app; Python and Supabase stay
 
 - **Date:** recommended 2026-10-18; recorded 2026-10-19
-- **Status:** accepted. The owner asked to migrate "to the new languages". The owner can still change it: migration plan, action A4.
+- **Status:** accepted, and confirmed by the owner on 2026-10-19 (migration plan §9 Q8). The owner asked to migrate "to the new languages".
 
 ## Context
 
