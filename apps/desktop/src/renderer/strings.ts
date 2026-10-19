@@ -17,7 +17,7 @@ export const strings = {
     expandTip: "Expand",
     account: (name: string) => `Your account: ${name}`,
     addName: "Add your name",
-    online: "online",
+    roleOnline: (role: string) => `${role} · online`,
   },
   top: {
     menu: "Menu",
