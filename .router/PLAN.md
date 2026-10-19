@@ -4,7 +4,7 @@ The last of three pull requests for step 3c (3c-1, the frame, merged as #6; 3c-2
 
 ## Goal
 
-The Settings screen works as in the prototype: its sections in two groups, the search, saved-in-place confirmation, and the rows whose features exist today (your name; density, text size, motion, sidebar; single-letter keys; what reaches the bell). The other sections are there, saying which step brings their rows. Then step 3c's own checks: no accessibility violations (axe, WCAG 2.2 A and AA) in light and dark, and the whole shell looked at next to the prototype.
+The Settings screen works as in the prototype: its sections in two groups, the search, saved-in-place confirmation, and the rows whose features exist today (your name; density, text size, motion, sidebar; single-letter keys; what reaches the bell). The other sections are there, saying which step brings their rows. Then step 3c's own checks: no accessibility violations (axe, WCAG 2.2 A and AA) in dark, and the whole shell looked at next to the prototype (F11: dark only, desktop width).
 
 ### Non-goals
 
@@ -20,7 +20,7 @@ Prototype mode and its section (3f). The rows of Your day (step 4; per §9 Q2 th
 
 ## Decisions
 
-- **F1. Working rows are the ones whose feature exists:** Profile (your name; your role as a tag), Appearance (theme, density, text size, motion, sidebar), Keyboard (single-letter keys and the shortcut groups), Notifications (four kinds and the always-on Problems). The other sections show their head and note and an empty state saying which step brings their rows (`arrives`). Their rows aren't in the search or the palette until then.
+- **F1. Working rows are the ones whose feature exists:** Profile (your name; your role as a tag), Appearance (density, text size, motion, sidebar; the theme row left with F11), Keyboard (single-letter keys and the shortcut groups), Notifications (four kinds and the always-on Problems). The other sections show their head and note and an empty state saying which step brings their rows (`arrives`). Their rows aren't in the search or the palette until then.
 - **F2. Your name is a device preference** (`name` in the prefs, as the prototype's `wb-name`), copied into `data.myName` at start and on change with `bg`: not undoable, as in the prototype. An empty name puts "Add your name" back. 3d moves it to the account.
 - **F3. What reaches the bell is data** (`data.settings.notify`, a kind is on unless false), changed with `act` and no log line, so Ctrl Z undoes it, as in the prototype. The bell's count and the tray's list show only `notifShown` notifications; problems always show.
 - **F4. The page's subtitle drops "Ctrl Z undoes them".** Device preferences aren't undoable (in the prototype either), so the sentence would be untrue; it ends at "Changes apply at once."
@@ -46,7 +46,7 @@ export interface SettingsSection {
   readonly arrives: number | null; // the plan step that brings its rows; null when they work now
 }
 export const settingsSections: readonly SettingsSection[]; // the prototype's order
-export type RowId = "name" | "role" | "theme" | "density" | "size" | "motion" | "rail" | "letters" | "notify";
+export type RowId = "name" | "role" | "density" | "size" | "motion" | "rail" | "letters" | "notify"; // "theme" left with F11
 export interface SettingsRow { readonly section: SectionKey; readonly id: RowId }
 export const settingsRows: readonly SettingsRow[]; // only rows that exist now, in the prototype's order
 export type NotifyKind = "reply" | "money" | "handoff" | "search";

@@ -138,6 +138,7 @@ Pinned in step 3a on 2026-10-19, at the current stable releases. Every package v
 | Prettier | 3.9.10 | root |
 | Vitest | 5.0.5 | root |
 | Playwright | 1.64.1 | `apps/desktop` |
+| @axe-core/playwright | 4.14.0 (added in 3c-3) | `apps/desktop` |
 | zod | 4.6.7 | `packages/ipc`, `apps/desktop` |
 | immer | 11.1.21 (added in 3c) | `packages/core` |
 | Fontsource Readex Pro (variable), IBM Plex Mono | 5.3.0, 5.3.0 (added in 3c) | `packages/ui` |
@@ -146,7 +147,7 @@ Pinned in step 3a on 2026-10-19, at the current stable releases. Every package v
 | OSV-Scanner | 2.7.0 | CI (`go install`) |
 | CodeQL action | 4.39.0 | CI |
 | lefthook, lint-staged | 2.2.2, 17.6.0 | root |
-| gitleaks | 8.30.1 | `lefthook.yml` (install hint), CI |
+| gitleaks | 8.30.1 | `tooling/hooks/scan-secrets.sh` (install hint), CI |
 | Python | 3.14 | `services/pipeline/.python-version`, `requires-python` |
 | uv | 0.13.1 or newer | `tool.uv.required-version`, CI |
 | ruff, pyright, pytest | 0.17.1, 1.1.414, 9.1.1 | `services/pipeline` |
