@@ -318,19 +318,6 @@ export function readNotification(id: string): void {
   });
 }
 
-/** Steps the theme: follow the system, then dark, then light, then the system again. Says which in a toast. */
-export function cycleTheme(): void {
-  const current = getPrefs().theme;
-  const next = current === "" ? "dark" : current === "dark" ? "light" : "";
-  setPref("theme", next);
-  toast({
-    msg: strings.theme.toast(next),
-    icon: next === "dark" ? "moon" : "sun",
-    tone: "info",
-    ms: 2000,
-  });
-}
-
 /** How long a "Saved" mark stays on a setting, in milliseconds. */
 const settingFlashMs = 1700;
 /** The longest name kept. */

@@ -88,7 +88,6 @@ describe("settingsRows", () => {
     expect(settingsRows.map((r) => `${r.section}/${r.id}`)).toEqual([
       "profile/name",
       "profile/role",
-      "appearance/theme",
       "appearance/density",
       "appearance/size",
       "appearance/motion",
@@ -128,10 +127,11 @@ describe("notifyKind and notifShown", () => {
 
 describe("searchSettings", () => {
   it("finds rows by label, words and section name", () => {
-    expect(searchSettings("dark").rows.map((r) => r.id)).toEqual(["theme"]);
+    expect(searchSettings("compact").rows.map((r) => r.id)).toEqual(["density"]);
+    // The app is dark only for now, so there is no theme row to find.
+    expect(searchSettings("dark").rows).toEqual([]);
     expect(searchSettings("sidebar").rows.map((r) => r.id)).toEqual(["rail"]);
     expect(searchSettings("appearance").rows.map((r) => r.id)).toEqual([
-      "theme",
       "density",
       "size",
       "motion",

@@ -12,7 +12,7 @@
 
 1. **Start.** Read [handoff.md](handoff.md) and the step in the [migration plan](migration-plan.md). Write the step's working plan with the `smart-task-router` skill: `.router/CONTEXT.md` and `.router/PLAN.md`, with tasks, tiers and done-checks.
 2. **Build** in small tasks, each with a check (a test, typecheck, lint, a screenshot). Use the skills listed in [CLAUDE.md](../CLAUDE.md).
-3. **Verify** the step's acceptance checks, then look at the result yourself: light and dark, 1440 px and 400 px.
+3. **Verify** the step's acceptance checks, then look at the result yourself: dark, at desktop width (1440 px). No light-theme checks (the app is dark only for now) and no phone or narrow-width checks (owner, 2026-10-20).
 4. **Review.** Run an independent reviewer (the `router-reviewer` agent, or a fresh agent), fix what it finds, and re-run the checks.
 5. **Finish.** Update [handoff.md](handoff.md) and the plan's status table, and remove `.router/` if the step is complete. Commit, push the branch, and open a pull request that lists what was checked and how.
 6. **Merge.** When CI is green and the review findings are fixed, the session merges its own pull request. The owner doesn't merge or do anything by hand on GitHub (their rule of 2026-10-19).

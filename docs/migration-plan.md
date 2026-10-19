@@ -106,7 +106,7 @@ The longest step. It builds everything the screens stand on, so every later step
 - Store pattern: actions with undo snapshots, UI-only state, background jobs that survive undo (as `W.act`, `W.ui` and `W.bg` do in the prototype's `core.js`).
 - Settings shell: the sections and the search from the prototype's `settings.js`. Real contents arrive with the features they control.
 - Accessibility: all of it works by keyboard, focus is visible, roles are correct, and contrast passes in both themes.
-- *Acceptance:* the frame matches the prototype at 1440 px and at 400 px in light and dark (screenshot comparison); Playwright tests for palette, peek, undo, menus, Esc order and key barriers; no layout shift or animation on keyboard actions.
+- *Acceptance:* the frame matches the prototype at 1440 px in dark (the owner dropped the 400 px and light checks on 2026-10-20: Windows desktop only, dark only for now) (screenshot comparison); Playwright tests for palette, peek, undo, menus, Esc order and key barriers; no layout shift or animation on keyboard actions.
 
 **3d. Data layer**
 - A local SQLite database in the app's own data folder (better-sqlite3 in the main process, or in a utility process if profiling says so). Forward-only SQL migrations, and repositories with typed queries.

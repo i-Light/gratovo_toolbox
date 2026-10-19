@@ -3,8 +3,6 @@ import { z } from "zod";
 
 /** The settings that belong to this computer rather than to the team. An empty string means "default". */
 export interface Prefs {
-  /** "" follows the system. */
-  readonly theme: "" | "light" | "dark";
   readonly density: "" | "compact";
   readonly size: "" | "large";
   readonly motion: "" | "reduce";
@@ -20,7 +18,6 @@ export interface Prefs {
 export const prefsKey = "gratovo.prefs";
 
 const defaults: Prefs = {
-  theme: "",
   density: "",
   size: "",
   motion: "",
@@ -31,7 +28,6 @@ const defaults: Prefs = {
 
 // One schema per field, so a bad value in one field cannot reset the others.
 const fields = {
-  theme: z.enum(["", "light", "dark"]),
   density: z.enum(["", "compact"]),
   size: z.enum(["", "large"]),
   motion: z.enum(["", "reduce"]),
@@ -72,7 +68,6 @@ export function readPrefs(storage: Pick<Storage, "getItem"> | null): Prefs {
   }
   const stored = parseStored(text);
   return {
-    theme: pick("theme", stored),
     density: pick("density", stored),
     size: pick("size", stored),
     motion: pick("motion", stored),
@@ -90,9 +85,13 @@ function setOrRemove(root: HTMLElement, name: string, value: string): void {
   }
 }
 
+/** The one theme for now: the owner put the app on dark only (2026-10-20). The light tokens stay in
+ * `tokens.css`, so a theme choice can come back later. */
+export const theme = "dark";
+
 /** Puts the look-and-feel preferences on the root element as data attributes (removed when empty). */
 export function applyPrefs(prefs: Prefs, root: HTMLElement): void {
-  setOrRemove(root, "theme", prefs.theme);
+  root.setAttribute("data-theme", theme);
   setOrRemove(root, "density", prefs.density);
   setOrRemove(root, "size", prefs.size);
   setOrRemove(root, "motion", prefs.motion);

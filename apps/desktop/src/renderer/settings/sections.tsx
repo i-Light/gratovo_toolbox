@@ -107,30 +107,15 @@ export function ProfileSection() {
   );
 }
 
-/** Appearance: theme, density, text size, motion and sidebar, each saved on this computer at once. */
+/** Appearance: density, text size, motion and sidebar, each saved on this computer at once. The app is
+ * dark only for now, so there is no theme row. */
 export function AppearanceSection() {
-  const theme = usePref("theme");
   const density = usePref("density");
   const size = usePref("size");
   const motion = usePref("motion");
   const rail = usePref("rail");
   return (
     <>
-      <Row id="theme" label={rows.theme.label} scope="device" desc={rows.theme.desc}>
-        <Seg
-          label={rows.theme.label}
-          value={theme}
-          options={[
-            { value: "", label: options.system, icon: "sun" },
-            { value: "light", label: options.light, icon: "sun" },
-            { value: "dark", label: options.dark, icon: "moon" },
-          ]}
-          onPick={(v) => {
-            setPref("theme", v === "light" || v === "dark" ? v : "");
-            flashSetting("theme");
-          }}
-        />
-      </Row>
       <Row id="density" label={rows.density.label} scope="device" desc={rows.density.desc}>
         <Seg
           label={rows.density.label}

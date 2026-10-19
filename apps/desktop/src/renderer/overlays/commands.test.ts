@@ -81,16 +81,16 @@ describe("buildCommands", () => {
   });
 
   it("lists the settings between the screens and the records, and opens the row", () => {
-    const rows = buildCommands(data(), [], "dark");
+    const rows = buildCommands(data(), [], "compact");
     expect(rows.map((r) => [r.group, r.label])).toEqual([
-      [groups.actions, strings.palette.actions.theme],
-      [groups.settings, strings.settings.rows.theme.label],
+      [groups.actions, strings.palette.actions.density],
+      [groups.settings, strings.settings.rows.density.label],
     ]);
-    const theme = rows[1];
-    expect(theme?.sub).toBe(strings.screens.settings.tabs.appearance);
-    expect(theme?.icon).toBe("moon");
-    theme?.run();
-    expect(appStore().getState().ui.settingTarget).toBe("theme");
+    const density = rows[1];
+    expect(density?.sub).toBe(strings.screens.settings.tabs.appearance);
+    expect(density?.icon).toBe("moon");
+    density?.run();
+    expect(appStore().getState().ui.settingTarget).toBe("density");
     expect(selectRoute(appStore().getState())).toMatchObject({
       screen: "settings",
       tab: "appearance",

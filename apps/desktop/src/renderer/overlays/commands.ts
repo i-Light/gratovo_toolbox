@@ -1,6 +1,6 @@
 import type { IconName } from "@gratovo/ui";
 
-import { cycleTheme, openSetting, peek, setShortcuts, undo } from "../lib/actions";
+import { openSetting, peek, setShortcuts, undo } from "../lib/actions";
 import { getPrefs, setPref } from "../lib/prefs";
 import { firstTab, goLetters, screenOrder, screens } from "../lib/routes";
 import type { RecordRef } from "../lib/routes";
@@ -61,7 +61,6 @@ export function actionCommands(): readonly Command[] {
       },
       strings.keys.help,
     ),
-    a("moon", actions.theme, cycleTheme),
     a(
       "gear",
       actions.settings,

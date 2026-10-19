@@ -4,7 +4,7 @@ import { memo, useEffect, useRef } from "react";
 
 import { duration } from "../lib/format";
 import { useNarrow } from "../lib/media";
-import { getPrefs, setPref, usePref } from "../lib/prefs";
+import { setPref, usePref } from "../lib/prefs";
 import { screens, type ScreenKey } from "../lib/routes";
 import { openMenu, setShortcuts } from "../lib/actions";
 import { go, selectRoute, useApp } from "../lib/store";
@@ -141,8 +141,6 @@ export const Rail = memo(function Rail() {
           aria-haspopup="menu"
           aria-expanded={accountMenuOpen}
           onClick={(event) => {
-            // Read when the menu opens, so the rail doesn't re-render on every theme change.
-            const theme = getPrefs().theme;
             openMenu(
               event.currentTarget.getBoundingClientRect(),
               [
@@ -169,12 +167,6 @@ export const Rail = memo(function Rail() {
                   kind: "item",
                   label: strings.menu.appearance,
                   icon: "moon",
-                  hint:
-                    theme === "dark"
-                      ? strings.menu.themeDark
-                      : theme === "light"
-                        ? strings.menu.themeLight
-                        : strings.menu.themeSystem,
                   run: () => {
                     go("settings", "appearance");
                   },

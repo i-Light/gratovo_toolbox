@@ -6,7 +6,6 @@ import {
   closeMenu,
   closePeek,
   closeTray,
-  cycleTheme,
   dismissToast,
   flashSetting,
   loadMyName,
@@ -49,7 +48,6 @@ beforeEach(() => {
   vi.setSystemTime(now);
   setPref("name", "");
   resetAppStoreForTests(today, now);
-  setPref("theme", "");
 });
 
 afterEach(() => {
@@ -337,25 +335,6 @@ describe("notifications", () => {
   });
 });
 
-describe("cycleTheme", () => {
-  it("goes system, dark, light, system with a toast each time", () => {
-    cycleTheme();
-    expect(getPrefs().theme).toBe("dark");
-    expect(ui().toasts.at(-1)).toMatchObject({
-      msg: "Theme: dark",
-      icon: "moon",
-      tone: "info",
-      ms: 2000,
-    });
-    cycleTheme();
-    expect(getPrefs().theme).toBe("light");
-    expect(ui().toasts.at(-1)).toMatchObject({ msg: "Theme: light", icon: "sun" });
-    cycleTheme();
-    expect(getPrefs().theme).toBe("");
-    expect(ui().toasts.at(-1)).toMatchObject({ msg: "Theme: follows your system", icon: "sun" });
-  });
-});
-
 describe("setMyName", () => {
   it("trims, saves the preference, copies it into the data and flashes the name row", () => {
     setMyName("  Ada Lovelace ");
@@ -413,8 +392,8 @@ describe("the saved name at start", () => {
 
 describe("flashSetting", () => {
   it("shows for 1700 ms", () => {
-    flashSetting("theme");
-    expect(ui().settingFlash).toEqual({ id: "theme", at: now });
+    flashSetting("density");
+    expect(ui().settingFlash).toEqual({ id: "density", at: now });
     vi.advanceTimersByTime(1699);
     expect(ui().settingFlash).not.toBeNull();
     vi.advanceTimersByTime(1);
@@ -422,7 +401,7 @@ describe("flashSetting", () => {
   });
 
   it("restarts the wait when another flash comes", () => {
-    flashSetting("theme");
+    flashSetting("density");
     vi.advanceTimersByTime(1000);
     flashSetting("size");
     vi.advanceTimersByTime(1000);
@@ -456,16 +435,16 @@ describe("setNotify", () => {
 
 describe("openSetting", () => {
   it("goes to the section and names the row to reach", () => {
-    openSetting("appearance", "theme");
+    openSetting("appearance", "density");
     expect(selectRoute(appStore().getState())).toMatchObject({
       screen: "settings",
       tab: "appearance",
     });
-    expect(ui().settingTarget).toBe("theme");
+    expect(ui().settingTarget).toBe("density");
   });
 
   it("clears the target when no row is named", () => {
-    openSetting("appearance", "theme");
+    openSetting("appearance", "density");
     openSetting("keyboard");
     expect(selectRoute(appStore().getState()).tab).toBe("keyboard");
     expect(ui().settingTarget).toBeNull();

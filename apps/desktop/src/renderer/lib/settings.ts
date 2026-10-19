@@ -42,8 +42,7 @@ export const settingsSections: readonly SettingsSection[] = [
 ];
 
 /** A setting that exists today. */
-export type RowId =
-  "name" | "role" | "theme" | "density" | "size" | "motion" | "rail" | "letters" | "notify";
+export type RowId = "name" | "role" | "density" | "size" | "motion" | "rail" | "letters" | "notify";
 
 /** A row that can be searched and reached from the palette. */
 export interface SettingsRow {
@@ -55,7 +54,6 @@ export interface SettingsRow {
 export const settingsRows: readonly SettingsRow[] = [
   { section: "profile", id: "name" },
   { section: "profile", id: "role" },
-  { section: "appearance", id: "theme" },
   { section: "appearance", id: "density" },
   { section: "appearance", id: "size" },
   { section: "appearance", id: "motion" },

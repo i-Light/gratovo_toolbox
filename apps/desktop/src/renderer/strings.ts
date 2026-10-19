@@ -71,7 +71,6 @@ export const strings = {
       confirmContacts: "Confirm contacts",
       undo: "Undo the last change",
       shortcuts: "Show keyboard shortcuts",
-      theme: "Switch light / dark",
       settings: "Open settings",
       density: "Switch density (comfortable / compact)",
     },
@@ -137,9 +136,6 @@ export const strings = {
     unnamedSub: "So the team knows who did what",
     settings: "Settings",
     appearance: "Appearance",
-    themeDark: "Dark",
-    themeLight: "Light",
-    themeSystem: "System",
     shortcuts: "Keyboard shortcuts",
     notifications: "Notifications",
     connections: "Connections",
@@ -176,8 +172,8 @@ export const strings = {
         note: null,
       },
       appearance: {
-        sub: "Theme, density, text size, motion",
-        words: "dark light theme compact density font text size large motion animation sidebar",
+        sub: "Density, text size, motion, sidebar",
+        words: "compact density font text size large motion animation sidebar",
         note: null,
       },
       day: {
@@ -213,7 +209,7 @@ export const strings = {
       team: {
         sub: "Roles, who sees money",
         words: "roles va money permissions invite",
-        note: null,
+        note: "Who has which role, and who sees money.",
       },
       connections: {
         sub: "Gmail, Gemini, YouTube, sync",
@@ -235,11 +231,6 @@ export const strings = {
         words: "owner role",
         desc: "What this role can do is listed in Team \u203a Roles.",
         descOwner: "Owners see money, change the agency's rules and invite people.",
-      },
-      theme: {
-        label: "Theme",
-        words: "dark light system",
-        desc: "System follows your computer's light or dark setting through the day.",
       },
       density: {
         label: "Density",
@@ -282,9 +273,6 @@ export const strings = {
       rolesInTeam: "Roles in Team",
     },
     options: {
-      system: "System",
-      light: "Light",
-      dark: "Dark",
       comfortable: "Comfortable",
       compact: "Compact",
       normal: "Normal",
@@ -310,7 +298,7 @@ export const strings = {
     turnedOn: (kind: string): string => `Turned on ${kind} notifications`,
     turnedOff: (kind: string): string => `Turned off ${kind} notifications`,
     noMatch: (query: string): string => `No setting matches \u201c${query}\u201d`,
-    noMatchHint: "Try a plainer word: dark, hours, keys, money, Gmail.",
+    noMatchHint: "Try a plainer word: name, hours, keys, money, Gmail.",
     /** The empty state of a section whose rows come with a later step. */
     shell: {
       title: (step: number): string => `Arrives with step ${String(step)}`,
@@ -397,10 +385,6 @@ export const strings = {
     newerChanges: "Newer changes came after this one",
     newerChangesSub: "Use Ctrl Z to step back through them in order.",
     markedRead: "Marked notifications read",
-  },
-  theme: {
-    toast: (mode: "dark" | "light" | ""): string =>
-      `Theme: ${mode === "" ? "follows your system" : mode}`,
   },
   record: {
     kinds: { creator: "Creator", brand: "Brand", deal: "Deal" },

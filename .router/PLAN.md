@@ -4,7 +4,7 @@ The last of three pull requests for step 3c (3c-1, the frame, merged as #6; 3c-2
 
 ## Goal
 
-The Settings screen works as in the prototype: its sections in two groups, the search, saved-in-place confirmation, and the rows whose features exist today (your name; theme, density, text size, motion, sidebar; single-letter keys; what reaches the bell). The other sections are there, saying which step brings their rows. Then step 3c's own checks: no accessibility violations (axe, WCAG 2.2 A and AA) in light and dark, and the whole shell looked at next to the prototype.
+The Settings screen works as in the prototype: its sections in two groups, the search, saved-in-place confirmation, and the rows whose features exist today (your name; density, text size, motion, sidebar; single-letter keys; what reaches the bell). The other sections are there, saying which step brings their rows. Then step 3c's own checks: no accessibility violations (axe, WCAG 2.2 A and AA) in light and dark, and the whole shell looked at next to the prototype.
 
 ### Non-goals
 
@@ -15,8 +15,8 @@ Prototype mode and its section (3f). The rows of Your day (step 4; per §9 Q2 th
 1. `pnpm lint`, `pnpm typecheck`, `pnpm test` pass; Windows CI passes.
 2. Every ported CSS rule matches the prototype (`expectRulesMatchPrototype`), deviations listed with a reason.
 3. Component tests: the sections and groups, the search (rows and sections, "No setting matches"), Esc clears the search, Ctrl F focuses it, choosing a result opens the section and highlights and focuses the row, saved-in-place, each working row changes what it says (prefs applied to `<html>`, the rail's name, the bell's count), the notification switches undo with Ctrl Z, the shell sections name their step, the palette's Settings rows.
-4. Playwright on Windows: settings (open from the account menu, change the theme and see it applied, find "dark" in the search and land on the Theme row, set your name and see it in the rail, turn off a notification kind and see the bell's count drop) and accessibility (axe finds no WCAG 2.2 A or AA violations on the frame, each overlay and each settings section, in light and dark, at 1440 and 400 px).
-5. Looked at next to the prototype, light and dark, 1440 and 400 px: every settings section, the search results, and the frame and overlays once more.
+4. Playwright on Windows: settings (open from the account menu, see the app dark even when the system is light, find "compact" in the search and land on the Density row, set your name and see it in the rail, turn off a notification kind and see the bell's count drop) and accessibility (axe finds no WCAG 2.2 A or AA violations on the frame, each overlay and each settings section, in dark at 1440 px; the owner dropped 400 px and light on 2026-10-20).
+5. Looked at next to the prototype, in dark, at 1440 px: every settings section, the search results, and the frame and overlays once more.
 
 ## Decisions
 
@@ -29,6 +29,7 @@ Prototype mode and its section (3f). The rows of Your day (step 4; per §9 Q2 th
 - **F7. Contrast:** the light theme's `--muted` becomes `#566678` (the prototype's `#64778b` reads 3.96 to 4.26:1 on the sunk and accent-soft surfaces; the new value is at least 4.72:1 on every light surface, same hue). A listed deviation in `tokens.test.ts`. Dark passes as it is.
 - **F8. Names match what you see** (WCAG 2.5.3): the expanded account button takes its name from its text (its avatar is decorative there); collapsed, it keeps "Your account: …". The bell's name says the count ("Notifications, 3 unread") while its tooltip stays "Notifications".
 - **F9. axe runs in the Electron tests** through `@axe-core/playwright` (4.14.0, matching the `axe-core` already in the tree), with the WCAG 2.2 A and AA tags only. Best-practice rules (heading order, landmarks) aren't gates: the prototype's headings (h4 in trays and the sheet) stay.
+- **F11. Dark only, for now** (the owner, 2026-10-20, after R3): the app always sets `data-theme="dark"`; the theme pref, the Theme row, the palette's "Switch light / dark" and the account menu's theme hint are gone. The light tokens (and F7's `--muted`) stay in `tokens.css` for when a theme choice comes back. Light and 400 px aren't tested or looked at.
 - **F10. The screenshot comparison is a look, not a pixel test:** the screens behind the frame differ from the prototype until steps 4 to 9, so pixel diffs would fail on content. The lead compares with the scratchpad scripts and records what was compared in PROGRESS and the hand-off.
 
 ## Contracts

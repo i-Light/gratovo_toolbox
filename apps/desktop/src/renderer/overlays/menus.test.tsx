@@ -37,14 +37,14 @@ async function openAccountMenu() {
 }
 
 describe("the account menu", () => {
-  it("lists the who row, Settings, Appearance with the theme, shortcuts, Notifications, Connections", async () => {
+  it("lists the who row, Settings, Appearance, shortcuts, Notifications, Connections", async () => {
     render(<App />);
     const menu = await openAccountMenu();
     const { menu: text } = strings;
     expect(items().map((item) => item.textContent)).toEqual([
       expect.stringContaining(strings.rail.addName),
       expect.stringContaining(text.settings),
-      expect.stringContaining(`${text.appearance}${text.themeSystem}`),
+      expect.stringContaining(text.appearance),
       expect.stringContaining(text.shortcuts),
       expect.stringContaining(text.notifications),
       expect.stringContaining(text.connections),

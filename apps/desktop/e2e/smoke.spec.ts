@@ -42,26 +42,15 @@ test("loads both fonts from the app's own files", async ({ page }) => {
   expect(fonts.faces.filter((face) => face.status === "error")).toEqual([]);
 });
 
-test("applies the design tokens in light and in dark", async ({ page }) => {
-  const light = "rgb(242, 245, 249)"; // --bg, light
+test("is dark even when the system is light", async ({ page }) => {
+  // The owner put the app on dark only for now (2026-10-20); the light tokens stay for later.
   const dark = "rgb(6, 19, 29)"; // --bg, dark
   const background = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
-  const chooseTheme = (theme: "light" | "dark") =>
-    page.evaluate((value) => {
-      document.documentElement.dataset["theme"] = value;
-    }, theme);
 
   await page.emulateMedia({ colorScheme: "light" });
-  expect(await background()).toBe(light);
-
-  await page.emulateMedia({ colorScheme: "dark" });
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   expect(await background()).toBe(dark);
 
-  // A theme chosen in Settings wins over the system's.
-  await chooseTheme("light");
-  expect(await background()).toBe(light);
-
-  await page.emulateMedia({ colorScheme: "light" });
-  await chooseTheme("dark");
+  await page.emulateMedia({ colorScheme: "dark" });
   expect(await background()).toBe(dark);
 });
