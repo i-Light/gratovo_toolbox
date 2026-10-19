@@ -36,46 +36,91 @@ function environmentWith(extra: Record<string, string>): Record<string, string> 
  */
 const startTimeout = 60_000;
 
+/**
+ * Starts the built app on a data folder and returns it with its ready page: the URL is the app's
+ * and the rail is on screen. Starting again on the same folder is how a test restarts the app.
+ */
+export async function launchApp(
+  userData: string,
+): Promise<{ app: ElectronApplication; page: Page }> {
+  const app = await electron.launch({
+    executablePath: electronBinary,
+    args: [appDir],
+    env: environmentWith({ GRATOVO_USER_DATA: userData }),
+    timeout: startTimeout,
+  });
+  const page = await app.firstWindow({ timeout: startTimeout });
+  // firstWindow() can resolve before the app's page has loaded. The URL is polled rather than
+  // waited for with waitForURL: that waits for a load or navigation event, and in Electron the
+  // page can finish loading before Playwright listens, so it hung with the frame on screen
+  // (Windows CI, 2026-10-20). The app writes "#/today" into the URL at start, so any fragment
+  // will do.
+  await expect(page).toHaveURL((url) => url.href.startsWith(appPage), {
+    timeout: startTimeout,
+  });
+  // The frame is there once the rail is.
+  await page
+    .getByRole("navigation", { name: strings.rail.label })
+    .waitFor({ timeout: startTimeout });
+  return { app, page };
+}
+
+type Fixtures = {
+  /** The data folder of this test; it is removed when the test ends. */
+  userData: string;
+  /** The running app (the first launch, or the latest one after `relaunch`). */
+  app: ElectronApplication;
+  /** The window of the running app. */
+  page: Page;
+  /** Closes the app and starts it again on the same data folder; returns the new window. */
+  relaunch: () => Promise<Page>;
+};
+
 /** Each test gets a fresh copy of the built app, with its own data folder, and its one window. */
-export const test = base.extend<{ app: ElectronApplication; page: Page }>({
-  app: [
+export const test = base.extend<Fixtures & { running: { app: ElectronApplication; page: Page } }>({
+  userData: [
     // Playwright reads a fixture's dependencies from this pattern, so it can't be left out.
     // eslint-disable-next-line no-empty-pattern
     async ({}, use) => {
       // Nothing is shared with the installed app, `pnpm dev` or the test before, so a test also
       // runs while the app is open on the same machine.
       const userData = await mkdtemp(join(tmpdir(), "gratovo-e2e-"));
-      const app = await electron.launch({
-        executablePath: electronBinary,
-        args: [appDir],
-        env: environmentWith({ GRATOVO_USER_DATA: userData }),
-        timeout: startTimeout,
-      });
-      await use(app);
-      await app.close();
+      await use(userData);
       // Windows can hold a file for a moment after the app exits.
       await rm(userData, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
     },
+    { scope: "test" },
+  ],
+  // The latest launch, shared by `app`, `page` and `relaunch`. Closed before the folder is removed.
+  running: [
+    async ({ userData }, use) => {
+      const state = await launchApp(userData);
+      const holder = { ...state };
+      await use(holder);
+      await holder.app.close();
+    },
     { timeout: startTimeout },
   ],
+  app: async ({ running }, use) => {
+    await use(running.app);
+  },
   page: [
-    async ({ app }, use) => {
-      const page = await app.firstWindow({ timeout: startTimeout });
-      // firstWindow() can resolve before the app's page has loaded. The URL is polled rather than
-      // waited for with waitForURL: that waits for a load or navigation event, and in Electron the
-      // page can finish loading before Playwright listens, so it hung with the frame on screen
-      // (Windows CI, 2026-10-20). The app writes "#/today" into the URL at start, so any fragment
-      // will do.
-      await expect(page).toHaveURL((url) => url.href.startsWith(appPage), {
-        timeout: startTimeout,
-      });
-      // The frame is there once the rail is.
-      await page
-        .getByRole("navigation", { name: strings.rail.label })
-        .waitFor({ timeout: startTimeout });
-      await use(page);
+    async ({ running }, use) => {
+      await use(running.page);
     },
     { scope: "test", timeout: startTimeout },
+  ],
+  relaunch: [
+    async ({ running, userData }, use) => {
+      await use(async () => {
+        await running.app.close();
+        const next = await launchApp(userData);
+        running.app = next.app;
+        running.page = next.page;
+        return next.page;
+      });
+    },
+    { timeout: startTimeout },
   ],
 });
 

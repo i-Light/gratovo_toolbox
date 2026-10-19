@@ -37,9 +37,11 @@ The app reads and writes a local SQLite database first, so every click answers a
 - **Realtime:** one channel broadcasts "these tables changed" and carries presence (who is online, who is looking at what).
 - **Nothing derived is stored on the server.** Counts, rollups and Today are computed locally.
 
+**Built in 3d-1** ([decisions/0010-data-layer.md](decisions/0010-data-layer.md)): the database is Node's built-in `node:sqlite` in the main process, with forward-only migrations (`apps/desktop/src/main/db/`) and one repository per table (`apps/desktop/src/main/data/repositories/`). The renderer loads everything the frame shows with one call (`frame:load`) before its first render, and a persister turns each change to the store's data, undo and redo included, into a batch for `data:write`. The contract (types, `DataSource`, the write kinds, the mapping to the old app's fields) is in `@gratovo/core/data`. The pull, the outbox, realtime and sign-in come with 3d-2.
+
 ### One data source switch: live or example
 
-All reads and writes go through a `DataSource` interface. The **live** implementation is SQLite plus sync. The **example** implementation is seeded fixtures in a throwaway database, with stand-in adapters for Gmail, Gemini, YouTube and R2, so nothing leaves the machine. Prototype mode chooses between them at runtime. The UI code is the same in both, so what the owner sees in prototype mode *is* the app. See [decisions/0004-prototype-mode.md](decisions/0004-prototype-mode.md).
+All reads and writes go through a `DataSource` interface. The **live** implementation is SQLite plus sync. The **example** implementation is `example.db`, seeded from fixtures and kept across restarts (so changes behave like real data), with stand-in adapters for Gmail, Gemini, YouTube and R2, so nothing leaves the machine. Prototype mode chooses between them at runtime. The UI code is the same in both, so what the owner sees in prototype mode *is* the app. See [decisions/0004-prototype-mode.md](decisions/0004-prototype-mode.md).
 
 ## Domain core
 
@@ -139,6 +141,8 @@ Pinned in step 3a on 2026-10-19, at the current stable releases. Every package v
 | Vitest | 5.0.5 | root |
 | Playwright | 1.64.1 | `apps/desktop` |
 | @axe-core/playwright | 4.14.0 (added in 3c-3) | `apps/desktop` |
+| SQLite | `node:sqlite`, SQLite 3.53.4 inside Electron 44.9.0 (added in 3d-1; no package) | built in |
+| Postgres for the SQL tests | `postgres:17.11`, pinned by digest (added in 3d-1) | `supabase/tests/run.ts` |
 | zod | 4.6.7 | `packages/ipc`, `apps/desktop` |
 | immer | 11.1.21 (added in 3c) | `packages/core` |
 | Fontsource Readex Pro (variable), IBM Plex Mono | 5.3.0, 5.3.0 (added in 3c) | `packages/ui` |
