@@ -7,4 +7,10 @@ Owner decisions (2026-10-20): 3d in two parts (3d-1 here, 3d-2 sign-in, sync and
 | Task | Tier | Commit | Note |
 |---|---|---|---|
 | Recon | scout | (this commit) | `.router/CONTEXT.md` |
-| Plan | H | (this commit) | `.router/PLAN.md`; `node:sqlite` checked inside Electron 44.9.0 (Node 24.22.0, SQLite 3.53.4, WAL) |
+| Plan | H | fbbd20b | `.router/PLAN.md`; `node:sqlite` checked inside Electron 44.9.0 (Node 24.22.0, SQLite 3.53.4, WAL) |
+| D1 | N | 7440e5e | `@gratovo/core/data`: the contract, legacy mapping, example fixtures |
+| D2 | N | a785ce8 | Supabase baseline migration (legacy `schema.sql` as is), SQL tests, CI job `sql` (green on its first run) |
+| D3 | N | 12a7f26 | `main/db`: open, forward-only migrations, migration 1 (9 STRICT tables) |
+| D4 | N | (this commit) | `main/data/repositories`: one file per table, 38 tests. STRICT `TEXT` columns turn numbers into text, so the STRICT tests write a blob or text into a number column |
+
+Next: D5 (the two sources and the shared contract suite).
