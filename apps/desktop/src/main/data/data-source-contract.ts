@@ -2,14 +2,21 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { exampleFrame, nameMax, notifyKind } from "@gratovo/core/data";
+import { exampleFrame, mentionsMoney, nameMax, notifyKind } from "@gratovo/core/data";
+import { frameSchema } from "@gratovo/ipc";
 import type { DataSource, DataWrite, Frame } from "@gratovo/core/data";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { openDatabase } from "../db/open-database";
 
-import { replaceMemberAccess } from "./repositories";
-import type { MemberAccessRow } from "./repositories";
+import {
+  insertLogRow,
+  replaceMemberAccess,
+  upsertCreator,
+  upsertDeal,
+  upsertNotification,
+} from "./repositories";
+import type { ActivityRow, MemberAccessRow } from "./repositories";
 
 /** The fixed time the contract runs at. */
 export const contractNow = Date.UTC(2026, 9, 20, 12, 0, 0);
@@ -36,6 +43,35 @@ function setAccess(file: string, rows: readonly Omit<MemberAccessRow, "updatedAt
   } finally {
     db.close();
   }
+}
+
+/** Runs `fn` on a second connection to `file`, as the sync would. */
+function withDb(file: string, fn: (db: ReturnType<typeof openDatabase>) => void): void {
+  const db = openDatabase(file);
+  try {
+    fn(db);
+  } finally {
+    db.close();
+  }
+}
+
+function logRow(id: string, at: string, over: Partial<ActivityRow>): ActivityRow {
+  return {
+    id,
+    at,
+    actor_id: "u1",
+    actor_name: "Ada",
+    actor_role: "owner",
+    action: "note",
+    entity_type: "app",
+    entity_id: null,
+    entity_label: null,
+    field: null,
+    old_value: null,
+    new_value: null,
+    detail: null,
+    ...over,
+  };
 }
 
 /** Whether a notification is about money. */
@@ -100,7 +136,11 @@ export function describeDataSourceContract(name: string, make: MakeSource): void
       const frame = await source.frame();
       expect(frame.seesMoney).toBe(false);
       expect(frame.deals).toEqual(before.deals.map((deal) => ({ ...deal, price: null })));
-      expect(frame.notifications).toEqual(before.notifications.filter((n) => !isMoney(n)));
+      expect(frame.notifications).toEqual(
+        before.notifications.filter(
+          (n) => !isMoney(n) && !mentionsMoney(n.text) && !mentionsMoney(n.sub),
+        ),
+      );
       expect(frame.notifications.length).toBeGreaterThan(0);
       // Turning the switch on shows money again; nothing was lost.
       setAccess(file, [{ profileId: "u1", roles: ["scout"], seesMoney: true }]);
@@ -252,6 +292,129 @@ export function describeDataSourceContract(name: string, make: MakeSource): void
       first.close();
       const second = start();
       expect(await second.frame()).toEqual(before);
+    });
+
+    it("keeps a big pulled table inside the frame limits, deal creators first", async () => {
+      const source = start();
+      withDb(file, (db) => {
+        db.exec("BEGIN");
+        for (let i = 0; i < 20_000; i += 1) {
+          upsertCreator(
+            db,
+            {
+              id: `bulk-${String(i)}`,
+              name: `Bulk ${String(i)}`,
+              handle: `@bulk${String(i)}`,
+              stage: "new",
+              email: null,
+            },
+            contractNow,
+          );
+        }
+        for (let i = 0; i < 50; i += 1) {
+          upsertDeal(
+            db,
+            {
+              id: `bulk-deal-${String(i)}`,
+              brand: "b1",
+              creator: `bulk-${String(i)}`,
+              step: 1,
+              price: 1000,
+            },
+            contractNow,
+          );
+        }
+        db.exec("COMMIT");
+      });
+      const frame = await source.frame();
+      expect(frame.creators.length).toBeLessThanOrEqual(5000);
+      const ids = new Set(frame.creators.map((c) => c.id));
+      for (let i = 0; i < 50; i += 1) {
+        expect(ids.has(`bulk-${String(i)}`)).toBe(true);
+      }
+      expect(frameSchema.safeParse(frame).success).toBe(true);
+      expect(JSON.stringify(frame).length).toBeLessThan(2_000_000);
+    });
+
+    it("drops money lines and money notifications for a member without money", async () => {
+      const source = start();
+      withDb(file, (db) => {
+        insertLogRow(
+          db,
+          logRow("m1", "2026-10-20T10:00:00Z", { detail: { text: "Paid Lina $4,000" } }),
+        );
+        insertLogRow(
+          db,
+          logRow("m2", "2026-10-20T10:01:00Z", {
+            action: "updated",
+            entity_type: "deals",
+            entity_label: "Lina deal",
+            field: "brand_price",
+            old_value: "1",
+            new_value: "2",
+          }),
+        );
+        insertLogRow(
+          db,
+          logRow("m3", "2026-10-20T10:02:00Z", { detail: { text: "Added a brand" } }),
+        );
+        const base = exampleFrame(contractNow).notifications[0];
+        if (base === undefined) throw new Error("no example notification");
+        upsertNotification(
+          db,
+          { ...base, id: "nm1", text: "Flagged", sub: "x", icon: "check" },
+          { money: true },
+        );
+        upsertNotification(db, { ...base, id: "nm2", text: "Got $4,000", sub: "x", icon: "check" });
+      });
+      const rich = await source.frame();
+      expect(rich.log.map((l) => l.id)).toEqual(["m3", "m2", "m1"]);
+      expect(rich.notifications.some((n) => n.id === "nm1")).toBe(true);
+      setAccess(file, [{ profileId: "u1", roles: ["scout"], seesMoney: false }]);
+      const frame = await source.frame();
+      expect(frame.log.map((l) => l.id)).toEqual(["m3"]);
+      expect(JSON.stringify(frame.log)).not.toContain("$4,000");
+      expect(frame.notifications.some((n) => n.id === "nm1" || n.id === "nm2")).toBe(false);
+    });
+
+    it("hides an undone line and its marker, and shows a redone one", async () => {
+      const source = start();
+      withDb(file, (db) => {
+        insertLogRow(db, logRow("l1", "2026-10-20T10:00:00Z", { detail: { text: "First" } }));
+        insertLogRow(db, logRow("l2", "2026-10-20T10:01:00Z", { detail: { text: "Second" } }));
+        const marker = (id: string, action: string, at: string): ActivityRow =>
+          logRow(id, at, {
+            action,
+            entity_type: "activity_log",
+            entity_id: "l2",
+            entity_label: "Second",
+          });
+        insertLogRow(db, marker("k1", "undo", "2026-10-20T10:02:00Z"));
+      });
+      expect((await source.frame()).log.map((l) => l.id)).toEqual(["l1"]);
+      withDb(file, (db) => {
+        insertLogRow(
+          db,
+          logRow("k2", "2026-10-20T10:03:00Z", {
+            action: "redo",
+            entity_type: "activity_log",
+            entity_id: "l2",
+            entity_label: "Second",
+          }),
+        );
+      });
+      expect((await source.frame()).log.map((l) => l.id)).toEqual(["l2", "l1"]);
+    });
+
+    it("sorts lines written with Z and with +00:00 by time", async () => {
+      const source = start();
+      withDb(file, (db) => {
+        insertLogRow(db, logRow("z1", "2026-10-20T10:00:00Z", { detail: { text: "A" } }));
+        insertLogRow(db, logRow("z2", "2026-10-20T10:00:30+00:00", { detail: { text: "B" } }));
+        insertLogRow(db, logRow("z3", "2026-10-20T10:01:00Z", { detail: { text: "C" } }));
+        insertLogRow(db, logRow("z4", "2026-10-20T10:01:30+00:00", { detail: { text: "D" } }));
+      });
+      expect((await source.frame()).log.map((l) => l.id)).toEqual(["z4", "z3", "z2", "z1"]);
     });
   });
 }

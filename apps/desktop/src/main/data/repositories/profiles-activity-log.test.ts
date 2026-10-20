@@ -121,7 +121,7 @@ describe("activity log", () => {
 
   it("adds with the actor from me's profile and reads back", () => {
     addLogEntry(db, "u1", { id: "l1", at: t0, who: "ignored", text: "Marked Lina's deal paid" });
-    expect(newestLog(db)).toEqual([
+    expect(newestLog(db, { seesMoney: true })).toEqual([
       { id: "l1", at: t0, who: "u1", text: "Marked Lina's deal paid" },
     ]);
     const row = db.prepare("SELECT * FROM activity_log").get();
@@ -129,7 +129,9 @@ describe("activity log", () => {
       actor_id: "u1",
       actor_name: "Maya",
       actor_role: "full",
-      action: "Marked Lina's deal paid",
+      action: "note",
+      entity_label: "Marked Lina's deal paid",
+      detail: '{"text":"Marked Lina\'s deal paid"}',
       entity_type: "app",
       at: "2026-10-20T10:00:00.000Z",
     });
@@ -137,7 +139,7 @@ describe("activity log", () => {
 
   it("logs an empty name when me has no profile, and reads back the member id", () => {
     addLogEntry(db, "ghost", { id: "l1", at: t0, who: "", text: "Did a thing" });
-    expect(newestLog(db)[0]).toMatchObject({ who: "ghost" });
+    expect(newestLog(db, { seesMoney: true })[0]).toMatchObject({ who: "ghost" });
     expect(db.prepare("SELECT actor_role FROM activity_log").get()?.["actor_role"]).toBe(
       "unauthorized",
     );
@@ -148,7 +150,7 @@ describe("activity log", () => {
     addLogEntry(db, "u1", { id: "b", at: t0 + 1000, who: "", text: "tie 1" });
     addLogEntry(db, "u1", { id: "c", at: t0 + 1000, who: "", text: "tie 2" });
     addLogEntry(db, "u1", { id: "d", at: t0 + 2000, who: "", text: "newest" });
-    expect(newestLog(db).map((e) => e.id)).toEqual(["d", "c", "b", "a"]);
+    expect(newestLog(db, { seesMoney: true }).map((e) => e.id)).toEqual(["d", "c", "b", "a"]);
   });
 
   it("caps the list at 50 and at the limit asked for", () => {
@@ -160,29 +162,34 @@ describe("activity log", () => {
         text: "x",
       });
     }
-    const all = newestLog(db);
+    const all = newestLog(db, { seesMoney: true });
     expect(all).toHaveLength(logCap);
     expect(all[0]?.id).toBe("l59");
     expect(all.at(-1)?.id).toBe("l10");
-    expect(newestLog(db, 3)).toHaveLength(3);
-    expect(newestLog(db, 500)).toHaveLength(logCap);
-    expect(newestLog(db, 0)).toEqual([]);
+    expect(newestLog(db, { seesMoney: true, limit: 3 })).toHaveLength(3);
+    expect(newestLog(db, { seesMoney: true, limit: 500 })).toHaveLength(logCap);
+    expect(newestLog(db, { seesMoney: true, limit: 0 })).toEqual([]);
   });
 
   it("removes a line, and reports an unknown id", () => {
     addLogEntry(db, "u1", { id: "l1", at: t0, who: "", text: "x" });
     expect(removeLogEntry(db, "l1")).toBe(true);
-    expect(newestLog(db)).toEqual([]);
+    expect(newestLog(db, { seesMoney: true })).toEqual([]);
     expect(removeLogEntry(db, "l1")).toBe(false);
   });
 
   it("reads a legacy row written by the old app", () => {
     db.exec(
-      `INSERT INTO activity_log (id, at, actor_id, actor_name, actor_role, action, entity_type, entity_id)
-       VALUES ('srv', '2026-10-20T11:00:00.500000+00:00', NULL, 'Sara', 'basic', 'edited tags', 'channel', 'c1')`,
+      `INSERT INTO activity_log (id, at, actor_id, actor_name, actor_role, action, entity_type, entity_id, entity_label)
+       VALUES ('srv', '2026-10-20T11:00:00.500000+00:00', NULL, 'Sara', 'basic', 'tagsChanged', 'channel', 'c1', 'Lina')`,
     );
-    expect(newestLog(db)).toEqual([
-      { id: "srv", at: Date.UTC(2026, 9, 20, 11, 0, 0, 500), who: "Sara", text: "edited tags" },
+    expect(newestLog(db, { seesMoney: true })).toEqual([
+      {
+        id: "srv",
+        at: Date.UTC(2026, 9, 20, 11, 0, 0, 500),
+        who: "Sara",
+        text: "Changed the tags of Lina",
+      },
     ]);
   });
 

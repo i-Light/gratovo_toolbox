@@ -40,6 +40,8 @@ export interface SqliteSourceOptions {
   readonly extras: FrameExtras;
   /** The clock, in ms. Defaults to `Date.now`; tests inject a fixed one. */
   readonly now?: () => number;
+  /** Runs inside the batch's transaction for each write; must call applyLocal() unless it writes locally itself. */
+  readonly onWrite?: (db: DatabaseSync, write: DataWrite, applyLocal: () => void) => void;
 }
 
 /** Runs `fn` in one transaction: it commits when `fn` returns and rolls back when it throws. */
@@ -87,7 +89,7 @@ export function createSqliteSource(db: DatabaseSync, options: SqliteSourceOption
     // Money is stripped here, so the page never holds a number it must hide.
     const money = seesMoney(access.get(me) ?? noAccess);
     const deals = listDeals(db);
-    const notifications = listNotifications(db);
+    const notifications = listNotifications(db, { seesMoney: money });
     return {
       me,
       myName: myName === "" ? null : myName,
@@ -96,7 +98,8 @@ export function createSqliteSource(db: DatabaseSync, options: SqliteSourceOption
       notifications: money
         ? notifications
         : notifications.filter((n) => notifyKind(n.icon) !== "money"),
-      log: newestLog(db),
+      log: newestLog(db, { seesMoney: money }),
+      conflicts: [],
       creators: listCreators(db),
       brands: listBrands(db),
       deals: money ? deals : deals.map((deal) => ({ ...deal, price: null })),
@@ -123,6 +126,11 @@ export function createSqliteSource(db: DatabaseSync, options: SqliteSourceOption
       case "log.remove":
         removeLogEntry(db, write.id);
         return;
+      case "creator.stage":
+      case "brand.set":
+      case "deal.step":
+      case "conflict.resolve":
+        throw new Error("not supported until S20");
     }
   }
 
@@ -133,7 +141,13 @@ export function createSqliteSource(db: DatabaseSync, options: SqliteSourceOption
       settle(() => {
         inTransaction(db, () => {
           for (const write of writes) {
-            apply(write);
+            if (options.onWrite === undefined) {
+              apply(write);
+            } else {
+              options.onWrite(db, write, () => {
+                apply(write);
+              });
+            }
           }
         });
       }),

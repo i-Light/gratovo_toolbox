@@ -1,6 +1,14 @@
-export { addLogEntry, logCap, newestLog, removeLogEntry } from "./activity-log";
+export {
+  addLogEntry,
+  insertLogRow,
+  logCap,
+  logRowFor,
+  newestLog,
+  removeLogEntry,
+} from "./activity-log";
+export type { ActivityRow } from "./activity-log";
 export { listBrands, upsertBrand } from "./brands";
-export { listCreators, upsertCreator } from "./creators";
+export { listCreators, listMax, upsertCreator } from "./creators";
 export { listDeals, upsertDeal } from "./deals";
 export { listMemberAccess, replaceMemberAccess } from "./member-access";
 export type { MemberAccessRow } from "./member-access";
