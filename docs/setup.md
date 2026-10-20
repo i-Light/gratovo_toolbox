@@ -147,7 +147,7 @@ Changes to the team's live Supabase project never go out by themselves.
   Start Docker Desktop, then from the repository folder, in Git Bash:
 
   ```bash
-  npx supabase@2.119.0 start -x studio,mailpit,storage-api,imgproxy,logflare,vector,supavisor,realtime,postgres-meta
+  npx supabase@2.119.0 start -x studio,mailpit,storage-api,imgproxy,logflare,vector,supavisor,postgres-meta
   eval "$(npx supabase@2.119.0 status -o env | sed -n -e 's/^API_URL=/export SUPABASE_URL=/p' -e 's/^PUBLISHABLE_KEY=/export SUPABASE_PUBLISHABLE_KEY=/p' -e 's/^SECRET_KEY=/export SUPABASE_SECRET_KEY=/p')"
   pnpm test:server
   npx supabase@2.119.0 stop --no-backup
@@ -156,7 +156,7 @@ Changes to the team's live Supabase project never go out by themselves.
   Or in PowerShell:
 
   ```powershell
-  npx supabase@2.119.0 start -x studio,mailpit,storage-api,imgproxy,logflare,vector,supavisor,realtime,postgres-meta
+  npx supabase@2.119.0 start -x studio,mailpit,storage-api,imgproxy,logflare,vector,supavisor,postgres-meta
   $names = @{ API_URL = 'SUPABASE_URL'; PUBLISHABLE_KEY = 'SUPABASE_PUBLISHABLE_KEY'; SECRET_KEY = 'SUPABASE_SECRET_KEY' }
   npx supabase@2.119.0 status -o env | ForEach-Object { if ($_ -match '^(\w+)="?(.*?)"?$' -and $names.ContainsKey($Matches[1])) { Set-Item "env:$($names[$Matches[1]])" $Matches[2] } }
   pnpm test:server
