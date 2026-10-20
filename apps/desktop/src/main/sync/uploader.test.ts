@@ -1,7 +1,9 @@
 import type { DatabaseSync } from "node:sqlite";
+import { readFileSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -12,7 +14,7 @@ import { openDatabase } from "../db/open-database";
 import { AuthError } from "../supabase/auth-client";
 import { RestError } from "../supabase/rest";
 import type { Rest } from "../supabase/rest";
-import { createUploader, logBatchMax, markRefetch, refetchKey } from "./uploader";
+import { createUploader, editableFields, logBatchMax, markRefetch, refetchKey } from "./uploader";
 
 let folder: string;
 let db: DatabaseSync;
@@ -38,8 +40,14 @@ interface Call {
   readonly body: unknown;
 }
 
-/** A fake `Rest` that records each call; `fail` decides which calls throw. */
-function fakeRest(fail: (call: Call, index: number) => Error | undefined = () => undefined): {
+/**
+ * A fake `Rest` that records each call; `fail` decides which calls throw and `answer` what an RPC
+ * returns (`"applied"` unless told otherwise).
+ */
+function fakeRest(
+  fail: (call: Call, index: number) => Error | undefined = () => undefined,
+  answer: (call: Call) => unknown = () => "applied",
+): {
   rest: Pick<Rest, "patch" | "upsert" | "rpc">;
   calls: Call[];
 } {
@@ -64,8 +72,9 @@ function fakeRest(fail: (call: Call, index: number) => Error | undefined = () =>
         return Promise.resolve();
       },
       rpc<T>(name: string, args?: object) {
-        handle({ method: "rpc", name, arg: undefined, body: args });
-        return Promise.resolve("applied" as T);
+        const call: Call = { method: "rpc", name, arg: undefined, body: args };
+        handle(call);
+        return Promise.resolve(answer(call) as T);
       },
     },
   };
@@ -416,5 +425,193 @@ describe("markRefetch", () => {
       { table: "deals", key: "d1" },
       { table: "brands", key: "d1" },
     ]);
+  });
+});
+
+describe("createUploader: the compare-and-set and resolve answers", () => {
+  const channel = { table: "channel_state", key: "UC1" };
+
+  function addEdit(payload: Record<string, unknown> = {}): number {
+    return add(
+      "channel.edit",
+      {
+        channelId: "UC1",
+        field: "creator_stage",
+        base: "new",
+        next: "emailed",
+        label: "@ai_daily",
+        ...payload,
+      },
+      channel,
+    );
+  }
+
+  function addResolve(): number {
+    return add("conflict.resolve", { id: "c1", resolution: "theirs", value: "replied" }, channel);
+  }
+
+  function lastCode(seq: number): unknown {
+    return db.prepare("SELECT last_code FROM _outbox WHERE seq = ?").get(seq)?.["last_code"];
+  }
+
+  it.each(["noop", "auto", "applied"])(
+    "counts a stage edit answered %s as sent, with nothing to read again",
+    async (outcome) => {
+      addEdit();
+      add("profile.name", { name: "B" });
+      const { rest, calls } = fakeRest(undefined, () => outcome);
+
+      const result = await uploader(rest).drain();
+
+      expect(calls.map((call) => call.name)).toEqual(["apply_channel_edit", "profiles"]);
+      expect(result).toMatchObject({ sent: 2, dropped: 0, stoppedOn: null });
+      expect(result.tables.has("channel_state")).toBe(true);
+      expect(refetchList()).toEqual([]);
+      expect(pendingCount(db)).toBe(0);
+    },
+  );
+
+  it("counts a conflict as sent, marks the channel for a re-fetch and goes on", async () => {
+    addEdit();
+    add("profile.name", { name: "B" });
+    const { rest, calls } = fakeRest(undefined, (call) =>
+      call.name === "apply_channel_edit" ? "conflict" : "applied",
+    );
+
+    const result = await uploader(rest).drain();
+
+    expect(calls.map((call) => call.name)).toEqual(["apply_channel_edit", "profiles"]);
+    expect(result).toMatchObject({ sent: 2, dropped: 0, stoppedOn: null });
+    expect(refetchList()).toEqual([channel]);
+    expect(droppedSeqs()).toEqual([]);
+    expect(pendingCount(db)).toBe(0);
+  });
+
+  it.each(["applied", "missing", "already_resolved"])(
+    "counts a resolve answered %s as sent and marks the channel for a re-fetch",
+    async (outcome) => {
+      addResolve();
+      add("profile.name", { name: "B" });
+      const { rest, calls } = fakeRest(undefined, () => outcome);
+
+      const result = await uploader(rest).drain();
+
+      expect(calls[0]).toEqual({
+        method: "rpc",
+        name: "resolve_edit_conflict",
+        arg: undefined,
+        body: { p_id: "c1", p_resolution: "theirs", p_value: "replied" },
+      });
+      expect(result).toMatchObject({ sent: 2, dropped: 0, stoppedOn: null });
+      expect(refetchList()).toEqual([channel]);
+      expect(pendingCount(db)).toBe(0);
+    },
+  );
+
+  it.each([
+    ["apply_channel_edit", "an unknown word", "merged_later"],
+    ["apply_channel_edit", "null", null],
+    ["apply_channel_edit", "a number", 3],
+    ["resolve_edit_conflict", "an unknown word", "gone"],
+    ["resolve_edit_conflict", "an object", { outcome: "applied" }],
+  ])("retries when %s answers %s, and never drops", async (name, _what, answer) => {
+    const first = name === "apply_channel_edit" ? addEdit() : addResolve();
+    add("profile.name", { name: "B" });
+    const lines: string[] = [];
+    const { rest, calls } = fakeRest(undefined, () => answer);
+
+    const result = await uploader(rest, lines).drain();
+
+    expect(calls.map((call) => call.name)).toEqual([name]);
+    expect(result).toMatchObject({ sent: 0, dropped: 0, stoppedOn: "retry" });
+    expect(attempts(first)).toBe(1);
+    expect(lastCode(first)).toBe("bad_outcome");
+    expect(droppedSeqs()).toEqual([]);
+    expect(pendingCount(db)).toBe(2);
+    expect(refetchList()).toEqual([]);
+    const kind = name === "apply_channel_edit" ? "channel.edit" : "conflict.resolve";
+    expect(lines).toContain(`upload.retry kind=${kind} seq=${String(first)} code=bad_outcome`);
+  });
+
+  it("sends base and next as JSON values, and null for a missing base or label", async () => {
+    add(
+      "channel.edit",
+      { channelId: "UC2", field: "channel_tags", base: ["ai news"], next: ["ai news", "llm"] },
+      { table: "channel_state", key: "UC2" },
+    );
+    add(
+      "channel.edit",
+      { channelId: "UC3", field: "creator_stage", next: "emailed", label: "@llm_weekly" },
+      { table: "channel_state", key: "UC3" },
+    );
+    const { rest, calls } = fakeRest();
+
+    await uploader(rest).drain();
+
+    expect(calls.map((call) => call.body)).toEqual([
+      {
+        p_channel_id: "UC2",
+        p_field: "channel_tags",
+        p_base: ["ai news"],
+        p_new: ["ai news", "llm"],
+        p_force: false,
+        p_label: null,
+      },
+      {
+        p_channel_id: "UC3",
+        p_field: "creator_stage",
+        p_base: null,
+        p_new: "emailed",
+        p_force: false,
+        p_label: "@llm_weekly",
+      },
+    ]);
+  });
+
+  it("drops a stage edit the server refuses with 22023 and marks the channel", async () => {
+    const first = addEdit();
+    add("profile.name", { name: "B" });
+    const { rest, calls } = fakeRest((call) =>
+      call.name === "apply_channel_edit" ? new RestError("http", 400, "22023") : undefined,
+    );
+
+    const result = await uploader(rest).drain();
+
+    expect(calls.map((call) => call.name)).toEqual(["apply_channel_edit", "profiles"]);
+    expect(result).toMatchObject({ sent: 1, dropped: 1, stoppedOn: null });
+    expect(droppedSeqs()).toEqual([first]);
+    expect(db.prepare("SELECT code FROM _outbox_dropped").get()?.["code"]).toBe("22023");
+    expect(refetchList()).toEqual([channel]);
+  });
+
+  it("never sends a field outside the server's whitelist", async () => {
+    const first = addEdit({ field: "last_edited_by" });
+    add("profile.name", { name: "B" });
+    const { rest, calls } = fakeRest();
+
+    const result = await uploader(rest).drain();
+
+    expect(calls.map((call) => call.name)).toEqual(["profiles"]);
+    expect(result).toMatchObject({ sent: 1, dropped: 1, stoppedOn: null });
+    expect(droppedSeqs()).toEqual([first]);
+    expect(db.prepare("SELECT code FROM _outbox_dropped").get()?.["code"]).toBe("bad_field");
+    expect(refetchList()).toEqual([channel]);
+  });
+});
+
+describe("editableFields", () => {
+  it("is the whitelist of apply_channel_edit in the creator-stage migration", () => {
+    const file = fileURLToPath(
+      new URL(
+        "../../../../../supabase/migrations/20261022090100_creator_stage_edit.sql",
+        import.meta.url,
+      ),
+    );
+    const sql = readFileSync(file, "utf8");
+    const list = /if p_field not in \(([^)]*)\) then/.exec(sql)?.[1];
+    expect(list).toBeDefined();
+    const fields = [...(list ?? "").matchAll(/'([a-z_]+)'/g)].map((match) => match[1]);
+    expect(fields).toHaveLength(10);
+    expect([...editableFields].sort()).toEqual([...fields].sort());
   });
 });

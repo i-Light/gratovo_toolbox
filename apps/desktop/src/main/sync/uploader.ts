@@ -67,11 +67,32 @@ export function markRefetch(db: DatabaseSync, target: { table: string; key: stri
   setMeta(db, refetchKey, JSON.stringify(list));
 }
 
+/**
+ * The fields `apply_channel_edit` writes (its hard-coded whitelist, S17's migration). The uploader
+ * never sends another one: the server would refuse it with 22023 anyway, so it drops here, visibly,
+ * without a round trip. A test keeps this list equal to the migration's text.
+ */
+export const editableFields: readonly string[] = [
+  "notes",
+  "vetting_status",
+  "pipeline_stage",
+  "channel_tags",
+  "relevance_criteria",
+  "provided_data",
+  "contacts",
+  "media_kit",
+  "creator_gender",
+  "creator_stage",
+];
+
 /** A payload this build can't send. It can never succeed, so it is dropped (visibly). */
 class BadPayloadError extends Error {
-  constructor() {
+  readonly code: string;
+
+  constructor(code = "bad_payload") {
     super("An outbox payload is not readable.");
     this.name = "BadPayloadError";
+    this.code = code;
   }
 }
 
@@ -108,21 +129,56 @@ function failureCode(error: unknown): string {
     return "refused";
   }
   if (error instanceof BadPayloadError) {
-    return "bad_payload";
+    return error.code;
   }
   return "error";
 }
 
-/**
- * What an RPC's answer means for its entry. S22 fills it in for `apply_channel_edit` and
- * `resolve_edit_conflict` (the outcome strings, a re-fetch after a conflict or a resolve, and a
- * retry on an answer it doesn't know). Until then every answer counts as sent.
- */
+/** What an RPC's answer means for its entry: sent (maybe with a row to read again), or try later. */
 export type RpcOutcome =
   | { readonly result: "done"; readonly refetch?: { readonly table: string; readonly key: string } }
   | { readonly result: "retry"; readonly code: string };
 
-const onOutcome: (entry: OutboxEntry, answer: unknown) => RpcOutcome = () => ({ result: "done" });
+const sentOk: RpcOutcome = { result: "done" };
+
+/** `apply_channel_edit`'s answers (S17's migration). */
+const editOutcomes: ReadonlySet<string> = new Set(["noop", "auto", "applied", "conflict"]);
+
+/** `resolve_edit_conflict`'s answers: its own two, or the forced `apply_channel_edit`'s. */
+const resolveOutcomes: ReadonlySet<string> = new Set([
+  ...editOutcomes,
+  "missing",
+  "already_resolved",
+]);
+
+/** An answer this build doesn't know may be a newer server's: keep the entry, never drop it. */
+const badOutcome: RpcOutcome = { result: "retry", code: "bad_outcome" };
+
+/**
+ * `channel.edit`: `noop`, `auto` and `applied` are sent. `conflict` is sent too (the server filed
+ * the clash and kept its value), and the channel is read again so the local stage reverts to the
+ * server's while the pull's conflict read brings the notice (D10 (3), D27).
+ */
+function editOutcome(answer: unknown, channel: { table: string; key: string }): RpcOutcome {
+  if (typeof answer !== "string" || !editOutcomes.has(answer)) {
+    return badOutcome;
+  }
+  return answer === "conflict" ? { result: "done", refetch: channel } : sentOk;
+}
+
+/**
+ * `conflict.resolve`: every known answer is sent (`missing` and `already_resolved` included: the
+ * conflict is gone either way), and the channel is read again to show the value that won.
+ */
+function resolveOutcome(
+  answer: unknown,
+  channel: { table: string; key: string } | null,
+): RpcOutcome {
+  if (typeof answer !== "string" || !resolveOutcomes.has(answer)) {
+    return badOutcome;
+  }
+  return channel === null ? sentOk : { result: "done", refetch: channel };
+}
 
 type UploadRest = Pick<Rest, "patch" | "upsert" | "rpc">;
 
@@ -131,8 +187,6 @@ interface Sent {
   readonly tables: readonly string[];
   readonly outcome: RpcOutcome;
 }
-
-const sentOk: RpcOutcome = { result: "done" };
 
 async function send(rest: UploadRest, userId: string, entry: OutboxEntry): Promise<Sent> {
   const p = record(entry.payload);
@@ -170,15 +224,24 @@ async function send(rest: UploadRest, userId: string, entry: OutboxEntry): Promi
       return { tables: ["deals"], outcome: sentOk };
     }
     case "channel.edit": {
+      const channelId = text(p["channelId"]);
+      const field = text(p["field"]);
+      if (!editableFields.includes(field)) {
+        throw new BadPayloadError("bad_field");
+      }
+      // Base and next go as JSON values (jsonb on the server); a missing one is JSON null.
       const answer = await rest.rpc<unknown>("apply_channel_edit", {
-        p_channel_id: text(p["channelId"]),
-        p_field: text(p["field"]),
+        p_channel_id: channelId,
+        p_field: field,
         p_base: p["base"] ?? null,
         p_new: p["next"] ?? null,
         p_force: false,
         p_label: typeof p["label"] === "string" ? p["label"] : null,
       });
-      return { tables: ["channel_state"], outcome: onOutcome(entry, answer) };
+      return {
+        tables: ["channel_state"],
+        outcome: editOutcome(answer, { table: "channel_state", key: channelId }),
+      };
     }
     case "conflict.resolve": {
       const answer = await rest.rpc<unknown>("resolve_edit_conflict", {
@@ -186,7 +249,10 @@ async function send(rest: UploadRest, userId: string, entry: OutboxEntry): Promi
         p_resolution: text(p["resolution"]),
         p_value: p["value"] ?? null,
       });
-      return { tables: ["channel_state", "edit_conflicts"], outcome: onOutcome(entry, answer) };
+      return {
+        tables: ["channel_state", "edit_conflicts"],
+        outcome: resolveOutcome(answer, entry.target),
+      };
     }
     case "activity.add":
       // Runs are sent by `sendLogRun`; a single one goes the same way.
