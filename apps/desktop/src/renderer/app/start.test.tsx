@@ -104,10 +104,10 @@ describe("start", () => {
   it("opens the app straight away when there is no account setup or you are signed in", async () => {
     for (const status of ["unconfigured", "signed-in"] as const) {
       await start({ status, email: "me@example.com" });
-      // Signed in, the page also asks for the sync status (it starts listening to main).
+      // Signed in, the page also reports its screen and asks for the sync status.
       expect(calls.map((c) => c[0])).toEqual(
         status === "signed-in"
-          ? ["auth:status", "frame:load", "sync:status"]
+          ? ["auth:status", "frame:load", "sync:status", "presence:set"]
           : ["auth:status", "frame:load"],
       );
       expect(screen.getByRole("navigation", { name: strings.rail.label })).toBeTruthy();

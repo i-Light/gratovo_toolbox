@@ -122,10 +122,29 @@ export function mergeServerData(
   }
 }
 
+/** Puts each listed member's status and what they are doing on the team; others stay as they are. */
+export function mergePresence(
+  draft: DataDraft,
+  members: readonly {
+    readonly id: string;
+    readonly status: "online" | "away";
+    readonly doing: string;
+  }[],
+): void {
+  const byId = new Map(members.map((m) => [m.id, m]));
+  draft.team.forEach((person, i) => {
+    const seen = byId.get(person.id);
+    if (seen !== undefined && (person.status !== seen.status || person.doing !== seen.doing)) {
+      draft.team[i] = { ...person, status: seen.status, doing: seen.doing };
+    }
+  });
+}
+
 /**
  * Keeps the page in step with main: a `frame:changed` makes it ask for the frame (when the
  * persister is idle, at most once a second) and fold the answer in without writing it back; a
- * `sync:status` goes to the UI state. The answer is dropped, and asked for again, when the data
+ * `sync:status` goes to the UI state; a `presence:changed` updates each listed member's status and
+ * what they are doing (nothing is written). The answer is dropped, and asked for again, when the data
  * changed while it was on its way. Returns a function that stops it.
  */
 export function installLiveUpdates(bridge: Pick<Bridge, "invoke" | "on">): () => void {
@@ -205,6 +224,13 @@ export function installLiveUpdates(bridge: Pick<Bridge, "invoke" | "on">): () =>
     });
   };
   const offStatus = bridge.on("sync:status", setStatus);
+  const offPresence = bridge.on("presence:changed", (payload) => {
+    if (!stopped) {
+      adoptServerData((draft) => {
+        mergePresence(draft, payload.members);
+      });
+    }
+  });
   void bridge.invoke("sync:status", {}).then(
     (result) => {
       if (!stopped && result.ok) {
@@ -218,6 +244,7 @@ export function installLiveUpdates(bridge: Pick<Bridge, "invoke" | "on">): () =>
     stopped = true;
     offFrame();
     offStatus();
+    offPresence();
     if (timer !== null) {
       clearTimeout(timer);
       timer = null;

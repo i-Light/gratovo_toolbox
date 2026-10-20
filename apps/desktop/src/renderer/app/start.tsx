@@ -8,6 +8,7 @@ import { installConflictToasts } from "../lib/conflicts";
 import { toAppData } from "../lib/frame";
 import { installLiveUpdates } from "../lib/live";
 import { installPersistence } from "../lib/persist";
+import { installPresenceReporting } from "../lib/presence";
 import { routeFromHash } from "../lib/routes";
 import { initAppStore, installHashSync } from "../lib/store";
 import { strings } from "../strings";
@@ -48,6 +49,7 @@ export async function startApp(root: Root, invoke: Bridge["invoke"]): Promise<vo
       if (signedIn && on !== undefined) {
         installLiveUpdates({ invoke, on });
         installConflictToasts(invoke);
+        installPresenceReporting(invoke);
       }
     }
     root.render(

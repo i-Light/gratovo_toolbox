@@ -247,4 +247,29 @@ describe("installLiveUpdates", () => {
     await flush();
     expect(fake.calls("frame:load")).toHaveLength(0);
   });
+  it("takes a presence change into the team, writes nothing and keeps Undo", async () => {
+    const mate = data().team.find((m) => m.id !== data().me);
+    if (mate === undefined) {
+      throw new Error("the example has no team");
+    }
+    const other = data().team.find((m) => m.id !== mate.id);
+    const before = other;
+    setMyName("Renamed Me");
+    await flush();
+    const writes = fake.calls("data:write").length;
+    fake.emit("presence:changed", {
+      members: [
+        { id: mate.id, status: mate.status === "online" ? "away" : "online", doing: "Reach" },
+      ],
+    });
+    await flush();
+    const after = data().team.find((m) => m.id === mate.id);
+    expect(after?.doing).toBe("Reach");
+    expect(after?.status).not.toBe(mate.status);
+    expect(data().team.find((m) => m.id === other?.id)).toBe(before);
+    expect(fake.calls("data:write").length).toBe(writes);
+    undo();
+    await flush();
+    expect(data().team.find((m) => m.id === mate.id)?.doing).toBe("Reach");
+  });
 });
