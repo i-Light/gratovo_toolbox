@@ -4,5 +4,16 @@
   "compilerOptions": {
     "types": ["node"]
   },
-  "include": ["vitest.config.ts", "supabase/tests/run.ts"]
+  "include": [
+    "vitest.config.ts",
+    "vitest.server.config.ts",
+    "supabase/tests/run.ts",
+    "supabase/server-tests/*.ts",
+    "apps/desktop/src/main/net/network.ts",
+    "apps/desktop/src/main/secret-store.ts",
+    "apps/desktop/src/main/supabase/config.ts",
+    "apps/desktop/src/main/supabase/auth-client.ts",
+    "apps/desktop/src/main/supabase/session.ts",
+    "apps/desktop/src/main/supabase/rest.ts"
+  ]
 }

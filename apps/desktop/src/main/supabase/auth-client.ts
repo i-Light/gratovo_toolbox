@@ -66,8 +66,8 @@ export interface AuthClient {
 /**
  * Codes that mean the session is over and only a new sign-in helps (plan G4; meanings in
  * https://supabase.com/docs/guides/auth/debugging/error-codes). A refresh token is single-use:
- * reused outside the 10 s reuse interval it ends the whole session
- * (https://supabase.com/docs/guides/auth/sessions).
+ * reused outside the 10 s reuse interval it is refused with `refresh_token_already_used`
+ * (https://supabase.com/docs/guides/auth/sessions; server tests confirm the code).
  */
 const endedCodes: ReadonlySet<string> = new Set([
   "refresh_token_not_found",

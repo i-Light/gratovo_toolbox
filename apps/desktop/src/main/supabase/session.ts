@@ -5,8 +5,10 @@
  *
  * Refresh: single flight, 60 s before the access token expires; after a failed attempt the timer
  * backs off 30 s, 2 min, then every 10 min. The stored refresh token is replaced after every
- * rotation, because Supabase refresh tokens are single-use (a reuse outside the 10 s reuse
- * interval ends the whole session: https://supabase.com/docs/guides/auth/sessions).
+ * rotation, because Supabase refresh tokens are single-use: a stale one is refused with
+ * `refresh_token_already_used` (https://supabase.com/docs/guides/auth/sessions). On the local
+ * stack (CLI 2.119.0, 2026-10-20) that refusal left the newest token working; the docs say a
+ * reuse can end the whole session, so a stale token is treated as ended either way.
  *
  * The session ends only when the Auth server says so (`AuthError` kind `ended`); network errors,
  * 5xx, 429 and the rest keep it. Nothing here logs.
