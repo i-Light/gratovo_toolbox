@@ -16,6 +16,8 @@ describe("overlays.css", () => {
         "The 52 px search row keeps its height: in the prototype it shrank while the list was long, so the input jumped as typing shortened the list.",
       '.menu[role="menu"]':
         "Menus sit above the narrow-width drawer (z-index 86): in the prototype the account menu, opened from inside the drawer, showed under it.",
+      ".menu .mwho small":
+        "The role line sits under the name: in the prototype `.menu button small` (a shortcut hint's margin and padding) pushed it 14 px to the right.",
     });
   });
 });

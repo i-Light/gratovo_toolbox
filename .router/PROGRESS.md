@@ -39,4 +39,13 @@ The MCP here has no `get_project` or `get_advisors` tool (scoped by the owner); 
 8. **`r2-access` deployed** (owner's go): version 1, ACTIVE, `verify_jwt` true, files `r2-access/index.ts`, `_shared/r2-rules.ts`, `_shared/sigv4.ts` as in the repo (`get_edge_function` read back). A POST without a token answers 401.
 9. **Checked so far, by SQL as the owner's identity** (`role authenticated` with the owner's `sub`, rolled back, only a true/false read): `team_youtube_key()` returns a value, so the `postgres`-owned definer reads production's Vault; the owner reads `member_access`. As an unknown `sub`, both `team_youtube_key()` and `set_member_access` raise `42501`. Not yet: the owner's sign-in in the new app (team with roles), the old-app check, and that `private` isn't among the Data API's exposed schemas. An `r2-access` call with a real production token waits for 3e: nothing in the app calls the function or the key yet, and no session handles the owner's password or token.
 
-Next: the owner's checks for step 9; then L1.
+   **The owner's checks (2026-10-20, "all done"):** the old app signs in, loads creators and saves an edit; the new app (`pnpm dev` with the owner's `.env.local`) signs in and shows the team with roles; `private` isn't among the Data API's exposed schemas. R1 is done; the `r2-access` call with a real token is carried to 3e.
+
+## L1
+
+- Checks (2026-10-20, Windows): `pnpm lint`, `typecheck`, `test` (with 1 pytest), `test:sql`, `test:e2e` (50) all pass; renderer tests again after the fix below (340).
+- Looked at in dark at 1440 px, owner and member against the fake Supabase (a throwaway spec, not committed): the owner's menu offers Connections and Settings shows Agency facts, Team and money, Connections; the member's shows none of them; roles read "Owner · Deal lead" and "Scout · Outreach". Fixed: the account menu's role line sat 14 px right of the name (the prototype's `.menu button small`), recorded as a prototype deviation in `overlays-css.test.ts`. Sign-in and waiting were looked at in A8.
+- Security review (`sentry-security-review`) of the auth client, session, REST, config, network module, account, IPC auth schemas, the two migrations and `r2-access`: no high-confidence finding. Checked: errors and logs carry codes only; only the refresh token is stored, through the secret store; redirects refused and origins compared exactly; filters built from the server's own user id, encoded; definer functions in `private` with empty `search_path`, each guarded, `anon` revoked; the function's caller id comes from a token the gateway verified and PostgREST checks again.
+- Docs: ADR 0011; ADR 0010's questions answered; architecture (3d-2a built, Security model item 5, Supabase CLI in Versions); migration plan status and the 3d-2a bullet; a rollout lesson in `workflow.md`.
+
+Next: push, pull request, CI green (including the server job), merge. Then 3d-2b.
