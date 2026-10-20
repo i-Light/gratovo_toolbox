@@ -26,11 +26,13 @@ import { firstTab, routeFromHash, routeToHash, sameRoute, screens } from "./rout
 import type { RecordRef, Route, ScreenKey } from "./routes";
 import type { RowId } from "./settings";
 
-/** A person on the team; `role` is the label shown (a title, else the plain role). */
+/** A person on the team; `role` is the label shown (their agency roles, else the plain access). */
 export interface Member {
   readonly id: string;
   readonly name: string;
   readonly role: string;
+  /** Holds the Owner role (`isOwner`): owner-only parts of the app are theirs. */
+  readonly owner: boolean;
   readonly status: "online" | "away";
   readonly doing: string;
 }
@@ -53,6 +55,8 @@ export interface AppData {
   readonly me: string;
   /** Null until set in Settings > Profile. */
   readonly myName: string | null;
+  /** Whether you may see money (the main process already holds the prices back when not). */
+  readonly seesMoney: boolean;
   readonly team: readonly Member[];
   /** Until the Today engine (step 4) computes them. */
   readonly counts: RailCounts;
@@ -177,6 +181,7 @@ export type { Brand, Creator, CreatorStage, Deal, LogEntry, MateRun, RailCounts 
 const emptyData: AppData = {
   me: "",
   myName: null,
+  seesMoney: false,
   team: [],
   counts: { today: 0, plannedMinutes: 0, find: 0, reach: 0, close: 0, deliver: 0 },
   notifications: [],

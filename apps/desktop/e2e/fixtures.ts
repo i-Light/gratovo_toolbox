@@ -12,6 +12,7 @@ import {
 } from "@playwright/test";
 
 import { strings } from "../src/renderer/strings";
+import { startFakeSupabase, type FakeSupabase } from "./fake-supabase";
 
 // Windows is the only system the app supports, so these tests run there (in CI and on team
 // machines).
@@ -30,6 +31,13 @@ function environmentWith(extra: Record<string, string>): Record<string, string> 
   return { ...Object.fromEntries(current), ...extra };
 }
 
+export interface LaunchOptions {
+  /** A fake Supabase to sign in against. Without one the app runs on the example data. */
+  supabase?: FakeSupabase;
+  /** "frame" waits for the rail; "page" returns once the app's page has loaded (sign-in, waiting). */
+  ready?: "frame" | "page";
+}
+
 /**
  * Starting the app has its own time limit, apart from the test's 30 s: a busy CI runner once took
  * over 30 s to start it (main, 2026-10-19; the re-run passed), and a slow start isn't the test's fault.
@@ -45,11 +53,19 @@ const startTimeout = 60_000;
 export async function launchApp(
   userData: string,
   errors: string[] = [],
+  options: LaunchOptions = {},
 ): Promise<{ app: ElectronApplication; page: Page; errors: string[] }> {
+  const { supabase, ready = "frame" } = options;
   const app = await electron.launch({
     executablePath: electronBinary,
     args: [appDir],
-    env: environmentWith({ GRATOVO_USER_DATA: userData }),
+    // The Supabase address is always set, so a developer's .env.local never points a test at the
+    // real project. Empty means "not configured": the example data, as every older spec expects.
+    env: environmentWith({
+      GRATOVO_USER_DATA: userData,
+      GRATOVO_SUPABASE_URL: supabase?.url ?? "",
+      GRATOVO_SUPABASE_PUBLISHABLE_KEY: supabase?.key ?? "",
+    }),
     timeout: startTimeout,
   });
   const page = await app.firstWindow({ timeout: startTimeout });
@@ -69,6 +85,9 @@ export async function launchApp(
   await expect(page).toHaveURL((url) => url.href.startsWith(appPage), {
     timeout: startTimeout,
   });
+  if (ready === "page") {
+    return { app, page, errors };
+  }
   // The frame is there once the rail is.
   await page
     .getByRole("navigation", { name: strings.rail.label })
@@ -87,6 +106,17 @@ type Fixtures = {
   errors: string[];
   /** Closes the app and starts it again on the same data folder; returns the new window. */
   relaunch: () => Promise<Page>;
+  /** A fake Supabase, started for this test and closed after it. */
+  supabase: FakeSupabase;
+  /**
+   * Starts the app against `supabase` (not started by the `app` and `page` fixtures, which run on
+   * the example data). Each call closes the one before; the apps are closed when the test ends.
+   */
+  startSigned: (
+    options?: Pick<LaunchOptions, "ready">,
+  ) => Promise<{ app: ElectronApplication; page: Page }>;
+  /** Console errors and page errors of every `startSigned` launch. */
+  signedErrors: string[];
 };
 
 /** Each test gets a fresh copy of the built app, with its own data folder, and its one window. */
@@ -127,6 +157,35 @@ export const test = base.extend<
       await use(running.page);
     },
     { scope: "test", timeout: startTimeout },
+  ],
+  supabase: [
+    // eslint-disable-next-line no-empty-pattern
+    async ({}, use) => {
+      const fake = await startFakeSupabase();
+      await use(fake);
+      await fake.close();
+    },
+    { scope: "test" },
+  ],
+  signedErrors: [
+    // eslint-disable-next-line no-empty-pattern
+    async ({}, use) => {
+      await use([]);
+    },
+    { scope: "test" },
+  ],
+  startSigned: [
+    async ({ userData, supabase, signedErrors }, use) => {
+      const launched: { app: ElectronApplication | null } = { app: null };
+      await use(async (options = {}) => {
+        await launched.app?.close();
+        const started = await launchApp(userData, signedErrors, { supabase, ...options });
+        launched.app = started.app;
+        return { app: started.app, page: started.page };
+      });
+      await launched.app?.close().catch(() => undefined);
+    },
+    { timeout: startTimeout },
   ],
   relaunch: [
     async ({ running, userData }, use) => {

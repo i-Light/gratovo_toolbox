@@ -12,6 +12,7 @@ import { contractNow, describeDataSourceContract } from "./data-source-contract"
 import { openLiveSource } from "./live-source";
 import {
   listProfiles,
+  replaceMemberAccess,
   upsertBrand,
   upsertCreator,
   upsertDeal,
@@ -30,6 +31,11 @@ function seedLiveFile(file: string, now: number): void {
     for (const profile of fixtures.profiles) {
       upsertProfile(db, profile, now);
     }
+    const updatedAt = new Date(now).toISOString();
+    replaceMemberAccess(
+      db,
+      fixtures.access.map((row) => ({ ...row, updatedAt })),
+    );
     for (const creator of fixtures.creators) {
       upsertCreator(db, creator, now);
     }
@@ -85,19 +91,34 @@ describe("live source", () => {
       deals: [],
       mateRun: null,
       notify: {},
+      seesMoney: false,
     });
   });
 
-  it("shows everyone as away, with no title", async () => {
+  it("shows everyone as away", async () => {
     seedLiveFile(file, contractNow);
     const source = openLiveSource(file, "u1", () => contractNow);
     open.push(source);
     const frame = await source.frame();
     expect(frame.team).toHaveLength(4);
     for (const member of frame.team) {
-      expect(member).toMatchObject({ status: "away", doing: "", title: null });
+      expect(member).toMatchObject({ status: "away", doing: "" });
+      expect(member).not.toHaveProperty("title");
     }
     expect(frame.mateRun).toBeNull();
+  });
+
+  it("serves Omar (Scout · Outreach, no money) no price and no money notification", async () => {
+    seedLiveFile(file, contractNow);
+    const source = openLiveSource(file, "u3", () => contractNow);
+    open.push(source);
+    const frame = await source.frame();
+    expect(frame.seesMoney).toBe(false);
+    expect(frame.deals.length).toBeGreaterThan(0);
+    expect(frame.deals.every((deal) => deal.price === null)).toBe(true);
+    expect(frame.notifications.map((n) => n.icon)).not.toContain("wallet");
+    expect(frame.notifications.map((n) => n.icon)).not.toContain("unlock");
+    expect(frame.team.find((m) => m.id === "u3")?.roles).toEqual(["scout", "outreach"]);
   });
 
   it("ignores a name change when there is no profile for you", async () => {

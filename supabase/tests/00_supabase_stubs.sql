@@ -33,3 +33,22 @@ create or replace function auth.uid() returns uuid
 language sql stable as $$
   select nullif(current_setting('test.uid', true), '')::uuid;
 $$;
+
+-- A minimal Vault: a secrets table and the decrypted view, owned by postgres,
+-- with nothing granted to `authenticated` (as on a real project). The secret is
+-- stored as plain text here; the real extension encrypts it.
+create schema if not exists vault;
+create table if not exists vault.secrets (
+  id          uuid primary key default gen_random_uuid(),
+  name        text unique,
+  description text not null default '',
+  secret      text not null
+);
+create or replace view vault.decrypted_secrets as
+  select id, name, description, secret, secret as decrypted_secret from vault.secrets;
+create or replace function vault.create_secret(new_secret text, new_name text default null,
+                                               new_description text default '')
+returns uuid language sql as $$
+  insert into vault.secrets (secret, name, description)
+  values (new_secret, new_name, coalesce(new_description, '')) returning id;
+$$;

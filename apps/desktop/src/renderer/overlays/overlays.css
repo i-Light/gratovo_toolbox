@@ -350,6 +350,9 @@
   font-size: 13.5px;
 }
 .menu .mwho small {
+  /* Under the name, not pushed aside like a shortcut hint (`.menu button small`). */
+  margin-inline-start: 0;
+  padding-inline-start: 0;
   color: var(--muted);
   font-size: 12px;
 }

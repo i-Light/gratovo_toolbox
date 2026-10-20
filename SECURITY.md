@@ -6,7 +6,7 @@ This app holds creators' and brands' contact details, deal terms, money, and the
 
 - No `.env` files, keys, tokens, passwords, OAuth client secrets or service-role keys in any commit, on any branch.
 - `.gitignore` blocks the usual files. A secret scanner (gitleaks) runs before every commit and in CI from step 3 on. A finding fails the build.
-- Configuration that isn't secret, such as the Supabase project URL and the publishable (anon) key, is passed at build time. It is never hard-coded in source.
+- Configuration that isn't secret is passed at build time and is never hard-coded in source. For Supabase that is two values, `MAIN_VITE_SUPABASE_URL` and `MAIN_VITE_SUPABASE_PUBLISHABLE_KEY`, read from the environment or from `apps/desktop/.env.local` (ignored by Git). The app refuses a secret key (`sb_secret_…`) and any key shaped like a legacy JWT (`anon`, `service_role`). Steps: [docs/setup.md](docs/setup.md).
 - Example values in docs and tests are obviously fake, like `sk-test-000` or `https://example.supabase.co`.
 - If a secret is committed by mistake, treat it as leaked: rotate it first, then remove it from history. Deleting the file is not enough.
 
@@ -15,7 +15,7 @@ This app holds creators' and brands' contact details, deal terms, money, and the
 | Secret | Where it lives |
 |---|---|
 | A person's own credentials (Gmail OAuth tokens, personal tokens, AI provider keys) | Encrypted with the Windows account's key through Electron `safeStorage`, in the app's data folder. Never in plain text. |
-| Team keys (YouTube Data API, Cloudflare R2) | Never shipped in the installer. Served to signed-in team members only: short-lived R2 links from a server function, and the YouTube key through Supabase Vault behind a members-only function. The details are decided in step 3. |
+| Team keys (YouTube Data API, Cloudflare R2) | Never shipped in the installer. Served to signed-in team members only: short-lived R2 links from a server function, and the YouTube key through Supabase Vault behind a members-only function. The YouTube key is fetched on demand and kept in memory for at most an hour, never on disk. R2 links last 15 minutes. A member may read and write the `channels/` files and read all of `catalog/`, but writes catalog files only under their own folder (`catalog/<their id>/`), and nobody can delete a catalog file through the app. The rules are in `supabase/functions/_shared/r2-rules.ts`. The main process talks only to the project's Supabase host. Where to enter the values: [docs/setup.md](docs/setup.md). Why: [ADR 0011](docs/decisions/0011-accounts-roles-team-keys.md). |
 | Supabase service-role key | Server side only (Edge Functions, CI secrets). Never on a team member's machine. |
 | CI tokens and release credentials | GitHub Actions secrets. |
 

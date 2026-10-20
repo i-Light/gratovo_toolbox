@@ -25,8 +25,8 @@ export function brandSub(brand: Brand): string {
   return `${brand.sells} · ${statusWord(brand.status)}`;
 }
 
-/** The line under a deal's name: "step name · money". */
+/** The line under a deal's name: "step name · money", or just the step when the price is hidden. */
 export function dealSub(deal: Deal): string {
   const step = DEAL_FLOW[deal.step]?.name ?? strings.record.unknownName;
-  return `${step} · ${money(deal.price)}`;
+  return deal.price === null ? step : `${step} · ${money(deal.price)}`;
 }

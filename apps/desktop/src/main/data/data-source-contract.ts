@@ -2,9 +2,14 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { exampleFrame, nameMax } from "@gratovo/core/data";
+import { exampleFrame, nameMax, notifyKind } from "@gratovo/core/data";
 import type { DataSource, DataWrite, Frame } from "@gratovo/core/data";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+
+import { openDatabase } from "../db/open-database";
+
+import { replaceMemberAccess } from "./repositories";
+import type { MemberAccessRow } from "./repositories";
 
 /** The fixed time the contract runs at. */
 export const contractNow = Date.UTC(2026, 9, 20, 12, 0, 0);
@@ -18,6 +23,25 @@ export type MakeSource = (file: string, now: () => number) => DataSource;
 
 const idA = "00000000-0000-4000-8000-00000000000a";
 const idB = "00000000-0000-4000-8000-00000000000b";
+
+/** Replaces every `member_access` row in `file`, as the team refresh does, from another connection. */
+function setAccess(file: string, rows: readonly Omit<MemberAccessRow, "updatedAt">[]): void {
+  const db = openDatabase(file);
+  try {
+    const updatedAt = new Date(contractNow).toISOString();
+    replaceMemberAccess(
+      db,
+      rows.map((row) => ({ ...row, updatedAt })),
+    );
+  } finally {
+    db.close();
+  }
+}
+
+/** Whether a notification is about money. */
+function isMoney(n: Frame["notifications"][number]): boolean {
+  return notifyKind(n.icon) === "money";
+}
 
 /** The tests every `DataSource` over the local database must pass. */
 export function describeDataSourceContract(name: string, make: MakeSource): void {
@@ -60,11 +84,55 @@ export function describeDataSourceContract(name: string, make: MakeSource): void
       expect(frame.brands).toEqual(expected.brands);
       expect(frame.deals).toEqual(expected.deals);
       expect(frame.notifications).toEqual(expected.notifications);
-      expect(frame.team.map(({ id, name, role }) => ({ id, name, role }))).toEqual(
-        expected.team.map(({ id, name, role }) => ({ id, name, role })),
+      expect(frame.team.map(({ id, name, role, roles }) => ({ id, name, role, roles }))).toEqual(
+        expected.team.map(({ id, name, role, roles }) => ({ id, name, role, roles })),
       );
       expect(frame.log).toEqual([]);
       expect(frame.notify).toEqual({});
+      expect(frame.seesMoney).toBe(true);
+    });
+
+    it("hides money from a member who may not see it: no price, no money notification", async () => {
+      const source = start();
+      const before = await source.frame();
+      expect(before.notifications.some(isMoney)).toBe(true);
+      setAccess(file, [{ profileId: "u1", roles: ["scout", "outreach"], seesMoney: false }]);
+      const frame = await source.frame();
+      expect(frame.seesMoney).toBe(false);
+      expect(frame.deals).toEqual(before.deals.map((deal) => ({ ...deal, price: null })));
+      expect(frame.notifications).toEqual(before.notifications.filter((n) => !isMoney(n)));
+      expect(frame.notifications.length).toBeGreaterThan(0);
+      // Turning the switch on shows money again; nothing was lost.
+      setAccess(file, [{ profileId: "u1", roles: ["scout"], seesMoney: true }]);
+      const back = await source.frame();
+      expect(back.seesMoney).toBe(true);
+      expect(back.deals).toEqual(before.deals);
+      expect(back.notifications).toEqual(before.notifications);
+    });
+
+    it("shows money to an Owner whatever the switch says, and hides it with no row", async () => {
+      const source = start();
+      setAccess(file, [{ profileId: "u1", roles: ["owner"], seesMoney: false }]);
+      expect((await source.frame()).seesMoney).toBe(true);
+      setAccess(file, [{ profileId: "u2", roles: ["owner"], seesMoney: true }]);
+      const frame = await source.frame();
+      expect(frame.seesMoney).toBe(false);
+      expect(frame.deals.every((deal) => deal.price === null)).toBe(true);
+    });
+
+    it("round-trips each member's roles in display order, and none without a row", async () => {
+      const source = start();
+      setAccess(file, [
+        { profileId: "u1", roles: ["delivery", "owner"], seesMoney: false },
+        { profileId: "u3", roles: ["outreach", "scout", "outreach"], seesMoney: false },
+      ]);
+      const frame = await source.frame();
+      expect(Object.fromEntries(frame.team.map((m) => [m.id, m.roles]))).toEqual({
+        u1: ["owner", "delivery"],
+        u2: [],
+        u3: ["scout", "outreach"],
+        u4: [],
+      });
     });
 
     it("marks a notification read and unread", async () => {

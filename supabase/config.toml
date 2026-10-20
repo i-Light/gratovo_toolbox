@@ -1,0 +1,83 @@
+# The local Supabase stack that the server tests run against (`pnpm test:server`, CI job "Server
+# tests"). It is for tests only: production is never configured from this file, pushed to, or
+# seeded. Every key was taken from the output of `supabase init` (CLI 2.119.0) and the config
+# reference, https://supabase.com/docs/guides/local-development/cli/config.
+#
+# Kept lean: the services the tests do not need are off here and also left out of `supabase start`
+# with -x (the exact `start` line is in docs/setup.md section 7 and the CI job). Realtime returns in step 3d-2b, which tests the sync.
+project_id = "gratovo_toolbox"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+health_timeout = "2m"
+# Production runs Postgres 17.
+major_version = 17
+
+[db.pooler]
+enabled = false
+
+[db.migrations]
+enabled = true
+
+# Local only: a fake Vault value for the team-key tests.
+[db.seed]
+enabled = true
+sql_paths = ["./seed.sql"]
+
+[realtime]
+enabled = false
+
+[studio]
+enabled = false
+
+[local_smtp]
+enabled = false
+
+[storage]
+enabled = false
+
+[analytics]
+enabled = false
+
+[auth]
+enabled = true
+site_url = "http://127.0.0.1:3000"
+jwt_expiry = 3600
+enable_refresh_token_rotation = true
+refresh_token_reuse_interval = 10
+enable_signup = false
+enable_anonymous_sign_ins = false
+minimum_password_length = 6
+
+# The tests sign in many times from one address; the default limits would get in the way.
+[auth.rate_limit]
+token_refresh = 1000
+sign_in_sign_ups = 1000
+token_verifications = 1000
+
+[auth.email]
+enable_signup = true
+enable_confirmations = false
+
+[edge_runtime]
+enabled = true
+policy = "per_worker"
+deno_version = 2
+
+# Obviously fake values, so the function can sign a link. No real R2 account is involved.
+[edge_runtime.secrets]
+R2_ACCOUNT_ID = "r2-test-000"
+R2_ACCESS_KEY_ID = "r2-test-000"
+R2_SECRET_ACCESS_KEY = "r2-test-000"
+R2_BUCKET = "r2-test-000"
+
+[functions.r2-access]
+verify_jwt = true

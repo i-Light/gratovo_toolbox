@@ -44,4 +44,78 @@ export default defineConfig(
     files: ["apps/desktop/src/renderer/**/*.{ts,tsx}", "packages/ui/src/**/*.{ts,tsx}"],
     extends: [reactHooks.configs.flat.recommended, jsxA11y.flatConfigs.strict],
   },
+
+  {
+    // The main process reaches the internet only through net/network.ts, which checks every
+    // address against an allowlist. Node's own network calls don't pass through the session's
+    // request filter, so this rule is what keeps them in one place.
+    files: ["apps/desktop/src/main/**/*.ts"],
+    ignores: ["apps/desktop/src/main/net/network.ts", "apps/desktop/src/main/**/*.test.ts"],
+    rules: {
+      "no-restricted-globals": [
+        "error",
+        ...["fetch", "WebSocket", "XMLHttpRequest", "EventSource"].map((name) => ({
+          name,
+          message: "Use net/network.ts: it is the only code that may reach the network.",
+        })),
+      ],
+      "no-restricted-properties": [
+        "error",
+        ...["globalThis", "global"].flatMap((object) =>
+          ["fetch", "WebSocket", "XMLHttpRequest", "EventSource"].map((property) => ({
+            object,
+            property,
+            message: "Use net/network.ts: it is the only code that may reach the network.",
+          })),
+        ),
+      ],
+      // The ways round no-restricted-imports: import("node:https"), require("https"), and
+      // electron's `net` reached through a default or namespace import (electron.net,
+      // electron["net"], const { net } = electron, require("electron").net).
+      "no-restricted-syntax": [
+        "error",
+        ...[
+          "ImportExpression[source.value=/^(node:)?(http|https|http2|net|tls|dgram)$|^undici$/]",
+          "CallExpression[callee.name='require'][arguments.0.value=/^(node:)?(http|https|http2|net|tls|dgram)$|^undici$/]",
+          "MemberExpression[object.name='electron'][property.name='net']",
+          "MemberExpression[object.name='electron'][property.value='net']",
+          "VariableDeclarator[init.name='electron'] > ObjectPattern > Property[key.name='net']",
+          "MemberExpression[object.callee.name='require'][object.arguments.0.value='electron'][property.name='net']",
+        ].map((selector) => ({
+          selector,
+          message: "Use net/network.ts: it is the only code that may reach the network.",
+        })),
+      ],
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            ...[
+              "node:http",
+              "node:https",
+              "node:http2",
+              "node:net",
+              "node:tls",
+              "node:dgram",
+              "http",
+              "https",
+              "http2",
+              "net",
+              "tls",
+              "dgram",
+              "undici",
+            ].map((name) => ({
+              name,
+              message: "Use net/network.ts: it is the only code that may reach the network.",
+            })),
+            {
+              name: "electron",
+              importNames: ["net"],
+              message: "Use net/network.ts: it is the only code that may reach the network.",
+            },
+          ],
+        },
+      ],
+    },
+  },
 );

@@ -37,7 +37,9 @@ The app reads and writes a local SQLite database first, so every click answers a
 - **Realtime:** one channel broadcasts "these tables changed" and carries presence (who is online, who is looking at what).
 - **Nothing derived is stored on the server.** Counts, rollups and Today are computed locally.
 
-**Built in 3d-1** ([decisions/0010-data-layer.md](decisions/0010-data-layer.md)): the database is Node's built-in `node:sqlite` in the main process, with forward-only migrations (`apps/desktop/src/main/db/`) and one repository per table (`apps/desktop/src/main/data/repositories/`). The renderer loads everything the frame shows with one call (`frame:load`) before its first render, and a persister turns each change to the store's data, undo and redo included, into a batch for `data:write`. The contract (types, `DataSource`, the write kinds, the mapping to the old app's fields) is in `@gratovo/core/data`. The pull, the outbox, realtime and sign-in come with 3d-2.
+**Built in 3d-1** ([decisions/0010-data-layer.md](decisions/0010-data-layer.md)): the database is Node's built-in `node:sqlite` in the main process, with forward-only migrations (`apps/desktop/src/main/db/`) and one repository per table (`apps/desktop/src/main/data/repositories/`). The renderer loads everything the frame shows with one call (`frame:load`) before its first render, and a persister turns each change to the store's data, undo and redo included, into a batch for `data:write`. The contract (types, `DataSource`, the write kinds, the mapping to the old app's fields) is in `@gratovo/core/data`. The pull, the outbox and realtime come with 3d-2b.
+
+**Built in 3d-2a** ([decisions/0011-accounts-roles-team-keys.md](decisions/0011-accounts-roles-team-keys.md)): email and password sign-in in the main process (`apps/desktop/src/main/supabase/`, plain `fetch` through the one network module, `main/net/network.ts`), the refresh token kept in the secret store, and the account (`main/account/`): unconfigured (example data), signed out, waiting for access, or signed in on `gratovo.db`, which belongs to one account and is deleted on sign-out. Until 3d-2b's pull, a team refresh reads `profiles` and `member_access`, and a rename PATCHes your own profile.
 
 ### One data source switch: live or example
 
@@ -106,7 +108,7 @@ The policy is [SECURITY.md](../SECURITY.md). In code:
 2. **IPC:** every channel is declared in `packages/ipc` with a zod schema for input and output. The page has one function, `window.gratovo.invoke`, over one Electron channel. The main process accepts calls only from the app page's top frame, validates the request and the handler's response, and rejects anything else. No channel accepts a file path or URL without checking it against an allowlist.
 3. **Secrets:** a main-process `secrets` module over `safeStorage`. The renderer can ask whether a secret is set; it can never read one. Python processes get the secrets they need through their stdin at launch, never through the command line or environment of a long-lived shell.
 4. **Local services:** the Gemini bridge daemon binds `127.0.0.1` and requires a random per-launch token from the extension.
-5. **Supabase:** row-level security on every table, with roles (owner, account manager, VA) enforced in policies, not only in the UI. The service-role key never ships.
+5. **Supabase:** row-level security on every table. Access (`profiles.role`: unauthorized, basic, full) is enforced in policies; `basic` and `full` are identical in the database today. Agency roles (Owner, Scout, Outreach, Deal lead, Delivery) and "sees money" live in `member_access`, which only an Owner can change, through a function. Money is hidden in the new app only (the main process sends no price to a member who may not see it); the database locks it when the old app retires (steps 10 and 11). The main process talks only to the project's Supabase host. The service-role key never ships, and the app refuses a secret key. See [decisions/0011-accounts-roles-team-keys.md](decisions/0011-accounts-roles-team-keys.md).
 6. **Supply chain:** the lockfile is committed; Dependabot, OSV-Scanner, CodeQL and gitleaks run in CI; release builds are fused (`apps/desktop/scripts/release-fuses.ts`) but not code-signed, by the owner's choice (§9 Q12).
 
 The choices behind each of these are in [decisions/0008-security-baseline.md](decisions/0008-security-baseline.md).
@@ -143,6 +145,7 @@ Pinned in step 3a on 2026-10-19, at the current stable releases. Every package v
 | @axe-core/playwright | 4.14.0 (added in 3c-3) | `apps/desktop` |
 | SQLite | `node:sqlite`, SQLite 3.53.4 inside Electron 44.9.0 (added in 3d-1; no package) | built in |
 | Postgres for the SQL tests | `postgres:17.11`, pinned by digest (added in 3d-1) | `supabase/tests/run.ts` |
+| Supabase CLI for the server tests | 2.119.0, through `npx` locally, `supabase/setup-cli` in CI (added in 3d-2a; not a dependency) | `.github/workflows/ci.yml`, `docs/setup.md` |
 | zod | 4.6.7 | `packages/ipc`, `apps/desktop` |
 | immer | 11.1.21 (added in 3c) | `packages/core` |
 | Fontsource Readex Pro (variable), IBM Plex Mono | 5.3.0, 5.3.0 (added in 3c) | `packages/ui` |

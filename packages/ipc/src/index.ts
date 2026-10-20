@@ -1,3 +1,14 @@
+export {
+  authStateSchema,
+  authStates,
+  authStatusSchema,
+  emailMax,
+  passwordMax,
+  signInProblems,
+  signInRequestSchema,
+  signInResultSchema,
+} from "./auth";
+export type { AuthState, AuthStatus, SignInProblem, SignInRequest, SignInResult } from "./auth";
 export { bridgeChannel, bridgeGlobal } from "./bridge";
 export type { Bridge, InvokeResult } from "./bridge";
 export { channels, isChannel, parseRequest, secretName } from "./channels";

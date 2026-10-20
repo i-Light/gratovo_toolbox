@@ -8,6 +8,14 @@
 /** What a person may do in the app; the only roles Supabase's `profiles.role` knows. */
 export type AppRole = "unauthorized" | "basic" | "full";
 
+/**
+ * The agency roles a person can hold, any number at once, in the order they are shown. They live in
+ * Supabase's `member_access`, apart from access (`AppRole`).
+ */
+export const agencyRoles = ["owner", "scout", "outreach", "deal_lead", "delivery"] as const;
+
+export type AgencyRole = (typeof agencyRoles)[number];
+
 /** Every creator stage, in the order a creator moves through them. */
 export const creatorStages = [
   "new",
@@ -48,6 +56,26 @@ export const notificationIcons = [
 
 export type NotificationIcon = (typeof notificationIcons)[number];
 
+/**
+ * The kind of a notification, from its icon; problems (`alert`) can't be turned off. Any other
+ * icon counts as a search. It takes any icon name, so the renderer can use it with its own icons.
+ */
+export function notifyKind(icon: string): NotifyKind | "problem" {
+  switch (icon) {
+    case "reply":
+      return "reply";
+    case "wallet":
+    case "unlock":
+      return "money";
+    case "forward":
+      return "handoff";
+    case "alert":
+      return "problem";
+    default:
+      return "search";
+  }
+}
+
 /** The longest name kept; a longer one is cut to this. */
 export const nameMax = 80;
 
@@ -57,8 +85,8 @@ export interface TeamMember {
   /** `""` while the person hasn't set a name. */
   readonly name: string;
   readonly role: AppRole;
-  /** The agency title ("Account manager"), when there is one. */
-  readonly title: string | null;
+  /** In display order, no duplicates; empty when the person holds none. */
+  readonly roles: readonly AgencyRole[];
   readonly status: "online" | "away";
   readonly doing: string;
 }
@@ -122,8 +150,8 @@ export interface Deal {
   readonly creator: string;
   /** An index into DEAL_FLOW. */
   readonly step: number;
-  /** What the brand pays, in dollars. */
-  readonly price: number;
+  /** What the brand pays, in dollars; null when the signed-in member may not see money. */
+  readonly price: number | null;
 }
 
 /** A teammate's search that is running now. */
@@ -153,6 +181,8 @@ export interface Frame {
   readonly deals: readonly Deal[];
   readonly mateRun: MateRun | null;
   readonly notify: NotifySettings;
+  /** Whether `me` may see money. When false, every price is null and no money notification is here. */
+  readonly seesMoney: boolean;
 }
 
 /** One change the app writes: exactly the changes it makes today. */

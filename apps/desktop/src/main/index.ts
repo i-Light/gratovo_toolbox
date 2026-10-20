@@ -1,15 +1,21 @@
-import { join } from "node:path";
-
 import { BrowserWindow, Menu, app, dialog, session } from "electron";
 
+import { createAccount } from "./account/account";
+import { builtPageUrl } from "./app-page";
 import { registerAppScheme, serveAppFiles } from "./app-protocol";
-import { openExampleSource } from "./data";
 import { createHandlers } from "./handlers";
 import { registerBridge } from "./ipc-bridge";
+import { createNetwork } from "./net/network";
 import { openSecretStore } from "./secrets";
-import { denyAllPermissions, guardWebContents, refuseDownloads } from "./security";
+import {
+  blockForeignRequests,
+  denyAllPermissions,
+  guardWebContents,
+  refuseDownloads,
+} from "./security";
 import { strings } from "./strings";
-import { createMainWindow, rendererRoot } from "./window";
+import { describeConfigProblem, readSupabaseConfig, type SupabaseConfig } from "./supabase/config";
+import { appPageUrl, createMainWindow, rendererRoot } from "./window";
 
 /**
  * Unpackaged runs (`pnpm dev`, the end-to-end tests) keep their data, and their single-instance
@@ -23,6 +29,33 @@ function separateDevelopmentData(): void {
   const folder =
     testFolder !== undefined && testFolder !== "" ? testFolder : `${app.getPath("userData")} (dev)`;
   app.setPath("userData", folder);
+}
+
+/** The Supabase project from the build (or, unpackaged, the test seam); null when there is none. */
+function supabaseConfig(): SupabaseConfig | null {
+  const result = readSupabaseConfig({
+    packaged: app.isPackaged,
+    built: {
+      url: import.meta.env.MAIN_VITE_SUPABASE_URL,
+      key: import.meta.env.MAIN_VITE_SUPABASE_PUBLISHABLE_KEY,
+    },
+    env: process.env,
+  });
+  if (!result.ok) {
+    // Names the problem, never a value. "missing" is the normal state of dev builds and tests.
+    console.info(`${describeConfigProblem(result.problem)} The app shows the example data.`);
+    return null;
+  }
+  return result.config;
+}
+
+/** Reloads the page after the IPC answer in progress has gone out; it starts over from auth:status. */
+function reloadWindows(): void {
+  setTimeout(() => {
+    for (const window of BrowserWindow.getAllWindows()) {
+      window.webContents.reload();
+    }
+  }, 0);
 }
 
 function start(): void {
@@ -47,19 +80,34 @@ function start(): void {
 
   app
     .whenReady()
-    .then(() => {
+    .then(async () => {
       denyAllPermissions(session.defaultSession);
+      // The dev server is the page only when appPageUrl is not the built page (never when packaged).
+      blockForeignRequests(
+        session.defaultSession,
+        appPageUrl === builtPageUrl ? undefined : appPageUrl,
+      );
       refuseDownloads(session.defaultSession);
       serveAppFiles(session.defaultSession, rendererRoot);
-      // Until there is an account (3d-2) the app always shows the example data. A database that
-      // won't open lands in the start-up error dialog below.
-      const data = openExampleSource(join(app.getPath("userData"), "example.db"));
-      app.on("will-quit", () => {
-        data.close();
+      const config = supabaseConfig();
+      const secrets = openSecretStore();
+      const account = createAccount({
+        config,
+        userData: app.getPath("userData"),
+        secrets,
+        // Every request the main process sends goes through this, to the project's host only.
+        network: createNetwork({ allowedOrigins: config === null ? [] : [config.origin] }),
+        now: Date.now,
+        reloadWindow: reloadWindows,
       });
-      registerBridge(
-        createHandlers({ version: app.getVersion(), secrets: openSecretStore(), data }),
-      );
+      app.on("will-quit", () => {
+        account.close();
+      });
+      // The data opens before the page can ask for it, as the example source did. With a stored
+      // session this reads the local copy and checks with the server in the background. A database
+      // that won't open lands in the start-up error dialog below.
+      await account.start();
+      registerBridge(createHandlers({ version: app.getVersion(), secrets, account }));
       // The app draws its whole frame. Electron's default menu (File, Edit, View…) would sit above
       // it on Windows and bring shortcuts the app doesn't want, such as reload and zoom. Copy,
       // paste and undo in text fields work without it on Windows.

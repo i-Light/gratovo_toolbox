@@ -1,7 +1,7 @@
 # 0003. Secrets never in git, never in the installer
 
 - **Date:** 2026-10-19
-- **Status:** accepted. Team keys reach machines through a server function after sign-in (owner's answer, migration plan §9 Q11).
+- **Status:** accepted. Team keys reach machines through a server function after sign-in (owner's answer, migration plan §9 Q11). Decided in [0011](0011-accounts-roles-team-keys.md): the YouTube key in Supabase Vault behind a members-only function, R2 as short-lived signed links from an Edge Function.
 
 ## Context
 

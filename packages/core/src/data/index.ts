@@ -1,3 +1,5 @@
+export { isAgencyRole, isOwner, noAccess, seesMoney, sortRoles } from "./access";
+export type { MemberAccess } from "./access";
 export { exampleFrame, exampleSeed, exampleSeedVersion } from "./example";
 export type { ExampleSeed } from "./example";
 export {
@@ -8,8 +10,16 @@ export {
   primaryEmail,
 } from "./legacy-mapping";
 export type { LegacyCreatorFields } from "./legacy-mapping";
-export { creatorStages, nameMax, notificationIcons, notifyKinds } from "./types";
+export {
+  agencyRoles,
+  creatorStages,
+  nameMax,
+  notificationIcons,
+  notifyKind,
+  notifyKinds,
+} from "./types";
 export type {
+  AgencyRole,
   AppRole,
   Brand,
   Creator,

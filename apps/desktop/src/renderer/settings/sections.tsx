@@ -4,6 +4,7 @@ import type { IconName } from "@gratovo/ui";
 import type { CSSProperties } from "react";
 import { useRef, useState } from "react";
 
+import { signOut, useAccount } from "../lib/account";
 import { flashSetting, setMyName, setNotify } from "../lib/actions";
 import { setPref, usePref } from "../lib/prefs";
 import type { NotifyKind, SettingsSection } from "../lib/settings";
@@ -16,9 +17,9 @@ const { rows, options } = text;
 
 /** Profile: the account's face, your name (saved when you leave the field) and your role. */
 export function ProfileSection() {
-  const meId = useApp((s) => s.data.me);
   const myName = useApp((s) => s.data.myName);
   const me = useApp((s) => s.data.team.find((m) => m.id === s.data.me));
+  const account = useAccount();
   const [draft, setDraft] = useState<string | null>(null);
   // Blur fires inside the key handler, before the re-render, so the handlers read the draft here.
   const draftRef = useRef<string | null>(null);
@@ -28,8 +29,8 @@ export function ProfileSection() {
   };
   const memberName = me?.name ?? "";
   const role = me?.role ?? "";
-  const mine = meId === "u1";
-  const shown = mine ? (myName ?? memberName) : memberName;
+  const owner = me?.owner ?? false;
+  const shown = myName ?? memberName;
   const save = (): void => {
     const value = draftRef.current;
     if (value === null) {
@@ -46,9 +47,9 @@ export function ProfileSection() {
       <div className="set-hero">
         <Avatar
           name={shown}
-          color={avatarColor(mine ? "owner" : memberName)}
+          color={avatarColor(owner ? "owner" : memberName)}
           size="xl"
-          unnamed={mine && myName === null}
+          unnamed={myName === null}
           decorative
         />
         <div className="col t2">
@@ -56,43 +57,37 @@ export function ProfileSection() {
           <span className="small muted">{role}</span>
         </div>
       </div>
-      {mine ? (
-        <Row id="name" label={rows.name.label} scope="you" desc={rows.name.desc}>
-          <div className="col tight" style={{ minWidth: 0 }}>
-            <input
-              className="inp"
-              value={draft ?? myName ?? ""}
-              placeholder={text.profile.namePlaceholder}
-              aria-label={rows.name.label}
-              maxLength={nameMax}
-              onChange={(event) => {
-                update(event.currentTarget.value);
-              }}
-              onBlur={save}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  save();
-                  event.currentTarget.blur();
-                } else if (event.key === "Escape") {
-                  // preventDefault keeps the key stack from also closing a peek or tray.
-                  event.preventDefault();
-                  update(null);
-                  event.currentTarget.blur();
-                }
-              }}
-            />
-            <span className="hint">
-              {myName === null ? text.profile.notSet : text.profile.setHere}
-            </span>
-          </div>
-        </Row>
-      ) : null}
-      <Row
-        id="role"
-        label={rows.role.label}
-        desc={role === "Owner" ? rows.role.descOwner : rows.role.desc}
-      >
+      <Row id="name" label={rows.name.label} scope="you" desc={rows.name.desc}>
+        <div className="col tight" style={{ minWidth: 0 }}>
+          <input
+            className="inp"
+            value={draft ?? myName ?? ""}
+            placeholder={text.profile.namePlaceholder}
+            aria-label={rows.name.label}
+            maxLength={nameMax}
+            onChange={(event) => {
+              update(event.currentTarget.value);
+            }}
+            onBlur={save}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                save();
+                event.currentTarget.blur();
+              } else if (event.key === "Escape") {
+                // preventDefault keeps the key stack from also closing a peek or tray.
+                event.preventDefault();
+                update(null);
+                event.currentTarget.blur();
+              }
+            }}
+          />
+          <span className="hint">
+            {myName === null ? text.profile.notSet : text.profile.setHere}
+          </span>
+        </div>
+      </Row>
+      <Row id="role" label={rows.role.label} desc={owner ? rows.role.descOwner : rows.role.desc}>
         <div className="row wrap">
           <Tag icon="shield">{role}</Tag>
           <Btn
@@ -107,6 +102,34 @@ export function ProfileSection() {
           </Btn>
         </div>
       </Row>
+      {account.signedIn && account.email !== null ? (
+        // Not a searchable setting, so it is the row's markup without an id.
+        <div className="set-row">
+          <div className="set-t">
+            <div className="row wrap" style={{ gap: "8px" }}>
+              <b>{strings.auth.account.label}</b>
+            </div>
+            <p>{strings.auth.account.desc}</p>
+          </div>
+          <div className="set-c">
+            <div className="col tight" style={{ minWidth: 0 }}>
+              <span className="small">{strings.auth.signedInAs(account.email)}</span>
+              <div className="row wrap">
+                <Btn
+                  size="sm"
+                  kind="ghost"
+                  icon="lock"
+                  onClick={() => {
+                    void signOut();
+                  }}
+                >
+                  {strings.auth.signOut}
+                </Btn>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }
@@ -233,25 +256,28 @@ const notifyIcons: readonly (readonly [NotifyKind, IconName])[] = [
 /** Notifications: which kinds reach the bell (undoable), and the Problems switch that is always on. */
 export function NotificationsSection() {
   const notify = useApp((s) => s.data.settings.notify);
+  const sees = useApp((s) => s.data.seesMoney);
   return (
     <Row id="notify" label={rows.notify.label} scope="you" desc={rows.notify.desc}>
       <div className="col tight" style={{ gap: "10px", minWidth: 0 }}>
-        {notifyIcons.map(([kind, icon]) => (
-          <div key={kind} className="row" style={{ gap: "10px" }}>
-            <Switch
-              on={notify[kind] !== false}
-              label={text.notify[kind].label}
-              onChange={(next) => {
-                setNotify(kind, next);
-              }}
-            />
-            <Icon name={icon} />
-            <div className="col t2" style={{ minWidth: 0 }}>
-              <span>{text.notify[kind].label}</span>
-              <span className="tiny muted">{text.notify[kind].line}</span>
+        {notifyIcons
+          .filter(([kind]) => sees || kind !== "money")
+          .map(([kind, icon]) => (
+            <div key={kind} className="row" style={{ gap: "10px" }}>
+              <Switch
+                on={notify[kind] !== false}
+                label={text.notify[kind].label}
+                onChange={(next) => {
+                  setNotify(kind, next);
+                }}
+              />
+              <Icon name={icon} />
+              <div className="col t2" style={{ minWidth: 0 }}>
+                <span>{text.notify[kind].label}</span>
+                <span className="tiny muted">{text.notify[kind].line}</span>
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
         <div className="row" style={{ gap: "10px" }}>
           <Switch on disabled label={text.problems.label} onChange={() => undefined} />
           <Icon name="alert" />

@@ -2,6 +2,7 @@ import { Avatar, Icon, avatarColor, cx } from "@gratovo/ui";
 import type { CSSProperties } from "react";
 import { memo, useEffect, useRef } from "react";
 
+import { signOut, useAccount } from "../lib/account";
 import { duration } from "../lib/format";
 import { useNarrow } from "../lib/media";
 import { setPref, usePref } from "../lib/prefs";
@@ -84,17 +85,18 @@ export const Rail = memo(function Rail() {
   const settingsOpen = useApp((s) => selectRoute(s).screen === "settings");
   const accountMenuOpen = useApp((s) => s.ui.menu?.label === strings.menu.account);
   const counts = useApp((s) => s.data.counts);
-  const meId = useApp((s) => s.data.me);
   const myName = useApp((s) => s.data.myName);
   const me = useApp((s) => s.data.team.find((m) => m.id === s.data.me));
   const collapsed = usePref("rail") === "min";
   const railOpen = useApp((s) => s.ui.railOpen);
   const narrow = useNarrow();
+  const account = useAccount();
   const { rail } = strings;
 
-  const named = meId !== "u1" || myName !== null;
+  const owner = me?.owner ?? false;
+  const named = myName !== null;
   const memberName = me?.name ?? "";
-  const shownName = meId === "u1" ? (myName ?? rail.addName) : memberName;
+  const shownName = myName ?? rail.addName;
   const role = me?.role ?? "";
   const nav = (key: ScreenKey, count?: number, hot?: boolean, sub?: string | null) => (
     <NavItem
@@ -148,7 +150,7 @@ export const Rail = memo(function Rail() {
                   kind: "who",
                   name: named ? shownName : rail.addName,
                   sub: named ? role : strings.menu.unnamedSub,
-                  color: avatarColor(meId === "u1" ? "owner" : memberName),
+                  color: avatarColor(owner ? "owner" : memberName),
                   unnamed: !named,
                   run: () => {
                     openSetting("profile", "name");
@@ -189,14 +191,31 @@ export const Rail = memo(function Rail() {
                     go("settings", "notifications");
                   },
                 },
-                {
-                  kind: "item",
-                  label: strings.menu.connections,
-                  icon: "gauge",
-                  run: () => {
-                    go("settings", "connections");
-                  },
-                },
+                ...(owner
+                  ? [
+                      {
+                        kind: "item" as const,
+                        label: strings.menu.connections,
+                        icon: "gauge" as const,
+                        run: () => {
+                          go("settings", "connections");
+                        },
+                      },
+                    ]
+                  : []),
+                ...(account.signedIn
+                  ? [
+                      { kind: "separator" as const },
+                      {
+                        kind: "item" as const,
+                        label: strings.auth.signOut,
+                        icon: "lock" as const,
+                        run: () => {
+                          void signOut();
+                        },
+                      },
+                    ]
+                  : []),
               ],
               strings.menu.account,
             );
@@ -207,8 +226,8 @@ export const Rail = memo(function Rail() {
           data-tip={collapsed ? rail.memberTip(memberName, role) : undefined}
         >
           <Avatar
-            name={meId === "u1" ? (myName ?? memberName) : memberName}
-            color={avatarColor(meId === "u1" ? "owner" : memberName)}
+            name={myName ?? memberName}
+            color={avatarColor(owner ? "owner" : memberName)}
             status={me?.status === "away" ? "away" : "online"}
             unnamed={!named}
             decorative={!collapsed}
