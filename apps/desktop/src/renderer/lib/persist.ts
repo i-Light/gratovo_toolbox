@@ -1,9 +1,10 @@
+import type { Store } from "@gratovo/core";
 import type { DataWrite } from "@gratovo/core/data";
 import type { Bridge } from "@gratovo/ipc/bridge";
 
 import { strings } from "../strings";
 import { appStore, subscribeApp } from "./store";
-import type { AppData, Notification } from "./store";
+import type { AppData, AppUi, Notification } from "./store";
 import { toast } from "./toast";
 
 /** The most writes one `data:write` call takes (the IPC schema refuses more). */
@@ -111,6 +112,26 @@ export function diffData(
   return { writes, unsupported };
 }
 
+/** The editable view of the data a recipe receives (immer's draft, which the app does not import itself). */
+export type DataDraft = Parameters<Parameters<Store<AppData, AppUi>["bg"]>[0]>[0];
+
+/** True while `adoptServerData` runs: the persister takes the result as saved and writes nothing. */
+let adopting = false;
+
+/**
+ * Applies data that came from the server (a teammate's change): to the current data and to every
+ * undo and redo step (`bg`), so undoing an older change never removes it. The persister takes the
+ * result as its baseline and writes nothing, so what main already holds is not sent back.
+ */
+export function adoptServerData(recipe: (draft: DataDraft) => void): void {
+  adopting = true;
+  try {
+    appStore().bg(recipe);
+  } finally {
+    adopting = false;
+  }
+}
+
 /** Batches waiting to go, oldest first; at most one more is in flight. */
 const queue: DataWrite[][] = [];
 let inFlight = false;
@@ -195,6 +216,10 @@ export function installPersistence(invoke: Bridge["invoke"]): () => void {
       return;
     }
     if (data === saved) {
+      return;
+    }
+    if (adopting) {
+      saved = data;
       return;
     }
     const { writes, unsupported } = diffData(saved, data);

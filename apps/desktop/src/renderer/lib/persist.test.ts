@@ -17,7 +17,13 @@ import {
   undo,
 } from "./actions";
 import { exampleData } from "./example-data";
-import { diffData, installPersistence, onPersistenceIdle, persistenceIdle } from "./persist";
+import {
+  adoptServerData,
+  diffData,
+  installPersistence,
+  onPersistenceIdle,
+  persistenceIdle,
+} from "./persist";
 import type { Route } from "./routes";
 import { appStore, go, initAppStore, resetAppStoreForTests } from "./store";
 import type { AppData, Notification } from "./store";
@@ -455,5 +461,25 @@ describe("today's actions", () => {
     await flush();
     expect(errors).not.toHaveBeenCalled();
     expect(bridge.calls.length).toBeGreaterThan(0);
+  });
+});
+
+describe("adoptServerData", () => {
+  it("changes the data and the undo steps and writes nothing", async () => {
+    install();
+    adoptServerData((draft) => {
+      draft.log.unshift({
+        id: "00000000-0000-4000-8000-0000000000bb",
+        at: now,
+        who: "x",
+        text: "t",
+      });
+    });
+    await flush();
+    expect(data().log[0]?.text).toBe("t");
+    expect(bridge.calls).toHaveLength(0);
+    setNotify("reply", false);
+    await flush();
+    expect(sent(bridge.calls)).toEqual([[{ kind: "notify.set", notify: { reply: false } }]]);
   });
 });

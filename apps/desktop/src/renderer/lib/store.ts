@@ -12,11 +12,13 @@ import type {
   Creator,
   CreatorStage,
   Deal,
+  EditConflict,
   LogEntry,
   MateRun,
   NotifySettings,
   RailCounts,
 } from "@gratovo/core/data";
+import type { SyncStatus } from "@gratovo/ipc";
 import type { IconName } from "@gratovo/ui";
 import { useSyncExternalStore } from "react";
 
@@ -66,6 +68,8 @@ export interface AppData {
   readonly brands: readonly Brand[];
   readonly deals: readonly Deal[];
   readonly mateRun: MateRun | null;
+  /** Your changes that met a different value on the server: you choose which one stays. */
+  readonly conflicts: readonly EditConflict[];
   /** Team-wide settings. A notification kind is on unless it is false here. */
   readonly settings: { readonly notify: NotifySettings };
 }
@@ -156,6 +160,8 @@ export interface AppUi {
   readonly savedAt: number;
   /** True when the last save failed: the top bar says "Not saved" until one works. */
   readonly saveFailed: boolean;
+  /** How the sync with the server is going (main sends it; "off" until it says). */
+  readonly sync: SyncStatus;
   readonly lastTab: Readonly<Partial<Record<ScreenKey, string>>>;
   readonly palette: boolean;
   readonly shortcuts: boolean;
@@ -175,7 +181,7 @@ export interface AppUi {
 /** The whole state the app store holds. */
 export type AppState = StoreState<AppData, AppUi>;
 
-export type { Brand, Creator, CreatorStage, Deal, LogEntry, MateRun, RailCounts };
+export type { Brand, Creator, CreatorStage, Deal, EditConflict, LogEntry, MateRun, RailCounts };
 
 /** No data at all: what the store holds until `initAppStore` brings the frame. */
 const emptyData: AppData = {
@@ -190,6 +196,7 @@ const emptyData: AppData = {
   brands: [],
   deals: [],
   mateRun: null,
+  conflicts: [],
   settings: { notify: {} },
 };
 
@@ -207,6 +214,7 @@ export function createAppStore(
       saving: false,
       savedAt: now - 40000,
       saveFailed: false,
+      sync: { state: "off", pending: 0, refused: 0, lastSyncedAt: null },
       lastTab: start.tab === null ? {} : { [start.screen]: start.tab },
       palette: false,
       shortcuts: false,

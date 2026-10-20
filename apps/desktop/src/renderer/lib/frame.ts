@@ -74,6 +74,7 @@ export function toAppData(frame: Frame): AppData {
     brands: frame.brands,
     deals: frame.deals,
     mateRun: frame.mateRun,
+    conflicts: frame.conflicts,
     settings: { notify: frame.notify },
   };
 }
