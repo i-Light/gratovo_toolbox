@@ -1,10 +1,11 @@
 import { canGoBack, canGoForward } from "@gratovo/core";
 import { Avatar, Icon, IconBtn, avatarColor, cx } from "@gratovo/ui";
-import { memo, useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 
 import { ago } from "../lib/format";
 import { setPalette, toggleTray } from "../lib/actions";
 import { screens } from "../lib/routes";
+import { toast } from "../lib/toast";
 import { notifShown } from "../lib/settings";
 import { back, forward, recordName, selectRoute, setRailOpen, useApp } from "../lib/store";
 import { strings } from "../strings";
@@ -144,11 +145,16 @@ function JobsButton() {
   );
 }
 
-/** "Saved", "Saving…" or "Not saved", with a dot and a tip that says when it was saved. */
+/**
+ * "Saved", "Saving…", "Not saved" or "Not synced", with a dot and a tip that says what is true. The
+ * local states win while saving or after a failure; "Not synced" shows when changes wait for a server
+ * that can't be reached or keeps failing.
+ */
 function SaveState() {
   const saving = useApp((s) => s.ui.saving);
   const savedAt = useApp((s) => s.ui.savedAt);
   const failed = useApp((s) => s.ui.saveFailed);
+  const sync = useApp((s) => s.ui.sync);
   // The tip says "synced 2 min ago", so the clock moves on while the bar stays mounted.
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -159,22 +165,59 @@ function SaveState() {
       clearInterval(timer);
     };
   }, []);
+  const unsynced = !saving && !failed && sync.pending > 0 && sync.state === "offline";
+  const stuck = !saving && !failed && sync.pending > 0 && sync.state === "stuck";
+  const notSynced = unsynced || stuck;
+  const label = saving
+    ? strings.top.saving
+    : failed
+      ? strings.top.notSaved
+      : notSynced
+        ? strings.top.notSynced
+        : strings.top.saved;
+  const syncedAgo = sync.lastSyncedAt === null ? savedAt : sync.lastSyncedAt;
+  const tip = saving
+    ? strings.top.savingTip
+    : failed
+      ? strings.top.notSavedTip
+      : stuck
+        ? strings.top.notSyncedStuckTip
+        : unsynced
+          ? strings.top.notSyncedOfflineTip(sync.pending)
+          : strings.top.savedTip(ago(syncedAgo, now));
   return (
     <span
       className={cx("save", saving && "busy", !saving && failed && "failed", "hide-narrow")}
       role="status"
-      data-tip={
-        saving
-          ? strings.top.savingTip
-          : failed
-            ? strings.top.notSavedTip
-            : strings.top.savedTip(ago(savedAt, now))
-      }
+      data-tip={tip}
     >
-      <i></i>
-      {saving ? strings.top.saving : failed ? strings.top.notSaved : strings.top.saved}
+      <i style={notSynced ? { background: "var(--warn)" } : undefined}></i>
+      {/* The longest label sits unseen in the same cell, so the chip keeps one width. */}
+      <span style={{ display: "inline-grid" }}>
+        <span style={{ gridArea: "1 / 1" }}>{label}</span>
+        <span aria-hidden="true" style={{ gridArea: "1 / 1", visibility: "hidden" }}>
+          {strings.top.notSynced}
+        </span>
+      </span>
     </span>
   );
+}
+
+/** Shows a toast each time the count of changes the server refused grows. */
+function RefusedToast() {
+  const refused = useApp((s) => s.ui.sync.refused);
+  const seen = useRef(refused);
+  useEffect(() => {
+    if (refused > seen.current) {
+      toast({
+        msg: strings.top.refusedToast,
+        sub: strings.top.refusedToastSub,
+        icon: "alert",
+      });
+    }
+    seen.current = refused;
+  }, [refused]);
+  return null;
 }
 
 /** Small avatars of the teammates who are online. */
@@ -246,6 +289,7 @@ export const TopBar = memo(function TopBar() {
         <JobsButton />
         <Bell />
         <SaveState />
+        <RefusedToast />
         <Presence />
       </div>
     </header>
