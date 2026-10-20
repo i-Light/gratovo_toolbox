@@ -2,6 +2,7 @@ import { Avatar, Btn, Icon, IconBtn, avatarColor, cx } from "@gratovo/ui";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 
 import { closeTray, markAllRead, openSetting, readNotification } from "../lib/actions";
+import { showConflictChoice } from "../lib/conflicts";
 import { ago, clock } from "../lib/format";
 import { useReturnFocus } from "../lib/focus";
 import { useKeys } from "../lib/keys";
@@ -11,6 +12,9 @@ import type { Job } from "../lib/store";
 import { strings } from "../strings";
 
 const { trays } = strings;
+
+/** A notification for an open conflict has this id prefix; clicking it asks which value to keep. */
+const conflictPrefix = "conflict:";
 
 /** One background job: its icon, what it is doing and a progress bar while it runs. */
 function JobRow({ job }: { readonly job: Job }) {
@@ -143,6 +147,10 @@ function NotificationsTray() {
           onClick={() => {
             readNotification(n.id);
             closeTray();
+            if (n.id.startsWith(conflictPrefix)) {
+              showConflictChoice(n.id.slice(conflictPrefix.length));
+              return;
+            }
             go(n.go.screen, n.go.tab);
           }}
         >

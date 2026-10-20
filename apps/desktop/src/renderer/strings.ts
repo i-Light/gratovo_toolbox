@@ -397,6 +397,28 @@ export const strings = {
     close: "Close",
   },
   toasts: { dismiss: "Dismiss" },
+  /** A change of yours that met a teammate's (the choice toast; the notification text is built in main). */
+  conflicts: {
+    toast: (label: string, theirName: string): string =>
+      `Your change to ${label} clashed with ${theirName}'s`,
+    sub: (field: string, mine: string, theirs: string): string =>
+      `${field}: yours ${mine}, theirs ${theirs}`,
+    useMine: "Use mine",
+    keepTheirs: "Keep theirs",
+    /** The server's field names, as people read them; an unknown name shows as it is. */
+    fields: {
+      creator_stage: "Stage",
+      notes: "Notes",
+      vetting_status: "Vetting",
+      pipeline_stage: "Pipeline stage",
+      channel_tags: "Tags",
+      relevance_criteria: "Relevance",
+      provided_data: "Provided data",
+      contacts: "Contacts",
+      media_kit: "Media kit",
+      creator_gender: "Gender",
+    } as Readonly<Record<string, string>>,
+  },
   placeholder: {
     title: (name: string) => `${name} is still being built`,
     body: "This screen arrives in a later build step.",

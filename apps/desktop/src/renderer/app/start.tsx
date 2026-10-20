@@ -4,6 +4,7 @@ import { StrictMode } from "react";
 import type { Root } from "react-dom/client";
 
 import { setAccountView, signOut } from "../lib/account";
+import { installConflictToasts } from "../lib/conflicts";
 import { toAppData } from "../lib/frame";
 import { installLiveUpdates } from "../lib/live";
 import { installPersistence } from "../lib/persist";
@@ -46,6 +47,7 @@ export async function startApp(root: Root, invoke: Bridge["invoke"]): Promise<vo
       installHashSync();
       if (signedIn && on !== undefined) {
         installLiveUpdates({ invoke, on });
+        installConflictToasts(invoke);
       }
     }
     root.render(
