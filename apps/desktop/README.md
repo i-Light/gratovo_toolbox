@@ -28,6 +28,10 @@ The app supports Windows only, and the end-to-end tests run there: in CI on ever
 
 An unpackaged app keeps its data apart from the installed one: `pnpm dev` uses a "Gratovo Toolbox (dev)" folder, and each end-to-end test gets a fresh temporary folder (through `GRATOVO_USER_DATA`, which a packaged app ignores). So the tests also run while the app is open. The app keeps its data in `example.db` in that folder until sign-in exists (3d-2); delete the file to start again from the example fixtures.
 
+## Connecting to Supabase
+
+The app reads two build values, `MAIN_VITE_SUPABASE_URL` and `MAIN_VITE_SUPABASE_PUBLISHABLE_KEY`, from the environment or from `apps/desktop/.env.local`. Without them it runs unconfigured: example data, no sign-in. Never put a secret key there; the app refuses it. The steps are in [docs/setup.md](../../docs/setup.md).
+
 ## Dependencies
 
 electron-vite bundles everything the app uses, so all packages are `devDependencies`. Only a main-process module that must stay outside the bundle (a native one, such as the SQLite driver in step 3d) goes in `dependencies`.
