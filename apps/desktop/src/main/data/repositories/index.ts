@@ -15,3 +15,17 @@ export {
 } from "./profiles";
 export type { Profile, ProfileInput, ProfileRow } from "./profiles";
 export { getNotify, getSetting, setNotify, setSetting } from "./settings";
+export {
+  cancelActivityAdd,
+  dropEntry,
+  enqueue,
+  hasPending,
+  head,
+  headRun,
+  noteFailure,
+  pendingCount,
+  pendingPayload,
+  removeEntries,
+  removeOtherUsers,
+} from "./outbox";
+export type { OutboxEntry, OutboxKind } from "./outbox";
