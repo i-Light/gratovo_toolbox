@@ -25,4 +25,15 @@ Owner (2026-10-20): Supabase MCP connected (scoped to the project); the setup.md
 
 Review fixes done and checked: lint, typecheck, 1007 Vitest + 1 pytest, `test:sql` (8 files, privileges compared after a `schema.sql` re-run), server tests 38 on a local stack, 50 e2e. Also: a waiting member keeps no local copy; sign-out deletes the session before the copy; a leftover copy without a session is deleted at start; the server test for single-flight refresh moves its clock after sign-in (the refresh point is fixed when the token arrives).
 
-Next: reopen the session so the MCP tools load, then R1 step by step with the owner's go; then L1.
+## R1 (production rollout)
+
+The MCP here has no `get_project` or `get_advisors` tool (scoped by the owner); the project is the one the MCP is scoped to, and a privilege snapshot by SQL stands in for the advisors' "before" list.
+
+1. **Look first** (2026-10-20, read-only, started on the owner's "continue the rollout"): Postgres 17.6; extensions `supabase_vault` 0.3.1, `pg_cron` 1.6.4, `pg_trgm` 1.6 (plus pgcrypto, uuid-ossp, pg_stat_statements); no `supabase_migrations` schema (no history), no `private` schema, no `member_access`, no `set_member_access`/`team_youtube_key`, no Edge Functions; the 25 public tables match the baseline exactly, all with RLS; 3 users, 3 profiles, all `basic`/`full`. Before snapshot of public functions: none executable by `anon`; definer functions `app_current_role` (authenticated may execute), `handle_new_user`, `purge_sync_tombstones`, `record_sync_tombstone` (neither may), all owned by `postgres`. No drift.
+2. **History and the baseline** (owner's go, 2026-10-20): created `supabase_migrations.schema_migrations` (`version text primary key, statements text[], name text`, owned by `postgres`) and the row `20261020120000 baseline`. The baseline's SQL was not run.
+3. **`member_access`** (the owner waived the go for steps 3 and 4): the file's exact SQL in one transaction with its history row `20261021090000 member_access`.
+4. **`team_keys`**: the same, row `20261021090100 team_keys`. History now holds the three rows, matching the file names; no renames needed.
+5. **Checks after:** every new object is owned by `postgres`; the three `private` functions are security definer with `search_path=""`, the two `public` wrappers are invoker; `anon` executes none of the five, has no privilege on `member_access` and no usage on `private`; `authenticated` reads `member_access` and can't insert, update or delete; RLS on; neither role reads `vault.decrypted_secrets`. The exposed schemas aren't readable by SQL (set by the platform, not on `authenticator`), so step 9's real session checks that `private` isn't served. No advisor tool here; by the advisor's own rules nothing new should show (no definer function in an exposed schema, every `search_path` fixed, RLS with a policy).
+7. **Key names, checked early (read-only):** Vault holds `team_youtube_key` and the four `R2_*` names (and two older `AWS_IAM_*` entries). The `r2-access` function reads the R2 values from Edge Function Secrets, not Vault: waiting for the owner to confirm they are there too.
+
+Next: step 6 (bootstrap the Owner) with the owner's go; the owner's confirmation on the function secrets; then step 8 (deploy `r2-access`).
