@@ -5,6 +5,43 @@
 export const strings = {
   appName: "Gratovo Toolbox",
   brand: { name: "Gratovo", sub: "Workbench" },
+  auth: {
+    signIn: {
+      title: "Sign in",
+      sub: "Use the email and password the owner set up for you.",
+      email: "Email",
+      password: "Password",
+      submit: "Sign in",
+      submitting: "Signing in…",
+      noAccount: "Ask the owner for an account.",
+      /** One line per reason the sign-in can fail (the old app's meanings). */
+      problems: {
+        invalid: "That email and password don't match. Check them and try again.",
+        unconfirmed: "This email isn't confirmed yet. Ask the owner to confirm it.",
+        "rate-limited": "Too many tries. Wait a minute and try again.",
+        offline: "Can't reach the server. Check your internet and try again.",
+        "no-safe-storage":
+          "This computer can't keep your sign-in safe, so the app won't sign you in.",
+        unavailable: "Something went wrong on our side. Try again in a moment.",
+        /** The call itself failed (not a reason from the server). */
+        failed: "Couldn't sign in. Check the email address and try again.",
+      },
+    },
+    waiting: {
+      title: "Almost there",
+      signedInAs: (email: string) => `Signed in as ${email}`,
+      sub: "The owner hasn't let you in yet.",
+      check: "Check again",
+      checking: "Checking…",
+      stillWaiting: "Still waiting.",
+      checkFailed: "Couldn't check. Try again in a moment.",
+      signOut: "Sign out",
+    },
+    signOut: "Sign out",
+    signedInAs: (email: string) => `Signed in as ${email}`,
+    /** Settings > Profile. */
+    account: { label: "Account", desc: "Signing out removes the team's data from this computer." },
+  },
   loadFailed: {
     title: "The app couldn't load its data",
     sub: "Close it and open it again.",
@@ -290,7 +327,7 @@ export const strings = {
     /** Words inside the working sections. */
     profile: {
       namePlaceholder: "Your name",
-      setHere: "Set on this computer.",
+      setHere: "Saved with your account, so the team sees it.",
       notSet: "Not set yet.",
       rolesInTeam: "Roles in Team",
     },

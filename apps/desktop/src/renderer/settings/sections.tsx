@@ -4,6 +4,7 @@ import type { IconName } from "@gratovo/ui";
 import type { CSSProperties } from "react";
 import { useRef, useState } from "react";
 
+import { signOut, useAccount } from "../lib/account";
 import { flashSetting, setMyName, setNotify } from "../lib/actions";
 import { setPref, usePref } from "../lib/prefs";
 import type { NotifyKind, SettingsSection } from "../lib/settings";
@@ -18,6 +19,7 @@ const { rows, options } = text;
 export function ProfileSection() {
   const myName = useApp((s) => s.data.myName);
   const me = useApp((s) => s.data.team.find((m) => m.id === s.data.me));
+  const account = useAccount();
   const [draft, setDraft] = useState<string | null>(null);
   // Blur fires inside the key handler, before the re-render, so the handlers read the draft here.
   const draftRef = useRef<string | null>(null);
@@ -102,6 +104,34 @@ export function ProfileSection() {
           </Btn>
         </div>
       </Row>
+      {account.signedIn && account.email !== null ? (
+        // Not a searchable setting, so it is the row's markup without an id.
+        <div className="set-row">
+          <div className="set-t">
+            <div className="row wrap" style={{ gap: "8px" }}>
+              <b>{strings.auth.account.label}</b>
+            </div>
+            <p>{strings.auth.account.desc}</p>
+          </div>
+          <div className="set-c">
+            <div className="col tight" style={{ minWidth: 0 }}>
+              <span className="small">{strings.auth.signedInAs(account.email)}</span>
+              <div className="row wrap">
+                <Btn
+                  size="sm"
+                  kind="ghost"
+                  icon="lock"
+                  onClick={() => {
+                    void signOut();
+                  }}
+                >
+                  {strings.auth.signOut}
+                </Btn>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }

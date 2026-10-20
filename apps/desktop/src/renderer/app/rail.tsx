@@ -2,6 +2,7 @@ import { Avatar, Icon, avatarColor, cx } from "@gratovo/ui";
 import type { CSSProperties } from "react";
 import { memo, useEffect, useRef } from "react";
 
+import { signOut, useAccount } from "../lib/account";
 import { duration } from "../lib/format";
 import { useNarrow } from "../lib/media";
 import { setPref, usePref } from "../lib/prefs";
@@ -89,6 +90,7 @@ export const Rail = memo(function Rail() {
   const collapsed = usePref("rail") === "min";
   const railOpen = useApp((s) => s.ui.railOpen);
   const narrow = useNarrow();
+  const account = useAccount();
   const { rail } = strings;
 
   const owner = me?.owner ?? false;
@@ -197,6 +199,19 @@ export const Rail = memo(function Rail() {
                         icon: "gauge" as const,
                         run: () => {
                           go("settings", "connections");
+                        },
+                      },
+                    ]
+                  : []),
+                ...(account.signedIn
+                  ? [
+                      { kind: "separator" as const },
+                      {
+                        kind: "item" as const,
+                        label: strings.auth.signOut,
+                        icon: "lock" as const,
+                        run: () => {
+                          void signOut();
                         },
                       },
                     ]
