@@ -126,6 +126,10 @@ describe("the data channels through the dispatcher", () => {
       "secrets:status": () => ({ set: false }),
       "frame:load": () => frame,
       "data:write": vi.fn(() => ({})),
+      "auth:status": () => ({ state: "unconfigured" as const, email: null }),
+      "auth:sign-in": () => ({ ok: true as const, state: "signed-in" as const }),
+      "auth:recheck": () => ({ state: "unconfigured" as const, email: null }),
+      "auth:sign-out": () => ({}),
       ...overrides,
     };
     const onError = vi.fn();

@@ -9,6 +9,10 @@ function setup(overrides: Partial<Handlers> = {}) {
     "secrets:status": vi.fn(({ name }) => Promise.resolve({ set: name === "gemini.api-key" })),
     "frame:load": vi.fn(() => exampleFrame(0)),
     "data:write": vi.fn(() => ({})),
+    "auth:status": vi.fn(() => ({ state: "unconfigured" as const, email: null })),
+    "auth:sign-in": vi.fn(() => ({ ok: true as const, state: "signed-in" as const })),
+    "auth:recheck": vi.fn(() => ({ state: "unconfigured" as const, email: null })),
+    "auth:sign-out": vi.fn(() => ({})),
     ...overrides,
   };
   const onError = vi.fn();

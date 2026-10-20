@@ -265,7 +265,10 @@ export function createSessionManager(o: {
         await session.refresh();
       } catch (error) {
         if (asAuthError(error).kind === "ended") {
-          current = null;
+          // A `start()` that ran meanwhile has replaced it; leave the new session alone.
+          if (current === session) {
+            current = null;
+          }
           return null;
         }
         // Offline or the server is unwell: the caller opens the local copy, the timer retries.

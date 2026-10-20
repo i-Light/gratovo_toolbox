@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { authStatusSchema, signInRequestSchema, signInResultSchema } from "./auth";
 import { dataWriteSchema, frameSchema } from "./data";
 
 /**
@@ -38,6 +39,26 @@ export const channels = {
   /** Saves a batch of changes, in order, all or none. */
   "data:write": {
     request: z.strictObject({ writes: z.array(dataWriteSchema).min(1).max(100) }),
+    response: z.strictObject({}),
+  },
+  /** Where the account stands, and its own email. The page asks this first. */
+  "auth:status": {
+    request: z.strictObject({}),
+    response: authStatusSchema,
+  },
+  /** Signs in with email and password. The password is used once and never stored or echoed. */
+  "auth:sign-in": {
+    request: signInRequestSchema,
+    response: signInResultSchema,
+  },
+  /** The waiting screen's "Check again": asks the server for the access and the team again. */
+  "auth:recheck": {
+    request: z.strictObject({}),
+    response: authStatusSchema,
+  },
+  /** Signs out, deletes this computer's copy of the team's data, then reloads the window. */
+  "auth:sign-out": {
+    request: z.strictObject({}),
     response: z.strictObject({}),
   },
 } as const;

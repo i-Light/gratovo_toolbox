@@ -389,4 +389,28 @@ describe("a new sign-in replaces the session", () => {
     await expect(pending).rejects.toMatchObject({ kind: "ended" });
     expect(t.stored()?.["refreshToken"]).toBe("refresh-new");
   });
+
+  it("and a restore that was in flight doesn't forget the new session", async () => {
+    const t = setup();
+    t.values.set(
+      sessionSecretName,
+      JSON.stringify({ userId: "user-1", email: "lina@example.com", refreshToken: "refresh-0" }),
+    );
+    let answer: (tokens: Tokens) => void = () => undefined;
+    t.refresh.mockReturnValueOnce(
+      new Promise<Tokens>((resolve) => {
+        answer = resolve;
+      }),
+    );
+    const restoring = t.manager.restore();
+    await flush();
+    const fresh = await t.manager.start(t.tokens);
+    answer({ ...t.tokens, refreshToken: "refresh-late" });
+
+    await expect(restoring).resolves.toBeNull();
+    // The manager still holds the new session, so closing it closes the new one.
+    t.manager.close();
+    await expect(fresh.accessToken()).rejects.toMatchObject({ kind: "ended" });
+    expect(t.stored()?.["refreshToken"]).toBe("refresh-1");
+  });
 });
