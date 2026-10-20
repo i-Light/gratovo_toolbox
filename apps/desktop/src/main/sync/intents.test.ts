@@ -1,7 +1,7 @@
 import type { DatabaseSync } from "node:sqlite";
 
 import type { DataSource } from "@gratovo/core/data";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createSqliteSource } from "../data/sqlite-source";
 import { pendingCount, upsertProfile } from "../data/repositories";
@@ -156,17 +156,114 @@ describe("recordIntent", () => {
     expect((await source.frame()).log.map((l) => l.id)).toEqual([line]);
   });
 
-  // S21 replaces this test when it adds the four new kinds.
-  it("a kind it does not know only applies locally", () => {
-    const applyLocal = vi.fn();
-    recordIntent(db, {
-      userId: me,
-      write: { kind: "deal.step", id: "d", step: 1 },
-      applyLocal,
-      now: t0,
-      newId: () => "x",
+  describe("the structured kinds", () => {
+    const ch = "UC1";
+
+    function seedCreator(stage: string | null): void {
+      db.prepare(
+        "INSERT INTO channel_state (channel_id, handle, creator_stage, updated_at) VALUES (?, ?, ?, ?)",
+      ).run(ch, "@aiweekly", stage, "2026-10-21T09:00:00+00:00");
+    }
+
+    function seedConflict(): void {
+      db.prepare(
+        `INSERT INTO edit_conflicts (id, channel_id, channel_label, field, base_value, mine_value,
+           theirs_value, mine_actor_name, theirs_actor_name, detected_at, updated_at)
+         VALUES ('c1', ?, '@aiweekly', 'creator_stage', '"new"', '"emailed"', '"replied"', 'Sam', 'Sara', 'x', 'x')`,
+      ).run(ch);
+    }
+
+    function stored(): unknown {
+      return db.prepare("SELECT creator_stage FROM channel_state WHERE channel_id = ?").get(ch)?.[
+        "creator_stage"
+      ];
+    }
+
+    it("creator.stage queues channel.edit with the column as base, taken before the write", async () => {
+      seedCreator("emailed");
+      await source.write([{ kind: "creator.stage", id: ch, stage: "replied" }]);
+      expect(stored()).toBe("replied");
+      expect(entries()).toEqual([
+        {
+          kind: "channel.edit",
+          payload: {
+            channelId: ch,
+            field: "creator_stage",
+            base: "emailed",
+            next: "replied",
+            label: "@aiweekly",
+          },
+          target: { table: "channel_state", key: ch },
+        },
+      ]);
     });
-    expect(applyLocal).toHaveBeenCalledOnce();
-    expect(pendingCount(db)).toBe(0);
+
+    it("a first stage edit has a null base", async () => {
+      seedCreator(null);
+      await source.write([{ kind: "creator.stage", id: ch, stage: "emailed" }]);
+      expect(entries()[0]?.payload).toMatchObject({ base: null, next: "emailed" });
+    });
+
+    it("an edit to the same stage, or to an unknown creator, queues nothing", async () => {
+      seedCreator("emailed");
+      await source.write([
+        { kind: "creator.stage", id: ch, stage: "emailed" },
+        { kind: "creator.stage", id: "nope", stage: "emailed" },
+      ]);
+      expect(pendingCount(db)).toBe(0);
+    });
+
+    it("brand.set writes locally and queues the four columns", async () => {
+      await source.write([
+        { kind: "brand.set", id: "b1", name: "Acme AI", sells: "GPUs", status: "active" },
+      ]);
+      expect(db.prepare("SELECT name FROM brands WHERE id = 'b1'").get()?.["name"]).toBe("Acme AI");
+      expect(entries()).toEqual([
+        {
+          kind: "brand.set",
+          payload: { id: "b1", name: "Acme AI", sells: "GPUs", status: "active" },
+          target: { table: "brands", key: "b1" },
+        },
+      ]);
+    });
+
+    it("deal.step queues the step", async () => {
+      await source.write([{ kind: "deal.step", id: "d1", step: 3 }]);
+      expect(entries()).toEqual([
+        {
+          kind: "deal.step",
+          payload: { id: "d1", step: 3 },
+          target: { table: "deals", key: "d1" },
+        },
+      ]);
+    });
+
+    it("conflict.resolve queues the chosen side's value and settles locally", async () => {
+      seedCreator("replied");
+      seedConflict();
+      await source.write([{ kind: "conflict.resolve", id: "c1", choice: "mine" }]);
+      expect(stored()).toBe("emailed");
+      expect((await source.frame()).conflicts).toEqual([]);
+      expect(entries()).toEqual([
+        {
+          kind: "conflict.resolve",
+          payload: { id: "c1", resolution: "mine", value: "emailed" },
+          target: { table: "channel_state", key: ch },
+        },
+      ]);
+    });
+
+    it("theirs sends their value; a settled or unknown conflict sends nothing", async () => {
+      seedCreator("replied");
+      seedConflict();
+      await source.write([
+        { kind: "conflict.resolve", id: "c1", choice: "theirs" },
+        { kind: "conflict.resolve", id: "c1", choice: "mine" },
+        { kind: "conflict.resolve", id: "zz", choice: "mine" },
+      ]);
+      expect(entries().map((e) => e.payload)).toEqual([
+        { id: "c1", resolution: "theirs", value: "replied" },
+      ]);
+    });
   });
 });

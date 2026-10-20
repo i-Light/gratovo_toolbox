@@ -36,6 +36,18 @@ function parseDetail(value: unknown): unknown {
   }
 }
 
+/** A stored conflict value is JSON text; text that isn't JSON stands for itself, nothing is null. */
+function parseValue(stored: unknown): unknown {
+  if (typeof stored !== "string") {
+    return stored ?? null;
+  }
+  try {
+    return JSON.parse(stored) as unknown;
+  } catch {
+    return stored;
+  }
+}
+
 /** The line with this id: its text, whether an undo hides it, and its newest marker's time. */
 function findLine(db: DatabaseSync, id: string): LineRow | null {
   const row = db.prepare("SELECT * FROM activity_log WHERE id = ?").get(id);
@@ -159,8 +171,83 @@ export function recordIntent(
       }
       return;
     }
-    default:
-      // notification.read stays local; the new kinds are S21's.
+    case "creator.stage": {
+      // The base is the stored column, read before the write: null when it was never set, so a
+      // first edit isn't a false conflict even though the frame showed a derived stage.
+      const row = db
+        .prepare("SELECT handle, creator_stage FROM channel_state WHERE channel_id = ?")
+        .get(write.id);
       applyLocal();
+      if (row === undefined) {
+        return;
+      }
+      const base = optional(row["creator_stage"]);
+      if (base === write.stage) {
+        return;
+      }
+      enqueue(db, {
+        userId,
+        kind: "channel.edit",
+        payload: {
+          channelId: write.id,
+          field: "creator_stage",
+          base,
+          next: write.stage,
+          label: String(row["handle"]),
+        },
+        target: { table: "channel_state", key: write.id },
+        now,
+      });
+      return;
+    }
+    case "brand.set":
+      applyLocal();
+      enqueue(db, {
+        userId,
+        kind: "brand.set",
+        payload: { id: write.id, name: write.name, sells: write.sells, status: write.status },
+        target: { table: "brands", key: write.id },
+        now,
+      });
+      return;
+    case "deal.step":
+      applyLocal();
+      enqueue(db, {
+        userId,
+        kind: "deal.step",
+        payload: { id: write.id, step: write.step },
+        target: { table: "deals", key: write.id },
+        now,
+      });
+      return;
+    case "conflict.resolve": {
+      // Read the open conflict before applyLocal marks it settled.
+      const row = db
+        .prepare(
+          `SELECT channel_id, mine_value, theirs_value FROM edit_conflicts
+           WHERE id = ? AND resolved_at IS NULL AND resolved_locally = 0`,
+        )
+        .get(write.id);
+      applyLocal();
+      if (row === undefined) {
+        return;
+      }
+      enqueue(db, {
+        userId,
+        kind: "conflict.resolve",
+        payload: {
+          id: write.id,
+          resolution: write.choice,
+          value: parseValue(row[write.choice === "mine" ? "mine_value" : "theirs_value"]),
+        },
+        target: { table: "channel_state", key: String(row["channel_id"]) },
+        now,
+      });
+      return;
+    }
+    case "notification.read":
+      // Stays local.
+      applyLocal();
+      return;
   }
 }
