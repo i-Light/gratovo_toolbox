@@ -45,4 +45,10 @@ Checked after wave 2: typecheck, 454 main + 729 packages/data/renderer Vitest, `
 | S28 | H | 44ac7d4 | Realtime and presence in the account and engine; conflict notices through `afterConflicts` (adds the `notify` part); sign-out stops Realtime alongside the 5 s drain (≤ ~6 s); `createLive` injectable |
 | S31 | H | c58950d | `[realtime] enabled = true`, CI excludes without `realtime`, `realtime.test.ts`. With Realtime on, its own migrations run before the repo's, so `realtime.messages` exists. Lead: the same fix in `docs/setup.md` §7. Full `pnpm test:server`: 6 files, 57 tests, after the S27 fix. R1: check `live.subscribed` after the owner turns public access off |
 
-In flight: S15 (Electron tests), S30 (server tests: CAS and conflicts; the local stack is left running for it). Next: S32, S33, R1, L1.
+| S30 | N | 38491dc | Server tests for compare-and-set and conflicts (2): first edit `applied`; a stale edit gets `conflict`, the re-fetch brings theirs, the conflict and its notice arrive, `mine` resolves through `resolve_edit_conflict`. Full `pnpm test:server`: 7 files, 59 tests |
+
+## R1 (production rollout)
+
+1. **Measure** (2026-10-21, read-only, counts only): `channel_state` 15,605 (15,604 `newlyFound`/`new`, 1 `newlyFound`/`contacted`); `brands` 0; `deals` 0; `activity_log` 364; open conflicts 0; tombstones 38,050 `channel_state`, 1 `sequences`, 1 `sequence_steps`; horizon `2026-09-13 06:53:09.109665+00`; history holds the three 3d-2a rows; none of S1's objects exist; no policy in schema `realtime`. `md5(prosrc)` of `apply_channel_edit` (042ff6b5…) and `canonical_edit_value` (22a6c0d0…) equal the baseline's bodies with CRLF line ends (production was created from a CRLF file): no drift. D13's cap holds (15,605 > 5,000; one creator past `new`).
+
+In flight: S15 (Electron tests). Next: R1 steps 2–4 with the owner's go; S32, S33; R1 steps 5–6 with the owner; L1.
