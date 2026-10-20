@@ -28,6 +28,54 @@ async function openSettingsSection(page: Page, name: string): Promise<void> {
 const sectionButton = (page: Page, name: string) =>
   sectionList(page).getByRole("button", { name: new RegExp(`^${name}`) });
 
+const paletteDialog = (page: Page) => page.getByRole("dialog", { name: strings.palette.label });
+const paletteInput = (page: Page) =>
+  page.getByRole("combobox", { name: strings.palette.inputLabel });
+const paletteSettings = (page: Page) =>
+  paletteDialog(page).getByRole("group", { name: strings.palette.groups.settings });
+
+/** Names only the example data has: its teammates, creators and brands. */
+const exampleNames = [
+  "Sara",
+  "Omar",
+  "Lina",
+  "Prompt Lab",
+  "Neural Notes",
+  "Code with Kai",
+  "Codewell",
+  "Lumen AI",
+];
+
+interface FrameAnswer {
+  readonly ok: boolean;
+  readonly value?: { readonly team: readonly { readonly id: string; readonly name: string }[] };
+}
+
+/**
+ * The frame the page gets, through the page's own bridge. Teammates show on screen only while they
+ * are online, and presence arrives with the sync (3d-2b), so the team is read here.
+ */
+async function loadFrame(page: Page): Promise<FrameAnswer> {
+  return page.evaluate(() =>
+    (
+      globalThis as unknown as {
+        gratovo: { invoke: (channel: string, input: object) => Promise<FrameAnswer> };
+      }
+    ).gratovo.invoke("frame:load", {}),
+  );
+}
+
+/** Opens the account menu, checks whether it offers Connections, and closes it. */
+async function expectConnectionsInMenu(page: Page, offered: boolean): Promise<void> {
+  await page.locator("button.me").click();
+  await expect(page.getByRole("menuitem", { name: strings.auth.signOut })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: strings.menu.connections })).toHaveCount(
+    offered ? 1 : 0,
+  );
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("menuitem", { name: strings.auth.signOut })).toHaveCount(0);
+}
+
 test.describe("what a signed-in member sees", () => {
   test("the owner sees the owner sections and the Money switch", async ({
     supabase,
@@ -40,9 +88,35 @@ test.describe("what a signed-in member sees", () => {
       roles: ["owner", "deal_lead"],
       seesMoney: true,
     });
-    supabase.addUser({ email: "sam@example.com", role: "basic", roles: ["scout"] });
+    const other = supabase.addUser({ email: "sam@example.com", role: "basic", roles: ["scout"] });
     const { page } = await startSigned({ ready: "page" });
     await signInAs(page, owner.email, owner.password);
+
+    // The team is the server's: the other member is in it, and nothing from the example data is,
+    // neither in the frame nor on screen nor in the palette.
+    const frame = await loadFrame(page);
+    expect(frame.ok).toBe(true);
+    expect(
+      frame.value?.team.map((member) => [member.id, member.name]).sort(([a], [b]) => (a < b ? -1 : 1)),
+    ).toEqual(
+      [
+        [owner.id, "maya"],
+        [other.id, "sam"],
+      ].sort(([a], [b]) => ((a ?? "") < (b ?? "") ? -1 : 1)),
+    );
+    const frameText = JSON.stringify(frame);
+    const shown = await page.locator("body").innerText();
+    for (const name of exampleNames) {
+      expect(frameText).not.toContain(name);
+      expect(shown).not.toContain(name);
+    }
+    await page.keyboard.press("Control+K");
+    await paletteInput(page).fill("prompt");
+    await expect(paletteDialog(page).getByRole("option", { name: /Prompt Lab/ })).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(paletteDialog(page)).toBeHidden();
+
+    await expectConnectionsInMenu(page, true);
 
     await expect(page.locator("button.me")).toContainText(
       strings.rail.roleOnline(

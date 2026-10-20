@@ -96,7 +96,9 @@ jobs:
   # Tests the server, not the app: a throwaway Supabase stack in Docker (real Auth, the database
   # with the migrations, and the r2-access function) and the app's own sign-in code run against it.
   # It has nothing to do with which systems the app supports, so it uses the Linux runner. The
-  # stack's keys are made up for each run; they only live in this job's environment and are masked.
+  # stack's keys are the Supabase CLI's fixed local defaults, which `supabase start` prints before the
+  # masking step runs: throwaway values that open nothing but this job's stack, never the team's
+  # project. They are still masked from then on and live only in this job's environment.
   # Studio, the mail server, Storage, Realtime and the rest are left out to keep the start short.
   server:
     name: Server tests (Linux, local Supabase)

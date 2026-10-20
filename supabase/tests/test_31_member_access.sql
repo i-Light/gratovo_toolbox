@@ -122,8 +122,20 @@ begin;
   select pg_temp.check('the last owner still holds the role after the refusal',
     exists (select 1 from public.member_access
              where profile_id = 'a1000000-0000-0000-0000-000000000001' and 'owner' = any (roles)));
+  -- An Owner row on a profile that is not let in (0004 stays 'unauthorized')
+  -- does not count: the only owner who can sign in still cannot step down.
+  update public.member_access set roles = '{owner}'
+   where profile_id = 'a1000000-0000-0000-0000-000000000004';
+  select pg_temp.check('an owner whose profile is unauthorized does not count (P0001)',
+    pg_temp.sqlstate_of('a1000000-0000-0000-0000-000000000001',
+      $q$ select public.set_member_access('a1000000-0000-0000-0000-000000000001', '{scout}', true) $q$) = 'P0001');
+  select pg_temp.check('the unauthorized "owner" cannot call it (42501)',
+    pg_temp.sqlstate_of('a1000000-0000-0000-0000-000000000004',
+      $q$ select public.set_member_access('a1000000-0000-0000-0000-000000000004', '{owner}', true) $q$) = '42501');
   -- A second owner makes the first removable.
-  select public.set_member_access('a1000000-0000-0000-0000-000000000003', '{owner}', false);
+  select pg_temp.check('an owner can make a second owner',
+    pg_temp.sqlstate_of('a1000000-0000-0000-0000-000000000001',
+      $q$ select public.set_member_access('a1000000-0000-0000-0000-000000000003', '{owner}', false) $q$) = 'ok');
   select pg_temp.check('with a second owner, the first can step down',
     pg_temp.sqlstate_of('a1000000-0000-0000-0000-000000000001',
       $q$ select public.set_member_access('a1000000-0000-0000-0000-000000000001', '{scout}', true) $q$) = 'ok');
@@ -150,6 +162,11 @@ select pg_temp.check('anon cannot execute set_member_access (public or private)'
   not has_function_privilege('anon', 'public.set_member_access(uuid, text[], boolean)', 'execute')
   and not has_function_privilege('anon', 'private.set_member_access(uuid, text[], boolean)', 'execute')
   and not has_function_privilege('anon', 'private.is_owner()', 'execute'));
+select pg_temp.check('authenticated cannot execute private.is_owner (only the definer calls it)',
+  not has_function_privilege('authenticated', 'private.is_owner()', 'execute'));
+select pg_temp.check('authenticated can execute set_member_access (public and private)',
+  has_function_privilege('authenticated', 'public.set_member_access(uuid, text[], boolean)', 'execute')
+  and has_function_privilege('authenticated', 'private.set_member_access(uuid, text[], boolean)', 'execute'));
 select pg_temp.check('anon holds nothing on member_access; authenticated holds select only',
   not has_table_privilege('anon', 'public.member_access', 'select')
   and has_table_privilege('authenticated', 'public.member_access', 'select')

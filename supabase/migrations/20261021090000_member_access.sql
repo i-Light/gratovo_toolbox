@@ -72,6 +72,22 @@ begin
   if not private.is_owner() then
     raise exception 'only an owner can change member access' using errcode = '42501';
   end if;
+
+  -- One writer at a time. Without this, two owners who each remove the other's
+  -- Owner role in the same instant both pass the last-owner check below (each
+  -- still sees the other as an owner) and the team is left with none. A
+  -- transaction-level advisory lock rather than a table lock: it serialises
+  -- only this function and leaves plain reads of member_access untouched, and
+  -- it is released at commit or rollback. Non-owners never reach it.
+  perform pg_advisory_xact_lock(hashtext('public.member_access'));
+
+  -- Checked again under the lock: the writer before us may have just taken
+  -- this caller's Owner role away. Each statement here sees the latest
+  -- committed rows (read committed), so this check and the one below do too.
+  if not private.is_owner() then
+    raise exception 'only an owner can change member access' using errcode = '42501';
+  end if;
+
   if p_roles is null or p_sees_money is null
      or not (p_roles <@ array['owner','scout','outreach','deal_lead','delivery']::text[]) then
     raise exception 'unknown role or missing value' using errcode = '22023';
@@ -87,7 +103,11 @@ begin
   on conflict (profile_id) do update
     set roles = excluded.roles, sees_money = excluded.sees_money, updated_by = excluded.updated_by;
 
-  if not exists (select 1 from public.member_access where 'owner' = any (roles)) then
+  -- Only an owner who can still sign in counts: an Owner row on a profile the
+  -- old app has set back to 'unauthorized' would leave nobody able to manage access.
+  if not exists (select 1 from public.member_access m
+                   join public.profiles p on p.id = m.profile_id
+                  where 'owner' = any (m.roles) and p.role in ('basic', 'full')) then
     raise exception 'the team needs an owner' using errcode = 'P0001';
   end if;
 end $$;
@@ -98,9 +118,11 @@ create or replace function public.set_member_access(
 language sql security invoker set search_path = ''
 as $$ select private.set_member_access(p_profile_id, p_roles, p_sees_money); $$;
 
-revoke execute on function private.is_owner() from public, anon;
+-- is_owner() is called only from inside private.set_member_access, which runs
+-- as the function owner, so no API role needs it.
+revoke execute on function private.is_owner() from public, anon, authenticated;
 revoke execute on function private.set_member_access(uuid, text[], boolean) from public, anon;
 revoke execute on function public.set_member_access(uuid, text[], boolean) from public, anon;
-grant execute on function private.is_owner() to authenticated, service_role;
+grant execute on function private.is_owner() to service_role;
 grant execute on function private.set_member_access(uuid, text[], boolean) to authenticated, service_role;
 grant execute on function public.set_member_access(uuid, text[], boolean) to authenticated, service_role;

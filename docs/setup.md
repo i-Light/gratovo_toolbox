@@ -34,7 +34,7 @@ The app needs two public values: the project address and the publishable key. Th
 Good to know:
 
 - Git ignores this file. Never commit it, and never paste its content into a chat.
-- **Never put the secret key here.** A key starting with `sb_secret_`, or a long key made of three parts joined by dots (the old `service_role` and `anon` keys look like this), makes the app say the settings are wrong and run without Supabase. This is on purpose.
+- **Never put the secret key here.** A key starting with `sb_secret_`, or a long key made of three parts joined by dots (the old `service_role` and `anon` keys look like this), makes the app run without Supabase: it writes one line in the terminal that started it (for example "Supabase is not configured: the key is a secret key.") and shows the example data, with no sign-in. It shows no message on screen. This is on purpose.
 - Without the file the app still runs, with the example data and no sign-in. That is how the tests run too.
 - Release builds come with step 3h. They will take the same two values from GitHub Actions *variables* (not secrets).
 
@@ -135,17 +135,41 @@ Changes to the team's live Supabase project never go out by themselves.
 - The new migrations (`member_access`, `team_keys`) are small and only add things. They don't change anything the old app uses. The session applies them one at a time, then deploys the `r2-access` function.
 - At the end, the session writes your Owner row (section 2), and you enter the key values yourself (sections 3 and 4). The session only checks that the secret names exist. It never reads a value.
 - If something looks wrong, the session stops and tells you. Undoing the new parts is safe because nothing else depends on them, and it also needs your go.
+- **If anyone re-runs the old `schema.sql`, re-apply the later migrations right after** (`member_access`, then `team_keys`, in that order). The old file takes away the app's right to call the new functions, and gives members write rights on `member_access` (the table's rules still refuse the writes). Re-applying the two files puts both back. They are safe to run again. `pnpm test:sql` runs this exact sequence and checks the rights come back the same.
 
 ## 7. Run the tests
 
 - `pnpm test:sql`: the database rules in a throwaway Postgres in Docker. Nothing touches the live project.
-- `pnpm test:server`: the server tests against a local copy of Supabase. They use made-up users, a fake YouTube value and fake R2 values (like `r2-test-000`). CI runs them as the job "Server tests (Linux, local Supabase)". On your machine they are optional: start Docker Desktop, run `npx supabase@2.119.0 start`, then `pnpm test:server`.
+- `pnpm test:server`: the server tests against a local copy of Supabase. They use made-up users, a fake YouTube value and fake R2 values (like `r2-test-000`). CI runs them as the job "Server tests (Linux, local Supabase)". On your machine they are optional.
+
+  The tests need three values: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` and `SUPABASE_SECRET_KEY`. They come from the local stack, never from the team's project: the local stack prints the command line's fixed local values, which open nothing but the throwaway copy on your machine. **Never put the production keys here.**
+
+  Start Docker Desktop, then from the repository folder, in Git Bash:
+
+  ```bash
+  npx supabase@2.119.0 start -x studio,mailpit,storage-api,imgproxy,logflare,vector,supavisor,realtime,postgres-meta
+  eval "$(npx supabase@2.119.0 status -o env | sed -n -e 's/^API_URL=/export SUPABASE_URL=/p' -e 's/^PUBLISHABLE_KEY=/export SUPABASE_PUBLISHABLE_KEY=/p' -e 's/^SECRET_KEY=/export SUPABASE_SECRET_KEY=/p')"
+  pnpm test:server
+  npx supabase@2.119.0 stop --no-backup
+  ```
+
+  Or in PowerShell:
+
+  ```powershell
+  npx supabase@2.119.0 start -x studio,mailpit,storage-api,imgproxy,logflare,vector,supavisor,realtime,postgres-meta
+  $names = @{ API_URL = 'SUPABASE_URL'; PUBLISHABLE_KEY = 'SUPABASE_PUBLISHABLE_KEY'; SECRET_KEY = 'SUPABASE_SECRET_KEY' }
+  npx supabase@2.119.0 status -o env | ForEach-Object { if ($_ -match '^(\w+)="?(.*?)"?$' -and $names.ContainsKey($Matches[1])) { Set-Item "env:$($names[$Matches[1]])" $Matches[2] } }
+  pnpm test:server
+  npx supabase@2.119.0 stop --no-backup
+  ```
+
+  The `-x` list leaves out the services the tests don't use (Studio, the mail server, Storage, Realtime and the rest), so the start is shorter. It is the same line as the CI job. The values stay in that terminal only; close it when you are done.
 
 These tests check the server, not the app, so they don't break the Windows-only rule.
 
 ## If something goes wrong
 
-- **The app says the Supabase settings are wrong, and shows example data:** check `apps/desktop/.env.local`. The URL must be the plain project address. The key must start with `sb_publishable_`. Restart the app.
+- **The app shows the example data and no sign-in, although you made `.env.local`:** look in the terminal that started the app for one line beginning "Supabase is not configured:". It names the problem, never the value. Check `apps/desktop/.env.local`. The URL must be the plain project address. The key must start with `sb_publishable_`. Restart the app.
 - **"Waiting for access" for someone you let in:** they click **Check again**. If it stays, check the `update public.profiles` step and the email spelling.
 - **A person sees no prices:** they need the `owner` role or `sees_money = true` (section 2).
 - **A key leaked (in a chat, a commit or a screenshot):** treat it as lost. Make a new one in Supabase or Cloudflare first, then delete the old one. [SECURITY.md](../SECURITY.md) has the rule.

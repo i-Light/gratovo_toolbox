@@ -61,9 +61,28 @@ export default defineConfig(
       ],
       "no-restricted-properties": [
         "error",
-        ...["fetch", "WebSocket", "XMLHttpRequest", "EventSource"].map((property) => ({
-          object: "globalThis",
-          property,
+        ...["globalThis", "global"].flatMap((object) =>
+          ["fetch", "WebSocket", "XMLHttpRequest", "EventSource"].map((property) => ({
+            object,
+            property,
+            message: "Use net/network.ts: it is the only code that may reach the network.",
+          })),
+        ),
+      ],
+      // The ways round no-restricted-imports: import("node:https"), require("https"), and
+      // electron's `net` reached through a default or namespace import (electron.net,
+      // electron["net"], const { net } = electron, require("electron").net).
+      "no-restricted-syntax": [
+        "error",
+        ...[
+          "ImportExpression[source.value=/^(node:)?(http|https|http2|net|tls|dgram)$|^undici$/]",
+          "CallExpression[callee.name='require'][arguments.0.value=/^(node:)?(http|https|http2|net|tls|dgram)$|^undici$/]",
+          "MemberExpression[object.name='electron'][property.name='net']",
+          "MemberExpression[object.name='electron'][property.value='net']",
+          "VariableDeclarator[init.name='electron'] > ObjectPattern > Property[key.name='net']",
+          "MemberExpression[object.callee.name='require'][object.arguments.0.value='electron'][property.name='net']",
+        ].map((selector) => ({
+          selector,
           message: "Use net/network.ts: it is the only code that may reach the network.",
         })),
       ],

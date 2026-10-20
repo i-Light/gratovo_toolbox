@@ -26,7 +26,7 @@ From the repository root: `pnpm dev` (the app with hot reload), `pnpm build`, `p
 
 The app supports Windows only, and the end-to-end tests run there: in CI on every pull request, and on team machines.
 
-An unpackaged app keeps its data apart from the installed one: `pnpm dev` uses a "Gratovo Toolbox (dev)" folder, and each end-to-end test gets a fresh temporary folder (through `GRATOVO_USER_DATA`, which a packaged app ignores). So the tests also run while the app is open. The app keeps its data in `example.db` in that folder until sign-in exists (3d-2); delete the file to start again from the example fixtures.
+An unpackaged app keeps its data apart from the installed one: `pnpm dev` uses a "Gratovo Toolbox (dev)" folder, and each end-to-end test gets a fresh temporary folder (through `GRATOVO_USER_DATA`, which a packaged app ignores). So the tests also run while the app is open. Without Supabase settings the app keeps its data in `example.db` in that folder; delete the file to start again from the example fixtures. With them, it keeps the signed-in account's copy of the team's data in `gratovo.db` in the same folder, and deletes that file at sign-out.
 
 ## Connecting to Supabase
 
