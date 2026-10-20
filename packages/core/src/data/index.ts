@@ -27,6 +27,7 @@ export type {
   DataSource,
   DataWrite,
   Deal,
+  EditConflict,
   Frame,
   FrameNotification,
   LogEntry,

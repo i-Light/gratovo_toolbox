@@ -1,4 +1,5 @@
-import { exampleFrame, nameMax, type DataWrite } from "@gratovo/core/data";
+import { DEAL_FLOW } from "@gratovo/core";
+import { creatorStages, exampleFrame, nameMax, type DataWrite } from "@gratovo/core/data";
 import { describe, expect, it, vi } from "vitest";
 
 import { channels } from "./channels";
@@ -78,6 +79,16 @@ describe("dataWriteSchema", () => {
     { kind: "me.name", name: "" },
     { kind: "log.add", id: "5f1c0f3e-0000-4000-8000-000000000000", at: 1, text: "Did a thing" },
     { kind: "log.remove", id: "l1" },
+    { kind: "creator.stage", id: "c1", stage: "emailed" },
+    {
+      kind: "brand.set",
+      id: "b1",
+      name: "Quill AI",
+      sells: "AI writing assistant",
+      status: "pitched",
+    },
+    { kind: "deal.step", id: "d1", step: 0 },
+    { kind: "conflict.resolve", id: "x1", choice: "mine" },
   ];
 
   it("accepts every kind of write", () => {
@@ -100,6 +111,65 @@ describe("dataWriteSchema", () => {
     expect(dataWriteSchema.safeParse({ kind: "log.add", id: "a", at: 1, text }).success).toBe(
       false,
     );
+  });
+});
+
+describe("the new write kinds", () => {
+  const ok = (w: unknown) => dataWriteSchema.safeParse(w).success;
+
+  it("creator.stage takes every stage and nothing else", () => {
+    for (const stage of creatorStages) {
+      expect(ok({ kind: "creator.stage", id: "c1", stage })).toBe(true);
+    }
+    expect(ok({ kind: "creator.stage", id: "c1", stage: "won" })).toBe(false);
+    expect(ok({ kind: "creator.stage", id: "", stage: "new" })).toBe(false);
+  });
+
+  it("brand.set bounds the name, what it sells and the status", () => {
+    const base = { kind: "brand.set", id: "b1", name: "Quill AI", sells: "", status: "" };
+    expect(ok(base)).toBe(true);
+    expect(ok({ ...base, name: "" })).toBe(false);
+    expect(ok({ ...base, name: "x".repeat(500) })).toBe(true);
+    expect(ok({ ...base, name: "x".repeat(501) })).toBe(false);
+    expect(ok({ ...base, sells: "x".repeat(500) })).toBe(true);
+    expect(ok({ ...base, sells: "x".repeat(501) })).toBe(false);
+    expect(ok({ ...base, status: "x".repeat(40) })).toBe(true);
+    expect(ok({ ...base, status: "x".repeat(41) })).toBe(false);
+    expect(ok({ ...base, extra: 1 })).toBe(false);
+  });
+
+  it("deal.step takes a whole step inside DEAL_FLOW", () => {
+    const last = DEAL_FLOW.length - 1;
+    expect(ok({ kind: "deal.step", id: "d1", step: last })).toBe(true);
+    expect(ok({ kind: "deal.step", id: "d1", step: last + 1 })).toBe(false);
+    expect(ok({ kind: "deal.step", id: "d1", step: -1 })).toBe(false);
+    expect(ok({ kind: "deal.step", id: "d1", step: 1.5 })).toBe(false);
+  });
+
+  it("conflict.resolve takes mine or theirs", () => {
+    expect(ok({ kind: "conflict.resolve", id: "x1", choice: "theirs" })).toBe(true);
+    expect(ok({ kind: "conflict.resolve", id: "x1", choice: "merged" })).toBe(false);
+  });
+});
+
+describe("frame conflicts", () => {
+  const conflict = {
+    id: "x1",
+    creator: "UC1",
+    label: "@aitoolsdaily",
+    field: "creator_stage",
+    mine: "Emailed",
+    theirs: "Replied",
+    theirName: "Sara",
+  };
+
+  it("accepts up to 100 and refuses 101, an extra field and a missing one", () => {
+    const ok = (conflicts: unknown) => frameSchema.safeParse({ ...frame, conflicts }).success;
+    expect(ok([])).toBe(true);
+    expect(ok(Array(100).fill(conflict))).toBe(true);
+    expect(ok(Array(101).fill(conflict))).toBe(false);
+    expect(ok([{ ...conflict, extra: 1 }])).toBe(false);
+    expect(ok([{ ...conflict, theirName: undefined }])).toBe(false);
   });
 });
 
