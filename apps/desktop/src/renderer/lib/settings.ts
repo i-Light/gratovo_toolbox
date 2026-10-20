@@ -1,3 +1,4 @@
+import type { NotifyKind } from "@gratovo/core/data";
 import type { IconName } from "@gratovo/ui";
 
 import { strings } from "../strings";
@@ -62,8 +63,7 @@ export const settingsRows: readonly SettingsRow[] = [
   { section: "notifications", id: "notify" },
 ];
 
-/** What a notification is about; each kind can be turned off. */
-export type NotifyKind = "reply" | "money" | "handoff" | "search";
+export type { NotifyKind };
 
 /** The kind of a notification, from its icon. Problems cannot be turned off. */
 export function notifyKind(icon: IconName): NotifyKind | "problem" {

@@ -11,7 +11,6 @@ const defaults: Prefs = {
   motion: "",
   letters: "",
   rail: "",
-  name: "",
 };
 
 function storageWith(text: string | null): Pick<Storage, "getItem"> {
@@ -33,18 +32,15 @@ describe("readPrefs", () => {
       motion: "reduce",
       letters: "off",
       rail: "min",
-      name: "Ada",
     };
     expect(readPrefs(storageWith(JSON.stringify(saved)))).toEqual(saved);
   });
 
-  it("trims the name, cuts it to 80 characters, and falls back to empty when it is not text", () => {
-    expect(readPrefs(storageWith(JSON.stringify({ name: "  Ada  " }))).name).toBe("Ada");
-    expect(readPrefs(storageWith(JSON.stringify({ name: "x".repeat(80) }))).name).toHaveLength(80);
-    expect(readPrefs(storageWith(JSON.stringify({ name: "x".repeat(81) }))).name).toBe(
-      "x".repeat(80),
-    );
-    expect(readPrefs(storageWith(JSON.stringify({ name: 7 }))).name).toBe("");
+  // Your name was a preference until 3d-1 moved it to your account (G13); the trimming tests went
+  // with it (setMyName and the database trim now). An old saved name is ignored, field by field.
+  it("ignores a name saved by an older build and keeps the other fields", () => {
+    const text = JSON.stringify({ name: "Ada", density: "compact" });
+    expect(readPrefs(storageWith(text))).toEqual({ ...defaults, density: "compact" });
   });
 
   it("keeps the good fields when one is bad", () => {
@@ -77,7 +73,6 @@ describe("applyPrefs", () => {
         density: "compact",
         size: "large",
         motion: "reduce",
-        name: "Ada",
       },
       root,
     );
@@ -85,7 +80,6 @@ describe("applyPrefs", () => {
     expect(root.dataset["density"]).toBe("compact");
     expect(root.dataset["size"]).toBe("large");
     expect(root.dataset["motion"]).toBe("reduce");
-    expect(root.getAttributeNames()).not.toContain("data-name");
     applyPrefs(defaults, root);
     expect(root.getAttributeNames()).toEqual(["data-theme"]);
     expect(root.dataset["theme"]).toBe("dark");

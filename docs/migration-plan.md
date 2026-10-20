@@ -37,9 +37,9 @@ Replace the Flutter app (old repository `gratovo_code`) with a new desktop app t
 
 | # | Action | Blocks |
 |---|---|---|
-| A1 | **Rotate the leaked keys** listed in [SECURITY.md](../SECURITY.md#known-exposure-in-the-old-repository-action-for-the-owner): GitHub token, R2 keys, YouTube key, and any Supabase service-role or AWS keys still active. | Step 3d, before the new app talks to R2 or YouTube |
+| A1 | **Rotate the leaked keys** listed in [SECURITY.md](../SECURITY.md#known-exposure-in-the-old-repository-action-for-the-owner): GitHub token, R2 keys, YouTube key, and any Supabase service-role or AWS keys still active. **Deferred by the owner on 2026-10-20:** no rotation for now; the new app uses the existing keys from the old repo's `data/.env`, entered at run time (the app's secret store, Supabase function secrets), never copied into this repository. | Not blocking (deferred) |
 | A2 | **Create the empty private GitHub repository `gratovo_toolbox`** (no README, no license), or tell a local session to do it with your credentials. Then push this repository to it. Cloud sessions can only see GitHub. | Every cloud session |
-| A3 | **Paste `legacy/backend/schema.sql` into Supabase before 2026-10-30.** After that date, new tables need explicit grants. Also set the agency sender name in the old app. These are carried over from the decisions build. | The old app's newest features |
+| A3 | ~~**Paste `legacy/backend/schema.sql` into Supabase before 2026-10-30.**~~ **Done by the owner by 2026-10-20.** After that date, new tables need explicit grants. Still open: set the agency sender name in the old app (carried over from the decisions build). | Sender name only |
 | A4 | ~~Confirm or change the stack in [decisions/0002-stack.md](decisions/0002-stack.md).~~ **Done 2026-10-19:** confirmed (§9 Q8). | — |
 | A5 | ~~Answer the open questions in §9.~~ **Done 2026-10-19.** | — |
 | A6 | ~~Decide how team keys reach members (Q11) and where releases are published (Q12).~~ **Done 2026-10-19** (keys by server function; no code signing; installer location defaults to a private R2 bucket). | — |
@@ -51,7 +51,7 @@ Replace the Flutter app (old repository `gratovo_code`) with a new desktop app t
 | 0 | Fresh repository | Done 2026-10-19 |
 | 1 | Agree the design | Prototype approved for building. The open questions in §9 were answered 2026-10-19 |
 | 2 | Choose the stack and record the decisions | Done as ADRs 0001 to 0006; the owner confirmed the stack (§9 Q8) |
-| 3 | Foundation | **In progress.** 3a (toolchain and skeleton) and 3b (security baseline) done 2026-10-19. 3c done 2026-10-20, in three parts: 3c-1 (the frame), 3c-2 (the overlays), 3c-3 (settings and checks; the app made dark only). 3d (the data layer) is next. Branch protection on `main` (3g) isn't set yet. Ask the owner about A1 (key rotation) before any step touches R2 or YouTube |
+| 3 | Foundation | **In progress.** 3a (toolchain and skeleton) and 3b (security baseline) done 2026-10-19. 3c done 2026-10-20, in three parts: 3c-1 (the frame), 3c-2 (the overlays), 3c-3 (settings and checks; the app made dark only). 3d-1 (the local data layer) done 2026-10-20; 3d-2 (sign-in, sync, team keys) is next. Branch protection on `main` (3g) isn't set yet. A1 (key rotation) is deferred by the owner: use the existing keys, never in the repository |
 | 4 | Today | Not started |
 | 5 | Find | Not started |
 | 6 | Reach | Not started |
@@ -109,15 +109,18 @@ The longest step. It builds everything the screens stand on, so every later step
 - *Acceptance:* the frame matches the prototype at 1440 px in dark (the owner dropped the 400 px and light checks on 2026-10-20: Windows desktop only, dark only for now) (screenshot comparison); Playwright tests for palette, peek, undo, menus, Esc order and key barriers; no layout shift or animation on keyboard actions.
 
 **3d. Data layer**
-- A local SQLite database in the app's own data folder (better-sqlite3 in the main process, or in a utility process if profiling says so). Forward-only SQL migrations, and repositories with typed queries.
+- A local SQLite database in the app's own data folder (Node's built-in `node:sqlite` in the main process; a utility process if profiling says so). Forward-only SQL migrations, and repositories with typed queries.
 - One `DataSource` interface with two implementations:
   - **live:** local SQLite plus the Supabase sync engine;
-  - **example:** an in-memory or temp-file copy seeded from fixtures ported from the prototype's `data.js`.
+  - **example:** `example.db`, seeded from fixtures ported from the prototype's `data.js` and kept across restarts.
   The UI never knows which one it is using.
 - Port the sync engine from `legacy/lib/core/sync/`: pull by `updated_at` cursor with tombstones, the outbox, compare-and-set edits, conflicts. The design is in `legacy/PROJECT_STRUCTURE.md` §3.1 and §9.
 - Supabase: move `legacy/backend/schema.sql` into `supabase/migrations/` as a baseline migration that matches production exactly. Every later change is a new, additive migration. Port the SQL tests from `legacy/backend/tests/` to run in CI with Docker.
 - Team keys served after sign-in by a server function (the owner's answer, §9 Q11). Never in the installer or the repository.
 - *Acceptance:* repository tests on a temp database; sync tests against a local Supabase (CLI); the old app still works against the same Supabase project after the migrations run.
+- *Owner decisions (2026-10-20):* 3d is two pull requests: **3d-1**, the local database, the `DataSource` with example data, the Supabase migrations and the SQL tests; **3d-2**, sign-in, the sync engine and the team-keys function. Sign-in is **email and password**, as in the old app. The SQL tests run in a **Linux CI job with Docker** (it tests the database, not the app, so the Windows-only rule holds). Production already has `schema.sql` (A3 done); no session runs anything against production without the owner's go. SQLite is Node's built-in `node:sqlite` (checked in Electron 44: no native module to rebuild).
+- *3d-1 (done 2026-10-20, [ADR 0010](decisions/0010-data-layer.md)):* the local database and migrations, the repositories, the example and live sources with one shared contract suite, `frame:load` and `data:write`, the renderer reading and writing through them (your name moved to the account), the Supabase baseline migration, and the SQL tests in a Linux CI job. The old pass 2 of the SQL tests (upgrading an old schema) is dropped with `migrate_v2.sql`. *Acceptance:* lint, typecheck, unit and Electron tests pass, including a change surviving a restart; `pnpm test:sql` and its CI job pass.
+- *3d-2 (next):* email and password sign-in (session in `safeStorage`), the sync engine (pull, outbox, compare-and-set, tombstones), the main-process network allowlist, the team-keys server function, `docs/setup.md`. Bring the open questions in ADR 0010 to the owner first. *Acceptance:* as 3d above: sync tests against a local Supabase, and the old app still works against the same project.
 
 **3e. Python pipeline, ported and cleaned**
 - Copy `legacy/pipeline/` into `services/pipeline/` piece by piece, keeping only what the new app calls:
@@ -144,7 +147,7 @@ The longest step. It builds everything the screens stand on, so every later step
 - *Acceptance:* the prototype's `proto_flow.py` and `review_fixes.py` checks, rewritten as Playwright tests against the real app, all pass. With the mode off there is no trace (an automated check).
 
 **3g. Continuous integration**
-- GitHub Actions: lint, typecheck, unit tests, Electron end-to-end tests and pytest on Windows (the only system the app supports); gitleaks, the audit and CodeQL on Linux runners, since they only read files. All of these run from 3b; the SQL tests remain. The SQL tests use Supabase's local stack in Docker, which needs Linux containers that GitHub's Windows runners don't offer: decide in 3d where they run. That tests the backend, not the app on Linux.
+- GitHub Actions: lint, typecheck, unit tests, Electron end-to-end tests and pytest on Windows (the only system the app supports); gitleaks, the audit and CodeQL on Linux runners, since they only read files. All of these run from 3b. The SQL tests run from 3d-1 in a Linux job with Docker (GitHub's Windows runners have no Linux containers); that tests the database, not the app on Linux.
 - Branch protection on `main`: pull requests only, CI green.
 - *Acceptance:* a pull request with a failing test cannot merge.
 

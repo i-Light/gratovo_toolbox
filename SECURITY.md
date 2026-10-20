@@ -29,7 +29,7 @@ The old repository `i-Light/gratovo_code` tracked `data/.env`, and it is on GitH
 
 Earlier commits also held the Supabase service-role key and an AWS IAM key pair (commit `60b5d60` removed them from the file, but not from history).
 
-**Rotate all of these.** That means issuing new keys and revoking the old ones, whether or not the repository is private. Don't copy any of them into this repository. Nothing from `data/.env` was copied into `legacy/`. Supabase's URL and anon key were redacted from the legacy copy too.
+**Rotate all of these.** That means issuing new keys and revoking the old ones, whether or not the repository is private. *The owner deferred this on 2026-10-20 (migration plan, A1): until they rotate, the new app uses the existing keys, entered at run time into the app's secret store or Supabase's function secrets.* Don't copy any of them into this repository. Nothing from `data/.env` was copied into `legacy/`. Supabase's URL and anon key were redacted from the legacy copy too.
 
 ## Desktop app hardening (applies from step 3)
 

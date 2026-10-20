@@ -1,6 +1,6 @@
 # Lint, typecheck, unit tests and the Electron end-to-end tests on Windows, the only system the
-# app supports, a secret scan of the whole history, a dependency audit and CodeQL. Step 3g adds
-# the SQL tests. Actions are pinned by commit, with their release beside each one.
+# app supports, a secret scan of the whole history, a dependency audit, CodeQL and the SQL tests.
+# Actions are pinned by commit, with their release beside each one.
 name: CI
 
 on:
@@ -73,6 +73,25 @@ jobs:
           path: apps/desktop/test-results/
           retention-days: 7
           if-no-files-found: ignore
+
+  # Tests the shared database (Postgres in Docker), not the app, so it uses the Linux runner. It
+  # has nothing to do with which systems the app supports.
+  sql:
+    name: SQL tests (Linux, Docker)
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+
+      - name: Run the SQL tests
+        run: node supabase/tests/run.ts
 
   # The three analysis jobs (secret scan, dependency audit, CodeQL) only read files and never run
   # the app, so they use the quicker Linux runner. It has nothing to do with which systems the app

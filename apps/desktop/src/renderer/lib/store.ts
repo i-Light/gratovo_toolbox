@@ -7,17 +7,26 @@ import {
   stepForward,
 } from "@gratovo/core";
 import type { History, Store, StoreState } from "@gratovo/core";
+import type {
+  Brand,
+  Creator,
+  CreatorStage,
+  Deal,
+  LogEntry,
+  MateRun,
+  NotifySettings,
+  RailCounts,
+} from "@gratovo/core/data";
 import type { IconName } from "@gratovo/ui";
 import { useSyncExternalStore } from "react";
 
 import { strings } from "../strings";
 import { exampleData } from "./example-data";
-import { getPrefs } from "./prefs";
 import { firstTab, routeFromHash, routeToHash, sameRoute, screens } from "./routes";
 import type { RecordRef, Route, ScreenKey } from "./routes";
-import type { NotifyKind, RowId } from "./settings";
+import type { RowId } from "./settings";
 
-/** A person on the team. */
+/** A person on the team; `role` is the label shown (a title, else the plain role). */
 export interface Member {
   readonly id: string;
   readonly name: string;
@@ -38,79 +47,6 @@ export interface Notification {
   readonly read: boolean;
 }
 
-/** The numbers beside the rail items. */
-export interface RailCounts {
-  readonly today: number;
-  readonly plannedMinutes: number;
-  readonly find: number;
-  readonly reach: number;
-  readonly close: number;
-  readonly deliver: number;
-}
-
-/** One line in the activity log. */
-export interface LogEntry {
-  readonly id: string;
-  readonly at: number;
-  readonly who: string;
-  readonly text: string;
-}
-
-/** Where a creator is on the way to signing. */
-export type CreatorStage =
-  | "new"
-  | "shortlisted"
-  | "contact"
-  | "emailed"
-  | "replied"
-  | "kit"
-  | "audience"
-  | "signed"
-  | "rejected"
-  | "parked"
-  | "never";
-
-/** A YouTube creator the agency finds and signs. */
-export interface Creator {
-  readonly id: string;
-  readonly name: string;
-  readonly handle: string;
-  readonly stage: CreatorStage;
-  readonly email: string | null;
-}
-
-/** A company that sponsors creators. */
-export interface Brand {
-  readonly id: string;
-  readonly name: string;
-  /** What the brand sells, in a few words. */
-  readonly sells: string;
-  /** Where the brand is: found, qualified, pitched, negotiating or won. */
-  readonly status: string;
-}
-
-/** A sponsorship between one brand and one creator. */
-export interface Deal {
-  readonly id: string;
-  /** A brand id. */
-  readonly brand: string;
-  /** A creator id. */
-  readonly creator: string;
-  /** An index into DEAL_FLOW. */
-  readonly step: number;
-  /** What the brand pays, in dollars. */
-  readonly price: number;
-}
-
-/** A teammate's search that is running now. */
-export interface MateRun {
-  /** A member id. */
-  readonly by: string;
-  readonly at: number;
-  readonly current: number;
-  readonly total: number;
-}
-
 /** The business data: changes to it can be undone. */
 export interface AppData {
   /** A member id. */
@@ -127,7 +63,7 @@ export interface AppData {
   readonly deals: readonly Deal[];
   readonly mateRun: MateRun | null;
   /** Team-wide settings. A notification kind is on unless it is false here. */
-  readonly settings: { readonly notify: Readonly<Partial<Record<NotifyKind, boolean>>> };
+  readonly settings: { readonly notify: NotifySettings };
 }
 
 /** A button on a toast. */
@@ -214,6 +150,8 @@ export interface AppUi {
   readonly railOpen: boolean;
   readonly saving: boolean;
   readonly savedAt: number;
+  /** True when the last save failed: the top bar says "Not saved" until one works. */
+  readonly saveFailed: boolean;
   readonly lastTab: Readonly<Partial<Record<ScreenKey, string>>>;
   readonly palette: boolean;
   readonly shortcuts: boolean;
@@ -233,21 +171,37 @@ export interface AppUi {
 /** The whole state the app store holds. */
 export type AppState = StoreState<AppData, AppUi>;
 
-/** The data with `myName` taken from the saved `name` preference (null when none is saved). */
-function withSavedName(data: AppData): AppData {
-  const name = getPrefs().name;
-  return name === "" ? data : { ...data, myName: name };
-}
+export type { Brand, Creator, CreatorStage, Deal, LogEntry, MateRun, RailCounts };
 
-/** Makes a store holding the example data, starting on `start`. */
-export function createAppStore(start: Route, now: number = Date.now()): Store<AppData, AppUi> {
+/** No data at all: what the store holds until `initAppStore` brings the frame. */
+const emptyData: AppData = {
+  me: "",
+  myName: null,
+  team: [],
+  counts: { today: 0, plannedMinutes: 0, find: 0, reach: 0, close: 0, deliver: 0 },
+  notifications: [],
+  log: [],
+  creators: [],
+  brands: [],
+  deals: [],
+  mateRun: null,
+  settings: { notify: {} },
+};
+
+/** Makes a store holding `data`, starting on `start`. */
+export function createAppStore(
+  start: Route,
+  now: number = Date.now(),
+  data: AppData = emptyData,
+): Store<AppData, AppUi> {
   return createStore<AppData, AppUi>({
-    data: withSavedName(exampleData(now)),
+    data,
     ui: {
       history: startHistory(start),
       railOpen: false,
       saving: false,
       savedAt: now - 40000,
+      saveFailed: false,
       lastTab: start.tab === null ? {} : { [start.screen]: start.tab },
       palette: false,
       shortcuts: false,
@@ -274,18 +228,33 @@ export function appStore(): Store<AppData, AppUi> {
 }
 
 /**
- * Tests only: replaces the app store with a fresh one starting on `start`. The app itself makes its
- * store once, when this module loads, from the URL hash; replacing it would drop undo and history.
+ * Tests only: replaces the app store with a fresh one starting on `start`, on the example data. The
+ * app itself makes its store once, with `initAppStore`, from the frame loaded from the database;
+ * replacing it later would drop undo and history.
  */
 export function resetAppStoreForTests(start: Route, now: number = Date.now()): void {
-  current = createAppStore(start, now);
+  current = createAppStore(start, now, exampleData(now));
   for (const listener of [...resetListeners]) {
     listener();
   }
 }
 
-/** Subscribes to whichever store is current, and keeps following after a reset. */
-function subscribeApp(listener: () => void): () => void {
+/**
+ * Start-up: replaces the empty store with one holding `data`, starting on `start`. Call it once,
+ * before the first render.
+ */
+export function initAppStore(data: AppData, start: Route): void {
+  current = createAppStore(start, Date.now(), data);
+  for (const listener of [...resetListeners]) {
+    listener();
+  }
+}
+
+/**
+ * Subscribes to whichever store is current, and keeps following after a reset (the listener also
+ * runs once right after one; `appStore()` is then the new store).
+ */
+export function subscribeApp(listener: () => void): () => void {
   let unsubscribe = current.subscribe(listener);
   const onReset = (): void => {
     unsubscribe();

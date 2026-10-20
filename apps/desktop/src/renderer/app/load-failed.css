@@ -1,0 +1,15 @@
+/* Shown instead of the app when the first load of data fails. */
+.load-failed {
+  display: grid;
+  place-content: center;
+  gap: 8px;
+  height: 100%;
+  text-align: center;
+  color: var(--ink);
+}
+.load-failed h1 {
+  font-size: 18px;
+}
+.load-failed p {
+  color: var(--muted);
+}

@@ -10,12 +10,7 @@ export interface Prefs {
   readonly letters: "" | "off";
   /** "min" collapses the rail. */
   readonly rail: "" | "min";
-  /** Your name on this computer: trimmed, at most 80 characters. Not applied to the page. */
-  readonly name: string;
 }
-
-/** The longest name kept; a longer one is cut to this. */
-export const nameMax = 80;
 
 /** The one localStorage key that holds all preferences as JSON. */
 export const prefsKey = "gratovo.prefs";
@@ -26,17 +21,16 @@ const defaults: Prefs = {
   motion: "",
   letters: "",
   rail: "",
-  name: "",
 };
 
-// One schema per field, so a bad value in one field cannot reset the others.
+// One schema per field, so a bad value in one field cannot reset the others. A key that is not
+// here is ignored: an old `name` (your name moved to your account in 3d) and an old `theme`.
 const fields = {
   density: z.enum(["", "compact"]),
   size: z.enum(["", "large"]),
   motion: z.enum(["", "reduce"]),
   letters: z.enum(["", "off"]),
   rail: z.enum(["", "min"]),
-  name: z.string().transform((v) => v.trim().slice(0, nameMax)),
 } as const;
 
 function parseStored(text: string | null): Record<string, unknown> {
@@ -73,7 +67,6 @@ export function readPrefs(storage: Pick<Storage, "getItem"> | null): Prefs {
     motion: pick("motion", stored),
     letters: pick("letters", stored),
     rail: pick("rail", stored),
-    name: pick("name", stored),
   };
 }
 

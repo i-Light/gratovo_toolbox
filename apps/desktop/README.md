@@ -4,7 +4,7 @@ The Electron app, built with electron-vite.
 
 | Folder | What it holds |
 |---|---|
-| `src/main/` | The main process: the window, the `app://` protocol, the security guards, the IPC bridge and its handlers, and the secrets store. Later data, sync and jobs. |
+| `src/main/` | The main process: the window, the `app://` protocol, the security guards, the IPC bridge and its handlers, the secrets store, and the local database (`db/`: open and migrate; `data/`: the repositories and the example and live sources). Later sync and jobs. |
 | `src/preload/` | The bridge: one function, `window.gratovo.invoke`, and nothing else. |
 | `src/renderer/` | The React UI. Every user-facing string lives in `strings.ts`. |
 | `scripts/` | Build-time code: the fuses every release build ships with. |
@@ -26,7 +26,7 @@ From the repository root: `pnpm dev` (the app with hot reload), `pnpm build`, `p
 
 The app supports Windows only, and the end-to-end tests run there: in CI on every pull request, and on team machines.
 
-An unpackaged app keeps its data apart from the installed one: `pnpm dev` uses a "Gratovo Toolbox (dev)" folder, and each end-to-end test gets a fresh temporary folder (through `GRATOVO_USER_DATA`, which a packaged app ignores). So the tests also run while the app is open.
+An unpackaged app keeps its data apart from the installed one: `pnpm dev` uses a "Gratovo Toolbox (dev)" folder, and each end-to-end test gets a fresh temporary folder (through `GRATOVO_USER_DATA`, which a packaged app ignores). So the tests also run while the app is open. The app keeps its data in `example.db` in that folder until sign-in exists (3d-2); delete the file to start again from the example fixtures.
 
 ## Dependencies
 
