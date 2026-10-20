@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import { DEAL_FLOW } from "../deal-flow";
+import { seesMoney } from "./access";
 import { exampleFrame, exampleSeed, exampleSeedVersion } from "./example";
-import { creatorStages, notificationIcons } from "./types";
+import { agencyRoles, creatorStages, notificationIcons } from "./types";
 
 /** 20 October 2026, 10:30 local time. */
 const now = new Date(2026, 9, 20, 10, 30).getTime();
@@ -29,13 +30,35 @@ describe("exampleSeed", () => {
     ]);
   });
 
-  it("gives every member presence and a title", () => {
+  it("gives every member presence", () => {
     expect(seed.presence).toEqual({
-      u1: { status: "online", doing: "Today", title: "Owner" },
-      u2: { status: "online", doing: "Reach · replies", title: "Account manager" },
-      u3: { status: "online", doing: "Search · keyword 12 of 40", title: "VA" },
-      u4: { status: "away", doing: "Away until 13:00", title: "VA · first week" },
+      u1: { status: "online", doing: "Today" },
+      u2: { status: "online", doing: "Reach · replies" },
+      u3: { status: "online", doing: "Search · keyword 12 of 40" },
+      u4: { status: "away", doing: "Away until 13:00" },
     });
+  });
+
+  it("gives every member their agency roles: you the Owner, Omar Scout and Outreach", () => {
+    expect(seed.access).toEqual([
+      { profileId: "u1", roles: ["owner"], seesMoney: true },
+      { profileId: "u2", roles: ["deal_lead", "delivery"], seesMoney: true },
+      { profileId: "u3", roles: ["scout", "outreach"], seesMoney: false },
+      { profileId: "u4", roles: ["scout"], seesMoney: false },
+    ]);
+    for (const row of seed.access) {
+      for (const role of row.roles) {
+        expect(agencyRoles).toContain(role);
+      }
+    }
+  });
+
+  it("lets you see money, and not every member", () => {
+    const access = (id: string) => seed.access.find((row) => row.profileId === id);
+    const mine = access(seed.me);
+    expect(mine !== undefined && seesMoney(mine)).toBe(true);
+    const omar = access("u3");
+    expect(omar !== undefined && seesMoney(omar)).toBe(false);
   });
 
   it("dates the notifications from `now`, newest first", () => {
@@ -110,7 +133,7 @@ describe("exampleFrame", () => {
           id: "u1",
           name: "",
           role: "full",
-          title: "Owner",
+          roles: ["owner"],
           status: "online",
           doing: "Today",
         },
@@ -118,7 +141,7 @@ describe("exampleFrame", () => {
           id: "u2",
           name: "Sara",
           role: "basic",
-          title: "Account manager",
+          roles: ["deal_lead", "delivery"],
           status: "online",
           doing: "Reach · replies",
         },
@@ -126,7 +149,7 @@ describe("exampleFrame", () => {
           id: "u3",
           name: "Omar",
           role: "basic",
-          title: "VA",
+          roles: ["scout", "outreach"],
           status: "online",
           doing: "Search · keyword 12 of 40",
         },
@@ -134,7 +157,7 @@ describe("exampleFrame", () => {
           id: "u4",
           name: "Lina",
           role: "basic",
-          title: "VA · first week",
+          roles: ["scout"],
           status: "away",
           doing: "Away until 13:00",
         },
@@ -147,7 +170,12 @@ describe("exampleFrame", () => {
       deals: seed.deals,
       mateRun: seed.mateRun(now),
       notify: {},
+      seesMoney: true,
     });
+  });
+
+  it("shows every price to you, the Owner", () => {
+    expect(frame.deals.every((d) => typeof d.price === "number")).toBe(true);
   });
 
   it("lists the notifications newest first", () => {

@@ -1,3 +1,4 @@
+import { sortRoles } from "@gratovo/core/data";
 import type { Frame, FrameNotification, TeamMember } from "@gratovo/core/data";
 import { icons } from "@gratovo/ui";
 import type { IconName } from "@gratovo/ui";
@@ -25,11 +26,22 @@ function iconOf(icon: string): IconName {
   return Object.hasOwn(icons, icon) ? (icon as IconName) : "bell";
 }
 
+/**
+ * The role line shown for a member: their agency roles in display order joined by " · " ("Scout ·
+ * Outreach"), or their access ("Team member") when they hold none.
+ */
+export function roleLabel(member: Pick<TeamMember, "role" | "roles">): string {
+  const roles = sortRoles(member.roles);
+  return roles.length === 0
+    ? strings.team.roles[member.role]
+    : roles.map((role) => strings.team.agencyRoles[role]).join(" · ");
+}
+
 function memberOf(member: TeamMember, me: string): Member {
   return {
     id: member.id,
     name: member.id === me ? strings.team.you : member.name,
-    role: member.title ?? strings.team.roles[member.role],
+    role: roleLabel(member),
     status: member.status,
     doing: member.doing,
   };

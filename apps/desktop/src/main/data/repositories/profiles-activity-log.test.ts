@@ -7,7 +7,13 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { openDatabase } from "../../db/open-database";
 import { addLogEntry, logCap, newestLog, removeLogEntry } from "./activity-log";
-import { getProfile, listProfiles, setDisplayName, upsertProfile } from "./profiles";
+import {
+  getProfile,
+  listProfiles,
+  replaceProfiles,
+  setDisplayName,
+  upsertProfile,
+} from "./profiles";
 
 let folder: string;
 let db: DatabaseSync;
@@ -73,6 +79,38 @@ describe("profiles", () => {
         "INSERT INTO profiles (id, display_name, created_at, updated_at) VALUES (x'00', 'x', 'a', 'b')",
       );
     }).toThrow();
+  });
+
+  it("replaces every profile, keeping the server's timestamps and order", () => {
+    upsertProfile(db, { id: "old", displayName: "Gone", role: "basic" }, t0);
+    upsertProfile(db, { id: "u2", displayName: "Sara", role: "basic" }, t0);
+    const stamp = "2026-10-01T09:00:00.123456+00:00";
+    replaceProfiles(db, [
+      {
+        id: "u2",
+        displayName: "Sara K.",
+        role: "full",
+        color: "#FF0000",
+        createdAt: stamp,
+        updatedAt: stamp,
+      },
+      {
+        id: "u1",
+        displayName: "",
+        role: "unauthorized",
+        color: null,
+        createdAt: stamp,
+        updatedAt: stamp,
+      },
+    ]);
+    expect(listProfiles(db)).toEqual([
+      { id: "u2", displayName: "Sara K.", role: "full", color: "#FF0000" },
+      { id: "u1", displayName: "", role: "unauthorized", color: "#3B82F6" },
+    ]);
+    const row = db.prepare("SELECT created_at, updated_at FROM profiles WHERE id = 'u1'").get();
+    expect(row).toMatchObject({ created_at: stamp, updated_at: stamp });
+    replaceProfiles(db, []);
+    expect(listProfiles(db)).toEqual([]);
   });
 });
 

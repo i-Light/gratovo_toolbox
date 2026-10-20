@@ -7,6 +7,7 @@ import { openDatabase } from "../db/open-database";
 
 import {
   getMeta,
+  replaceMemberAccess,
   setMeta,
   setNotify,
   upsertBrand,
@@ -29,6 +30,7 @@ const dataTables = [
   "channels",
   "profiles",
   "local_settings",
+  "member_access",
 ] as const;
 
 /**
@@ -48,7 +50,7 @@ export function openExampleSource(path: string, now: () => number = Date.now): D
       me: fixtures.me,
       now,
       extras: {
-        presence: (id) => fixtures.presence[id] ?? { status: "away", doing: "", title: null },
+        presence: (id) => fixtures.presence[id] ?? { status: "away", doing: "" },
         counts: () => fixtures.counts,
         mateRun: () => fixtures.mateRun(now()),
       },
@@ -68,6 +70,11 @@ function seed(db: DatabaseSync, now: number): void {
     for (const profile of fixtures.profiles) {
       upsertProfile(db, profile, now);
     }
+    const iso = new Date(now).toISOString();
+    replaceMemberAccess(
+      db,
+      fixtures.access.map((row) => ({ ...row, updatedAt: iso })),
+    );
     for (const creator of fixtures.creators) {
       upsertCreator(db, creator, now);
     }

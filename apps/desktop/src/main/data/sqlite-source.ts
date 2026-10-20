@@ -1,6 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 
-import { nameMax } from "@gratovo/core/data";
+import { nameMax, noAccess, notifyKind, seesMoney } from "@gratovo/core/data";
 import type {
   DataSource,
   DataWrite,
@@ -17,6 +17,7 @@ import {
   listBrands,
   listCreators,
   listDeals,
+  listMemberAccess,
   listNotifications,
   listProfiles,
   newestLog,
@@ -28,11 +29,7 @@ import {
 
 /** What the database has no table for: presence, rail counts and a teammate's running search. */
 export interface FrameExtras {
-  presence(id: string): {
-    readonly status: "online" | "away";
-    readonly doing: string;
-    readonly title: string | null;
-  };
+  presence(id: string): { readonly status: "online" | "away"; readonly doing: string };
   counts(): RailCounts;
   mateRun(): MateRun | null;
 }
@@ -73,31 +70,39 @@ export function createSqliteSource(db: DatabaseSync, options: SqliteSourceOption
   const clock = options.now ?? Date.now;
 
   function readFrame(): Frame {
-    const profiles = listProfiles(db);
-    const team: TeamMember[] = profiles.map((profile) => {
+    const access = listMemberAccess(db);
+    const team: TeamMember[] = listProfiles(db).map((profile) => {
       const presence = extras.presence(profile.id);
       return {
         id: profile.id,
         name: profile.displayName,
         role: profile.role,
-        title: presence.title,
+        // In display order already; no row means no roles.
+        roles: access.get(profile.id)?.roles ?? [],
         status: presence.status,
         doing: presence.doing,
       };
     });
     const myName = getProfile(db, me)?.displayName ?? "";
+    // Money is stripped here, so the page never holds a number it must hide.
+    const money = seesMoney(access.get(me) ?? noAccess);
+    const deals = listDeals(db);
+    const notifications = listNotifications(db);
     return {
       me,
       myName: myName === "" ? null : myName,
       team,
       counts: extras.counts(),
-      notifications: listNotifications(db),
+      notifications: money
+        ? notifications
+        : notifications.filter((n) => notifyKind(n.icon) !== "money"),
       log: newestLog(db),
       creators: listCreators(db),
       brands: listBrands(db),
-      deals: listDeals(db),
+      deals: money ? deals : deals.map((deal) => ({ ...deal, price: null })),
       mateRun: extras.mateRun(),
       notify: getNotify(db),
+      seesMoney: money,
     };
   }
 

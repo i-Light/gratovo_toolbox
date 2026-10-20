@@ -27,6 +27,43 @@ describe("frameSchema", () => {
     expect(frameSchema.safeParse({ ...frame, myName: "x".repeat(nameMax) }).success).toBe(true);
   });
 
+  it("takes the agency roles, at most five, and refuses an unknown one", () => {
+    const [first, ...rest] = frame.team;
+    const withRoles = (roles: unknown) => ({ ...frame, team: [{ ...first, roles }, ...rest] });
+    expect(frameSchema.safeParse(withRoles([])).success).toBe(true);
+    expect(
+      frameSchema.safeParse(withRoles(["owner", "scout", "outreach", "deal_lead", "delivery"]))
+        .success,
+    ).toBe(true);
+    expect(frameSchema.safeParse(withRoles(["admin"])).success).toBe(false);
+    expect(frameSchema.safeParse(withRoles(["Owner"])).success).toBe(false);
+    expect(frameSchema.safeParse(withRoles(Array(6).fill("scout"))).success).toBe(false);
+    expect(frameSchema.safeParse(withRoles(undefined)).success).toBe(false);
+  });
+
+  it("refuses a member with the old title field", () => {
+    const [first, ...rest] = frame.team;
+    const team = [{ ...first, title: "Owner" }, ...rest];
+    expect(frameSchema.safeParse({ ...frame, team }).success).toBe(false);
+  });
+
+  it("takes a hidden (null) price, and refuses a negative one", () => {
+    const deals = frame.deals.map((d) => ({ ...d, price: null }));
+    expect(frameSchema.safeParse({ ...frame, deals, seesMoney: false }).success).toBe(true);
+    const [first, ...rest] = frame.deals;
+    expect(
+      frameSchema.safeParse({ ...frame, deals: [{ ...first, price: -1 }, ...rest] }).success,
+    ).toBe(false);
+  });
+
+  it("needs seesMoney as a boolean", () => {
+    const without = Object.fromEntries(
+      Object.entries(frame).filter(([key]) => key !== "seesMoney"),
+    );
+    expect(frameSchema.safeParse(without).success).toBe(false);
+    expect(frameSchema.safeParse({ ...frame, seesMoney: "yes" }).success).toBe(false);
+  });
+
   it("refuses more than 50 log lines", () => {
     const line = { id: "l", at: 0, who: "a", text: "t" };
     expect(frameSchema.safeParse({ ...frame, log: Array(51).fill(line) }).success).toBe(false);

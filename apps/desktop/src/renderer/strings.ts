@@ -16,6 +16,14 @@ export const strings = {
   team: {
     you: "You",
     roles: { unauthorized: "Waiting for access", basic: "Team member", full: "Full access" },
+    /** The agency roles, in display order (`agencyRoles` in core). */
+    agencyRoles: {
+      owner: "Owner",
+      scout: "Scout",
+      outreach: "Outreach",
+      deal_lead: "Deal lead",
+      delivery: "Delivery",
+    },
   },
   rail: {
     label: "Main",

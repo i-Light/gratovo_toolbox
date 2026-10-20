@@ -26,7 +26,12 @@ function tables(): string[] {
     .map((row) => String(row["name"]));
 }
 
-const v2: Migration = { version: 2, name: "second", sql: "CREATE TABLE second (id TEXT) STRICT;" };
+/** A made-up migration one past the real ones. */
+const next: Migration = {
+  version: migrations.length + 1,
+  name: "next",
+  sql: "CREATE TABLE next_one (id TEXT) STRICT;",
+};
 
 describe("migrate", () => {
   it("throws the migration's own error when its SQL ended the transaction first", () => {
@@ -66,34 +71,34 @@ describe("migrate", () => {
     expect(tables()).toEqual(before);
   });
 
-  it("applies only the new migration to a version 1 database", () => {
+  it("applies only the new migration to an up-to-date database", () => {
     migrate(db);
     db.exec("INSERT INTO _meta (key, value) VALUES ('kept', 'yes')");
-    migrate(db, [...migrations, v2]);
-    expect(version()).toBe(2);
-    expect(tables()).toContain("second");
+    migrate(db, [...migrations, next]);
+    expect(version()).toBe(migrations.length + 1);
+    expect(tables()).toContain("next_one");
     expect(db.prepare("SELECT value FROM _meta WHERE key = 'kept'").get()?.["value"]).toBe("yes");
   });
 
   it("refuses a database newer than the list", () => {
-    migrate(db, [...migrations, v2]);
+    migrate(db, [...migrations, next]);
     expect(() => {
       migrate(db);
     }).toThrow(DatabaseTooNewError);
-    expect(version()).toBe(2);
+    expect(version()).toBe(migrations.length + 1);
   });
 
-  it("leaves version 1 and no partial table when a migration fails", () => {
+  it("leaves the version and no partial table when a migration fails", () => {
     migrate(db);
     const bad: Migration = {
-      version: 2,
+      version: migrations.length + 1,
       name: "bad",
       sql: "CREATE TABLE half (id TEXT) STRICT; CREATE TABLE half (id TEXT) STRICT;",
     };
     expect(() => {
       migrate(db, [...migrations, bad]);
     }).toThrow();
-    expect(version()).toBe(1);
+    expect(version()).toBe(migrations.length);
     expect(tables()).not.toContain("half");
   });
 

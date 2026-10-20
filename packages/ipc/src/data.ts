@@ -1,4 +1,5 @@
 import {
+  agencyRoles,
   creatorStages,
   nameMax,
   notificationIcons,
@@ -43,7 +44,7 @@ export const teamMemberSchema: z.ZodType<TeamMember> = z.strictObject({
   id,
   name: z.string().max(nameMax),
   role: roleSchema,
-  title: text.nullable(),
+  roles: z.array(z.enum(agencyRoles)).max(agencyRoles.length),
   status: z.enum(["online", "away"]),
   doing: text,
 });
@@ -102,7 +103,8 @@ export const dealSchema: z.ZodType<Deal> = z.strictObject({
   brand: id,
   creator: id,
   step: count,
-  price: z.number().nonnegative(),
+  // Null when the member may not see money: the main process strips it before the frame leaves.
+  price: z.number().nonnegative().nullable(),
 });
 
 export const mateRunSchema: z.ZodType<MateRun> = z.strictObject({
@@ -125,6 +127,7 @@ export const frameSchema: z.ZodType<Frame> = z.strictObject({
   deals: z.array(dealSchema).max(listMax),
   mateRun: mateRunSchema.nullable(),
   notify: notifySettingsSchema,
+  seesMoney: z.boolean(),
 });
 
 /** One change the app writes, told apart by `kind`. */

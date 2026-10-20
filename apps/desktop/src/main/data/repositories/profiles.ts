@@ -34,6 +34,40 @@ export function upsertProfile(db: DatabaseSync, input: ProfileInput, now: number
   ).run(input.id, input.displayName, input.color ?? defaultColor, input.role, iso, iso);
 }
 
+/** A profile as the server sends it, for `replaceProfiles`. */
+export interface ProfileRow {
+  readonly id: string;
+  readonly displayName: string;
+  readonly role: AppRole;
+  /** Null: the default color. */
+  readonly color: string | null;
+  /** ISO 8601 text, kept as it came. */
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+/**
+ * Replaces every profile with `rows`, in their order. Not a transaction itself: run it inside one
+ * with whatever else must change at the same time (the team refresh replaces `member_access` too).
+ */
+export function replaceProfiles(db: DatabaseSync, rows: readonly ProfileRow[]): void {
+  db.exec("DELETE FROM profiles");
+  const insert = db.prepare(
+    `INSERT INTO profiles (id, display_name, color, role, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+  );
+  for (const row of rows) {
+    insert.run(
+      row.id,
+      row.displayName,
+      row.color ?? defaultColor,
+      row.role,
+      row.createdAt,
+      row.updatedAt,
+    );
+  }
+}
+
 /** Every profile, in the order they were added. */
 export function listProfiles(db: DatabaseSync): Profile[] {
   const rows = db

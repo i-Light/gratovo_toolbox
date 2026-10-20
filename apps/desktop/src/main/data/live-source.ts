@@ -7,7 +7,7 @@ import type { FrameExtras } from "./sqlite-source";
 
 /** No presence, counts or run until the sync and the engines exist (3d-2, step 4). */
 const emptyExtras: FrameExtras = {
-  presence: () => ({ status: "away", doing: "", title: null }),
+  presence: () => ({ status: "away", doing: "" }),
   counts: () => ({ today: 0, plannedMinutes: 0, find: 0, reach: 0, close: 0, deliver: 0 }),
   mateRun: () => null,
 };

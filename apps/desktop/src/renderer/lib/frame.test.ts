@@ -1,10 +1,10 @@
-import { exampleFrame, notificationIcons } from "@gratovo/core/data";
+import { agencyRoles, exampleFrame, notificationIcons } from "@gratovo/core/data";
 import type { Frame } from "@gratovo/core/data";
 import { icons } from "@gratovo/ui";
 import { describe, expect, it } from "vitest";
 
 import { strings } from "../strings";
-import { toAppData } from "./frame";
+import { roleLabel, toAppData } from "./frame";
 import { appStore, initAppStore, resetAppStoreForTests } from "./store";
 
 const now = new Date(2026, 9, 19, 10, 0).getTime();
@@ -22,15 +22,38 @@ function frameWith(patch: Partial<Frame>): Frame {
 }
 
 describe("toAppData", () => {
-  it("shows a title as the role label, else the plain role", () => {
+  it("labels each member by their agency roles in display order, else by their access", () => {
     const base = exampleFrame(now);
     const team = [
-      { ...pick(base.team, 0), title: null, role: "full" as const },
-      { ...pick(base.team, 1), title: "Account manager" },
-      { ...pick(base.team, 2), title: null, role: "unauthorized" as const },
+      { ...pick(base.team, 0), roles: [], role: "full" as const },
+      { ...pick(base.team, 1), roles: ["delivery", "deal_lead"] as const },
+      { ...pick(base.team, 2), roles: [], role: "unauthorized" as const },
+      { ...pick(base.team, 3), roles: [], role: "basic" as const },
     ];
     const roles = toAppData(frameWith({ team })).team.map((m) => m.role);
-    expect(roles).toEqual(["Full access", "Account manager", "Waiting for access"]);
+    expect(roles).toEqual([
+      strings.team.roles.full,
+      `${strings.team.agencyRoles.deal_lead} · ${strings.team.agencyRoles.delivery}`,
+      strings.team.roles.unauthorized,
+      strings.team.roles.basic,
+    ]);
+  });
+
+  it("labels the example team: Owner; Deal lead · Delivery; Scout · Outreach; Scout", () => {
+    expect(toAppData(exampleFrame(now)).team.map((m) => m.role)).toEqual([
+      "Owner",
+      "Deal lead · Delivery",
+      "Scout · Outreach",
+      "Scout",
+    ]);
+  });
+
+  it("has a label for every agency role, all different", () => {
+    const labels = agencyRoles.map((role) => roleLabel({ role: "basic", roles: [role] }));
+    expect(new Set(labels).size).toBe(agencyRoles.length);
+    expect(roleLabel({ role: "full", roles: [...agencyRoles].reverse() })).toBe(
+      "Owner · Scout · Outreach · Deal lead · Delivery",
+    );
   });
 
   it("always calls me 'You' in the team, named or not (the name is in myName)", () => {

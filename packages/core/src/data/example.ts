@@ -1,4 +1,6 @@
+import { seesMoney, sortRoles } from "./access";
 import type {
+  AgencyRole,
   AppRole,
   Brand,
   Creator,
@@ -10,14 +12,14 @@ import type {
 } from "./types";
 
 /**
- * The example data the app runs on until sign-in exists: the team, the rail counts, the
- * notifications and a few records (creators, brands, deals), all about AI creators and the brands
+ * The example data the app runs on in builds without Supabase settings (dev and the tests): the
+ * team with their agency roles, the rail counts, the notifications and a few records (creators, brands, deals), all about AI creators and the brands
  * that sponsor them. These words are data, not interface strings, so they live here and not in the
  * renderer's strings.ts.
  */
 
 /** Bump it when the fixtures change: an older example database is then seeded again. */
-export const exampleSeedVersion = 1;
+export const exampleSeedVersion = 2;
 
 /** What the example database is seeded from, and the extras (presence, counts, a run) it serves. */
 export interface ExampleSeed {
@@ -29,12 +31,16 @@ export interface ExampleSeed {
     readonly displayName: string;
     readonly role: AppRole;
   }[];
-  /** By member id: what Supabase has no column for (presence is realtime, titles are question Q1). */
+  /** Each member's agency roles and "sees money" switch (Supabase's `member_access`). */
+  readonly access: readonly {
+    /** A member id. */
+    readonly profileId: string;
+    readonly roles: readonly AgencyRole[];
+    readonly seesMoney: boolean;
+  }[];
+  /** By member id: what Supabase has no column for (presence is realtime). */
   readonly presence: Readonly<
-    Record<
-      string,
-      { readonly status: "online" | "away"; readonly doing: string; readonly title: string | null }
-    >
+    Record<string, { readonly status: "online" | "away"; readonly doing: string }>
   >;
   readonly counts: RailCounts;
   readonly creators: readonly Creator[];
@@ -51,9 +57,12 @@ export function exampleSeed(now: number): ExampleSeed {
   return {
     me,
     profiles: team.map(({ id, displayName, role }) => ({ id, displayName, role })),
-    presence: Object.fromEntries(
-      team.map(({ id, status, doing, title }) => [id, { status, doing, title }]),
-    ),
+    access: team.map(({ id, roles, seesMoney: money }) => ({
+      profileId: id,
+      roles,
+      seesMoney: money,
+    })),
+    presence: Object.fromEntries(team.map(({ id, status, doing }) => [id, { status, doing }])),
     counts: { today: 28, plannedMinutes: 90, find: 15, reach: 10, close: 6, deliver: 7 },
     creators,
     brands,
@@ -66,15 +75,17 @@ export function exampleSeed(now: number): ExampleSeed {
 /** What a freshly seeded example source returns at `now`. */
 export function exampleFrame(now: number): Frame {
   const seed = exampleSeed(now);
+  // You are the Owner in the example, so you see money: nothing is hidden.
+  const mine = team.find((member) => member.id === me);
   return {
     me,
     // Your display name is `""` in the fixtures: unset.
     myName: null,
-    team: team.map(({ id, displayName, role, title, status, doing }) => ({
+    team: team.map(({ id, displayName, role, roles, status, doing }) => ({
       id,
       name: displayName,
       role,
-      title,
+      roles: sortRoles(roles),
       status,
       doing,
     })),
@@ -86,27 +97,42 @@ export function exampleFrame(now: number): Frame {
     deals: seed.deals,
     mateRun: seed.mateRun(now),
     notify: {},
+    seesMoney: mine !== undefined && seesMoney(mine),
   };
 }
 
 /** The signed-in member in the example. */
 const me = "u1";
 
-/** The team: who they are (`profiles`) and what Supabase has no column for (presence, titles). */
+/**
+ * The team: who they are (`profiles`), their agency roles and money switch (`member_access`), and
+ * what Supabase has no column for (presence). Omar is the owner's own example of a member: Scout and
+ * Outreach, no money.
+ */
 const team: readonly {
   readonly id: string;
   readonly displayName: string;
   readonly role: AppRole;
-  readonly title: string | null;
+  readonly roles: readonly AgencyRole[];
+  readonly seesMoney: boolean;
   readonly status: "online" | "away";
   readonly doing: string;
 }[] = [
-  { id: "u1", displayName: "", role: "full", title: "Owner", status: "online", doing: "Today" },
+  {
+    id: "u1",
+    displayName: "",
+    role: "full",
+    roles: ["owner"],
+    seesMoney: true,
+    status: "online",
+    doing: "Today",
+  },
   {
     id: "u2",
     displayName: "Sara",
     role: "basic",
-    title: "Account manager",
+    roles: ["deal_lead", "delivery"],
+    seesMoney: true,
     status: "online",
     doing: "Reach · replies",
   },
@@ -114,7 +140,8 @@ const team: readonly {
     id: "u3",
     displayName: "Omar",
     role: "basic",
-    title: "VA",
+    roles: ["scout", "outreach"],
+    seesMoney: false,
     status: "online",
     doing: "Search · keyword 12 of 40",
   },
@@ -122,7 +149,8 @@ const team: readonly {
     id: "u4",
     displayName: "Lina",
     role: "basic",
-    title: "VA · first week",
+    roles: ["scout"],
+    seesMoney: false,
     status: "away",
     doing: "Away until 13:00",
   },
