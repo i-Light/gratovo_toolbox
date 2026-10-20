@@ -6,5 +6,6 @@ Owner decisions (2026-10-20): agency roles as a list per person, apart from acce
 
 | Task | Tier | Commit | Note |
 |---|---|---|---|
-| Recon | scout | (this commit) | `.router/CONTEXT.md` |
-| Plan | H | (this commit) | `.router/PLAN.md`; waiting for the owner's approval and answers to Q1-Q4 |
+| Recon | scout | db3dda3 | `.router/CONTEXT.md` |
+| Plan | H | db3dda3 | `.router/PLAN.md`; approved by the owner 2026-10-20 with all four recommendations (Q1-Q4) |
+| A2 | N | (this commit) | `member_access` (RLS read only, no write policy; writes through `set_member_access`, Owner only, the last Owner stays) and `team_youtube_key()` (authorized only, from Vault), in schema `private` behind invoker wrappers; `test_31`, `test_32`, `test_30` read-only list; `test:sql` 8 files. For R1: confirm `vault.decrypted_secrets` and anon's execute revokes on the real stack |
