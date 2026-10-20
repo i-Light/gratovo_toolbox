@@ -38,4 +38,11 @@ Checked after wave 2: typecheck, 454 main + 729 packages/data/renderer Vitest, `
 | S27 | H | 465c936 | Live client, 28 tests: private `toolbox:sync`/`toolbox:team`, D25's six tables only, presence republished after rejoin, `stop()` waits at most 2 s per step, logs `live.<word>` only. The real `RealtimeClient` is only typechecked here: S31 runs it |
 | S29 | N | b6747a4 | Presence reporting (route, 5 min idle or hidden window), `mergePresence` through `adoptServerData`; `start.test.tsx` call order updated |
 
-In flight: S11 (engine), S16 (server tests: pull and outbox). Next: S12 after S11; S31 after S16 (both need the local stack); then S28, S30, S15, S32, S33, R1, L1.
+| S16 | N | 4cfeb9e | Server tests for pull and outbox (13). Confirmed on real PostgREST: the plain `eq.` re-fetch of a key with reserved characters; keyset paging across same-transaction rows. Lead follow-up 32bd6ea: `tsconfig.tools.json` includes the main folders the server tests import |
+| S11 | H | 16efe52 | Engine, 27 tests. A drain stopping on `session` ends the pass as `offline`; an unfinished pull brings the next pass in 1 s; `sync.last_synced_at` only after a good, finished pass. Open: `drainBefore` waits behind a running pass |
+| S12 | H | 0c253e7 | Account wiring, `events.ts`, `keep-unsent.ts`; `team-refresh`/`live-writes` deleted. Sign-in survives a failing whole-table refresh (logged); until R1 every pass fails at `notification_switches` (tolerate schema-behind codes: L1) |
+| S27 fix | lead | 6d8df9f | Found by S31: the first joins went out before the token, refused as anon (live updates ~10 s late after every connect). Now `setAuth()` first, then join; a test holds `setAuth` and checks nothing joins before it |
+| S28 | H | 44ac7d4 | Realtime and presence in the account and engine; conflict notices through `afterConflicts` (adds the `notify` part); sign-out stops Realtime alongside the 5 s drain (≤ ~6 s); `createLive` injectable |
+| S31 | H | c58950d | `[realtime] enabled = true`, CI excludes without `realtime`, `realtime.test.ts`. With Realtime on, its own migrations run before the repo's, so `realtime.messages` exists. Lead: the same fix in `docs/setup.md` §7. Full `pnpm test:server`: 6 files, 57 tests, after the S27 fix. R1: check `live.subscribed` after the owner turns public access off |
+
+In flight: S15 (Electron tests), S30 (server tests: CAS and conflicts; the local stack is left running for it). Next: S32, S33, R1, L1.
