@@ -1,25 +1,10 @@
-# Progress: step 3d-1 (the local data layer)
+# Progress: step 3d-2a (sign-in, roles, network allowlist, team keys)
 
-Started 2026-10-20 on branch `feat/3d-data-layer`, after #9. `CONTEXT.md` is the recon (§1 to §8), `PLAN.md` the plan (decisions G1 to G16, tasks D1 to D10), approved by the owner on 2026-10-20.
+Started 2026-10-20 on branch `feat/3d-2-sync`, after #10 (3d-1). `CONTEXT.md` is the 3d-2 recon; `PLAN.md` the 3d-2a plan (decisions G1 to G18, tasks A1 to A11, R1, L1). 3d-2b (the sync) follows in its own pull request.
 
-Owner decisions (2026-10-20): 3d in two parts (3d-1 here, 3d-2 sign-in, sync and the team-keys function); A3 done (production has `schema.sql`); SQL tests in a Linux CI job with Docker; email and password sign-in (3d-2); keys not rotated, entered at run time only.
+Owner decisions (2026-10-20): agency roles as a list per person, apart from access, with "sees money" its own switch; money hidden in the new app now and locked in the database when the old app retires; the YouTube key (Vault) and R2 signed links both built now; 3d-2 is two pull requests; production changes through the Supabase MCP with the owner's go before each one; the owner enters key values in Supabase themselves. Production runs Postgres 17.6.
 
 | Task | Tier | Commit | Note |
 |---|---|---|---|
 | Recon | scout | (this commit) | `.router/CONTEXT.md` |
-| Plan | H | fbbd20b | `.router/PLAN.md`; `node:sqlite` checked inside Electron 44.9.0 (Node 24.22.0, SQLite 3.53.4, WAL) |
-| D1 | N | 7440e5e | `@gratovo/core/data`: the contract, legacy mapping, example fixtures |
-| D2 | N | a785ce8 | Supabase baseline migration (legacy `schema.sql` as is), SQL tests, CI job `sql` (green on its first run) |
-| D3 | N | 12a7f26 | `main/db`: open, forward-only migrations, migration 1 (9 STRICT tables) |
-| D4 | N | b817ca3 | `main/data/repositories`: one file per table, 38 tests. STRICT `TEXT` columns turn numbers into text, so the STRICT tests write a blob or text into a number column |
-| D5 | N | 1b2aec7 | `main/data`: `createSqliteSource`, `openExampleSource` (seeds on a missing or older `_meta.example_seed`), `openLiveSource`; `describeDataSourceContract` run on both (11 tests each). The clock is `() => number`; `close()` twice is a no-op; the live source's team has no titles |
-| D6 | N | 80dd27f | `@gratovo/ipc` `frame:load` and `data:write` (strict zod schemas typed against core; ids 1-100, text 500, names 80, log 50, lists 5000, 1-100 writes); handlers; main opens `example.db` in `whenReady` and closes it on `will-quit`. `node:sqlite` stays external (`require` in `out/main/index.js`); Electron prints no ExperimentalWarning, and the file opens in WAL |
-
-For 3d-2: a live frame bigger than the limits (over 5000 creators, a profile name over 80) would fail `frame:load`; revisit when the sync brings real data.
-| D7 | N | 0e446b7 | The renderer loads the frame through `frame:load` before its first render (`lib/frame.ts` `toAppData`, `initAppStore`); a failed load shows a plain message (`app/load-failed.css`, apart from `frame.css`, which must match the prototype). Notifications are newest first: one store test now finds them by id. 279 renderer tests, 36 e2e pass unchanged. Looked at in dark at 1440 px (Electron): the frame, the bell and the palette as before, and the failed-load page |
-| D8 | H | b25866e | `lib/persist.ts`: `diffData` by reference, one batch per change (chunks of 100), one in flight, a failure toasts and isn't retried; a new store (`initAppStore`) resets the baseline. "Saved" waits for the queue and at least 700 ms; reading one notification and setting your name now show "Saving…" too (they write). Your name is `profiles.display_name` (the `name` pref, `loadMyName` and `withSavedName` are gone). Log ids are UUIDs. `toast` moved to `lib/toast.ts` (no import cycle). 719 Vitest tests, 36 e2e pass |
-| D9 | N | c7136e4 | `e2e/fixtures.ts` gains `launchApp`, `userData` and `relaunch`; `e2e/data.spec.ts`: `example.db` exists, mark all read, your name and the undo of mark all read each survive a restart, with no console errors. 40 e2e pass; `--repeat-each 5` on data and settings: 35 of 35 |
-| D10 | lead | c7136e4, (this commit) | ADR 0010; architecture, migration plan (status, 3d-1 and 3d-2), ADR 0009 and the desktop README updated. Full checks on Windows: lint, typecheck, 719 Vitest + 1 pytest, `test:sql` (6 files), 40 e2e. Looked at in dark at 1440 px (D7). `sentry-security-review`: no high-confidence finding (bridge sender check plus strict schemas both ways; SQL parameterized, the two interpolations are code constants; the SQL runner uses argument lists and publishes no port; the CI job is read-only and pinned) |
-| Review | reviewer | (this commit) | 12 findings. Fixed: the grants test checked any privilege, not all four; the SQL runner re-applied the baseline last, which hid missing grants (now stubs, baseline twice, later migrations, tests); the top bar said "Saved" after a failed write (now "Not saved" in `--crit`, looked at in dark at 1440 px); `LogEntry.who` is the member id; the data e2e tests watch the console from the window's start and across the restart; ROLLBACK only when a transaction is open; bare-string emails read like the old app, and a write replaces only the primary email; the rail names you "You" in the team as on `main`; doc drift; braces. Recorded, not changed: a change over 100 writes goes as several batches (ADR 0010 decision 11). Follow-up: the failed-load page and a database that won't open have no automated test yet (looked at by eye). Checks after the fixes: lint, typecheck, 726 Vitest + 1 pytest, `test:sql`, 40 e2e |
-
-Next: the pull request, CI green, merge; then 3d-2 starts with the owner's answers to ADR 0010's questions.
+| Plan | H | (this commit) | `.router/PLAN.md`; waiting for the owner's approval and answers to Q1-Q4 |

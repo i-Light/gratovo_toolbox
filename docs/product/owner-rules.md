@@ -9,6 +9,14 @@ What the owner has asked for, with the reasons, collected from past sessions so 
 - **Dark only, for now** (owner, 2026-10-20). The app always runs in the dark theme. There is no theme switch (no Settings row, palette action or menu hint), and the light theme isn't built, tested or looked at. The light tokens stay in `tokens.css`, so a theme choice can come back when the owner asks. The owner's reason: make the app work first, not the light theme.
 - **No hand-off file** (owner, 2026-10-20). `docs/handoff.md` was removed. The migration plan's status table says where work stands and what is next, and `.router/PROGRESS.md` holds a step in progress. Lasting notes and lessons live in [workflow.md](../workflow.md).
 - **Keys: no rotation for now** (owner, 2026-10-20). The leaked keys (A1) are not rotated yet. Use the existing ones from the old repo's `data/.env`, but only at run time: in the app's secret store or Supabase's function secrets. Never print, log, commit or copy them into this repository.
+- **Team roles** (owner, 2026-10-20). The agency's roles are what someone does:
+  - **Owner:** runs the agency; full access to everything, including the hidden admin sections and tools.
+  - **Scout** (the VA's search part): searches for AI creators, sorts and shortlists the finds.
+  - **Outreach** (the VA's email part): writes to creators, follows up, handles replies.
+  - **Deal lead:** pitches brands, negotiates, signs the deal. Works mostly in Close, but can read and edit anything that bears on a deal, notes included.
+  - **Delivery:** makes sure the video goes live, sends the report, tracks payment.
+
+  One person can hold several roles, because a small team can't have one person per role: store a list per person (for example Omar as Scout and Outreach). Roles and access are separate: what someone does is apart from what they can see, so "sees money" stays its own switch.
 - **English only for now.** The old app had Arabic; strings stay in one place per feature so a language can be added later.
 - **The niche is AI.** Creators who cover AI tools, chatbots, coding with AI (Claude Code, Cursor, MCP), AI video and AI news; brands that sponsor them (for example Higgsfield, Wispr Flow, Zapier, invideo, GoDaddy Airo, Vanta, Even Realities). Every example, persona, fixture and test channel comes from this niche. Woodworking or travel channels were rejected as "irrelevant to my niche".
 
