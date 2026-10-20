@@ -1,6 +1,11 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { NetworkRefusedError, checkWebSocketUrl, createNetwork } from "./network";
+import {
+  NetworkRefusedError,
+  checkWebSocketUrl,
+  createGuardedWebSocket,
+  createNetwork,
+} from "./network";
 
 const project = "https://abcdefghijklmnopqrst.supabase.co";
 
@@ -117,5 +122,49 @@ describe("checkWebSocketUrl", () => {
     "nope",
   ])("refuses %s", (url) => {
     expect(() => checkWebSocketUrl(url, [project])).toThrow(NetworkRefusedError);
+  });
+});
+
+describe("createGuardedWebSocket", () => {
+  const original = globalThis.WebSocket;
+  const opened: string[] = [];
+
+  class FakeSocket {
+    readonly readyState = 0;
+    constructor(url: string) {
+      opened.push(url);
+    }
+  }
+
+  function guarded(origins: string[] = [project, "http://127.0.0.1:54321"]) {
+    vi.stubGlobal("WebSocket", FakeSocket);
+    opened.length = 0;
+    return createGuardedWebSocket(origins);
+  }
+
+  afterEach(() => {
+    vi.stubGlobal("WebSocket", original);
+    vi.unstubAllGlobals();
+  });
+
+  it("opens wss on the project and ws on the test seam", () => {
+    const Guarded = guarded();
+    new Guarded("wss://abcdefghijklmnopqrst.supabase.co/realtime/v1/websocket?vsn=1.0.0");
+    new Guarded("ws://127.0.0.1:54321/realtime/v1/websocket");
+    expect(opened).toHaveLength(2);
+  });
+
+  it.each([
+    ["a wss lookalike", "wss://abcdefghijklmnopqrst.supabase.co.evil.example/realtime/v1"],
+    ["an http address", "http://abcdefghijklmnopqrst.supabase.co/realtime/v1"],
+    ["user info", "wss://user:pw@abcdefghijklmnopqrst.supabase.co/realtime/v1"],
+    ["another host", "wss://other.supabase.co/realtime/v1"],
+    ["plain ws on a real host", "ws://abcdefghijklmnopqrst.supabase.co/realtime/v1"],
+    ["another local port", "ws://127.0.0.1:9999/realtime/v1"],
+    ["a non-address", "not a url"],
+  ])("refuses %s without opening a socket", (_name, url) => {
+    const Guarded = guarded();
+    expect(() => new Guarded(url)).toThrow(NetworkRefusedError);
+    expect(opened).toHaveLength(0);
   });
 });
