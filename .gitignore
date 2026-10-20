@@ -61,3 +61,7 @@ desktop.ini
 .claude/settings.local.json
 .claude/worktrees/
 
+
+# --- Supabase CLI scratch folders ---
+supabase/.temp/
+supabase/.branches/

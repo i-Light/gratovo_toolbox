@@ -1,6 +1,6 @@
 import { shell, type Session, type WebContents } from "electron";
 
-import { isAppPage } from "./app-page";
+import { builtPageUrl, isAppOrigin, isAppPage } from "./app-page";
 import { isAllowedExternalLink } from "./external-links";
 import { appPageUrl } from "./window";
 
@@ -67,4 +67,38 @@ export function denyAllPermissions(target: Session): void {
     callback(false);
   });
   target.setPermissionCheckHandler(() => false);
+}
+
+/**
+ * True for a request the page may make: its own files, DevTools, a data: image and, in
+ * development only, the Vite server (http and the hot-reload websocket). `devServerUrl` is
+ * undefined in a packaged app.
+ */
+export function isAllowedRequest(url: string, devServerUrl?: string): boolean {
+  if (!URL.canParse(url)) {
+    return false;
+  }
+  const target = new URL(url);
+  if (target.protocol === "devtools:" || target.protocol === "data:") {
+    return true;
+  }
+  if (target.protocol === "app:") {
+    return isAppOrigin(url, builtPageUrl);
+  }
+  if (devServerUrl !== undefined && URL.canParse(devServerUrl)) {
+    const dev = new URL(devServerUrl);
+    return (target.protocol === "http:" || target.protocol === "ws:") && target.host === dev.host;
+  }
+  return false;
+}
+
+/**
+ * Cancels every request the page makes outside its own files. Defence in depth behind the page's
+ * Content Security Policy. It doesn't see Node's own network calls in the main process; those are
+ * kept to net/network.ts by a lint rule.
+ */
+export function blockForeignRequests(target: Session, devServerUrl?: string): void {
+  target.webRequest.onBeforeRequest((details, callback) => {
+    callback({ cancel: !isAllowedRequest(details.url, devServerUrl) });
+  });
 }

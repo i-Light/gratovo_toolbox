@@ -2,14 +2,20 @@ import { join } from "node:path";
 
 import { BrowserWindow, Menu, app, dialog, session } from "electron";
 
+import { builtPageUrl } from "./app-page";
 import { registerAppScheme, serveAppFiles } from "./app-protocol";
 import { openExampleSource } from "./data";
 import { createHandlers } from "./handlers";
 import { registerBridge } from "./ipc-bridge";
 import { openSecretStore } from "./secrets";
-import { denyAllPermissions, guardWebContents, refuseDownloads } from "./security";
+import {
+  blockForeignRequests,
+  denyAllPermissions,
+  guardWebContents,
+  refuseDownloads,
+} from "./security";
 import { strings } from "./strings";
-import { createMainWindow, rendererRoot } from "./window";
+import { appPageUrl, createMainWindow, rendererRoot } from "./window";
 
 /**
  * Unpackaged runs (`pnpm dev`, the end-to-end tests) keep their data, and their single-instance
@@ -49,6 +55,11 @@ function start(): void {
     .whenReady()
     .then(() => {
       denyAllPermissions(session.defaultSession);
+      // The dev server is the page only when appPageUrl is not the built page (never when packaged).
+      blockForeignRequests(
+        session.defaultSession,
+        appPageUrl === builtPageUrl ? undefined : appPageUrl,
+      );
       refuseDownloads(session.defaultSession);
       serveAppFiles(session.defaultSession, rendererRoot);
       // Until there is an account (3d-2) the app always shows the example data. A database that
