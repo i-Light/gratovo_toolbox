@@ -18,6 +18,13 @@ import {
 } from "./live";
 import type { LiveDeps, RealtimeChannelLike, RealtimeClientLike } from "./live";
 
+/** Lets start() fetch the token and join (a few microtasks). */
+async function settle(): Promise<void> {
+  for (let i = 0; i < 5; i += 1) {
+    await Promise.resolve();
+  }
+}
+
 const me = "11111111-1111-4111-8111-111111111111";
 const mate = "22222222-2222-4222-8222-222222222222";
 const key = "sb_publishable_live000";
@@ -142,7 +149,11 @@ interface Harness {
   readonly network: { request: Mock<Network["request"]> };
   sync(): FakeChannel;
   team(): FakeChannel;
-  client: { removeAll: () => Promise<unknown>; disconnect: () => Promise<unknown> };
+  client: {
+    removeAll: () => Promise<unknown>;
+    disconnect: () => Promise<unknown>;
+    setAuth: () => Promise<void>;
+  };
 }
 
 function harness(over: Partial<LiveDeps> = {}): Harness {
@@ -157,6 +168,7 @@ function harness(over: Partial<LiveDeps> = {}): Harness {
   const behaviour = {
     removeAll: (): Promise<unknown> => Promise.resolve([]),
     disconnect: (): Promise<unknown> => Promise.resolve("ok"),
+    setAuth: (): Promise<void> => Promise.resolve(),
   };
   const createClient = (endpoint: string, options: RealtimeClientOptions): RealtimeClientLike => {
     made.push({ endpoint, options });
@@ -174,6 +186,7 @@ function harness(over: Partial<LiveDeps> = {}): Harness {
         order.push("disconnect");
         return behaviour.disconnect();
       },
+      setAuth: () => behaviour.setAuth(),
     };
   };
   const live = createLive({
@@ -226,6 +239,7 @@ describe("the client options (D24)", () => {
   it("always builds the client with the guarded transport, the Network's fetch and the key", async () => {
     const h = harness();
     h.live.start();
+    await settle();
     expect(h.made).toHaveLength(1);
     const { endpoint, options } = need(h.made[0]);
     expect(endpoint).toBe("wss://abcdefghijklmnopqrst.supabase.co/realtime/v1");
@@ -265,12 +279,14 @@ describe("the client options (D24)", () => {
   it("hands the client null when the session can't give a token", async () => {
     const h = harness({ session: { accessToken: () => Promise.reject(new Error("ended")) } });
     h.live.start();
+    await settle();
     await expect(need(madeOptions(h).accessToken)()).resolves.toBeNull();
   });
 
-  it("reconnects after 15 s, doubling, at most 8 minutes", () => {
+  it("reconnects after 15 s, doubling, at most 8 minutes", async () => {
     const h = harness();
     h.live.start();
+    await settle();
     const ladder = need(madeOptions(h).reconnectAfterMs);
     expect(ladder).toBe(reconnectAfterMs);
     expect([1, 2, 3, 4, 5, 6, 7, 20].map(ladder)).toEqual([
@@ -288,38 +304,59 @@ describe("the client options (D24)", () => {
     ).toBe("ws://127.0.0.1:54321/realtime/v1");
   });
 
-  it("is off with one log line when the process has no WebSocket", () => {
+  it("is off with one log line when the process has no WebSocket", async () => {
     vi.stubGlobal("WebSocket", undefined);
     const h = harness();
     h.live.start();
+    await settle();
     expect(h.made).toHaveLength(0);
     expect(h.lines).toEqual(["live.off no_websocket"]);
     h.live.announce(["brands"]);
     h.live.setPresence({ screen: "reach", idle: false });
   });
 
-  it("is off with one log line when the client can't be built", () => {
+  it("is off with one log line when the client can't be built", async () => {
     const h = harness({
       createClient: () => {
         throw new Error(`bad ${key}`);
       },
     });
     h.live.start();
+    await settle();
     expect(h.lines).toEqual(["live.off client_failed"]);
   });
 
-  it("starts once", () => {
+  it("starts once", async () => {
     const h = harness();
     h.live.start();
     h.live.start();
+    await settle();
     expect(h.made).toHaveLength(1);
   });
 });
 
 describe("the private topics (D25)", () => {
-  it("joins toolbox:sync and toolbox:team privately", () => {
+  it("fetches the token before it joins, so the first joins aren't refused as anon", async () => {
+    const h = harness();
+    let release = (): void => undefined;
+    h.client.setAuth = () =>
+      new Promise<void>((resolve) => {
+        release = resolve;
+      });
+    h.live.start();
+    await settle();
+    expect(() => h.sync()).toThrow();
+    expect(() => h.team()).toThrow();
+    release();
+    await settle();
+    expect(h.sync().options.config.private).toBe(true);
+    expect(h.team().options.config.private).toBe(true);
+  });
+
+  it("joins toolbox:sync and toolbox:team privately", async () => {
     const h = harness();
     h.live.start();
+    await settle();
     expect(h.sync().options).toEqual({ config: { private: true, broadcast: { self: false } } });
     expect(h.team().options).toEqual({ config: { private: true, presence: { key: me } } });
     expect(h.sync().bindings.map((b) => `${b.type}:${b.event}`)).toEqual([
@@ -332,11 +369,12 @@ describe("the private topics (D25)", () => {
     ]);
   });
 
-  it("schedules a pass on a teammate's broadcast and ignores bad payloads", () => {
+  it("schedules a pass on a teammate's broadcast and ignores bad payloads", async () => {
     const h = harness();
     const remote = vi.fn();
     h.live.onRemoteChange(remote);
     h.live.start();
+    await settle();
     h.sync().emitStatus("SUBSCRIBED");
 
     h.sync().emit("broadcast", changedEvent, { payload: { tables: ["brands", "deals"] } });
@@ -363,6 +401,7 @@ describe("the private topics (D25)", () => {
   it("announces only D25's tables, and only while toolbox:sync is joined", async () => {
     const h = harness();
     h.live.start();
+    await settle();
     h.live.announce(["brands"]);
     expect(h.sync().sends).toHaveLength(0);
 
@@ -380,9 +419,10 @@ describe("the private topics (D25)", () => {
     await flush();
   });
 
-  it("logs a refused or timed-out join by kind and leaves it to the client", () => {
+  it("logs a refused or timed-out join by kind and leaves it to the client", async () => {
     const h = harness();
     h.live.start();
+    await settle();
     h.sync().emitStatus("CHANNEL_ERROR");
     h.team().emitStatus("TIMED_OUT");
     h.team().emitStatus("CLOSED");
@@ -395,6 +435,7 @@ describe("presence (D26)", () => {
   it("tracks the app's own payload once toolbox:team is joined", async () => {
     const h = harness();
     h.live.start();
+    await settle();
     h.live.setPresence({ screen: "reach", idle: false });
     expect(h.team().tracks).toHaveLength(0);
 
@@ -406,6 +447,7 @@ describe("presence (D26)", () => {
   it("publishes at most once a second, latest wins, nothing when unchanged", async () => {
     const h = harness();
     h.live.start();
+    await settle();
     h.team().emitStatus("SUBSCRIBED");
     expect(h.team().tracks).toEqual([{ v: 1, screen: "today", idle: false }]);
 
@@ -439,6 +481,7 @@ describe("presence (D26)", () => {
   it("publishes again after a rejoin, even when unchanged", async () => {
     const h = harness();
     h.live.start();
+    await settle();
     h.team().emitStatus("SUBSCRIBED");
     h.team().emitStatus("CHANNEL_ERROR");
     h.team().emitStatus("SUBSCRIBED");
@@ -451,6 +494,7 @@ describe("presence (D26)", () => {
   it("publishes again on the next change after a refused track", async () => {
     const h = harness();
     h.live.start();
+    await settle();
     h.team().trackAnswer = () => Promise.resolve("timed out");
     h.team().emitStatus("SUBSCRIBED");
     await flush();
@@ -462,11 +506,12 @@ describe("presence (D26)", () => {
     await flush();
   });
 
-  it("builds members from valid payloads only, the newest meta per key", () => {
+  it("builds members from valid payloads only, the newest meta per key", async () => {
     const h = harness();
     const changed = vi.fn();
     h.live.onPresence(changed);
     h.live.start();
+    await settle();
     h.team().emitStatus("SUBSCRIBED");
     h.team().state = {
       [me]: [{ presence_ref: "a", v: 1, screen: "reach", idle: false }],
@@ -504,11 +549,12 @@ describe("presence (D26)", () => {
     expect(changed).toHaveBeenCalledTimes(2);
   });
 
-  it("empties members when toolbox:team drops", () => {
+  it("empties members when toolbox:team drops", async () => {
     const h = harness();
     const changed = vi.fn();
     h.live.onPresence(changed);
     h.live.start();
+    await settle();
     h.team().emitStatus("SUBSCRIBED");
     h.team().state = { [mate]: [{ presence_ref: "b", v: 1, screen: "find", idle: false }] };
     h.team().emit("presence", "sync");
@@ -517,7 +563,7 @@ describe("presence (D26)", () => {
     expect(changed).toHaveBeenCalledTimes(2);
   });
 
-  it("keeps going when a listener throws", () => {
+  it("keeps going when a listener throws", async () => {
     const h = harness();
     const second = vi.fn();
     h.live.onRemoteChange(() => {
@@ -525,6 +571,7 @@ describe("presence (D26)", () => {
     });
     h.live.onRemoteChange(second);
     h.live.start();
+    await settle();
     h.sync().emit("broadcast", changedEvent, { payload: { tables: ["brands"] } });
     expect(second).toHaveBeenCalledTimes(1);
     expect(h.lines).toContain("live.listener_failed");
@@ -535,6 +582,7 @@ describe("stop()", () => {
   it("untracks, removes all channels, then disconnects", async () => {
     const h = harness();
     h.live.start();
+    await settle();
     h.team().emitStatus("SUBSCRIBED");
     h.sync().emitStatus("SUBSCRIBED");
     await h.live.stop();
@@ -549,6 +597,7 @@ describe("stop()", () => {
     h.live.onRemoteChange(remote);
     h.live.onPresence(changed);
     h.live.start();
+    await settle();
     h.team().emitStatus("SUBSCRIBED");
     h.sync().emitStatus("SUBSCRIBED");
     h.live.setPresence({ screen: "find", idle: false }); // inside the gap: a timer is pending
@@ -565,6 +614,7 @@ describe("stop()", () => {
     h.live.announce(["brands"]);
     h.live.setPresence({ screen: "reach", idle: true });
     h.live.start();
+    await settle();
     await h.live.stop();
 
     expect(remote).not.toHaveBeenCalled();
@@ -578,6 +628,7 @@ describe("stop()", () => {
   it("doesn't wait forever on a dead socket", async () => {
     const h = harness();
     h.live.start();
+    await settle();
     h.team().emitStatus("SUBSCRIBED");
     const never = (): Promise<string> => new Promise<string>(() => undefined);
     h.team().untrackAnswer = never;
@@ -607,6 +658,7 @@ describe("logging", () => {
   it("never logs a payload, a URL, the key or a token", async () => {
     const h = harness();
     h.live.start();
+    await settle();
     const logger = need(madeOptions(h).logger);
     logger(
       "transport",

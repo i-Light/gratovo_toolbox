@@ -95,6 +95,8 @@ export interface RealtimeClientLike {
   channel(topic: string, options: RealtimeChannelOptions): RealtimeChannelLike;
   removeAllChannels(): Promise<unknown>;
   disconnect(): Promise<unknown>;
+  /** With no argument, asks the `accessToken` callback for the current token. */
+  setAuth(): Promise<void>;
 }
 
 export interface LiveDeps {
@@ -381,8 +383,22 @@ export function createLive(deps: LiveDeps): Live {
         },
       };
       try {
-        client = (deps.createClient ?? defaultCreateClient)(realtimeEndpoint(deps.config), options);
-        join(client);
+        const current = (deps.createClient ?? defaultCreateClient)(
+          realtimeEndpoint(deps.config),
+          options,
+        );
+        client = current;
+        // Joins sent before the token is in go out as anon, and private topics refuse them: fetch
+        // the token first. Without one, joining still happens; the server refuses and the client
+        // retries with the token the next heartbeat brings.
+        void current
+          .setAuth()
+          .catch(() => undefined)
+          .then(() => {
+            if (!stopped && client === current) {
+              join(current);
+            }
+          });
       } catch {
         log("live.off client_failed");
         client = null;
