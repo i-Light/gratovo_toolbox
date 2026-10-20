@@ -1,4 +1,4 @@
-import { sortRoles } from "@gratovo/core/data";
+import { isOwner, sortRoles } from "@gratovo/core/data";
 import type { Frame, FrameNotification, TeamMember } from "@gratovo/core/data";
 import { icons } from "@gratovo/ui";
 import type { IconName } from "@gratovo/ui";
@@ -42,6 +42,7 @@ function memberOf(member: TeamMember, me: string): Member {
     id: member.id,
     name: member.id === me ? strings.team.you : member.name,
     role: roleLabel(member),
+    owner: isOwner(member),
     status: member.status,
     doing: member.doing,
   };
@@ -64,6 +65,7 @@ export function toAppData(frame: Frame): AppData {
   return {
     me: frame.me,
     myName: frame.myName,
+    seesMoney: frame.seesMoney,
     team: frame.team.map((m) => memberOf(m, frame.me)),
     counts: frame.counts,
     notifications: frame.notifications.map(notificationOf),

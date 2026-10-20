@@ -191,7 +191,7 @@ function Presence() {
         <Avatar
           key={m.id}
           name={m.name}
-          color={avatarColor(m.id === "u1" ? "owner" : m.name)}
+          color={avatarColor(m.owner ? "owner" : m.name)}
           size="s"
           status="online"
           tip={strings.rail.memberTip(m.name, m.role)}

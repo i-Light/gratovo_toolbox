@@ -16,7 +16,6 @@ const { rows, options } = text;
 
 /** Profile: the account's face, your name (saved when you leave the field) and your role. */
 export function ProfileSection() {
-  const meId = useApp((s) => s.data.me);
   const myName = useApp((s) => s.data.myName);
   const me = useApp((s) => s.data.team.find((m) => m.id === s.data.me));
   const [draft, setDraft] = useState<string | null>(null);
@@ -28,8 +27,8 @@ export function ProfileSection() {
   };
   const memberName = me?.name ?? "";
   const role = me?.role ?? "";
-  const mine = meId === "u1";
-  const shown = mine ? (myName ?? memberName) : memberName;
+  const owner = me?.owner ?? false;
+  const shown = myName ?? memberName;
   const save = (): void => {
     const value = draftRef.current;
     if (value === null) {
@@ -46,9 +45,9 @@ export function ProfileSection() {
       <div className="set-hero">
         <Avatar
           name={shown}
-          color={avatarColor(mine ? "owner" : memberName)}
+          color={avatarColor(owner ? "owner" : memberName)}
           size="xl"
-          unnamed={mine && myName === null}
+          unnamed={myName === null}
           decorative
         />
         <div className="col t2">
@@ -56,7 +55,7 @@ export function ProfileSection() {
           <span className="small muted">{role}</span>
         </div>
       </div>
-      {mine ? (
+      {
         <Row id="name" label={rows.name.label} scope="you" desc={rows.name.desc}>
           <div className="col tight" style={{ minWidth: 0 }}>
             <input
@@ -87,12 +86,8 @@ export function ProfileSection() {
             </span>
           </div>
         </Row>
-      ) : null}
-      <Row
-        id="role"
-        label={rows.role.label}
-        desc={role === "Owner" ? rows.role.descOwner : rows.role.desc}
-      >
+      }
+      <Row id="role" label={rows.role.label} desc={owner ? rows.role.descOwner : rows.role.desc}>
         <div className="row wrap">
           <Tag icon="shield">{role}</Tag>
           <Btn
@@ -233,25 +228,28 @@ const notifyIcons: readonly (readonly [NotifyKind, IconName])[] = [
 /** Notifications: which kinds reach the bell (undoable), and the Problems switch that is always on. */
 export function NotificationsSection() {
   const notify = useApp((s) => s.data.settings.notify);
+  const sees = useApp((s) => s.data.seesMoney);
   return (
     <Row id="notify" label={rows.notify.label} scope="you" desc={rows.notify.desc}>
       <div className="col tight" style={{ gap: "10px", minWidth: 0 }}>
-        {notifyIcons.map(([kind, icon]) => (
-          <div key={kind} className="row" style={{ gap: "10px" }}>
-            <Switch
-              on={notify[kind] !== false}
-              label={text.notify[kind].label}
-              onChange={(next) => {
-                setNotify(kind, next);
-              }}
-            />
-            <Icon name={icon} />
-            <div className="col t2" style={{ minWidth: 0 }}>
-              <span>{text.notify[kind].label}</span>
-              <span className="tiny muted">{text.notify[kind].line}</span>
+        {notifyIcons
+          .filter(([kind]) => sees || kind !== "money")
+          .map(([kind, icon]) => (
+            <div key={kind} className="row" style={{ gap: "10px" }}>
+              <Switch
+                on={notify[kind] !== false}
+                label={text.notify[kind].label}
+                onChange={(next) => {
+                  setNotify(kind, next);
+                }}
+              />
+              <Icon name={icon} />
+              <div className="col t2" style={{ minWidth: 0 }}>
+                <span>{text.notify[kind].label}</span>
+                <span className="tiny muted">{text.notify[kind].line}</span>
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
         <div className="row" style={{ gap: "10px" }}>
           <Switch on disabled label={text.problems.label} onChange={() => undefined} />
           <Icon name="alert" />

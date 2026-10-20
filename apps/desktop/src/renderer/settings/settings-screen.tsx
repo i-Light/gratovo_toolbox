@@ -2,7 +2,7 @@ import { Icon, PageHead, cx } from "@gratovo/ui";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useKeys } from "../lib/keys";
-import { settingsSections } from "../lib/settings";
+import { meIsOwner, sectionsFor } from "../lib/settings";
 import type { SettingsSection } from "../lib/settings";
 import { appStore, go, selectRoute, useApp } from "../lib/store";
 import { strings } from "../strings";
@@ -70,7 +70,10 @@ function useSettingTarget(sectionKey: string, searching: boolean, clearSearch: (
  */
 export function SettingsScreen() {
   const tab = useApp((s) => selectRoute(s).tab);
-  const section = settingsSections.find((s) => s.key === tab) ?? settingsSections[0];
+  const owner = useApp((s) => meIsOwner(s.data));
+  const available = sectionsFor(owner);
+  // A section you may not open (an old link, a typed address) lands on Profile.
+  const section = available.find((s) => s.key === tab) ?? available[0];
   const [query, setQuery] = useState("");
   const input = useRef<HTMLInputElement>(null);
   const q = query.trim();
@@ -123,7 +126,7 @@ export function SettingsScreen() {
           {groups.map((group) => (
             <div key={group} className="bucket">
               <div className="bucket-h">{text.groups[group]}</div>
-              {settingsSections
+              {available
                 .filter((s) => s.group === group)
                 .map((s) => (
                   <button

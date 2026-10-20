@@ -4,7 +4,7 @@ import { openSetting, peek, setShortcuts, undo } from "../lib/actions";
 import { getPrefs, setPref } from "../lib/prefs";
 import { firstTab, goLetters, screenOrder, screens } from "../lib/routes";
 import type { RecordRef } from "../lib/routes";
-import { settingsRows, settingsSections } from "../lib/settings";
+import { meIsOwner, rowsFor, settingsSections } from "../lib/settings";
 import { dealName, findRecord, go, recordName } from "../lib/store";
 import type { AppData } from "../lib/store";
 import { strings } from "../strings";
@@ -93,9 +93,9 @@ export function goCommands(): readonly Command[] {
 }
 
 /** One row for every setting that exists now: the section's icon, the row's name, the section's name beside it. */
-export function settingCommands(): readonly Command[] {
+export function settingCommands(owner: boolean): readonly Command[] {
   const tabs = strings.screens.settings.tabs;
-  return settingsRows.map((row): Command => {
+  return rowsFor(owner).map((row): Command => {
     const section = settingsSections.find((s) => s.key === row.section);
     const r = strings.settings.rows[row.id];
     return {
@@ -184,7 +184,7 @@ export function buildCommands(
   if (needle === "") {
     return [...recentCommands(data, recent), ...actions.slice(0, maxActionsShown), ...goTo];
   }
-  return [...actions, ...goTo, ...settingCommands(), ...recordCommands(data)]
+  return [...actions, ...goTo, ...settingCommands(meIsOwner(data)), ...recordCommands(data)]
     .filter((c) => `${c.label} ${c.sub ?? ""} ${c.words ?? ""}`.toLowerCase().includes(needle))
     .slice(0, maxResults);
 }

@@ -1,8 +1,8 @@
 import { Empty, Icon } from "@gratovo/ui";
 
 import { openSetting } from "../lib/actions";
-import { searchSettings, settingsSections } from "../lib/settings";
-import { go } from "../lib/store";
+import { meIsOwner, searchSettings, settingsSections } from "../lib/settings";
+import { go, useApp } from "../lib/store";
 import { strings } from "../strings";
 
 const { tabs } = strings.screens.settings;
@@ -18,7 +18,8 @@ export function Results({
   readonly query: string;
   readonly onPick: () => void;
 }) {
-  const { rows, sections } = searchSettings(query);
+  const owner = useApp((s) => meIsOwner(s.data));
+  const { rows, sections } = searchSettings(query, owner);
   if (rows.length === 0 && sections.length === 0) {
     return (
       <div className="card">

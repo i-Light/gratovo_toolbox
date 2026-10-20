@@ -1,3 +1,4 @@
+import { notifyKind } from "@gratovo/core/data";
 import type { NotifyKind } from "@gratovo/core/data";
 import type { IconName } from "@gratovo/ui";
 
@@ -64,22 +65,22 @@ export const settingsRows: readonly SettingsRow[] = [
 ];
 
 export type { NotifyKind };
+export { notifyKind };
 
-/** The kind of a notification, from its icon. Problems cannot be turned off. */
-export function notifyKind(icon: IconName): NotifyKind | "problem" {
-  switch (icon) {
-    case "reply":
-      return "reply";
-    case "wallet":
-    case "unlock":
-      return "money";
-    case "forward":
-      return "handoff";
-    case "alert":
-      return "problem";
-    default:
-      return "search";
-  }
+/** Whether you hold the Owner role. */
+export function meIsOwner(data: AppData): boolean {
+  return data.team.find((m) => m.id === data.me)?.owner ?? false;
+}
+
+/** The sections you may open: the owner-only ones are for the owner. */
+export function sectionsFor(owner: boolean): readonly SettingsSection[] {
+  return settingsSections.filter((s) => owner || !s.owner);
+}
+
+/** The setting rows you may reach: those in a section you may open. */
+export function rowsFor(owner: boolean): readonly SettingsRow[] {
+  const keys = new Set(sectionsFor(owner).map((s) => s.key));
+  return settingsRows.filter((row) => keys.has(row.section));
 }
 
 /** Whether the bell and its tray show this notification: problems always, other kinds unless turned off. */
@@ -92,18 +93,21 @@ export function notifShown(data: AppData, n: Notification): boolean {
  * Rows whose label, words or section name contain the query, and sections whose name, sub or words
  * do (case does not matter; the query is trimmed). Only listed sections and rows are searched.
  */
-export function searchSettings(query: string): {
+export function searchSettings(
+  query: string,
+  owner: boolean,
+): {
   readonly rows: readonly SettingsRow[];
   readonly sections: readonly SettingsSection[];
 } {
   const q = query.trim().toLowerCase();
   const tabs = strings.screens.settings.tabs;
   const text = strings.settings;
-  const rows = settingsRows.filter((row) => {
+  const rows = rowsFor(owner).filter((row) => {
     const r = text.rows[row.id];
     return `${r.label} ${r.words} ${tabs[row.section]}`.toLowerCase().includes(q);
   });
-  const sections = settingsSections.filter((s) => {
+  const sections = sectionsFor(owner).filter((s) => {
     const t = text.sections[s.key];
     return `${tabs[s.key]} ${t.sub} ${t.words}`.toLowerCase().includes(q);
   });

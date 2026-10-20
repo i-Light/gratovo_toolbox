@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 
 import { exampleData } from "./example-data";
-import { notifShown, notifyKind, searchSettings, settingsRows, settingsSections } from "./settings";
+import {
+  notifShown,
+  notifyKind,
+  searchSettings,
+  sectionsFor,
+  rowsFor,
+  settingsRows,
+  settingsSections,
+} from "./settings";
 import type { AppData, Notification } from "./store";
 
 const now = new Date(2026, 9, 19, 10, 24, 0).getTime();
@@ -127,11 +135,11 @@ describe("notifyKind and notifShown", () => {
 
 describe("searchSettings", () => {
   it("finds rows by label, words and section name", () => {
-    expect(searchSettings("compact").rows.map((r) => r.id)).toEqual(["density"]);
+    expect(searchSettings("compact", true).rows.map((r) => r.id)).toEqual(["density"]);
     // The app is dark only for now, so there is no theme row to find.
-    expect(searchSettings("dark").rows).toEqual([]);
-    expect(searchSettings("sidebar").rows.map((r) => r.id)).toEqual(["rail"]);
-    expect(searchSettings("appearance").rows.map((r) => r.id)).toEqual([
+    expect(searchSettings("dark", true).rows).toEqual([]);
+    expect(searchSettings("sidebar", true).rows.map((r) => r.id)).toEqual(["rail"]);
+    expect(searchSettings("appearance", true).rows.map((r) => r.id)).toEqual([
       "density",
       "size",
       "motion",
@@ -140,18 +148,29 @@ describe("searchSettings", () => {
   });
 
   it("finds sections by name, sub and words", () => {
-    expect(searchSettings("gmail").sections.map((s) => s.key)).toEqual(["connections"]);
-    expect(searchSettings("hours").sections.map((s) => s.key)).toEqual(["day"]);
-    expect(searchSettings("snooze").sections.map((s) => s.key)).toEqual(["day"]);
-    expect(searchSettings("Search rules").sections.map((s) => s.key)).toContain("search");
+    expect(searchSettings("gmail", true).sections.map((s) => s.key)).toEqual(["connections"]);
+    expect(searchSettings("hours", true).sections.map((s) => s.key)).toEqual(["day"]);
+    expect(searchSettings("snooze", true).sections.map((s) => s.key)).toEqual(["day"]);
+    expect(searchSettings("Search rules", true).sections.map((s) => s.key)).toContain("search");
   });
 
   it("ignores case and trims the query", () => {
-    expect(searchSettings("  DARK ")).toEqual(searchSettings("dark"));
+    expect(searchSettings("  DARK ", true)).toEqual(searchSettings("dark", true));
   });
 
   it("finds nothing for words that are not there, and no rows for sections that arrive later", () => {
-    expect(searchSettings("zzzz")).toEqual({ rows: [], sections: [] });
-    expect(searchSettings("hours").rows).toEqual([]);
+    expect(searchSettings("zzzz", true)).toEqual({ rows: [], sections: [] });
+    expect(searchSettings("hours", true).rows).toEqual([]);
+  });
+});
+
+describe("owner-only sections", () => {
+  it("hides facts, team and connections from a member, in the list and in the search", () => {
+    const keys = (owner: boolean) => sectionsFor(owner).map((s) => s.key);
+    expect(keys(true)).toEqual(expect.arrayContaining(["facts", "team", "connections"]));
+    expect(keys(false)).not.toEqual(expect.arrayContaining(["connections"]));
+    expect(keys(false).some((k) => ["facts", "team", "connections"].includes(k))).toBe(false);
+    expect(searchSettings("gmail", false).sections).toEqual([]);
+    expect(rowsFor(false).length).toBe(rowsFor(true).length);
   });
 });
