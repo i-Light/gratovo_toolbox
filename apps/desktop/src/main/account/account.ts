@@ -23,6 +23,11 @@
  * them (and whose they are) until the same account signs in again. A session the server ended
  * keeps unsent changes the same way.
  *
+ * Realtime (plan D2, D24-D26): beside each engine, one live client on the same session. A
+ * teammate's broadcast schedules a pass; the engine's drains announce what they sent; presence
+ * reaches the frame and the `presence:changed` event for the team's members only, with your own
+ * entry from your own state. The live client goes down before the copy is kept or deleted.
+ *
  * Nothing here logs or returns a token, a password, an email or a key: log lines carry error
  * kinds and codes only.
  */
@@ -34,11 +39,11 @@ import type { DatabaseSync } from "node:sqlite";
 
 import type { AppRole, DataSource } from "@gratovo/core/data";
 import { emailMax, type AuthStatus, type SignInResult } from "@gratovo/ipc";
-import type { AuthState, SignInProblem, SyncStatus } from "@gratovo/ipc";
+import type { AuthState, PresenceScreen, SignInProblem, SyncStatus } from "@gratovo/ipc";
 import { z } from "zod";
 
 import { createSqliteSource, openExampleSource, type FrameExtras } from "../data";
-import { getMeta, pendingCount, setMeta } from "../data/repositories";
+import { getMeta, listProfiles, pendingCount, setMeta } from "../data/repositories";
 import { openDatabase } from "../db/open-database";
 import type { EventSender } from "../events";
 import { NetworkRefusedError, type Network } from "../net/network";
@@ -55,6 +60,8 @@ import {
 import { createSyncEngine, type SyncEngine } from "../sync";
 import { recordIntent } from "../sync/intents";
 import { accountUserKey, keepOnlyUnsent } from "../sync/keep-unsent";
+import { createLive, type Live, type LiveDeps, type PresenceState } from "../sync/live";
+import { presenceExtras, presenceMembers } from "../sync/presence-extras";
 import { toAppRole } from "../sync/whole-tables";
 
 import { createTeamKeys } from "./team-keys";
@@ -77,6 +84,8 @@ export interface Account {
   syncStatus(): SyncStatus;
   /** Runs a sync pass now (or waits for the running one) and answers the state after it. */
   syncNow(): Promise<SyncStatus>;
+  /** The page's screen and idleness, for presence (D26). Does nothing unless signed in. */
+  setPresence(p: { screen: PresenceScreen; idle: boolean }): void;
   /** Opens what the app shows first. Call once, before the window opens. */
   start(): Promise<void>;
   /** At quit: closes the databases and stops the refresh timer. Deletes nothing. */
@@ -96,6 +105,8 @@ export interface AccountDeps {
   reloadWindow: () => void;
   /** Sends main-to-page events (`main/events.ts`): the sync's status and the changed parts. */
   emit: EventSender;
+  /** Makes the live client (Realtime) for a session; defaults to `createLive`. Tests pass a fake. */
+  createLive?: (deps: LiveDeps) => Live;
   timers?: Timers;
   log?: (line: string) => void;
 }
@@ -120,12 +131,20 @@ function offStatus(pending: number): SyncStatus {
   return { state: "off", pending: Math.min(pending, countMax), refused: 0, lastSyncedAt: null };
 }
 
-/** No presence, counts or run until the sync and the engines exist (3d-2b, step 4). */
+/** No counts or run until the engines exist (step 4); presence is set per copy, below. */
 const emptyExtras: FrameExtras = {
   presence: () => ({ status: "away", doing: "" }),
   counts: () => ({ today: 0, plannedMinutes: 0, find: 0, reach: 0, close: 0, deliver: 0 }),
   mateRun: () => null,
 };
+
+/** Nobody present: Realtime is off or hasn't heard from anyone. */
+const nobody: ReadonlyMap<string, PresenceState> = new Map();
+
+/** The team's ids, in the frame's order: the only keys presence shows. */
+function teamIds(db: DatabaseSync): string[] {
+  return listProfiles(db).map((profile) => profile.id);
+}
 
 const storedAccount = z.object({ userId: z.string().min(1), email: z.string() });
 const emailShape = z.email().max(emailMax);
@@ -220,6 +239,12 @@ export function createAccount(deps: AccountDeps): Account {
   // The sync engine of the open live copy, and the `Rest` it was made with.
   let engine: SyncEngine | null = null;
   let engineRest: Rest | null = null;
+  // The live client (Realtime) beside the engine, on the engine's session (D24).
+  let realtime: Live | null = null;
+  // Your own screen and idleness, as the page last said (D26); the app opens on Today.
+  let ownPresence: PresenceState = { screen: "today", idle: false };
+  // The last `presence:changed` sent, so an unchanged one isn't sent again.
+  let lastPresence = "";
   // Unsent changes kept from a signed-out session (D18), for `sync:status` while signed out.
   let kept = 0;
 
@@ -235,7 +260,25 @@ export function createAccount(deps: AccountDeps): Account {
 
   // --- The live copy ---
 
+  /**
+   * Takes the live client down: from here it sends and reports nothing. The returned promise ends
+   * when it has disconnected (at most 2 s per step, `live.ts`); it never rejects.
+   */
+  function stopRealtime(): Promise<void> {
+    const current = realtime;
+    realtime = null;
+    lastPresence = "";
+    if (current === null) {
+      return Promise.resolve();
+    }
+    return current.stop().catch((error: unknown) => {
+      log(`Account: the live connection didn't close cleanly (${describeError(error)}).`);
+    });
+  }
+
+  /** Stops Realtime first, then the engine. */
   function stopEngine(): void {
+    void stopRealtime();
     engine?.stop();
     engine = null;
     engineRest = null;
@@ -386,7 +429,12 @@ export function createAccount(deps: AccountDeps): Account {
     if (live?.db !== db) {
       const source = createSqliteSource(db, {
         me: userId,
-        extras: emptyExtras,
+        extras: {
+          ...emptyExtras,
+          // Read at each frame: who Realtime sees now, the team's members only (D26).
+          presence: (id) =>
+            presenceExtras(realtime?.members() ?? nobody, teamIds(db), userId, ownPresence)(id),
+        },
         now,
         // Inside the batch's transaction: the local write and its outbox entry land together (D11).
         onWrite: (target, write, applyLocal) => {
@@ -415,17 +463,87 @@ export function createAccount(deps: AccountDeps): Account {
       return engine;
     }
     stopEngine();
-    engine = createSyncEngine({
+    const current = session;
+    // The live client shares the engine's session, so one refresher serves both (D2).
+    const rt =
+      config === null || current === null
+        ? null
+        : (deps.createLive ?? createLive)({
+            config,
+            network,
+            session: current,
+            userId: target.userId,
+            log,
+            now,
+            timers,
+          });
+    const made = createSyncEngine({
       db: target.db,
       rest: client,
       userId: target.userId,
       now,
       timers,
       emit: deps.emit,
+      ...(rt === null
+        ? {}
+        : {
+            announce: (tables: readonly string[]) => {
+              rt.announce(tables);
+            },
+          }),
       log,
     });
+    engine = made;
     engineRest = client;
-    return engine;
+    realtime = rt;
+    if (rt !== null) {
+      // A teammate's change: a pass in 1 s (the engine debounces).
+      rt.onRemoteChange(() => {
+        if (engine === made) {
+          made.noteRemote();
+        }
+      });
+      rt.onPresence(() => {
+        if (realtime === rt) {
+          publishPresence();
+        }
+      });
+      rt.setPresence(ownPresence);
+    }
+    return made;
+  }
+
+  /** Starts the engine's passes and, beside it, Realtime. */
+  function runSync(running: SyncEngine): void {
+    running.start();
+    if (engine === running) {
+      realtime?.start();
+    }
+  }
+
+  /** Sends `presence:changed` for the team's members when it differs from the last one sent. */
+  function publishPresence(): void {
+    const target = live;
+    if (state !== "signed-in" || target === null || !target.db.isOpen) {
+      return;
+    }
+    let payload: ReturnType<typeof presenceMembers>;
+    try {
+      payload = presenceMembers(
+        realtime?.members() ?? nobody,
+        teamIds(target.db),
+        target.userId,
+        ownPresence,
+      );
+    } catch (error) {
+      log(`Account: presence couldn't be read (${describeError(error)}).`);
+      return;
+    }
+    const key = JSON.stringify(payload);
+    if (key !== lastPresence) {
+      lastPresence = key;
+      deps.emit("presence:changed", payload);
+    }
   }
 
   /**
@@ -445,12 +563,14 @@ export function createAccount(deps: AccountDeps): Account {
       }
     }
     if (generationAtStart === generation && engine === running) {
-      running.start();
+      runSync(running);
     }
   }
 
   /** Forgets the session and everything that came with it, in memory, and closes the live copy. */
   function forget(): void {
+    // Realtime first: nothing more arrives for a session that is going.
+    void stopRealtime();
     session = null;
     rest = null;
     unchecked = false;
@@ -587,7 +707,10 @@ export function createAccount(deps: AccountDeps): Account {
     // Offline, the check couldn't run: the copy is open on the known access, so its changes start
     // syncing as soon as the server answers.
     if (generationAtStart === generation && rest === client) {
-      engineFor(client)?.start();
+      const running = engineFor(client);
+      if (running !== null) {
+        runSync(running);
+      }
     }
   }
 
@@ -817,11 +940,15 @@ export function createAccount(deps: AccountDeps): Account {
       const current = session;
       const running = engine;
       const target = live;
+      // Realtime goes down first (D18); it closes while the outbox drains, and before the copy is
+      // touched. Its own steps are bounded, so it can't hold sign-out up for long.
+      const down = stopRealtime();
       if (running !== null && target !== null) {
         // The page has asked for a pass already; the outbox gets up to 5 s more (D18). A pass still
         // running is waited for within the same 5 s; what is left stays unsent and is kept.
         await running.drainBefore(now() + signOutDrainMs);
       }
+      await down;
       // Nothing more is sent. With changes still unsent the copy keeps only them, trimmed before the
       // session goes; else it is deleted below. A session that ended during the drain has already
       // settled the copy.
@@ -857,7 +984,17 @@ export function createAccount(deps: AccountDeps): Account {
       return running === null ? syncStatus() : running.syncNow();
     },
 
+    setPresence(p) {
+      if (state !== "signed-in") {
+        return;
+      }
+      ownPresence = { screen: p.screen, idle: p.idle };
+      realtime?.setPresence(ownPresence);
+      publishPresence();
+    },
+
     close() {
+      void stopRealtime();
       generation += 1;
       manager?.close();
       keys.clear();

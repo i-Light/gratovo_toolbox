@@ -10,7 +10,14 @@ export interface HandlerContext {
   secrets: SecretStore;
   account: Pick<
     Account,
-    "status" | "source" | "signIn" | "recheck" | "signOut" | "syncStatus" | "syncNow"
+    | "status"
+    | "source"
+    | "signIn"
+    | "recheck"
+    | "signOut"
+    | "syncStatus"
+    | "syncNow"
+    | "setPresence"
   >;
 }
 
@@ -45,7 +52,10 @@ export function createHandlers({ version, secrets, account }: HandlerContext): H
     // Counts and a state only: no row data, no token.
     "sync:status": () => account.syncStatus(),
     "sync:now": () => account.syncNow(),
-    // A placeholder until presence is wired in (3d-2b S28).
-    "presence:set": () => ({}),
+    // A screen name and a flag only (D26); the account ignores it unless signed in.
+    "presence:set": ({ screen, idle }) => {
+      account.setPresence({ screen, idle });
+      return {};
+    },
   };
 }

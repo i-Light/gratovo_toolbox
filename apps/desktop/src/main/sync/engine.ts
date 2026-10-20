@@ -25,6 +25,7 @@ import { RestError } from "../supabase/rest";
 import type { Rest } from "../supabase/rest";
 import type { Timers } from "../supabase/session";
 
+import { syncConflictNotices } from "./conflict-notices";
 import { createPuller } from "./puller";
 import type { PullResult } from "./puller";
 import { createUploader } from "./uploader";
@@ -163,8 +164,18 @@ export function createSyncEngine(o: SyncEngineOptions): SyncEngine {
     return {
       drain: () => uploader.drain(),
       refetch: () => puller.refetch(),
-      // S28 passes `syncConflictNotices` here as `afterConflicts`.
-      refreshWhole: () => refreshWhole(rest, db, userId),
+      // The conflict notices follow the open conflicts, in the same transaction (D27). They are
+      // notifications, so the page reads them again only when the parts name `notify`.
+      refreshWhole: async () => {
+        const notices = { changed: false };
+        const parts = await refreshWhole(rest, db, userId, {
+          afterConflicts: (d) => {
+            notices.changed = syncConflictNotices(d);
+            return notices.changed;
+          },
+        });
+        return notices.changed ? new Set<FramePart>([...parts, "notify"]) : parts;
+      },
       pull: (budgetMs) => puller.pull(budgetMs),
     };
   }

@@ -42,6 +42,7 @@ function accountWith(
     signOut: () => Promise.resolve(),
     syncStatus: () => synced,
     syncNow: () => Promise.resolve(synced),
+    setPresence: () => undefined,
     ...overrides,
   };
 }
@@ -135,9 +136,14 @@ describe("the sync handlers", () => {
     expect(syncNow).toHaveBeenCalledOnce();
   });
 
-  it("accept presence:set and answer {} until presence is wired in", async () => {
-    expect(
-      await handlersWith(accountWith())["presence:set"]({ screen: "reach", idle: false }),
-    ).toEqual({});
+  it("pass presence:set to the account and answer {}", async () => {
+    const setPresence = vi.fn<HandlerContext["account"]["setPresence"]>();
+    const mine = handlersWith(accountWith({ setPresence }));
+    expect(await mine["presence:set"]({ screen: "reach", idle: false })).toEqual({});
+    expect(await mine["presence:set"]({ screen: "record", idle: true })).toEqual({});
+    expect(setPresence.mock.calls).toEqual([
+      [{ screen: "reach", idle: false }],
+      [{ screen: "record", idle: true }],
+    ]);
   });
 });

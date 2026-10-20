@@ -14,6 +14,7 @@ import { createNetwork } from "../net/network";
 import { createSecretStore, type Cipher } from "../secret-store";
 import type { SupabaseConfig } from "../supabase/config";
 import { sessionSecretName, type Timers } from "../supabase/session";
+import type { Live, LiveDeps, PresenceState } from "../sync/live";
 
 import { createAccount, exampleFile, liveFile, type Account } from "./account";
 import { keyLifetimeMs } from "./team-keys";
@@ -267,6 +268,79 @@ function manualTimers() {
   };
 }
 
+/** A live client stand-in: records what the account asks of it; the test plays the server. */
+interface FakeLive {
+  readonly deps: LiveDeps;
+  starts: number;
+  stops: number;
+  readonly presence: PresenceState[];
+  readonly announced: (readonly string[])[];
+  members: ReadonlyMap<string, PresenceState>;
+  /** While set, `stop()` waits for it. */
+  stopGate: Promise<void> | null;
+  /** A teammate's broadcast arrives. */
+  remote(): void;
+  /** The presence on `toolbox:team` changes to these members. */
+  present(members: Record<string, PresenceState>): void;
+}
+
+function fakeLives() {
+  const made: FakeLive[] = [];
+  /** Every start and stop, in order, with what was on disk at the time. */
+  const order: string[] = [];
+  const create = (deps: LiveDeps): Live => {
+    const remotes: (() => void)[] = [];
+    const watchers: (() => void)[] = [];
+    const fake: FakeLive = {
+      deps,
+      starts: 0,
+      stops: 0,
+      presence: [],
+      announced: [],
+      members: new Map(),
+      stopGate: null,
+      remote: () => {
+        for (const fn of remotes) {
+          fn();
+        }
+      },
+      present: (members) => {
+        fake.members = new Map(Object.entries(members));
+        for (const fn of watchers) {
+          fn();
+        }
+      },
+    };
+    made.push(fake);
+    return {
+      start: () => {
+        fake.starts += 1;
+        order.push("start");
+      },
+      stop: async () => {
+        fake.stops += 1;
+        order.push("stop");
+        await fake.stopGate;
+        order.push(`stopped file=${String(existsSync(join(dir, liveFile)))}`);
+      },
+      announce: (tables) => {
+        fake.announced.push(tables);
+      },
+      setPresence: (p) => {
+        fake.presence.push(p);
+      },
+      members: () => fake.members,
+      onRemoteChange: (fn) => {
+        remotes.push(fn);
+      },
+      onPresence: (fn) => {
+        watchers.push(fn);
+      },
+    };
+  };
+  return { made, order, create };
+}
+
 let dir = "";
 let opened: Account[] = [];
 
@@ -289,6 +363,7 @@ function makeAccount(
   const logs: string[] = [];
   const events: { name: AppEventName; payload: unknown }[] = [];
   const reload = vi.fn();
+  const lives = fakeLives();
   const secrets = createSecretStore(join(dir, "secrets.json"), o.cipher ?? fakeCipher());
   const account = createAccount({
     config: o.configured === false ? null : config,
@@ -300,11 +375,13 @@ function makeAccount(
     emit: (name, payload) => {
       events.push({ name, payload });
     },
+    // Never a real socket in these tests: S31's server tests run the real client.
+    createLive: lives.create,
     timers: o.timers ?? noTimers,
     log: (line) => logs.push(line),
   });
   opened.push(account);
-  return { account, logs, reload, secrets, events };
+  return { account, logs, reload, secrets, events, lives };
 }
 
 const livePath = () => join(dir, liveFile);
@@ -1002,6 +1079,182 @@ describe("the sync", () => {
     expect(liveTables().pending).toBe(1);
     expect(liveTables().meta).toEqual(["account.user_id"]);
     expect(account.syncStatus().pending).toBe(1);
+  });
+});
+
+describe("Realtime and presence", () => {
+  const presenceEvents = (events: { name: AppEventName; payload: unknown }[]) =>
+    events.filter((e) => e.name === "presence:changed").map((e) => e.payload);
+
+  it("starts Realtime beside the engine, on the member's session", async () => {
+    const server = fakeSupabase();
+    const sam = server.addUser("sam@example.com", "full", ["owner"], true);
+    const { account, lives } = makeAccount(server);
+    await account.start();
+    expect(lives.made).toEqual([]);
+
+    await account.signIn("sam@example.com", password);
+    expect(lives.made).toHaveLength(1);
+    const [live] = lives.made;
+    expect(live?.deps.userId).toBe(sam);
+    expect(live?.deps.config).toBe(config);
+    expect(live?.starts).toBe(1);
+    // The page hasn't said where it is yet: the app opens on Today.
+    expect(live?.presence).toEqual([{ screen: "today", idle: false }]);
+    // The same session as the engine: its token is the one the server issued last.
+    const token = await live?.deps.session.accessToken();
+    expect(server.issued).toContain(token);
+  });
+
+  it("a teammate's change schedules a pass a second later", async () => {
+    const server = fakeSupabase();
+    server.addUser("sam@example.com", "full", ["owner"], true);
+    const manual = manualTimers();
+    const { account, lives } = makeAccount(server, { timers: manual.timers });
+    await account.start();
+    await account.signIn("sam@example.com", password);
+    await account.syncNow();
+    expect(manual.delays()).not.toContain(1_000);
+    const pulls = server.count("GET", "/rest/v1/channel_state");
+
+    lives.made[0]?.remote();
+    expect(manual.delays()).toContain(1_000);
+    manual.fire();
+    await vi.waitFor(() => {
+      expect(server.count("GET", "/rest/v1/channel_state")).toBeGreaterThan(pulls);
+    });
+  });
+
+  it("announces what a drain sent through Realtime", async () => {
+    const server = fakeSupabase();
+    server.addUser("sam@example.com", "full", ["owner"], true);
+    const { account, lives } = makeAccount(server);
+    await account.start();
+    await account.signIn("sam@example.com", password);
+    await account.syncNow();
+    expect(lives.made[0]?.announced).toEqual([]);
+
+    await account
+      .source()
+      ?.write([{ kind: "log.add", id: randomUUID(), at: Date.now(), text: "Emailed @ai_daily" }]);
+    await account.syncNow();
+    expect(lives.made[0]?.announced).toEqual([["activity_log"]]);
+  });
+
+  it("shows the team's presence in the frame and the event, with your own from your state", async () => {
+    const server = fakeSupabase();
+    const sam = server.addUser("sam@example.com", "full", ["owner"], true);
+    const omar = server.addUser("omar@example.com", "basic", ["scout"]);
+    const lena = server.addUser("lena@example.com", "basic", ["outreach"]);
+    const { account, events, lives } = makeAccount(server);
+    await account.start();
+    await account.signIn("sam@example.com", password);
+    const live = lives.made[0];
+
+    live?.present({
+      // The server's echo of you doesn't count: your own state does.
+      [sam]: { screen: "team", idle: true },
+      [omar]: { screen: "reach", idle: false },
+      [lena]: { screen: "find", idle: true },
+      "not-on-the-team": { screen: "close", idle: false },
+    });
+    const expected = [
+      { id: sam, status: "online", doing: "Today" },
+      { id: omar, status: "online", doing: "Reach" },
+      { id: lena, status: "away", doing: "Idle" },
+    ];
+    expect(presenceEvents(events)).toEqual([{ members: expected }]);
+    const frame = await frameOf(account);
+    expect(frame.team.map((m) => ({ id: m.id, status: m.status, doing: m.doing }))).toEqual(
+      expected,
+    );
+
+    account.setPresence({ screen: "record", idle: false });
+    expect(live?.presence.at(-1)).toEqual({ screen: "record", idle: false });
+    expect(presenceEvents(events).at(-1)).toEqual({
+      members: [{ id: sam, status: "online", doing: "Looking at a record" }, ...expected.slice(1)],
+    });
+
+    // Omar leaves; the same presence again sends nothing new.
+    live?.present({ [lena]: { screen: "find", idle: true } });
+    live?.present({ [lena]: { screen: "find", idle: true } });
+    const last = presenceEvents(events);
+    expect(last).toHaveLength(3);
+    expect(last.at(-1)).toEqual({
+      members: [
+        { id: sam, status: "online", doing: "Looking at a record" },
+        { id: omar, status: "away", doing: "" },
+        { id: lena, status: "away", doing: "Idle" },
+      ],
+    });
+  });
+
+  it("presence:set while signed out does nothing", async () => {
+    const server = fakeSupabase();
+    server.addUser("sam@example.com", "full", ["owner"], true);
+    const { account, events, lives, secrets } = makeAccount(server);
+    await account.start();
+    const handlers = createHandlers({ version: "1.0.0", secrets, account });
+
+    expect(await handlers["presence:set"]({ screen: "reach", idle: false })).toEqual({});
+    expect(events).toEqual([]);
+    expect(lives.made).toEqual([]);
+
+    // Signing in afterwards still starts from Today, not from what was sent while signed out.
+    await account.signIn("sam@example.com", password);
+    expect(lives.made[0]?.presence).toEqual([{ screen: "today", idle: false }]);
+  });
+
+  it("sign-out takes Realtime down before the copy is wiped", async () => {
+    const server = fakeSupabase();
+    server.addUser("sam@example.com", "full", ["owner"], true);
+    const { account, lives, events } = makeAccount(server);
+    await account.start();
+    await account.signIn("sam@example.com", password);
+    const live = lives.made[0];
+    let open = (): void => undefined;
+    if (live !== undefined) {
+      live.stopGate = new Promise<void>((resolve) => {
+        open = resolve;
+      });
+    }
+
+    let done = false;
+    const signingOut = account.signOut().then(() => {
+      done = true;
+    });
+    // Down first: nothing more is sent or reported for this session.
+    expect(live?.stops).toBe(1);
+    live?.present({ x: { screen: "reach", idle: false } });
+    expect(presenceEvents(events)).toEqual([]);
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, 20);
+    });
+    expect(done).toBe(false);
+    expect(existsSync(livePath())).toBe(true);
+
+    open();
+    await signingOut;
+    expect(lives.order).toEqual(["start", "stop", "stopped file=true"]);
+    expect(existsSync(livePath())).toBe(false);
+    expect(live?.stops).toBe(1);
+  });
+
+  it("stops Realtime when the account closes and when someone else signs in", async () => {
+    const server = fakeSupabase();
+    const sam = server.addUser("sam@example.com", "full", ["owner"], true);
+    const omar = server.addUser("omar@example.com", "basic", ["scout"]);
+    const { account, lives } = makeAccount(server);
+    await account.start();
+    await account.signIn("sam@example.com", password);
+    await account.signIn("omar@example.com", password);
+    expect(lives.made.map((l) => [l.deps.userId, l.starts, l.stops])).toEqual([
+      [sam, 1, 1],
+      [omar, 1, 0],
+    ]);
+
+    account.close();
+    expect(lives.made[1]?.stops).toBe(1);
   });
 });
 

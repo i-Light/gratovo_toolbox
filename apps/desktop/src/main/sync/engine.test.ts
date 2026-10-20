@@ -638,4 +638,64 @@ describe("createSyncEngine", () => {
       expect(events.frames()).toEqual([]);
     });
   });
+
+  describe("the real steps", () => {
+    const at = "2026-10-20T10:00:00.000Z";
+    const open = {
+      id: "c1",
+      channel_id: "UC1",
+      channel_label: "@promptlab",
+      field: "creator_stage",
+      base_value: "replied",
+      mine_value: "emailed",
+      theirs_value: "signed",
+      mine_actor_id: me,
+      mine_actor_name: "Ada",
+      theirs_actor_name: "Sara",
+      detected_at: at,
+      resolved_at: null,
+      updated_at: at,
+    };
+
+    function notices(): { id: string; text: string; sub: string }[] {
+      return db
+        .prepare("SELECT id, text, sub FROM notifications WHERE id LIKE 'conflict:%'")
+        .all()
+        .map((r) => ({ id: String(r["id"]), text: String(r["text"]), sub: String(r["sub"]) }));
+    }
+
+    it("turns your open conflicts into notices when it reads the whole tables", async () => {
+      let conflicts: unknown[] = [open];
+      const rest = {
+        select: (table: string) => Promise.resolve(table === "edit_conflicts" ? conflicts : []),
+      } as unknown as Rest;
+      engine = createSyncEngine({
+        db,
+        rest,
+        userId: me,
+        now: time.now,
+        timers: time.timers,
+        emit: events.emit,
+        log: (line) => {
+          lines.push(line);
+        },
+      });
+
+      await engine.refreshWhole();
+      expect(notices()).toEqual([
+        {
+          id: "conflict:c1",
+          text: "Your change to @promptlab clashed with Sara's",
+          sub: "Stage: yours Emailed, theirs Signed",
+        },
+      ]);
+      // The notice is a notification: the page reads those again only for `notify`.
+      expect(events.frames().at(-1)).toEqual(expect.arrayContaining(["conflicts", "notify"]));
+
+      conflicts = [];
+      await engine.refreshWhole();
+      expect(notices()).toEqual([]);
+      expect(events.frames().at(-1)).toEqual(expect.arrayContaining(["conflicts", "notify"]));
+    });
+  });
 });
