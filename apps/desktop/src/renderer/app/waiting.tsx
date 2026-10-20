@@ -1,3 +1,4 @@
+import type { AuthState } from "@gratovo/ipc";
 import { useState } from "react";
 
 import { strings } from "../strings";
@@ -7,9 +8,9 @@ const text = strings.auth.waiting;
 interface WaitingProps {
   readonly email: string | null;
   /** Asks main to look again; resolves to the new state, or null when the call failed. */
-  readonly recheck: () => Promise<string | null>;
+  readonly recheck: () => Promise<AuthState | null>;
   /** The state changed to something other than waiting. */
-  readonly onChange: (state: string) => void;
+  readonly onChange: (state: AuthState) => void;
   readonly onSignOut: () => void;
 }
 

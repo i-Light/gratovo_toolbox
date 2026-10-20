@@ -3,8 +3,8 @@
  * `supabase.session` = JSON `{ userId, email, refreshToken }`, encrypted by the secret store. The
  * access token lives in memory only.
  *
- * Refresh: single flight, 60 s before the access token expires; after a failed attempt the timer
- * backs off 30 s, 2 min, then every 10 min. The stored refresh token is replaced after every
+ * Refresh: single flight, 60 s before the access token expires (see `refreshDelay` for short-lived
+ * tokens); after a failed attempt the timer backs off 30 s, 2 min, then every 10 min. The stored refresh token is replaced after every
  * rotation, because Supabase refresh tokens are single-use: a stale one is refused with
  * `refresh_token_already_used` (https://supabase.com/docs/guides/auth/sessions). On the local
  * stack (CLI 2.119.0, 2026-10-20) that refusal left the newest token working; the docs say a
@@ -23,6 +23,7 @@ import { AuthError } from "./auth-client";
 export const sessionSecretName = "supabase.session";
 
 const refreshAheadMs = 60_000;
+const minRefreshDelayMs = 5_000;
 const backOffMs: readonly number[] = [30_000, 120_000, 600_000];
 const maxTimerMs = 2_147_483_647;
 
@@ -51,6 +52,11 @@ export interface SessionManager {
   start(tokens: Tokens): Promise<Session>;
   /** Called once when the server ends the current session (never for `end()` or `close()`). */
   onEnded(listener: () => void): void;
+  /**
+   * Called after each successful refresh of the current session, once `restore()` or `start()` has
+   * handed it out (not for the refresh inside `restore()` itself).
+   */
+  onRefreshed(listener: () => void): void;
   /** Stops the refresh timer at quit; the stored session stays for the next start. */
   close(): void;
 }
@@ -67,6 +73,23 @@ const realTimers: Timers = {
     clearTimeout(handle as ReturnType<typeof setTimeout>);
   },
 };
+
+/**
+ * How long until a token that expires at `expiresAt` is refreshed: 60 s ahead of its expiry; a
+ * token with 2 min or less left is refreshed halfway through what it has left; never sooner than
+ * 5 s, so a server that hands out very short (or already expired) tokens can't make it spin.
+ */
+export function refreshDelay(expiresAt: number, now: number): number {
+  const left = expiresAt - now;
+  return Math.max(left - refreshAheadMs, left / 2, minRefreshDelayMs);
+}
+
+interface Access {
+  readonly token: string;
+  readonly expiresAt: number;
+  /** When it stops counting as fresh and the next call refreshes it first. */
+  readonly refreshAt: number;
+}
 
 function asAuthError(error: unknown): AuthError {
   return error instanceof AuthError ? error : new AuthError("unavailable");
@@ -89,7 +112,10 @@ export function createSessionManager(o: {
 }): SessionManager {
   const timers = o.timers ?? realTimers;
   const listeners: (() => void)[] = [];
+  const refreshedListeners: (() => void)[] = [];
   let current: Live | null = null;
+  // Bumped by `start()` and `close()`, so a `restore()` that was reading the store backs off.
+  let generation = 0;
 
   function open(
     userId: string,
@@ -98,12 +124,18 @@ export function createSessionManager(o: {
     firstAccess: { token: string; expiresAt: number } | null,
   ): Live {
     let refreshToken = firstRefreshToken;
-    let access = firstAccess;
+    let access: Access | null = null;
     let state: "live" | "ended" | "closed" = "live";
     let announced = false;
     let inflight: Promise<string> | null = null;
     let timer: unknown = null;
     let failures = 0;
+
+    function hold(token: string, expiresAt: number): void {
+      const delay = refreshDelay(expiresAt, o.now());
+      access = { token, expiresAt, refreshAt: o.now() + delay };
+      schedule(delay);
+    }
 
     function schedule(ms: number): void {
       if (timer !== null) {
@@ -166,10 +198,14 @@ export function createSessionManager(o: {
           throw new AuthError("ended", "user_changed");
         }
         refreshToken = tokens.refreshToken;
-        access = { token: tokens.accessToken, expiresAt: tokens.expiresAt };
         failures = 0;
+        hold(tokens.accessToken, tokens.expiresAt);
+        if (announced) {
+          for (const listener of refreshedListeners) {
+            listener();
+          }
+        }
         await persist();
-        schedule(tokens.expiresAt - refreshAheadMs - o.now());
         return tokens.accessToken;
       } catch (error) {
         const failure = asAuthError(error);
@@ -190,8 +226,8 @@ export function createSessionManager(o: {
       return inflight;
     }
 
-    if (access !== null) {
-      schedule(access.expiresAt - refreshAheadMs - o.now());
+    if (firstAccess !== null) {
+      hold(firstAccess.token, firstAccess.expiresAt);
     }
 
     return {
@@ -204,7 +240,7 @@ export function createSessionManager(o: {
         }
         const held = access;
         const usable = held !== null && held.token !== options.rejected;
-        if (usable && o.now() < held.expiresAt - refreshAheadMs) {
+        if (usable && o.now() < held.refreshAt && o.now() < held.expiresAt) {
           return held.token;
         }
         try {
@@ -247,7 +283,12 @@ export function createSessionManager(o: {
 
   return {
     async restore() {
+      const generationAtStart = generation;
       const raw = await o.store.get(sessionSecretName);
+      // A `start()` or `close()` during the read wins: leave its session and the store alone.
+      if (generationAtStart !== generation) {
+        return null;
+      }
       if (raw === undefined) {
         return null;
       }
@@ -279,6 +320,7 @@ export function createSessionManager(o: {
 
     async start(tokens) {
       // Close the old one first, so its refresh can't write its token over the new one.
+      generation += 1;
       current?.close();
       current = null;
       await o.store.set(
@@ -302,7 +344,12 @@ export function createSessionManager(o: {
       listeners.push(listener);
     },
 
+    onRefreshed(listener) {
+      refreshedListeners.push(listener);
+    },
+
     close() {
+      generation += 1;
       current?.close();
       current = null;
     },

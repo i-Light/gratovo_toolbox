@@ -205,8 +205,34 @@ function fakeCipher(available = true): Cipher {
   };
 }
 
-// The refresh timer never fires in these tests; the session tests cover it.
+// The refresh timer never fires in most of these tests; the session tests cover it.
 const noTimers: Timers = { set: () => 0, clear: () => undefined };
+
+/** Timers fired by hand with `fire()`. */
+function manualTimers() {
+  let next = 0;
+  const pending = new Map<number, () => void>();
+  const timers: Timers = {
+    set: (callback) => {
+      next += 1;
+      pending.set(next, callback);
+      return next;
+    },
+    clear: (handle) => {
+      pending.delete(handle as number);
+    },
+  };
+  return {
+    timers,
+    fire: () => {
+      const callbacks = [...pending.values()];
+      pending.clear();
+      for (const callback of callbacks) {
+        callback();
+      }
+    },
+  };
+}
 
 let dir = "";
 let opened: Account[] = [];
@@ -225,7 +251,7 @@ afterEach(async () => {
 
 function makeAccount(
   server: Fake,
-  o: { configured?: boolean; cipher?: Cipher; now?: () => number } = {},
+  o: { configured?: boolean; cipher?: Cipher; now?: () => number; timers?: Timers } = {},
 ) {
   const logs: string[] = [];
   const reload = vi.fn();
@@ -237,7 +263,7 @@ function makeAccount(
     network: createNetwork({ allowedOrigins: [config.origin], fetch: server.fetch }),
     now: o.now ?? Date.now,
     reloadWindow: reload,
-    timers: noTimers,
+    timers: o.timers ?? noTimers,
     log: (line) => logs.push(line),
   });
   opened.push(account);
@@ -370,7 +396,8 @@ describe("signing in", () => {
     });
     expect(account.status()).toEqual({ state: "waiting", email: "lina@example.com" });
     expect(account.source()).toBeNull();
-    expect(liveMeta("account.access")).toBe("unauthorized");
+    // Waiting keeps none of the team's data on disk.
+    expect(existsSync(livePath())).toBe(false);
 
     expect(await account.recheck()).toEqual({ state: "waiting", email: "lina@example.com" });
 
@@ -402,6 +429,34 @@ describe("signing in", () => {
   });
 });
 
+describe("an access that drops to waiting", () => {
+  it("deletes the local copy but keeps the session", async () => {
+    const server = fakeSupabase();
+    const omar = server.addUser("omar@example.com", "basic", ["scout"]);
+    const { account, secrets } = makeAccount(server);
+    await account.start();
+    await account.signIn("omar@example.com", password);
+    await account.source()?.write([{ kind: "log.add", id: randomUUID(), at: 1, text: "Omar's" }]);
+    expect(existsSync(livePath())).toBe(true);
+
+    server.setRole(omar, "unauthorized");
+    expect(await account.recheck()).toEqual({ state: "waiting", email: "omar@example.com" });
+
+    expect(account.source()).toBeNull();
+    for (const suffix of ["", "-wal", "-shm"]) {
+      expect(existsSync(`${livePath()}${suffix}`)).toBe(false);
+    }
+    expect(await secrets.has(sessionSecretName)).toBe(true);
+
+    // Let back in, the member starts from an empty copy and the team.
+    server.setRole(omar, "basic");
+    expect(await account.recheck()).toEqual({ state: "signed-in", email: "omar@example.com" });
+    const frame = await frameOf(account);
+    expect(frame.log).toEqual([]);
+    expect(frame.team.map((m) => m.id)).toEqual([omar]);
+  });
+});
+
 describe("signing out", () => {
   it("deletes the session, the live copy and the key cache, then reloads", async () => {
     const server = fakeSupabase();
@@ -422,6 +477,43 @@ describe("signing out", () => {
     expect(server.count("POST", "/auth/v1/logout?scope=local")).toBe(1);
     expect(reload).toHaveBeenCalledOnce();
     await expect(account.teamKeys.youtubeKey()).rejects.toThrow("signed-in members");
+  });
+
+  it("deletes the stored session before the local copy", async () => {
+    const server = fakeSupabase();
+    server.addUser("sam@example.com", "full", ["owner"], true);
+    const { account, secrets } = makeAccount(server);
+    await account.start();
+    await account.signIn("sam@example.com", password);
+
+    const copyThere: boolean[] = [];
+    const remove = secrets.delete.bind(secrets);
+    secrets.delete = (name) => {
+      copyThere.push(existsSync(livePath()));
+      return remove(name);
+    };
+    await account.signOut();
+
+    expect(copyThere[0]).toBe(true);
+    expect(await secrets.has(sessionSecretName)).toBe(false);
+    expect(existsSync(livePath())).toBe(false);
+  });
+
+  it("a copy left without a session is deleted at the next start", async () => {
+    const server = fakeSupabase();
+    server.addUser("sam@example.com", "full", ["owner"], true);
+    const first = makeAccount(server);
+    await first.account.start();
+    await first.account.signIn("sam@example.com", password);
+    first.account.close();
+    // As if the app stopped right after deleting the session.
+    await first.secrets.delete(sessionSecretName);
+    expect(existsSync(livePath())).toBe(true);
+
+    const { account } = makeAccount(server);
+    await account.start();
+    expect(account.status().state).toBe("signed-out");
+    expect(existsSync(livePath())).toBe(false);
   });
 
   it("still deletes everything when the server can't be reached", async () => {
@@ -483,6 +575,37 @@ describe("starting with a stored session", () => {
     expect(await secrets.has(sessionSecretName)).toBe(true);
   });
 
+  it("offline at start, checks the access once a refresh gets through", async () => {
+    const server = fakeSupabase();
+    const sam = server.addUser("sam@example.com", "full", ["owner"], true);
+    await signedInBefore(server);
+    server.online = false;
+
+    const manual = manualTimers();
+    const { account, reload, logs } = makeAccount(server, { timers: manual.timers });
+    await account.start();
+    await vi.waitFor(() => {
+      expect(logs.some((line) => line.includes("access check failed"))).toBe(true);
+    });
+    const checks = server.count("GET", "/rest/v1/profiles?select=id,role");
+
+    server.online = true;
+    server.setRole(sam, "unauthorized");
+    manual.fire();
+
+    await vi.waitFor(() => {
+      expect(reload).toHaveBeenCalledOnce();
+    });
+    expect(server.count("GET", "/rest/v1/profiles?select=id,role")).toBe(checks + 1);
+    expect(account.status()).toEqual({ state: "waiting", email: "sam@example.com" });
+    expect(existsSync(livePath())).toBe(false);
+
+    // Checked once: the next refresh doesn't ask again.
+    manual.fire();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(server.count("GET", "/rest/v1/profiles?select=id,role")).toBe(checks + 1);
+  });
+
   it("refuses a name change offline, so the page shows Not saved", async () => {
     const server = fakeSupabase();
     server.addUser("sam@example.com", "full", ["owner"], true);
@@ -528,22 +651,26 @@ describe("starting with a stored session", () => {
     });
     expect(account.status()).toEqual({ state: "waiting", email: "sam@example.com" });
     expect(account.source()).toBeNull();
-    expect(liveMeta("account.access")).toBe("unauthorized");
+    expect(existsSync(livePath())).toBe(false);
   });
 
-  it("starts waiting when the last check said so, and lets the member in once promoted", async () => {
+  it("asks the server first for a waiting member, who has no local copy", async () => {
     const server = fakeSupabase();
     const lina = server.addUser("lina@example.com", "unauthorized");
     await signedInBefore(server, "lina@example.com");
-    server.setRole(lina, "basic");
+    expect(existsSync(livePath())).toBe(false);
 
+    const waiting = makeAccount(server);
+    await waiting.account.start();
+    expect(waiting.account.status().state).toBe("waiting");
+    waiting.account.close();
+
+    server.setRole(lina, "basic");
     const { account, reload } = makeAccount(server);
     await account.start();
-    expect(account.status().state).toBe("waiting");
-    await vi.waitFor(() => {
-      expect(reload).toHaveBeenCalledOnce();
-    });
     expect(account.status().state).toBe("signed-in");
+    expect((await frameOf(account)).me).toBe(lina);
+    expect(reload).not.toHaveBeenCalled();
   });
 
   it("asks the server first when there is no local copy, and shows sign-in offline", async () => {

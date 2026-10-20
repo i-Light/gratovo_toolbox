@@ -4,7 +4,7 @@ import type { SecretStore } from "../secret-store";
 import type { AuthClient, Tokens } from "./auth-client";
 import { AuthError } from "./auth-client";
 import type { Timers } from "./session";
-import { createSessionManager, sessionSecretName } from "./session";
+import { createSessionManager, refreshDelay, sessionSecretName } from "./session";
 
 const minute = 60_000;
 const hour = 60 * minute;
@@ -149,11 +149,39 @@ describe("start", () => {
     expect(t.due()).toEqual([hour - minute]);
   });
 
+  it("never schedules a short-lived token's refresh at 0 ms", async () => {
+    const t = setup();
+    const short = await t.manager.start({ ...t.tokens, expiresAt: 1_000_000 + 30_000 });
+    // Halfway through the 30 s it has, not now and again and again.
+    expect(t.due()).toEqual([15_000]);
+    expect(await short.accessToken()).toBe("access-1");
+    expect(t.refresh).not.toHaveBeenCalled();
+
+    t.refresh.mockResolvedValueOnce({ ...t.tokens, accessToken: "access-x", expiresAt: 1_000_000 });
+    t.advance(15_000);
+    t.fire();
+    await flush();
+    // The server sent an already expired token: the next try waits 5 s.
+    expect(t.due()).toEqual([5_000]);
+  });
+
   it("fails when the session can't be stored, and keeps nothing", async () => {
     const t = setup();
     t.store.set = () => Promise.reject(new Error("Secure storage is not available"));
     await expect(t.manager.start(t.tokens)).rejects.toThrow("Secure storage");
     expect(t.due()).toEqual([]);
+  });
+});
+
+describe("refreshDelay", () => {
+  it("is 60 s ahead, halfway for a short life, and never under 5 s", () => {
+    expect(refreshDelay(hour, 0)).toBe(hour - minute);
+    expect(refreshDelay(2 * minute, 0)).toBe(minute);
+    expect(refreshDelay(90_000, 0)).toBe(45_000);
+    expect(refreshDelay(60_000, 0)).toBe(30_000);
+    expect(refreshDelay(6_000, 0)).toBe(5_000);
+    expect(refreshDelay(0, 0)).toBe(5_000);
+    expect(refreshDelay(-hour, 0)).toBe(5_000);
   });
 });
 
@@ -320,6 +348,32 @@ describe("restore", () => {
     await expect(session?.accessToken()).resolves.toBe("access-2");
   });
 
+  it("tells the listeners when a restored session refreshes later, not during the restore", async () => {
+    const t = setup();
+    const refreshed = vi.fn();
+    t.manager.onRefreshed(refreshed);
+    await t.manager.start(t.tokens);
+    t.manager.close();
+    t.refresh.mockRejectedValueOnce(new AuthError("offline"));
+
+    await t.manager.restore();
+    expect(refreshed).not.toHaveBeenCalled();
+    t.fire();
+    await flush();
+    expect(refreshed).toHaveBeenCalledOnce();
+  });
+
+  it("doesn't tell the listeners about the refresh inside an online restore", async () => {
+    const t = setup();
+    const refreshed = vi.fn();
+    t.manager.onRefreshed(refreshed);
+    await t.manager.start(t.tokens);
+    t.manager.close();
+
+    await t.manager.restore();
+    expect(refreshed).not.toHaveBeenCalled();
+  });
+
   it("lets the stored value outlive close()", async () => {
     const t = setup();
     await t.manager.start(t.tokens);
@@ -411,6 +465,30 @@ describe("a new sign-in replaces the session", () => {
     // The manager still holds the new session, so closing it closes the new one.
     t.manager.close();
     await expect(fresh.accessToken()).rejects.toMatchObject({ kind: "ended" });
+    expect(t.stored()?.["refreshToken"]).toBe("refresh-1");
+  });
+
+  it("and a restore still reading the store returns null and leaves the new session alone", async () => {
+    const t = setup();
+    t.values.set(
+      sessionSecretName,
+      JSON.stringify({ userId: "user-1", email: "lina@example.com", refreshToken: "refresh-0" }),
+    );
+    let read: () => void = () => undefined;
+    t.store.get = (name) =>
+      new Promise((resolve) => {
+        read = () => {
+          resolve(t.values.get(name));
+        };
+      });
+    const restoring = t.manager.restore();
+    const fresh = await t.manager.start(t.tokens);
+    read();
+
+    await expect(restoring).resolves.toBeNull();
+    expect(t.refresh).not.toHaveBeenCalled();
+    expect(await fresh.accessToken()).toBe("access-1");
+    expect(t.due()).toEqual([hour - minute]);
     expect(t.stored()?.["refreshToken"]).toBe("refresh-1");
   });
 });

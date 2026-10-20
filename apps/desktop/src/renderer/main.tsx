@@ -13,9 +13,8 @@ import "./settings/settings.css";
 import { createRoot } from "react-dom/client";
 
 import { startApp } from "./app/start";
-import { strings } from "./strings";
-
 import { initPrefs } from "./lib/prefs";
+import { strings } from "./strings";
 
 const container = document.getElementById("root");
 if (container === null) {

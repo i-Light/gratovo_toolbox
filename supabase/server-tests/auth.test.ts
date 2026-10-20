@@ -194,11 +194,14 @@ describe("the session manager", () => {
 
   it("two accessToken() calls at once cause one refresh", async () => {
     const store = memoryStore();
-    // A clock 59 minutes ahead makes the token look about to expire, so a call refreshes.
-    const manager = createSessionManager({ auth, store, now: () => Date.now() + 59 * 60_000 });
+    // The refresh point is fixed when the token arrives (a minute before it expires), so the
+    // clock moves 59.5 minutes ahead only after sign-in: then a call has to refresh.
+    let ahead = 0;
+    const manager = createSessionManager({ auth, store, now: () => Date.now() + ahead });
     const session = await manager.start(
       await auth.signIn(fixture.member.email, fixture.member.password),
     );
+    ahead = 59.5 * 60_000;
     const writes = store.everWritten.length;
     const [a, b] = await Promise.all([session.accessToken(), session.accessToken()]);
     expect(a).toBe(b);

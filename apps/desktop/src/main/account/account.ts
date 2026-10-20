@@ -10,9 +10,10 @@
  *
  * The live copy belongs to one account (`_meta` `account.user_id`); it also keeps the last known
  * access (`account.access`), so a start with a stored session opens it at once and checks with the
- * server behind it. When that check finds the session ended or the access changed, the window
- * reloads and the page starts over from `auth:status`. Signing out, a session the server ended, or
- * signing in as someone else deletes the live copy.
+ * server behind it. When that check can't reach the server, it runs again after the session's next
+ * successful refresh. When it finds the session ended or the access changed, the window reloads and
+ * the page starts over from `auth:status`. Signing out, a session the server ended, signing in as
+ * someone else, or an access dropped to waiting deletes the live copy.
  *
  * Nothing here logs or returns a token, a password, an email or a key: log lines carry error
  * kinds and codes only.
@@ -177,6 +178,8 @@ export function createAccount(deps: AccountDeps): Account {
   let generation = 0;
   // The start's background check, while it runs.
   let background: Promise<void> | null = null;
+  // The start's access check couldn't reach the server: run it after the next refresh.
+  let unchecked = false;
 
   const keys = createTeamKeys({
     fetchYoutubeKey: () => {
@@ -200,6 +203,15 @@ export function createAccount(deps: AccountDeps): Account {
     closeLive();
     for (const suffix of ["", "-wal", "-shm"]) {
       rmSync(`${livePath}${suffix}`, { force: true, maxRetries: 5, retryDelay: 50 });
+    }
+  }
+
+  /** Deletes the live copy; a failure is logged. */
+  function wipeLiveOrLog(): void {
+    try {
+      wipeLive();
+    } catch (error) {
+      log(`Account: the local copy couldn't be deleted (${describeError(error)}).`);
     }
   }
 
@@ -242,8 +254,18 @@ export function createAccount(deps: AccountDeps): Account {
     };
   }
 
-  /** Records the access in the live copy and enters `waiting` or `signed-in`. Synchronous. */
+  /**
+   * Enters `waiting` or `signed-in`; for `signed-in`, records the access in the live copy.
+   * Synchronous. A member who is waiting keeps none of the team's data on disk: the live copy goes,
+   * as on sign-out, and the session stays.
+   */
   function enter(userId: string, mail: string, role: AppRole): void {
+    if (role === "unauthorized") {
+      email = mail;
+      state = "waiting";
+      wipeLiveOrLog();
+      return;
+    }
     const db = holdLive(userId);
     try {
       setMeta(db, accessKey, role);
@@ -254,14 +276,6 @@ export function createAccount(deps: AccountDeps): Account {
       throw error;
     }
     email = mail;
-    if (role === "unauthorized") {
-      if (live?.db === db) {
-        live = null;
-      }
-      db.close();
-      state = "waiting";
-      return;
-    }
     if (live?.db !== db) {
       const local = createSqliteSource(db, { me: userId, extras: emptyExtras, now });
       live = { userId, db, source: withServerWrites(local, { sendName: sendName(userId) }) };
@@ -284,18 +298,21 @@ export function createAccount(deps: AccountDeps): Account {
     }
   }
 
-  /** Forgets the session and everything that came with it. The secret is the caller's business. */
-  function endLocally(): void {
+  /** Forgets the session and everything that came with it, in memory, and closes the live copy. */
+  function forget(): void {
     session = null;
     rest = null;
+    unchecked = false;
     keys.clear();
     state = "signed-out";
     email = null;
-    try {
-      wipeLive();
-    } catch (error) {
-      log(`Account: the local copy couldn't be deleted (${describeError(error)}).`);
-    }
+    closeLive();
+  }
+
+  /** Forgets the session and deletes the live copy. The secret is the caller's business. */
+  function endLocally(): void {
+    forget();
+    wipeLiveOrLog();
   }
 
   function useSession(next: Session): Rest {
@@ -307,27 +324,53 @@ export function createAccount(deps: AccountDeps): Account {
     return rest;
   }
 
-  /** Asks the server for the member's access, then updates the state and the team. */
-  async function verify(generationAtStart: number, current: Session, client: Rest): Promise<void> {
+  /**
+   * Asks the server for the member's access, then updates the state and the team. False when the
+   * server couldn't answer.
+   */
+  async function verify(
+    generationAtStart: number,
+    current: Session,
+    client: Rest,
+  ): Promise<boolean> {
     let role: AppRole;
     try {
       role = await fetchRole(client, current.userId);
     } catch (error) {
       // Offline: keep what the local copy says. Ended: onEnded has already signed out.
       log(`Account: the access check failed (${describeError(error)}).`);
-      return;
+      return false;
     }
     if (generationAtStart !== generation) {
-      return;
+      return true;
     }
+    unchecked = false;
     try {
       enter(current.userId, current.email, role);
     } catch (error) {
       log(`Account: the local copy couldn't be updated (${describeError(error)}).`);
-      return;
+      return true;
     }
     if (state === "signed-in") {
       await refreshTeamNow(generationAtStart);
+    }
+    return true;
+  }
+
+  /** Checks the access behind the open local copy; reloads the window when the state changed. */
+  async function checkAndReload(
+    generationAtStart: number,
+    current: Session,
+    client: Rest,
+  ): Promise<void> {
+    const before = state;
+    const checked = await verify(generationAtStart, current, client);
+    if (generationAtStart !== generation) {
+      return;
+    }
+    unchecked = !checked;
+    if (state !== before) {
+      deps.reloadWindow();
     }
   }
 
@@ -365,7 +408,6 @@ export function createAccount(deps: AccountDeps): Account {
     if (manager === null) {
       return;
     }
-    const before = state;
     let restored: Session | null;
     try {
       restored = await manager.restore();
@@ -383,10 +425,7 @@ export function createAccount(deps: AccountDeps): Account {
       deps.reloadWindow();
       return;
     }
-    await verify(generationAtStart, restored, useSession(restored));
-    if (generationAtStart === generation && state !== before) {
-      deps.reloadWindow();
-    }
+    await checkAndReload(generationAtStart, restored, useSession(restored));
   }
 
   /** A stored session but no local copy for it: ask the server before the window opens. */
@@ -451,6 +490,19 @@ export function createAccount(deps: AccountDeps): Account {
     deps.reloadWindow();
   });
 
+  // Offline at start the access check failed; the first refresh that gets through runs it again.
+  manager?.onRefreshed(() => {
+    const current = session;
+    const client = rest;
+    if (!unchecked || background !== null || current === null || client === null) {
+      return;
+    }
+    unchecked = false;
+    checkAndReload(generation, current, client).catch((error: unknown) => {
+      log(`Account: the access check failed (${describeError(error)}).`);
+    });
+  });
+
   return {
     status,
 
@@ -474,6 +526,10 @@ export function createAccount(deps: AccountDeps): Account {
         return;
       }
       if (stored === null) {
+        // A sign-out that stopped after deleting the session left the copy behind: delete it.
+        if (existsSync(livePath)) {
+          wipeLiveOrLog();
+        }
         return;
       }
       const generationAtStart = generation;
@@ -578,7 +634,10 @@ export function createAccount(deps: AccountDeps): Account {
       }
       generation += 1;
       const current = session;
-      endLocally();
+      forget();
+      // The stored session goes before the local copy: if the app stops in between, the next start
+      // finds a copy without a session and deletes it, rather than a session that signs back in.
+      // end() also logs out on the server (best effort).
       if (current !== null) {
         try {
           await current.end();
@@ -593,6 +652,7 @@ export function createAccount(deps: AccountDeps): Account {
       } catch (error) {
         log(`Account: the stored session couldn't be deleted (${describeError(error)}).`);
       }
+      wipeLiveOrLog();
       deps.reloadWindow();
     },
 

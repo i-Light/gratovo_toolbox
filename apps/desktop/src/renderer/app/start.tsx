@@ -1,3 +1,4 @@
+import type { AuthState } from "@gratovo/ipc";
 import type { Bridge } from "@gratovo/ipc/bridge";
 import { StrictMode } from "react";
 import type { Root } from "react-dom/client";
@@ -53,7 +54,7 @@ export async function startApp(root: Root, invoke: Bridge["invoke"]): Promise<vo
     return answer.ok ? answer.value : { ok: false, problem: "failed" };
   };
 
-  const show = async (state: string, email: string | null): Promise<void> => {
+  const show = async (state: AuthState, email: string | null): Promise<void> => {
     if (state === "signed-out") {
       setAccountView(noAccount);
       root.render(

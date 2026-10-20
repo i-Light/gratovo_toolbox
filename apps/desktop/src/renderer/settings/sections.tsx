@@ -57,38 +57,36 @@ export function ProfileSection() {
           <span className="small muted">{role}</span>
         </div>
       </div>
-      {
-        <Row id="name" label={rows.name.label} scope="you" desc={rows.name.desc}>
-          <div className="col tight" style={{ minWidth: 0 }}>
-            <input
-              className="inp"
-              value={draft ?? myName ?? ""}
-              placeholder={text.profile.namePlaceholder}
-              aria-label={rows.name.label}
-              maxLength={nameMax}
-              onChange={(event) => {
-                update(event.currentTarget.value);
-              }}
-              onBlur={save}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  event.preventDefault();
-                  save();
-                  event.currentTarget.blur();
-                } else if (event.key === "Escape") {
-                  // preventDefault keeps the key stack from also closing a peek or tray.
-                  event.preventDefault();
-                  update(null);
-                  event.currentTarget.blur();
-                }
-              }}
-            />
-            <span className="hint">
-              {myName === null ? text.profile.notSet : text.profile.setHere}
-            </span>
-          </div>
-        </Row>
-      }
+      <Row id="name" label={rows.name.label} scope="you" desc={rows.name.desc}>
+        <div className="col tight" style={{ minWidth: 0 }}>
+          <input
+            className="inp"
+            value={draft ?? myName ?? ""}
+            placeholder={text.profile.namePlaceholder}
+            aria-label={rows.name.label}
+            maxLength={nameMax}
+            onChange={(event) => {
+              update(event.currentTarget.value);
+            }}
+            onBlur={save}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                save();
+                event.currentTarget.blur();
+              } else if (event.key === "Escape") {
+                // preventDefault keeps the key stack from also closing a peek or tray.
+                event.preventDefault();
+                update(null);
+                event.currentTarget.blur();
+              }
+            }}
+          />
+          <span className="hint">
+            {myName === null ? text.profile.notSet : text.profile.setHere}
+          </span>
+        </div>
+      </Row>
       <Row id="role" label={rows.role.label} desc={owner ? rows.role.descOwner : rows.role.desc}>
         <div className="row wrap">
           <Tag icon="shield">{role}</Tag>

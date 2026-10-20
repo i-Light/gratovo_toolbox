@@ -96,13 +96,13 @@ test.describe("what a signed-in member sees", () => {
     // neither in the frame nor on screen nor in the palette.
     const frame = await loadFrame(page);
     expect(frame.ok).toBe(true);
-    expect(
-      frame.value?.team.map((member) => [member.id, member.name]).sort(([a], [b]) => (a < b ? -1 : 1)),
-    ).toEqual(
-      [
+    const team = frame.value?.team.map((member) => [member.id, member.name]) ?? [];
+    expect(team).toHaveLength(2);
+    expect(team).toEqual(
+      expect.arrayContaining([
         [owner.id, "maya"],
         [other.id, "sam"],
-      ].sort(([a], [b]) => ((a ?? "") < (b ?? "") ? -1 : 1)),
+      ]),
     );
     const frameText = JSON.stringify(frame);
     const shown = await page.locator("body").innerText();
@@ -170,6 +170,19 @@ test.describe("what a signed-in member sees", () => {
     ).toHaveCount(0);
     await expect(sectionButton(page, tabs.team)).toHaveCount(0);
     await expect(sectionButton(page, tabs.connections)).toHaveCount(0);
+
+    // No Connections in the account menu, and the palette offers no owner-only settings: a search
+    // that finds a setting shows the Settings group, one for an owner section doesn't.
+    await expectConnectionsInMenu(page, false);
+    await page.keyboard.press("Control+K");
+    for (const ownerOnly of [tabs.facts, tabs.team, tabs.connections]) {
+      await paletteInput(page).fill(settings.rows.density.label);
+      await expect(paletteSettings(page)).toBeVisible();
+      await paletteInput(page).fill(ownerOnly);
+      await expect(paletteSettings(page)).toHaveCount(0);
+    }
+    await page.keyboard.press("Escape");
+    await expect(paletteDialog(page)).toBeHidden();
     expect(signedErrors).toEqual([]);
   });
 
