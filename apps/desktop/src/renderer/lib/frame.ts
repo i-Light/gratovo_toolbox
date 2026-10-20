@@ -28,7 +28,7 @@ function iconOf(icon: string): IconName {
 function memberOf(member: TeamMember, me: string): Member {
   return {
     id: member.id,
-    name: member.id === me && member.name === "" ? strings.team.you : member.name,
+    name: member.id === me ? strings.team.you : member.name,
     role: member.title ?? strings.team.roles[member.role],
     status: member.status,
     doing: member.doing,

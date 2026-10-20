@@ -3,6 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import type { Creator } from "@gratovo/core/data";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { openDatabase } from "../../db/open-database";
@@ -97,6 +98,59 @@ describe("creators", () => {
       t0 + 2,
     );
     expect(listCreators(db)[0]?.email).toBeNull();
+  });
+
+  it("replaces only the primary email entry and keeps other emails", () => {
+    upsertCreator(db, { id: "UC1", name: "A", handle: "@a", stage: "new", email: null }, t0);
+    db.prepare("UPDATE channel_state SET contacts = ? WHERE channel_id = 'UC1'").run(
+      JSON.stringify([
+        { method: "email", value: "manager@x.example" },
+        { method: "email", value: "old@x.example", primary: true },
+      ]),
+    );
+    upsertCreator(
+      db,
+      { id: "UC1", name: "A", handle: "@a", stage: "new", email: "new@x.example" },
+      t0,
+    );
+    const read = (): unknown[] =>
+      JSON.parse(
+        String(row("SELECT contacts FROM channel_state WHERE channel_id = 'UC1'")["contacts"]),
+      ) as unknown[];
+    expect(read()).toEqual([
+      { method: "email", value: "manager@x.example" },
+      { method: "email", value: "new@x.example", primary: true },
+    ]);
+    expect(listCreators(db)[0]?.email).toBe("new@x.example");
+  });
+
+  it("replaces a bare-string primary email and adds one when there is none", () => {
+    upsertCreator(db, { id: "UC1", name: "A", handle: "@a", stage: "new", email: null }, t0);
+    const set = (contacts: unknown[]) =>
+      db
+        .prepare("UPDATE channel_state SET contacts = ? WHERE channel_id = 'UC1'")
+        .run(JSON.stringify(contacts));
+    const read = (): unknown[] =>
+      JSON.parse(
+        String(row("SELECT contacts FROM channel_state WHERE channel_id = 'UC1'")["contacts"]),
+      ) as unknown[];
+    const creator: Creator = {
+      id: "UC1",
+      name: "A",
+      handle: "@a",
+      stage: "new",
+      email: "new@x.example",
+    };
+    set(["bare@x.example", 7, { method: "twitter", value: "@a" }]);
+    upsertCreator(db, creator, t0);
+    expect(read()).toEqual([
+      7,
+      { method: "twitter", value: "@a" },
+      { method: "email", value: "new@x.example", primary: true },
+    ]);
+    set([{ method: "twitter", value: "@a" }]);
+    upsertCreator(db, creator, t0);
+    expect(read()).toHaveLength(2);
   });
 
   it("recovers from unreadable contacts JSON", () => {

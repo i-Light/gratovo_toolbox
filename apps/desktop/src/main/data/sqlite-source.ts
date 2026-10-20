@@ -52,7 +52,10 @@ export function inTransaction(db: DatabaseSync, fn: () => void): void {
     fn();
     db.exec("COMMIT");
   } catch (error) {
-    db.exec("ROLLBACK");
+    // A failed COMMIT, or SQL that ended the transaction itself, leaves nothing to roll back.
+    if (db.isTransaction) {
+      db.exec("ROLLBACK");
+    }
     throw error;
   }
 }
@@ -124,12 +127,16 @@ export function createSqliteSource(db: DatabaseSync, options: SqliteSourceOption
     write: (writes) =>
       settle(() => {
         inTransaction(db, () => {
-          for (const write of writes) apply(write);
+          for (const write of writes) {
+            apply(write);
+          }
         });
       }),
     // A second close is a no-op, so a failed start and `will-quit` can both close safely.
     close: () => {
-      if (db.isOpen) db.close();
+      if (db.isOpen) {
+        db.close();
+      }
     },
   };
 }

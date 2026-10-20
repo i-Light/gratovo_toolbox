@@ -8,7 +8,9 @@ const notifyKey = "notify";
 /** A setting parsed from its JSON, or undefined when it is missing or is not valid JSON. */
 export function getSetting(db: DatabaseSync, key: string): unknown {
   const row = db.prepare("SELECT value FROM local_settings WHERE key = ?").get(key);
-  if (row === undefined) return undefined;
+  if (row === undefined) {
+    return undefined;
+  }
   try {
     return JSON.parse(String(row["value"])) as unknown;
   } catch {
@@ -30,12 +32,16 @@ export function setSetting(db: DatabaseSync, key: string, value: unknown): void 
 /** The notification switches; anything that is not a known kind with a boolean is left out. */
 export function getNotify(db: DatabaseSync): NotifySettings {
   const stored = getSetting(db, notifyKey);
-  if (typeof stored !== "object" || stored === null || Array.isArray(stored)) return {};
+  if (typeof stored !== "object" || stored === null || Array.isArray(stored)) {
+    return {};
+  }
   const map = stored as Readonly<Record<string, unknown>>;
   const result: Partial<Record<NotifyKind, boolean>> = {};
   for (const kind of notifyKinds) {
     const value = map[kind];
-    if (typeof value === "boolean") result[kind] = value;
+    if (typeof value === "boolean") {
+      result[kind] = value;
+    }
   }
   return result;
 }

@@ -39,10 +39,13 @@ const startTimeout = 60_000;
 /**
  * Starts the built app on a data folder and returns it with its ready page: the URL is the app's
  * and the rail is on screen. Starting again on the same folder is how a test restarts the app.
+ * Console errors and uncaught page errors are added to `errors` from the first moment the window
+ * exists, so start-up errors are caught too (pass the same list again to keep one list across restarts).
  */
 export async function launchApp(
   userData: string,
-): Promise<{ app: ElectronApplication; page: Page }> {
+  errors: string[] = [],
+): Promise<{ app: ElectronApplication; page: Page; errors: string[] }> {
   const app = await electron.launch({
     executablePath: electronBinary,
     args: [appDir],
@@ -50,6 +53,14 @@ export async function launchApp(
     timeout: startTimeout,
   });
   const page = await app.firstWindow({ timeout: startTimeout });
+  page.on("console", (message) => {
+    if (message.type() === "error") {
+      errors.push(`console: ${message.text()}`);
+    }
+  });
+  page.on("pageerror", (error) => {
+    errors.push(`pageerror: ${error.message}`);
+  });
   // firstWindow() can resolve before the app's page has loaded. The URL is polled rather than
   // waited for with waitForURL: that waits for a load or navigation event, and in Electron the
   // page can finish loading before Playwright listens, so it hung with the frame on screen
@@ -62,7 +73,7 @@ export async function launchApp(
   await page
     .getByRole("navigation", { name: strings.rail.label })
     .waitFor({ timeout: startTimeout });
-  return { app, page };
+  return { app, page, errors };
 }
 
 type Fixtures = {
@@ -72,12 +83,16 @@ type Fixtures = {
   app: ElectronApplication;
   /** The window of the running app. */
   page: Page;
+  /** Every console error and uncaught page error since the first launch, restarts included. */
+  errors: string[];
   /** Closes the app and starts it again on the same data folder; returns the new window. */
   relaunch: () => Promise<Page>;
 };
 
 /** Each test gets a fresh copy of the built app, with its own data folder, and its one window. */
-export const test = base.extend<Fixtures & { running: { app: ElectronApplication; page: Page } }>({
+export const test = base.extend<
+  Fixtures & { running: { app: ElectronApplication; page: Page; errors: string[] } }
+>({
   userData: [
     // Playwright reads a fixture's dependencies from this pattern, so it can't be left out.
     // eslint-disable-next-line no-empty-pattern
@@ -104,6 +119,9 @@ export const test = base.extend<Fixtures & { running: { app: ElectronApplication
   app: async ({ running }, use) => {
     await use(running.app);
   },
+  errors: async ({ running }, use) => {
+    await use(running.errors);
+  },
   page: [
     async ({ running }, use) => {
       await use(running.page);
@@ -114,7 +132,7 @@ export const test = base.extend<Fixtures & { running: { app: ElectronApplication
     async ({ running, userData }, use) => {
       await use(async () => {
         await running.app.close();
-        const next = await launchApp(userData);
+        const next = await launchApp(userData, running.errors);
         running.app = next.app;
         running.page = next.page;
         return next.page;

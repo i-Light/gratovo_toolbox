@@ -89,6 +89,7 @@ export interface RailCounts {
 export interface LogEntry {
   readonly id: string;
   readonly at: number;
+  /** The member id of whoever made the change. */
   readonly who: string;
   readonly text: string;
 }

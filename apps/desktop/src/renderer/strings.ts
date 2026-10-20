@@ -45,9 +45,11 @@ export const strings = {
     /** The bell's accessible name while there are unread ones; it starts with the visible name (WCAG 2.5.3). */
     notificationsUnread: (n: number): string => `Notifications, ${String(n)} unread`,
     saved: "Saved",
+    notSaved: "Not saved",
     saving: "Saving…",
     savedTip: (ago: string) => `Saved on this computer and synced ${ago}`,
     savingTip: "Saving to this computer, then syncing to the team",
+    notSavedTip: "The last change could not be saved. It will be gone after a restart.",
   },
   keys: {
     ctrlK: "Ctrl K",

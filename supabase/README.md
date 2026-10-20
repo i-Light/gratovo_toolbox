@@ -12,7 +12,7 @@ The shared backend's schema and its tests.
 
 ## Run the tests
 
-Start Docker Desktop, then run `pnpm test:sql` (or `node supabase/tests/run.ts`). It starts a pinned `postgres:17` container named `gratovo-sqltest-<pid>`, applies the stubs and every migration (the baseline twice, to prove it re-runs), runs each `test_*.sql`, and always removes the container. While `legacy/` exists it also checks the baseline still matches `legacy/backend/schema.sql`. Nothing touches a real Supabase project. CI runs it as the job "SQL tests (Linux, Docker)".
+Start Docker Desktop, then run `pnpm test:sql` (or `node supabase/tests/run.ts`). It starts a pinned `postgres:17` container named `gratovo-sqltest-<pid>`, applies the stubs, the baseline, the baseline a second time (to prove it re-runs), then the later migrations in name order (so the baseline's blanket grants can't hide a later migration that forgot its own), runs each `test_*.sql`, and always removes the container. While `legacy/` exists it also checks the baseline still matches `legacy/backend/schema.sql`. Nothing touches a real Supabase project. CI runs it as the job "SQL tests (Linux, Docker)".
 
 ## Why there is no second pass
 

@@ -121,8 +121,9 @@ export function legacyDealStage(step: number): string {
 
 /**
  * The email to use from a `contacts` JSON column: the email contact marked primary, else the first
- * email contact, else null. Tolerant like the old app: bad JSON, a non-list, blank values and
- * entries that aren't objects are skipped rather than failing the read.
+ * email contact, else null. A bare string with an "@" counts as an email contact that isn't
+ * primary (the old app reads those too). Bad JSON, a non-list, blank values and other entries are
+ * skipped rather than failing the read.
  */
 export function primaryEmail(contactsJson: string): string | null {
   let parsed: unknown;
@@ -136,6 +137,13 @@ export function primaryEmail(contactsJson: string): string | null {
   }
   const emails: { readonly value: string; readonly primary: boolean }[] = [];
   for (const item of parsed as readonly unknown[]) {
+    if (typeof item === "string") {
+      const bare = item.trim();
+      if (bare.includes("@")) {
+        emails.push({ value: bare, primary: false });
+      }
+      continue;
+    }
     if (typeof item !== "object" || item === null) {
       continue;
     }

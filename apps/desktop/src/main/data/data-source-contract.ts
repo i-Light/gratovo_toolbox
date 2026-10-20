@@ -34,7 +34,9 @@ export function describeDataSourceContract(name: string, make: MakeSource): void
 
     afterEach(async () => {
       // Close before removing: Windows will not delete an open file. A second close is a no-op.
-      for (const source of open) source.close();
+      for (const source of open) {
+        source.close();
+      }
       await rm(folder, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
     });
 
@@ -119,8 +121,8 @@ export function describeDataSourceContract(name: string, make: MakeSource): void
         { kind: "log.add", id: idB, at: contractNow - 1000, text: "Changed a switch" },
       );
       expect(frame.log).toEqual([
-        { id: idB, at: contractNow - 1000, who: "Ada", text: "Changed a switch" },
-        { id: idA, at: contractNow - 2000, who: "Ada", text: "Marked all read" },
+        { id: idB, at: contractNow - 1000, who: "u1", text: "Changed a switch" },
+        { id: idA, at: contractNow - 2000, who: "u1", text: "Marked all read" },
       ]);
       frame = await writeAll(source, { kind: "log.remove", id: idB });
       expect(frame.log.map((line) => line.id)).toEqual([idA]);

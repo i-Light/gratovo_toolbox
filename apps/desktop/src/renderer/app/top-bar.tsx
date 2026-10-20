@@ -144,10 +144,11 @@ function JobsButton() {
   );
 }
 
-/** "Saved" or "Saving…", with a dot and a tip that says when it was saved. */
+/** "Saved", "Saving…" or "Not saved", with a dot and a tip that says when it was saved. */
 function SaveState() {
   const saving = useApp((s) => s.ui.saving);
   const savedAt = useApp((s) => s.ui.savedAt);
+  const failed = useApp((s) => s.ui.saveFailed);
   // The tip says "synced 2 min ago", so the clock moves on while the bar stays mounted.
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -160,12 +161,18 @@ function SaveState() {
   }, []);
   return (
     <span
-      className={cx("save", saving && "busy", "hide-narrow")}
+      className={cx("save", saving && "busy", !saving && failed && "failed", "hide-narrow")}
       role="status"
-      data-tip={saving ? strings.top.savingTip : strings.top.savedTip(ago(savedAt, now))}
+      data-tip={
+        saving
+          ? strings.top.savingTip
+          : failed
+            ? strings.top.notSavedTip
+            : strings.top.savedTip(ago(savedAt, now))
+      }
     >
       <i></i>
-      {saving ? strings.top.saving : strings.top.saved}
+      {saving ? strings.top.saving : failed ? strings.top.notSaved : strings.top.saved}
     </span>
   );
 }

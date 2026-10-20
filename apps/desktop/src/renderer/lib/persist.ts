@@ -114,17 +114,31 @@ export function diffData(
 /** Batches waiting to go, oldest first; at most one more is in flight. */
 const queue: DataWrite[][] = [];
 let inFlight = false;
-let idleListeners: (() => void)[] = [];
+let idleListeners: ((ok: boolean) => void)[] = [];
+/** True when a batch has failed since the last time the idle listeners were told. */
+let failedSinceIdle = false;
+
+/** Tells the listeners how the writes went, then forgets the failure they have been told about (a failure nobody is waiting for yet is kept). */
+function reportIdle(listeners: readonly ((ok: boolean) => void)[]): void {
+  const ok = !failedSinceIdle;
+  failedSinceIdle = false;
+  for (const listener of listeners) {
+    listener(ok);
+  }
+}
 
 /** True when no write is waiting or in flight. */
 export function persistenceIdle(): boolean {
   return !inFlight && queue.length === 0;
 }
 
-/** Runs `listener` once the writes are done: now when nothing is pending, else when the queue empties. */
-export function onPersistenceIdle(listener: () => void): void {
+/**
+ * Runs `listener` once the writes are done: now when nothing is pending, else when the queue
+ * empties. It gets `false` when a batch failed since the listeners were last told, else `true`.
+ */
+export function onPersistenceIdle(listener: (ok: boolean) => void): void {
   if (persistenceIdle()) {
-    listener();
+    reportIdle([listener]);
   } else {
     idleListeners.push(listener);
   }
@@ -138,13 +152,14 @@ function sendNext(invoke: Bridge["invoke"]): void {
   if (batch === undefined) {
     const listeners = idleListeners;
     idleListeners = [];
-    for (const listener of listeners) {
-      listener();
+    if (listeners.length > 0) {
+      reportIdle(listeners);
     }
     return;
   }
   inFlight = true;
   const failed = (reason: unknown): void => {
+    failedSinceIdle = true;
     console.error("A change wasn't saved:", reason);
     toast({ msg: strings.saveFailed.title, sub: strings.saveFailed.sub, icon: "alert" });
   };

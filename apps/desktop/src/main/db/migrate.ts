@@ -33,7 +33,9 @@ function userVersion(db: DatabaseSync): number {
 export function migrate(db: DatabaseSync, list: readonly Migration[] = migrations): void {
   const known = list.length === 0 ? 0 : Math.max(...list.map((m) => m.version));
   const current = userVersion(db);
-  if (current > known) throw new DatabaseTooNewError(current, known);
+  if (current > known) {
+    throw new DatabaseTooNewError(current, known);
+  }
 
   const pending = list.filter((m) => m.version > current).sort((a, b) => a.version - b.version);
   for (const migration of pending) {
@@ -43,7 +45,10 @@ export function migrate(db: DatabaseSync, list: readonly Migration[] = migration
       db.exec(`PRAGMA user_version = ${String(migration.version)}`);
       db.exec("COMMIT");
     } catch (error) {
-      db.exec("ROLLBACK");
+      // The migration SQL may have ended the transaction itself: then there is nothing to roll back.
+      if (db.isTransaction) {
+        db.exec("ROLLBACK");
+      }
       throw error;
     }
   }

@@ -7,7 +7,9 @@ import { migrate } from "./migrate";
 /** Opens (or creates) the database, sets the pragmas and migrates it. */
 export function openDatabase(path: string): DatabaseSync {
   const inMemory = path === ":memory:";
-  if (!inMemory) mkdirSync(dirname(path), { recursive: true });
+  if (!inMemory) {
+    mkdirSync(dirname(path), { recursive: true });
+  }
 
   const db = new DatabaseSync(path);
   try {

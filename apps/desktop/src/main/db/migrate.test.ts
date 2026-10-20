@@ -29,6 +29,13 @@ function tables(): string[] {
 const v2: Migration = { version: 2, name: "second", sql: "CREATE TABLE second (id TEXT) STRICT;" };
 
 describe("migrate", () => {
+  it("throws the migration's own error when its SQL ended the transaction first", () => {
+    const ends: Migration = { version: 1, name: "ends", sql: "COMMIT; NOT VALID SQL;" };
+    expect(() => {
+      migrate(db, [ends]);
+    }).toThrow(/syntax error/);
+  });
+
   it("numbers the real migrations 1..n with no gap", () => {
     expect(migrations.map((m) => m.version)).toEqual(migrations.map((_, i) => i + 1));
   });

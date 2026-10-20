@@ -187,10 +187,21 @@ describe("primaryEmail", () => {
     ).toBeNull();
   });
 
+  it("reads a bare string with an @ as a plain email, after any primary one", () => {
+    expect(
+      primaryEmail(json(["  loose@promptlab.tv ", { method: "email", value: "x@y.tv" }])),
+    ).toBe("loose@promptlab.tv");
+    expect(
+      primaryEmail(
+        json(["loose@promptlab.tv", { method: "email", value: "p@y.tv", primary: true }]),
+      ),
+    ).toBe("p@y.tv");
+  });
+
   it("skips entries it can't use", () => {
     const contacts = [
       null,
-      "loose@string.com",
+      "loose string without the sign",
       42,
       { method: "email" },
       { method: "email", value: 7, primary: true },

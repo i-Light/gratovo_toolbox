@@ -40,7 +40,9 @@ export function openExampleSource(path: string, now: () => number = Date.now): D
   const db = openDatabase(path);
   try {
     const stored = Number(getMeta(db, seedKey) ?? 0);
-    if (!(stored >= exampleSeedVersion)) seed(db, now());
+    if (!(stored >= exampleSeedVersion)) {
+      seed(db, now());
+    }
     const fixtures = exampleSeed(now());
     return createSqliteSource(db, {
       me: fixtures.me,
@@ -60,12 +62,24 @@ export function openExampleSource(path: string, now: () => number = Date.now): D
 function seed(db: DatabaseSync, now: number): void {
   const fixtures = exampleSeed(now);
   inTransaction(db, () => {
-    for (const table of dataTables) db.exec(`DELETE FROM ${table}`);
-    for (const profile of fixtures.profiles) upsertProfile(db, profile, now);
-    for (const creator of fixtures.creators) upsertCreator(db, creator, now);
-    for (const brand of fixtures.brands) upsertBrand(db, brand, now);
-    for (const deal of fixtures.deals) upsertDeal(db, deal, now);
-    for (const notification of fixtures.notifications) upsertNotification(db, notification);
+    for (const table of dataTables) {
+      db.exec(`DELETE FROM ${table}`);
+    }
+    for (const profile of fixtures.profiles) {
+      upsertProfile(db, profile, now);
+    }
+    for (const creator of fixtures.creators) {
+      upsertCreator(db, creator, now);
+    }
+    for (const brand of fixtures.brands) {
+      upsertBrand(db, brand, now);
+    }
+    for (const deal of fixtures.deals) {
+      upsertDeal(db, deal, now);
+    }
+    for (const notification of fixtures.notifications) {
+      upsertNotification(db, notification);
+    }
     setNotify(db, {});
     setMeta(db, seedKey, String(exampleSeedVersion));
   });

@@ -84,7 +84,7 @@ describe("activity log", () => {
   it("adds with the actor from me's profile and reads back", () => {
     addLogEntry(db, "u1", { id: "l1", at: t0, who: "ignored", text: "Marked Lina's deal paid" });
     expect(newestLog(db)).toEqual([
-      { id: "l1", at: t0, who: "Maya", text: "Marked Lina's deal paid" },
+      { id: "l1", at: t0, who: "u1", text: "Marked Lina's deal paid" },
     ]);
     const row = db.prepare("SELECT * FROM activity_log").get();
     expect(row).toMatchObject({
@@ -97,9 +97,9 @@ describe("activity log", () => {
     });
   });
 
-  it("logs an empty name when me has no profile", () => {
+  it("logs an empty name when me has no profile, and reads back the member id", () => {
     addLogEntry(db, "ghost", { id: "l1", at: t0, who: "", text: "Did a thing" });
-    expect(newestLog(db)[0]).toMatchObject({ who: "" });
+    expect(newestLog(db)[0]).toMatchObject({ who: "ghost" });
     expect(db.prepare("SELECT actor_role FROM activity_log").get()?.["actor_role"]).toBe(
       "unauthorized",
     );

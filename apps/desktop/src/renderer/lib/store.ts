@@ -150,6 +150,8 @@ export interface AppUi {
   readonly railOpen: boolean;
   readonly saving: boolean;
   readonly savedAt: number;
+  /** True when the last save failed: the top bar says "Not saved" until one works. */
+  readonly saveFailed: boolean;
   readonly lastTab: Readonly<Partial<Record<ScreenKey, string>>>;
   readonly palette: boolean;
   readonly shortcuts: boolean;
@@ -199,6 +201,7 @@ export function createAppStore(
       railOpen: false,
       saving: false,
       savedAt: now - 40000,
+      saveFailed: false,
       lastTab: start.tab === null ? {} : { [start.screen]: start.tab },
       palette: false,
       shortcuts: false,
@@ -225,8 +228,9 @@ export function appStore(): Store<AppData, AppUi> {
 }
 
 /**
- * Tests only: replaces the app store with a fresh one starting on `start`. The app itself makes its
- * store once, when this module loads, from the URL hash; replacing it would drop undo and history.
+ * Tests only: replaces the app store with a fresh one starting on `start`, on the example data. The
+ * app itself makes its store once, with `initAppStore`, from the frame loaded from the database;
+ * replacing it later would drop undo and history.
  */
 export function resetAppStoreForTests(start: Route, now: number = Date.now()): void {
   current = createAppStore(start, now, exampleData(now));

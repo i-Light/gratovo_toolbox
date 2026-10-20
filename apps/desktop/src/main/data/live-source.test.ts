@@ -23,13 +23,25 @@ import {
 function seedLiveFile(file: string, now: number): void {
   const db = openDatabase(file);
   try {
-    if (listProfiles(db).length > 0) return;
+    if (listProfiles(db).length > 0) {
+      return;
+    }
     const fixtures = exampleSeed(now);
-    for (const profile of fixtures.profiles) upsertProfile(db, profile, now);
-    for (const creator of fixtures.creators) upsertCreator(db, creator, now);
-    for (const brand of fixtures.brands) upsertBrand(db, brand, now);
-    for (const deal of fixtures.deals) upsertDeal(db, deal, now);
-    for (const notification of fixtures.notifications) upsertNotification(db, notification);
+    for (const profile of fixtures.profiles) {
+      upsertProfile(db, profile, now);
+    }
+    for (const creator of fixtures.creators) {
+      upsertCreator(db, creator, now);
+    }
+    for (const brand of fixtures.brands) {
+      upsertBrand(db, brand, now);
+    }
+    for (const deal of fixtures.deals) {
+      upsertDeal(db, deal, now);
+    }
+    for (const notification of fixtures.notifications) {
+      upsertNotification(db, notification);
+    }
   } finally {
     db.close();
   }
@@ -51,7 +63,9 @@ describe("live source", () => {
   });
 
   afterEach(async () => {
-    for (const source of open.splice(0)) source.close();
+    for (const source of open.splice(0)) {
+      source.close();
+    }
     await rm(folder, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
   });
 

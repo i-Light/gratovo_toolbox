@@ -6,7 +6,7 @@ import type { Creator } from "@gratovo/core/data";
 /**
  * Adds a creator or updates the one with the same id: the name goes to `channels`, the rest to
  * `channel_state`, with the legacy `vetting_status` and `pipeline_stage` written beside the app's
- * `creator_stage`. The email replaces any email contact and keeps the other contacts.
+ * `creator_stage`. The email replaces the primary email entry and keeps the other contacts (other emails too).
  * `now` is in ms; the table stores ISO text.
  */
 export function upsertCreator(db: DatabaseSync, creator: Creator, now: number): void {
@@ -74,18 +74,23 @@ function contactsWithEmail(existingJson: string, email: string | null): string {
   } catch {
     parsed = [];
   }
+  const oldPrimary = primaryEmail(existingJson);
   const others = (Array.isArray(parsed) ? (parsed as readonly unknown[]) : []).filter(
-    (item) => !isEmailContact(item),
+    (item) => !isPrimaryEmailEntry(item, oldPrimary),
   );
   const next: unknown[] =
     email === null ? others : [...others, { method: "email", value: email, primary: true }];
   return JSON.stringify(next);
 }
 
-function isEmailContact(item: unknown): boolean {
-  return (
-    typeof item === "object" &&
-    item !== null &&
-    (item as Readonly<Record<string, unknown>>)["method"] === "email"
-  );
+/** The entry `primaryEmail` reads as the primary one: flagged primary, or a bare string that is the old primary. */
+function isPrimaryEmailEntry(item: unknown, oldPrimary: string | null): boolean {
+  if (typeof item === "string") {
+    return oldPrimary !== null && item.trim() === oldPrimary;
+  }
+  if (typeof item !== "object" || item === null) {
+    return false;
+  }
+  const contact = item as Readonly<Record<string, unknown>>;
+  return contact["method"] === "email" && contact["primary"] === true;
 }

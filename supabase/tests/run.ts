@@ -1,5 +1,5 @@
-// Builds a throwaway Postgres in Docker, applies the Supabase stubs and every migration (the
-// baseline twice, to prove it can be re-run), then runs each test_*.sql against it.
+// Builds a throwaway Postgres in Docker, applies the Supabase stubs, the baseline (twice, to prove it can be
+// re-run) and the later migrations in name order, then runs each test_*.sql against it.
 //
 //   node supabase/tests/run.ts        (or: pnpm test:sql)
 //
@@ -98,13 +98,16 @@ async function main(): Promise<void> {
   console.log("applying stubs...");
   psql(read(join(here, "00_supabase_stubs.sql")), true);
 
-  for (const m of migrations) {
+  // The baseline first, then again on its own: it promises it is safe to re-run. Later migrations
+  // come after that, so their grants are not hidden by the baseline's blanket grants.
+  console.log(`applying ${baselineName}...`);
+  psql(read(join(migrationsDir, baselineName)), true);
+  console.log(`applying ${baselineName} again (re-runnability)...`);
+  psql(read(join(migrationsDir, baselineName)), true);
+  for (const m of migrations.filter((f) => f !== baselineName)) {
     console.log(`applying ${m}...`);
     psql(read(join(migrationsDir, m)), true);
   }
-  // Applied twice on purpose: the baseline promises it is safe to re-run.
-  console.log(`applying ${baselineName} again (re-runnability)...`);
-  psql(read(join(migrationsDir, baselineName)), true);
 
   for (const t of tests) {
     console.log(`\n=== ${t}`);

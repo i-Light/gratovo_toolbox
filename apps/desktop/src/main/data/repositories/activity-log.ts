@@ -30,12 +30,12 @@ export function removeLogEntry(db: DatabaseSync, id: string): boolean {
   return Number(result.changes) > 0;
 }
 
-/** The newest lines first, at most `limit` (never more than `logCap`). */
+/** The newest lines first (`who` is the member id; rows from the old app without one give the name), at most `limit` (never more than `logCap`). */
 export function newestLog(db: DatabaseSync, limit: number = logCap): LogEntry[] {
   const count = Math.max(0, Math.min(Math.floor(limit), logCap));
   const rows = db
     .prepare(
-      "SELECT id, at, actor_name, action FROM activity_log ORDER BY at DESC, id DESC LIMIT ?",
+      "SELECT id, at, actor_id, actor_name, action FROM activity_log ORDER BY at DESC, id DESC LIMIT ?",
     )
     .all(count);
   return rows.map((row) => {
@@ -43,7 +43,7 @@ export function newestLog(db: DatabaseSync, limit: number = logCap): LogEntry[] 
     return {
       id: String(row["id"]),
       at: Number.isNaN(at) ? 0 : at,
-      who: String(row["actor_name"]),
+      who: String(row["actor_id"] ?? row["actor_name"]),
       text: String(row["action"]),
     };
   });

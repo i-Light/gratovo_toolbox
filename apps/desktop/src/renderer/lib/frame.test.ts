@@ -33,7 +33,7 @@ describe("toAppData", () => {
     expect(roles).toEqual(["Full access", "Account manager", "Waiting for access"]);
   });
 
-  it("calls me 'You' only while the name is empty", () => {
+  it("always calls me 'You' in the team, named or not (the name is in myName)", () => {
     const base = exampleFrame(now);
     const me = pick(
       base.team.filter((m) => m.id === base.me),
@@ -44,7 +44,7 @@ describe("toAppData", () => {
     const named = toAppData(
       frameWith({ team: base.team.map((m) => (m === me ? { ...m, name: "Ada" } : m)) }),
     );
-    expect(named.team.find((m) => m.id === base.me)?.name).toBe("Ada");
+    expect(named.team.find((m) => m.id === base.me)?.name).toBe(strings.team.you);
     const other = toAppData(frameWith({ team: [{ ...me, id: "u9", name: "" }], me: "u1" }));
     expect(other.team[0]?.name).toBe("");
   });

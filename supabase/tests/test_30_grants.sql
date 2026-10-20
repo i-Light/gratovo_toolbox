@@ -37,12 +37,18 @@ select pg_temp.check('every public table has row-level security',
 select pg_temp.check('signed-in users hold select, insert, update and delete on every public table',
   not exists (select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace
                where n.nspname = 'public' and c.relkind in ('r', 'p')
-                 and not has_table_privilege('authenticated', c.oid, 'select,insert,update,delete')));
+                 and not (has_table_privilege('authenticated', c.oid, 'select')
+                      and has_table_privilege('authenticated', c.oid, 'insert')
+                      and has_table_privilege('authenticated', c.oid, 'update')
+                      and has_table_privilege('authenticated', c.oid, 'delete'))));
 
 select pg_temp.check('the service key holds select, insert, update and delete on every public table',
   not exists (select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace
                where n.nspname = 'public' and c.relkind in ('r', 'p')
-                 and not has_table_privilege('service_role', c.oid, 'select,insert,update,delete')));
+                 and not (has_table_privilege('service_role', c.oid, 'select')
+                      and has_table_privilege('service_role', c.oid, 'insert')
+                      and has_table_privilege('service_role', c.oid, 'update')
+                      and has_table_privilege('service_role', c.oid, 'delete'))));
 
 select pg_temp.check('anonymous callers hold no privilege on any public table',
   not exists (select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace

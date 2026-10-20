@@ -28,7 +28,8 @@ let savingRun = 0;
 
 /**
  * Shows "Saving…", then "Saved" once 700 ms have passed and every write has reached the database
- * (whichever comes later). A new change restarts the wait.
+ * (whichever comes later). If a write failed it shows "Not saved" instead, until a save works.
+ * A new change restarts the wait.
  */
 function markSaving(): void {
   appStore().ui((ui) => {
@@ -38,13 +39,18 @@ function markSaving(): void {
   savingRun += 1;
   const run = savingRun;
   savingTimer = setTimeout(() => {
-    onPersistenceIdle(() => {
+    onPersistenceIdle((ok) => {
       if (run !== savingRun) {
         return;
       }
       appStore().ui((ui) => {
         ui.saving = false;
-        ui.savedAt = Date.now();
+        if (ok) {
+          ui.saveFailed = false;
+          ui.savedAt = Date.now();
+        } else {
+          ui.saveFailed = true;
+        }
       });
     });
   }, savingMs);

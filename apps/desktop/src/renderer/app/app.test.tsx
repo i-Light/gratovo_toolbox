@@ -74,6 +74,21 @@ describe("the top bar", () => {
     });
     expect(within(screen.getByRole("status")).getByText(strings.top.saving)).toBeTruthy();
   });
+
+  it("says Not saved after a failed save, and Saved again after a good one", () => {
+    render(<App />);
+    const set = (failed: boolean) => {
+      act(() => {
+        appStore().ui((d) => {
+          d.saveFailed = failed;
+        });
+      });
+    };
+    set(true);
+    expect(within(screen.getByRole("status")).getByText(strings.top.notSaved)).toBeTruthy();
+    set(false);
+    expect(within(screen.getByRole("status")).getByText(strings.top.saved)).toBeTruthy();
+  });
 });
 
 describe("the keys", () => {

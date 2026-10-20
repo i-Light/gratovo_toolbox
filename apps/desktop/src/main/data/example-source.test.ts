@@ -25,7 +25,9 @@ describe("example source", () => {
   });
 
   afterEach(async () => {
-    for (const source of open.splice(0)) source.close();
+    for (const source of open.splice(0)) {
+      source.close();
+    }
     await rm(folder, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
   });
 

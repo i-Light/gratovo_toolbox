@@ -17,7 +17,7 @@ import {
   undo,
 } from "./actions";
 import { exampleData } from "./example-data";
-import { diffData, installPersistence, persistenceIdle } from "./persist";
+import { diffData, installPersistence, onPersistenceIdle, persistenceIdle } from "./persist";
 import type { Route } from "./routes";
 import { appStore, go, initAppStore, resetAppStoreForTests } from "./store";
 import type { AppData, Notification } from "./store";
@@ -385,6 +385,36 @@ describe("the save state", () => {
     vi.advanceTimersByTime(1);
     expect(ui().saving).toBe(false);
     expect(ui().savedAt).toBe(now + 700);
+  });
+
+  it("shows a failed save as not saved, keeps savedAt, and a later save clears it", async () => {
+    install(false);
+    setNotify("reply", false);
+    bridge.calls[0]?.answer({ ok: false, reason: "database is locked" });
+    await flush();
+    vi.advanceTimersByTime(700);
+    expect(ui().saving).toBe(false);
+    expect(ui().saveFailed).toBe(true);
+    expect(ui().savedAt).toBe(now - 40000);
+    setNotify("money", false);
+    bridge.calls[1]?.answer({ ok: true, value: {} });
+    await flush();
+    vi.advanceTimersByTime(700);
+    expect(ui().saveFailed).toBe(false);
+    expect(ui().savedAt).toBe(now + 1400);
+  });
+
+  it("tells every idle listener about a failure, then forgets it", async () => {
+    install(false);
+    setNotify("reply", false);
+    const told: boolean[] = [];
+    onPersistenceIdle((ok) => told.push(ok));
+    onPersistenceIdle((ok) => told.push(ok));
+    bridge.calls[0]?.fail(new Error("bridge gone"));
+    await flush();
+    expect(told).toEqual([false, false]);
+    onPersistenceIdle((ok) => told.push(ok));
+    expect(told).toEqual([false, false, true]);
   });
 
   it("waits for the newest change: an older wait does not end it", async () => {
