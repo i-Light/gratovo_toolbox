@@ -15,6 +15,18 @@ export function upsertBrand(db: DatabaseSync, brand: Brand, now: number): void {
 }
 
 /**
+ * Adds a brand (`created_at` and `updated_at` set to `now`) or sets the name, `sells` and
+ * `status` of the one with that id. `now` is in ms.
+ */
+export function setBrand(
+  db: DatabaseSync,
+  brand: { id: string; name: string; sells: string; status: string },
+  now: number,
+): void {
+  upsertBrand(db, brand, now);
+}
+
+/**
  * Every brand in the order added. A brand the old app wrote has no `sells` (read as an empty
  * string) and no `status` (read as "found").
  */

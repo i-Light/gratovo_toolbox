@@ -260,6 +260,37 @@ export function describeDataSourceContract(name: string, make: MakeSource): void
       expect(after).toEqual(before);
     });
 
+    it("applies a creator's stage, a brand and a deal's step, and ignores unknown ids", async () => {
+      const source = start();
+      const frame = await writeAll(
+        source,
+        { kind: "creator.stage", id: "c1", stage: "emailed" },
+        { kind: "creator.stage", id: "nope", stage: "emailed" },
+        {
+          kind: "brand.set",
+          id: "b1",
+          name: "Codewell Pro",
+          sells: "AI code review",
+          status: "won",
+        },
+        { kind: "brand.set", id: "b9", name: "Tensorly", sells: "AI notebooks", status: "found" },
+        { kind: "deal.step", id: "d1", step: 4 },
+        { kind: "deal.step", id: "nope", step: 4 },
+      );
+      expect(frame.creators.find((c) => c.id === "c1")?.stage).toBe("emailed");
+      expect(frame.creators).toHaveLength(exampleFrame(contractNow).creators.length);
+      expect(frame.brands.find((b) => b.id === "b1")?.name).toBe("Codewell Pro");
+      expect(frame.brands.find((b) => b.id === "b9")).toEqual({
+        id: "b9",
+        name: "Tensorly",
+        sells: "AI notebooks",
+        status: "found",
+      });
+      expect(frame.deals.find((d) => d.id === "d1")?.step).toBe(4);
+      expect(frame.deals).toHaveLength(exampleFrame(contractNow).deals.length);
+      expect(frame.conflicts).toEqual([]);
+    });
+
     it("applies nothing when a batch fails part way", async () => {
       const source = start();
       await writeAll(source, { kind: "log.add", id: idA, at: contractNow, text: "First" });

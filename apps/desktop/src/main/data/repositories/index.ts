@@ -7,9 +7,10 @@ export {
   removeLogEntry,
 } from "./activity-log";
 export type { ActivityRow } from "./activity-log";
-export { listBrands, upsertBrand } from "./brands";
-export { listCreators, listMax, upsertCreator } from "./creators";
-export { listDeals, upsertDeal } from "./deals";
+export { listBrands, setBrand, upsertBrand } from "./brands";
+export { listConflicts, markResolved, replaceOpenConflicts } from "./conflicts";
+export { listCreators, listMax, setCreatorStage, upsertCreator } from "./creators";
+export { listDeals, setDealStep, upsertDeal } from "./deals";
 export { listMemberAccess, replaceMemberAccess } from "./member-access";
 export type { MemberAccessRow } from "./member-access";
 export { getMeta, setMeta } from "./meta";

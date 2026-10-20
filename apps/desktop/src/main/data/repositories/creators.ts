@@ -1,7 +1,7 @@
 import type { DatabaseSync } from "node:sqlite";
 
 import { creatorStageFrom, legacyCreatorFields, primaryEmail } from "@gratovo/core/data";
-import type { Creator } from "@gratovo/core/data";
+import type { Creator, CreatorStage } from "@gratovo/core/data";
 
 /**
  * Adds a creator or updates the one with the same id: the name goes to `channels`, the rest to
@@ -39,6 +39,11 @@ export function upsertCreator(db: DatabaseSync, creator: Creator, now: number): 
     contacts,
     new Date(now).toISOString(),
   );
+}
+
+/** Sets a creator's stage: `creator_stage` and nothing else. An unknown id is a no-op. */
+export function setCreatorStage(db: DatabaseSync, id: string, stage: CreatorStage): void {
+  db.prepare("UPDATE channel_state SET creator_stage = ? WHERE channel_id = ?").run(stage, id);
 }
 
 /** The most creators a frame carries (the IPC list limit, `listMax` in the ipc package). */

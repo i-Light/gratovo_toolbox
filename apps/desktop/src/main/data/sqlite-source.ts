@@ -1,7 +1,8 @@
 import type { DatabaseSync } from "node:sqlite";
 
-import { nameMax, noAccess, notifyKind, seesMoney } from "@gratovo/core/data";
+import { creatorStages, nameMax, noAccess, notifyKind, seesMoney } from "@gratovo/core/data";
 import type {
+  CreatorStage,
   DataSource,
   DataWrite,
   Frame,
@@ -15,6 +16,11 @@ import {
   getNotify,
   getProfile,
   listBrands,
+  listConflicts,
+  markResolved,
+  setBrand,
+  setCreatorStage,
+  setDealStep,
   listCreators,
   listDeals,
   listMemberAccess,
@@ -99,7 +105,7 @@ export function createSqliteSource(db: DatabaseSync, options: SqliteSourceOption
         ? notifications
         : notifications.filter((n) => notifyKind(n.icon) !== "money"),
       log: newestLog(db, { seesMoney: money }),
-      conflicts: [],
+      conflicts: listConflicts(db),
       creators: listCreators(db),
       brands: listBrands(db),
       deals: money ? deals : deals.map((deal) => ({ ...deal, price: null })),
@@ -127,10 +133,28 @@ export function createSqliteSource(db: DatabaseSync, options: SqliteSourceOption
         removeLogEntry(db, write.id);
         return;
       case "creator.stage":
+        setCreatorStage(db, write.id, write.stage);
+        return;
       case "brand.set":
+        setBrand(db, write, clock());
+        return;
       case "deal.step":
-      case "conflict.resolve":
-        throw new Error("not supported until S20");
+        setDealStep(db, write.id, write.step);
+        return;
+      case "conflict.resolve": {
+        const settled = markResolved(db, write.id);
+        // Keeping yours puts your stage back; keeping theirs needs nothing (the server's value is here).
+        if (
+          settled !== null &&
+          write.choice === "mine" &&
+          settled.field === "creator_stage" &&
+          typeof settled.mine === "string" &&
+          (creatorStages as readonly string[]).includes(settled.mine)
+        ) {
+          setCreatorStage(db, settled.channelId, settled.mine as CreatorStage);
+        }
+        return;
+      }
     }
   }
 
