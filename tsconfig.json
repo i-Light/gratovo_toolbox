@@ -6,6 +6,7 @@
     { "path": "./packages/core" },
     { "path": "./packages/ipc" },
     { "path": "./packages/ui" },
-    { "path": "./apps/desktop" }
+    { "path": "./apps/desktop" },
+    { "path": "./supabase/functions" }
   ]
 }
