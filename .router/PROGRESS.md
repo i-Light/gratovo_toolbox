@@ -22,4 +22,12 @@ Owner answers (2026-10-20): **one pull request** for all of 3d-2b (3d-2b-2 folde
 
 Checked after wave 2: typecheck, 454 main + 729 packages/data/renderer Vitest, `test:sql` (11 files).
 
-Next: wave 3 (S8, S13, S20); then S26 alone (lockfile).
+| S8 | N | b08eabb | Write intents for the 3d-1 kinds; a marker's time is `max(now, newest marker + 1 ms)`; `me.name` queues nothing without a local profile row |
+| S20 | N | c3f1127 | `setCreatorStage`, `setBrand`, `setDealStep`, `repositories/conflicts.ts`, `conflicts: listConflicts(db)`; no change to `0003-sync.ts` needed |
+| S13 | N | a14744c | `renderer/lib/live.ts`, `adoptServerData`, `AppData.conflicts`, `AppUi.sync`. Outside its list: `lib/frame.ts` (copies `conflicts`), `start.test.tsx`. `on` read from `globalThis.gratovo` in `start.tsx`. A creator missing from a full (5000) answer is kept |
+| S21 | N | 6226a55 | Intents for `creator.stage`, `brand.set`, `deal.step`, `conflict.resolve` (nothing queued when the row or open conflict is missing) |
+| S24 | N | 40b3632 | Persister diffs for the new kinds; `conflicts` read-only in the page |
+| S6 | N | e9ab6bd | `mirror-tables.ts` (a test checks the columns against the migrations), `whole-tables.ts` (old team-refresh cases moved). Open: a missing `notification_switches` on the server fails the whole refresh (fine once R1 is applied; consider tolerating schema-behind codes in L1). `team-refresh.ts` deleted in S12 |
+| S14 | N | 6dca714 | Sync chip ("Not synced"), refused toast, sign-in waiting line, sign-out sends first. Inline styles for the chip's dot and width (CSS files not in its list: tidy in L1). Open: the refused toast can fire on a count carried over from before the page loaded (fix in `live.ts`) |
+
+**Stopped 2026-10-20 at the usage limit.** In flight when the session stopped (their files may be in the working tree, uncommitted and unverified): S9 (`main/sync/puller.ts`), S22 (`main/sync/uploader.ts` CAS branches), S23 (`main/sync/conflict-notices.ts`, `main/strings.ts`), S26 (`main/net/network.ts`, `apps/desktop/package.json`, `pnpm-lock.yaml`, `@supabase/realtime-js` 2.117.2). Next session: check `git status`; run each of those tasks' done_checks; commit what passes, re-run what doesn't. Then S11, S12, S16, S27 onward.
