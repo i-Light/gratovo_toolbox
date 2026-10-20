@@ -130,6 +130,9 @@ describe("the data channels through the dispatcher", () => {
       "auth:sign-in": () => ({ ok: true as const, state: "signed-in" as const }),
       "auth:recheck": () => ({ state: "unconfigured" as const, email: null }),
       "auth:sign-out": () => ({}),
+      "sync:status": () => ({ state: "off" as const, pending: 0, refused: 0, lastSyncedAt: null }),
+      "sync:now": () => ({ state: "off" as const, pending: 0, refused: 0, lastSyncedAt: null }),
+      "presence:set": () => ({}),
       ...overrides,
     };
     const onError = vi.fn();

@@ -1,10 +1,17 @@
 import type { Channel, ChannelRequest, ChannelResponse } from "./channels";
+import type { AppEventName, AppEventPayload } from "./events";
 
 // Only types come from channels.ts, so the preload script can import this file without bundling
 // zod: the sandboxed preload stays a few lines long.
 
 /** The one Electron IPC channel the bridge uses. Each call names an app channel from `channels`. */
 export const bridgeChannel = "gratovo:invoke";
+
+/** The one Electron IPC channel main uses to tell the page something. Each message is `(name, payload)`. */
+export const eventChannel = "gratovo:event";
+
+/** The event names the page may listen for. A test keeps this equal to the keys of `appEvents`. */
+export const appEventNames = ["frame:changed", "sync:status", "presence:changed"] as const;
 
 /** The name the preload script gives the bridge on the page's `window`. */
 export const bridgeGlobal = "gratovo";
@@ -20,4 +27,9 @@ export interface Bridge {
     channel: C,
     input: ChannelRequest<C>,
   ) => Promise<InvokeResult<C>>;
+  /** Listens for one event from main. Returns the function that stops listening. */
+  readonly on: <E extends AppEventName>(
+    event: E,
+    listener: (payload: AppEventPayload<E>) => void,
+  ) => () => void;
 }

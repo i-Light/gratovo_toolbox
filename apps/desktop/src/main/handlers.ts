@@ -39,5 +39,9 @@ export function createHandlers({ version, secrets, account }: HandlerContext): H
       await account.signOut();
       return {};
     },
+    // Placeholders until the sync is wired in (3d-2b S12, S28).
+    "sync:status": () => ({ state: "off", pending: 0, refused: 0, lastSyncedAt: null }),
+    "sync:now": () => ({ state: "off", pending: 0, refused: 0, lastSyncedAt: null }),
+    "presence:set": () => ({}),
   };
 }

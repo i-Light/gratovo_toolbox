@@ -2,6 +2,8 @@ import { z } from "zod";
 
 import { authStatusSchema, signInRequestSchema, signInResultSchema } from "./auth";
 import { dataWriteSchema, frameSchema } from "./data";
+import { presenceSetSchema } from "./presence";
+import { syncStatusSchema } from "./sync";
 
 /**
  * A secret's name: lowercase words joined by dots or hyphens, such as "gemini.api-key" or
@@ -59,6 +61,21 @@ export const channels = {
   /** Signs out, deletes this computer's copy of the team's data, then reloads the window. */
   "auth:sign-out": {
     request: z.strictObject({}),
+    response: z.strictObject({}),
+  },
+  /** How the sync stands right now. */
+  "sync:status": {
+    request: z.strictObject({}),
+    response: syncStatusSchema,
+  },
+  /** Runs one sync pass now (or waits for the running one) and answers with the status. */
+  "sync:now": {
+    request: z.strictObject({}),
+    response: syncStatusSchema,
+  },
+  /** Tells teammates which screen this person is on, and whether they are idle. */
+  "presence:set": {
+    request: presenceSetSchema,
     response: z.strictObject({}),
   },
 } as const;

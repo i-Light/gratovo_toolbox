@@ -62,7 +62,7 @@ async function start(script: Script): Promise<void> {
   document.body.append(container);
   root = createRoot(container);
   const invoke = fakeInvoke(script, calls);
-  (window as unknown as { gratovo: Bridge }).gratovo = { invoke };
+  (window as unknown as { gratovo: Bridge }).gratovo = { invoke, on: () => () => undefined };
   await act(async () => {
     await startApp(root, invoke);
   });
