@@ -9,6 +9,8 @@
     "vitest.server.config.ts",
     "supabase/tests/run.ts",
     "supabase/server-tests/*.ts",
+    "apps/desktop/src/main/app-page.ts",
+    "apps/desktop/src/main/events.ts",
     "apps/desktop/src/main/secret-store.ts",
     "apps/desktop/src/main/strings.ts",
     "apps/desktop/src/main/net/**/*.ts",

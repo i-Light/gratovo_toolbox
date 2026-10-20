@@ -8,7 +8,10 @@ import type { SecretStore } from "./secret-store";
 export interface HandlerContext {
   version: string;
   secrets: SecretStore;
-  account: Pick<Account, "status" | "source" | "signIn" | "recheck" | "signOut">;
+  account: Pick<
+    Account,
+    "status" | "source" | "signIn" | "recheck" | "signOut" | "syncStatus" | "syncNow"
+  >;
 }
 
 /** The main process's answer to each channel in `channels`. */
@@ -39,9 +42,10 @@ export function createHandlers({ version, secrets, account }: HandlerContext): H
       await account.signOut();
       return {};
     },
-    // Placeholders until the sync is wired in (3d-2b S12, S28).
-    "sync:status": () => ({ state: "off", pending: 0, refused: 0, lastSyncedAt: null }),
-    "sync:now": () => ({ state: "off", pending: 0, refused: 0, lastSyncedAt: null }),
+    // Counts and a state only: no row data, no token.
+    "sync:status": () => account.syncStatus(),
+    "sync:now": () => account.syncNow(),
+    // A placeholder until presence is wired in (3d-2b S28).
     "presence:set": () => ({}),
   };
 }

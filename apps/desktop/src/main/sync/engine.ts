@@ -16,9 +16,10 @@
 
 import type { DatabaseSync } from "node:sqlite";
 
-import type { AppEventName, AppEventPayload, FramePart, SyncState, SyncStatus } from "@gratovo/ipc";
+import type { FramePart, SyncState, SyncStatus } from "@gratovo/ipc";
 
 import { getMeta, pendingCount, removeOtherUsers, setMeta } from "../data/repositories";
+import type { EventSender } from "../events";
 import { AuthError } from "../supabase/auth-client";
 import { RestError } from "../supabase/rest";
 import type { Rest } from "../supabase/rest";
@@ -30,11 +31,8 @@ import { createUploader } from "./uploader";
 import type { DrainResult } from "./uploader";
 import { refreshWhole } from "./whole-tables";
 
-/**
- * Sends one main-to-page event (D15). The account passes `main/events.ts`'s sender, which
- * validates the payload and sends it to the app's own windows only.
- */
-export type EventSender = <E extends AppEventName>(event: E, payload: AppEventPayload<E>) => void;
+// `main/events.ts` defines it; re-exported so the engine's users can name it from here.
+export type { EventSender };
 
 export interface SyncEngine {
   /** Starts the timers and runs the first pass at once. */

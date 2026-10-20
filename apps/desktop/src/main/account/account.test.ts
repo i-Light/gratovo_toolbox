@@ -4,10 +4,10 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { channels, createDispatcher } from "@gratovo/ipc";
+import { channels, createDispatcher, type AppEventName } from "@gratovo/ipc";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { getMeta } from "../data/repositories";
+import { getMeta, pendingCount } from "../data/repositories";
 import { openDatabase } from "../db/open-database";
 import { createHandlers } from "../handlers";
 import { createNetwork } from "../net/network";
@@ -30,6 +30,17 @@ const password = "pw-test-000-correct";
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
+const syncTables = [
+  "notification_switches",
+  "edit_conflicts",
+  "channel_state",
+  "brands",
+  "deals",
+  "activity_log",
+  "sync_tombstones",
+  "sync_control",
+];
+
 /** A Supabase stand-in: Auth's token and logout endpoints, the tables and the RPC the account uses. */
 function fakeSupabase() {
   const users: { id: string; email: string; password: string }[] = [];
@@ -39,6 +50,8 @@ function fakeSupabase() {
   const accessTokens = new Map<string, string>();
   const issued: string[] = [];
   const requests: { method: string; path: string; body: string }[] = [];
+  /** Log lines and switches the app sent. */
+  const posted: Record<string, unknown[]> = { activity_log: [], notification_switches: [] };
   const server = {
     online: true,
     youtubeKey: "yt-test-000" as string | null,
@@ -46,6 +59,7 @@ function fakeSupabase() {
     profiles,
     issued,
     requests,
+    posted,
   };
 
   function addUser(email: string, role: string, roles: string[] = [], seesMoney = false): string {
@@ -156,6 +170,19 @@ function fakeSupabase() {
       }
       return Promise.resolve(new Response(null, { status: 204 }));
     }
+    // The tables the sync reads: nothing on the server yet, beyond the team.
+    const table = url.pathname.replace(/^\/rest\/v1\//, "");
+    if (method === "GET" && syncTables.includes(table)) {
+      return Promise.resolve(json([]));
+    }
+    if (
+      method === "POST" &&
+      authorized &&
+      (table === "activity_log" || table === "notification_switches")
+    ) {
+      posted[table]?.push(...(JSON.parse(body) as unknown[]));
+      return Promise.resolve(new Response(null, { status: 201 }));
+    }
     if (method === "POST" && url.pathname === "/rest/v1/rpc/team_youtube_key") {
       return Promise.resolve(
         authorized ? json(server.youtubeKey) : json({ code: "42501", message: "No" }, 403),
@@ -212,21 +239,27 @@ const noTimers: Timers = { set: () => 0, clear: () => undefined };
 function manualTimers() {
   let next = 0;
   const pending = new Map<number, () => void>();
+  const delays = new Map<number, number>();
   const timers: Timers = {
-    set: (callback) => {
+    set: (callback, ms) => {
       next += 1;
       pending.set(next, callback);
+      delays.set(next, ms);
       return next;
     },
     clear: (handle) => {
       pending.delete(handle as number);
+      delays.delete(handle as number);
     },
   };
   return {
     timers,
+    /** The waits of the timers still pending. */
+    delays: () => [...delays.values()],
     fire: () => {
       const callbacks = [...pending.values()];
       pending.clear();
+      delays.clear();
       for (const callback of callbacks) {
         callback();
       }
@@ -254,6 +287,7 @@ function makeAccount(
   o: { configured?: boolean; cipher?: Cipher; now?: () => number; timers?: Timers } = {},
 ) {
   const logs: string[] = [];
+  const events: { name: AppEventName; payload: unknown }[] = [];
   const reload = vi.fn();
   const secrets = createSecretStore(join(dir, "secrets.json"), o.cipher ?? fakeCipher());
   const account = createAccount({
@@ -263,11 +297,14 @@ function makeAccount(
     network: createNetwork({ allowedOrigins: [config.origin], fetch: server.fetch }),
     now: o.now ?? Date.now,
     reloadWindow: reload,
+    emit: (name, payload) => {
+      events.push({ name, payload });
+    },
     timers: o.timers ?? noTimers,
     log: (line) => logs.push(line),
   });
   opened.push(account);
-  return { account, logs, reload, secrets };
+  return { account, logs, reload, secrets, events };
 }
 
 const livePath = () => join(dir, liveFile);
@@ -277,6 +314,30 @@ function liveMeta(key: string): string | null {
   const db = openDatabase(livePath());
   try {
     return getMeta(db, key);
+  } finally {
+    db.close();
+  }
+}
+
+/** The row count of each table in the live file, and its `_meta` keys, as a later start would see. */
+function liveTables(): { rows: Record<string, number>; meta: string[]; pending: number } {
+  const db = openDatabase(livePath());
+  try {
+    const names = db
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")
+      .all()
+      .map((row) => String(row["name"]));
+    const rows = Object.fromEntries(
+      names.map((name) => [
+        name,
+        Number(db.prepare(`SELECT COUNT(*) AS n FROM "${name}"`).get()?.["n"] ?? 0),
+      ]),
+    );
+    const meta = db
+      .prepare("SELECT key FROM _meta ORDER BY key")
+      .all()
+      .map((row) => String(row["key"]));
+    return { rows, meta, pending: pendingCount(db) };
   } finally {
     db.close();
   }
@@ -552,7 +613,7 @@ describe("starting with a stored session", () => {
     expect((await frameOf(account)).me).toBe(sam);
 
     await vi.waitFor(() => {
-      expect(server.count("GET", "/rest/v1/member_access")).toBe(before + 1);
+      expect(server.count("GET", "/rest/v1/member_access")).toBeGreaterThan(before);
     });
     await account.recheck();
     expect(account.status().state).toBe("signed-in");
@@ -606,17 +667,24 @@ describe("starting with a stored session", () => {
     expect(server.count("GET", "/rest/v1/profiles?select=id,role")).toBe(checks + 1);
   });
 
-  it("refuses a name change offline, so the page shows Not saved", async () => {
+  it("saves a name change offline and sends it once the server is back", async () => {
     const server = fakeSupabase();
-    server.addUser("sam@example.com", "full", ["owner"], true);
+    const sam = server.addUser("sam@example.com", "full", ["owner"], true);
     await signedInBefore(server);
     server.online = false;
     const { account } = makeAccount(server);
     await account.start();
     await account.recheck();
 
-    await expect(account.source()?.write([{ kind: "me.name", name: "Samuel" }])).rejects.toThrow();
-    expect((await frameOf(account)).myName).toBe("sam");
+    await account.source()?.write([{ kind: "me.name", name: "Samuel" }]);
+    expect((await frameOf(account)).myName).toBe("Samuel");
+    expect(await account.syncNow()).toMatchObject({ state: "offline", pending: 1 });
+    expect(server.profiles.get(sam)?.["display_name"]).toBe("sam");
+
+    server.online = true;
+    expect(await account.syncNow()).toMatchObject({ state: "synced", pending: 0 });
+    expect(server.profiles.get(sam)?.["display_name"]).toBe("Samuel");
+    expect((await frameOf(account)).myName).toBe("Samuel");
   });
 
   it("signs out, deletes the copy and reloads when the server has ended the session", async () => {
@@ -710,15 +778,19 @@ describe("a session the server ends while the app runs", () => {
 });
 
 describe("your name", () => {
-  it("reaches the server before the local copy", async () => {
+  it("is saved locally at once and reaches the server on the next pass", async () => {
     const server = fakeSupabase();
     const sam = server.addUser("sam@example.com", "full", ["owner"], true);
     const { account } = makeAccount(server);
     await account.start();
     await account.signIn("sam@example.com", password);
+    await account.syncNow();
 
     await account.source()?.write([{ kind: "me.name", name: "  Samuel  " }]);
+    expect((await frameOf(account)).myName).toBe("Samuel");
+    expect(account.syncStatus().pending).toBe(1);
 
+    await account.syncNow();
     expect(server.profiles.get(sam)?.["display_name"]).toBe("Samuel");
     expect(server.requests.filter((r) => r.method === "PATCH")).toEqual([
       {
@@ -728,6 +800,208 @@ describe("your name", () => {
       },
     ]);
     expect((await frameOf(account)).myName).toBe("Samuel");
+  });
+});
+
+describe("the sync", () => {
+  it("starts after sign-in has read the whole tables", async () => {
+    const server = fakeSupabase();
+    server.addUser("sam@example.com", "full", ["owner"], true);
+    const { account, events } = makeAccount(server);
+    await account.start();
+    expect(account.syncStatus()).toEqual({
+      state: "off",
+      pending: 0,
+      refused: 0,
+      lastSyncedAt: null,
+    });
+
+    await account.signIn("sam@example.com", password);
+    const paths = server.requests.map((r) => `${r.method} ${r.path.split("?")[0] ?? ""}`);
+    const firstPull = paths.indexOf("GET /rest/v1/channel_state");
+    for (const whole of ["profiles", "member_access", "notification_switches", "edit_conflicts"]) {
+      const at = paths.indexOf(`GET /rest/v1/${whole}`);
+      expect(at, whole).toBeGreaterThanOrEqual(0);
+      if (firstPull >= 0) {
+        expect(at, whole).toBeLessThan(firstPull);
+      }
+    }
+
+    const after = await account.syncNow();
+    expect(after.state).toBe("synced");
+    expect(after.lastSyncedAt).not.toBeNull();
+    expect(server.count("GET", "/rest/v1/channel_state")).toBeGreaterThan(0);
+    expect(events.some((e) => e.name === "sync:status")).toBe(true);
+  });
+
+  it("queues a write in the outbox and schedules a pass a second later", async () => {
+    const server = fakeSupabase();
+    const sam = server.addUser("sam@example.com", "full", ["owner"], true);
+    const manual = manualTimers();
+    const { account } = makeAccount(server, { timers: manual.timers });
+    await account.start();
+    await account.signIn("sam@example.com", password);
+    await account.syncNow();
+    expect(manual.delays()).not.toContain(1_000);
+
+    const id = randomUUID();
+    await account
+      .source()
+      ?.write([{ kind: "log.add", id, at: Date.now(), text: "Emailed @ai_daily" }]);
+    expect(account.syncStatus().pending).toBe(1);
+    await vi.waitFor(() => {
+      expect(manual.delays()).toContain(1_000);
+    });
+
+    manual.fire();
+    await vi.waitFor(() => {
+      expect(server.posted["activity_log"]).toEqual([
+        expect.objectContaining({ id, actor_id: sam, entity_label: "Emailed @ai_daily" }),
+      ]);
+    });
+    await vi.waitFor(() => {
+      expect(account.syncStatus().pending).toBe(0);
+    });
+  });
+
+  it("signing out with an unsent change keeps only the outbox", async () => {
+    const server = fakeSupabase();
+    const sam = server.addUser("sam@example.com", "full", ["owner"], true);
+    const { account, secrets, reload, logs } = makeAccount(server);
+    await account.start();
+    await account.signIn("sam@example.com", password);
+    await account.syncNow();
+    server.online = false;
+    await account.source()?.write([{ kind: "me.name", name: "Samuel" }]);
+
+    await account.signOut();
+
+    expect(await secrets.has(sessionSecretName)).toBe(false);
+    expect(reload).toHaveBeenCalledOnce();
+    expect(account.status().state).toBe("signed-out");
+    expect(account.syncStatus()).toEqual({
+      state: "off",
+      pending: 1,
+      refused: 0,
+      lastSyncedAt: null,
+    });
+    const { rows, meta, pending } = liveTables();
+    expect(pending).toBe(1);
+    for (const [table, n] of Object.entries(rows)) {
+      expect(n, table).toBe(table === "_outbox" ? 1 : table === "_meta" ? 1 : 0);
+    }
+    expect(meta).toEqual(["account.user_id"]);
+    expect(liveMeta("account.user_id")).toBe(sam);
+    expect(logs).toContain("Account: kept 1 unsent changes on this computer.");
+  });
+
+  it("keeps that copy at the next start without a session, and says how many wait", async () => {
+    const server = fakeSupabase();
+    server.addUser("sam@example.com", "full", ["owner"], true);
+    const first = makeAccount(server);
+    await first.account.start();
+    await first.account.signIn("sam@example.com", password);
+    await first.account.syncNow();
+    server.online = false;
+    await first.account.source()?.write([{ kind: "me.name", name: "Samuel" }]);
+    await first.account.signOut();
+    first.account.close();
+
+    const { account, secrets } = makeAccount(server);
+    await account.start();
+    expect(account.status().state).toBe("signed-out");
+    expect(existsSync(livePath())).toBe(true);
+    const dispatch = createDispatcher(
+      createHandlers({ version: "1.0.0", secrets, account }),
+      () => {
+        throw new Error("no handler should fail");
+      },
+    );
+    expect(await dispatch("sync:status", {})).toEqual({
+      ok: true,
+      value: { state: "off", pending: 1, refused: 0, lastSyncedAt: null },
+    });
+    expect(await dispatch("sync:now", {})).toEqual({
+      ok: true,
+      value: { state: "off", pending: 1, refused: 0, lastSyncedAt: null },
+    });
+  });
+
+  it("the same account signing back in sends the kept change first", async () => {
+    const server = fakeSupabase();
+    const sam = server.addUser("sam@example.com", "full", ["owner"], true);
+    const first = makeAccount(server);
+    await first.account.start();
+    await first.account.signIn("sam@example.com", password);
+    await first.account.syncNow();
+    server.online = false;
+    await first.account.source()?.write([{ kind: "me.name", name: "Samuel" }]);
+    await first.account.signOut();
+    first.account.close();
+
+    server.online = true;
+    const { account } = makeAccount(server);
+    await account.start();
+    const from = server.requests.length;
+    await account.signIn("sam@example.com", password);
+    // While it is unsent, the kept name wins over the server's.
+    expect((await frameOf(account)).myName).toBe("Samuel");
+    expect(await account.syncNow()).toMatchObject({ state: "synced", pending: 0 });
+
+    expect(server.profiles.get(sam)?.["display_name"]).toBe("Samuel");
+    const later = server.requests
+      .slice(from)
+      .map((r) => `${r.method} ${r.path.split("?")[0] ?? ""}`);
+    const patch = later.indexOf("PATCH /rest/v1/profiles");
+    expect(patch).toBeGreaterThanOrEqual(0);
+    expect(patch).toBeLessThan(later.indexOf("GET /rest/v1/channel_state"));
+  });
+
+  it("another account signing in deletes the kept change and logs the count", async () => {
+    const server = fakeSupabase();
+    const sam = server.addUser("sam@example.com", "full", ["owner"], true);
+    const omar = server.addUser("omar@example.com", "basic", ["scout"]);
+    const first = makeAccount(server);
+    await first.account.start();
+    await first.account.signIn("sam@example.com", password);
+    await first.account.syncNow();
+    server.online = false;
+    await first.account.source()?.write([{ kind: "me.name", name: "Samuel" }]);
+    await first.account.signOut();
+    first.account.close();
+
+    server.online = true;
+    const { account, logs } = makeAccount(server);
+    await account.start();
+    const from = server.requests.length;
+    await account.signIn("omar@example.com", password);
+    await account.syncNow();
+
+    expect(logs).toContain("Account: deleted 1 unsent changes of another account.");
+    expect(server.requests.slice(from).filter((r) => r.method === "PATCH")).toEqual([]);
+    expect(server.profiles.get(sam)?.["display_name"]).toBe("sam");
+    expect((await frameOf(account)).me).toBe(omar);
+    expect(account.syncStatus().pending).toBe(0);
+  });
+
+  it("a session the server ends keeps unsent changes the same way", async () => {
+    const server = fakeSupabase();
+    const sam = server.addUser("sam@example.com", "full", ["owner"], true);
+    const { account, reload } = makeAccount(server);
+    await account.start();
+    await account.signIn("sam@example.com", password);
+    await account.syncNow();
+    server.online = false;
+    await account.source()?.write([{ kind: "me.name", name: "Samuel" }]);
+
+    server.online = true;
+    server.revoke(sam);
+    expect(await account.recheck()).toEqual({ state: "signed-out", email: null });
+
+    expect(reload).toHaveBeenCalledOnce();
+    expect(liveTables().pending).toBe(1);
+    expect(liveTables().meta).toEqual(["account.user_id"]);
+    expect(account.syncStatus().pending).toBe(1);
   });
 });
 
@@ -764,7 +1038,7 @@ describe("nothing secret leaves", () => {
   it("no auth:* answer or log line carries a token, the password, the key or the email", async () => {
     const server = fakeSupabase();
     const sam = server.addUser("sam@example.com", "full", ["owner"], true);
-    const { account, logs, secrets } = makeAccount(server);
+    const { account, logs, secrets, events } = makeAccount(server);
     await account.start();
     const dispatch = createDispatcher(
       createHandlers({ version: "1.0.0", secrets, account }),
@@ -784,6 +1058,8 @@ describe("nothing secret leaves", () => {
     await call("auth:sign-in", { email: "sam@example.com", password: "" });
     await call("auth:sign-in", { email: "sam@example.com", password });
     await call("auth:status", {});
+    await call("sync:now", {});
+    await call("sync:status", {});
     await call("auth:recheck", {});
     server.online = false;
     await call("auth:recheck", {});
@@ -799,7 +1075,8 @@ describe("nothing secret leaves", () => {
       ok: true,
       value: { state: "signed-in", email: "sam@example.com" },
     });
-    const text = JSON.stringify(answers);
+    expect(events.length).toBeGreaterThan(0);
+    const text = JSON.stringify([answers, events]);
     expect(server.issued.length).toBeGreaterThan(0);
     for (const secret of [...server.issued, password, "wrong-000", config.publishableKey]) {
       expect(text).not.toContain(secret);
