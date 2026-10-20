@@ -150,3 +150,40 @@ test.describe("accessibility (axe, WCAG 2.2 AA)", () => {
     await runScenes(page);
   });
 });
+
+test.describe("accessibility of the sign-in screens (axe, WCAG 2.2 AA)", () => {
+  test("sign-in (empty and with an error) and the waiting screen, dark, 1440x900", async ({
+    supabase,
+    startSigned,
+  }) => {
+    test.setTimeout(120_000);
+    supabase.addUser({ email: "maya@example.com", role: "full", roles: ["owner"] });
+    const newcomer = supabase.addUser({ email: "sam@example.com", role: "unauthorized" });
+    const { page } = await startSigned({ ready: "page" });
+    await page.setViewportSize(desktop);
+    await page.waitForFunction((width) => window.innerWidth === width, desktop.width);
+    const found: string[] = [];
+    const report = makeReport(page, found);
+    const { signIn, waiting } = strings.auth;
+
+    await expect(page.getByRole("heading", { level: 1, name: signIn.title })).toBeVisible();
+    await report("sign-in: empty");
+
+    await page.getByLabel(signIn.email).fill(newcomer.email);
+    await page.getByLabel(signIn.password, { exact: true }).fill("not-the-password");
+    await page.getByRole("button", { name: signIn.submit, exact: true }).click();
+    await expect(page.getByRole("alert")).toHaveText(signIn.problems.invalid);
+    await report("sign-in: with an error");
+
+    await page.getByLabel(signIn.password, { exact: true }).fill(newcomer.password);
+    await page.getByRole("button", { name: signIn.submit, exact: true }).click();
+    await expect(page.getByRole("heading", { level: 1, name: waiting.title })).toBeVisible();
+    await report("waiting");
+
+    await page.getByRole("button", { name: waiting.check, exact: true }).click();
+    await expect(page.getByRole("status")).toHaveText(waiting.stillWaiting);
+    await report("waiting: still waiting");
+
+    expect(found, `WCAG violations:\n${found.join("\n")}`).toEqual([]);
+  });
+});
