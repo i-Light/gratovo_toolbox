@@ -60,9 +60,21 @@ export function readFindFile(folder: string): FindFile {
   if (!parsed.success) {
     return defaultFindFile();
   }
+  // The start message refuses keywords that aren't trimmed or repeat (in any case), so a file
+  // edited by hand mustn't carry them: those entries are dropped.
+  const seen = new Set<string>();
+  const queue = parsed.data.queue.filter((entry) => {
+    const key = entry.keyword.toLowerCase();
+    if (entry.keyword !== entry.keyword.trim() || seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
   return {
     ...parsed.data,
-    queue: parsed.data.queue.map((entry) =>
+    at: Math.min(parsed.data.at, queue.length),
+    queue: queue.map((entry) =>
       entry.state === "running" ? { ...entry, state: "queued" as const } : entry,
     ),
   };

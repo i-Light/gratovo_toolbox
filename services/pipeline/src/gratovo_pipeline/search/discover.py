@@ -20,7 +20,7 @@ from gratovo_pipeline.search.pacing import Pacer
 from gratovo_pipeline.youtube import ChannelInfo, VideoInfo, YouTubeApi
 
 # The uploads window read per channel. It stays at 15 (the owner's note on the old code: enough
-# to span about a month); widening it is the on-hold gap first-1.
+# to span about a month); widening it is the on-hold gap search-1.
 RECENT_VIDEOS: Final = 15
 _PROGRESS_EVERY: Final = 20
 

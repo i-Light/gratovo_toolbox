@@ -297,6 +297,41 @@ describe("the pipeline supervisor", () => {
     await expect(supervisor().shutdown()).resolves.toBeUndefined();
   });
 
+  it("refuses a start message that fails its schema before any process exists", () => {
+    const pipeline = supervisor();
+    const good = startMessage("D:\\data");
+    const bad = { ...good, job: { ...good.job, startAt: 5 } };
+    expect(() => pipeline.start(bad, handlers)).toThrow();
+    expect(spawned).toEqual([]);
+    expect(pipeline.running).toBe(false);
+  });
+
+  it("never pushes the kill later when asked to stop again", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const pipeline = supervisor();
+    pipeline.start(startMessage("D:\\data"), handlers);
+    pipeline.stop();
+    vi.advanceTimersByTime(20_000);
+    pipeline.stop();
+    vi.advanceTimersByTime(10_000);
+    expect(child.killed).toBe(true);
+    await settle();
+  });
+
+  it("keeps waiting for the exit when an error comes after the process started", async () => {
+    const pipeline = supervisor();
+    pipeline.start(startMessage("D:\\data"), handlers);
+    child.emit("spawn");
+    child.emit("error", new Error("kill EPERM"));
+    await settle();
+    expect(exits).toEqual([]);
+    expect(pipeline.running).toBe(true);
+
+    child.exit(1);
+    await settle();
+    expect(exits).toEqual([{ kind: "failed", reason: "crash" }]);
+  });
+
   it("reports a process that couldn't start", async () => {
     const pipeline = supervisor();
     pipeline.start(startMessage("D:\\data"), handlers);
@@ -310,6 +345,10 @@ describe("the pipeline supervisor", () => {
   it("logs stderr and log events, with every secret of the job blanked out", async () => {
     supervisor().start(startMessage("D:\\data"), handlers);
     child.stderr.write(`Traceback: key ${key} via proxy-pass-123\n`);
+    // A secret split across two chunks of the pipe.
+    child.stderr.write(`again ${key.slice(0, 7)}`);
+    await settle();
+    child.stderr.write(`${key.slice(7)} done\n`);
     child.send({ type: "log", level: "warn", text: `retrying ${key}` });
     child.send(end);
     child.exit(0);

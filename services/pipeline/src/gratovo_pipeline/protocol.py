@@ -17,9 +17,11 @@ from collections.abc import Callable, Mapping, Sequence
 from typing import Final, Literal, NotRequired, TextIO, TypedDict, cast
 
 PROTOCOL: Final = 1
-# The longest line either side reads (main's maxLineLength); a longer start line is cut and
-# then refused as not JSON.
+# The longest line main reads from the pipeline (main's maxLineLength).
 MAX_LINE: Final = 64 * 1024
+# The start line is longer: up to 500 keywords of 200 characters and the URLs in its secrets fit
+# well inside this. A longer one is cut and then refused as not JSON.
+MAX_START_LINE: Final = 1024 * 1024
 # Text fields the schema caps at this length; longer text is cut, never refused.
 MAX_TEXT: Final = 500
 

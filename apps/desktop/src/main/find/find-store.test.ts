@@ -57,6 +57,21 @@ describe("the find file", () => {
     });
     expect(readFindFile(folder).queue[0]?.state).toBe("queued");
   });
+
+  it("drops entries the start message would refuse (untrimmed, repeated in any case)", () => {
+    writeFindFile(folder, {
+      queue: [
+        { keyword: "ai news", state: "done", found: 1, kept: 1 },
+        { keyword: " ai agents", state: "queued", found: 0, kept: 0 },
+        { keyword: "AI News", state: "queued", found: 0, kept: 0 },
+      ],
+      at: 3,
+      rules: defaultRules(),
+    });
+    const file = readFindFile(folder);
+    expect(file.queue.map((q) => q.keyword)).toEqual(["ai news"]);
+    expect(file.at).toBe(1);
+  });
 });
 
 describe("the rules schemas", () => {

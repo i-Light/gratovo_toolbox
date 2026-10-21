@@ -26,7 +26,7 @@ def main() -> int:
     emitter = protocol.Emitter(sys.stdout)
     emitter.ready()
     try:
-        start = protocol.parse_start(sys.stdin.readline(protocol.MAX_LINE))
+        start = protocol.parse_start(sys.stdin.readline(protocol.MAX_START_LINE))
     except protocol.BadStartError as error:
         emitter.end(state="failed", at=0, found=0, kept=0, error=("bad_start", str(error)))
         return 0

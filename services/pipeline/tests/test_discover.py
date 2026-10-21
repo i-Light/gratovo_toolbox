@@ -183,7 +183,7 @@ def test_a_sweep_reads_uploads_on_one_session(
 
     def fake_channel(**kwargs: Any) -> Iterator[dict[str, Any]]:
         seen.append((kwargs["channel_url"], kwargs["session"]))
-        assert kwargs["limit"] == 15  # the 15-video window stays (the on-hold gap first-1)
+        assert kwargs["limit"] == 15  # the 15-video window stays (the on-hold gap search-1)
         return iter([{"videoId": "a"}, {"videoId": "b"}, {"noId": 1}])
 
     monkeypatch.setattr(scrapetube, "get_session", lambda: session)

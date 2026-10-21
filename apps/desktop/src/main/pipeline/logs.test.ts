@@ -70,6 +70,10 @@ describe("pipeline logs", () => {
     expect(redact("via abc123.execute-api.us-east-1.amazonaws.com/prod", secrets)).toBe(
       "via [secret]",
     );
+    expect(redact("host abc123.execute-api.us-east-1.amazonaws.com refused", secrets)).toBe(
+      "host [secret] refused",
+    );
+    expect(redact("via proxy.example", secrets)).toBe("via proxy.example");
     // Too short to be a secret worth hiding, and hiding it would blank ordinary words.
     expect(redact("a b", ["a", "b"])).toBe("a b");
   });

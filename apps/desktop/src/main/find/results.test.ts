@@ -5,7 +5,25 @@ import { DatabaseSync } from "node:sqlite";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import type { FindState } from "@gratovo/ipc";
+
 import { readKept } from "./results";
+
+/** No country rule and auto-clean off: every fetched channel counts. */
+const open: FindState["rules"] = {
+  countries: [],
+  perKeyword: 200,
+  sortBy: "upload_date",
+  resultsType: "video",
+  autoClean: {
+    enabled: false,
+    minSubscribers: 50_000,
+    maxSubscribers: 2_000_000,
+    belowMin: "sweep",
+    aboveMax: "delay",
+    label: "inactive",
+  },
+};
 
 describe("readKept", () => {
   let folder: string;
@@ -37,11 +55,11 @@ describe("readKept", () => {
   });
 
   it("is empty when there is no database", () => {
-    expect(readKept(join(folder, "nope.db"))).toEqual([]);
+    expect(readKept(join(folder, "nope.db"), open)).toEqual([]);
   });
 
   it("lists fetched channels, newest first, with the latest keyword", () => {
-    const kept = readKept(path);
+    const kept = readKept(path, open);
     expect(kept.map((c) => c.channelId)).toEqual(["UC_b", "UC_a", "UC_c"]);
     expect(kept[1]).toEqual({
       channelId: "UC_a",
@@ -55,17 +73,43 @@ describe("readKept", () => {
   });
 
   it("turns hidden subscribers into null and names a channel by handle, then id", () => {
-    const kept = readKept(path);
+    const kept = readKept(path, open);
     expect(kept[0]).toMatchObject({ name: "@agentsdaily", subscribers: null, country: null });
     expect(kept[2]).toMatchObject({ name: "UC_c", handle: null, country: null });
   });
 
+  it("says nothing of a keyword the store doesn't name", () => {
+    const db = new DatabaseSync(path);
+    db.exec("DELETE FROM channel_keywords WHERE channel_id = 'UC_b'");
+    db.close();
+    expect(readKept(path, open)[0]).toMatchObject({ channelId: "UC_b", keyword: null });
+  });
+
+  it("keeps only what the run's rules keep, as during a run", () => {
+    // The backlog also reads channels auto-clean left for later and ones outside the countries.
+    const db = new DatabaseSync(path);
+    db.exec(
+      "INSERT INTO channels VALUES (" +
+        "'UC_big', 'AI News Giant', '@ainewsgiant', '9000000', 1, 'US', '2026-10-22T10:00:00Z')",
+    );
+    db.close();
+    const rules = {
+      ...open,
+      countries: ["US", "GB"],
+      autoClean: { ...open.autoClean, enabled: true, minSubscribers: 10_000 },
+    };
+    // UC_b has no country, UC_c is under the minimum, UC_big over the maximum.
+    expect(readKept(path, rules).map((c) => c.channelId)).toEqual(["UC_a"]);
+    const offAbove = { ...rules, autoClean: { ...rules.autoClean, aboveMax: "off" as const } };
+    expect(readKept(path, offAbove).map((c) => c.channelId)).toEqual(["UC_big", "UC_a"]);
+  });
+
   it("honours the limit", () => {
-    expect(readKept(path, 1)).toHaveLength(1);
+    expect(readKept(path, open, 1)).toHaveLength(1);
   });
 
   it("opens the database read-only and closes it, so the file can be deleted", () => {
-    readKept(path);
+    readKept(path, open);
     expect(() => {
       rmSync(path);
     }).not.toThrow();

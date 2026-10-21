@@ -10,17 +10,19 @@ const text = strings.findSearch.live;
 type RunState = FindState["run"]["state"];
 
 /**
- * The run's state as the page shows it. After a restart main reports a run as "ready" again, so
- * the queue says how far it got: all done reads as finished, some done as paused there.
+ * The run's state as the page shows it, read through the queue when no run is going: after a
+ * restart main reports "ready" again, and after a finished run keywords may have been added since.
+ * All done reads as finished; keywords added after a finished run wait to be started; a run a
+ * restart interrupted partway reads as paused there.
  */
 function shownState({ run, queue, at }: FindState): RunState {
-  if (run.state !== "ready" || queue.length === 0) {
+  if ((run.state !== "ready" && run.state !== "done") || queue.length === 0) {
     return run.state;
   }
   if (queue.every((k) => k.state === "done")) {
     return "done";
   }
-  return at > 0 ? "paused" : "ready";
+  return run.state === "done" || at === 0 ? "ready" : "paused";
 }
 
 function headline(state: FindState): string {
@@ -34,7 +36,7 @@ function headline(state: FindState): string {
     case "done":
       return text.done;
     case "ready":
-      return text.ready(queue.length);
+      return text.ready(queue.filter((k) => k.state !== "done").length);
     case "paused":
       return text.paused(n);
     case "failed":
@@ -51,7 +53,7 @@ export function LiveRun({ state }: { readonly state: FindState }) {
   const stopping = run.state === "stopping";
   const done = queue.filter((k) => k.state === "done").length;
   const total = queue.length;
-  const finished = run.state === "done" || (total > 0 && done === total);
+  const finished = shownState(state) === "done";
   const [problem, setProblem] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);

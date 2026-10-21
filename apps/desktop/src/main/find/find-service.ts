@@ -91,6 +91,10 @@ export function createFindService(deps: FindServiceDeps): FindService {
   let session: Session | null = null;
   let starting = false;
   let stopRequested = false;
+  // Bumped by shutdown (sign-out, quit): a start still awaiting its key gives up when it changed.
+  let generation = 0;
+  // Where the running job began; `at` is the first keyword from here that isn't done.
+  let runStart = 0;
   // The running job's secrets: blanked out of its log lines before they reach the page.
   let jobSecrets: string[] = [];
   let lastEmit = Number.NEGATIVE_INFINITY;
@@ -133,7 +137,7 @@ export function createFindService(deps: FindServiceDeps): FindService {
       rules: s.rules,
       run: { ...s.run },
       log: s.log.map((line) => ({ ...line })),
-      kept: s.kept ?? readKept(join(s.folder, "pipeline.db"), keptMax),
+      kept: s.kept ?? readKept(join(s.folder, "pipeline.db"), s.rules, keptMax),
     };
   }
 
@@ -166,6 +170,17 @@ export function createFindService(deps: FindServiceDeps): FindService {
     }, wait);
   }
 
+  /** The first keyword from the run's start that isn't done. With parallel workers keywords can
+   * finish out of order, so "one after the last done" could skip one still unfinished. */
+  function firstUndone(s: Session): number {
+    for (let i = Math.min(runStart, s.queue.length); i < s.queue.length; i += 1) {
+      if (s.queue[i]?.state !== "done") {
+        return i;
+      }
+    }
+    return s.queue.length;
+  }
+
   function message(s: Session, m: PipelineMessage): void {
     switch (m.type) {
       case "keyword": {
@@ -179,7 +194,7 @@ export function createFindService(deps: FindServiceDeps): FindService {
           entry.state = "done";
           entry.found = m.found ?? 0;
           entry.kept = m.kept ?? 0;
-          s.at = m.index + 1;
+          s.at = firstUndone(s);
           s.run.found += m.found ?? 0;
           save(s);
         } else {
@@ -193,7 +208,8 @@ export function createFindService(deps: FindServiceDeps): FindService {
           const channel: Kept = {
             channelId: m.channelId,
             name: m.name.slice(0, 200),
-            handle: m.handle,
+            // The page's limit is 200; a percent-encoded non-Latin handle can be longer.
+            handle: m.handle === null ? null : m.handle.slice(0, 200),
             subscribers: m.subscribers,
             medianViews: m.medianViews,
             country: m.country,
@@ -207,7 +223,8 @@ export function createFindService(deps: FindServiceDeps): FindService {
       case "log":
         s.log = [
           ...s.log,
-          { at: deps.now(), level: m.level, text: redact(m.text, jobSecrets) },
+          // Blanking can lengthen a line ("[secret]" for a shorter secret): cut to the page's limit.
+          { at: deps.now(), level: m.level, text: redact(m.text, jobSecrets).slice(0, 500) },
         ].slice(-logMax);
         break;
       default:
@@ -270,7 +287,7 @@ export function createFindService(deps: FindServiceDeps): FindService {
 
     remove(index) {
       const { session: s } = open();
-      if (supervisor.running) {
+      if (starting || supervisor.running) {
         return { ok: false, problem: "running" };
       }
       if (index < s.queue.length) {
@@ -286,7 +303,7 @@ export function createFindService(deps: FindServiceDeps): FindService {
 
     startAt(index) {
       const { session: s } = open();
-      if (supervisor.running) {
+      if (starting || supervisor.running) {
         return { ok: false, problem: "running" };
       }
       s.at = Math.min(index, s.queue.length);
@@ -304,6 +321,7 @@ export function createFindService(deps: FindServiceDeps): FindService {
         return { ok: false, problem: "no_keywords" };
       }
       starting = true;
+      const startedIn = generation;
       try {
         let youtubeKey: string | null = null;
         if (mode === "live") {
@@ -318,11 +336,26 @@ export function createFindService(deps: FindServiceDeps): FindService {
         }
         const proxyUrls = await urlList(secrets, "pipeline.proxies");
         const gatewayUrls = await urlList(secrets, "pipeline.gateways");
-        // The lookups above took time: another start may have got in.
+        // The lookups above took time: another start may have got in, or the account signed out
+        // or changed (a live search must never start for someone no longer signed in).
         if (isRunning()) {
           return { ok: false, problem: "running" };
         }
+        const now = account.findContext();
+        if (
+          generation !== startedIn ||
+          now === null ||
+          now.mode !== mode ||
+          now.workerId !== workerId ||
+          session !== s
+        ) {
+          return { ok: false, problem: "running" };
+        }
+        if (s.at >= s.queue.length) {
+          return { ok: false, problem: "no_keywords" };
+        }
         stopRequested = false;
+        runStart = s.at;
         jobSecrets = secretsOf({ secrets: { youtubeKey, proxyUrls, gatewayUrls } });
         const started = supervisor.start(
           {
@@ -354,7 +387,7 @@ export function createFindService(deps: FindServiceDeps): FindService {
         }
         s.run = { state: "running", found: 0, kept: 0, swept: 0, error: null };
         s.log = [];
-        s.kept = readKept(join(s.folder, "pipeline.db"), keptMax);
+        s.kept = readKept(join(s.folder, "pipeline.db"), s.rules, keptMax);
         emitNow();
         return { ok: true };
       } finally {
@@ -373,6 +406,7 @@ export function createFindService(deps: FindServiceDeps): FindService {
     },
 
     async shutdown() {
+      generation += 1;
       stopRequested = true;
       await supervisor.shutdown();
       if (timer !== null) {

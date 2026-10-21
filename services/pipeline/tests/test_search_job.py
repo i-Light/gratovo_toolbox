@@ -13,7 +13,8 @@ import pytest
 from fakes import FakeSource
 from helpers import changed, start_with
 
-from gratovo_pipeline import example, run_control, store
+from gratovo_pipeline import __main__ as gratovo_main
+from gratovo_pipeline import example, protocol, run_control, store
 from gratovo_pipeline.jobs import search as search_job
 from gratovo_pipeline.protocol import Emitter, Start
 from gratovo_pipeline.search.context import SearchBlockedError
@@ -386,3 +387,30 @@ def test_a_keyword_outside_the_fixture_still_finds_the_same_channels_every_time(
     first = source.find_channels("gemini for spreadsheets", limit=200)
     assert first == source.find_channels("gemini for spreadsheets", limit=200)
     assert 3 <= len(first) <= 6
+
+
+def test_a_start_line_longer_than_a_message_line_is_read_whole(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # 500 keywords of up to 200 characters and long secret URLs pass the schema: over 64 KiB.
+    keywords = [f"{i} {'ai agents ' * 19}".strip()[:200] for i in range(500)]
+    message = changed("dataDir", str(tmp_path / "example-pipeline"))
+    message = changed("job.keywords", keywords, message)
+    message = changed("job.startAt", 0, message)
+    line = json.dumps(message) + "\n"
+    assert len(line) > 64 * 1024
+    seen: list[Start] = []
+
+    def record(start: Start, _emitter: Emitter) -> None:
+        seen.append(start)
+
+    def no_listener(_stream: object, _on_stop: object) -> None:
+        pass
+
+    monkeypatch.setattr(sys, "stdin", io.StringIO(line))
+    monkeypatch.setattr(sys, "stdout", io.StringIO())
+    monkeypatch.setattr(search_job, "run", record)
+    monkeypatch.setattr(protocol, "listen_for_stop", no_listener)
+
+    assert gratovo_main.main() == 0
+    assert len(seen[0]["job"]["keywords"]) == 500

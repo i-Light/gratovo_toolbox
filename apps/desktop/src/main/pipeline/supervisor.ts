@@ -27,6 +27,7 @@ export interface ChildLike {
   kill(): boolean;
   on(event: "close", listener: (code: number | null, signal: NodeJS.Signals | null) => void): this;
   on(event: "error", listener: (error: Error) => void): this;
+  on(event: "spawn", listener: () => void): this;
 }
 
 export type SpawnPipeline = (
@@ -94,6 +95,9 @@ export function createPipelineSupervisor(o: {
       if (command === null) {
         return { ok: false, problem: "no_python" };
       }
+      // Built (and checked) first: a message that fails its schema throws here, before a process
+      // exists that would wait on stdin for it forever.
+      const line = startLine(start);
       const log = o.openLog(secretsOf(start));
       const child = o.spawn(command.python, ["-I", "-u", "-m", "gratovo_pipeline"], {
         cwd: command.cwd,
@@ -106,6 +110,8 @@ export function createPipelineSupervisor(o: {
       let finished = false;
       let pending = "";
       let skipping = false;
+      let stderrPending = "";
+      let spawned = false;
       let markExited: () => void = () => undefined;
       const exited = new Promise<void>((resolve) => {
         markExited = resolve;
@@ -115,6 +121,7 @@ export function createPipelineSupervisor(o: {
         child,
         stopping: false,
         killTimer: null as ReturnType<typeof setTimeout> | null,
+        killAt: Number.POSITIVE_INFINITY,
         killedByUs: false,
         exited,
         kill() {
@@ -128,6 +135,12 @@ export function createPipelineSupervisor(o: {
             current.stopping = true;
             write(stopLine());
           }
+          // A deadline only ever comes closer: asking again doesn't buy the process more time.
+          const killAt = Date.now() + ms;
+          if (killAt >= current.killAt) {
+            return;
+          }
+          current.killAt = killAt;
           if (current.killTimer !== null) {
             clearTimeout(current.killTimer);
           }
@@ -214,17 +227,36 @@ export function createPipelineSupervisor(o: {
         }
       });
       child.stderr.setEncoding("utf8");
+      // Whole lines only, so a secret split across two chunks is still blanked in the log.
       child.stderr.on("data", (chunk: string) => {
-        log.write("stderr", chunk);
+        stderrPending += chunk;
+        const cut = stderrPending.lastIndexOf("\n");
+        if (cut >= 0) {
+          log.write("stderr", stderrPending.slice(0, cut + 1));
+          stderrPending = stderrPending.slice(cut + 1);
+        }
       });
       // A write after the process is gone fails with EPIPE; its exit is reported anyway.
       child.stdin.on("error", () => undefined);
 
+      child.on("spawn", () => {
+        spawned = true;
+      });
+      // Before `spawn` an error means it never started. After it (a kill that failed, say) the
+      // process may still run: log it and wait for `close`, so no second job starts beside it.
       child.on("error", (error) => {
+        if (spawned) {
+          log.write("error", error.message);
+          return;
+        }
         log.write("spawn", error.message);
         finish({ kind: "failed", reason: "spawn" }, "the process couldn't start");
       });
       child.on("close", (code, signal) => {
+        if (stderrPending !== "") {
+          log.write("stderr", stderrPending);
+          stderrPending = "";
+        }
         if (pending !== "" && !skipping) {
           handleLine(pending);
         }
@@ -240,7 +272,7 @@ export function createPipelineSupervisor(o: {
         }
       });
 
-      write(startLine(start));
+      write(line);
       return { ok: true };
     },
 

@@ -29,6 +29,10 @@ export function secretsOf(start: Pick<Start, "secrets">): string[] {
       const url = new URL(raw);
       found.push(raw.slice(url.protocol.length + 2));
       found.push(decodeURIComponent(url.username), decodeURIComponent(url.password));
+      // A gateway's host alone is enough to use it. (A proxy's host is its label in the log.)
+      if (gatewayUrls.includes(raw)) {
+        found.push(url.host, url.hostname);
+      }
     } catch {
       // Not a URL: the whole text is already on the list.
     }

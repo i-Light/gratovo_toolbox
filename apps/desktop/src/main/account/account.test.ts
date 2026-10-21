@@ -358,7 +358,9 @@ afterEach(async () => {
   for (const account of opened) {
     account.close();
   }
-  await rm(dir, { recursive: true, force: true });
+  // Windows can still be letting go of a file a test's last write touched (ENOTEMPTY under a
+  // loaded full run, seen 2026-10-21): retry briefly rather than fail the test in cleanup.
+  await rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
 });
 
 function makeAccount(

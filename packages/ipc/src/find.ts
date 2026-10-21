@@ -78,7 +78,8 @@ export const findStateSchema = z.strictObject({
           .string()
           .regex(/^[A-Z]{2}$/)
           .nullable(),
-        keyword: z.string().min(1).max(200),
+        /** The keyword that found it; null when the store doesn't say. */
+        keyword: z.string().min(1).max(200).nullable(),
       }),
     )
     .max(100),

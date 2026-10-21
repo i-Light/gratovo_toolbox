@@ -39,9 +39,11 @@ export function Kept({ kept }: { readonly kept: FindState["kept"] }) {
                 <span>{text.subscribers(count(c.subscribers))}</span>
                 <span>{text.medianViews(count(c.medianViews))}</span>
                 {c.country === null ? null : <span>{c.country}</span>}
-                <span className="ell" title={c.keyword}>
-                  {text.keyword(c.keyword)}
-                </span>
+                {c.keyword === null ? null : (
+                  <span className="ell" title={c.keyword}>
+                    {text.keyword(c.keyword)}
+                  </span>
+                )}
               </span>
             </li>
           ))}

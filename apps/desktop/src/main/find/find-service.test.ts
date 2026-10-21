@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import type { FindState } from "@gratovo/ipc";
+import { findStateSchema, type FindState } from "@gratovo/ipc";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { PipelineMessage, Start } from "../pipeline/protocol";
@@ -80,7 +80,7 @@ const channel = (
   id: string,
   outcome: "kept" | "swept" | "delayed",
   keywordText = "ai agents",
-): PipelineMessage => ({
+): Extract<PipelineMessage, { type: "channel" }> => ({
   type: "channel",
   keyword: keywordText,
   channelId: id,
@@ -512,6 +512,70 @@ describe("the find service", () => {
       emitted = [];
       service.add(["ai video tools"]);
       expect(emitted).toHaveLength(1);
+    });
+  });
+
+  describe("races and limits (review of 3e-1)", () => {
+    /** A key lookup that answers only when the test says so. */
+    function slowKey(): () => void {
+      let answer: (value: string) => void = () => undefined;
+      key = () =>
+        new Promise<string>((resolve) => {
+          answer = resolve;
+        });
+      return () => {
+        answer(exampleKey);
+      };
+    }
+
+    it("refuses queue edits while a start awaits its key, and starts nothing it can't", async () => {
+      mode = "live";
+      service = make(0);
+      service.add(["ai agents"]);
+      const answer = slowKey();
+      const starting = service.start();
+      expect(service.remove(0)).toEqual({ ok: false, problem: "running" });
+      expect(service.startAt(1)).toEqual({ ok: false, problem: "running" });
+      answer();
+      expect(await starting).toEqual({ ok: true });
+      expect(supervisor.starts[0]?.job.keywords).toEqual(["ai agents"]);
+    });
+
+    it("doesn't start a live search after a sign-out during the key lookup", async () => {
+      mode = "live";
+      service = make(0);
+      service.add(["ai agents"]);
+      const answer = slowKey();
+      const starting = service.start();
+      await service.shutdown();
+      mode = null;
+      answer();
+      expect(await starting).toEqual({ ok: false, problem: "running" });
+      expect(supervisor.starts).toEqual([]);
+    });
+
+    it("keeps `at` on the first unfinished keyword when they finish out of order", async () => {
+      service = make(0);
+      await started();
+      supervisor.send(keyword(0, "started"));
+      supervisor.send(keyword(1, "started"));
+      supervisor.send(keyword(1, "done", { found: 2, kept: 1 }));
+      expect(service.state().at).toBe(0);
+      supervisor.send(keyword(0, "done", { found: 3, kept: 1 }));
+      expect(service.state().at).toBe(2);
+      // Killed with no end line: the resume starts at the first keyword not done.
+      supervisor.finish({ kind: "failed", reason: "crash" });
+      expect(service.state().at).toBe(2);
+    });
+
+    it("cuts a long handle and a blanked log line to the page's limits", async () => {
+      service = make(0);
+      await started();
+      supervisor.send({ ...channel("UC_a", "kept"), handle: `@${"%E3%81%82".repeat(32)}` });
+      supervisor.send({ type: "log", level: "info", text: "x".repeat(500) });
+      const state = service.state();
+      expect(state.kept[0]?.handle).toHaveLength(200);
+      expect(findStateSchema.safeParse(state).success).toBe(true);
     });
   });
 

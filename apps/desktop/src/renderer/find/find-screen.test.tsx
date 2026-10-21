@@ -129,8 +129,18 @@ const headingText = (): string =>
 describe("the run headline and button, by state", () => {
   const cases: readonly [string, () => FindState, string, string | null][] = [
     ["running", runningState, "Searching “ai agents”", t.live.pause],
-    ["done", () => withRun("done"), t.live.done, null],
-    ["ready", () => withRun("ready", {}, { at: 0 }), t.live.ready(3), t.live.start],
+    [
+      "done",
+      () => withRun("done", {}, { queue: [kw("a", "done", 1, 1), kw("b", "done")], at: 2 }),
+      t.live.done,
+      null,
+    ],
+    [
+      "ready",
+      () => withRun("ready", {}, { queue: [kw("a", "queued"), kw("b", "queued")], at: 0 }),
+      t.live.ready(2),
+      t.live.start,
+    ],
     ["paused", () => withRun("paused"), t.live.paused(2), t.live.resume(2)],
     ["failed", () => withRun("failed", { error: "quota" }), t.live.failed(2), t.live.retry(2)],
     ["stopping", () => withRun("stopping"), t.live.stopping, t.live.pause],
@@ -142,6 +152,12 @@ describe("the run headline and button, by state", () => {
       null,
     ],
     ["ready after a paused run", () => withRun("ready"), t.live.paused(2), t.live.resume(2)],
+    [
+      "done, with a keyword added since",
+      () => withRun("done", {}, { queue: [kw("a", "done", 1, 1), kw("b", "queued")], at: 1 }),
+      t.live.ready(1),
+      t.live.start,
+    ],
   ];
   it.each(cases)("%s", async (_name, state, headline, button) => {
     setup(state());
@@ -426,12 +442,12 @@ describe("loading and example data", () => {
     const pending: ((value: unknown) => void)[] = [];
     install(() => new Promise((resolve) => pending.push(resolve)));
     render(<FindScreen />);
-    push(withRun("done"));
+    push(withRun("failed", { error: "quota" }));
     await act(async () => {
-      pending[0]?.({ ok: true, value: withRun("ready") });
+      pending[0]?.({ ok: true, value: withRun("paused") });
       await Promise.resolve();
     });
-    expect(headingText()).toBe(t.live.done);
+    expect(headingText()).toBe(t.live.failed(2));
   });
 });
 
