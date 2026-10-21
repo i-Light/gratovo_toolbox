@@ -1,4 +1,3 @@
-import copy
 import io
 import json
 import socket
@@ -7,55 +6,12 @@ from collections.abc import Callable
 from typing import Any
 
 import pytest
-from helpers import schema_errors
+from helpers import START, changed, schema_errors
 
 from gratovo_pipeline import protocol
 from gratovo_pipeline.protocol import BadStartError, Emitter, listen_for_stop, parse_start
 
 Check = Callable[[str], dict[str, Any]]
-
-START: dict[str, Any] = {
-    "type": "start",
-    "protocol": 1,
-    "source": "example",
-    "dataDir": "C:\\Users\\a\\AppData\\Roaming\\Gratovo Toolbox\\example-pipeline",
-    "worker": "example",
-    "job": {
-        "kind": "search",
-        "keywords": ["best ai video editor 2026", "claude code tutorial"],
-        "startAt": 1,
-        "rules": {
-            "countries": ["US", "GB"],
-            "perKeyword": 200,
-            "sortBy": "upload_date",
-            "resultsType": "video",
-            "autoClean": {
-                "enabled": True,
-                "minSubscribers": 50000,
-                "maxSubscribers": 2000000,
-                "belowMin": "sweep",
-                "aboveMax": "delay",
-                "label": "inactive",
-            },
-        },
-    },
-    "settings": {"pacing": "fast", "parallel": {"enabled": True, "maxWorkers": 3}},
-    "secrets": {"youtubeKey": "test-key", "proxyUrls": [], "gatewayUrls": []},
-}
-
-
-def changed(path: str, value: object) -> dict[str, Any]:
-    """A copy of START with one value replaced (`a.b.c`), or removed when value is ...."""
-    start = copy.deepcopy(START)
-    *parents, last = path.split(".")
-    node = start
-    for key in parents:
-        node = node[key]
-    if value is ...:
-        del node[last]
-    else:
-        node[last] = value
-    return start
 
 
 def test_a_good_start_parses_to_the_same_values() -> None:
