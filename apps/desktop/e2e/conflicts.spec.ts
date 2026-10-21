@@ -28,7 +28,8 @@ async function signIn(page: Page, email: string, password: string): Promise<void
   await page.getByLabel(text.email).fill(email);
   await page.getByLabel(text.password, { exact: true }).fill(password);
   await page.getByRole("button", { name: text.submit, exact: true }).click();
-  await expect(rail(page)).toBeVisible();
+  // Sign-in waits for the team to load first; a busy CI runner needs more than the default 5 s.
+  await expect(rail(page)).toBeVisible({ timeout: 15_000 });
 }
 
 /** Writes go through the bridge: no screen edits a stage, a brand or a deal step yet (steps 5 to 8). */

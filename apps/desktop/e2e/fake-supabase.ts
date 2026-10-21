@@ -388,6 +388,42 @@ export async function startFakeSupabase(): Promise<FakeSupabase> {
   }
 
   /**
+   * The `column.eq."value"` and `column.gt."value"` pairs of a filter, in order, with `\"` and `\\`
+   * unescaped. A plain scan, not a regular expression, so a long filter can't make it slow.
+   */
+  function quotedPairs(text: string): { column: string; value: string }[] {
+    const pairs: { column: string; value: string }[] = [];
+    const isWord = (c: string): boolean =>
+      (c >= "a" && c <= "z") || (c >= "A" && c <= "Z") || (c >= "0" && c <= "9") || c === "_";
+    let i = 0;
+    for (;;) {
+      const quote = text.indexOf('."', i);
+      if (quote < 0) {
+        return pairs;
+      }
+      const dot = text.lastIndexOf(".", quote - 1);
+      const op = dot < 0 ? "" : text.slice(dot + 1, quote);
+      let start = dot;
+      while (start > 0 && isWord(text.charAt(start - 1))) {
+        start -= 1;
+      }
+      let value = "";
+      let j = quote + 2;
+      while (j < text.length && text.charAt(j) !== '"') {
+        if (text.charAt(j) === "\\" && j + 1 < text.length) {
+          j += 1;
+        }
+        value += text.charAt(j);
+        j += 1;
+      }
+      if (dot > 0 && (op === "eq" || op === "gt")) {
+        pairs.push({ column: text.slice(start, dot), value });
+      }
+      i = j + 1;
+    }
+  }
+
+  /**
    * The exact keyset shape the app sends: `(c.gt."v",and(c.eq."v",k.gt."w"),and(c.eq."v",k.eq."w",
    * k2.gt."x"))`. The last `and(...)` holds every column and value of the cursor tuple, in order.
    */
@@ -396,13 +432,7 @@ export async function startFakeSupabase(): Promise<FakeSupabase> {
     if (!or.startsWith("(") || !or.endsWith("))") || last < 0) {
       throw new Error(`The fake does not know the or filter ${or}`);
     }
-    const pairs: { column: string; value: string }[] = [];
-    for (const match of or.slice(last).matchAll(/(\w+)\.(?:eq|gt)\."((?:[^"\\]|\\.)*)"/g)) {
-      pairs.push({
-        column: match[1] ?? "",
-        value: (match[2] ?? "").replace(/\\(["\\])/g, "$1"),
-      });
-    }
+    const pairs = quotedPairs(or.slice(last));
     return (row) => {
       for (const { column, value } of pairs) {
         const own = String(row[column]);
