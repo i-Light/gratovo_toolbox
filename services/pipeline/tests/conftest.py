@@ -6,7 +6,8 @@ which this can't see, so every test that touches the scraper fakes its session i
 
 import json
 import socket
-from collections.abc import Callable
+import sqlite3
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any, cast
 
@@ -50,3 +51,15 @@ def check_from_pipeline(protocol_schema: dict[str, Any]) -> Callable[[str], dict
         return message
 
     return check
+
+
+@pytest.fixture
+def conn(tmp_path: Path) -> Iterator[sqlite3.Connection]:
+    """A fresh pipeline.db in a temporary folder. The behaviour under test is mostly SQL, so a
+    real database rather than a fake: a fake store would test the fake."""
+    from gratovo_pipeline import store
+
+    connection = store.get_connection(tmp_path / "pipeline.db")
+    store.init_db(connection)
+    yield connection
+    connection.close()

@@ -12,8 +12,10 @@ Carried from 3d-2b: an `r2-access` call with a real member's token and a presign
 | Plan | lead | 18d5750 | `.router/PLAN.md` |
 | P1 | lead | d4086e6 | Zod schemas in `main/pipeline/protocol.ts`; the JSON Schema is kept current by a Vitest file snapshot (`pnpm pipeline:schema` rewrites it), not a Node script: plain Node can't resolve the extensionless imports |
 | P2 | lead | 6a39b10 | `protocol.py` (hand-written start check, Emitter, stop listener), the socket guard, `tests/helpers.py`. curl_cffi 0.16.3; jsonschema 4.26.0 and types-jsonschema as dev |
-| P3+P4 | lead | (this commit) | `config.py` from the start line (the owner's settings.json as defaults, frozen dataclasses), `run_control.py`, `parallel.py` without `LineWriter` (the Emitter's lock keeps lines whole). Proxy URLs with no switch sent count as on. 73 pytest |
+| P3+P4 | lead | fc06296 | `config.py` from the start line (the owner's settings.json as defaults, frozen dataclasses), `run_control.py`, `parallel.py` without `LineWriter` (the Emitter's lock keeps lines whole). Proxy URLs with no switch sent count as on. 73 pytest |
 
 Skills: the owner asked (2026-10-21) to find and use every skill that helps. Installed for the user (reviewed first): `trailofbits/skills@modern-python`, `astral-sh/claude-code-plugins@uv`, `wshobson/agents@python-testing-patterns`. Their `ty` and coverage-threshold advice is not taken: pyright strict is pinned (ADR 0007). TDD throughout: each old test is ported first and seen to fail.
 
-Next: P5 (the store) and P6 (the scraper, proxy pool and network rule).
+| P5 | lead | (this commit) | `store.py`: the old schema folded into version 1 (`user_version`; a newer file is refused), every search and R2 function typed; news, transcripts and the enrichment queries wait for 3e-3, the old-database hand-over (`reclaim_pre_catalog_rows`) and the Flutter app's sort indexes are dropped. One per-file S608 ignore (placeholders only). The old test_archive, test_run_reconcile and test_video_backfill (store half) ported, plus frozen-number, WAL, version and rollup tests. 127 pytest |
+
+Next: P6 (the scraper, proxy pool and network rule).
