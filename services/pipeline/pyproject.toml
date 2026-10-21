@@ -4,14 +4,20 @@ version = "0.0.0"
 description = "Gratovo's Python pipeline: YouTube search and enrichment, R2, Gmail and the comms engine."
 readme = "README.md"
 requires-python = ">=3.14"
-dependencies = []
+dependencies = [
+  # The vendored scrapetube impersonates a browser's TLS handshake through it.
+  "curl-cffi==0.16.3",
+]
 
 [dependency-groups]
 dev = [
+  # Checks every message the tests capture against protocol.schema.json.
+  "jsonschema==4.26.0",
   # The nodejs extra brings its own Node, so pyright doesn't download one on first run.
   "pyright[nodejs]==1.1.414",
   "pytest==9.1.1",
   "ruff==0.17.1",
+  "types-jsonschema==4.26.0.20261006",
 ]
 
 [build-system]
