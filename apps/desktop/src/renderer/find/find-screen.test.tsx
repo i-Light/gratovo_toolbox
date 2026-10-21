@@ -134,6 +134,14 @@ describe("the run headline and button, by state", () => {
     ["paused", () => withRun("paused"), t.live.paused(2), t.live.resume(2)],
     ["failed", () => withRun("failed", { error: "quota" }), t.live.failed(2), t.live.retry(2)],
     ["stopping", () => withRun("stopping"), t.live.stopping, t.live.pause],
+    // After a restart the run is "ready" again; the queue says how far it got.
+    [
+      "ready after a finished run",
+      () => withRun("ready", {}, { queue: [kw("a", "done", 1, 1), kw("b", "done")], at: 2 }),
+      t.live.done,
+      null,
+    ],
+    ["ready after a paused run", () => withRun("ready"), t.live.paused(2), t.live.resume(2)],
   ];
   it.each(cases)("%s", async (_name, state, headline, button) => {
     setup(state());
@@ -180,7 +188,9 @@ describe("start and pause", () => {
   it.each(["no_keywords", "running", "no_youtube_key", "no_python"] as const)(
     "says why find:start refused: %s",
     async (problem) => {
-      setup(withRun("ready"), { "find:start": { ok: true, value: { ok: false, problem } } });
+      setup(withRun("ready", {}, { at: 0 }), {
+        "find:start": { ok: true, value: { ok: false, problem } },
+      });
       await show();
       await click(screen.getByRole("button", { name: t.live.start }));
       expect(screen.getByText(t.startProblems[problem])).toBeTruthy();

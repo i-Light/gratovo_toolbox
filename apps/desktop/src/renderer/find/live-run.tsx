@@ -7,10 +7,26 @@ import { strings } from "../strings";
 
 const text = strings.findSearch.live;
 
+type RunState = FindState["run"]["state"];
+
+/**
+ * The run's state as the page shows it. After a restart main reports a run as "ready" again, so
+ * the queue says how far it got: all done reads as finished, some done as paused there.
+ */
+function shownState({ run, queue, at }: FindState): RunState {
+  if (run.state !== "ready" || queue.length === 0) {
+    return run.state;
+  }
+  if (queue.every((k) => k.state === "done")) {
+    return "done";
+  }
+  return at > 0 ? "paused" : "ready";
+}
+
 function headline(state: FindState): string {
-  const { run, queue, at } = state;
+  const { queue, at } = state;
   const n = Math.min(at, Math.max(queue.length - 1, 0)) + 1;
-  switch (run.state) {
+  switch (shownState(state)) {
     case "running": {
       const current = queue.find((k) => k.state === "running") ?? queue[at];
       return text.searching(current?.keyword ?? "");
@@ -73,12 +89,9 @@ export function LiveRun({ state }: { readonly state: FindState }) {
     }
   };
 
+  const shown = shownState(state);
   const startLabel =
-    run.state === "failed"
-      ? text.retry(at + 1)
-      : run.state === "paused"
-        ? text.resume(at + 1)
-        : text.start;
+    shown === "failed" ? text.retry(at + 1) : shown === "paused" ? text.resume(at + 1) : text.start;
   const pct = total === 0 ? 0 : Math.min(100, (100 * (done + (running ? 0.5 : 0))) / total);
   const working = running || stopping;
 
