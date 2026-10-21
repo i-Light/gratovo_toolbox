@@ -187,17 +187,20 @@ function SaveState() {
           : strings.top.savedTip(ago(syncedAgo, now));
   return (
     <span
-      className={cx("save", saving && "busy", !saving && failed && "failed", "hide-narrow")}
+      className={cx(
+        "save",
+        saving && "busy",
+        !saving && failed && "failed",
+        !saving && !failed && notSynced && "unsynced",
+        "hide-narrow",
+      )}
       role="status"
       data-tip={tip}
     >
-      <i style={notSynced ? { background: "var(--warn)" } : undefined}></i>
-      {/* The longest label sits unseen in the same cell, so the chip keeps one width. */}
-      <span style={{ display: "inline-grid" }}>
-        <span style={{ gridArea: "1 / 1" }}>{label}</span>
-        <span aria-hidden="true" style={{ gridArea: "1 / 1", visibility: "hidden" }}>
-          {strings.top.notSynced}
-        </span>
+      <i></i>
+      {/* The longest label sits unseen behind this one (save-state.css), so the width holds. */}
+      <span className="save-label" data-longest={strings.top.notSynced}>
+        <span>{label}</span>
       </span>
     </span>
   );

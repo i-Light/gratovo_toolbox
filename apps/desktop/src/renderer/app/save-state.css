@@ -1,7 +1,23 @@
-/* The top bar's save state after a write failed. */
+/* The top bar's save state beyond the prototype: a failed write, and changes waiting to sync. */
 .save.failed {
   color: var(--crit);
 }
 .save.failed i {
   background: var(--crit);
+}
+.save.unsynced i {
+  background: var(--warn);
+}
+/* The longest label sits unseen in the same cell, so the chip keeps one width. A pseudo-element
+   keeps it out of the chip's text. */
+.save .save-label {
+  display: inline-grid;
+}
+.save .save-label > span,
+.save .save-label::after {
+  grid-area: 1 / 1;
+}
+.save .save-label::after {
+  content: attr(data-longest);
+  visibility: hidden;
 }

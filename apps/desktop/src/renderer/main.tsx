@@ -6,7 +6,7 @@ import "@gratovo/ui/motion.css";
 import "./app/auth.css";
 import "./app/frame.css";
 import "./app/load-failed.css";
-import "./app/save-failed.css";
+import "./app/save-state.css";
 import "./overlays/overlays.css";
 import "./settings/settings.css";
 
