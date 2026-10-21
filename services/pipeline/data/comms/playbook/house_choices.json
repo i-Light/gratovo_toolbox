@@ -1,0 +1,929 @@
+{
+ "about": "Where the course gives more than one answer, or where the decision belongs to the owner. Each choice lists the options with their sources (rule ids or lessons) and the default the workflow uses until the owner picks. `pick` stays null until the owner decides; the workflow reads `pick` first, then `default`. The owner picked all 34 on 2026-10-18 (workflow map); `owner_said` keeps their note verbatim and `owner_note` is what the drafter applies from it.",
+ "choices": [
+  {
+   "id": "HC-01",
+   "topic": "Automated follow-ups on a cold first message",
+   "question": "How many automated follow-ups after a first message that got no reply?",
+   "options": [
+    {
+     "key": "short",
+     "label": "2-3 touches, then stop (2026 deliverability update: long sequences now hurt the domain)",
+     "sources": [
+      "FND-DLV-19",
+      "BRD-FU-06"
+     ]
+    },
+    {
+     "key": "six",
+     "label": "Up to 6 escalating follow-ups (influencer follow-up lesson)",
+     "sources": [
+      "INF-FU-02"
+     ]
+    },
+    {
+     "key": "hybrid",
+     "label": "2-3 automated touches; after that only a new thread with a new angle or a manual, spaced follow-up a person approves",
+     "sources": [
+      "FND-DLV-19",
+      "INF-FU-04",
+      "FND-WRITE-05"
+     ]
+    }
+   ],
+   "default": "hybrid",
+   "pick": "short",
+   "picked_at": "2026-10-18",
+   "owner_note": "The owner's answers to HC-01 (2-3 touches) and HC-17 (3-4 follow-ups) meet at three: send at most three follow-ups after the first email, then stop or start a new thread with a new angle."
+  },
+  {
+   "id": "HC-02",
+   "topic": "Daily sending cap per mailbox",
+   "question": "What daily cap should the app enforce per sending mailbox?",
+   "options": [
+    {
+     "key": "35",
+     "label": "35 outreach/day per inbox unless warmed 3+ weeks with strong stats (warm-up lesson)",
+     "sources": [
+      "FND-DLV-17"
+     ]
+    },
+    {
+     "key": "50",
+     "label": "~50/day per inbox all-in: 10 warm-up, 35 outreach, 5 replies (Coach Ammar, volume limits)",
+     "sources": [
+      "FND-DLV-13"
+     ]
+    },
+    {
+     "key": "2026",
+     "label": "2026 caps by month and audience: creators 40-70 then 80-120, brands 20-40 then 40-70, never above 150",
+     "sources": [
+      "FND-DLV-18"
+     ]
+    },
+    {
+     "key": "120",
+     "label": "120/day on a warmed SmartLead mailbox (bonus lesson)",
+     "sources": [
+      "FND-DLV-07"
+     ]
+    }
+   ],
+   "default": "50",
+   "pick": "35",
+   "picked_at": "2026-10-18",
+   "owner_said": "30-35 outreach/day per inbox with a simple manual knob to make changes between 10 and 50 per inbox.",
+   "owner_note": "35 cold emails a day per mailbox by default; the owner can set each mailbox between 10 and 50 in the app."
+  },
+  {
+   "id": "HC-03",
+   "topic": "Warm-up length before cold sending",
+   "question": "How long must a new mailbox warm up before cold outreach?",
+   "options": [
+    {
+     "key": "14",
+     "label": "14 days minimum (warm-up lesson)",
+     "sources": [
+      "FND-DLV-17"
+     ]
+    },
+    {
+     "key": "30",
+     "label": "30 days, ramping to 90 (2026 update: Google needs 30-90 days of behavior)",
+     "sources": [
+      "FND-DLV-17"
+     ]
+    }
+   ],
+   "default": "30",
+   "pick": "14",
+   "picked_at": "2026-10-18",
+   "owner_said": "14 days as minimum, and better going for 30-90 days. but that's just the policy the warming up happens on instantly.ai and is managed there.",
+   "owner_note": "14 days is the minimum; 30-90 days is better. Warm-up runs in Instantly.ai, outside the app."
+  },
+  {
+   "id": "HC-04",
+   "topic": "Agency share",
+   "question": "How does the agency earn on a deal by default?",
+   "options": [
+    {
+     "key": "markup",
+     "label": "Broker: buy the creator below market, sell 30-70% higher (pricing masterclass, 3 ways to make money)",
+     "sources": [
+      "BRD-NEG-01",
+      "FND-MIND-12"
+     ]
+    },
+    {
+     "key": "commission",
+     "label": "Commission of 20-30% of the deal (CPM vs straight lesson)",
+     "sources": [
+      "BRD-NEG-02"
+     ]
+    },
+    {
+     "key": "agent",
+     "label": "Exclusive agent: 15-40% (around 25% when starting) on all the creator's deals",
+     "sources": [
+      "INF-MGR-05",
+      "FND-MIND-12"
+     ]
+    }
+   ],
+   "default": "markup",
+   "pick": "markup",
+   "picked_at": "2026-10-18",
+   "owner_said": "This also depends on the situation, I remember something in the course about a rare case where some creator can be labeled as a gold mine and we should try to be their exclusive agent after the first deal and a specific way to handle the cut like first more then less after or something. check course and make the app be able to recognize and highlight these people in various ways.",
+   "owner_note": "Broker by default. For an unmanaged creator with exceptional potential (no agent; strong views or engagement for their size), keep doing discounted deals first; after 2-3 deals that prove we deliver, a person may propose exclusive management at 20-40% (about 25% when starting) on every deal (INF-MGR-05, INF-MGR-01, FND-MIND-12). Never mention a commission otherwise."
+  },
+  {
+   "id": "HC-05",
+   "topic": "Niche CPM table",
+   "question": "Which niche CPM ranges does the pricing helper show?",
+   "options": [
+    {
+     "key": "masterclass",
+     "label": "Pricing masterclass: tech 30-50, finance 40-80, fitness 20-35, entertainment 10-20, beauty 15-25, travel 12-20, education 25-40, food 10-20",
+     "sources": [
+      "INF-PRICE-01"
+     ]
+    },
+    {
+     "key": "tutorial",
+     "label": "Step-by-step tutorial: tech 20-40, fitness 15-30, beauty 10-25, gaming 10-20, entertainment 5-15, luxury 30-50",
+     "sources": [
+      "INF-PRICE-08"
+     ]
+    },
+    {
+     "key": "both",
+     "label": "Show both ranges side by side; a person picks the number",
+     "sources": [
+      "INF-PRICE-01",
+      "INF-PRICE-08",
+      "INF-PRICE-06"
+     ]
+    },
+    {
+     "key": "owner",
+     "label": "Owner's table, the widest of both course ranges: tech 20-50, finance 15-80, fitness 10-35, entertainment 5-20, gaming 10-20, beauty 10-25, travel 12-20, education 25-40, food 10-20, luxury 30-50 (USD CPM); a person picks the number",
+     "sources": [
+      "owner"
+     ]
+    }
+   ],
+   "default": "both",
+   "pick": "owner",
+   "picked_at": "2026-10-18",
+   "owner_said": "tech 20-50, finance 15-80, fitness 10-35, entertainment 5-20, gaming 10-20, beauty 10-25, travel 12-20, education 25-40, food 10-20, luxury 30-50. I also need a slider or something to quickly test different numbers quickly."
+  },
+  {
+   "id": "HC-06",
+   "topic": "Subject lines for first emails",
+   "question": "Which subject-line style does the drafter use?",
+   "options": [
+    {
+     "key": "curiosity",
+     "label": "Short curiosity lines or a detail pulled from the personalization; never 'Partnership opportunity' patterns (Coach Ammar)",
+     "sources": [
+      "FND-SUBJ-01"
+     ]
+    },
+    {
+     "key": "purpose",
+     "label": "State the purpose plainly ('Collaboration Opportunity with Tom') (How to write good emails FAQ)",
+     "sources": [
+      "module 5 FAQs/5.How to Write Good Emails"
+     ]
+    }
+   ],
+   "default": "curiosity",
+   "pick": "curiosity",
+   "note": "The 2026 deliverability update lists 'opportunity' as a spam-trigger word, which argues against the second option.",
+   "picked_at": "2026-10-18"
+  },
+  {
+   "id": "HC-07",
+   "topic": "Emergency social proof",
+   "question": "Is it true for this agency that it is part of an incubator of agency owners (IMA Accelerator) and/or has an advisor who reviews its work? Only true statements may be used, and only as a last resort.",
+   "options": [
+    {
+     "key": "incubator",
+     "label": "Yes: 'part of a group of experienced agency owners who review our work' is true",
+     "sources": [
+      "FND-ETH-03"
+     ]
+    },
+    {
+     "key": "none",
+     "label": "Never use it",
+     "sources": [
+      "FND-ETH-03"
+     ]
+    }
+   ],
+   "default": "none",
+   "pick": "incubator",
+   "picked_at": "2026-10-18"
+  },
+  {
+   "id": "HC-08",
+   "topic": "Female and couple creators",
+   "question": "What is the agency's policy on female creators and couple creators?",
+   "options": [
+    {
+     "key": "course",
+     "label": "Follow the course: avoid female creators entirely (female fitness never); couples only with the stated conditions",
+     "sources": [
+      "FND-ETH-07"
+     ]
+    },
+    {
+     "key": "conditions",
+     "label": "Allow female creators only when the scholarly conditions in the lesson are met (hijab, professional written contact), never fitness",
+     "sources": [
+      "FND-ETH-07"
+     ]
+    },
+    {
+     "key": "none",
+     "label": "Avoid female creators entirely, couple channels included (owner, stricter than the course)",
+     "sources": [
+      "owner"
+     ]
+    }
+   ],
+   "default": "course",
+   "pick": "none",
+   "picked_at": "2026-10-18",
+   "owner_said": "Avoid female creators entirely even couples or what not.",
+   "owner_note": "Do not contact or pitch female creators or couple channels; a channel flagged this way is out of scope."
+  },
+  {
+   "id": "HC-09",
+   "topic": "Boycotted brands",
+   "question": "Does the agency boycott any brands or countries? List them.",
+   "options": [
+    {
+     "key": "none",
+     "label": "No boycott list (only haram products are excluded)",
+     "sources": [
+      "FND-ETH-08"
+     ]
+    },
+    {
+     "key": "list",
+     "label": "Boycott the brands/countries the owner lists",
+     "sources": [
+      "FND-ETH-08"
+     ]
+    }
+   ],
+   "default": "none",
+   "pick": "list",
+   "picked_at": "2026-10-18",
+   "owner_said": "Anything that supports the aggressors on Palestine calling that call themselves Israel, and anything from them is rejected.",
+   "owner_note": "Reject any brand from Israel and any brand that supports Israel against Palestine; the agency's list of boycotted brands lives in the app's Settings. A boycotted brand gets no pitch and no creator for it."
+  },
+  {
+   "id": "HC-10",
+   "topic": "Straight cash offers to creators",
+   "question": "The course reserves 'I can pay you $X for N videos' offers for agencies earning $10K+/month. Is the agency at that level?",
+   "options": [
+    {
+     "key": "no",
+     "label": "Not yet: never propose straight cash offers",
+     "sources": [
+      "INF-MGR-04"
+     ]
+    },
+    {
+     "key": "yes",
+     "label": "Yes: allowed, each one approved by a person",
+     "sources": [
+      "INF-MGR-04"
+     ]
+    }
+   ],
+   "default": "no",
+   "pick": "no",
+   "picked_at": "2026-10-18",
+   "owner_said": "make it a subtle option for now that doesn't break the workflow or feels like its in the way.",
+   "owner_note": "No straight cash offers by default. A person may switch it on for a single case; the workflow never proposes one on its own."
+  },
+  {
+   "id": "HC-11",
+   "topic": "Representing a creator to a brand",
+   "question": "When writing to a brand about a creator who agreed only to this deal (not exclusive), may messages say 'we represent them for projects like this' / 'reaching out on their behalf'?",
+   "options": [
+    {
+     "key": "yes-agreed",
+     "label": "Yes, once the creator has agreed to this deal in writing (true statement)",
+     "sources": [
+      "BRD-REPLY-04",
+      "BRD-OBJ-11"
+     ]
+    },
+    {
+     "key": "neutral",
+     "label": "Only neutral wording ('we work with [creator] on this campaign')",
+     "sources": [
+      "BRD-REPLY-04"
+     ]
+    }
+   ],
+   "default": "yes-agreed",
+   "pick": "yes-agreed",
+   "picked_at": "2026-10-18"
+  },
+  {
+   "id": "HC-12",
+   "topic": "Influencer follow-up spacing",
+   "question": "When does the first follow-up to a creator go out?",
+   "options": [
+    {
+     "key": "1wd",
+     "label": "1 working day after a first email with no reply; 2 working days after a stalled exchange (follow-up lesson)",
+     "sources": [
+      "INF-FU-01"
+     ]
+    },
+    {
+     "key": "2-3d",
+     "label": "2-3 days between follow-ups (Coach Younes)",
+     "sources": [
+      "INF-FU-09"
+     ]
+    },
+    {
+     "key": "daily",
+     "label": "One day's gap, then a follow-up every day (Coach Osama)",
+     "sources": [
+      "INF-FU-10"
+     ]
+    }
+   ],
+   "default": "1wd",
+   "pick": "1wd",
+   "picked_at": "2026-10-18"
+  },
+  {
+   "id": "HC-13",
+   "topic": "When to negotiate the creator's price",
+   "question": "Do we negotiate the creator's rate at onboarding, only once a brand has made a real offer, or both?",
+   "options": [
+    {
+     "key": "twice",
+     "label": "Both: test their flexibility at onboarding, then ask once more, honestly, when a real deal arrives (Coaches Ammar, Younes, Osama)",
+     "sources": [
+      "INF-NEG-03",
+      "INF-NEG-32"
+     ]
+    },
+    {
+     "key": "early",
+     "label": "Negotiate early only, from our estimate of what brands pay (pricing lessons)",
+     "sources": [
+      "INF-NEG-03",
+      "INF-NEG-21",
+      "INF-NEG-22"
+     ]
+    },
+    {
+     "key": "after-offer",
+     "label": "Take the creator's rate as the starting point and negotiate once a real brand offer exists (a student's practice; Coach Younes accepts it when the rate is already low)",
+     "sources": [
+      "INF-NEG-26"
+     ]
+    }
+   ],
+   "default": "twice",
+   "pick": "twice",
+   "picked_at": "2026-10-18"
+  },
+  {
+   "id": "HC-14",
+   "topic": "What the first email to a brand contains",
+   "question": "Does the first email to a brand already present a creator with a key fact, or first ask whether the brand is open to partnerships?",
+   "options": [
+    {
+     "key": "creator-first",
+     "label": "Name the creator with one key fact, the gap, an idea and a call to action (How to Build a Strong Pitch; Coaches Younes, Michael, Kushtrim and Ammar on live calls)",
+     "sources": [
+      "BRD-FIRST-01"
+     ]
+    },
+    {
+     "key": "open-door",
+     "label": "A general opener: a roster or group of creators in their space, unnamed, sent once they reply (Good vs Bad examples; Coaches Farhad, Kamal, Osama's roster)",
+     "sources": [
+      "BRD-FIRST-11"
+     ]
+    }
+   ],
+   "default": "creator-first",
+   "pick": "creator-first",
+   "picked_at": "2026-10-18"
+  },
+  {
+   "id": "HC-15",
+   "topic": "What a follow-up carries",
+   "question": "Does a follow-up only point back to the first message, add one small, true piece of value each time, or start light and then change something?",
+   "options": [
+    {
+     "key": "point-back",
+     "label": "Only point back to the first message: no new question, no new request (Follow-ups lesson)",
+     "sources": [
+      "INF-FU-07"
+     ]
+    },
+    {
+     "key": "add-value",
+     "label": "Add one small, true piece of value each time, never a bare 'did you see my email?' (Coach Osama, influencer negotiation)",
+     "sources": [
+      "INF-FU-08"
+     ]
+    },
+    {
+     "key": "blend",
+     "label": "A light first nudge, then change or add something true in each later one, since a seen-and-ignored email is not answered by a bump (Coaches Abu Numaan, Younes, Osama, Ammar)",
+     "sources": [
+      "BRD-FU-17",
+      "INF-FU-15"
+     ]
+    }
+   ],
+   "default": "point-back",
+   "pick": "blend",
+   "picked_at": "2026-10-18"
+  },
+  {
+   "id": "HC-16",
+   "topic": "How many creators to close before brand outreach",
+   "question": "How many creators should be closed before brand outreach starts?",
+   "options": [
+    {
+     "key": "3-4",
+     "label": "3-4 creators (Closed an influencer, now what)",
+     "sources": [
+      "INF-CLOSE-01"
+     ]
+    },
+    {
+     "key": "4-5",
+     "label": "4-5 creators, with media kits and negotiated prices (Coach Younes, on four calls: 'the course might need a small update')",
+     "sources": [
+      "INF-CLOSE-01"
+     ]
+    },
+    {
+     "key": "5-7",
+     "label": "5-7 creators, so one falling through does not stop the work (Coach Osama, influencer negotiation)",
+     "sources": [
+      "INF-CLOSE-01"
+     ]
+    }
+   ],
+   "default": "4-5",
+   "pick": "4-5",
+   "picked_at": "2026-10-18"
+  },
+  {
+   "id": "HC-17",
+   "topic": "How many follow-ups to a creator who has not replied",
+   "question": "After the first email, how many follow-ups go out before we stop or start a new thread?",
+   "options": [
+    {
+     "key": "3-4",
+     "label": "Three or four follow-ups (Coach Younes; Google now penalises long cold sequences)",
+     "sources": [
+      "INF-FU-09",
+      "FND-DLV-19"
+     ]
+    },
+    {
+     "key": "up-to-6",
+     "label": "Up to six escalating follow-ups (Follow-ups lesson)",
+     "sources": [
+      "INF-FU-02"
+     ]
+    }
+   ],
+   "default": "3-4",
+   "pick": "3-4",
+   "picked_at": "2026-10-18",
+   "owner_note": "The owner's answers to HC-01 (2-3 touches) and HC-17 (3-4 follow-ups) meet at three: send at most three follow-ups after the first email, then stop or start a new thread with a new angle."
+  },
+  {
+   "id": "HC-18",
+   "topic": "Largest creators to approach without a brand in hand",
+   "question": "Without a brand deal in hand, do we cap creator outreach at about 200k views?",
+   "options": [
+    {
+     "key": "cap-200k",
+     "label": "Stay around 50k-200k views until a brand is in hand (Coaches Ammar, Michael and Abu Numaan, late 2025)",
+     "sources": [
+      "INF-QUAL-01"
+     ]
+    },
+    {
+     "key": "no-cap",
+     "label": "No cap: anyone with about 50k average views (Coach Younes)",
+     "sources": [
+      "INF-QUAL-07"
+     ]
+    }
+   ],
+   "default": "cap-200k",
+   "pick": "no-cap",
+   "picked_at": "2026-10-18"
+  },
+  {
+   "id": "HC-19",
+   "topic": "When to pitch a brand its next creator",
+   "question": "After a first campaign, do we wait for the results before pitching another creator, or pitch soon after a smooth delivery?",
+   "options": [
+    {
+     "key": "after-results",
+     "label": "After the results are in and good (upsell lessons; some coaches wait about three weeks)",
+     "sources": [
+      "BRD-AFTER-04",
+      "BRD-AFTER-06"
+     ]
+    },
+    {
+     "key": "after-delivery",
+     "label": "A few days after a smooth go-live, selling on the service (Coach Ahmed)",
+     "sources": [
+      "BRD-AFTER-14"
+     ]
+    }
+   ],
+   "default": "after-results",
+   "pick": "after-results",
+   "picked_at": "2026-10-18"
+  },
+  {
+   "id": "HC-20",
+   "topic": "How a cold email ends",
+   "question": "Does a cold email end on one yes-or-no question, or on an easy statement?",
+   "options": [
+    {
+     "key": "yes-no",
+     "label": "One short yes-or-no question (the lesson; Coaches Ammar and Dylan)",
+     "sources": [
+      "INF-FIRST-05"
+     ]
+    },
+    {
+     "key": "statement",
+     "label": "An easy statement that leans toward yes ('Let me know and I'll send the analytics') (Coach Kushtrim)",
+     "sources": [
+      "INF-FIRST-19"
+     ]
+    }
+   ],
+   "default": "yes-no",
+   "pick": "yes-no",
+   "picked_at": "2026-10-18"
+  },
+  {
+   "id": "HC-21",
+   "topic": "A brand asks for creators we don't have yet",
+   "question": "Do we reply at once with an honest holding note, or stay silent (up to a week or two) until we can send exactly what they asked for?",
+   "options": [
+    {
+     "key": "holding-reply",
+     "label": "Reply promptly: we're checking, or nothing matching right now, back as soon as we have one (Coaches Osama, Younes, Kushtrim, Michael)",
+     "sources": [
+      "BRD-REPLY-21"
+     ]
+    },
+    {
+     "key": "silent-sourcing",
+     "label": "Stay silent while sourcing the exact creator, then reply with them; write after a week if it takes longer (Coaches Ammar, Farhad)",
+     "sources": [
+      "BRD-REPLY-22"
+     ]
+    }
+   ],
+   "default": "holding-reply",
+   "pick": "holding-reply",
+   "picked_at": "2026-10-18"
+  },
+  {
+   "id": "HC-22",
+   "topic": "When the rate goes to a brand",
+   "question": "When a brand asks for details on a creator, does the rate go in that reply, or only once they say they like the creator?",
+   "options": [
+    {
+     "key": "with-details",
+     "label": "With the details: channel, analytics, rate, availability; a direct price question gets the price (Coaches Dylan, Younes, Abu Numaan)",
+     "sources": [
+      "BRD-REPLY-20"
+     ]
+    },
+    {
+     "key": "price-last",
+     "label": "Creators first, analytics next, price last, whatever they asked (Coaches Ammar, Ahmed, Osama, Michael)",
+     "sources": [
+      "BRD-REPLY-26"
+     ]
+    }
+   ],
+   "default": "with-details",
+   "pick": "with-details",
+   "picked_at": "2026-10-18"
+  },
+  {
+   "id": "HC-23",
+   "topic": "A pitched creator falls through",
+   "question": "When a creator the brand liked can't go ahead, do we name the replacement in the same email, or first ask the brand whether they would rather wait?",
+   "options": [
+    {
+     "key": "same-email",
+     "label": "Same email: the plain news and a ready replacement at a similar price (Coaches Osama, Younes, Kushtrim, Ahmed)",
+     "sources": [
+      "BRD-PRES-20",
+      "BRD-REPLY-11"
+     ]
+    },
+    {
+     "key": "ask-first",
+     "label": "Ask first whether they will wait or want someone else, then send names (Coach Ammar)",
+     "sources": [
+      "BRD-PRES-21"
+     ]
+    }
+   ],
+   "default": "same-email",
+   "pick": "same-email",
+   "picked_at": "2026-10-18"
+  },
+  {
+   "id": "HC-24",
+   "topic": "Brand follow-up spacing",
+   "question": "How far apart do follow-ups to a brand go?",
+   "options": [
+    {
+     "key": "quick",
+     "label": "24 hours after the first email, then every 1-2 days, every 2-3 days once a pitch is out (brand lesson; Coach Ammar's Monday-Tuesday-Thursday-Tuesday)",
+     "sources": [
+      "BRD-FU-03"
+     ]
+    },
+    {
+     "key": "spaced",
+     "label": "Two or three days, then about three, then a week: every two days is too aggressive with brands (Coaches Himzo, Ammar)",
+     "sources": [
+      "BRD-FU-15"
+     ]
+    }
+   ],
+   "default": "quick",
+   "pick": "spaced",
+   "picked_at": "2026-10-18"
+  },
+  {
+   "id": "HC-25",
+   "topic": "Several people at one brand",
+   "question": "Do we write to two people at a brand at once, or to one person at a time?",
+   "options": [
+    {
+     "key": "two-at-once",
+     "label": "Two at a time, each email worded for its reader, never naming each other; then the next two (Coaches Ammar, Kushtrim and others)",
+     "sources": [
+      "BRD-FIRST-13"
+     ]
+    },
+    {
+     "key": "one-at-a-time",
+     "label": "One person at a time, the next only after their follow-ups (Coaches Himzo, Michael, Younes)",
+     "sources": [
+      "BRD-FU-16"
+     ]
+    }
+   ],
+   "default": "two-at-once",
+   "pick": "two-at-once",
+   "picked_at": "2026-10-18"
+  },
+  {
+   "id": "HC-26",
+   "topic": "Priced options in an offer to a brand",
+   "question": "Does an offer to a brand carry two or three priced options, or one clear offer?",
+   "options": [
+    {
+     "key": "two-three",
+     "label": "Two or three priced deliverables so the brand can choose, one clearly the strongest (brand lesson)",
+     "sources": [
+      "BRD-OFFER-04"
+     ]
+    },
+    {
+     "key": "one",
+     "label": "One clear offer, the standard integration, even when they ask about other formats (Coach Ahmed)",
+     "sources": [
+      "BRD-OFFER-20"
+     ]
+    }
+   ],
+   "default": "two-three",
+   "pick": "two-three",
+   "picked_at": "2026-10-18"
+  },
+  {
+   "id": "HC-27",
+   "topic": "Audience share needed to pitch a creator",
+   "question": "How much of a creator's audience must be in the brand's countries before we pitch them?",
+   "options": [
+    {
+     "key": "35-one-country",
+     "label": "At least 35% from one country (influencer lesson; Coach Ammar)",
+     "sources": [
+      "INF-QUAL-02"
+     ]
+    },
+    {
+     "key": "30-tier1",
+     "label": "About 30% in the brand's countries is good, less still workable; in tech, 20%+ is fine; awareness brands take less when views are big (Coaches Younes, Izak)",
+     "sources": [
+      "INF-QUAL-12"
+     ]
+    }
+   ],
+   "default": "35-one-country",
+   "pick": "30-tier1",
+   "picked_at": "2026-10-18"
+  },
+  {
+   "id": "HC-28",
+   "topic": "Tone toward a creator",
+   "question": "Does the first email keep our own brief voice for every creator, or match the creator's style and humour?",
+   "options": [
+    {
+     "key": "own-voice",
+     "label": "Our own brief, friendly, direct voice for everyone; professional until a deal is done (Coaches Dylan, Himzo)",
+     "sources": [
+      "INF-FIRST-27"
+     ]
+    },
+    {
+     "key": "match-style",
+     "label": "Very casual, matching the creator's style and language; more professional from the follow-up (Coach Ammar)",
+     "sources": [
+      "INF-FIRST-28"
+     ]
+    }
+   ],
+   "default": "own-voice",
+   "pick": "match-style",
+   "picked_at": "2026-10-18"
+  },
+  {
+   "id": "HC-29",
+   "topic": "Timeline and updates after closing a creator",
+   "question": "Once a creator is closed, do we name a timeframe and send short check-ins, or promise no timeframe and write only with a deal or real news?",
+   "options": [
+    {
+     "key": "lesson",
+     "label": "Say outreach usually takes 1-3 weeks and send short check-ins even when nothing has moved (influencer lesson)",
+     "sources": [
+      "INF-ONB-02"
+     ]
+    },
+    {
+     "key": "no-timeframe",
+     "label": "No timeframe; 'I'll get back to you once a fitting opportunity comes up'; next message is a deal or real news (Coaches Younes, Ammar, Himzo, Dylan)",
+     "sources": [
+      "INF-ONB-07"
+     ]
+    }
+   ],
+   "default": "lesson",
+   "pick": "lesson",
+   "picked_at": "2026-10-18"
+  },
+  {
+   "id": "HC-30",
+   "topic": "Whitelisting and the usual exclusivity in a creator deal",
+   "question": "When a brand wants whitelisting or the usual 30-day exclusivity, do we ask the creator first, or state it plainly as part of the deliverables?",
+   "options": [
+    {
+     "key": "ask-first",
+     "label": "Ask the creator whether they accept and at what price before answering the brand (Coaches Ammar, Younes and others)",
+     "sources": [
+      "BRD-NEG-26"
+     ]
+    },
+    {
+     "key": "state-it",
+     "label": "List it plainly among the deliverables and send the contract; raise it with the brand only if the creator objects; longer exclusivity and usage rights still asked and paid (Coach Osama)",
+     "sources": [
+      "INF-CLOSE-07"
+     ]
+    }
+   ],
+   "default": "ask-first",
+   "pick": "ask-first",
+   "picked_at": "2026-10-18"
+  },
+  {
+   "id": "HC-31",
+   "topic": "A product sent with a paid deal",
+   "question": "When a brand sends the creator a product as well as paying, can the product's value count toward the fee?",
+   "options": [
+    {
+     "key": "lesson",
+     "label": "Only a very expensive product may count toward the price, with cash up front always (brand lesson)",
+     "sources": [
+      "BRD-REPLY-17"
+     ]
+    },
+    {
+     "key": "never",
+     "label": "Never: the product costs the brand far less than its price and is not payment (Coach Osama)",
+     "sources": [
+      "BRD-NEG-31"
+     ]
+    }
+   ],
+   "default": "lesson",
+   "pick": "lesson",
+   "picked_at": "2026-10-18"
+  },
+  {
+   "id": "HC-32",
+   "topic": "Faith phrases in business messages",
+   "question": "Do phrases like 'inshallah' stay out of messages to creators and brands, or may the sender use them?",
+   "options": [
+    {
+     "key": "leave-out",
+     "label": "Leave them out, and greet plainly in cold messages (Coach Ammar and a call example of a creator put off)",
+     "sources": [
+      "FND-WRITE-26"
+     ]
+    },
+    {
+     "key": "fine",
+     "label": "Fine to use; explain if asked (Coach Eyoub)",
+     "sources": [
+      "FND-WRITE-29"
+     ]
+    }
+   ],
+   "default": "leave-out",
+   "pick": "leave-out",
+   "picked_at": "2026-10-18"
+  },
+  {
+   "id": "HC-33",
+   "topic": "When the agency's content requirements reach the creator",
+   "question": "Do requirements like 'no background music during the integration' go to the creator with the deal terms before filming, or as feedback when the draft arrives?",
+   "options": [
+    {
+     "key": "with-terms",
+     "label": "With the deal terms, in the email and the contract, before filming (Coaches Eyoub, Kushtrim, Younes, Ammar)",
+     "sources": [
+      "INF-DELIV-15"
+     ]
+    },
+    {
+     "key": "at-draft",
+     "label": "Left out of the contract; asked for when the draft arrives (Coach Osama)",
+     "sources": [
+      "INF-DELIV-16"
+     ]
+    }
+   ],
+   "default": "with-terms",
+   "pick": "with-terms",
+   "picked_at": "2026-10-18"
+  },
+  {
+   "id": "HC-34",
+   "topic": "Instagram reel price",
+   "question": "How is an Instagram reel priced against a YouTube integration with the same views and audience?",
+   "options": [
+    {
+     "key": "lesson",
+     "label": "About half the YouTube CPM (lesson 2.4/2.5, INF-PRICE-04)",
+     "sources": [
+      "INF-PRICE-04"
+     ]
+    },
+    {
+     "key": "eighty",
+     "label": "About 80% of the YouTube CPM, stories as a free add-on, a link in bio a few hundred dollars extra (Coach Michael)",
+     "sources": [
+      "INF-PRICE-15"
+     ]
+    }
+   ],
+   "default": "lesson",
+   "pick": "lesson",
+   "picked_at": "2026-10-18"
+  }
+ ]
+}

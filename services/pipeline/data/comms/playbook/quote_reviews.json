@@ -1,0 +1,699 @@
+{
+  "about": "Video quotes checked by a person (comms/quote_review.py). original = the Parakeet transcript's words; current = the words in the rules now.",
+  "quotes": {
+    "25c0a6c28f49f578": {
+      "doc": "video:module 3 brands/3.Bonus - SmartLead Campaigns - Coach Osama",
+      "original": "then come follow up every other two days.",
+      "current": "then come follow up every other two days.",
+      "checked": true,
+      "checked_at": "2026-10-15 19:24"
+    },
+    "f41c9127286e2153": {
+      "doc": "video:module 3 brands/3.SECRET SAUCE Brand Negotiation - Coach Kushtrim",
+      "original": "we're actually looking for US audience. I think it was 40%, 50%, and they gave me their criteria.",
+      "current": "we're actually looking for US audience. I think it was 40%, 50%, and they gave me their criteria.",
+      "checked": true,
+      "checked_at": "2026-10-15 19:25"
+    },
+    "d6d0c672357cfdea": {
+      "doc": "video:module 8 Bonuses/8.How To Take sales calls",
+      "original": "For small brands, on the other hand, if they are skeptical, if they are super scared and everything, it's good to hop on calls.",
+      "current": "For small brands, on the other hand, if they are skeptical, if they are super scared and everything, it's good to hop on calls.",
+      "checked": true,
+      "checked_at": "2026-10-15 19:26"
+    },
+    "14797cc2792bf2c0": {
+      "doc": "video:module 1 welcome/1.1. Introduction to Cold Email - Coach Ammar",
+      "original": "Even if it's no, today's no can be transferred in yes, in a couple of months.",
+      "current": "Even if it's no, today's no can be transferred in yes, in a couple of months.",
+      "checked": true,
+      "checked_at": "2026-10-15 19:30"
+    },
+    "7f583c6ef3bdbce1": {
+      "doc": "video:module 1 welcome/1.1. Introduction to Cold Email - Coach Ammar",
+      "original": "you were not interested, what about now?",
+      "current": "you were not interested, what about now?",
+      "checked": true,
+      "checked_at": "2026-10-15 19:30"
+    },
+    "a390003886a8e52a": {
+      "doc": "video:module 1 welcome/1.1. Introduction to Cold Email - Coach Ammar",
+      "original": "First, email exists only for you to get a reply. That's all.",
+      "current": "First email exists only for you to get a reply. That's all.",
+      "checked": true,
+      "edited_at": "2026-10-15 19:31",
+      "checked_at": "2026-10-15 19:31"
+    },
+    "cc69de487f25bf85": {
+      "doc": "video:module 1 welcome/1.12. PRACTICAL PRODUCTIVITY TIPS TO BE EFFICIENT",
+      "original": "There is a direct correlation to how much outreach you do, to how much money you make.",
+      "current": "There is a direct correlation to how much outreach you do, to how much money you make.",
+      "checked": true,
+      "checked_at": "2026-10-15 19:31"
+    },
+    "fe2a03bbca1aa6b3": {
+      "doc": "video:module 1 welcome/1.2. How to Write a Cold Email - Coach Ammar",
+      "original": "if someone is calling you by your name, even if you don't know that person, you will be like, okay, yeah, there's a connection.",
+      "current": "if someone is calling you by your name, even if you don't know that person, you will be like, okay, yeah, there's a connection.",
+      "checked": true,
+      "checked_at": "2026-10-15 19:31"
+    },
+    "bab55cfd1c0c6760": {
+      "doc": "video:module 1 welcome/1.2. How to Write a Cold Email - Coach Ammar",
+      "original": "It's one question, one action. It's usually a yes or no question",
+      "current": "It's one question, one action. It's usually a yes or no question",
+      "checked": true,
+      "checked_at": "2026-10-15 19:31"
+    },
+    "ff84350b00fca403": {
+      "doc": "video:module 1 welcome/1.2. How to Write a Cold Email - Coach Ammar",
+      "original": "If you say, hey, I watch your content, amazing stuff, and you just maybe change the title of the video, maybe try to change one thing, it's not good.",
+      "current": "If you say, hey, I watch your content, amazing stuff, and you just maybe change the title of the video, maybe try to change one thing, it's not good.",
+      "checked": true,
+      "checked_at": "2026-10-15 19:31"
+    },
+    "225cc3069fe6b306": {
+      "doc": "video:module 1 welcome/1.2. How to Write a Cold Email - Coach Ammar",
+      "original": "Three sentences about you is the same as one sentence about him.",
+      "current": "Three sentences about you is the same as one sentence about him.",
+      "checked": true,
+      "checked_at": "2026-10-15 19:32"
+    },
+    "0098eb01cf02156e": {
+      "doc": "video:module 1 welcome/1.2. How to Write a Cold Email - Coach Ammar",
+      "original": "No one likes LinkedIn vocabulary.",
+      "current": "No one likes LinkedIn vocabulary.",
+      "checked": true,
+      "checked_at": "2026-10-15 19:32"
+    },
+    "18a610ee6e595cb5": {
+      "doc": "video:module 1 welcome/1.2. Learn how to Communicate(most important course)",
+      "original": "How am I perceived? What would they think or believe when they read this?",
+      "current": "How am I perceived? What would they think or believe when they read this?",
+      "checked": true,
+      "checked_at": "2026-10-15 19:37"
+    },
+    "1a3bb5f0622fcb54": {
+      "doc": "video:module 1 welcome/1.2. How to Write a Cold Email - Coach Ammar",
+      "original": "One clear CTA. As you know, CTA stands for call to action. You've heard it multiple times. Hey, if you like this content, please hit that subscribe button. Click a like. It means a lot. Share it with your friends. That's cool to action. Like, hey, do something. And we have that. It's usually at the bottom of your email. It's one question, one action. It's usually a yes or no question",
+      "current": "One clear CTA. As you know, CTA stands for call to action. You've heard it multiple times. Hey, if you like this content, please hit that subscribe button. Click a like. It means a lot. Share it with your friends. That's cool to action. Like, hey, do something. And we have that. It's usually at the bottom of your email. It's one question, one action. It's usually a yes or no question",
+      "checked": true,
+      "checked_at": "2026-10-18 20:34"
+    },
+    "7aa844c437c7db79": {
+      "doc": "video:module 1 welcome/1.2. How to Write a Cold Email - Coach Ammar",
+      "original": "But hey, write plainly. No one likes LinkedIn vocabulary. I'm thrilled to announce that I will do this. No, trust me. Fourth grade reading level. That's all you need.",
+      "current": "But hey, write plainly. No one likes LinkedIn vocabulary. I'm thrilled to announce that I will do this. No, trust me. Fourth grade reading level. That's all you need. why? it's frictionless, it's easy to go through. even if he is busy, they will easily skim through your email and have a good understanding what that email is about.",
+      "checked": true,
+      "edited_at": "2026-10-18 20:36",
+      "checked_at": "2026-10-18 20:36"
+    },
+    "1fa03e43291c4763": {
+      "doc": "video:module 1 welcome/1.2. Learn how to Communicate(most important course)",
+      "original": "And all like caring, changing your life is like emotional. Whereas with business, it is the opposite. It is completely logical. Like straight A one plus one equals two. Like it's very simple. And here, those kind of sentences, like I said, like, you know, I just give you the example with it won't change my life, but just saying here, don't use this with your clients because this doesn't work in B2B.",
+      "current": "And all like caring, changing your life is like emotional. Whereas with business, it is the opposite. It is completely logical. Like straight A one plus one equals two. Like it's very simple. And here, those kind of sentences, like I said, like, you know, I just give you the example with it won't change my life, but just saying here, don't use this with your clients because this doesn't work in B2B.",
+      "checked": true,
+      "checked_at": "2026-10-18 20:36"
+    },
+    "2be5189aff9bc318": {
+      "doc": "video:module 1 welcome/1.2. Learn how to Communicate(most important course)",
+      "original": "This guy was just cold on his thing. Like, he was, this is the price, this is what I do. That's it. He was not a pain.",
+      "current": "This guy was just cold on his thing. Like, he was, this is the price, this is what I do. That's it. He was not a pain.",
+      "checked": true,
+      "checked_at": "2026-10-18 20:36"
+    },
+    "38419f54f7f5c5fd": {
+      "doc": "video:module 1 welcome/1.2. Learn how to Communicate(most important course)",
+      "original": "Hey, bro, who just show your channels pretty cool. I was just curious, are you open to partnerships? This is my favorite opener when it comes to influencers. It's just simple, it's straightforward.",
+      "current": "Hey, bro, I just saw your channel it's pretty cool. I was just curious, are you open to partnerships? This is my favorite opener when it comes to influencers. It's just simple, it's straightforward.",
+      "checked": true,
+      "edited_at": "2026-10-18 20:39",
+      "checked_at": "2026-10-18 20:39"
+    },
+    "3f25896670a8671a": {
+      "doc": "video:module 1 welcome/1.3. Mindset & Misconceptions - Coach Ammar",
+      "original": "Let's say closing rate is 10%. Okay, you need five influencers. You need five influencers, which means that's 50 influencers who got back to you. With 5%, this is 5% of something, right? You sent, you need to send a lot of emails. I would say about thousand emails.",
+      "current": "Let's say closing rate is 10%. Okay, you need five influencers. You need five influencers, which means that's 50 influencers who got back to you. With 5%, this is 5% of something, right? You sent, you need to send a lot of emails. I would say about thousand emails.",
+      "checked": true,
+      "checked_at": "2026-10-18 20:39"
+    },
+    "1aeb334e6e188d7d": {
+      "doc": "video:module 1 welcome/1.3. Understanding business",
+      "original": "So, my thing is valued as whatever upside you have minus the minimum acceptable fee that he needs to take, right? So, if the guy charges 10 grand for a video and Without you, he's not getting any deal. So, he's not making any nothing, zero, right? But he cannot pay you$9,999 because then he only makes a dollar and it's not respectful.",
+      "current": "So, my thing is valued as whatever upside you have minus the minimum acceptable fee that he needs to take, right? So, if the guy charges 10 grand for a video and without you, he's not getting any deal. So, he's not making any nothing, zero, right? But he cannot pay you $9,999 because then he only makes a dollar and it's not respectful.",
+      "checked": true,
+      "edited_at": "2026-10-18 20:40",
+      "checked_at": "2026-10-18 20:40"
+    },
+    "ccb85415955ae82a": {
+      "doc": "video:module 1 welcome/1.3. Understanding business",
+      "original": "Maybe the guy is. Is charging 500 bucks, but it's super underpriced, and you're just gonna top off the price to 1500 for brand and you make 1k.",
+      "current": "Maybe the guy is. Is charging 500 bucks, but it's super underpriced, and you're just gonna top off the price to $1500 for brand and you make $1k.",
+      "checked": true,
+      "edited_at": "2026-10-18 20:41",
+      "checked_at": "2026-10-18 20:41"
+    },
+    "37c7b35fb82afe5c": {
+      "doc": "video:module 1 welcome/1.4. Sales crash course",
+      "original": "That's why case studies are so important. If you don't have it, just show him how you do it and make an over. This is why our offer has no risk on the end. We're carrying all the risks because we don't have any proof of our thing working yet.",
+      "current": "That's why case studies are so important. If you don't have it, just show him how you do it and make a no brainer offer. This is why our offer has no risk on the end. We're carrying all the risks because we don't have any proof of our thing working yet.",
+      "checked": true,
+      "edited_at": "2026-10-18 20:43",
+      "checked_at": "2026-10-18 20:43"
+    },
+    "da22e06fbd482147": {
+      "doc": "video:module 1 welcome/1.4. Sales crash course",
+      "original": "When you're a software company, you want to go to a small influencer that is super niche down on that industry so that whenever they talk about something, they go to him.",
+      "current": "When you're a software company, you want to go to a small influencer that is super niche down on that industry so that whenever they talk about something, they go to him.",
+      "checked": true,
+      "checked_at": "2026-10-18 20:43"
+    },
+    "ed5f0852e69c59bd": {
+      "doc": "video:module 1 welcome/1.4. Sales crash course",
+      "original": "our goal is just to be an add-on. So, we're completely fine with you working with an agency. Just let us know what is your minimal fee and we'll figure out how to make a profit on our end.",
+      "current": "our goal is just to be an add-on. So, we're completely fine with you working with an agency. Just let us know what is your minimal fee and we'll figure out how to make a profit on our end.",
+      "checked": true,
+      "checked_at": "2026-10-18 20:43"
+    },
+    "621ac8a3de0e6077": {
+      "doc": "video:module 1 welcome/1.5. Marketing crash course",
+      "original": "Also, what you can do is, why is your guy never sponsored? And instead of answering this question, if you don't have an answer, you can ask a question about the question. Why would the fact that my influencer is never sponsored would be an issue? Can you tell me that?",
+      "current": "Also, what you can do is, why is your guy never sponsored? And instead of answering this question, if you don't have an answer, you can ask a question about the question. Why would the fact that my influencer is never sponsored would be an issue? Can you tell me that?",
+      "checked": true,
+      "checked_at": "2026-10-18 20:44"
+    },
+    "6bec1f7deb8ed3f8": {
+      "doc": "video:module 1 welcome/1.5. Marketing crash course",
+      "original": "Don't say my guy gets a lot of views. And then don't mention that it's like super low purchase power country's views.",
+      "current": "Don't say my guy gets a lot of views. And then don't mention that it's like super low purchase power country's views.",
+      "checked": true,
+      "checked_at": "2026-10-18 20:44"
+    },
+    "6612466a980fbd64": {
+      "doc": "video:module 1 welcome/1.6. The 3 Ways to Make Money With an IMA",
+      "original": "So you can look into different Aikido methods to make him come down in price. And for example, one of the most common ones is to say there's potential for long-term work",
+      "current": "So you can look into different Aikido methods to make him come down in price. And for example, one of the most common ones is to say there's potential for long-term work",
+      "checked": true,
+      "checked_at": "2026-10-18 20:44"
+    },
+    "ca3bb3cee40d9435": {
+      "doc": "video:module 1 welcome/1.6. The 3 Ways to Make Money With an IMA",
+      "original": "here, you don't directly ask to be the agent because you don't know why they don't have an agent. Maybe the guy is actually bad, and that's why he doesn't have an agent, or you don't know, right? So, you want to So, you want to make sure you're safe. So, what you do is, even in that scenario, the first deal, you always go and try to get a discount.",
+      "current": "here, you don't directly ask to be the agent because you don't know why they don't have an agent. Maybe the guy is actually bad, and that's why he doesn't have an agent, or you don't know, right? So, you want to So, you want to make sure you're safe. So, what you do is, even in that scenario, the first deal, you always go and try to get a discount.",
+      "checked": true,
+      "checked_at": "2026-10-18 20:44"
+    },
+    "9fd7804308c1eaf6": {
+      "doc": "video:module 1 welcome/1.6. The 3 Ways to Make Money With an IMA",
+      "original": "help brands spend their. Their marketing budget and charge them a percentage of what you're spending for them.",
+      "current": "help brands spend their marketing budget and charge them a percentage of what you're spending for them.",
+      "checked": true,
+      "edited_at": "2026-10-18 20:45",
+      "checked_at": "2026-10-18 20:45"
+    },
+    "38a5c915fed8a19e": {
+      "doc": "video:module 2 influencers/2.1. What to do when they respond",
+      "original": "We have a few brands in mind that would be a good fit for you. However, we need to understand a bit more about your audience first.",
+      "current": "We have a few brands in mind that would be a good fit for you. However, we need to understand a bit more about your audience first.",
+      "checked": true,
+      "checked_at": "2026-10-18 20:45"
+    },
+    "4c481a03d58024cf": {
+      "doc": "video:module 2 influencers/2.1. What to do when they respond",
+      "original": "I'm asking how many deals he can handle a month because when he reads between the lines, he understands if that guy is asking this, it's maybe because he wants to crush this number.",
+      "current": "I'm asking how many deals he can handle a month because when he reads between the lines, he understands if that guy is asking this, it's maybe because he wants to crush this number.",
+      "checked": true,
+      "checked_at": "2026-10-18 20:46"
+    },
+    "eb537fd60c8a3f44": {
+      "doc": "video:module 2 influencers/2.3. Closing an influencer that has an agency",
+      "original": "He said, We're currently looking at, didn't lie, didn't say we're working on deals with none of that. He said, We're currently looking at these brands. We would believe this would be a perfect fit for you. However, we just need to vouch you first with your analytics.",
+      "current": "He said, We're currently looking at, didn't lie, didn't say we're working on deals with none of that. He said, We're currently looking at these brands. We would believe this would be a perfect fit for you. However, we just need to vouch you first with your analytics.",
+      "checked": true,
+      "checked_at": "2026-10-18 20:46"
+    },
+    "c1e73d8c32efd371": {
+      "doc": "video:module 2 influencers/2.3. Closing an influencer that has an agency",
+      "original": "If you don't want a deal, plenty of fish in the sea. We have currently 20 influencers ready to unboard. You don't have to lie. If that's not the case, just create a sheet, get 20 influencers, and say, look, bro, you were the 90th if our shit, you know, shit, no sheet. You were the 19th in our sheet.",
+      "current": "If you don't want a deal, plenty of fish in the sea. We have currently 20 influencers ready to unboard. You don't have to lie. If that's not the case, just create a sheet, get 20 influencers, and say, look, bro, you were the 90th if our shit, you know, shit, no sheet. You were the 19th in our sheet.",
+      "checked": true,
+      "checked_at": "2026-10-18 20:47"
+    },
+    "3a45778b941b9c2d": {
+      "doc": "video:module 2 influencers/2.3. Closing an influencer that has an agency",
+      "original": "the brand says okay we cannot do this we cannot do five grand we can do three grand you can say right so instead of saying you're broke and you cannot afford five grand or whatever we can do A story for three grand. And they would say, no, no, no, we don't need a story. All right. So you want to post, right? Right. So it's five grand. And you just, again, polydynamics holding your ground. This is unfortunately, this is the way we priced it.",
+      "current": "the brand says okay we cannot do this we cannot do five grand we can do three grand you can say right so instead of saying you're broke and you cannot afford five grand or whatever we can do A story for three grand. And they would say, no, no, no, we don't need a story. All right. So you want to post, right? Right. So it's five grand. And you just, again, power dynamics holding your ground. This is unfortunately, this is the way we priced it. because, and then either mention that, you can say to them, you can say, look, so we have, we don't like just a classic influencer. we actually manage top quality influencers in our niche. we got this guy who is special",
+      "checked": true,
+      "edited_at": "2026-10-18 20:50",
+      "checked_at": "2026-10-18 20:50"
+    },
+    "0c1c59aec27bdf1e": {
+      "doc": "video:module 2 influencers/2.3. What kind of deals can be done",
+      "original": "most influencers, or like a lot of them, will offer you to post across different platforms for a better price when. When you see this, run away. Never buy a bundle price.",
+      "current": "most influencers, or like a lot of them, will offer you to post across different platforms for a better price when. When you see this, run away. Never buy a bundle price.",
+      "checked": true,
+      "checked_at": "2026-10-18 20:50"
+    },
+    "705a157e50b5192e": {
+      "doc": "video:module 2 influencers/2.3. What kind of deals can be done",
+      "original": "Let's say he made the video already, it's already done, completely, you know, ready to be. Be posted, it's posted on TikTok for 5k. Say, bro, we can shoot you an extra 3k, just have to download it, post it onto all the social media. If that's cool with you, that's cool with us.",
+      "current": "Let's say he made the video already, it's already done, completely, you know, ready to be. Be posted, it's posted on TikTok for 5k. Say, bro, we can shoot you an extra 3k, just have to download it, post it onto all the social media. If that's cool with you, that's cool with us.",
+      "checked": true,
+      "checked_at": "2026-10-18 20:51"
+    },
+    "79924f49e3f6bcad": {
+      "doc": "video:module 2 influencers/2.4. Understanding Influencer Pricing",
+      "original": "or you can negotiate his CPM. Let's say he charges$20 CPM. We'll negotiate$15 CPM or$10 CPM if you're a KiloMaster. And sell it for$20 CPM to the brand. And now, as he gets views, you get paid.",
+      "current": "or you can negotiate his CPM. Let's say he charges $20 CPM. We'll negotiate $15 CPM or $10 CPM if you're an Aikido Master. And sell it for $20 CPM to the brand. And now, as he gets views, you get paid.",
+      "checked": true,
+      "edited_at": "2026-10-18 20:52",
+      "checked_at": "2026-10-18 20:52"
+    },
+    "fa6a77cf02a90299": {
+      "doc": "video:module 2 influencers/2.4. Understanding Influencer Pricing",
+      "original": "So you're gonna see 52,000 views, 57,000 views, 1.3k views. Imagine if the brand paid for this video. They would get smoked on the bill, right? Crazy, crazy amount of money lost, really, really bad. And it doesn't just happen once, right? Be careful because sometimes if it just happens once, it's a special video.",
+      "current": "So you're gonna see 52,000 views, 57,000 views, 1.3k views. Imagine if the brand paid for this video. They would get smoked on the bill, right? Crazy, crazy amount of money lost, really, really bad. And it doesn't just happen once, right? Be careful because sometimes if it just happens once, it's a special video.",
+      "checked": true,
+      "checked_at": "2026-10-18 20:52"
+    },
+    "f38f03810a2eae7d": {
+      "doc": "video:module 2 influencers/2.4. Understanding Influencer Pricing",
+      "original": "Lastly, the engagement rate. He gets 100k views on a video, and only 2,000 people like the video. You don't have to be Anstein to the math. 2% of the people like the video is really, really low. There's no special rule with engagement rate. I just advise you to get around three, four percent minimum and above.",
+      "current": "Lastly, the engagement rate. He gets 100k views on a video, and only 2,000 people like the video. You don't have to be Anstein to the math. 2% of the people like the video is really, really low. There's no special rule with engagement rate. I just advise you to get around three, four percent minimum and above.",
+      "checked": true,
+      "checked_at": "2026-10-18 20:53"
+    },
+    "3a629800115e754f": {
+      "doc": "video:module 2 influencers/2.4. Understanding Influencer Pricing",
+      "original": "Let's say you get$20 CPM on YouTube, you may You may get a$10 CPM on Instagram, but get 10 times the views. So it's half the money per views, but you get 10 times more views. So you make five times more money.",
+      "current": "Let's say you get $20 CPM on YouTube, you may You may get a $10 CPM on Instagram, but get 10 times the views. So it's half the money per views, but you get 10 times more views. So you make five times more money.",
+      "checked": true,
+      "edited_at": "2026-10-18 20:53",
+      "checked_at": "2026-10-18 20:53"
+    },
+    "25c93c36e8786e1c": {
+      "doc": "video:module 2 influencers/2.5. How to Price Influencers Step-by-Step Tutorial",
+      "original": "Now, for example, a guy that has low trust and saturated audience, he posts five videos a day for like Minecraft kids. Of course, not, you know, you're not going to pay average CPM for that. You're going to have to go below.",
+      "current": "Now, for example, a guy that has low trust and saturated audience, he posts five videos a day for like Minecraft kids. Of course, not, you know, you're not going to pay average CPM for that. You're going to have to go below.",
+      "checked": true,
+      "checked_at": "2026-10-18 20:53"
+    },
+    "3e22afadf9e90e8f": {
+      "doc": "video:module 2 influencers/2.5. What are media kits",
+      "original": "Your guy may have an audience, he speaks Portuguese, so you may just think he's Portuguese, right? But he may have 90% of the audience that comes from Brazil, because they also speak Portuguese there.",
+      "current": "Your guy may have an audience, he speaks Portuguese, so you may just think he's Portuguese, right? But he may have 90% of the audience that comes from Brazil, because they also speak Portuguese there.",
+      "checked": true,
+      "checked_at": "2026-10-18 20:54"
+    },
+    "3079b9eb090c2d2b": {
+      "doc": "video:module 2 influencers/2.6. Negotiating with Influencers (Psychology)",
+      "original": "So don't use languages like, we really need this to work because, like, you're attached to the outcome and then they're in control.",
+      "current": "So don't use languages like, we really need this to work because, like, you're attached to the outcome and then they're in control.",
+      "checked": true,
+      "checked_at": "2026-10-18 20:54"
+    },
+    "ed245200a7441622": {
+      "doc": "video:module 2 influencers/2.6. Negotiating with Influencers (Psychology)",
+      "original": "What I like to do, which is super, super good to actually recover power, is use humor charm. I'm like, haha, you drive a hullbug in here. Respect it. Let me check back and check with the team.",
+      "current": "What I like to do, which is super, super good to actually recover power, is use humor charm. I'm like, haha, you drive a hullbug in here. Respect it. Let me check back and check with the team.",
+      "checked": true,
+      "checked_at": "2026-10-18 20:54"
+    },
+    "3ba12f96a0ed6125": {
+      "doc": "video:module 2 influencers/2.6. Negotiating with Influencers (Psychology)",
+      "original": "Can you help us justify your$100 CPM request so that we can make it work?",
+      "current": "Can you help us justify your $100 CPM request so that we can make it work?",
+      "checked": true,
+      "edited_at": "2026-10-18 20:54",
+      "checked_at": "2026-10-18 20:54"
+    },
+    "cdb9144aba97daef": {
+      "doc": "video:module 2 influencers/2.6. Negotiating with Influencers (Psychology)",
+      "original": "Usually, by the way, never drag negotiations for too long. Long, I usually try and do two and three back and forth max.",
+      "current": "Usually, by the way, never drag negotiations for too long. Long, I usually try and do two and three back and forth max.",
+      "checked": true,
+      "checked_at": "2026-10-18 20:54"
+    },
+    "2337c3a22748d7ed": {
+      "doc": "video:module 2 influencers/2.6. Negotiating with Influencers (Psychology)",
+      "original": "Hey, just got a brand interested in working with you. Marks will allocate his 4K videos planned for the next two weeks. You can reply with an invoice if you're good with it. I can ignore this mate if you can't do it. So this is actually so strong alphabetic because of two things. The first one is you're kind of like drawing a tunnel and you're putting him inside. And there's one yes, one no.",
+      "current": "Hey, just got a brand interested in working with you. Marks will allocate his 4K videos planned for the next two weeks. You can reply with an invoice if you're good with it. You can ignore this email if you can't do it. So this is actually so strong Allahumabarik because of two things. The first one is you're kind of like drawing a tunnel and you're putting him inside. And there's one yes, one no.",
+      "checked": true,
+      "edited_at": "2026-10-18 20:57",
+      "checked_at": "2026-10-18 20:57"
+    },
+    "9b367e4e5d760f16": {
+      "doc": "video:module 2 influencers/2.6. Negotiating with Influencers (Psychology)",
+      "original": "Some guys told me, Oh, finance. Finally, he didn't reply for two days. So I got back to him and I accepted the initial offer. The guy was just on holidays. You just wasted 500 bucks because you tried negotiating. You got needy, and then you came back and you were like, oh, I'll accept it.",
+      "current": "Some guys told me, Oh, finance. Finally, he didn't reply for two days. So I got back to him and I accepted the initial offer. The guy was just on holidays. You just wasted 500 bucks because you tried negotiating. You got needy, and then you came back and you were like, oh, I'll accept it.",
+      "checked": true,
+      "checked_at": "2026-10-18 20:57"
+    },
+    "17396febbca7f1fe": {
+      "doc": "video:module 2 influencers/2.6. Negotiating with Influencers (Psychology)",
+      "original": "We currently have Mr. Beast on a similar deal, or we're currently working with XYZ on a similar deal.",
+      "current": "We currently have Mr. Beast on a similar deal, or we're currently working with XYZ on a similar deal.",
+      "checked": true,
+      "checked_at": "2026-10-18 20:57"
+    },
+    "15412c309262e207": {
+      "doc": "video:module 2 influencers/2.6. Negotiating with Influencers (Psychology)",
+      "original": "Literally, when you send your media kit to a brand, what What they see is this. They see that. They see, okay, we're not paying for that. We're not paying for that. That means there's 22% that's just gone. What we're paying for is 20%, and those 6%. So we're actually interested in 26% of your audience. That's literally what's on their mind.",
+      "current": "Literally, when you send your media kit to a brand, what What they see is this. They see that. They see, okay, we're not paying for that. We're not paying for that. That means there's 22% that's just gone. What we're paying for is 20%, and those 6%. So we're actually interested in 26% of your audience. That's literally what's on their mind.",
+      "checked": true,
+      "checked_at": "2026-10-18 20:58"
+    },
+    "f66f4ed3f2bd4fa2": {
+      "doc": "video:module 2 influencers/2.6. Negotiating with Influencers (Psychology)",
+      "original": "would you be cool with a 700 flat rate to start and not for each sponsorships? Because the for each sounds like you literally saying, Hey, so can we just lock in 700 and nothing more for anything that's in your way?",
+      "current": "would you be cool with a 700 flat rate to start and not for each sponsorships? Because the for each sounds like you literally saying, Hey, so can we just lock in 700 and nothing more for anything that's in your way?",
+      "checked": true,
+      "checked_at": "2026-10-18 20:58"
+    },
+    "22dfd791c685fd46": {
+      "doc": "video:module 2 influencers/2.7. Good vs Bad examples of approaching influencers",
+      "original": "But if you go and you say, look, these countries are usually harsh. Harder to sell to brands. How do you structure the pricing around that?",
+      "current": "But if you go and you say, look, these countries are usually harder to sell to brands. How do you structure the pricing around that?",
+      "checked": true,
+      "edited_at": "2026-10-18 20:58",
+      "checked_at": "2026-10-18 20:58"
+    },
+    "9a92fc494dd977af": {
+      "doc": "video:module 2 influencers/2.7. Good vs Bad examples of approaching influencers",
+      "original": "If you just said, hey, we'll just do a TikTok shot, a TikTok or a YouTube short, or whatever. Not really interesting. Whereas if you say, we'll cover all the aspects about your product, all the selling points that are important, we do lifestyle shots and this and that. And now it's interesting.",
+      "current": "If you just said, hey, we'll just do a TikTok shot, a TikTok or a YouTube short, or whatever. Not really interesting. Whereas if you say, we'll cover all the aspects about your product, all the selling points that are important, we do lifestyle shots and this and that. And now it's interesting.",
+      "checked": true,
+      "checked_at": "2026-10-18 20:59"
+    },
+    "77d64483da45961e": {
+      "doc": "video:module 2 influencers/2.7. Good vs Bad examples of approaching influencers",
+      "original": "You didn't mention who they guys were. You just said they had half a million followers. It's too vague. It doesn't make any sense. And it's multiple influencers combining that. It's confusing. They don't know how many.",
+      "current": "you didn't mention the platform, you didn't mention who they guys were. You just said they had half a million followers. It's too vague. It doesn't make any sense. And it's multiple influencers combining that. It's confusing. They don't know how many.",
+      "checked": true,
+      "edited_at": "2026-10-18 21:00",
+      "checked_at": "2026-10-18 21:00"
+    },
+    "bef8f25d43dfe247": {
+      "doc": "video:module 2 influencers/2.7. Negotiating with influencers (Step by step)",
+      "original": "So, let's say you can go to a brand and offer 3k for one video. Or you can say, Fine, we can also do five videos for 10k, and now that's 2k a video. You make less money, but you make a lot more on volume.",
+      "current": "So, let's say you can go to a brand and offer 3k for one video. Or you can say, Fine, we can also do five videos for 10k, and now that's 2k a video. You make less money, but you make a lot more on volume.",
+      "checked": true,
+      "checked_at": "2026-10-18 21:01"
+    },
+    "fd7b5c77785dd91c": {
+      "doc": "video:module 2 influencers/2.7. Negotiating with influencers (Step by step)",
+      "original": "Emphasis for future deals, for the brand being great, for you can actually bring him more brands as an agency yourself. Just find upsize. I'm just giving you an example, by the way, with future deals. It doesn't mean just use this one because then it's going to just water down if everyone uses it. But you get the point. Show him there's. Another upside than just the money, and emphasis on that.",
+      "current": "Emphasis for future deals, for the brand being great, for you can actually bring him more brands as an agency yourself. Just find upsize. I'm just giving you an example, by the way, with future deals. It doesn't mean just use this one because then it's going to just water down if everyone uses it. But you get the point. Show him there's. Another upside than just the money, and emphasis on that.",
+      "checked": true,
+      "checked_at": "2026-10-18 21:02"
+    },
+    "f86687107184e06a": {
+      "doc": "video:module 2 influencers/2.7. Negotiating with influencers (Step by step)",
+      "original": "If you've got guys that are charging way less than what they should be charging in the industry, log them in, just double-check that there's no some skeleton in the closet, just make sure they don't have mad stuff going on, like 40% Indian audience, and like one video in two gets 200 views. Just make sure it's not that.",
+      "current": "If you've got guys that are charging way less than what they should be charging in the industry, log them in, just double-check that there's no some skeleton in the closet, just make sure they don't have mad stuff going on, like 40% Indian audience, and like one video in two gets 200 views. Just make sure it's not that.",
+      "checked": true,
+      "checked_at": "2026-10-18 21:02"
+    },
+    "73bc440b9b887bd3": {
+      "doc": "video:module 2 influencers/2.8. Closed an influencer, now what",
+      "original": "I've got the price. I've got the audience info, et cetera, but the guy is fully booked for the next three months. Yeah, so you can't really move to rents because what happens when you get a deal? You can wait three months to make money. That's not the goal, right?",
+      "current": "I've got the price. I've got the audience info, etc. but the guy is fully booked for the next three months. Like, yeah, so you can't really move to brands because what happens when you get a deal? You gonna wait three months to make money. That's not the goal, right?",
+      "checked": true,
+      "edited_at": "2026-10-18 21:03",
+      "checked_at": "2026-10-18 21:03"
+    },
+    "b449643c46ceab23": {
+      "doc": "video:module 2 influencers/2.8. Closed an influencer, now what",
+      "original": "But if you actually tried and you got rejections, let him know: hey, reached out to five brands, you know, they were interested, but when you came to pricing, you were overpriced.",
+      "current": "But if you actually tried and you got rejections, let him know: hey, reached out to five brands, you know, they were interested, but when you came to pricing, you were overpriced.",
+      "checked": true,
+      "checked_at": "2026-10-18 21:04"
+    },
+    "677498dd3312e68f": {
+      "doc": "video:module 2 influencers/2.9. The 2 different paths you can take",
+      "original": "He charges 5k and he is not managed by an agent. I will still negotiate with him for 2.5k and I would go and I would get him deals. Pitch him for 5k, see how that goes. Just so I'm safe, right? After doing this two or three times, and I can see how hard it was to sell or how easy it was to sell, how the conversation was, so like how he behaves, how he is when I talk with him, etc.",
+      "current": "He charges 5k and he is not managed by an agent. I will still negotiate with him for 2.5k and I would go and I would get him deals. Pitch him for 5k, see how that goes. Just so I'm safe, right? After doing this two or three times, and I can see how hard it was to sell or how easy it was to sell, how the conversation was, so like how he behaves, how he is when I talk with him, etc.",
+      "checked": true,
+      "checked_at": "2026-10-18 21:04"
+    },
+    "24c9a0ec59e4cc46": {
+      "doc": "video:module 2 influencers/2.How to Message Influencers - Coach Ammar",
+      "original": "Bridgeline is the first sentence of your offer that still kind of is attached to your personalization.",
+      "current": "Bridge line is the first sentence of your offer that still kind of is attached to your personalization.",
+      "checked": true,
+      "edited_at": "2026-10-18 21:04",
+      "checked_at": "2026-10-18 21:04"
+    },
+    "2f8b81603e2c8663": {
+      "doc": "video:module 2 influencers/2.SECRET SAUCE Influencer Negotiation - Coach Osama",
+      "original": "You need to firstly check if that influencer is working with the brands that you're planning to propose to them, right? Which is easy, you can just do it on YouTube quickly. And you need to go to other influencers within travel niche that are represented by this agency, which you can find on their website most of the time. If not, you can just request the roster and they'll give it to you with no issues, right?",
+      "current": "You need to firstly check if that influencer is working with the brands that you're planning to propose to them, right? Which is easy, you can just do it on YouTube quickly. And you need to go to other influencers within travel niche that are represented by this agency, which you can find on their website most of the time. If not, you can just request the roster and they'll give it to you with no issues, right?",
+      "checked": true,
+      "checked_at": "2026-10-18 21:05"
+    },
+    "1d5464d7174b866e": {
+      "doc": "video:module 2 influencers/2.SECRET SAUCE Influencer Negotiation - Coach Osama",
+      "original": "Your hidden influenza that I mentioned earlier that is quite easy to go back and forth. And those are the ones that you should focus on at the beginning so you build those case studies quickly, right?",
+      "current": "Your hidden influencer that I mentioned earlier that is quite easy to go back and forth. And those are the ones that you should focus on at the beginning so you build those case studies quickly, right?",
+      "checked": true,
+      "edited_at": "2026-10-18 21:05",
+      "checked_at": "2026-10-18 21:05"
+    },
+    "cb9ae277f9191468": {
+      "doc": "video:module 2 influencers/2.SECRET SAUCE Influencer Negotiation - Coach Osama",
+      "original": "close at least. Five, six, seven influencers. Why? Because they might close one influencer, they might get sick. You might close another influencer, something might happen with their family. You might close another influencer, it might be on leave, right? So it's always to have backup.",
+      "current": "close at least. Five, six, seven influencers. Why? Because they might close one influencer, they might get sick. You might close another influencer, something might happen with their family. You might close another influencer, it might be on leave, right? So it's always to have backup.",
+      "checked": true,
+      "checked_at": "2026-10-18 21:06"
+    },
+    "7101d29e1c9fb372": {
+      "doc": "video:module 2 influencers/2.SECRET SAUCE Influencer Negotiation - Coach Osama",
+      "original": "you need to focus on one and two maximum About this. Because if you say everything, you say your engagement rates are bad, your age is bad, your demos are bad, your average views is bad. If you say all of this, it's gonna be like, why are you working with me in the first place?",
+      "current": "you need to focus on one and two maximum facts about this. Because if you say everything, you say your engagement rates are bad, your age is bad, your demos are bad, your average views is bad. If you say all of this, it's gonna be like, why are you working with me in the first place?",
+      "checked": true,
+      "edited_at": "2026-10-18 21:06",
+      "checked_at": "2026-10-18 21:06"
+    },
+    "be17468bf7037275": {
+      "doc": "video:module 2 influencers/2.SECRET SAUCE Influencer Negotiation - Coach Osama",
+      "original": "Always send them written agreement with all terms, deliverables and timelines. This will protect you both not just you both. And then you set clear expectations from the beginning. There's a lot of issues, a lot of problems that come with payments. When am I gonna get paid? When am I exactly going to get paid? Especially payment, right? So clearly state the payment terms. Is it 15 net terms? Is it 30 data? Right?",
+      "current": "Always send them written agreement with all terms, deliverables and timelines. This will protect you both not just you both. And then you set clear expectations from the beginning. There's a lot of issues, a lot of problems that come with payments. When am I gonna get paid? When am I exactly going to get paid? Especially payment, right? So clearly state the payment terms. Is it 15 net terms? Is it 30 data? Right?",
+      "checked": true,
+      "checked_at": "2026-10-18 21:07"
+    },
+    "04c9622e7d6950ac": {
+      "doc": "video:module 2 influencers/2.SECRET SAUCE Influencer Negotiation - Coach Osama",
+      "original": "research the past sponsorships so that you don't shoot yourself in the foot by giving them brands that they already worked with. Calculate the engagement rate. Check the top audience countries, prepare your strongest arguments, you know, and know your walkaway number.",
+      "current": "research the past sponsorships so that you don't shoot yourself in the foot by giving them brands that they already worked with. Calculate the engagement rate. Check the top audience countries, prepare your strongest arguments, you know? and know your walkaway number.",
+      "checked": true,
+      "edited_at": "2026-10-18 21:07",
+      "checked_at": "2026-10-18 21:07"
+    },
+    "8da6d82343656032": {
+      "doc": "video:module 2 influencers/2.SECRET SAUCE Influencer Negotiation - Coach Osama",
+      "original": "I get brands saying to me, Look, we want a video to be out between 1 to 16 of March, let's say, right? Before between the 1st and the 16th. I say to the influencer, look. Just so the influencer doesn't know that he's got much flexibility, I say, Look, you've got to choose between the one and tenth, which day do you want?",
+      "current": "I get brands saying to me, Look, we want a video to be out between 1 to 16 of March, let's say, right? Before between the 1st and the 16th. I say to the influencer, look. Just so the influencer doesn't know that he's got much flexibility, I say, Look, you've got to choose between the one and tenth, which day do you want?",
+      "checked": true,
+      "checked_at": "2026-10-18 21:08"
+    },
+    "6fa2e85a25cbcf9d": {
+      "doc": "video:module 3 brands/3.1. How To Make Offers That Close Instantly",
+      "original": "Here's the engagement we have with this guy. Here's the type of engagement your guy had. I think this is one of the reasons why you didn't get results. It's also why we're charging above market, but because we're getting results above market. Those little objection handling. Now, I didn't do any magic. I just show them it makes sense. We're charging more because you get better results.",
+      "current": "Here's the engagement we have with this guy. Here's the type of engagement your guy had. I think this is one of the reasons why you didn't get results. It's also why we're charging above market, but because we're getting results above market. Those little objection handling. Now, I didn't do any magic. I just show them it makes sense. We're charging more because you get better results.",
+      "checked": true,
+      "checked_at": "2026-10-18 21:08"
+    },
+    "65dea5197c8a881a": {
+      "doc": "video:module 3 brands/3.1. Setting Expectations",
+      "original": "Actually, the first ever brand that I closed, Alahmo Beric. I closed them on like a like 200 bucks deal, like baby deal. A long time after Alamoberic, we just did a campaign together like two or three months ago.",
+      "current": "Actually, the first ever brand that I closed, Allahumabarik. I closed them on like a like 200 bucks deal, like baby deal. A long time after Allahumabarik, we just did a campaign together like two or three months ago.",
+      "checked": true,
+      "edited_at": "2026-10-18 21:09",
+      "checked_at": "2026-10-18 21:09"
+    },
+    "a1ec3239e1c2dd0c": {
+      "doc": "video:module 3 brands/3.1. Setting Expectations",
+      "original": "Like, just like that, pro tip, email them back, like wait one day after they got CC'd, then email them back, like, hey, Mr. CEO, like, give his name, like, oh, hey, Ayyub reached out to us, or like, Ayub told me he CC'd you. I thought I just opened a new thread to make it easier. Let's take it from there. Did you have time to check out the influencer?",
+      "current": "Like, just like that. Pro tip, email them back. Like, wait one day after they got CCed and email them back. Like, hey, Mr. CEO, like, give his name. Like, oh, hey, Ayub reached out to us. Or like, Ayub told me he CCed you. I thought I'd just open a new thread to make it easier. Let's take it from there. Did you have time to check out the influencer?",
+      "checked": true,
+      "edited_at": "2026-10-18 21:11",
+      "checked_at": "2026-10-18 21:11"
+    },
+    "01d06e18c39a8476": {
+      "doc": "video:module 3 brands/3.1. Where to find high paying brands",
+      "original": "Hey, I just reached out to Thiago and he didn't get back to me. So I thought maybe someone else could be handling the partnership request. Hey, I was curious if it was Jamal or if it was Ablaziz who's handling that. Is it this guy or that guy?",
+      "current": "Hey, I just reached out to Thiago and he didn't get back to me. So I thought maybe someone else could be handling the partnership request. Hey, I was curious if it was Jamal or if it was Ablaziz who's handling that. Is it this guy or that guy?",
+      "checked": true,
+      "checked_at": "2026-10-18 21:11"
+    },
+    "29cc6f85b83219bc": {
+      "doc": "video:module 3 brands/3.2. How to Audit Brands - Coach Abu Numaan",
+      "original": "the goal of this whole audit, is to find one specific observation that we can use in our outreach to show this brand: hey, I know what I'm talking about, I've done my research. You know, I'm not some type of bang guy. And at this stage, one observation is enough.",
+      "current": "the goal of this whole audit, is to find one specific observation that we can use in our outreach to show this brand: hey, I know what I'm talking about, I've done my research. You know, I'm not some type of bang guy. And at this stage, one observation is enough.",
+      "checked": true,
+      "checked_at": "2026-10-18 21:11"
+    },
+    "a02fd02cd1462f35": {
+      "doc": "video:module 3 brands/3.2. How to Make Attractive Offers",
+      "original": "I want to find the best brands to advertise on his platform. Please give me not names of brands because ChatGPT doesn't know. Please give me examples of products that would be perfectly on brand and perfect for this advertisement.",
+      "current": "I want to find the best brands to advertise on his platform. Please give me not names of brands because ChatGPT doesn't know. Please give me examples of products that would be perfectly on brand and perfect for this advertisement.",
+      "checked": true,
+      "checked_at": "2026-10-18 21:12"
+    },
+    "27450912b52bb3e1": {
+      "doc": "video:module 3 brands/3.2. How to Make Attractive Offers",
+      "original": "And then, what you can do is you see how he said helmets. I went and I found one brand. Then you go and hit like 10 other brands, then reach out to all 10, and then go on another website and find all 10 other brands for helmets, and the same thing. And this and milk all the brands about helmets.",
+      "current": "And then, what you can do is you see how he said helmets. I went and I found one brand. Then you go and hit like 10 other brands, then reach out to all 10, and then go on another website and find all 10 other brands for helmets, and the same thing. And this and milk all the brands about helmets and then you go back to ChatGPT and you see that he said exhaust systems and do the same thing exhaust systems",
+      "checked": true,
+      "edited_at": "2026-10-18 21:13",
+      "checked_at": "2026-10-18 21:13"
+    },
+    "cce9f7bceb23ae4f": {
+      "doc": "video:module 3 brands/3.2. How to Make Attractive Offers",
+      "original": "this is where you get your arbitrage. If this guy usually gets offers from like these goofy random brands, but like chocolate brands, NordeVPN, e-sim cards, whatever, and they offer him two grand, three grand, because it's just like general stuff. You go super specific, you still pay him two grand, but you go and sell it to that brand that's super in need of that type of audience and to them. A thousand eyeballs from this guy is extremely valuable.",
+      "current": "this is where you get your arbitrage. If this guy usually gets offers from like these goofy random brands, but like chocolate brands, NordVPN, e-sim cards, whatever, and they offer him two grand, three grand, because it's just like general stuff. You go super specific, you still pay him two grand, but you go and sell it to that brand that's super in need of that type of audience and to them. A thousand eyeballs from this guy is extremely valuable.",
+      "checked": true,
+      "edited_at": "2026-10-18 21:18",
+      "checked_at": "2026-10-18 21:18"
+    },
+    "d711af7bebea5fdf": {
+      "doc": "video:module 3 brands/3.2. Typical Brand Responses and What to Do",
+      "original": "Now, you go to them and you say, Hey, guys, I know you guys just do shorts. I know shorts is amazing for you, it's rockiness, killing it. I just wanted to let you know we have a crazy opportunity right now on integrations.",
+      "current": "Now, you go to them and you say, Hey, guys, I know you guys just do shorts. I know shorts is amazing for you, it's rocking, killing it. I just wanted to let you know we have a crazy opportunity right now on integrations.",
+      "checked": true,
+      "edited_at": "2026-10-18 21:19",
+      "checked_at": "2026-10-18 21:19"
+    },
+    "7b3c2ab7288e9c46": {
+      "doc": "video:module 3 brands/3.2. Typical Brand Responses and What to Do",
+      "original": "if they're saying we're specifically looking for YouTube sponsorships, oh, amazing, Tom is excellent for YouTube sponsorships.",
+      "current": "if they're saying we're specifically looking for YouTube sponsorships, oh, amazing, Tom is excellent for YouTube sponsorships.",
+      "checked": true,
+      "checked_at": "2026-10-18 21:19"
+    },
+    "c5508d0592ef84fa": {
+      "doc": "video:module 3 brands/3.2. Typical Brand Responses and What to Do",
+      "original": "And by the way, this is a test. When they're sending you those kind of emails, when they're saying, hey, we're stopping this, we're posing this, we can't spend money, they are actually testing you. They're testing how you're going to respond to these. By the way, it's subconscious. They don't even do this purposely. They just send you this and then they're going to look at how you respond. And if you are super pushy, whatever. Deal is dead.",
+      "current": "And by the way, this is a test. When they're sending you those kind of emails, when they're saying, hey, we're stopping this, we're posing this, we can't spend money, they are actually testing you. They're testing how you're going to respond to these. By the way, it's subconscious. They don't even do this purposely. They just send you this and then they're going to look at how you respond. And if you are super pushy, whatever. Deal is dead.",
+      "checked": true,
+      "checked_at": "2026-10-18 21:23"
+    },
+    "a28b5c8ef720f437": {
+      "doc": "video:module 3 brands/3.3. Auditing Your Influencers - Coach Abu Numaan",
+      "original": "If you notice that you know, every brand that works with him only works with him once, probably means that he's not as strong.",
+      "current": "If you notice that you know, every brand that works with him only works with him once, probably means that he's not as strong.",
+      "checked": true,
+      "checked_at": "2026-10-18 21:24"
+    },
+    "759ead4de989bd33": {
+      "doc": "video:module 3 brands/3.3. Tips When Presenting Influencers to Brands",
+      "original": "If they told you about they got stung before because this influencer didn't get good results, you can go do some digging, find the numbers that were wrong.",
+      "current": "If they told you about they got stung before because this influencer didn't get good results, you can go do some digging, find the numbers that were wrong.",
+      "checked": true,
+      "checked_at": "2026-10-18 21:24"
+    },
+    "a82be96e2153c84a": {
+      "doc": "video:module 3 brands/3.3. Tips When Presenting Influencers to Brands",
+      "original": "If the brand lobbles you, you don't wanna take the loss yourself and be like, oh, it's fine, I'll shoulder it. You go back to the influencer, you explain the brand's budget constraints, and you frame it as a team effort.",
+      "current": "If the brand low balls you, you don't wanna take the loss yourself and be like, oh, it's fine, I'll shoulder it. You go back to the influencer, you explain the brand's budget constraints, and you frame it as a team effort.",
+      "checked": true,
+      "edited_at": "2026-10-18 21:25",
+      "checked_at": "2026-10-18 21:25"
+    },
+    "437eb11f4638962b": {
+      "doc": "video:module 3 brands/3.4. How to Build a Strong Pitch - Coach Abu Numaan",
+      "original": "And then I'll go end with a CTA. Would you be able to call a quick conversation? That could be a CTA. I'll probably go with probably something more like: would you like me to send him a few ideas? Would you like me to send over a few ideas?",
+      "current": "And then I'll go end with a CTA. Would you be able to call a quick conversation? That could be a CTA. I'll probably go with probably something more like: would you like me to send him a few ideas? Would you like me to send over a few ideas?",
+      "checked": true,
+      "checked_at": "2026-10-18 21:25"
+    },
+    "736ff8b2c9392701": {
+      "doc": "video:module 3 brands/3.4. How to Negotiate with Brands",
+      "original": "If the influencer raises his price out of nowhere, you raise the prices, you also pay to the brands. If the brand out of nowhere drops the price and doesn't want to pay you a lot, you go to the influencer and you drop the price as well because you don't want to shoulder the elbow yourself.",
+      "current": "If the influencer raises his price out of nowhere, you raise the prices, you also pitch to the brands. If the brand out of nowhere drops the price and doesn't want to pay you a lot, you go to the influencer and you drop the price as well because you don't want to shoulder the elbow yourself.",
+      "checked": true,
+      "edited_at": "2026-10-18 21:26",
+      "checked_at": "2026-10-18 21:26"
+    },
+    "8dac103ffa26b941": {
+      "doc": "video:module 3 brands/3.4. How to Negotiate with Brands",
+      "original": "if your influencer asked for 30 grand for collaboration, but realistically, the market value is closer to 5k and you got him down to 3k, you can go and pitch it for eight. That's actually the max you could do, and you And you could say, Yeah, we talked him down. He used to pitch it for 30k, we can do for 8k, and then you talk them out down a little bit more. But usually, that's where you settle that, right? You don't want to start in going higher than that because otherwise, they just want to ignore you.",
+      "current": "if your influencer asked for 30 grand for collaboration, but realistically, the market value is closer to 5k and you got him down to 3k, you can go and pitch it for eight. That's actually the max you could do, and you And you could say, Yeah, we talked him down. He used to pitch it for 30k, we can do for 8k, and then you talk them out down a little bit more. But usually, that's where you settle that, right? You don't want to start in going higher than that because otherwise, they just want to ignore you.",
+      "checked": true,
+      "checked_at": "2026-10-18 21:26"
+    },
+    "8e4dc0501601bfcd": {
+      "doc": "video:module 3 brands/3.4. How to Negotiate with Brands",
+      "original": "This is becoming lying and manipulation if the one of both is wrong. So, if the fact that he promoted something recently makes it that recent, like it will not go well if he promotes again, don't say, oh, he went super well, you're gonna have the same thing.",
+      "current": "This is becoming lying and manipulation if the one of both is wrong. So, if the fact that he promoted something recently makes it that recent, like it will not go well if he promotes again, don't say, oh, he went super well, you're gonna have the same thing.",
+      "checked": true,
+      "checked_at": "2026-10-18 21:27"
+    },
+    "8588936d864d2e5f": {
+      "doc": "video:module 3 brands/3.4. Qualifying Your Inf. Brands - Coach Ammar",
+      "original": "Usually, what is the golden ratio is from fifty millions to five hundred millions. In revenue, if you have these numbers, that means brands are big enough, they can spend money on influencers small enough that they need marketing, right?",
+      "current": "Usually, what is the golden ratio is from fifty millions to five hundred millions. In revenue, if you have these numbers, that means brands are big enough, they can spend money on influencers small enough that they need marketing, right?",
+      "checked": true,
+      "checked_at": "2026-10-18 21:27"
+    },
+    "da67c9db91bd83d6": {
+      "doc": "video:module 3 brands/3.4. Qualifying Your Inf. Brands - Coach Ammar",
+      "original": "Basically, you know, support roles equals limited authority. Sometimes they CC other guys, they need approval.",
+      "current": "Basically, you know, support roles equals limited authority. Sometimes they CC other guys, they need approval.",
+      "checked": true,
+      "checked_at": "2026-10-18 21:28"
+    },
+    "e0cb1a6662fe7f46": {
+      "doc": "video:module 3 brands/3.5. Pre-HandlingHandling objection Aikido Mastery",
+      "original": "For example, brands might just get defensive if you start talking about budget. You start talking about money, they're like, oh, budget, the last people that asked me about budget, just trying to milk me for all the money that I had and try to just sell me something that I didn't need.",
+      "current": "For example, brands might just get defensive if you start talking about budget. You start talking about money, they're like, oh, budget, the last people that asked me about budget, just trying to milk me for all the money that I had and try to just sell me something that I didn't need.",
+      "checked": true,
+      "checked_at": "2026-10-18 21:29"
+    },
+    "71533495f42c9bf0": {
+      "doc": "video:module 3 brands/3.5. The foot in the door method",
+      "original": "Let's say you give the brand a 10% discount for buying three at once. You can go to the influencer and give him and ask him for a 20-30% discount for buying a bulk, and then you can pocket that extra percentage, doubling, tripling your profit margins",
+      "current": "Let's say you give the brand a 10% discount for buying three at once. You can go to the influencer and give him and ask him for a 20-30% discount for buying a bulk, and then you can pocket that extra percentage, doubling, tripling your profit margins",
+      "checked": true,
+      "checked_at": "2026-10-18 21:29"
+    },
+    "2a46e923672e8ad7": {
+      "doc": "video:module 3 brands/3.5. The foot in the door method",
+      "original": "we can do a cpm deal it's going to be safer on your end you don't pay up front you pay only after 30 days of the video going live",
+      "current": "we can do a CPM deal it's going to be safer on your end you don't pay up front you pay only after 30 days of the video going live",
+      "checked": true,
+      "edited_at": "2026-10-18 21:38",
+      "checked_at": "2026-10-18 21:38"
+    },
+    "0dbf06e3cc64a9d4": {
+      "doc": "video:module 3 brands/3.6. PART 2 Objection Handling Full Training",
+      "original": "Just so I understand, when you mean too expensive, do you mean there's no way you would work like an influencer like this, or is it just because of the first time?",
+      "current": "Just so I understand, what do you mean too expensive, do you mean there's no way you would work like an influencer like this, or is it just because of the first time?",
+      "checked": true,
+      "edited_at": "2026-10-18 21:39",
+      "checked_at": "2026-10-18 21:39"
+    },
+    "5dd6fd0ee744f3d7": {
+      "doc": "video:module 3 brands/3.6. PART 2 Objection Handling Full Training",
+      "original": "If your guy is gonna be booked out, or if your guy has maybe prices that increase as he gets more demand, or those kind of things, we can give a discount now because you're free. You can go and do this. But know that here, this only works if your guy is actually really good and he also is actually fully booked or fully packed.",
+      "current": "If your guy is gonna be booked out, or if your guy has maybe prices that increase as he gets more demand, or those kind of things, we can give a discount now because you're free. You can go and do this. But know that here, this only works if your guy is actually really good and he also is actually fully booked or fully packed.",
+      "checked": true,
+      "checked_at": "2026-10-18 21:39"
+    },
+    "f18301ed03786caf": {
+      "doc": "video:module 3 brands/3.6. PART 2 Objection Handling Full Training",
+      "original": "And whatever you front the cost, never front more than like 20% of your liquidity across all your whatever you're fronting. Don't risk too much money, right?",
+      "current": "And whatever you front the cost, never front more than like 20% of your liquidity across all your whatever you're fronting. Don't risk too much money, right?",
+      "checked": true,
+      "checked_at": "2026-10-18 21:39"
+    },
+    "a87556aff62fafa6": {
+      "doc": "video:module 3 brands/3.6. PART 2 Objection Handling Full Training",
+      "original": "We only do affiliate deals. This one, honestly, most of the time you're cooked. I'm gonna be real with you. This one teaches the one I pay. They're like, Eki, we're broke. We ain't got no money. I ain't got no peace. You just figure it out. Take an affiliate link and we can pay you if you make us money.",
+      "current": "We only do affiliate deals. This one, honestly, most of the time you're cooked. I'm gonna be real with you. This one teaches the one I pay. They're like, akhi, we're broke. We ain't got no money. I ain't got no peace. You just figure it out. Take an affiliate link and we can pay you if you make us money.",
+      "checked": true,
+      "edited_at": "2026-10-18 21:41",
+      "checked_at": "2026-10-18 21:41"
+    }
+  }
+}

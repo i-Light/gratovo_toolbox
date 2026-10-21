@@ -1,0 +1,916 @@
+{
+ "about": "The situations the workflow recognises: the stages of a deal on each side, and every kind of reply a creator, a creator's manager or a brand sends, with how to recognise it, the rules that answer it, and whether a person must decide before anything is sent. Ids are stable; the engine and the skill both use them.",
+ "stages": {
+  "influencer": [
+   {
+    "id": "prospect",
+    "label": "Found, not contacted",
+    "rules": [
+     "INF-QUAL-01",
+     "INF-QUAL-03",
+     "FND-ETH-06"
+    ]
+   },
+   {
+    "id": "contacted",
+    "label": "First message sent, no reply",
+    "rules": [
+     "INF-FIRST-01",
+     "INF-FU-01",
+     "FND-DLV-19"
+    ]
+   },
+   {
+    "id": "replied",
+    "label": "They answered",
+    "rules": [
+     "INF-REPLY-04",
+     "INF-REPLY-06",
+     "INF-QUAL-02"
+    ]
+   },
+   {
+    "id": "qualifying",
+    "label": "Getting media kit, audience, rates",
+    "rules": [
+     "INF-REPLY-01",
+     "INF-REPLY-05",
+     "INF-PRICE-08"
+    ]
+   },
+   {
+    "id": "negotiating",
+    "label": "Agreeing a price",
+    "rules": [
+     "INF-NEG-13",
+     "INF-NEG-06",
+     "INF-PRICE-06"
+    ]
+   },
+   {
+    "id": "closed",
+    "label": "Data + price + ready: in the roster",
+    "rules": [
+     "INF-CLOSE-01",
+     "INF-ONB-01",
+     "INF-ONB-02"
+    ]
+   },
+   {
+    "id": "sold",
+    "label": "A brand bought this creator",
+    "rules": [
+     "BRD-CLOSE-02",
+     "INF-ONB-04"
+    ]
+   },
+   {
+    "id": "contract",
+    "label": "Creator contract out / signed",
+    "rules": [
+     "INF-CLOSE-02",
+     "INF-CLOSE-03",
+     "BRD-CONTRACT-08"
+    ]
+   },
+   {
+    "id": "production",
+    "label": "Brief, script, draft, revisions",
+    "rules": [
+     "INF-DELIV-06",
+     "INF-DELIV-09",
+     "INF-DELIV-07"
+    ]
+   },
+   {
+    "id": "live",
+    "label": "Scheduled / live",
+    "rules": [
+     "INF-DELIV-10",
+     "INF-DELIV-11",
+     "INF-PAY-01"
+    ]
+   },
+   {
+    "id": "after",
+    "label": "Reporting, payment, next deal",
+    "rules": [
+     "INF-AFTER-02",
+     "INF-AFTER-01"
+    ]
+   },
+   {
+    "id": "lost",
+    "label": "Not working with us (for now)",
+    "rules": [
+     "INF-NEG-04",
+     "INF-REPLY-09"
+    ]
+   }
+  ],
+  "brand": [
+   {
+    "id": "prospect",
+    "label": "Found, audited, not contacted",
+    "rules": [
+     "BRD-QUAL-02",
+     "BRD-QUAL-03",
+     "FND-ETH-05"
+    ]
+   },
+   {
+    "id": "contacted",
+    "label": "Pitch sent, no reply",
+    "rules": [
+     "BRD-FIRST-01",
+     "BRD-FU-03",
+     "FND-DLV-19"
+    ]
+   },
+   {
+    "id": "replied",
+    "label": "They answered",
+    "rules": [
+     "BRD-REPLY-05",
+     "BRD-QUAL-08"
+    ]
+   },
+   {
+    "id": "presenting",
+    "label": "Shortlist / offer on the table",
+    "rules": [
+     "BRD-PRES-05",
+     "BRD-PRES-09",
+     "BRD-OFFER-10"
+    ]
+   },
+   {
+    "id": "negotiating",
+    "label": "Price and terms",
+    "rules": [
+     "BRD-NEG-09",
+     "BRD-NEG-13",
+     "BRD-OBJ-06"
+    ]
+   },
+   {
+    "id": "agreed",
+    "label": "Yes in writing: rate, deliverables, date",
+    "rules": [
+     "BRD-CLOSE-02",
+     "BRD-CLOSE-03"
+    ]
+   },
+   {
+    "id": "contract",
+    "label": "Contracts",
+    "rules": [
+     "BRD-CONTRACT-05",
+     "BRD-CONTRACT-09",
+     "BRD-CONTRACT-08"
+    ]
+   },
+   {
+    "id": "production",
+    "label": "Brief, approvals",
+    "rules": [
+     "BRD-DELIV-06",
+     "BRD-DELIV-05",
+     "BRD-DELIV-02"
+    ]
+   },
+   {
+    "id": "live",
+    "label": "Live and reporting",
+    "rules": [
+     "BRD-AFTER-08",
+     "BRD-AFTER-09"
+    ]
+   },
+   {
+    "id": "payment",
+    "label": "Invoice and payment",
+    "rules": [
+     "BRD-PAY-02",
+     "BRD-PAY-03",
+     "BRD-PAY-01"
+    ]
+   },
+   {
+    "id": "after",
+    "label": "Next deal or make-good",
+    "rules": [
+     "BRD-AFTER-10",
+     "BRD-AFTER-06",
+     "BRD-AFTER-04"
+    ]
+   },
+   {
+    "id": "paused",
+    "label": "Asked to come back later",
+    "rules": [
+     "BRD-REPLY-07",
+     "BRD-OBJ-07"
+    ]
+   },
+   {
+    "id": "lost",
+    "label": "No (for now)",
+    "rules": [
+     "BRD-OBJ-14",
+     "BRD-OBJ-16",
+     "BRD-FU-05"
+    ]
+   }
+  ]
+ },
+ "replies": {
+  "influencer": [
+   {
+    "id": "inf.interested_vague",
+    "label": "Interested / 'what do you have in mind?'",
+    "signs": [
+     "sure, what do you have in mind",
+     "tell me more",
+     "what brands"
+    ],
+    "rules": [
+     "INF-REPLY-04",
+     "INF-REPLY-06",
+     "INF-REPLY-01"
+    ],
+    "human": null
+   },
+   {
+    "id": "inf.asks_price_from_us",
+    "label": "Asks us to name the price",
+    "signs": [
+     "what's your budget",
+     "what would you pay",
+     "make me an offer"
+    ],
+    "rules": [
+     "INF-PRICE-09"
+    ],
+    "human": "price"
+   },
+   {
+    "id": "inf.gives_rate",
+    "label": "Gives their rate or rate card",
+    "signs": [
+     "my rate is",
+     "I charge",
+     "rate card attached"
+    ],
+    "rules": [
+     "INF-PRICE-07",
+     "INF-PRICE-01",
+     "INF-NEG-13",
+     "INF-NEG-03"
+    ],
+    "human": "price"
+   },
+   {
+    "id": "inf.media_kit",
+    "label": "Sends media kit / analytics",
+    "signs": [
+     "media kit attached",
+     "here are my stats"
+    ],
+    "rules": [
+     "INF-REPLY-05",
+     "INF-QUAL-02",
+     "BRD-QUAL-04"
+    ],
+    "human": null
+   },
+   {
+    "id": "inf.who_are_you",
+    "label": "Doubts us: website, domain, who you manage, past work",
+    "signs": [
+     "what's your website",
+     "who do you work with",
+     "show me past campaigns"
+    ],
+    "rules": [
+     "INF-REPLY-03",
+     "INF-REPLY-02",
+     "FND-ETH-03",
+     "INF-REPLY-20"
+    ],
+    "human": "claim"
+   },
+   {
+    "id": "inf.thinks_we_are_brand",
+    "label": "Thinks we are the brand",
+    "signs": [
+     "what's your product",
+     "send me the product"
+    ],
+    "rules": [
+     "INF-FIRST-10",
+     "FND-ETH-01",
+     "INF-REPLY-27"
+    ],
+    "human": null
+   },
+   {
+    "id": "inf.has_manager",
+    "label": "Redirects to a manager / agency",
+    "signs": [
+     "contact my manager",
+     "please email my agent",
+     "cc'ing my team"
+    ],
+    "rules": [
+     "INF-MGR-05",
+     "INF-MGR-02",
+     "INF-MGR-14"
+    ],
+    "human": null
+   },
+   {
+    "id": "inf.counter",
+    "label": "Counter-offer in negotiation",
+    "signs": [
+     "I can do",
+     "lowest I can go",
+     "meet in the middle"
+    ],
+    "rules": [
+     "INF-NEG-06",
+     "INF-NEG-09",
+     "INF-NEG-17"
+    ],
+    "human": "price"
+   },
+   {
+    "id": "inf.non_negotiable",
+    "label": "'My rates are non-negotiable'",
+    "signs": [
+     "non-negotiable",
+     "firm on my rate"
+    ],
+    "rules": [
+     "INF-NEG-18",
+     "INF-NEG-11",
+     "INF-NEG-04"
+    ],
+    "human": "price"
+   },
+   {
+    "id": "inf.already_worked_brand",
+    "label": "Already worked with that brand",
+    "signs": [
+     "I worked with them",
+     "I'm already partnered with"
+    ],
+    "rules": [
+     "INF-REPLY-07"
+    ],
+    "human": null
+   },
+   {
+    "id": "inf.wants_upfront",
+    "label": "Asks for payment upfront / payment terms",
+    "signs": [
+     "50% upfront",
+     "when do I get paid"
+    ],
+    "rules": [
+     "INF-PAY-03",
+     "BRD-CONTRACT-03",
+     "INF-CLOSE-03",
+     "INF-NEG-38"
+    ],
+    "human": "terms"
+   },
+   {
+    "id": "inf.wants_exclusivity_terms",
+    "label": "Asks about exclusivity / usage rights",
+    "signs": [
+     "exclusive",
+     "usage rights",
+     "whitelisting"
+    ],
+    "rules": [
+     "INF-REPLY-32",
+     "INF-CLOSE-04",
+     "INF-CLOSE-03",
+     "INF-CLOSE-06"
+    ],
+    "human": "terms"
+   },
+   {
+    "id": "inf.not_interested",
+    "label": "Not interested / no partnerships",
+    "signs": [
+     "not interested",
+     "I don't do sponsorships",
+     "not taking deals"
+    ],
+    "rules": [
+     "INF-REPLY-09",
+     "INF-REPLY-08"
+    ],
+    "human": null
+   },
+   {
+    "id": "inf.later",
+    "label": "Busy now / later",
+    "signs": [
+     "maybe next month",
+     "fully booked"
+    ],
+    "rules": [
+     "INF-REPLY-22",
+     "FND-MIND-06",
+     "INF-FU-01"
+    ],
+    "human": null
+   },
+   {
+    "id": "inf.agrees",
+    "label": "Agrees to work with us",
+    "signs": [
+     "sounds good",
+     "let's do it",
+     "I'm in"
+    ],
+    "rules": [
+     "INF-CLOSE-01",
+     "INF-ONB-01",
+     "INF-ONB-02",
+     "INF-CLOSE-06"
+    ],
+    "human": null
+   },
+   {
+    "id": "inf.chasing_us",
+    "label": "Creator keeps checking in",
+    "signs": [
+     "any update",
+     "did you find a brand"
+    ],
+    "rules": [
+     "INF-ONB-08",
+     "INF-ONB-02",
+     "INF-ONB-03"
+    ],
+    "human": null
+   },
+   {
+    "id": "inf.delivery_update",
+    "label": "Script / draft / go-live / shipping message",
+    "signs": [
+     "here's the script",
+     "draft link",
+     "I'll post on",
+     "received the product"
+    ],
+    "rules": [
+     "INF-DELIV-09",
+     "INF-DELIV-07",
+     "INF-DELIV-10",
+     "INF-DELIV-08",
+     "INF-DELIV-11"
+    ],
+    "human": null
+   },
+   {
+    "id": "inf.contract_question",
+    "label": "Question or change request on the contract",
+    "signs": [
+     "about the contract",
+     "can we change"
+    ],
+    "rules": [
+     "BRD-CONTRACT-03",
+     "INF-CLOSE-03",
+     "INF-CLOSE-06"
+    ],
+    "human": "terms"
+   },
+   {
+    "id": "inf.payment_question",
+    "label": "Asks about their payment",
+    "signs": [
+     "when will I be paid",
+     "payment status"
+    ],
+    "rules": [
+     "INF-PAY-01",
+     "INF-CLOSE-05"
+    ],
+    "human": null
+   },
+   {
+    "id": "inf.angry",
+    "label": "Annoyed, rude or complaining",
+    "signs": [
+     "stop emailing",
+     "this is spam",
+     "rude"
+    ],
+    "rules": [
+     "INF-REPLY-24",
+     "FND-MIND-04",
+     "INF-NEG-04",
+     "FND-ETH-12"
+    ],
+    "human": null
+   }
+  ],
+  "brand": [
+   {
+    "id": "brd.more_info",
+    "label": "'Send more information' about the creator",
+    "signs": [
+     "send more info",
+     "tell me more about",
+     "share details"
+    ],
+    "rules": [
+     "BRD-REPLY-05",
+     "BRD-PRES-04",
+     "BRD-PRES-03"
+    ],
+    "human": null
+   },
+   {
+    "id": "brd.asks_rates",
+    "label": "Asks for rates / pricing",
+    "signs": [
+     "what are the rates",
+     "how much",
+     "pricing"
+    ],
+    "rules": [
+     "BRD-REPLY-20",
+     "BRD-NEG-09",
+     "BRD-OFFER-04"
+    ],
+    "human": "price"
+   },
+   {
+    "id": "brd.wants_roster",
+    "label": "Wants the full roster, rates and analytics at once",
+    "signs": [
+     "send your roster",
+     "list of creators",
+     "all your influencers"
+    ],
+    "rules": [
+     "BRD-REPLY-19",
+     "BRD-REPLY-10",
+     "BRD-PRES-07",
+     "BRD-PRES-15"
+    ],
+    "human": null
+   },
+   {
+    "id": "brd.only_deliverable",
+    "label": "Only wants a specific deliverable",
+    "signs": [
+     "we only do youtube integrations",
+     "only looking for"
+    ],
+    "rules": [
+     "BRD-REPLY-06"
+    ],
+    "human": "price"
+   },
+   {
+    "id": "brd.budget_given",
+    "label": "Names a budget or range",
+    "signs": [
+     "our budget is",
+     "we can spend",
+     "max budget"
+    ],
+    "rules": [
+     "BRD-PRES-08",
+     "BRD-OFFER-02",
+     "BRD-NEG-12"
+    ],
+    "human": "price"
+   },
+   {
+    "id": "brd.price_too_high",
+    "label": "'Price is too high'",
+    "signs": [
+     "too expensive",
+     "out of budget",
+     "a bit high"
+    ],
+    "rules": [
+     "BRD-OBJ-06",
+     "BRD-OBJ-15",
+     "BRD-NEG-11"
+    ],
+    "human": "price"
+   },
+   {
+    "id": "brd.lowball",
+    "label": "Lowball counter-offer",
+    "signs": [
+     "we can offer",
+     "our max is"
+    ],
+    "rules": [
+     "BRD-NEG-04",
+     "BRD-NEG-05",
+     "BRD-NEG-12",
+     "BRD-NEG-07",
+     "BRD-NEG-24"
+    ],
+    "human": "price"
+   },
+   {
+    "id": "brd.paused",
+    "label": "Pausing campaigns / after Q4 / next quarter",
+    "signs": [
+     "pausing campaigns",
+     "after Q4",
+     "revisit next quarter"
+    ],
+    "rules": [
+     "BRD-REPLY-07",
+     "BRD-OBJ-07",
+     "BRD-OBJ-23"
+    ],
+    "human": null
+   },
+   {
+    "id": "brd.wrong_fit",
+    "label": "Creator doesn't make sense for us",
+    "signs": [
+     "not the right fit",
+     "doesn't align"
+    ],
+    "rules": [
+     "BRD-OBJ-01",
+     "BRD-OBJ-08",
+     "BRD-OBJ-14"
+    ],
+    "human": null
+   },
+   {
+    "id": "brd.affiliate_only",
+    "label": "Only affiliate / ambassador program",
+    "signs": [
+     "affiliate",
+     "commission only",
+     "ambassador program"
+    ],
+    "rules": [
+     "BRD-OBJ-09",
+     "BRD-OBJ-13",
+     "BRD-REPLY-01"
+    ],
+    "human": "terms"
+   },
+   {
+    "id": "brd.no_agencies",
+    "label": "We don't work with agencies / prefer creators directly",
+    "signs": [
+     "don't work with agencies",
+     "prefer to work directly"
+    ],
+    "rules": [
+     "BRD-OBJ-10",
+     "BRD-OBJ-12"
+    ],
+    "human": null
+   },
+   {
+    "id": "brd.exclusive_question",
+    "label": "Asks if we are exclusive / creator has another agency",
+    "signs": [
+     "are you exclusive",
+     "already has an agency"
+    ],
+    "rules": [
+     "BRD-REPLY-04",
+     "BRD-OBJ-05",
+     "BRD-OBJ-11"
+    ],
+    "human": "claim"
+   },
+   {
+    "id": "brd.about_agency",
+    "label": "Asks about the agency / past work / case studies",
+    "signs": [
+     "who have you worked with",
+     "case studies",
+     "tell me about your agency"
+    ],
+    "rules": [
+     "BRD-OBJ-22",
+     "BRD-REPLY-03",
+     "FND-ETH-03",
+     "BRD-OFFER-14"
+    ],
+    "human": "claim"
+   },
+   {
+    "id": "brd.cc_colleague",
+    "label": "Hands us to a colleague (CC)",
+    "signs": [
+     "cc'ing",
+     "looping in",
+     "my colleague will"
+    ],
+    "rules": [
+     "BRD-REPLY-08",
+     "BRD-REPLY-25"
+    ],
+    "human": null
+   },
+   {
+    "id": "brd.wants_call",
+    "label": "Asks for a call",
+    "signs": [
+     "hop on a call",
+     "schedule a meeting"
+    ],
+    "rules": [
+     "BRD-REPLY-12",
+     "FND-CALL-13"
+    ],
+    "human": null
+   },
+   {
+    "id": "brd.yes",
+    "label": "Says yes / wants to proceed",
+    "signs": [
+     "let's move forward",
+     "we'd like to proceed",
+     "approved"
+    ],
+    "rules": [
+     "BRD-CLOSE-02",
+     "BRD-CLOSE-03",
+     "BRD-CLOSE-01",
+     "BRD-CONTRACT-12"
+    ],
+    "human": "terms"
+   },
+   {
+    "id": "brd.contract_sent",
+    "label": "Sends a contract / asks for ours",
+    "signs": [
+     "contract attached",
+     "send your agreement"
+    ],
+    "rules": [
+     "BRD-CONTRACT-01",
+     "BRD-CONTRACT-05",
+     "BRD-CONTRACT-09",
+     "BRD-CONTRACT-08"
+    ],
+    "human": "terms"
+   },
+   {
+    "id": "brd.brief_or_feedback",
+    "label": "Sends the brief, approves or asks revisions",
+    "signs": [
+     "brief attached",
+     "approved",
+     "please change"
+    ],
+    "rules": [
+     "BRD-DELIV-06",
+     "BRD-DELIV-05",
+     "BRD-DELIV-04",
+     "BRD-DELIV-08"
+    ],
+    "human": null
+   },
+   {
+    "id": "brd.payment",
+    "label": "Payment, invoice or delay message",
+    "signs": [
+     "invoice",
+     "payment processed",
+     "net 30"
+    ],
+    "rules": [
+     "BRD-PAY-02",
+     "BRD-PAY-03",
+     "BRD-PAY-01",
+     "BRD-PAY-08",
+     "BRD-PAY-09"
+    ],
+    "human": null
+   },
+   {
+    "id": "brd.results",
+    "label": "Asks about results / unhappy with results",
+    "signs": [
+     "how did it perform",
+     "disappointed",
+     "low clicks"
+    ],
+    "rules": [
+     "BRD-AFTER-09",
+     "BRD-AFTER-07",
+     "BRD-AFTER-10",
+     "BRD-AFTER-05"
+    ],
+    "human": "terms"
+   },
+   {
+    "id": "brd.no",
+    "label": "No / not interested",
+    "signs": [
+     "not interested",
+     "not at this time",
+     "we'll pass"
+    ],
+    "rules": [
+     "BRD-OBJ-16",
+     "BRD-OBJ-14",
+     "BRD-FU-05",
+     "BRD-OBJ-23"
+    ],
+    "human": null
+   },
+   {
+    "id": "brd.wrong_person",
+    "label": "Wrong person / redirect",
+    "signs": [
+     "not the right person",
+     "contact our marketing team"
+    ],
+    "rules": [
+     "BRD-FIRST-02",
+     "BRD-QUAL-01"
+    ],
+    "human": null
+   }
+  ],
+  "any": [
+   {
+    "id": "any.out_of_office",
+    "label": "Out-of-office / auto-reply",
+    "signs": [
+     "out of office",
+     "on vacation until",
+     "automatic reply"
+    ],
+    "rules": [
+     "FND-WRITE-05",
+     "INF-REPLY-30"
+    ],
+    "human": null
+   },
+   {
+    "id": "any.bounce",
+    "label": "Bounce / address does not exist",
+    "signs": [
+     "delivery failed",
+     "address not found",
+     "undeliverable"
+    ],
+    "rules": [
+     "FND-DLV-06"
+    ],
+    "human": null
+   },
+   {
+    "id": "any.unsubscribe",
+    "label": "Asks to stop",
+    "signs": [
+     "unsubscribe",
+     "remove me",
+     "stop emailing"
+    ],
+    "rules": [
+     "FND-ETH-12",
+     "FND-MIND-04"
+    ],
+    "human": null
+   },
+   {
+    "id": "any.other_language",
+    "label": "Writes in another language",
+    "signs": [],
+    "rules": [
+     "FND-WRITE-06"
+    ],
+    "human": null
+   },
+   {
+    "id": "any.unclear",
+    "label": "Unclear / unrelated",
+    "signs": [],
+    "rules": [
+     "BRD-REPLY-09",
+     "FND-WRITE-06"
+    ],
+    "human": "fact_missing"
+   }
+  ]
+ }
+}

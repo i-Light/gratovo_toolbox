@@ -1,0 +1,435 @@
+{
+ "about": "Who speaks in each lesson video (comms/course.py loads the transcripts as `video:<lesson id>`). `single`: one coach presents, so every quote is the presenter's. `multi`: a live session; a quote needs `speaker` (a coach's name, checked by reading the passage) and students' words never count. `student`: a student's own deal story; quotes need `speaker: \"student\"` and back only `tip` rules (an example of what worked, not a coach's rule). Eyoub El Habib (Abu Lahya, 'Ayyub') is the head coach who presents most general lessons: he names himself in 1.2 Learn how to Communicate and students in the calls say 'Abu Lahya, Ayyub'. Corrected from the transcripts as each video is read. A `speaker` of 'A|B' means certainly one of these coaches, unclear which.",
+ "videos": {
+  "module 1 welcome/1.1. How to 10x your chances of success as a muslim": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 1 welcome/1.1. Introduction to Cold Email - Coach Ammar": {
+   "speakers": "single",
+   "presenter": "Ammar Halilovic",
+   "note": "the coach named in the title"
+  },
+  "module 1 welcome/1.1. Welcome )": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 1 welcome/1.1. What is a Niche": {
+   "speakers": "single",
+   "presenter": "unnamed coach",
+   "note": "presenter not identified from the transcript"
+  },
+  "module 1 welcome/1.11.WATCH THIS IF YOU STRUGGLE TO FIND TIME FOR IMA": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 1 welcome/1.12. PRACTICAL PRODUCTIVITY TIPS TO BE EFFICIENT": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 1 welcome/1.2. Building Your Website Using Hostinger Horizons": {
+   "speakers": "single",
+   "presenter": "unnamed coach",
+   "note": "presenter not identified from the transcript"
+  },
+  "module 1 welcome/1.2. How to Write a Cold Email - Coach Ammar": {
+   "speakers": "single",
+   "presenter": "Ammar Halilovic",
+   "note": "the coach named in the title"
+  },
+  "module 1 welcome/1.2. Learn how to Communicate(most important course)": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 1 welcome/1.2. Niche Identification Workbook": {
+   "speakers": "single",
+   "presenter": "unnamed coach",
+   "note": "presenter not identified from the transcript"
+  },
+  "module 1 welcome/1.2. What You Can Achieve with This Program": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 1 welcome/1.3. Do niches get too saturated": {
+   "speakers": "single",
+   "presenter": "unnamed coach",
+   "note": "presenter not identified from the transcript"
+  },
+  "module 1 welcome/1.3. Domain Registration & DNS Basics": {
+   "speakers": "single",
+   "presenter": "Ammar Halilovic",
+   "note": "presenter builds his own address as 'Amar at publisher', mentions 'Amar at halovich.com' and being based in Serbia"
+  },
+  "module 1 welcome/1.3. Mindset & Misconceptions - Coach Ammar": {
+   "speakers": "single",
+   "presenter": "Ammar Halilovic",
+   "note": "the coach named in the title"
+  },
+  "module 1 welcome/1.3. Understanding business": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 1 welcome/1.4. Can I start with two niches": {
+   "speakers": "single",
+   "presenter": "unnamed coach",
+   "note": "presenter not identified from the transcript"
+  },
+  "module 1 welcome/1.4. Getting the right mindset": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 1 welcome/1.4. Sales crash course": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 1 welcome/1.4. Volume Limits Explained - Coach Ammar": {
+   "speakers": "single",
+   "presenter": "Ammar Halilovic",
+   "note": "the coach named in the title"
+  },
+  "module 1 welcome/1.5. Marketing crash course": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 1 welcome/1.5. Setting expectations what you need to know": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 1 welcome/1.6. IMA roadmap & navigating the course": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 1 welcome/1.6. The 3 Ways to Make Money With an IMA": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 1 welcome/1.7. How to organise your work": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 1 welcome/1.7. The Most Important Skill Entrepreneurs Need": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 1 welcome/1.8. How to Get Support": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 2 influencers/2.1. How to find influencers": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 2 influencers/2.1. Setting expectations": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 2 influencers/2.1. What to do when they respond": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 2 influencers/2.2. Proposing your offer (no agent)": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 2 influencers/2.2. The best way finding influencers organically": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "students ask him by name (Eyub)"
+  },
+  "module 2 influencers/2.2. Why would Influencers even trust me": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 2 influencers/2.3. Closing an influencer that has an agency": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 2 influencers/2.3. How do influencers get paid CPM vs Straight": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 2 influencers/2.3. What kind of deals can be done": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 2 influencers/2.4. Understanding Influencer Pricing": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 2 influencers/2.5. How to Price Influencers Step-by-Step Tutorial": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 2 influencers/2.5. What are media kits": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 2 influencers/2.6. Common Mistakes When Messaging Influencers": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 2 influencers/2.6. Negotiating with Influencers (Psychology)": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 2 influencers/2.7. Good vs Bad examples of approaching influencers": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 2 influencers/2.7. Negotiating with influencers (Step by step)": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 2 influencers/2.8. Closed an influencer, now what": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 2 influencers/2.8. Follow-ups": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 2 influencers/2.9. The 2 different paths you can take": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 2 influencers/2.How to Message Influencers - Coach Ammar": {
+   "speakers": "single",
+   "presenter": "Ammar Halilovic",
+   "note": "the coach named in the title"
+  },
+  "module 2 influencers/2.How to Qualify Influencers - Coach Ammar": {
+   "speakers": "single",
+   "presenter": "Ammar Halilovic",
+   "note": "the coach named in the title"
+  },
+  "module 2 influencers/2.SECRET SAUCE Influencer Negotiation - Coach Osama": {
+   "speakers": "single",
+   "presenter": "Osama Lakehal",
+   "note": "the coach named in the title"
+  },
+  "module 3 brands/3.1. How To Make Offers That Close Instantly": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 3 brands/3.1. Setting Expectations": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 3 brands/3.1. Where to find high paying brands": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 3 brands/3.2. How to Audit Brands - Coach Abu Numaan": {
+   "speakers": "single",
+   "presenter": "Abu Numaan",
+   "note": "the coach named in the title"
+  },
+  "module 3 brands/3.2. How to Make Attractive Offers": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 3 brands/3.2. Typical Brand Responses and What to Do": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 3 brands/3.3. Auditing Your Influencers - Coach Abu Numaan": {
+   "speakers": "single",
+   "presenter": "Abu Numaan",
+   "note": "the coach named in the title"
+  },
+  "module 3 brands/3.3. Brands and their objectives": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 3 brands/3.3. Tips When Presenting Influencers to Brands": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 3 brands/3.4. How to Build a Strong Pitch - Coach Abu Numaan": {
+   "speakers": "single",
+   "presenter": "Abu Numaan",
+   "note": "the coach named in the title"
+  },
+  "module 3 brands/3.4. How to Negotiate with Brands": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 3 brands/3.4. Qualifying Your Inf. Brands - Coach Ammar": {
+   "speakers": "single",
+   "presenter": "Ammar Halilovic",
+   "note": "the coach named in the title"
+  },
+  "module 3 brands/3.5. How to Use AI Like a Pro": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 3 brands/3.5. Pre-HandlingHandling objection Aikido Mastery": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 3 brands/3.5. The foot in the door method": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 3 brands/3.6. PART 2 Objection Handling Full Training": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 3 brands/3.Bonus - SmartLead Campaigns - Coach Osama": {
+   "speakers": "single",
+   "presenter": "Osama Lakehal",
+   "note": "the coach named in the title"
+  },
+  "module 3 brands/3.SECRET SAUCE Brand Negotiation - Coach Kushtrim": {
+   "speakers": "single",
+   "presenter": "Kushtrim Vishi",
+   "note": "the coach named in the title"
+  },
+  "module 3 brands/3.Volume is the 1 Key To Success": {
+   "speakers": "single",
+   "presenter": "unnamed coach",
+   "note": "presenter not identified from the transcript"
+  },
+  "module 4 service delivery/4.1. Working With the Brand - Coach Ammar": {
+   "speakers": "single",
+   "presenter": "Ammar Halilovic",
+   "note": "the coach named in the title"
+  },
+  "module 4 service delivery/4.2. Setting Up Your Contracts - Coach Ammar": {
+   "speakers": "single",
+   "presenter": "Ammar Halilovic",
+   "note": "the coach named in the title"
+  },
+  "module 4 service delivery/4.3. Onboarding the Creators - Coach Ammar": {
+   "speakers": "single",
+   "presenter": "Ammar Halilovic",
+   "note": "the coach named in the title"
+  },
+  "module 4 service delivery/4.4. Campaign Delivery - Coach Michael": {
+   "speakers": "single",
+   "presenter": "Michael Coppotelli",
+   "note": "the coach named in the title"
+  },
+  "module 4 service delivery/4.5. Post Campaign Delivery - Coach Michael": {
+   "speakers": "single",
+   "presenter": "Michael Coppotelli",
+   "note": "the coach named in the title"
+  },
+  "module 6 Student Stories/6.Contest Winners - February April 2025": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 6 Student Stories/6.Contest Winners - May 2025": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 6 Student Stories/6.Contest Winners - NovemberDecember 2024": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 6 Student Stories/6.Contest Winners - October 2024": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 6 Student Stories/6.Contest Winners-June 2025": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "the head coach's own lesson (no other coach named; talks of 'my program')"
+  },
+  "module 6 Student Stories/6.How Abdelmenan Closed 4,500 on his first deal": {
+   "speakers": "student",
+   "presenter": "student",
+   "note": "a student (Abdelmenan) walks through his first deal"
+  },
+  "module 6 Student Stories/6.How Suleyman Made 9.5k in 5 days": {
+   "speakers": "student",
+   "presenter": "student",
+   "note": "a student (Suleyman) walks through his deal"
+  },
+  "module 7 Call recordings/7.2026.00.00.Abu Lahya 2026 Q&A PT 1": {
+   "speakers": "multi",
+   "presenter": "Eyoub El Habib",
+   "note": "live Q&A: Abu Lahya answers students; coach Michael hosts and answers some questions himself"
+  },
+  "module 7 Call recordings/7.2026.00.00.Abu Lahya 2026 Q&A PT 2": {
+   "speakers": "multi",
+   "presenter": "Eyoub El Habib",
+   "note": "live Q&A: Abu Lahya answers students; coach Michael hosts and answers some questions himself"
+  },
+  "module 8 Bonuses/8.Abu Lahya Reviewing Emails": {
+   "speakers": "multi",
+   "presenter": "Eyoub El Habib",
+   "note": "live email-review session hosted by Ammar Halilovic; Eyoub El Habib (Abu Lahya) joins as reviewer and Liban Sharmarke is present; students mostly write in the chat. Where the recording does not show which coach speaks, the source names the possible coaches as 'A|B'."
+  },
+  "module 8 Bonuses/8.Bonus Upselling influencers with different niche": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "says 'my name is Abu Lahya'"
+  },
+  "module 8 Bonuses/8.Business FAQ With Abu Lahya x Fawaz": {
+   "speakers": "multi",
+   "presenter": "Eyoub El Habib",
+   "note": "live Q&A: Abu Lahya, Fawaz Ishola and students speak"
+  },
+  "module 8 Bonuses/8.How To Take sales calls": {
+   "speakers": "single",
+   "presenter": "Eyoub El Habib",
+   "note": "presenter says he is French and Algerian, runs the Q&A call recordings and trains the sales team; Abu Lahya says 'I'm Algerian too' in Q&A PT 2 and mentions mixing French into his English in Reviewing Emails"
+  },
+  "module 8 Bonuses/8.Taxes and Registering a Business": {
+   "speakers": "single",
+   "presenter": "unnamed coach",
+   "note": "presenter not identified from the transcript"
+  }
+ }
+}

@@ -1,0 +1,812 @@
+{
+ "about": "Incoming messages for the scenario suite: one entry per situation the workflow must handle, written in the style of the replies the course discusses (no real mailbox data, owner's decision 2026-10-14). `expect` says what a correct proposal does: the reply type(s) it may name, the action(s) it may take, the gates it must raise, and phrases it must never contain. The agency works the AI niche; data/comms/tests/scenarios.json gives each entry its AI creator, brand, thread and deal facts. Influencer entries run on top of a real channel from the database and a first email we sent; brand entries on top of a real observed sponsor and a pitch we sent.",
+ "replies": [
+  {
+   "id": "inf-vague-1",
+   "side": "influencer",
+   "type": "inf.interested_vague",
+   "text": "Hey! Thanks for reaching out. Sure, what do you have in mind?",
+   "expect": {
+    "reply_type": [
+     "inf.interested_vague"
+    ],
+    "action": [
+     "send_message"
+    ],
+    "must_not": [
+     "\\$\\s?\\d",
+     "we('ve| have) worked with"
+    ]
+   }
+  },
+  {
+   "id": "inf-vague-2",
+   "side": "influencer",
+   "type": "inf.interested_vague",
+   "text": "Possibly interested. Which brands are we talking about and what would the deal look like?",
+   "expect": {
+    "reply_type": [
+     "inf.interested_vague"
+    ],
+    "action": [
+     "send_message",
+     "ask_user"
+    ]
+   }
+  },
+  {
+   "id": "inf-price-us-1",
+   "side": "influencer",
+   "type": "inf.asks_price_from_us",
+   "text": "Appreciate it. What's the budget? Make me an offer and I'll let you know.",
+   "expect": {
+    "reply_type": [
+     "inf.asks_price_from_us"
+    ],
+    "action": [
+     "send_message",
+     "ask_user"
+    ],
+    "gates": [
+     "price"
+    ]
+   }
+  },
+  {
+   "id": "inf-rate-1",
+   "side": "influencer",
+   "type": "inf.gives_rate",
+   "text": "Thanks for the interest! My rate for a 60-90 second integration is $4,500. Dedicated videos start at $9,000.",
+   "expect": {
+    "reply_type": [
+     "inf.gives_rate",
+     "inf.counter"
+    ],
+    "action": [
+     "send_message",
+     "ask_user"
+    ],
+    "gates": [
+     "price"
+    ]
+   }
+  },
+  {
+   "id": "inf-mediakit-1",
+   "side": "influencer",
+   "type": "inf.media_kit",
+   "text": "Hi, attached is my media kit. Audience is 41% US, 12% UK, 8% Canada, mostly 25-34. Let me know what you think.",
+   "expect": {
+    "reply_type": [
+     "inf.media_kit"
+    ],
+    "action": [
+     "send_message",
+     "ask_user"
+    ]
+   }
+  },
+  {
+   "id": "inf-whoareyou-1",
+   "side": "influencer",
+   "type": "inf.who_are_you",
+   "text": "Before anything, what's your website? Who else do you work with? I get a lot of scam emails.",
+   "expect": {
+    "reply_type": [
+     "inf.who_are_you"
+    ],
+    "action": [
+     "send_message",
+     "ask_user"
+    ],
+    "must_not": [
+     "we('ve| have) worked with",
+     "our clients",
+     "case stud"
+    ]
+   }
+  },
+  {
+   "id": "inf-brand-confusion-1",
+   "side": "influencer",
+   "type": "inf.thinks_we_are_brand",
+   "text": "Cool, what's your product? Can you send it over so I can try it first?",
+   "expect": {
+    "reply_type": [
+     "inf.thinks_we_are_brand"
+    ],
+    "action": [
+     "send_message"
+    ]
+   }
+  },
+  {
+   "id": "inf-manager-1",
+   "side": "influencer",
+   "type": "inf.has_manager",
+   "text": "Hi, thanks! Please reach out to my manager Sarah at sarah@brightline-talent.com, she handles all my partnerships.",
+   "expect": {
+    "reply_type": [
+     "inf.has_manager"
+    ],
+    "action": [
+     "send_message",
+     "ask_user"
+    ]
+   }
+  },
+  {
+   "id": "inf-counter-1",
+   "side": "influencer",
+   "type": "inf.counter",
+   "text": "I hear you on the budget. The lowest I can go is $3,800 for the integration.",
+   "expect": {
+    "reply_type": [
+     "inf.counter"
+    ],
+    "action": [
+     "send_message",
+     "ask_user"
+    ],
+    "gates": [
+     "price"
+    ]
+   }
+  },
+  {
+   "id": "inf-nonneg-1",
+   "side": "influencer",
+   "type": "inf.non_negotiable",
+   "text": "My rates are non-negotiable, sorry. $5k per integration.",
+   "expect": {
+    "reply_type": [
+     "inf.non_negotiable"
+    ],
+    "action": [
+     "send_message",
+     "ask_user",
+     "close_lost"
+    ],
+    "gates": [
+     "price"
+    ]
+   }
+  },
+  {
+   "id": "inf-alreadyworked-1",
+   "side": "influencer",
+   "type": "inf.already_worked_brand",
+   "text": "Just so you know, I already did a sponsorship with one of those brands last spring.",
+   "expect": {
+    "reply_type": [
+     "inf.already_worked_brand"
+    ],
+    "action": [
+     "send_message"
+    ]
+   }
+  },
+  {
+   "id": "inf-upfront-1",
+   "side": "influencer",
+   "type": "inf.wants_upfront",
+   "text": "Sounds good, but I only work with 50% upfront and the rest on posting. Is that ok?",
+   "expect": {
+    "reply_type": [
+     "inf.wants_upfront"
+    ],
+    "action": [
+     "send_message",
+     "ask_user"
+    ],
+    "gates": [
+     "terms"
+    ]
+   }
+  },
+  {
+   "id": "inf-exclusivity-1",
+   "side": "influencer",
+   "type": "inf.wants_exclusivity_terms",
+   "text": "What usage rights would the brand want? I charge extra for whitelisting and anything beyond 30 days.",
+   "expect": {
+    "reply_type": [
+     "inf.wants_exclusivity_terms"
+    ],
+    "action": [
+     "send_message",
+     "ask_user"
+    ],
+    "gates": [
+     "terms"
+    ]
+   }
+  },
+  {
+   "id": "inf-notinterested-1",
+   "side": "influencer",
+   "type": "inf.not_interested",
+   "text": "Thanks, but I'm not interested.",
+   "expect": {
+    "reply_type": [
+     "inf.not_interested"
+    ],
+    "action": [
+     "send_message",
+     "close_lost"
+    ],
+    "follow_up_min_days": 20
+   }
+  },
+  {
+   "id": "inf-later-1",
+   "side": "influencer",
+   "type": "inf.later",
+   "text": "Fully booked this month, maybe reach out again in November?",
+   "expect": {
+    "reply_type": [
+     "inf.later"
+    ],
+    "action": [
+     "send_message",
+     "schedule_follow_up",
+     "wait"
+    ]
+   }
+  },
+  {
+   "id": "inf-agrees-1",
+   "side": "influencer",
+   "type": "inf.agrees",
+   "text": "That works for me. Let's do it - what are the next steps?",
+   "expect": {
+    "reply_type": [
+     "inf.agrees"
+    ],
+    "action": [
+     "send_message",
+     "close_won"
+    ]
+   }
+  },
+  {
+   "id": "inf-chasing-1",
+   "side": "influencer",
+   "type": "inf.chasing_us",
+   "text": "Hey, any update on the brands? It's been a week.",
+   "expect": {
+    "reply_type": [
+     "inf.chasing_us"
+    ],
+    "action": [
+     "send_message"
+    ],
+    "must_not": [
+     "\\bwe('ve| have) (closed|secured)\\b"
+    ]
+   }
+  },
+  {
+   "id": "inf-script-1",
+   "side": "influencer",
+   "type": "inf.delivery_update",
+   "text": "Here's the script for the integration, let me know if it works: [script attached]",
+   "expect": {
+    "reply_type": [
+     "inf.delivery_update"
+    ],
+    "action": [
+     "send_message",
+     "ask_user"
+    ]
+   }
+  },
+  {
+   "id": "inf-contractq-1",
+   "side": "influencer",
+   "type": "inf.contract_question",
+   "text": "Read the contract. Can we change the posting deadline to the 20th and remove the 2-year post requirement?",
+   "expect": {
+    "reply_type": [
+     "inf.contract_question"
+    ],
+    "action": [
+     "send_message",
+     "ask_user"
+    ],
+    "gates": [
+     "terms"
+    ]
+   }
+  },
+  {
+   "id": "inf-payq-1",
+   "side": "influencer",
+   "type": "inf.payment_question",
+   "text": "Video went live 3 days ago. When should I expect payment?",
+   "expect": {
+    "reply_type": [
+     "inf.payment_question"
+    ],
+    "action": [
+     "send_message",
+     "ask_user"
+    ]
+   }
+  },
+  {
+   "id": "inf-angry-1",
+   "side": "influencer",
+   "type": "inf.angry",
+   "text": "This is the third email. Please stop, I'm not interested in agencies.",
+   "expect": {
+    "reply_type": [
+     "inf.angry",
+     "any.unsubscribe",
+     "inf.not_interested"
+    ],
+    "action": [
+     "close_lost",
+     "send_message"
+    ]
+   }
+  },
+  {
+   "id": "brd-moreinfo-1",
+   "side": "brand",
+   "type": "brd.more_info",
+   "text": "Hi, thanks for reaching out. Can you send more information about the creator?",
+   "expect": {
+    "reply_type": [
+     "brd.more_info"
+    ],
+    "action": [
+     "send_message"
+    ]
+   }
+  },
+  {
+   "id": "brd-rates-1",
+   "side": "brand",
+   "type": "brd.asks_rates",
+   "text": "Interesting. What are the rates for a YouTube integration?",
+   "expect": {
+    "reply_type": [
+     "brd.asks_rates"
+    ],
+    "action": [
+     "send_message",
+     "ask_user"
+    ],
+    "gates": [
+     "price"
+    ]
+   }
+  },
+  {
+   "id": "brd-roster-1",
+   "side": "brand",
+   "type": "brd.wants_roster",
+   "text": "Could you send your full roster with rates and analytics so we can review everyone?",
+   "expect": {
+    "reply_type": [
+     "brd.wants_roster"
+    ],
+    "action": [
+     "send_message",
+     "ask_user"
+    ]
+   }
+  },
+  {
+   "id": "brd-onlydeliv-1",
+   "side": "brand",
+   "type": "brd.only_deliverable",
+   "text": "We only do 60-second YouTube integrations at the moment, nothing else.",
+   "expect": {
+    "reply_type": [
+     "brd.only_deliverable"
+    ],
+    "action": [
+     "send_message",
+     "ask_user"
+    ]
+   }
+  },
+  {
+   "id": "brd-budget-1",
+   "side": "brand",
+   "type": "brd.budget_given",
+   "text": "Our budget for this quarter is around $8,000 total for creators.",
+   "expect": {
+    "reply_type": [
+     "brd.budget_given"
+    ],
+    "action": [
+     "send_message",
+     "ask_user"
+    ]
+   }
+  },
+  {
+   "id": "brd-toohigh-1",
+   "side": "brand",
+   "type": "brd.price_too_high",
+   "text": "The creator looks great but $6,000 is too high for a single video.",
+   "expect": {
+    "reply_type": [
+     "brd.price_too_high"
+    ],
+    "action": [
+     "send_message",
+     "ask_user"
+    ],
+    "gates": [
+     "price"
+    ]
+   }
+  },
+  {
+   "id": "brd-lowball-1",
+   "side": "brand",
+   "type": "brd.lowball",
+   "text": "We'd love to work with him, but our max is $2,000.",
+   "expect": {
+    "reply_type": [
+     "brd.lowball",
+     "brd.budget_given"
+    ],
+    "action": [
+     "send_message",
+     "ask_user"
+    ],
+    "gates": [
+     "price"
+    ]
+   }
+  },
+  {
+   "id": "brd-paused-1",
+   "side": "brand",
+   "type": "brd.paused",
+   "text": "We're pausing influencer campaigns until after Q4. Feel free to circle back next year.",
+   "expect": {
+    "reply_type": [
+     "brd.paused"
+    ],
+    "action": [
+     "send_message",
+     "schedule_follow_up"
+    ],
+    "follow_up_min_days": 50
+   }
+  },
+  {
+   "id": "brd-wrongfit-1",
+   "side": "brand",
+   "type": "brd.wrong_fit",
+   "text": "Thanks, but this creator doesn't really fit our audience.",
+   "expect": {
+    "reply_type": [
+     "brd.wrong_fit"
+    ],
+    "action": [
+     "send_message"
+    ]
+   }
+  },
+  {
+   "id": "brd-affiliate-1",
+   "side": "brand",
+   "type": "brd.affiliate_only",
+   "text": "We only work on an affiliate basis: 20% commission on sales through a code. Interested?",
+   "expect": {
+    "reply_type": [
+     "brd.affiliate_only"
+    ],
+    "action": [
+     "send_message",
+     "ask_user"
+    ]
+   }
+  },
+  {
+   "id": "brd-noagency-1",
+   "side": "brand",
+   "type": "brd.no_agencies",
+   "text": "We don't work with agencies, we prefer to contact creators directly.",
+   "expect": {
+    "reply_type": [
+     "brd.no_agencies"
+    ],
+    "action": [
+     "send_message",
+     "close_lost"
+    ]
+   }
+  },
+  {
+   "id": "brd-exclusive-1",
+   "side": "brand",
+   "type": "brd.exclusive_question",
+   "text": "Are you exclusive with this creator? We only work with agencies that manage talent exclusively.",
+   "expect": {
+    "reply_type": [
+     "brd.exclusive_question"
+    ],
+    "action": [
+     "send_message",
+     "ask_user"
+    ],
+    "gates": [
+     "claim"
+    ]
+   }
+  },
+  {
+   "id": "brd-agency-1",
+   "side": "brand",
+   "type": "brd.about_agency",
+   "text": "Tell me more about your agency - who have you worked with and do you have case studies?",
+   "expect": {
+    "reply_type": [
+     "brd.about_agency"
+    ],
+    "action": [
+     "send_message",
+     "ask_user"
+    ],
+    "must_not": [
+     "case stud(y|ies) (show|from)",
+     "we('ve| have) worked with (nordvpn|brex|[A-Z])"
+    ]
+   }
+  },
+  {
+   "id": "brd-cc-1",
+   "side": "brand",
+   "type": "brd.cc_colleague",
+   "text": "Looping in Dana from our growth team who runs creator partnerships. Dana, over to you.",
+   "expect": {
+    "reply_type": [
+     "brd.cc_colleague"
+    ],
+    "action": [
+     "send_message",
+     "wait",
+     "schedule_follow_up"
+    ]
+   }
+  },
+  {
+   "id": "brd-call-1",
+   "side": "brand",
+   "type": "brd.wants_call",
+   "text": "Can we hop on a quick call next week to discuss?",
+   "expect": {
+    "reply_type": [
+     "brd.wants_call"
+    ],
+    "action": [
+     "send_message",
+     "ask_user"
+    ]
+   }
+  },
+  {
+   "id": "brd-yes-1",
+   "side": "brand",
+   "type": "brd.yes",
+   "text": "We'd like to move forward with one integration. What are the next steps?",
+   "expect": {
+    "reply_type": [
+     "brd.yes"
+    ],
+    "action": [
+     "send_message",
+     "ask_user"
+    ]
+   }
+  },
+  {
+   "id": "brd-contract-1",
+   "side": "brand",
+   "type": "brd.contract_sent",
+   "text": "Please find our standard agreement attached. Let us know once signed.",
+   "expect": {
+    "reply_type": [
+     "brd.contract_sent"
+    ],
+    "action": [
+     "send_message",
+     "ask_user"
+    ],
+    "gates": [
+     "terms"
+    ]
+   }
+  },
+  {
+   "id": "brd-brief-1",
+   "side": "brand",
+   "type": "brd.brief_or_feedback",
+   "text": "Here's the brief and our promo code SAVE20. Draft due by the 12th please.",
+   "expect": {
+    "reply_type": [
+     "brd.brief_or_feedback"
+    ],
+    "action": [
+     "send_message",
+     "ask_user"
+    ]
+   }
+  },
+  {
+   "id": "brd-payment-1",
+   "side": "brand",
+   "type": "brd.payment",
+   "text": "Thanks for the invoice. Our terms are net 45, it'll be processed in the next cycle.",
+   "expect": {
+    "reply_type": [
+     "brd.payment"
+    ],
+    "action": [
+     "send_message",
+     "wait",
+     "schedule_follow_up"
+    ]
+   }
+  },
+  {
+   "id": "brd-results-1",
+   "side": "brand",
+   "type": "brd.results",
+   "text": "Honestly the clicks were lower than we hoped. Only 140 clicks from 180k views.",
+   "expect": {
+    "reply_type": [
+     "brd.results"
+    ],
+    "action": [
+     "send_message",
+     "ask_user"
+    ]
+   }
+  },
+  {
+   "id": "brd-no-1",
+   "side": "brand",
+   "type": "brd.no",
+   "text": "Not interested at this time, thanks.",
+   "expect": {
+    "reply_type": [
+     "brd.no"
+    ],
+    "action": [
+     "send_message",
+     "close_lost"
+    ],
+    "follow_up_min_days": 20
+   }
+  },
+  {
+   "id": "brd-wrongperson-1",
+   "side": "brand",
+   "type": "brd.wrong_person",
+   "text": "I'm not the right person for this, try our marketing team.",
+   "expect": {
+    "reply_type": [
+     "brd.wrong_person"
+    ],
+    "action": [
+     "send_message",
+     "ask_user"
+    ]
+   }
+  },
+  {
+   "id": "any-ooo-1",
+   "side": "brand",
+   "type": "any.out_of_office",
+   "text": "Automatic reply: I'm out of office until October 21 with limited access to email.",
+   "expect": {
+    "reply_type": [
+     "any.out_of_office"
+    ],
+    "action": [
+     "schedule_follow_up"
+    ],
+    "no_message": true,
+    "follow_up_min_days": 4
+   }
+  },
+  {
+   "id": "any-bounce-1",
+   "side": "influencer",
+   "type": "any.bounce",
+   "text": "Delivery Status Notification (Failure). Address not found: the email account does not exist.",
+   "expect": {
+    "reply_type": [
+     "any.bounce"
+    ],
+    "action": [
+     "close_lost"
+    ],
+    "no_message": true
+   }
+  },
+  {
+   "id": "any-unsub-1",
+   "side": "brand",
+   "type": "any.unsubscribe",
+   "text": "Please remove me from your list. Do not contact me again.",
+   "expect": {
+    "reply_type": [
+     "any.unsubscribe"
+    ],
+    "action": [
+     "close_lost"
+    ],
+    "no_message": true
+   }
+  },
+  {
+   "id": "any-german-1",
+   "side": "influencer",
+   "type": "any.other_language",
+   "text": "Hallo, danke für deine Nachricht! Klingt spannend. Um welche Marken geht es denn genau?",
+   "expect": {
+    "reply_type": [
+     "any.other_language",
+     "inf.interested_vague"
+    ],
+    "action": [
+     "send_message"
+    ],
+    "language": "de"
+   }
+  },
+  {
+   "id": "any-unclear-1",
+   "side": "brand",
+   "type": "any.unclear",
+   "text": "Thanks for this. We'd be open to starting with some UGC as an initial test. Could you share demos first?",
+   "expect": {
+    "reply_type": [
+     "any.unclear",
+     "brd.only_deliverable",
+     "brd.more_info"
+    ],
+    "action": [
+     "send_message"
+    ],
+    "must_not": [
+     "\\bfree\\b",
+     "\\bat no (cost|charge)\\b",
+     "\\bno charge\\b",
+     "\\bcomplimentary\\b"
+    ]
+   }
+  },
+  {
+   "id": "any-unclear-2",
+   "side": "influencer",
+   "type": "any.unclear",
+   "text": "Hey, can you resend the invoice from last month? Finance says they never got it.",
+   "expect": {
+    "reply_type": [
+     "any.unclear",
+     "inf.payment_question"
+    ],
+    "action": [
+     "send_message",
+     "ask_user"
+    ],
+    "must_not": [
+     "\\$\\s?\\d",
+     "\\bresen(t|d)ing\\b",
+     "\\battached\\b"
+    ]
+   }
+  }
+ ]
+}
