@@ -15,6 +15,7 @@ import pytest
 from helpers import schema_errors
 
 SCHEMA_FILE = Path(__file__).parent.parent / "src" / "gratovo_pipeline" / "protocol.schema.json"
+GEMINI_SCHEMA_FILE = SCHEMA_FILE.parent / "gemini" / "gemini.schema.json"
 
 
 class NetworkBlockedError(RuntimeError):
@@ -25,17 +26,58 @@ def _refuse(*_args: object, **_kwargs: object) -> None:
     raise NetworkBlockedError("tests must not reach the network")
 
 
+_LOOPBACK = frozenset({"127.0.0.1", "::1", "localhost"})
+_REAL_CONNECT = socket.socket.connect
+_REAL_CONNECT_EX = socket.socket.connect_ex
+_REAL_CREATE_CONNECTION = socket.create_connection
+_REAL_GETADDRINFO = socket.getaddrinfo
+
+
+def _host(address: object) -> object:
+    return address[0] if isinstance(address, tuple) and address else address  # pyright: ignore[reportUnknownVariableType]
+
+
+def _loopback_only(real: Callable[..., Any]) -> Callable[..., Any]:
+    """`real`, but only towards this computer: the address is the call's first argument after
+    the socket (methods) or the first argument (functions)."""
+
+    def guarded(*args: Any, **kwargs: Any) -> Any:
+        target = args[1] if args and isinstance(args[0], socket.socket) else args[0]
+        if _host(target) not in _LOOPBACK:
+            _refuse()
+        return real(*args, **kwargs)
+
+    return guarded
+
+
 @pytest.fixture(autouse=True)
-def no_network(monkeypatch: pytest.MonkeyPatch) -> None:
+def no_network(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
+    if "loopback" in request.fixturenames:
+        # The bridge's tests talk to a fake extension on 127.0.0.1 (plan D5). Nothing else.
+        monkeypatch.setattr(socket.socket, "connect", _loopback_only(_REAL_CONNECT))
+        monkeypatch.setattr(socket.socket, "connect_ex", _loopback_only(_REAL_CONNECT_EX))
+        monkeypatch.setattr(socket, "create_connection", _loopback_only(_REAL_CREATE_CONNECTION))
+        monkeypatch.setattr(socket, "getaddrinfo", _loopback_only(_REAL_GETADDRINFO))
+        return
     monkeypatch.setattr(socket.socket, "connect", _refuse)
     monkeypatch.setattr(socket.socket, "connect_ex", _refuse)
     monkeypatch.setattr(socket, "create_connection", _refuse)
     monkeypatch.setattr(socket, "getaddrinfo", _refuse)
 
 
+@pytest.fixture
+def loopback() -> None:
+    """Asking for this lets the test connect to 127.0.0.1 and nowhere else (see `no_network`)."""
+
+
 @pytest.fixture(scope="session")
 def protocol_schema() -> dict[str, Any]:
     return cast("dict[str, Any]", json.loads(SCHEMA_FILE.read_text(encoding="utf-8")))
+
+
+@pytest.fixture(scope="session")
+def gemini_schema() -> dict[str, Any]:
+    return cast("dict[str, Any]", json.loads(GEMINI_SCHEMA_FILE.read_text(encoding="utf-8")))
 
 
 @pytest.fixture

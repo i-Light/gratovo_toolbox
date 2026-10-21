@@ -55,6 +55,8 @@ select = [
 "src/gratovo_pipeline/store.py" = ["S608"]
 # Its word lists read best as space-separated words.
 "src/gratovo_pipeline/found_emails.py" = ["SIM905"]
+# The wire names of the old bridge (PROTOCOL.md, DAEMON.md), kept so the ported code and tests read the same.
+"src/gratovo_pipeline/gemini/errors.py" = ["N818"]
 
 [tool.pyright]
 include = ["src", "tests"]
