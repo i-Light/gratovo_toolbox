@@ -17,7 +17,8 @@
     "test": "vitest run && uv run --directory services/pipeline pytest",
     "test:sql": "node supabase/tests/run.ts",
     "test:server": "vitest run --config vitest.server.config.ts",
-    "test:e2e": "pnpm --filter @gratovo/desktop test:e2e"
+    "test:e2e": "pnpm --filter @gratovo/desktop test:e2e",
+    "pipeline:schema": "vitest run apps/desktop/src/main/pipeline/protocol-schema.test.ts --update"
   },
   "devDependencies": {
     "@gratovo/eslint-config": "workspace:*",

@@ -1,0 +1,569 @@
+{
+  "$comment": "Generated from apps/desktop/src/main/pipeline/protocol.ts by `pnpm pipeline:schema`. Don't edit.",
+  "protocol": 1,
+  "toPipeline": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "oneOf": [
+      {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "start"
+          },
+          "protocol": {
+            "type": "number",
+            "const": 1
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "live",
+              "example"
+            ]
+          },
+          "dataDir": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "worker": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "job": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "const": "search"
+              },
+              "keywords": {
+                "minItems": 1,
+                "maxItems": 500,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                }
+              },
+              "startAt": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 10000
+              },
+              "rules": {
+                "type": "object",
+                "properties": {
+                  "countries": {
+                    "maxItems": 250,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[A-Z]{2}$"
+                    }
+                  },
+                  "perKeyword": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 1000
+                  },
+                  "sortBy": {
+                    "type": "string",
+                    "enum": [
+                      "relevance",
+                      "upload_date",
+                      "view_count",
+                      "rating"
+                    ]
+                  },
+                  "resultsType": {
+                    "type": "string",
+                    "enum": [
+                      "video",
+                      "channel"
+                    ]
+                  },
+                  "autoClean": {
+                    "type": "object",
+                    "properties": {
+                      "enabled": {
+                        "type": "boolean"
+                      },
+                      "minSubscribers": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 100000000
+                      },
+                      "maxSubscribers": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 100000000
+                      },
+                      "belowMin": {
+                        "type": "string",
+                        "enum": [
+                          "sweep",
+                          "delay",
+                          "off"
+                        ]
+                      },
+                      "aboveMax": {
+                        "type": "string",
+                        "enum": [
+                          "sweep",
+                          "delay",
+                          "off"
+                        ]
+                      },
+                      "label": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 40
+                      }
+                    },
+                    "required": [
+                      "enabled",
+                      "minSubscribers",
+                      "maxSubscribers",
+                      "belowMin",
+                      "aboveMax",
+                      "label"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "countries",
+                  "perKeyword",
+                  "sortBy",
+                  "resultsType",
+                  "autoClean"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "kind",
+              "keywords",
+              "startAt",
+              "rules"
+            ],
+            "additionalProperties": false
+          },
+          "settings": {
+            "type": "object",
+            "properties": {
+              "pacing": {
+                "type": "string",
+                "enum": [
+                  "normal",
+                  "fast"
+                ]
+              },
+              "parallel": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "maxWorkers": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 16
+                  }
+                },
+                "required": [
+                  "enabled",
+                  "maxWorkers"
+                ],
+                "additionalProperties": false
+              },
+              "proxies": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "includeDirect": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "enabled",
+                  "includeDirect"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "additionalProperties": false
+          },
+          "secrets": {
+            "type": "object",
+            "properties": {
+              "youtubeKey": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "proxyUrls": {
+                "maxItems": 100,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2000
+                }
+              },
+              "gatewayUrls": {
+                "maxItems": 100,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 2000
+                }
+              }
+            },
+            "required": [
+              "youtubeKey",
+              "proxyUrls",
+              "gatewayUrls"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "type",
+          "protocol",
+          "source",
+          "dataDir",
+          "worker",
+          "job",
+          "settings",
+          "secrets"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "stop"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "additionalProperties": false
+      }
+    ]
+  },
+  "fromPipeline": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "oneOf": [
+      {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "ready"
+          },
+          "protocol": {
+            "type": "number",
+            "const": 1
+          },
+          "version": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50
+          }
+        },
+        "required": [
+          "type",
+          "protocol",
+          "version"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "run"
+          },
+          "state": {
+            "type": "string",
+            "const": "running"
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "startAt": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          }
+        },
+        "required": [
+          "type",
+          "state",
+          "total",
+          "startAt"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "keyword"
+          },
+          "index": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "keyword": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "started",
+              "done",
+              "failed"
+            ]
+          },
+          "found": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000000
+          },
+          "kept": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000000
+          },
+          "error": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "type",
+          "index",
+          "total",
+          "keyword",
+          "state"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "channel"
+          },
+          "keyword": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "channelId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,64}$"
+          },
+          "handle": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          },
+          "subscribers": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100000000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "medianViews": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 100000000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "country": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[A-Z]{2}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "kept",
+              "swept",
+              "delayed"
+            ]
+          }
+        },
+        "required": [
+          "type",
+          "keyword",
+          "channelId",
+          "handle",
+          "name",
+          "subscribers",
+          "medianViews",
+          "country",
+          "outcome"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "log"
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "info",
+              "warn",
+              "error"
+            ]
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "type",
+          "level",
+          "text"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "end"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "done",
+              "stopped",
+              "failed"
+            ]
+          },
+          "at": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "found": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000000
+          },
+          "kept": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000000
+          },
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "bad_start",
+                  "no_youtube_key",
+                  "blocked",
+                  "quota",
+                  "network",
+                  "crash"
+                ]
+              },
+              "message": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 500
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "type",
+          "state",
+          "at",
+          "found",
+          "kept"
+        ],
+        "additionalProperties": false
+      }
+    ]
+  }
+}
