@@ -19,6 +19,7 @@ Replace the Flutter app (old repository `gratovo_code`) with a new desktop app t
 | 2026-10-14 to 10-18 | The communications workflow (course-mined playbook, comms engine, checks) and the decisions build: the owner's answers to the workflow map, built into the old app and reviewed. All of it was committed in the old repo as `43596b8`. |
 | 2026-10-18 | The workflow map: every framework task scored against the old app, 12 decisions and 34 house choices answered by the owner. A copy is in [product/workflow-map.html](product/workflow-map.html). |
 | 2026-10-19 | The UX plan, made visual: the Workbench prototype (Today, Find, Reach, Close, Deliver, Insights, Toolbox, Team, Settings, prototype mode, comment tool, the Plan page). An independent review found 27 issues; all were fixed and covered by regression tests. Published at https://claude.ai/artifact/96e8HtK58oyRqVcYdUcZNn (version 3). The source is in [design/workbench-prototype/](../design/workbench-prototype/README.md). |
+| 2026-10-21 | **Change of plan (owner): solo first.** Everything that exists only for the team waits until the app is fully functional for one person. It moves into one new step, [T](#step-t-team-work-after-the-app-works-for-one-person), which runs after step 9 and before the 100% check. The app keeps what 3d-2 already built (sign-in, roles, sync, presence); no more is built on it until T. |
 | 2026-10-19 | The old repo committed (`43596b8`, not pushed) and a full physical copy made at `E:\IMA work\Code\gratovo_code backup 2026-10-19`. This repository was created empty and filled with the plan, the prototype, the product record, the project skills and a read-only `legacy/` copy of the old source (secrets excluded). |
 
 ## 3. Ground rules for the whole migration
@@ -32,6 +33,7 @@ Replace the Flutter app (old repository `gratovo_code`) with a new desktop app t
 5. **Security first.** No secret in git, ever. The Electron hardening in [SECURITY.md](../SECURITY.md) is part of the foundation, not a later polish.
 6. **Small, verified steps.** Each step lands as one or more pull requests with green CI, and the owner checks the result in prototype mode before the next step starts.
 7. **Cleanup is last.** Nothing is deleted from `legacy/` or merged in the docs before step 10 passes. This is the owner's explicit wish.
+8. **Solo first** (owner, 2026-10-21). The app is made fully functional for one person before any work that exists only for the team. Team work is everything about sharing with or coordinating other people: sharing results through R2, a teammate's run and overlap warnings, hand-offs, the Team screen and rebalancing, the team view of Today, "see the app as a teammate", new-VA onboarding, and updates for other members' machines. All of it is in [step T](#step-t-team-work-after-the-app-works-for-one-person). Data fields that carry an owner or a role stay (they cost nothing and the owner is the only person for now), and what 3d-2 built is kept as it is. When a step's work turns out to be team work, move it to T and say so here.
 
 ## 4. Owner actions
 
@@ -51,14 +53,15 @@ Replace the Flutter app (old repository `gratovo_code`) with a new desktop app t
 | 0 | Fresh repository | Done 2026-10-19 |
 | 1 | Agree the design | Prototype approved for building. The open questions in §9 were answered 2026-10-19 |
 | 2 | Choose the stack and record the decisions | Done as ADRs 0001 to 0006; the owner confirmed the stack (§9 Q8) |
-| 3 | Foundation | **In progress.** 3a (toolchain and skeleton) and 3b (security baseline) done 2026-10-19. 3c done 2026-10-20, in three parts: 3c-1 (the frame), 3c-2 (the overlays), 3c-3 (settings and checks; the app made dark only). 3d-1 (the local data layer) done 2026-10-20. 3d-2a (sign-in, roles, the network allowlist, team keys) done 2026-10-20, rolled out to production with the owner's go. 3d-2b (the sync) done 2026-10-21 (#12), its three migrations rolled out with the owner's go. 3e-1 (the pipeline's search, end to end on this computer) done 2026-10-21 (#14): ADR 0013. **Next: 3e-2** (sharing results through R2), in a fresh session (§10 rule 5), then 3e-3, 3f, 3g, 3h. Branch protection on `main` (3g) isn't set yet. A1 (key rotation) is deferred by the owner: use the existing keys, never in the repository |
+| 3 | Foundation | **In progress.** 3a (toolchain and skeleton) and 3b (security baseline) done 2026-10-19. 3c done 2026-10-20, in three parts: 3c-1 (the frame), 3c-2 (the overlays), 3c-3 (settings and checks; the app made dark only). 3d-1 (the local data layer) done 2026-10-20. 3d-2a (sign-in, roles, the network allowlist, team keys) done 2026-10-20, rolled out to production with the owner's go. 3d-2b (the sync) done 2026-10-21 (#12), its three migrations rolled out with the owner's go. 3e-1 (the pipeline's search, end to end on this computer) done 2026-10-21 (#14): ADR 0013. **Next: 3e-3** (the rest of the pipeline), in a fresh session (§10 rule 5), then 3f, 3g, 3h. **3e-2 (sharing results through R2) moved to step T** on 2026-10-21 (solo first, ground rule 8). Branch protection on `main` (3g) isn't set yet. A1 (key rotation) is deferred by the owner: use the existing keys, never in the repository |
 | 4 | Today | Not started |
 | 5 | Find | Not started |
 | 6 | Reach | Not started |
 | 7 | Close | Not started |
 | 8 | Deliver | Not started |
 | 9 | Insights, Toolbox, Team, Settings, and the data import | Not started |
-| 10 | Check it 100% | Not started |
+| T | Team work (3e-2 R2 sharing, a teammate's run, hand-offs, the Team screen, new-VA onboarding, updates for other machines) | **Waits** until step 9 is done (owner, 2026-10-21) |
+| 10 | Check it 100% | Not started. Runs after T |
 | 11 | Cutover, then clean up | Not started |
 
 ## 6. The steps
@@ -124,7 +127,7 @@ The longest step. It builds everything the screens stand on, so every later step
 
 **3e. Python pipeline, ported and cleaned**
 - Copy `legacy/pipeline/` into `services/pipeline/` piece by piece, keeping only what the new app calls:
-  - `search.py` and the `gratovo` package (store, pipeline, r2, sync, feeds, gmail and mailbox, vendored scrapetube);
+  - `search.py` and the `gratovo` package (store, pipeline, feeds, gmail and mailbox, vendored scrapetube). `r2.py` and `sync.py` (sharing results through R2) move to [step T](#step-t-team-work-after-the-app-works-for-one-person) (solo first, ground rule 8);
   - the tools still in use;
   - `comms/` (the comms engine, playbook, checks);
   - `gemini_bridge/`;
@@ -140,7 +143,7 @@ The longest step. It builds everything the screens stand on, so every later step
 - Built as in the prototype (`proto.js`, `comments.js`): an owner-only switch in Settings, off by default, and invisible when off.
   - When on, the live data is set aside and an example copy is used.
   - Scenarios: a normal Monday, the first day, a week later, something broke.
-  - See the app as a teammate.
+  - ~~See the app as a teammate~~ (moved to step T).
   - The comment tool: press C, click anything, write. Pins anchor to stable `data-ui` ids that components carry.
 - In this mode the outbound adapters are stand-ins: Gmail send, Gemini, YouTube and R2 writes do nothing real.
 - Comments are kept in a `comments` table in the local database and exported to `docs/feedback/comments.json` on demand, so any session can read and act on them (the owner's answer, §9 Q9).
@@ -153,14 +156,14 @@ The longest step. It builds everything the screens stand on, so every later step
 
 **3h. Packaging spike**
 - electron-builder NSIS installer for Windows; the Python runtime bundled with python-build-standalone via uv. The target machines have no Python.
-- Auto-update with electron-updater from a private location (default: a private R2 bucket, URLs handed out by the server function). Builds are unsigned by the owner's choice (§9 Q12); the updater is configured to accept them.
+- ~~Auto-update with electron-updater from a private location (default: a private R2 bucket, URLs handed out by the server function). Builds are unsigned by the owner's choice (§9 Q12); the updater is configured to accept them.~~ Moved to step T: it exists to reach other members' machines.
 - No code signing (§9 Q12): the app is for the owner and a few trusted members. Document the first-run Windows warning for them.
-- *Acceptance:* an installer built in CI installs on a clean Windows machine, runs a search on example data, and updates itself to a newer test build.
+- *Acceptance:* an installer built in CI installs on a clean Windows machine and runs a search on example data. (Updating itself to a newer test build is checked in T.)
 
 ### Step 4. Today
 
 **Goal:** a full day of outreach worked from Today alone.
-**Work:** port the next-action engine (`items()` in the prototype's `engine.js`) into `packages/core` with unit tests: buckets, money first, owners, snoozes, quick wins, roles. Then build the queue, the day band (budget, mailboxes, done today), the work panel for each item kind, focus mode, wrap-up, the first-day screen, hand-off and snooze.
+**Work:** port the next-action engine (`items()` in the prototype's `engine.js`) into `packages/core` with unit tests: buckets, money first, owners, snoozes, quick wins, roles. Then build the queue, the day band (budget, mailboxes, done today), the work panel for each item kind, focus mode, wrap-up, the first-day screen and snooze. The engine keeps owners and roles as inputs, so T adds no rework. Hand-off and the team view of Today wait for step T.
 **Legacy:** `legacy/lib/features/my_day/` (the old aggregator) for the data each item needs.
 **Acceptance:** parity checklist rows for the *daily* step plus every Today row in §2 and §3; the prototype's Today flows pass as Playwright tests.
 
@@ -168,7 +171,7 @@ The longest step. It builds everything the screens stand on, so every later step
 
 **Goal:** from a keyword to a confirmed contact without leaving Find.
 **Work:**
-- the search console (keywords, rules, live panel, runs, a teammate's run);
+- the search console (keywords, rules, live panel, runs; a teammate's run and the overlap warning wait for step T);
 - triage (S, R and 1–4 keys);
 - the gallery (facets, saved views, compare, bulk actions);
 - contacts (the email finder in the background, sources and confidence, confirm).
@@ -205,14 +208,29 @@ Nothing is sent without approval.
 ### Step 9. Insights, Toolbox, Team, Settings, and the data import
 
 **Work:**
-- Insights with drill-downs; Toolbox (calculator, archive, never-contact, scheduled, log); Team (load, roles, hand-offs, rebalance); every Settings section with real effect.
+- Insights with drill-downs; Toolbox (calculator, archive, never-contact, scheduled, log); every Settings section with real effect, except the ones about other people (members, roles, "the whole team"), which wait for step T. The Team screen (load, roles, hand-offs, rebalance) is in T too.
 - The old app's capabilities outside the framework (parity checklist §6): decide each one with the owner, then port it or drop it.
 - **Data import:** on first run the new app imports the old local database (`gratovo.db`) after a backup. A dry run reports what moves.
-**Acceptance:** the *teamops* rows and §6 of the parity checklist; an import rehearsal on a copy of a real `gratovo.db` with a written report.
+**Acceptance:** the solo rows of the *teamops* group and §6 of the parity checklist (the team rows are step T's); an import rehearsal on a copy of a real `gratovo.db` with a written report.
+
+### Step T. Team work, after the app works for one person
+
+Added 2026-10-21 (owner: "all steps and plans for team work should be pushed back until the app is fully functional"). It starts only when step 9 is done and the owner says go. Each part is its own pull request, with its own plan in `.router/` when it starts.
+
+**Goal:** a few trusted members work in the same app, see the same truth, and don't collide.
+**Parts** (the order is a first guess; the plan at T's start decides):
+- **T1. Sharing results through R2** (was 3e-2). Port `sync.py` and `r2.py`; boto3 is replaced by signed links: the pipeline asks main with `{type:"r2.sign", id, requests:[…]}` (at most 50) and main answers `{type:"r2.signed", id, links:[…]}` or `{type:"r2.refused", id, reason}` after calling `r2-access` with the member's token. List results are parsed from the ListObjectsV2 XML. The catalog worker is the user id. Jobs `pull`, `push` and a share after each keyword. Checks carried from 3d-2a: a call with a real member's token, and a presigned list against the real bucket (with the owner's go). `test_r2_sync` is ported with a fake signer and an in-memory bucket. `store.py` already keeps the sync columns, so T1 needs no migration.
+- **T2. In Find:** a teammate's live run, the warning before searching a keyword a teammate is running, and handing keywords to a teammate (parity rows 7 and the Find overlap row).
+- **T3. In Today and Team:** hand-off with a note, owner reassignment in bulk, the team view of Today, the Team screen (load, roles, rebalance, the activity log), the Settings sections about members and roles, and presence shown on records.
+- **T4. New members:** the first-week checklist and practice mode, the setup-health check for a new machine, and "see the app as a teammate" in prototype mode.
+- **T5. Reaching other machines:** auto-update with electron-updater from the private R2 bucket (URLs from the server function; builds unsigned, §9 Q12), checked by updating a clean machine to a newer test build.
+
+**Legacy:** `legacy/pipeline/gratovo/sync.py`, `r2.py`, `legacy/lib/core/sync/` for behaviour; the rest comes from the prototype.
+**Acceptance:** the team rows of the parity checklist (§1 rows 7, 18, 119 and 122, and the Team, Today team view, Find overlap, Settings scope and Prototype rows in §2 and §3), each ticked in the real app with two accounts; two machines share results through R2; an update reaches a second machine.
 
 ### Step 10. Check it 100%
 
-**Goal:** prove nothing was lost.
+**Goal:** prove nothing was lost. It runs after step T, so the team rows are included.
 **Work:**
 - walk the parity checklist row by row in the real app, ticking each with how it was checked;
 - an independent review pass (a fresh reviewer agent);
@@ -238,7 +256,7 @@ Nothing is sent without approval.
 |---|---|---|
 | `lib/` (Flutter app) | Reference only. Behaviour is ported screen by screen, never the code. | 3c to 9 |
 | `test/` | Reference for behaviour and edge cases worth keeping. | 3 to 9 |
-| `pipeline/` | Ported into `services/pipeline/`, cleaned (pyproject, src layout, typed). | 3e |
+| `pipeline/` | Ported into `services/pipeline/`, cleaned (pyproject, src layout, typed). `gratovo/sync.py` and `r2.py` wait for step T. | 3e, T |
 | `pipeline/gemini_extension/` | Ported into `services/gemini-extension/`, later moved to TypeScript. | 6 |
 | `backend/schema.sql`, `backend/tests/` | A baseline migration and the SQL tests in `supabase/`. | 3d |
 | `backend/SETUP.md` | Rewritten as `docs/setup.md` for the new stack. | 3d |
@@ -306,7 +324,7 @@ Added 2026-10-21 at the owner's request, to stretch the usage limit. The rule: *
 2. **Build tasks default to N.** Drop to E only when the task copies an existing pattern and has an automatic check.
 3. **Never E** for security, secrets, Supabase migrations, the sync, production data, or any task with no automatic check.
 4. **Escalation (this overrides the skill):** when a task fails, retry it once at the same tier with the error added to the spec. If it fails again, move it up one tier. The next task starts back at its planned tier. Two failures at H mean the plan is wrong for that part: re-plan it, don't push harder.
-5. **One part per session.** Work one part of a step (3e-1, 3e-2 and so on) per session, and start a fresh session for the next part. Long sessions cost more and drift.
+5. **One part per session.** Work one part of a step (3e-1, 3e-3 and so on) per session, and start a fresh session for the next part. Long sessions cost more and drift.
 6. **Leave the next session a starting point.** After each part, update the status table (§5) and `.router/PROGRESS.md` in the same commit, so the next session starts from them instead of re-reading the codebase.
 7. **No agent for a trivial edit.** Starting an agent costs more than a one-line change.
 8. **The main session's model is the owner's choice.** A session that plans or reviews works best on Opus. A session that only carries out an existing plan can run on Sonnet, and it still hands H tasks to `router-hard`.

@@ -1,7 +1,7 @@
 # 0013. The Python pipeline
 
 - **Date:** 2026-10-21
-- **Status:** accepted for step 3e-1 (search on this computer). Steps 3e-2 (sharing through R2) and 3e-3 (the rest of the old pipeline) build on it. It records the pipeline decisions of the plan (`.router/PLAN.md`, D1 to D12), with the changes the build made, and the owner's answer of 2026-10-21 that proxies, AWS gateway rotation and parallel search stay.
+- **Status:** accepted for step 3e-1 (search on this computer). Step 3e-3 (the rest of the old pipeline) builds on it. Step 3e-2 (sharing through R2) moved to the team phase, step T, on 2026-10-21 (owner: solo first); its design here still stands. It records the pipeline decisions of the plan (`.router/PLAN.md`, D1 to D12), with the changes the build made, and the owner's answer of 2026-10-21 that proxies, AWS gateway rotation and parallel search stay.
 
 ## Context
 
@@ -33,7 +33,7 @@ Step 3e-1 covers the search: discovery, the channel and video reads, the auto-cl
 
    A URL with a login in it is refused. The error names the host, never the URL. Every scrape attempt and every API call goes through the check. The tests fake every transport, and a socket guard in `conftest.py` fails any test that reaches the network.
    *Why:* a bug, or a page the pipeline reads, can't turn the pipeline into a general HTTP client.
-6. **`pipeline.db` is owned by Python.** It holds the scraped tables, the search runs, and the sync columns that step 3e-2 needs, so 3e-2 needs no migration. Its schema is version 1, kept in `PRAGMA user_version`. A file from a newer version is refused, and the job ends as `crash`. It uses WAL with a busy timeout. Python is the only writer. Main opens it read-only to show results.
+6. **`pipeline.db` is owned by Python.** It holds the scraped tables, the search runs, and the sync columns that sharing through R2 needs (step T1, formerly 3e-2), so it needs no migration. Its schema is version 1, kept in `PRAGMA user_version`. A file from a newer version is refused, and the job ends as `crash`. It uses WAL with a busy timeout. Python is the only writer. Main opens it read-only to show results.
    Example data and live data live in separate folders: `<userData>/example-pipeline/` and `<userData>/pipeline/`. They never mix.
    The file is per machine and is kept on sign-out, because team data isn't one account's.
    *Why:* one writer keeps the file simple. Separate folders keep demo channels out of the real list.
@@ -50,7 +50,7 @@ Step 3e-1 covers the search: discovery, the channel and video reads, the auto-cl
 13. **The example source.** `source: "example"` replaces discovery and the channel and video reads with an offline fixture: 30 made-up AI creators over six AI keywords, with realistic subscriber counts, so auto-clean keeps, sweeps and delays some of them. It writes to the example `pipeline.db`. It pauses 0.15 s per channel read, so a person or the end-to-end test can press Stop during a run. The plan had asked for no delays. Tests set the pause to zero. Every example name is about AI.
 14. **The queue and the rules live in `find.json`,** beside `pipeline.db` in the same data folder, and not in `local_settings`. The data source has no settings API, so main had no way to write `local_settings` through it. Main writes `find.json` atomically, and each data folder keeps its own queue. This changes the plan's D12, which put them in `local_settings`. Per-keyword found and kept counts are saved into the queue entry as each keyword ends.
 15. **The results.** Main reads the kept channels from `pipeline.db`, newest first, up to 100, keeping only those the run's rules keep (in the countries, not in a band auto-clean acts on), since the backlog also reads channels the rules held back. The frame's creator list is unchanged in 3e-1. Found channels join it in step 5, and names arrive with 3e-2's pull.
-16. **What waits.** Step 3e-2 (R2 sharing) has the pipeline ask main for signed links, and main asks `r2-access` with the member's token (the outline in `.router/PLAN.md`). Step 3e-3 ports the rest of the old pipeline: the comms engine, the Gemini bridge, Gmail and the mailbox, news, and the tools still called. Each gets its own decision record when it lands. On hold, and not built (owner rules): `search-1`, `first-1`, `mail-1` and `mail-2`. The search still fetches only the latest 15 videos per channel.
+16. **What waits.** Step T1 (R2 sharing, formerly 3e-2) has the pipeline ask main for signed links, and main asks `r2-access` with the member's token (the outline in `.router/PLAN.md`). Step 3e-3 ports the rest of the old pipeline: the comms engine, the Gemini bridge, Gmail and the mailbox, news, and the tools still called. Each gets its own decision record when it lands. On hold, and not built (owner rules): `search-1`, `first-1`, `mail-1` and `mail-2`. The search still fetches only the latest 15 videos per channel.
 
 ## Alternatives considered
 

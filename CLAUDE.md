@@ -24,6 +24,7 @@ These come from the owner and hold until the owner changes them. The detail and 
 - **Drafted emails** are never templated and never use the banned words. Rules come only from the course (lessons and coach calls).
 - **On hold:** the four noted gaps `search-1`, `first-1`, `mail-1` and `mail-2` wait for the owner. Don't build them.
 - **Cleanup is the last step.** Don't delete or merge files from `legacy/` or the docs until step 10 (the 100% check) has passed. Step 11 does the cleanup.
+- **Solo first:** team work waits until the app is fully functional for one person. It is all in plan step T (after step 9): R2 sharing, a teammate's run, hand-offs, the Team screen, new-VA onboarding, updates for other machines. Don't build it earlier. What 3d-2 already built stays as it is.
 - **Windows only:** the app targets Windows desktop alone. Don't spend effort on Linux, macOS or phones (CI jobs, workarounds, docs, phone-sized or 400 px layout checks) until the owner asks for another system.
 - **Language:** English only for now. Keep every user-facing string in one place so other languages can come later.
 - **Dark only, for now:** the app always runs dark, with no theme switch. Don't build, test or check the light theme until the owner asks. The light tokens stay in `tokens.css`.

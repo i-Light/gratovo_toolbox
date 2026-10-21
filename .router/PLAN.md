@@ -2,7 +2,7 @@
 
 Read `.router/CONTEXT.md` first. Bash commands start with `export PATH="$HOME/.local/opt/node-v24.22.0-win-x64:$HOME/.local/bin:$PATH";`. **Never read `.env*`, `*.local.json` or `aws_gateways.json`**, and never read, print or handle a key value. Nothing here touches production Supabase.
 
-**Owner's answers (2026-10-21).** Three pull requests: **3e-1** search end to end on this computer; **3e-2** sharing results through R2 with the signed links; **3e-3** the rest ported with their tests (comms engine and course data, Gemini bridge, Gmail and mailbox, the tools still called). **Proxies, AWS gateway rotation and parallel search stay** (the AWS keys, when the gateway tool needs them in 3e-3, go in the app's secret store).
+**Owner's answers (2026-10-21).** Three pull requests: **3e-1** search end to end on this computer; **3e-2** sharing results through R2 with the signed links (moved to step T1 on 2026-10-21: solo first); **3e-3** the rest ported with their tests (comms engine and course data, Gemini bridge, Gmail and mailbox, the tools still called). **Proxies, AWS gateway rotation and parallel search stay** (the AWS keys, when the gateway tool needs them in 3e-3, go in the app's secret store).
 
 ## Acceptance (the plan's, for the whole step)
 
@@ -119,7 +119,9 @@ The lead builds; agents only where a task is large and fully specified (the owne
 | P14 | E | all | `docs/decisions/0013-pipeline.md`, `docs/architecture.md`, `SECURITY.md`, `services/pipeline/README.md`, `docs/migration-plan.md`, `.router/PROGRESS.md` | The decisions above as an ADR; the pipeline's network rule; the status table | Read through |
 | L1 | lead | all | – | Full checks; Find looked at in dark at 1440 px; `router-reviewer` on the diff; fixes; Windows CI by workflow_dispatch before the PR; the owner's live search by hand | All green |
 
-## 3e-2 outline (R2 sharing)
+## 3e-2 outline (R2 sharing): moved to step T1 on 2026-10-21 (owner: solo first)
+
+The outline is kept as written; it now lives in the migration plan's step T, part T1, and runs when step 9 is done.
 
 `sync.py` and `r2.py` ported; boto3 replaced by signed links: the pipeline asks main with `{type:"r2.sign", id, requests:[…]}` (at most 50) and main answers on stdin `{type:"r2.signed", id, links:[…]} | {type:"r2.refused", id, reason}` after calling `r2-access` with the member's token. List results are parsed from the ListObjectsV2 XML. The catalog worker is the user id. Jobs `pull`, `push` and a share after each keyword; the frame's `channels` names filled from `pipeline.db`. Checks carried from 3d-2a: a call with a real member's token, and a presigned list against the real bucket (with the owner's go). test_r2_sync ported with a fake signer and an in-memory bucket.
 
