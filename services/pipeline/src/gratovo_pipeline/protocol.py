@@ -17,6 +17,9 @@ from collections.abc import Callable, Mapping, Sequence
 from typing import Final, Literal, NotRequired, TextIO, TypedDict, cast
 
 PROTOCOL: Final = 1
+# The longest line either side reads (main's maxLineLength); a longer start line is cut and
+# then refused as not JSON.
+MAX_LINE: Final = 64 * 1024
 # Text fields the schema caps at this length; longer text is cut, never refused.
 MAX_TEXT: Final = 500
 
