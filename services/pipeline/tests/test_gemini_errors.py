@@ -51,6 +51,12 @@ def test_an_unknown_code_is_kept_in_details_and_sent_as_unknown() -> None:
     assert err.details == {"raw": "x", "code": "NEW_THING"}
 
 
+def test_an_extension_only_code_comes_through_as_itself() -> None:
+    err = errors.error_from_payload({"code": "SKILL_NOT_FOUND", "message": "no such skill"})
+    assert type(err) is errors.GeminiError
+    assert err.code == "SKILL_NOT_FOUND"
+
+
 def test_a_class_fills_in_its_own_code() -> None:
     assert errors.Busy(message="still answering").code == "BUSY"
     assert str(errors.Busy()) == "BUSY"

@@ -7,6 +7,8 @@ requires-python = ">=3.14"
 dependencies = [
   # The vendored scrapetube impersonates a browser's TLS handshake through it.
   "curl-cffi==0.16.3",
+  # The Gemini bridge's local WebSocket server, which the browser extension dials.
+  "websockets==17.3",
 ]
 
 [dependency-groups]
