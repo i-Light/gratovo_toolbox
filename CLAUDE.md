@@ -32,6 +32,7 @@ These come from the owner and hold until the owner changes them. The detail and 
 ## How to work
 
 - **Plan first:** non-trivial work starts from the plan step's acceptance checks. Big steps use the `smart-task-router` skill: `.router/` holds the state of the step in progress, and it is committed so another session can resume.
+- **Model use:** pick each task's model by [the plan's §10](docs/migration-plan.md#10-model-use). Where it disagrees with the `smart-task-router` skill, §10 wins.
 - **Verify:** tests, typecheck and lint all pass before you call anything done. UI work is also checked by looking at it, in dark, at desktop width (1440 px). The app is dark only for now: no light-theme checks, and no phone or narrow-width (400 px) checks.
 - **Skills in `.claude/skills/`:** use them where they apply.
   - UI work: `impeccable`, `emil-design-eng`, `ui-ux-pro-max`, `web-design-guidelines`, `ux-heuristics`, `break-ui`.
