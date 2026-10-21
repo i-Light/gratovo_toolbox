@@ -1,3 +1,4 @@
+import { DEAL_FLOW } from "@gratovo/core";
 import {
   agencyRoles,
   creatorStages,
@@ -7,6 +8,7 @@ import {
   type Creator,
   type DataWrite,
   type Deal,
+  type EditConflict,
   type Frame,
   type FrameNotification,
   type LogEntry,
@@ -114,6 +116,19 @@ export const mateRunSchema: z.ZodType<MateRun> = z.strictObject({
   total: count,
 });
 
+export const editConflictSchema: z.ZodType<EditConflict> = z.strictObject({
+  id,
+  creator: id,
+  label: text,
+  field: text,
+  mine: text,
+  theirs: text,
+  theirName: text,
+});
+
+/** The most open conflicts in a frame. */
+export const conflictsMax = 100;
+
 /** What `frame:load` answers: everything the frame, palette, peek and record page show. */
 export const frameSchema: z.ZodType<Frame> = z.strictObject({
   me: id,
@@ -126,6 +141,7 @@ export const frameSchema: z.ZodType<Frame> = z.strictObject({
   brands: z.array(brandSchema).max(listMax),
   deals: z.array(dealSchema).max(listMax),
   mateRun: mateRunSchema.nullable(),
+  conflicts: z.array(editConflictSchema).max(conflictsMax),
   notify: notifySettingsSchema,
   seesMoney: z.boolean(),
 });
@@ -137,4 +153,22 @@ export const dataWriteSchema: z.ZodType<DataWrite> = z.discriminatedUnion("kind"
   z.strictObject({ kind: z.literal("me.name"), name: z.string().max(nameMax) }),
   z.strictObject({ kind: z.literal("log.add"), id, at: time, text }),
   z.strictObject({ kind: z.literal("log.remove"), id }),
+  z.strictObject({ kind: z.literal("creator.stage"), id, stage: z.enum(creatorStages) }),
+  z.strictObject({
+    kind: z.literal("brand.set"),
+    id,
+    name: z.string().min(1).max(textMax),
+    sells: z.string().max(500),
+    status: z.string().max(40),
+  }),
+  z.strictObject({
+    kind: z.literal("deal.step"),
+    id,
+    step: z
+      .number()
+      .int()
+      .min(0)
+      .max(DEAL_FLOW.length - 1),
+  }),
+  z.strictObject({ kind: z.literal("conflict.resolve"), id, choice: z.enum(["mine", "theirs"]) }),
 ]);

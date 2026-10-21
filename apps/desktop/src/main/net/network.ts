@@ -89,3 +89,18 @@ export function checkWebSocketUrl(url: string, allowedOrigins: readonly string[]
   check(http.href, normalise(allowedOrigins));
   return parsed;
 }
+
+/**
+ * A WebSocket class for the Realtime client's `transport` option. Its constructor runs
+ * `checkWebSocketUrl` before anything is opened, so the live connection can only reach the
+ * allowlist. This is the one place in main that may name `WebSocket`.
+ */
+export function createGuardedWebSocket(allowedOrigins: readonly string[]): typeof WebSocket {
+  const Base = globalThis.WebSocket;
+  return class GuardedWebSocket extends Base {
+    constructor(...args: ConstructorParameters<typeof WebSocket>) {
+      const [url, ...rest] = args;
+      super(checkWebSocketUrl(String(url), allowedOrigins).href, ...rest);
+    }
+  };
+}

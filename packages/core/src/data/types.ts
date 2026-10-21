@@ -154,6 +154,22 @@ export interface Deal {
   readonly price: number | null;
 }
 
+/** A change of yours that met a different value on the server: you choose which one stays. */
+export interface EditConflict {
+  readonly id: string;
+  /** The channel id of the creator the change was on. */
+  readonly creator: string;
+  readonly label: string;
+  /** The server's field name, e.g. `creator_stage`. */
+  readonly field: string;
+  /** Your value, as display text. */
+  readonly mine: string;
+  /** The server's value, as display text. */
+  readonly theirs: string;
+  /** Who made the server's value. */
+  readonly theirName: string;
+}
+
 /** A teammate's search that is running now. */
 export interface MateRun {
   /** A member id. */
@@ -180,6 +196,8 @@ export interface Frame {
   readonly brands: readonly Brand[];
   readonly deals: readonly Deal[];
   readonly mateRun: MateRun | null;
+  /** Your open conflicts, not yet settled: at most 100. */
+  readonly conflicts: readonly EditConflict[];
   readonly notify: NotifySettings;
   /** Whether `me` may see money. When false, every price is null and no money notification is here. */
   readonly seesMoney: boolean;
@@ -196,7 +214,21 @@ export type DataWrite =
   /** `id` is a UUID; the actor is always `me`. */
   | { readonly kind: "log.add"; readonly id: string; readonly at: number; readonly text: string }
   /** An unknown id is a no-op. */
-  | { readonly kind: "log.remove"; readonly id: string };
+  | { readonly kind: "log.remove"; readonly id: string }
+  /** A creator's stage; an unknown id is a no-op. */
+  | { readonly kind: "creator.stage"; readonly id: string; readonly stage: CreatorStage }
+  /** Inserts a new brand or updates the three fields of an existing one. */
+  | {
+      readonly kind: "brand.set";
+      readonly id: string;
+      readonly name: string;
+      readonly sells: string;
+      readonly status: string;
+    }
+  /** A deal's step: an index into DEAL_FLOW, 0 to DEAL_FLOW.length - 1. */
+  | { readonly kind: "deal.step"; readonly id: string; readonly step: number }
+  /** Settles a conflict by keeping your value or the server's. */
+  | { readonly kind: "conflict.resolve"; readonly id: string; readonly choice: "mine" | "theirs" };
 
 /** Where the app's data lives: one read and one write, both async so the database can move. */
 export interface DataSource {

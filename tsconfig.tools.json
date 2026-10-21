@@ -9,11 +9,15 @@
     "vitest.server.config.ts",
     "supabase/tests/run.ts",
     "supabase/server-tests/*.ts",
-    "apps/desktop/src/main/net/network.ts",
+    "apps/desktop/src/main/app-page.ts",
+    "apps/desktop/src/main/events.ts",
     "apps/desktop/src/main/secret-store.ts",
-    "apps/desktop/src/main/supabase/config.ts",
-    "apps/desktop/src/main/supabase/auth-client.ts",
-    "apps/desktop/src/main/supabase/session.ts",
-    "apps/desktop/src/main/supabase/rest.ts"
-  ]
+    "apps/desktop/src/main/strings.ts",
+    "apps/desktop/src/main/net/**/*.ts",
+    "apps/desktop/src/main/supabase/**/*.ts",
+    "apps/desktop/src/main/sync/**/*.ts",
+    "apps/desktop/src/main/data/**/*.ts",
+    "apps/desktop/src/main/db/**/*.ts"
+  ],
+  "exclude": ["apps/desktop/src/**/*.test.ts", "apps/desktop/src/main/data/data-source-contract.ts"]
 }

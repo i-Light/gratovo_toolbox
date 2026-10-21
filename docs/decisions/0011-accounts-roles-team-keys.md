@@ -42,7 +42,7 @@ The owner's answers (2026-10-20): agency roles are a list per person, apart from
 - Until step 9's Settings › Team, the owner sets roles and "sees money" with the SQL in [docs/setup.md](../setup.md), or asks a session to do it through the MCP.
 - If anyone re-runs the old `schema.sql`, it revokes execute on the new wrappers: re-apply the two migrations right after.
 - Not yet checked on production: an `r2-access` call with a real member's token, and whether R2 accepts a presigned list. Nothing calls the function before 3e, which checks both against the real bucket.
-- Money is hidden by notification kind only: an amount written into another kind of notification would show. 3d-2b's sync, which brings real notifications, closes this.
+- Money is hidden by notification kind only: an amount written into another kind of notification would show. Closed in [0012](0012-sync-engine.md): notifications and log lines that mention an amount are left out too.
 - A packaged build with bad settings falls back to example data. Fix before the first release build (3h), which must refuse to build without the two values.
 - Supabase plans to retire legacy `anon` keys by the end of 2026. The old app uses one, which may force step 10's timing.
-- 3d-2b replaces the team refresh and the name PATCH with the sync engine, keeps unsent changes on sign-out, and decides whether `gratovo.db` is encrypted when contact data arrives.
+- Done in [0012](0012-sync-engine.md): 3d-2b replaces the team refresh and the name PATCH with the sync engine, keeps unsent changes on sign-out, and decides whether `gratovo.db` is encrypted when contact data arrives.

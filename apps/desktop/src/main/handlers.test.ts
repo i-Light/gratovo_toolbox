@@ -1,5 +1,5 @@
 import { exampleFrame, type DataSource, type DataWrite } from "@gratovo/core/data";
-import type { AuthStatus } from "@gratovo/ipc";
+import type { AuthStatus, SyncStatus } from "@gratovo/ipc";
 import { describe, expect, it, vi } from "vitest";
 
 import { createHandlers, type HandlerContext } from "./handlers";
@@ -28,6 +28,7 @@ function sourceWith(overrides: Partial<DataSource> = {}): DataSource {
 }
 
 const signedIn: AuthStatus = { state: "signed-in", email: "sam@example.com" };
+const synced: SyncStatus = { state: "synced", pending: 0, refused: 0, lastSyncedAt: 1_000 };
 
 function accountWith(
   overrides: Partial<HandlerContext["account"]> = {},
@@ -39,6 +40,9 @@ function accountWith(
     signIn: () => Promise.resolve({ ok: true, state: "signed-in" }),
     recheck: () => Promise.resolve(signedIn),
     signOut: () => Promise.resolve(),
+    syncStatus: () => synced,
+    syncNow: () => Promise.resolve(synced),
+    setPresence: () => undefined,
     ...overrides,
   };
 }
@@ -117,5 +121,29 @@ describe("the auth handlers", () => {
     expect(recheck).toHaveBeenCalledOnce();
     expect(await mine["auth:sign-out"]({})).toEqual({});
     expect(signOut).toHaveBeenCalledOnce();
+  });
+});
+
+describe("the sync handlers", () => {
+  it("answer the account's sync state, and run a pass on sync:now", async () => {
+    const waiting: SyncStatus = { state: "offline", pending: 3, refused: 1, lastSyncedAt: null };
+    const syncNow = vi.fn(() => Promise.resolve(synced));
+    const mine = handlersWith(accountWith({ syncStatus: () => waiting, syncNow }));
+
+    expect(await mine["sync:status"]({})).toEqual(waiting);
+    expect(syncNow).not.toHaveBeenCalled();
+    expect(await mine["sync:now"]({})).toEqual(synced);
+    expect(syncNow).toHaveBeenCalledOnce();
+  });
+
+  it("pass presence:set to the account and answer {}", async () => {
+    const setPresence = vi.fn<HandlerContext["account"]["setPresence"]>();
+    const mine = handlersWith(accountWith({ setPresence }));
+    expect(await mine["presence:set"]({ screen: "reach", idle: false })).toEqual({});
+    expect(await mine["presence:set"]({ screen: "record", idle: true })).toEqual({});
+    expect(setPresence.mock.calls).toEqual([
+      [{ screen: "reach", idle: false }],
+      [{ screen: "record", idle: true }],
+    ]);
   });
 });

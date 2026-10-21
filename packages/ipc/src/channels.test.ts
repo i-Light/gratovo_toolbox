@@ -77,3 +77,21 @@ describe("secrets:status", () => {
     ).toBe(false);
   });
 });
+
+describe("sync and presence channels", () => {
+  it("declares sync:status, sync:now and presence:set", () => {
+    expect(isChannel("sync:status")).toBe(true);
+    expect(isChannel("sync:now")).toBe(true);
+    expect(isChannel("presence:set")).toBe(true);
+  });
+
+  it("takes an empty request for the sync channels and refuses extras", () => {
+    expect(parseRequest("sync:status", {}).ok).toBe(true);
+    expect(parseRequest("sync:now", { force: true }).ok).toBe(false);
+  });
+
+  it("checks the screen on presence:set", () => {
+    expect(parseRequest("presence:set", { screen: "team", idle: true }).ok).toBe(true);
+    expect(parseRequest("presence:set", { screen: "nowhere", idle: true }).ok).toBe(false);
+  });
+});

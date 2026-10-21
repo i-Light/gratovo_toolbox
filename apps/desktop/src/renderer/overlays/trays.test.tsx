@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { App } from "../app/app";
+import { adoptServerData } from "../lib/persist";
 import { initPrefs } from "../lib/prefs";
 import { appStore, resetAppStoreForTests, selectRoute } from "../lib/store";
 import { strings } from "../strings";
@@ -127,5 +128,49 @@ describe("the jobs tray", () => {
     await userEvent.click(bell());
     expect(notificationsTray()).not.toBeNull();
     expect(screen.queryByRole("dialog", { name: strings.top.jobs })).toBeNull();
+  });
+});
+
+describe("a conflict notification", () => {
+  it("opens the choice instead of going to a screen", async () => {
+    const before = route();
+    adoptServerData((draft) => {
+      draft.conflicts = [
+        {
+          id: "c1",
+          creator: "UC1",
+          label: "@aimaven",
+          field: "creator_stage",
+          mine: "Emailed",
+          theirs: "Replied",
+          theirName: "Sara",
+        },
+      ] as typeof draft.conflicts;
+      draft.notifications = [
+        {
+          id: "conflict:c1",
+          at: Date.now(),
+          icon: "alert",
+          text: "Your change to @aimaven clashed with Sara's",
+          sub: "Stage: yours Emailed, theirs Replied",
+          go: { screen: "settings", tab: null },
+          read: false,
+        },
+        ...draft.notifications,
+      ] as typeof draft.notifications;
+    });
+    render(<App />);
+    await userEvent.click(bell());
+    await userEvent.click(
+      screen.getByRole("button", { name: /Your change to @aimaven clashed with Sara's/ }),
+    );
+    expect(notificationsTray()).toBeNull();
+    expect(route()).toEqual(before);
+    const toasts = appStore().getState().ui.toasts;
+    expect(toasts.map((t) => t.msg)).toContain("Your change to @aimaven clashed with Sara's");
+    expect(toasts.at(-1)?.actions.map((a) => a.label)).toEqual([
+      strings.conflicts.useMine,
+      strings.conflicts.keepTheirs,
+    ]);
   });
 });

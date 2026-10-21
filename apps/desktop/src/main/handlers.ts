@@ -8,7 +8,17 @@ import type { SecretStore } from "./secret-store";
 export interface HandlerContext {
   version: string;
   secrets: SecretStore;
-  account: Pick<Account, "status" | "source" | "signIn" | "recheck" | "signOut">;
+  account: Pick<
+    Account,
+    | "status"
+    | "source"
+    | "signIn"
+    | "recheck"
+    | "signOut"
+    | "syncStatus"
+    | "syncNow"
+    | "setPresence"
+  >;
 }
 
 /** The main process's answer to each channel in `channels`. */
@@ -37,6 +47,14 @@ export function createHandlers({ version, secrets, account }: HandlerContext): H
     "auth:recheck": () => account.recheck(),
     "auth:sign-out": async () => {
       await account.signOut();
+      return {};
+    },
+    // Counts and a state only: no row data, no token.
+    "sync:status": () => account.syncStatus(),
+    "sync:now": () => account.syncNow(),
+    // A screen name and a flag only (D26); the account ignores it unless signed in.
+    "presence:set": ({ screen, idle }) => {
+      account.setPresence({ screen, idle });
       return {};
     },
   };

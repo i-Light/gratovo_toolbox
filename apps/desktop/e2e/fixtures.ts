@@ -201,4 +201,13 @@ export const test = base.extend<
   ],
 });
 
+/**
+ * Runs a sync pass now, through the page's own bridge (or waits for the one running and the one
+ * after it), and returns the status it ends with. The app also syncs on its own timers; tests use
+ * this so they never wait for the 20 s catch-up.
+ */
+export async function syncNow(page: Page): Promise<unknown> {
+  return page.evaluate(() => window.gratovo.invoke("sync:now", {}));
+}
+
 export { expect } from "@playwright/test";

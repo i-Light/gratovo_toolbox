@@ -169,6 +169,7 @@ describe("exampleFrame", () => {
       brands: seed.brands,
       deals: seed.deals,
       mateRun: seed.mateRun(now),
+      conflicts: [],
       notify: {},
       seesMoney: true,
     });

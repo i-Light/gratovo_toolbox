@@ -28,6 +28,11 @@ export function upsertDeal(db: DatabaseSync, deal: Deal, now: number): void {
   );
 }
 
+/** Sets a deal's step: `flow_step` and nothing else. An unknown id is a no-op. */
+export function setDealStep(db: DatabaseSync, id: string, step: number): void {
+  db.prepare("UPDATE deals SET flow_step = ? WHERE id = ?").run(step, id);
+}
+
 /** Every deal in the order added. A deal without `flow_step` gets its step from the legacy stage. */
 export function listDeals(db: DatabaseSync): Deal[] {
   const rows = db

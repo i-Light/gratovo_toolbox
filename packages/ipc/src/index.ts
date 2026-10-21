@@ -9,7 +9,7 @@ export {
   signInResultSchema,
 } from "./auth";
 export type { AuthState, AuthStatus, SignInProblem, SignInRequest, SignInResult } from "./auth";
-export { bridgeChannel, bridgeGlobal } from "./bridge";
+export { appEventNames, bridgeChannel, bridgeGlobal, eventChannel } from "./bridge";
 export type { Bridge, InvokeResult } from "./bridge";
 export { channels, isChannel, parseRequest, secretName } from "./channels";
 export type {
@@ -34,3 +34,9 @@ export {
 } from "./data";
 export { createDispatcher } from "./dispatch";
 export type { DispatchErrorReporter, Handlers } from "./dispatch";
+export { appEvents, frameParts } from "./events";
+export type { AppEventName, AppEventPayload, FramePart } from "./events";
+export { presenceMembersSchema, presenceScreens, presenceSetSchema } from "./presence";
+export type { PresenceScreen } from "./presence";
+export { syncStatusSchema, syncStates } from "./sync";
+export type { SyncState, SyncStatus } from "./sync";

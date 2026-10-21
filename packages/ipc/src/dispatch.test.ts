@@ -13,6 +13,19 @@ function setup(overrides: Partial<Handlers> = {}) {
     "auth:sign-in": vi.fn(() => ({ ok: true as const, state: "signed-in" as const })),
     "auth:recheck": vi.fn(() => ({ state: "unconfigured" as const, email: null })),
     "auth:sign-out": vi.fn(() => ({})),
+    "sync:status": vi.fn(() => ({
+      state: "off" as const,
+      pending: 0,
+      refused: 0,
+      lastSyncedAt: null,
+    })),
+    "sync:now": vi.fn(() => ({
+      state: "off" as const,
+      pending: 0,
+      refused: 0,
+      lastSyncedAt: null,
+    })),
+    "presence:set": vi.fn(() => ({})),
     ...overrides,
   };
   const onError = vi.fn();

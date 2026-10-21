@@ -122,9 +122,20 @@ If any of the four is missing, the function answers "R2 isn't set up" and signs 
 
 Names can't start with `SUPABASE_`; Supabase refuses them. These four don't.
 
-## 5. Check the old app still works
+## 5. Check the new app after a rollout
 
-After the rollout (section 6), open the **old app**: sign in, check the creators list loads, and make one edit and see it save. Then open the new app built with your `.env.local` and sign in. You should see your name and the team with roles.
+Nobody uses the old app any more, so there is no old-app check. After a rollout (section 6), open the new app built with your `.env.local` and sign in. You should see your name, the team with roles, and your creators in the palette (Ctrl+K). The top bar says "Saved"; its tip says when the app last synced.
+
+### Live updates: turn off public access
+
+The app's live updates use private channels that only signed-in team members can join. Turn off the public ones: in the Supabase dashboard, open **Realtime** in the left sidebar (not Project Settings), then its **Settings** page. Under **Channel Restrictions**, switch **Allow public access** off and save. The direct link is `https://supabase.com/dashboard/project/<your project ref>/realtime/settings`. Saving disconnects every live client for a moment; they reconnect by themselves. Nothing uses public channels now, and with it on, anyone holding the app's public key could use them.
+
+### This computer's copy of the team's data
+
+The app keeps a copy of the team's data on each computer, so it works offline. The copy isn't encrypted (the old app's wasn't either). It sits in your Windows account's own folder.
+
+- **Turn on BitLocker** on every team computer (Windows Settings › Privacy & security › Device encryption, or BitLocker on Windows Pro), so a lost laptop doesn't give the data away.
+- **Signing out deletes the copy.** If some changes haven't reached the server yet (you were offline), only those changes stay. The sign-in screen says how many, and they are sent the next time the same person signs in on that computer. If someone else signs in there first, they are deleted.
 
 ## 6. How changes reach the real project
 
@@ -132,10 +143,10 @@ Changes to the team's live Supabase project never go out by themselves.
 
 - A session makes each change through the **Supabase MCP**, and **asks you first**. You say "go" before each numbered step. Nothing happens without it.
 - The first migration file, `20261020120000_baseline.sql`, is the old schema. The live project already runs it. It is **marked as applied** in the project's history and **never pushed**. Pushing it would run the old schema a second time.
-- The new migrations (`member_access`, `team_keys`) are small and only add things. They don't change anything the old app uses. The session applies them one at a time, then deploys the `r2-access` function.
+- The later migrations are applied one at a time, in file order: `member_access` and `team_keys` (3d-2a, then the `r2-access` function), then `sync_columns`, `creator_stage_edit` and `realtime_private` (3d-2b). They never destroy or rewrite existing data. `creator_stage_edit` replaces two existing functions in place, so it had its own step.
 - At the end, the session writes your Owner row (section 2), and you enter the key values yourself (sections 3 and 4). The session only checks that the secret names exist. It never reads a value.
 - If something looks wrong, the session stops and tells you. Undoing the new parts is safe because nothing else depends on them, and it also needs your go.
-- **If anyone re-runs the old `schema.sql`, re-apply the later migrations right after** (`member_access`, then `team_keys`, in that order). The old file takes away the app's right to call the new functions, and gives members write rights on `member_access` (the table's rules still refuse the writes). Re-applying the two files puts both back. They are safe to run again. `pnpm test:sql` runs this exact sequence and checks the rights come back the same.
+- **If anyone re-runs the old `schema.sql`, re-apply the later migrations right after**, in file order (`member_access`, `team_keys`, `sync_columns`, `creator_stage_edit`, `realtime_private`). The old file takes away the app's right to call the new functions, and gives members write rights on `member_access` (the table's rules still refuse the writes). Re-applying the files puts it all back. They are safe to run again. `pnpm test:sql` runs this exact sequence and checks the rights come back the same.
 
 ## 7. Run the tests
 
@@ -147,7 +158,7 @@ Changes to the team's live Supabase project never go out by themselves.
   Start Docker Desktop, then from the repository folder, in Git Bash:
 
   ```bash
-  npx supabase@2.119.0 start -x studio,mailpit,storage-api,imgproxy,logflare,vector,supavisor,realtime,postgres-meta
+  npx supabase@2.119.0 start -x studio,mailpit,storage-api,imgproxy,logflare,vector,supavisor,postgres-meta
   eval "$(npx supabase@2.119.0 status -o env | sed -n -e 's/^API_URL=/export SUPABASE_URL=/p' -e 's/^PUBLISHABLE_KEY=/export SUPABASE_PUBLISHABLE_KEY=/p' -e 's/^SECRET_KEY=/export SUPABASE_SECRET_KEY=/p')"
   pnpm test:server
   npx supabase@2.119.0 stop --no-backup
@@ -156,7 +167,7 @@ Changes to the team's live Supabase project never go out by themselves.
   Or in PowerShell:
 
   ```powershell
-  npx supabase@2.119.0 start -x studio,mailpit,storage-api,imgproxy,logflare,vector,supavisor,realtime,postgres-meta
+  npx supabase@2.119.0 start -x studio,mailpit,storage-api,imgproxy,logflare,vector,supavisor,postgres-meta
   $names = @{ API_URL = 'SUPABASE_URL'; PUBLISHABLE_KEY = 'SUPABASE_PUBLISHABLE_KEY'; SECRET_KEY = 'SUPABASE_SECRET_KEY' }
   npx supabase@2.119.0 status -o env | ForEach-Object { if ($_ -match '^(\w+)="?(.*?)"?$' -and $names.ContainsKey($Matches[1])) { Set-Item "env:$($names[$Matches[1]])" $Matches[2] } }
   pnpm test:server

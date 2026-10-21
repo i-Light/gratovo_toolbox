@@ -40,6 +40,7 @@ These come from the owner and hold until the owner changes them. The detail and 
   - Database: `supabase` and `supabase-postgres-best-practices`.
   - Security: `sentry-security-review`.
   - Planning and decisions: `grill-with-docs`.
+- **New Supabase tables need explicit grants** (Supabase's change of 2026-10-30): in the same migration as the table, with nothing for `anon`. The rule and the check are in [supabase/README.md](supabase/README.md#every-new-table-needs-its-own-grants-supabase-from-2026-10-30).
 - **Plugins:** the project settings turn on `superpowers` (brainstorming, plans, TDD, debugging, verification), `claude-md-management` and `claude-security`.
 - **Writing for the owner:** plain words, short sentences, no jargon. Give a recommendation, not a survey. Say what you checked and how.
 

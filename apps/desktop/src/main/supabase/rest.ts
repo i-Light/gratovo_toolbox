@@ -34,11 +34,20 @@ export class RestError extends Error {
 
 export interface Rest {
   /** `GET /rest/v1/<table>?<query>`, e.g. `select=id,role&id=eq.<uuid>`. */
-  select<T>(table: string, query: string): Promise<T[]>;
+  select<T>(table: string, query: string, options?: { timeoutMs?: number }): Promise<T[]>;
   /** `POST /rest/v1/rpc/<name>`; a function with no result gives null. */
   rpc<T>(name: string, args?: object): Promise<T>;
   /** `PATCH /rest/v1/<table>?<filter>`; the filter is required, so no call updates every row. */
   patch(table: string, filter: string, body: object): Promise<void>;
+  /**
+   * `POST /rest/v1/<table>?on_conflict=<col>` with a JSON array, `Prefer: resolution=ignore-duplicates`
+   * (when `ignoreDuplicates`) or `merge-duplicates`, and `return=minimal`.
+   */
+  upsert(
+    table: string,
+    rows: readonly object[],
+    options: { onConflict: string; ignoreDuplicates?: boolean },
+  ): Promise<void>;
 }
 
 const identifier = /^[a-z_][a-z0-9_]{0,62}$/;
@@ -77,7 +86,8 @@ export function createRest(
     method: "GET" | "POST" | "PATCH",
     path: string,
     headers: Record<string, string>,
-    body?: object,
+    body?: object | readonly object[],
+    timeoutMs?: number,
   ): Promise<Response> {
     let rejected: string | undefined;
     for (let attempt = 0; ; attempt += 1) {
@@ -93,6 +103,7 @@ export function createRest(
             Accept: "application/json",
           },
           ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+          ...(timeoutMs === undefined ? {} : { timeoutMs }),
         });
       } catch {
         throw new RestError("offline");
@@ -121,9 +132,19 @@ export function createRest(
   }
 
   return {
-    async select<T>(table: string, query: string): Promise<T[]> {
+    async select<T>(
+      table: string,
+      query: string,
+      options: { timeoutMs?: number } = {},
+    ): Promise<T[]> {
       checkName(table);
-      const response = await call("GET", `${table}?${query}`, { "Accept-Profile": "public" });
+      const response = await call(
+        "GET",
+        `${table}?${query}`,
+        { "Accept-Profile": "public" },
+        undefined,
+        options.timeoutMs,
+      );
       const rows = await json(response);
       if (!Array.isArray(rows)) {
         throw new RestError("http", response.status, "bad_response");
@@ -156,6 +177,25 @@ export function createRest(
           Prefer: "return=minimal",
         },
         body,
+      );
+    },
+
+    async upsert(
+      table: string,
+      rows: readonly object[],
+      options: { onConflict: string; ignoreDuplicates?: boolean },
+    ): Promise<void> {
+      checkName(table);
+      checkName(options.onConflict);
+      await call(
+        "POST",
+        `${table}?on_conflict=${options.onConflict}`,
+        {
+          "Content-Profile": "public",
+          "Content-Type": "application/json",
+          Prefer: `resolution=${options.ignoreDuplicates === true ? "ignore" : "merge"}-duplicates,return=minimal`,
+        },
+        rows,
       );
     },
   };

@@ -6,14 +6,33 @@ The shared backend's schema and its tests.
   - `20261020120000_baseline.sql`: a short header comment, then `legacy/backend/schema.sql` byte for byte. Production runs that file, so any edit would drift from it. Production never ran it through the CLI: mark it applied there (`supabase migration repair`), never push it. From 2026-10-30 every new table in a later migration needs its own `grant` lines.
   - `20261021090000_member_access.sql`: schema `private`, the `member_access` table (agency roles, "sees money"; read-only for members) and `set_member_access` (owner only).
   - `20261021090100_team_keys.sql`: `team_youtube_key()`, which hands the Vault secret `team_youtube_key` to authorized members.
+  - `20261022090000_sync_columns.sql`: step 3d-2b's additive columns (`channel_state.creator_stage`, `brands.sells` and `status`, `deals.flow_step`), `activity_log.received_at` with its index, and the `notification_switches` table. Switches rule: a member reads, inserts and updates only their own row while authorized; there is no delete policy. `received_at` exists because `activity_log.at` is the writer's clock: a member who was offline uploads lines older than another member's pull cursor, so the app pulls by the server's receive time (and never sends it).
+  - `20261022090100_creator_stage_edit.sql`: **changes two existing functions** (its own rollout step): `canonical_edit_value` and `apply_channel_edit` are replaced with the baseline bodies plus `creator_stage` in the editable fields, so a creator's stage uses the same compare-and-set and conflict filing. No data changes.
+  - `20261022090200_realtime_private.sql`: two policies on `realtime.messages` (`toolbox_realtime_receive`, `toolbox_realtime_send`) so authorized members can use broadcast and presence on the private topics `toolbox:sync` and `toolbox:team` only. Policies only (its own rollout step); "Allow public access" is turned off by hand in production.
   - **If anyone re-runs the old `schema.sql`** (or the baseline), **re-apply the later migrations right after**, in name order. Its `revoke all on all functions in schema public from public, anon, authenticated` takes `execute` away from the new `public` wrappers, and its `grant ... on all tables in schema public to authenticated` gives write privileges on `member_access` (row-level security still refuses the writes). The later migrations are safe to re-run and put both back. `docs/setup.md` section 6 says the same for the owner.
   - The `private` schema rule: a `security definer` function lives in `private` (not exposed by the Data API, `set search_path = ''`), and a `security invoker` wrapper in `public` is the only thing the app calls. Every function revokes `execute` from `public` and `anon` and grants it explicitly.
 - `tests/`: SQL tests, run against a throwaway Postgres in Docker.
-  - `00_supabase_stubs.sql`: the minimum Supabase surface the migrations need (roles, `auth` schema, a minimal `vault`, extensions), so the real migrations run unedited on stock Postgres.
+  - `00_supabase_stubs.sql`: the minimum Supabase surface the migrations need (roles, `auth` schema, a minimal `vault` and `realtime`, extensions), so the real migrations run unedited on stock Postgres.
   - `test_12_conflicts.sql`, `test_17_scratchpad.sql`, `test_19_sync_shape.sql`, `test_20_remote_search_requests.sql`, `test_21_decisions_schema.sql`: ported from the old app.
   - `test_30_grants.sql`: every public table has row-level security, `authenticated` and `service_role` hold all four privileges, `anon` holds none (except the declared read-only tables, where `authenticated` holds `select` only).
   - `test_31_member_access.sql`, `test_32_team_keys.sql`: roles and money access, and the YouTube key.
+  - `test_33_sync_columns.sql`: the new columns and their checks, `received_at`, `notification_switches` (own row only), and that existing columns kept their type, nullability and default.
+  - `test_34_creator_stage_edit.sql`: the stage through `apply_channel_edit` (applied, auto, noop, conflict, resolve, bad stage).
+  - `test_35_realtime_policies.sql`: the two Realtime policies (members on the two topics only; waiting members, anon, other topics and `postgres_changes` refused).
   - `run.ts`: the runner.
+
+## Every new table needs its own grants (Supabase, from 2026-10-30)
+
+Supabase told the owner by email (2026-10-20): from **2026-10-30** it stops granting Data API access to new tables in `public` by itself. Existing tables keep their grants. A table created after that date, by a migration, a preview branch or a local `supabase db reset`, is unreachable through PostgREST and supabase-js until a `grant` gives access. The API then answers "permission denied" with the statement to run.
+
+What every migration here does, in the same file that creates the table:
+
+- `alter table … enable row level security` and the policies the table needs;
+- `revoke all on <table> from public, anon`: **`anon` gets nothing.** Supabase's example grants `select` to `anon`; this project doesn't, because nothing is readable before sign-in;
+- `grant select, insert, update, delete on <table> to authenticated` (or `select` only for a read-only table, listed in `test_30_grants.sql`), and all four to `service_role`;
+- functions: `revoke execute … from public, anon`, then `grant execute … to authenticated`.
+
+`test_30_grants.sql` fails any `public` table without these grants, so a forgotten grant shows in `pnpm test:sql` and in CI. A "permission denied" error from the API on a new table means a grant is missing: add it to the migration, never fix it by hand in the dashboard.
 
 ## Run the tests
 

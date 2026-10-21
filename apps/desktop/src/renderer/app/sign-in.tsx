@@ -26,9 +26,26 @@ export function SignIn({ signIn, onDone }: SignInProps) {
   // The password lives in the field only: read on submit, cleared after a failure, never in state.
   const password = useRef<HTMLInputElement>(null);
   const emailField = useRef<HTMLInputElement>(null);
+  // Changes kept from a signed-out session that never reached the server.
+  const [waiting, setWaiting] = useState(0);
 
   useEffect(() => {
     emailField.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    let live = true;
+    void window.gratovo.invoke("sync:status", {}).then(
+      (result) => {
+        if (live && result.ok) {
+          setWaiting(result.value.pending);
+        }
+      },
+      () => undefined,
+    );
+    return () => {
+      live = false;
+    };
   }, []);
 
   const submit = async (event: SyntheticEvent): Promise<void> => {
@@ -114,6 +131,7 @@ export function SignIn({ signIn, onDone }: SignInProps) {
         >
           {busy ? text.submitting : text.submit}
         </button>
+        {waiting > 0 ? <p className="hint auth-foot">{text.waitingChanges(waiting)}</p> : null}
         <p className="hint auth-foot">{text.noAccount}</p>
       </form>
     </main>

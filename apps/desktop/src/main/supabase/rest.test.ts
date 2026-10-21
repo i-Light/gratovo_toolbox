@@ -149,4 +149,48 @@ describe("createRest", () => {
     await expect(t.rest.select("profiles", "select=id")).rejects.toBeInstanceOf(AuthError);
     expect(t.request).not.toHaveBeenCalled();
   });
+  it("passes the select timeout to the network", async () => {
+    const t = setup(json([]));
+    await t.rest.select("profiles", "select=id", { timeoutMs: 45_000 });
+    expect(t.call(0).init).toMatchObject({ timeoutMs: 45_000 });
+  });
+
+  it("upserts a JSON array with the merge or ignore preference", async () => {
+    const t = setup(new Response(null, { status: 201 }), new Response(null, { status: 201 }));
+    await t.rest.upsert("brands", [{ id: "b1" }], { onConflict: "id" });
+    await t.rest.upsert("activity_log", [{ id: "a1" }, { id: "a2" }], {
+      onConflict: "id",
+      ignoreDuplicates: true,
+    });
+
+    const first = t.call(0);
+    expect(first.url).toBe(`${config.url}/rest/v1/brands?on_conflict=id`);
+    expect(first.init?.method).toBe("POST");
+    expect(first.init?.body).toBe(JSON.stringify([{ id: "b1" }]));
+    expect(first.headers).toMatchObject({
+      "Content-Profile": "public",
+      "Content-Type": "application/json",
+      Prefer: "resolution=merge-duplicates,return=minimal",
+    });
+    expect(t.call(1).headers?.["Prefer"]).toBe("resolution=ignore-duplicates,return=minimal");
+  });
+
+  it("refreshes once on a 401 when upserting", async () => {
+    const t = setup(json({ code: "PGRST301" }, 401), new Response(null, { status: 201 }));
+    await t.rest.upsert("brands", [{ id: "b1" }], { onConflict: "id" });
+    expect(t.call(1).headers?.["Authorization"]).toBe("Bearer access-2");
+  });
+
+  it("reports an upsert refusal by its code and checks the names", async () => {
+    const t = setup(json({ code: "42501" }, 403));
+    await expect(
+      t.rest.upsert("brands", [{ id: "b1" }], { onConflict: "id" }),
+    ).rejects.toMatchObject({
+      status: 403,
+      code: "42501",
+    });
+    await expect(t.rest.upsert("brands", [], { onConflict: "id,name" })).rejects.toThrow();
+    await expect(t.rest.upsert("Brands;", [], { onConflict: "id" })).rejects.toThrow();
+    expect(t.request).toHaveBeenCalledTimes(1);
+  });
 });

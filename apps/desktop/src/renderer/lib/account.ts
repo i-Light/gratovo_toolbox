@@ -1,3 +1,4 @@
+import type { Bridge } from "@gratovo/ipc/bridge";
 import { useSyncExternalStore } from "react";
 
 import { onPersistenceIdle } from "./persist";
@@ -48,13 +49,24 @@ function settled(ms: number): Promise<void> {
   });
 }
 
-type Invoke = (channel: "auth:sign-out", input: Record<string, never>) => Promise<unknown>;
+type Invoke = Bridge["invoke"];
+
+/** How long sign-out waits for the last sync before going ahead. */
+export const lastSyncWaitMs = 5000;
 
 /**
- * Signs out: lets pending changes reach the database first (up to 5 s), then asks main, which deletes
- * the local copy and reloads the window. The page starts again from `auth:status`.
+ * Signs out: lets pending changes reach the database first (up to 5 s), asks main for one last sync
+ * (up to 5 s; its answer and errors are ignored: unsent changes are kept either way), then asks main to sign out,
+ * which clears the local copy and reloads the window. The page starts again from `auth:status`.
  */
 export async function signOut(invoke?: Invoke): Promise<void> {
   await settled(signOutWaitMs);
-  await (invoke ?? window.gratovo.invoke)("auth:sign-out", {});
+  const call = invoke ?? window.gratovo.invoke;
+  // At most a few seconds: a pass can be deep in a long pull, and main's sign-out gives the outbox
+  // its own 5 s anyway. A failed or slow last sync must not stop the sign-out.
+  await Promise.race([
+    call("sync:now", {}).catch(() => undefined),
+    new Promise<void>((resolve) => setTimeout(resolve, lastSyncWaitMs)),
+  ]);
+  await call("auth:sign-out", {});
 }

@@ -62,7 +62,7 @@ async function start(script: Script): Promise<void> {
   document.body.append(container);
   root = createRoot(container);
   const invoke = fakeInvoke(script, calls);
-  (window as unknown as { gratovo: Bridge }).gratovo = { invoke };
+  (window as unknown as { gratovo: Bridge }).gratovo = { invoke, on: () => () => undefined };
   await act(async () => {
     await startApp(root, invoke);
   });
@@ -104,7 +104,12 @@ describe("start", () => {
   it("opens the app straight away when there is no account setup or you are signed in", async () => {
     for (const status of ["unconfigured", "signed-in"] as const) {
       await start({ status, email: "me@example.com" });
-      expect(calls.map((c) => c[0])).toEqual(["auth:status", "frame:load"]);
+      // Signed in, the page also reports its screen and asks for the sync status.
+      expect(calls.map((c) => c[0])).toEqual(
+        status === "signed-in"
+          ? ["auth:status", "frame:load", "sync:status", "presence:set"]
+          : ["auth:status", "frame:load"],
+      );
       expect(screen.getByRole("navigation", { name: strings.rail.label })).toBeTruthy();
       act(() => {
         root.unmount();

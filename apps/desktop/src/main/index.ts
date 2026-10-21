@@ -3,6 +3,7 @@ import { BrowserWindow, Menu, app, dialog, session } from "electron";
 import { createAccount } from "./account/account";
 import { builtPageUrl } from "./app-page";
 import { registerAppScheme, serveAppFiles } from "./app-protocol";
+import { createEventSender } from "./events";
 import { createHandlers } from "./handlers";
 import { registerBridge } from "./ipc-bridge";
 import { createNetwork } from "./net/network";
@@ -99,6 +100,14 @@ function start(): void {
         network: createNetwork({ allowedOrigins: config === null ? [] : [config.origin] }),
         now: Date.now,
         reloadWindow: reloadWindows,
+        // Main-to-page events go to the app's own page only, after a check of each payload.
+        emit: createEventSender({
+          targets: () => BrowserWindow.getAllWindows(),
+          pageUrl: appPageUrl,
+          log: (line) => {
+            console.error(line);
+          },
+        }),
       });
       app.on("will-quit", () => {
         account.close();

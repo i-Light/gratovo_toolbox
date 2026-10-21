@@ -89,6 +89,7 @@ describe("live source", () => {
       creators: [],
       brands: [],
       deals: [],
+      conflicts: [],
       mateRun: null,
       notify: {},
       seesMoney: false,

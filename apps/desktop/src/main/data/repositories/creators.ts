@@ -1,7 +1,7 @@
 import type { DatabaseSync } from "node:sqlite";
 
 import { creatorStageFrom, legacyCreatorFields, primaryEmail } from "@gratovo/core/data";
-import type { Creator } from "@gratovo/core/data";
+import type { Creator, CreatorStage } from "@gratovo/core/data";
 
 /**
  * Adds a creator or updates the one with the same id: the name goes to `channels`, the rest to
@@ -41,16 +41,42 @@ export function upsertCreator(db: DatabaseSync, creator: Creator, now: number): 
   );
 }
 
-/** Every creator in the order added. The name falls back to the handle; stage and email are derived. */
-export function listCreators(db: DatabaseSync): Creator[] {
+/** Sets a creator's stage: `creator_stage` and nothing else. An unknown id is a no-op. */
+export function setCreatorStage(db: DatabaseSync, id: string, stage: CreatorStage): void {
+  db.prepare("UPDATE channel_state SET creator_stage = ? WHERE channel_id = ?").run(stage, id);
+}
+
+/** The most creators a frame carries (the IPC list limit, `listMax` in the ipc package). */
+export const listMax = 5000;
+
+/**
+ * At most `limit` creators, in the order added. When there are more than that, the ones kept are:
+ * every creator a deal names, then creators past `new` (the app stage set, or the legacy fields
+ * not `newlyFound`/`new`), then the most recently pulled. The recency proxy is `rowid`, not
+ * `updated_at`: pulled rows arrive in cursor order, and `updated_at` text with mixed offsets
+ * (`Z` and `+00:00`) does not sort as time. The name falls back to the handle; stage and email
+ * are derived, and only the kept rows have their email read.
+ */
+export function listCreators(db: DatabaseSync, o: { limit?: number } = {}): Creator[] {
+  const limit = Math.max(0, Math.min(Math.floor(o.limit ?? listMax), listMax));
   const rows = db
     .prepare(
-      `SELECT s.channel_id, s.handle, s.vetting_status, s.pipeline_stage, s.creator_stage,
-              s.contacts, c.name
-       FROM channel_state s LEFT JOIN channels c ON c.channel_id = s.channel_id
-       ORDER BY s.rowid`,
+      `SELECT * FROM (
+         SELECT s.rowid AS rid, s.channel_id, s.handle, s.vetting_status, s.pipeline_stage,
+                s.creator_stage, s.contacts, c.name
+         FROM channel_state s LEFT JOIN channels c ON c.channel_id = s.channel_id
+         ORDER BY
+           CASE
+             WHEN EXISTS (SELECT 1 FROM deals d WHERE d.channel_id = s.channel_id) THEN 0
+             WHEN s.creator_stage IS NOT NULL
+               OR NOT (s.vetting_status = 'newlyFound' AND s.pipeline_stage = 'new') THEN 1
+             ELSE 2
+           END,
+           s.rowid DESC
+         LIMIT ?
+       ) ORDER BY rid`,
     )
-    .all();
+    .all(limit);
   return rows.map((row) => {
     const handle = String(row["handle"]);
     return {

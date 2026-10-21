@@ -14,6 +14,9 @@ export const strings = {
       submit: "Sign in",
       submitting: "Signing in…",
       noAccount: "Ask the owner for an account.",
+      /** Shown when a signed-out copy still holds changes that never reached the server. */
+      waitingChanges: (n: number): string =>
+        `${n === 1 ? "1 change" : `${String(n)} changes`} from your last session ${n === 1 ? "is" : "are"} waiting on this computer. Sign in to send ${n === 1 ? "it" : "them"}.`,
       /** One line per reason the sign-in can fail (the old app's meanings). */
       problems: {
         invalid: "That email and password don't match. Check them and try again.",
@@ -95,6 +98,14 @@ export const strings = {
     savedTip: (ago: string) => `Saved on this computer and synced ${ago}`,
     savingTip: "Saving to this computer, then syncing to the team",
     notSavedTip: "The last change could not be saved. It will be gone after a restart.",
+    /** Shown while changes wait for the server and it can't be reached or keeps failing. */
+    notSynced: "Not synced",
+    notSyncedOfflineTip: (n: number): string =>
+      `Saved on this computer. ${n === 1 ? "1 change" : `${String(n)} changes`} will sync when you're back online.`,
+    notSyncedStuckTip:
+      "Saved on this computer. A change keeps failing to sync; it will keep trying.",
+    refusedToast: "The server refused a change",
+    refusedToastSub: "It stays on this computer only.",
   },
   keys: {
     ctrlK: "Ctrl K",
@@ -386,6 +397,28 @@ export const strings = {
     close: "Close",
   },
   toasts: { dismiss: "Dismiss" },
+  /** A change of yours that met a teammate's (the choice toast; the notification text is built in main). */
+  conflicts: {
+    toast: (label: string, theirName: string): string =>
+      `Your change to ${label} clashed with ${theirName}'s`,
+    sub: (field: string, mine: string, theirs: string): string =>
+      `${field}: yours ${mine}, theirs ${theirs}`,
+    useMine: "Use mine",
+    keepTheirs: "Keep theirs",
+    /** The server's field names, as people read them; an unknown name shows as it is. */
+    fields: {
+      creator_stage: "Stage",
+      notes: "Notes",
+      vetting_status: "Vetting",
+      pipeline_stage: "Pipeline stage",
+      channel_tags: "Tags",
+      relevance_criteria: "Relevance",
+      provided_data: "Provided data",
+      contacts: "Contacts",
+      media_kit: "Media kit",
+      creator_gender: "Gender",
+    } as Readonly<Record<string, string>>,
+  },
   placeholder: {
     title: (name: string) => `${name} is still being built`,
     body: "This screen arrives in a later build step.",

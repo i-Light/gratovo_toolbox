@@ -28,6 +28,7 @@ What the owner has asked for, with the reasons, collected from past sessions so 
 - Don't commit or push unless the owner asks, or a plan step's planned end is a commit.
 - **Sessions run the GitHub side themselves** (owner, 2026-10-19). Open the pull request, get CI green, fix the review findings, then merge it. Never ask the owner to merge or to do anything by hand on GitHub. Stop to ask only a critical question about the workflow or the migration that the docs don't answer.
 - Cleanup comes last: nothing is deleted from `legacy/` or merged in the docs until the 100% check (step 10) has passed.
+- **Nobody uses the old app** (owner, 2026-10-20: "I don't care about the old app at all, no one is or will use it"). Nothing keeps it working, and there is no old-app check after a rollout. Production data still matters: a migration never destroys or rewrites existing data, and anything that alters what exists gets its own production step with the owner's go.
 
 ## Replies and drafting
 
@@ -68,7 +69,7 @@ What the owner has asked for, with the reasons, collected from past sessions so 
 
 The workflow-map gaps the owner marked **Noted** wait for their input: `search-1`, `first-1`, `mail-1`, `mail-2`. Don't build them. Their details are in `legacy/docs/plans/decisions_build_plan.md`.
 
-## Carried over from the old app (still to do in the old app)
+## Carried over from the old app (moot now that nobody uses it; kept until the step 11 cleanup)
 
 - Paste `legacy/backend/schema.sql` into Supabase before 2026-10-30. After that date, new tables need explicit grants.
 - Set the agency sender name in the old app.

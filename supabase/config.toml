@@ -4,7 +4,8 @@
 # reference, https://supabase.com/docs/guides/local-development/cli/config.
 #
 # Kept lean: the services the tests do not need are off here and also left out of `supabase start`
-# with -x (the exact `start` line is in docs/setup.md section 7 and the CI job). Realtime returns in step 3d-2b, which tests the sync.
+# with -x (the exact `start` line is in docs/setup.md section 7 and the CI job). Realtime is on:
+# the sync's server tests use it.
 project_id = "gratovo_toolbox"
 
 [api]
@@ -32,8 +33,10 @@ enabled = true
 enabled = true
 sql_paths = ["./seed.sql"]
 
+# The sync's live updates (step 3d-2b): private channels, checked against the policies on
+# realtime.messages (supabase/migrations/20261022090200_realtime_private.sql).
 [realtime]
-enabled = false
+enabled = true
 
 [studio]
 enabled = false

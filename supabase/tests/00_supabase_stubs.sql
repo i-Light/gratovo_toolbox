@@ -52,3 +52,27 @@ returns uuid language sql as $$
   insert into vault.secrets (secret, name, description)
   values (new_secret, new_name, coalesce(new_description, '')) returning id;
 $$;
+
+-- A minimal Realtime: the messages table and topic(), as the platform has them
+-- (owned by postgres, row level security already on, authenticated may select
+-- and insert). The migrations only add policies to it. A real project locks the
+-- realtime schema, so nothing but policies is ever created there.
+create schema if not exists realtime;
+create table if not exists realtime.messages (
+  id          uuid default gen_random_uuid(),
+  topic       text not null,
+  extension   text not null,
+  payload     jsonb,
+  event       text,
+  private     boolean default true,
+  inserted_at timestamptz default now()
+);
+alter table realtime.messages owner to postgres;
+alter table realtime.messages enable row level security;
+grant usage on schema realtime to authenticated;
+grant select, insert on realtime.messages to authenticated;
+create or replace function realtime.topic() returns text
+language sql stable as $$
+  select nullif(current_setting('realtime.topic', true), '');
+$$;
+grant execute on function realtime.topic() to authenticated;

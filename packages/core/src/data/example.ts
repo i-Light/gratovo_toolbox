@@ -96,6 +96,7 @@ export function exampleFrame(now: number): Frame {
     brands: seed.brands,
     deals: seed.deals,
     mateRun: seed.mateRun(now),
+    conflicts: [],
     notify: {},
     seesMoney: mine !== undefined && seesMoney(mine),
   };

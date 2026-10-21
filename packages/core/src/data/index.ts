@@ -27,6 +27,7 @@ export type {
   DataSource,
   DataWrite,
   Deal,
+  EditConflict,
   Frame,
   FrameNotification,
   LogEntry,
@@ -37,3 +38,6 @@ export type {
   RailCounts,
   TeamMember,
 } from "./types";
+export { logPhrases, logText, logTextMax } from "./log-text";
+export type { LogTextRow } from "./log-text";
+export { mentionsMoney, moneyFields } from "./money";

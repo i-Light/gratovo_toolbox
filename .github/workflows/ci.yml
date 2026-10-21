@@ -99,7 +99,9 @@ jobs:
   # stack's keys are the Supabase CLI's fixed local defaults, which `supabase start` prints before the
   # masking step runs: throwaway values that open nothing but this job's stack, never the team's
   # project. They are still masked from then on and live only in this job's environment.
-  # Studio, the mail server, Storage, Realtime and the rest are left out to keep the start short.
+  # Studio, the mail server, Storage and the rest are left out to keep the start short. Realtime
+  # stays: the sync tests join its private channels, and its schema must exist before the
+  # migrations add policies on realtime.messages.
   server:
     name: Server tests (Linux, local Supabase)
     if: github.event_name != 'schedule'
@@ -125,7 +127,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Start the local stack
-        run: supabase start -x studio,mailpit,storage-api,imgproxy,logflare,vector,supavisor,realtime,postgres-meta
+        run: supabase start -x studio,mailpit,storage-api,imgproxy,logflare,vector,supavisor,postgres-meta
 
       - name: Pass the stack's keys to the tests
         run: |

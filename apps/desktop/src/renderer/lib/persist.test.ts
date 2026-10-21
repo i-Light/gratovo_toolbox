@@ -17,7 +17,13 @@ import {
   undo,
 } from "./actions";
 import { exampleData } from "./example-data";
-import { diffData, installPersistence, onPersistenceIdle, persistenceIdle } from "./persist";
+import {
+  adoptServerData,
+  diffData,
+  installPersistence,
+  onPersistenceIdle,
+  persistenceIdle,
+} from "./persist";
 import type { Route } from "./routes";
 import { appStore, go, initAppStore, resetAppStoreForTests } from "./store";
 import type { AppData, Notification } from "./store";
@@ -147,15 +153,71 @@ describe("diffData", () => {
       me: "u2",
       team: [...base.team],
       counts: { ...base.counts },
-      creators: [...base.creators],
-      brands: [...base.brands],
-      deals: [...base.deals],
       mateRun: null,
+      conflicts: [...base.conflicts],
     };
     expect(diffData(base, after)).toEqual({
       writes: [],
-      unsupported: ["me", "team", "counts", "creators", "brands", "deals", "mateRun"],
+      unsupported: ["me", "team", "counts", "mateRun", "conflicts"],
     });
+  });
+
+  it("writes a creator's stage change, and the inverse for an undo", () => {
+    const c0 = base.creators[0] as AppData["creators"][number];
+    const next = c0.stage === "new" ? "contact" : "new";
+    const after = {
+      ...base,
+      creators: [{ ...c0, stage: next } as typeof c0, ...base.creators.slice(1)],
+    };
+    expect(diffData(base, after)).toEqual({
+      writes: [{ kind: "creator.stage", id: c0.id, stage: next }],
+      unsupported: [],
+    });
+    expect(diffData(after, base).writes).toEqual([
+      { kind: "creator.stage", id: c0.id, stage: c0.stage },
+    ]);
+  });
+
+  it("cannot write any other creator change, or a creator added or removed", () => {
+    const c0 = base.creators[0] as AppData["creators"][number];
+    const renamed = { ...base, creators: [{ ...c0, name: "Other" }, ...base.creators.slice(1)] };
+    expect(diffData(base, renamed)).toEqual({ writes: [], unsupported: ["creators"] });
+    const removed = { ...base, creators: base.creators.slice(1) };
+    expect(diffData(base, removed).unsupported).toEqual(["creators"]);
+    const added = { ...base, creators: [...base.creators, { ...c0, id: "new" }] };
+    expect(diffData(base, added).unsupported).toEqual(["creators"]);
+  });
+
+  it("writes a new or changed brand, but not a removed one", () => {
+    const b0 = base.brands[0] as AppData["brands"][number];
+    const changed = { ...b0, status: b0.status === "won" ? "found" : "won" };
+    const fresh = { id: "b-new", name: "Nova", sells: "AI notes", status: "found" };
+    const after = { ...base, brands: [changed, ...base.brands.slice(1), fresh] };
+    expect(diffData(base, after)).toEqual({
+      writes: [
+        { kind: "brand.set", id: b0.id, name: b0.name, sells: b0.sells, status: changed.status },
+        { kind: "brand.set", id: "b-new", name: "Nova", sells: "AI notes", status: "found" },
+      ],
+      unsupported: [],
+    });
+    expect(diffData(base, { ...base, brands: base.brands.slice(1) }).unsupported).toEqual([
+      "brands",
+    ]);
+    expect(
+      diffData(base, { ...base, brands: [{ ...b0 }, ...base.brands.slice(1)] }).writes,
+    ).toEqual([]);
+  });
+
+  it("writes a deal's step change, but nothing else about a deal", () => {
+    const d0 = base.deals[0] as AppData["deals"][number];
+    const stepped = { ...base, deals: [{ ...d0, step: d0.step + 1 }, ...base.deals.slice(1)] };
+    expect(diffData(base, stepped)).toEqual({
+      writes: [{ kind: "deal.step", id: d0.id, step: d0.step + 1 }],
+      unsupported: [],
+    });
+    const repriced = { ...base, deals: [{ ...d0, price: 1 }, ...base.deals.slice(1)] };
+    expect(diffData(base, repriced)).toEqual({ writes: [], unsupported: ["deals"] });
+    expect(diffData(base, { ...base, deals: base.deals.slice(1) }).unsupported).toEqual(["deals"]);
   });
 
   it("cannot write a new, removed or edited notification, or an edited log line", () => {
@@ -455,5 +517,25 @@ describe("today's actions", () => {
     await flush();
     expect(errors).not.toHaveBeenCalled();
     expect(bridge.calls.length).toBeGreaterThan(0);
+  });
+});
+
+describe("adoptServerData", () => {
+  it("changes the data and the undo steps and writes nothing", async () => {
+    install();
+    adoptServerData((draft) => {
+      draft.log.unshift({
+        id: "00000000-0000-4000-8000-0000000000bb",
+        at: now,
+        who: "x",
+        text: "t",
+      });
+    });
+    await flush();
+    expect(data().log[0]?.text).toBe("t");
+    expect(bridge.calls).toHaveLength(0);
+    setNotify("reply", false);
+    await flush();
+    expect(sent(bridge.calls)).toEqual([[{ kind: "notify.set", notify: { reply: false } }]]);
   });
 });

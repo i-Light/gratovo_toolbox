@@ -1,9 +1,10 @@
+import type { Store } from "@gratovo/core";
 import type { DataWrite } from "@gratovo/core/data";
 import type { Bridge } from "@gratovo/ipc/bridge";
 
 import { strings } from "../strings";
 import { appStore, subscribeApp } from "./store";
-import type { AppData, Notification } from "./store";
+import type { AppData, AppUi, Notification } from "./store";
 import { toast } from "./toast";
 
 /** The most writes one `data:write` call takes (the IPC schema refuses more). */
@@ -14,10 +15,8 @@ const unsupportedFields = [
   "me",
   "team",
   "counts",
-  "creators",
-  "brands",
-  "deals",
   "mateRun",
+  "conflicts",
 ] as const satisfies readonly (keyof AppData)[];
 
 /** True when two notifications differ in anything but `read` (the store keeps unchanged parts by reference). */
@@ -74,6 +73,51 @@ function diffLog(before: AppData["log"], after: AppData["log"], writes: DataWrit
   return true;
 }
 
+/** True when every key of `a` and `b` other than `skip` holds the same value. */
+function sameBut<T extends object>(a: T, b: T, skip: keyof T): boolean {
+  for (const key of Object.keys(a) as (keyof T)[]) {
+    if (key !== skip && a[key] !== b[key]) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Turns a change to a list of records into writes: `change` gives the write for a record that
+ * differs (or is new), or null when the difference cannot be written. A removed record cannot be
+ * written. Returns false (and adds nothing) when any difference cannot be written.
+ */
+function diffRecords<T extends { readonly id: string }>(
+  before: readonly T[],
+  after: readonly T[],
+  change: (was: T | undefined, now: T) => DataWrite | null | undefined,
+  writes: DataWrite[],
+): boolean {
+  const old = new Map(before.map((r) => [r.id, r]));
+  const found: DataWrite[] = [];
+  const seen = new Set<string>();
+  for (const now of after) {
+    const was = old.get(now.id);
+    seen.add(now.id);
+    if (was === now) {
+      continue;
+    }
+    const write = change(was, now);
+    if (write === null) {
+      return false;
+    }
+    if (write !== undefined) {
+      found.push(write);
+    }
+  }
+  if (before.some((r) => !seen.has(r.id))) {
+    return false;
+  }
+  writes.push(...found);
+  return true;
+}
+
 /**
  * The writes that turn `before` into `after`, compared by reference (the store shares unchanged
  * parts, so nothing changed costs one comparison). A change the write vocabulary cannot express
@@ -103,12 +147,85 @@ export function diffData(
   if (before.log !== after.log && !diffLog(before.log, after.log, writes)) {
     unsupported.push("log");
   }
+  if (
+    before.creators !== after.creators &&
+    !diffRecords(
+      before.creators,
+      after.creators,
+      (was, now) => {
+        if (was === undefined || !sameBut(was, now, "stage")) {
+          return null;
+        }
+        return was.stage === now.stage
+          ? undefined
+          : { kind: "creator.stage", id: now.id, stage: now.stage };
+      },
+      writes,
+    )
+  ) {
+    unsupported.push("creators");
+  }
+  if (
+    before.brands !== after.brands &&
+    !diffRecords(
+      before.brands,
+      after.brands,
+      (was, now) =>
+        was !== undefined &&
+        was.name === now.name &&
+        was.sells === now.sells &&
+        was.status === now.status
+          ? undefined
+          : { kind: "brand.set", id: now.id, name: now.name, sells: now.sells, status: now.status },
+      writes,
+    )
+  ) {
+    unsupported.push("brands");
+  }
+  if (
+    before.deals !== after.deals &&
+    !diffRecords(
+      before.deals,
+      after.deals,
+      (was, now) => {
+        if (was === undefined || !sameBut(was, now, "step")) {
+          return null;
+        }
+        return was.step === now.step
+          ? undefined
+          : { kind: "deal.step", id: now.id, step: now.step };
+      },
+      writes,
+    )
+  ) {
+    unsupported.push("deals");
+  }
   for (const field of unsupportedFields) {
     if (before[field] !== after[field]) {
       unsupported.push(field);
     }
   }
   return { writes, unsupported };
+}
+
+/** The editable view of the data a recipe receives (immer's draft, which the app does not import itself). */
+export type DataDraft = Parameters<Parameters<Store<AppData, AppUi>["bg"]>[0]>[0];
+
+/** True while `adoptServerData` runs: the persister takes the result as saved and writes nothing. */
+let adopting = false;
+
+/**
+ * Applies data that came from the server (a teammate's change): to the current data and to every
+ * undo and redo step (`bg`), so undoing an older change never removes it. The persister takes the
+ * result as its baseline and writes nothing, so what main already holds is not sent back.
+ */
+export function adoptServerData(recipe: (draft: DataDraft) => void): void {
+  adopting = true;
+  try {
+    appStore().bg(recipe);
+  } finally {
+    adopting = false;
+  }
 }
 
 /** Batches waiting to go, oldest first; at most one more is in flight. */
@@ -195,6 +312,10 @@ export function installPersistence(invoke: Bridge["invoke"]): () => void {
       return;
     }
     if (data === saved) {
+      return;
+    }
+    if (adopting) {
+      saved = data;
       return;
     }
     const { writes, unsupported } = diffData(saved, data);

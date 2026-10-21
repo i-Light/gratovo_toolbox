@@ -1,7 +1,0 @@
-/* The top bar's save state after a write failed. */
-.save.failed {
-  color: var(--crit);
-}
-.save.failed i {
-  background: var(--crit);
-}
