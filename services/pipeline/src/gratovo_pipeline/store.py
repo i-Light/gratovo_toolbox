@@ -1,7 +1,7 @@
 """The pipeline's local store: `pipeline.db`, SQLite (ported from legacy `gratovo/store.py`).
 
 Every table is keyed by YouTube's own ids (channel_id, video_id, the keyword text), never a local
-counter, so two machines' rows never collide when they are shared through R2 (`sync.py`, 3e-2).
+counter, so two machines' rows never collide when they are shared through R2 (`sync.py`, step T).
 WAL mode lets the app read the file while a run writes it; the app only ever reads (ADR 0013).
 
 Local first: a search works with no network, and sharing is a separate step that can fail without

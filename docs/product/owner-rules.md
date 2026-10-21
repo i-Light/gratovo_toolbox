@@ -17,6 +17,7 @@ What the owner has asked for, with the reasons, collected from past sessions so 
   - **Delivery:** makes sure the video goes live, sends the report, tracks payment.
 
   One person can hold several roles, because a small team can't have one person per role: store a list per person (for example Omar as Scout and Outreach). Roles and access are separate: what someone does is apart from what they can see, so "sees money" stays its own switch.
+- **Solo first** (owner, 2026-10-21: "all steps and plans for team work should be pushed back until the app is fully functional"). The app is finished for one person before anything that exists only for a team: sharing results through R2, a teammate's run, hand-offs, the Team screen, new-VA onboarding, and updates for other machines. The migration plan collects it all in step T, after step 9 and before the 100% check. Owner and role fields stay in the data, and the sync, sign-in and presence built in 3d-2 are kept as they are.
 - **English only for now.** The old app had Arabic; strings stay in one place per feature so a language can be added later.
 - **The niche is AI.** Creators who cover AI tools, chatbots, coding with AI (Claude Code, Cursor, MCP), AI video and AI news; brands that sponsor them (for example Higgsfield, Wispr Flow, Zapier, invideo, GoDaddy Airo, Vanta, Even Realities). Every example, persona, fixture and test channel comes from this niche. Woodworking or travel channels were rejected as "irrelevant to my niche".
 
