@@ -4,6 +4,8 @@ import { z } from "zod";
 const count = z.number().int().min(0).max(1_000_000);
 /** The size a rule may name (a subscriber count): the pipeline's own limit. */
 const ruleCount = z.number().int().min(0).max(100_000_000);
+/** A channel's subscribers or views, as main's protocol allows them. */
+const size = z.number().int().min(0).max(1_000_000_000_000);
 
 const autoCleanAction = z.enum(["sweep", "delay", "off"]);
 
@@ -70,8 +72,8 @@ export const findStateSchema = z.strictObject({
         channelId: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/),
         name: z.string().min(1).max(200),
         handle: z.string().min(1).max(200).nullable(),
-        subscribers: count.nullable(),
-        medianViews: count.nullable(),
+        subscribers: size.nullable(),
+        medianViews: size.nullable(),
         country: z
           .string()
           .regex(/^[A-Z]{2}$/)

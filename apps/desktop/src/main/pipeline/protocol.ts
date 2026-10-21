@@ -12,6 +12,8 @@ export const protocolVersion = 1;
 export const maxLineLength = 64 * 1024;
 
 const count = z.number().int().min(0).max(100_000_000);
+/** A channel's subscribers or views: the biggest pass 300 million subscribers and billions of views. */
+const size = z.number().int().min(0).max(1_000_000_000_000);
 const index = z.number().int().min(0).max(10_000);
 const shortText = z.string().min(1).max(300);
 
@@ -116,8 +118,8 @@ const channelSchema = z.strictObject({
   channelId: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/),
   handle: shortText.nullable(),
   name: shortText,
-  subscribers: count.nullable(),
-  medianViews: count.nullable(),
+  subscribers: size.nullable(),
+  medianViews: size.nullable(),
   country: z
     .string()
     .regex(/^[A-Z]{2}$/)

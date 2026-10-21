@@ -82,6 +82,8 @@ describe("parseLine", () => {
       { type: "keyword", index: 0, total: 2, keyword: "ai", state: "done", found: 9, kept: 4 },
       channel,
       { ...channel, handle: null, subscribers: null, medianViews: null, country: null },
+      // The biggest channels pass 300 million subscribers and billions of views.
+      { ...channel, subscribers: 350_000_000, medianViews: 2_000_000_000 },
       { type: "log", level: "info", text: 'Searching "ai"' },
       { type: "end", state: "done", at: 2, found: 9, kept: 4 },
       {

@@ -42,6 +42,10 @@ const state = {
 describe("findStateSchema", () => {
   it("accepts a full state, and the event carries the same schema", () => {
     expect(findStateSchema.safeParse(state).success).toBe(true);
+    // Kept channels come in every size: past a million subscribers is common.
+    const [first] = state.kept;
+    const huge = { ...first, subscribers: 350_000_000, medianViews: 2_000_000_000 };
+    expect(findStateSchema.safeParse({ ...state, kept: [huge] }).success).toBe(true);
     expect(appEvents["find:changed"]).toBe(findStateSchema);
   });
 
