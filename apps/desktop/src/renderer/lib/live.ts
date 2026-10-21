@@ -35,36 +35,65 @@ function sameValue(a: unknown, b: unknown): boolean {
   return keys.length === Object.keys(y).length && keys.every((k) => sameValue(x[k], y[k]));
 }
 
-/** The list to put in place of `current`, or null when it would not change; unchanged items keep their reference. */
-function replaceList<T extends { readonly id: string }>(
-  current: readonly T[],
+/**
+ * The list to put in place of `list` (the page's data or one of its undo steps), or null when it
+ * would not change. Only what is news to the page goes in: an item the page already shows exactly
+ * as the server has it (your own change coming back, or one adopted before) leaves every step
+ * alone, so Undo still undoes it. An item the page holds but the server no longer lists goes,
+ * except from a full creator list, which is cut off. Unchanged items keep their reference.
+ */
+function mergeList<T extends { readonly id: string }>(
+  list: readonly T[],
+  shown: readonly T[],
   next: readonly T[],
   keepMissing: boolean,
 ): readonly T[] | null {
-  const byId = new Map(current.map((item) => [item.id, item]));
-  const merged = next.map((item) => {
-    const was = byId.get(item.id);
-    return was !== undefined && sameValue(was, item) ? was : item;
+  const shownById = new Map(shown.map((item) => [item.id, item]));
+  const nextById = new Map(next.map((item) => [item.id, item]));
+  const news = next.filter((item) => {
+    const was = shownById.get(item.id);
+    return was === undefined || !sameValue(was, item);
   });
-  if (keepMissing) {
-    const have = new Set(next.map((item) => item.id));
-    for (const item of current) {
-      if (!have.has(item.id)) {
-        merged.push(item);
-      }
-    }
+  const gone = keepMissing
+    ? new Set<string>()
+    : new Set(shown.filter((item) => !nextById.has(item.id)).map((item) => item.id));
+  if (news.length === 0 && gone.size === 0) {
+    return null;
   }
-  const same = merged.length === current.length && merged.every((item, i) => item === current[i]);
+  const newsById = new Map(news.map((item) => [item.id, item]));
+  const merged: T[] = [];
+  for (const item of list) {
+    if (gone.has(item.id)) {
+      continue;
+    }
+    const replacement = newsById.get(item.id);
+    merged.push(replacement !== undefined && !sameValue(replacement, item) ? replacement : item);
+    newsById.delete(item.id);
+  }
+  // Records new to this step: in the server's order, after the ones the step already has.
+  merged.push(...newsById.values());
+  const same = merged.length === list.length && merged.every((item, i) => item === list[i]);
   return same ? null : merged;
 }
 
-function mergeLog(draft: DataDraft, next: AppData): void {
+function mergeLog(draft: DataDraft, shown: AppData, next: AppData): void {
+  const shownIds = new Set(shown.log.map((line) => line.id));
   const incoming = new Set(next.log.map((line) => line.id));
-  // Your own lines stay as they are; a teammate's line the server no longer has goes.
-  const kept = draft.log.filter((line) => line.who === draft.me || incoming.has(line.id));
-  const have = new Set(kept.map((line) => line.id));
-  const added = next.log.filter((line) => !have.has(line.id));
-  const merged = [...kept, ...added].sort((a, b) => b.at - a.at).slice(0, logKept);
+  // News only: a teammate's line the page doesn't have comes in, and a teammate's line the server
+  // no longer has goes. Your own lines are left to you and your undo steps.
+  const added = next.log.filter((line) => !shownIds.has(line.id));
+  const gone = new Set(
+    shown.log
+      .filter((line) => line.who !== shown.me && !incoming.has(line.id))
+      .map((line) => line.id),
+  );
+  const have = new Set(draft.log.map((line) => line.id));
+  const merged = [
+    ...draft.log.filter((line) => !gone.has(line.id)),
+    ...added.filter((line) => !have.has(line.id)),
+  ]
+    .sort((a, b) => b.at - a.at)
+    .slice(0, logKept);
   const same =
     merged.length === draft.log.length && merged.every((line, i) => line === draft.log[i]);
   if (!same) {
@@ -73,17 +102,19 @@ function mergeLog(draft: DataDraft, next: AppData): void {
 }
 
 /**
- * Folds the server's answer into the page's data: the team, the conflicts and the money switch are
- * replaced; creators, brands and deals are replaced by id (a record missing from the answer goes,
- * except from a full creator list, which is cut off); the log gets the teammates' new lines and
- * loses their lines that are gone (yours stay); `myName` follows only when `parts` names `me`, and
- * the notifications and their switches only when it names `notify`. Unchanged values keep their
- * reference, so nothing re-renders for nothing.
+ * Folds the server's answer into the page's data, or into one of its undo steps (`bg` runs this on
+ * each). `shown` is the page's data when the answer arrived: only what differs from it is news, so
+ * your own changes coming back from the server never reach the steps before them, and Undo still
+ * undoes them. The team, the conflicts and the money switch are the server's alone (nothing the
+ * page undoes). Creators, brands and deals take the news by id; the log gets teammates' new lines
+ * and loses their lines that are gone; `myName` follows only when `parts` names `me`, and the
+ * notifications and their switches only when it names `notify`, each only when it is news.
  */
 export function mergeServerData(
   draft: DataDraft,
   next: AppData,
   parts: ReadonlySet<FramePart>,
+  shown: AppData,
 ): void {
   if (draft.seesMoney !== next.seesMoney) {
     draft.seesMoney = next.seesMoney;
@@ -94,30 +125,47 @@ export function mergeServerData(
   if (!sameValue(draft.conflicts, next.conflicts)) {
     draft.conflicts = next.conflicts as typeof draft.conflicts;
   }
-  const creators = replaceList(draft.creators, next.creators, next.creators.length >= listCap);
+  const creators = mergeList(
+    draft.creators,
+    shown.creators,
+    next.creators,
+    next.creators.length >= listCap,
+  );
   if (creators !== null) {
     draft.creators = creators as typeof draft.creators;
   }
-  const brands = replaceList(draft.brands, next.brands, false);
+  const brands = mergeList(draft.brands, shown.brands, next.brands, false);
   if (brands !== null) {
     draft.brands = brands as typeof draft.brands;
   }
-  const deals = replaceList(draft.deals, next.deals, false);
+  const deals = mergeList(draft.deals, shown.deals, next.deals, false);
   if (deals !== null) {
     draft.deals = deals as typeof draft.deals;
   }
   if (parts.has("log")) {
-    mergeLog(draft, next);
+    mergeLog(draft, shown, next);
   }
-  if (parts.has("me") && draft.myName !== next.myName) {
+  if (parts.has("me") && shown.myName !== next.myName && draft.myName !== next.myName) {
     draft.myName = next.myName;
   }
   if (parts.has("notify")) {
-    if (!sameValue(draft.settings.notify, next.settings.notify)) {
+    if (
+      !sameValue(shown.settings.notify, next.settings.notify) &&
+      !sameValue(draft.settings.notify, next.settings.notify)
+    ) {
       draft.settings.notify = next.settings.notify;
     }
-    if (!sameValue(draft.notifications, next.notifications)) {
-      draft.notifications = next.notifications as typeof draft.notifications;
+    // By id, news only, like the records: marking read is undoable, so your own reads coming back
+    // must not reach the steps before them.
+    const notifications = mergeList(
+      draft.notifications,
+      shown.notifications,
+      next.notifications,
+      false,
+    );
+    if (notifications !== null) {
+      // Newest first, as the frame lists them.
+      draft.notifications = [...notifications].sort((x, y) => y.at - x.at);
     }
   }
 }
@@ -178,8 +226,9 @@ export function installLiveUpdates(bridge: Pick<Bridge, "invoke" | "on">): () =>
         return;
       }
       const next = toAppData(loaded.value);
+      const shown = store.getState().data;
       adoptServerData((draft) => {
-        mergeServerData(draft, next, parts);
+        mergeServerData(draft, next, parts, shown);
       });
     } catch (reason) {
       console.error("The page couldn't read the server's changes:", reason);

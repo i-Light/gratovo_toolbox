@@ -150,8 +150,37 @@ export function pendingPayload(
   return row === undefined ? null : (JSON.parse(String(row["payload"])) as unknown);
 }
 
-/** Deletes an unsent `activity.add` for this log line. True when one was removed. */
+/**
+ * The entries the uploader has on the wire right now. An undo must not cancel one of these: its
+ * request may already have reached the server, so the line needs an undo marker instead.
+ */
+const sending = new Set<number>();
+
+export function markSending(seqs: readonly number[]): void {
+  for (const seq of seqs) {
+    sending.add(seq);
+  }
+}
+
+export function clearSending(seqs: readonly number[]): void {
+  for (const seq of seqs) {
+    sending.delete(seq);
+  }
+}
+
+/**
+ * Deletes an unsent `activity.add` for this log line. True when one was removed; false when there
+ * is none, or it is being sent right now (the caller adds an undo marker then).
+ */
 export function cancelActivityAdd(db: DatabaseSync, lineId: string): boolean {
+  const rows = db
+    .prepare(
+      "SELECT seq FROM _outbox WHERE kind = 'activity.add' AND json_extract(payload, '$.row.id') = ?",
+    )
+    .all(lineId);
+  if (rows.length === 0 || rows.some((row) => sending.has(Number(row["seq"])))) {
+    return false;
+  }
   const result = db
     .prepare(
       "DELETE FROM _outbox WHERE kind = 'activity.add' AND json_extract(payload, '$.row.id') = ?",

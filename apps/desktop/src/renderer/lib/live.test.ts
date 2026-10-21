@@ -4,7 +4,7 @@ import type { AppEventName, AppEventPayload } from "@gratovo/ipc";
 import type { Bridge } from "@gratovo/ipc/bridge";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { setMyName, setNotify, undo } from "./actions";
+import { act, setMyName, setNotify, undo } from "./actions";
 import { installLiveUpdates } from "./live";
 import { installPersistence, persistenceIdle } from "./persist";
 import type { Route } from "./routes";
@@ -186,6 +186,48 @@ describe("installLiveUpdates", () => {
     expect(writes).toHaveLength(2);
     const kinds = (writes[1]?.input as { writes: { kind: string }[] }).writes.map((w) => w.kind);
     expect(kinds).toEqual(["notify.set"]);
+  });
+
+  it("still undoes your own stage change and its log line after the server echoes them back", async () => {
+    const first = data().creators[0];
+    const mine = creatorStages.find((s) => s !== first?.stage);
+    if (first === undefined || mine === undefined) {
+      throw new Error("the example has no creator");
+    }
+    const before = first.stage;
+    act("Moved a creator", (d) => {
+      const creator = d.creators.find((c) => c.id === first.id);
+      if (creator !== undefined) {
+        creator.stage = mine;
+      }
+    });
+    await flush();
+    const myLine = data().log[0];
+    expect(myLine?.who).toBe(data().me);
+
+    // The server now has your stage and your line, and a teammate's line came too.
+    const { line } = teammateChanged();
+    const base = exampleFrame(now);
+    fake.setServer({
+      ...base,
+      creators: base.creators.map((c) => (c.id === first.id ? { ...c, stage: mine } : c)),
+      log: [line, ...(myLine === undefined ? [] : [myLine]), ...base.log].slice(0, 50),
+    });
+    fake.emit("frame:changed", { parts: ["log", "creators"] });
+    await flush();
+    expect(data().log.some((l) => l.id === line.id)).toBe(true);
+
+    undo();
+    await flush();
+    // Your change is undone, and the undo is written; the teammate's line stays.
+    expect(data().creators.find((c) => c.id === first.id)?.stage).toBe(before);
+    expect(data().log.some((l) => l.id === myLine?.id)).toBe(false);
+    expect(data().log.some((l) => l.id === line.id)).toBe(true);
+    const kinds = fake
+      .calls("data:write")
+      .flatMap((c) => (c.input as { writes: { kind: string }[] }).writes.map((w) => w.kind));
+    expect(kinds).toContain("log.remove");
+    expect(kinds.filter((k) => k === "creator.stage")).toHaveLength(2);
   });
 
   it("waits for the writes to finish, then asks for the frame", async () => {

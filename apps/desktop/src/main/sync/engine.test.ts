@@ -303,6 +303,19 @@ describe("createSyncEngine", () => {
     expect(steps.passes()).toBe(10);
   });
 
+  it("after a failed pass, writes and broadcasts wait for the ladder", async () => {
+    steps.pull = () => Promise.reject(new RestError("http", 503));
+    make().start();
+    await time.advance(0);
+    expect(steps.passes()).toBe(1);
+    engine.noteWrite();
+    engine.noteRemote();
+    await time.advance(5_000);
+    expect(steps.passes()).toBe(1);
+    await time.advance((retryLadderMs[0] ?? 0) - 5_000);
+    expect(steps.passes()).toBe(2);
+  });
+
   it("syncNow awaits the running pass and then runs one more", async () => {
     const gate = deferred();
     steps.pull = async () => {
@@ -686,7 +699,7 @@ describe("createSyncEngine", () => {
         {
           id: "conflict:c1",
           text: "Your change to @promptlab clashed with Sara's",
-          sub: "Stage: yours Emailed, theirs Signed",
+          sub: "Stage: yours In sequence, theirs Signed",
         },
       ]);
       // The notice is a notification: the page reads those again only for `notify`.

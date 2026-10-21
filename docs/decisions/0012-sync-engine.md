@@ -103,3 +103,6 @@ Production holds 15,605 creators, no brands or deals yet, 364 log lines and abou
 - The packaged build (3h) must ship `@supabase/realtime-js` with the main process.
 - Money is still readable by every authorized member in the database. Locking it stays with steps 10 and 11, as the migration plan says (the owner, 2026-10-21).
 - If anyone re-runs the old `schema.sql`, re-apply the three migrations right after.
+- **Known limits, found in review (2026-10-21), for a later step:**
+  - Two server transactions that commit out of order can stamp an older `updated_at` (or `received_at`) after a pull has moved past it, and that row is then missed until it changes again. The fix is to re-read a few seconds behind the cursor; it needs care with the stall check.
+  - The tombstone cursor moves only when something is deleted. After 90 days with no deletion, the daily purge passes it, and each device then does a full re-pull every day until a deletion happens. The fix is to remember when the tombstones were last read up to date.

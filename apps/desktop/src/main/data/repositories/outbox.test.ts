@@ -10,11 +10,13 @@ import { migrations } from "../../db/migrations";
 import { openDatabase } from "../../db/open-database";
 import {
   cancelActivityAdd,
+  clearSending,
   dropEntry,
   enqueue,
   hasPending,
   head,
   headRun,
+  markSending,
   noteFailure,
   pendingCount,
   pendingPayload,
@@ -161,6 +163,18 @@ describe("outbox", () => {
     expect(cancelActivityAdd(db, "line-1")).toBe(false);
     expect(pendingCount(db)).toBe(1);
     expect(head(db, "u1")?.kind).toBe("notify.set");
+  });
+
+  it("doesn't cancel a line that is on the wire: the caller adds an undo marker instead", () => {
+    const seq = add("u1", "activity.add", { row: { id: "line-1" } });
+    markSending([seq]);
+    try {
+      expect(cancelActivityAdd(db, "line-1")).toBe(false);
+      expect(pendingCount(db)).toBe(1);
+    } finally {
+      clearSending([seq]);
+    }
+    expect(cancelActivityAdd(db, "line-1")).toBe(true);
   });
 
   it("removes other users' entries", () => {

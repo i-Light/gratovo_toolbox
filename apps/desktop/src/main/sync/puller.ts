@@ -33,7 +33,7 @@ import type { KeysetCursor } from "./keyset";
 import { mirrorTables, toLocalRow, upsertRow } from "./mirror-tables";
 import type { MirrorTable } from "./mirror-tables";
 import { compareServerTime, parseServerTime } from "./server-time";
-import { refetchKey } from "./uploader";
+import { markRefetch, refetchKey } from "./uploader";
 
 export interface PullResult {
   readonly changed: ReadonlySet<FramePart>;
@@ -319,6 +319,9 @@ export function createPuller(o: {
           }
           markSeen?.run(t.name, key);
           if (hasPending(db, t.name, key)) {
+            // The cursor moves past it; read it again by key once the pending change is sent, in
+            // case the server's copy doesn't move on afterwards (an edit answered noop or auto).
+            markRefetch(db, { table: t.name, key });
             continue;
           }
           try {
@@ -355,6 +358,8 @@ export function createPuller(o: {
             continue;
           }
           if (hasPending(db, t.name, key)) {
+            // Read it again by key once the change is sent: gone on the server, it goes here too.
+            markRefetch(db, { table: t.name, key });
             continue;
           }
           const local = db.prepare(`SELECT updated_at FROM ${t.name} WHERE ${t.key} = ?`).get(key);

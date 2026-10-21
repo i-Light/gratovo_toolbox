@@ -311,6 +311,11 @@ export function createSyncEngine(o: SyncEngineOptions): SyncEngine {
     if (!started || stopped) {
       return;
     }
+    // After a failed pass the ladder decides when to try again: a write or a teammate's broadcast
+    // must not call a failing server on every change (`sync:now` still runs at once).
+    if (failures > 0) {
+      return;
+    }
     if (debounceTimer !== null) {
       timers.clear(debounceTimer);
     }
@@ -514,9 +519,22 @@ export function createSyncEngine(o: SyncEngineOptions): SyncEngine {
     },
 
     async refreshWhole(): Promise<void> {
-      const changed = await steps.refreshWhole();
-      noteParts(changed);
-      flushParts();
+      // In the queue, like a pass: a refresh running beside a drain could read a profile before
+      // the drain's PATCH lands and write the old value back after the entry has gone.
+      const outcome: { failed: boolean; error: unknown } = { failed: false, error: null };
+      await enqueueJob(async () => {
+        try {
+          const changed = await steps.refreshWhole();
+          noteParts(changed);
+          flushParts();
+        } catch (error) {
+          outcome.failed = true;
+          outcome.error = error;
+        }
+      });
+      if (outcome.failed) {
+        throw outcome.error;
+      }
     },
 
     async drainBefore(deadlineMs: number): Promise<number> {

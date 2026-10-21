@@ -584,6 +584,26 @@ describe("createUploader: the compare-and-set and resolve answers", () => {
     expect(refetchList()).toEqual([channel]);
   });
 
+  it("shows a conflict again when the server refuses its resolve", async () => {
+    db.prepare(
+      `INSERT INTO edit_conflicts (id, channel_id, channel_label, field, mine_actor_name, resolved_locally)
+       VALUES ('c1', 'UC1', '@ai_daily', 'creator_stage', 'me', 1)`,
+    ).run();
+    addResolve();
+    const { rest } = fakeRest((call) =>
+      call.name === "resolve_edit_conflict" ? new RestError("http", 400, "23514") : undefined,
+    );
+
+    const result = await uploader(rest).drain();
+
+    expect(result).toMatchObject({ sent: 0, dropped: 1 });
+    expect(
+      db.prepare("SELECT resolved_locally FROM edit_conflicts WHERE id = 'c1'").get()?.[
+        "resolved_locally"
+      ],
+    ).toBe(0);
+  });
+
   it("never sends a field outside the server's whitelist", async () => {
     const first = addEdit({ field: "last_edited_by" });
     add("profile.name", { name: "B" });

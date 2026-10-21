@@ -14,7 +14,15 @@
 import type { DatabaseSync } from "node:sqlite";
 
 import { getMeta, setMeta } from "../data/repositories/meta";
-import { dropEntry, head, headRun, noteFailure, removeEntries } from "../data/repositories/outbox";
+import {
+  clearSending,
+  dropEntry,
+  head,
+  headRun,
+  markSending,
+  noteFailure,
+  removeEntries,
+} from "../data/repositories/outbox";
 import type { OutboxEntry, OutboxKind } from "../data/repositories/outbox";
 import { inTransaction } from "../data/sqlite-source";
 import { NetworkRefusedError } from "../net/network";
@@ -294,6 +302,13 @@ export function createUploader(o: {
         if (entry.target !== null) {
           markRefetch(db, entry.target);
         }
+        if (entry.kind === "conflict.resolve") {
+          // The server kept the conflict open: show it again, so the choice can be made again.
+          const id = (entry.payload as { id?: unknown } | null)?.id;
+          if (typeof id === "string") {
+            db.prepare("UPDATE edit_conflicts SET resolved_locally = 0 WHERE id = ?").run(id);
+          }
+        }
       }
     });
     for (const entry of entries) {
@@ -322,75 +337,84 @@ export function createUploader(o: {
 
       const stop = (stoppedOn: Verdict): DrainResult => ({ sent, dropped, stoppedOn, tables });
 
-      for (;;) {
-        const first = head(db, userId);
-        if (first === null) {
-          return { sent, dropped, stoppedOn: null, tables };
-        }
-        if (first.seq <= lastSeq) {
-          // The head didn't leave the outbox: never send the same entry twice in one drain.
-          log(`upload.stalled ${describe(first)}`);
-          return stop("retry");
-        }
+      // The entries on the wire right now; an undo must not cancel them (cancelActivityAdd).
+      let wire: number[] = [];
+      try {
+        for (;;) {
+          clearSending(wire);
+          const first = head(db, userId);
+          if (first === null) {
+            return { sent, dropped, stoppedOn: null, tables };
+          }
+          if (first.seq <= lastSeq) {
+            // The head didn't leave the outbox: never send the same entry twice in one drain.
+            log(`upload.stalled ${describe(first)}`);
+            return stop("retry");
+          }
 
-        if (!knownKinds.has(first.kind)) {
-          // A newer build's entry: keep it (and everything behind it) for that build.
-          noteFailure(db, first.seq, "unknown_kind");
-          log(`upload.retry ${describe(first)} code=unknown_kind`);
-          return stop("retry");
-        }
+          if (!knownKinds.has(first.kind)) {
+            // A newer build's entry: keep it (and everything behind it) for that build.
+            noteFailure(db, first.seq, "unknown_kind");
+            log(`upload.retry ${describe(first)} code=unknown_kind`);
+            return stop("retry");
+          }
 
-        // A run of log rows goes in one request; any other kind goes alone.
-        const run =
-          first.kind === "activity.add"
-            ? headRun(db, userId, "activity.add", logBatchMax)
-            : [first];
-        lastSeq = run[run.length - 1]?.seq ?? first.seq;
+          // A run of log rows goes in one request; any other kind goes alone.
+          const run =
+            first.kind === "activity.add"
+              ? headRun(db, userId, "activity.add", logBatchMax)
+              : [first];
+          lastSeq = run[run.length - 1]?.seq ?? first.seq;
 
-        let result: Sent;
-        try {
-          result = run.length > 1 ? await sendLogRun(run) : await send(rest, userId, first);
-        } catch (error) {
-          const code = failureCode(error);
-          const verdict = error instanceof BadPayloadError ? "drop" : classifyUploadError(error);
-          if (verdict === "drop") {
-            if (run.length > 1) {
-              // One refused line must not take the good ones with it: send them one at a time.
-              const outcome = await sendOneByOne(run);
-              sent += outcome.sent;
-              dropped += outcome.dropped;
-              if (outcome.sent > 0) {
-                tables.add("activity_log");
+          let result: Sent;
+          wire = run.map((entry) => entry.seq);
+          markSending(wire);
+          try {
+            result = run.length > 1 ? await sendLogRun(run) : await send(rest, userId, first);
+          } catch (error) {
+            const code = failureCode(error);
+            const verdict = error instanceof BadPayloadError ? "drop" : classifyUploadError(error);
+            if (verdict === "drop") {
+              if (run.length > 1) {
+                // One refused line must not take the good ones with it: send them one at a time.
+                const outcome = await sendOneByOne(run);
+                sent += outcome.sent;
+                dropped += outcome.dropped;
+                if (outcome.sent > 0) {
+                  tables.add("activity_log");
+                }
+                if (outcome.stoppedOn !== null) {
+                  return stop(outcome.stoppedOn);
+                }
+                continue;
               }
-              if (outcome.stoppedOn !== null) {
-                return stop(outcome.stoppedOn);
-              }
+              drop(run, code);
+              dropped += run.length;
               continue;
             }
-            drop(run, code);
-            dropped += run.length;
-            continue;
+            if (verdict === "session") {
+              log(`upload.session ${describe(first)} code=${code}`);
+              return stop("session");
+            }
+            noteFailure(db, first.seq, code);
+            log(`upload.retry ${describe(first)} code=${code}`);
+            return stop("retry");
           }
-          if (verdict === "session") {
-            log(`upload.session ${describe(first)} code=${code}`);
-            return stop("session");
-          }
-          noteFailure(db, first.seq, code);
-          log(`upload.retry ${describe(first)} code=${code}`);
-          return stop("retry");
-        }
 
-        if (result.outcome.result === "retry") {
-          noteFailure(db, first.seq, result.outcome.code);
-          log(`upload.retry ${describe(first)} code=${result.outcome.code}`);
-          return stop("retry");
+          if (result.outcome.result === "retry") {
+            noteFailure(db, first.seq, result.outcome.code);
+            log(`upload.retry ${describe(first)} code=${result.outcome.code}`);
+            return stop("retry");
+          }
+          finish(run, result.outcome.refetch);
+          sent += run.length;
+          for (const table of result.tables) {
+            tables.add(table);
+          }
+          log(`upload.sent ${describe(first)} count=${String(run.length)}`);
         }
-        finish(run, result.outcome.refetch);
-        sent += run.length;
-        for (const table of result.tables) {
-          tables.add(table);
-        }
-        log(`upload.sent ${describe(first)} count=${String(run.length)}`);
+      } finally {
+        clearSending(wire);
       }
     },
   };

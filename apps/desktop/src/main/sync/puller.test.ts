@@ -330,6 +330,10 @@ describe("createPuller", () => {
     expect(notes?.["notes"]).toBe("mine");
     expect(localIds(db, "channel_state", "channel_id")).toEqual(["UC1", "UC2"]);
     expect(cursorOf(db, "channel_state")).toEqual({ at: ts(3), key: ["UC2"] });
+    // The cursor moved past it, so it is read again by key once the change is sent.
+    expect(JSON.parse(getMeta(db, refetchKey) ?? "[]")).toEqual([
+      { table: "channel_state", key: "UC1" },
+    ]);
   });
 
   it("stops a table whose cursor does not move", async () => {

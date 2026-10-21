@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { signOut } from "./account";
+import { lastSyncWaitMs, signOut } from "./account";
 
 describe("signOut", () => {
   it("asks for one last sync, then signs out", async () => {
@@ -24,5 +24,24 @@ describe("signOut", () => {
     }) as never;
     await signOut(invoke);
     expect(calls).toEqual(["sync:now", "auth:sign-out"]);
+  });
+
+  it("doesn't wait more than a few seconds for a last sync that hangs", async () => {
+    vi.useFakeTimers();
+    try {
+      const calls: string[] = [];
+      const invoke = ((channel: string) => {
+        calls.push(channel);
+        return channel === "sync:now"
+          ? new Promise(() => undefined)
+          : Promise.resolve({ ok: true });
+      }) as never;
+      const done = signOut(invoke);
+      await vi.advanceTimersByTimeAsync(10_000 + lastSyncWaitMs);
+      await done;
+      expect(calls).toEqual(["sync:now", "auth:sign-out"]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

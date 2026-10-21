@@ -51,18 +51,22 @@ function settled(ms: number): Promise<void> {
 
 type Invoke = Bridge["invoke"];
 
+/** How long sign-out waits for the last sync before going ahead. */
+export const lastSyncWaitMs = 5000;
+
 /**
  * Signs out: lets pending changes reach the database first (up to 5 s), asks main for one last sync
- * (its answer and errors are ignored: unsent changes are kept either way), then asks main to sign out,
+ * (up to 5 s; its answer and errors are ignored: unsent changes are kept either way), then asks main to sign out,
  * which clears the local copy and reloads the window. The page starts again from `auth:status`.
  */
 export async function signOut(invoke?: Invoke): Promise<void> {
   await settled(signOutWaitMs);
   const call = invoke ?? window.gratovo.invoke;
-  try {
-    await call("sync:now", {});
-  } catch {
-    // A failed last sync must not stop the sign-out.
-  }
+  // At most a few seconds: a pass can be deep in a long pull, and main's sign-out gives the outbox
+  // its own 5 s anyway. A failed or slow last sync must not stop the sign-out.
+  await Promise.race([
+    call("sync:now", {}).catch(() => undefined),
+    new Promise<void>((resolve) => setTimeout(resolve, lastSyncWaitMs)),
+  ]);
   await call("auth:sign-out", {});
 }
