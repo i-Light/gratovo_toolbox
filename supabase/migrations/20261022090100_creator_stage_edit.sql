@@ -37,8 +37,6 @@ as $$
   end;
 $$;
 
--- The argument list changed (a label is now needed to create the row on first
-
 -- Same argument list as the baseline, so this replaces it in place.
 
 -- Returns one of:
