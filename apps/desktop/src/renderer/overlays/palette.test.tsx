@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { App } from "../app/app";
 import { peek } from "../lib/actions";
 import { initPrefs } from "../lib/prefs";
+import { stubFindBridge } from "../lib/find-test-bridge";
 import { firstTab } from "../lib/routes";
 import { appStore, go, resetAppStoreForTests, selectRoute } from "../lib/store";
 import { strings } from "../strings";
@@ -13,6 +14,7 @@ import { strings } from "../strings";
 const text = strings.palette;
 
 beforeEach(() => {
+  stubFindBridge();
   localStorage.clear();
   initPrefs();
   resetAppStoreForTests({ screen: "today", tab: null });
