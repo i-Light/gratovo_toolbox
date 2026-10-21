@@ -179,7 +179,7 @@ ROLLUP_WINDOW_DAYS: Final = 30
 BLOB_SCHEMA: Final = 1
 
 
-def _now() -> str:
+def utc_now() -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
 
@@ -242,7 +242,7 @@ def init_db(conn: sqlite3.Connection) -> None:
 
 def seed_keywords(conn: sqlite3.Connection, keywords: Iterable[str]) -> None:
     """Idempotent: an overlapping list never resets a keyword's status."""
-    now = _now()
+    now = utc_now()
     conn.executemany(
         "INSERT OR IGNORE INTO keywords (keyword, status, added_at, dirty) "
         "VALUES (?, 'pending', ?, 1)",
@@ -260,7 +260,7 @@ def mark_keyword_started(
         """UPDATE keywords SET status='in_progress', started_at=?, claimed_by=?,
                                search_settings=?, source='local', dirty=1
            WHERE keyword=?""",
-        (_now(), worker_id, json.dumps(search_settings), keyword),
+        (utc_now(), worker_id, json.dumps(search_settings), keyword),
     )
     conn.commit()
 
@@ -269,7 +269,7 @@ def mark_keyword_done(conn: sqlite3.Connection, keyword: str, channels_found: in
     conn.execute(
         "UPDATE keywords SET status='done', completed_at=?, channels_found=?, "
         "  source='local', dirty=1 WHERE keyword=?",
-        (_now(), channels_found, keyword),
+        (utc_now(), channels_found, keyword),
     )
     conn.commit()
 
@@ -302,7 +302,7 @@ def record_channel_discovery(
     channel back as new, spend quota on it, and put it in front of someone to vet again."""
     if is_archived(conn, channel_id):
         return False
-    now = _now()
+    now = utc_now()
     conn.execute(
         "INSERT OR IGNORE INTO channels (channel_id, handle, first_seen_at) VALUES (?, ?, ?)",
         (channel_id, handle, now),
@@ -362,7 +362,7 @@ def record_keyword_links(conn: sqlite3.Connection, discovered: Discovered, keywo
     each), and it keeps a keyword's results and a channel's "found by" honest."""
     if not discovered:
         return
-    now = _now()
+    now = utc_now()
     conn.executemany(
         "INSERT OR IGNORE INTO channel_keywords (channel_id, keyword, discovered_at) "
         "VALUES (?, ?, ?)",
@@ -389,7 +389,7 @@ def record_archive_keyword_links(
     already on a tombstone is skipped. Returns how many notes were added."""
     if not discovered:
         return 0
-    now = _now()
+    now = utc_now()
     added = 0
     for channel_id in discovered.values():
         row = conn.execute(
@@ -447,7 +447,7 @@ def save_channels(
 ) -> None:
     """Writes what the API returned for each requested channel; one it didn't return is marked
     failed rather than silently dropped."""
-    now = _now()
+    now = utc_now()
     for handle, channel_id in channel_batch.items():
         info = channel_info_by_handle.get(handle)
         if info:
@@ -580,7 +580,7 @@ def mark_channels_videos_fetched(conn: sqlite3.Connection, channel_ids: Iterable
     conn.execute(
         "UPDATE channels SET videos_fetched_at=?, force_refetch=0, awaiting_peer_since=NULL "
         f"WHERE channel_id IN ({_placeholders(ids)})",
-        [_now(), *ids],
+        [utc_now(), *ids],
     )
     compute_channel_rollups(conn, ids)
     conn.commit()
@@ -596,7 +596,7 @@ def save_videos(
     video_id_to_channel_id: Mapping[str, str],
 ) -> None:
     """Writes what the API returned for each requested video; a missing one is marked failed."""
-    now = _now()
+    now = utc_now()
     for vid in video_batch:
         info = video_info_by_id.get(vid)
         channel_id = video_id_to_channel_id.get(vid)
@@ -848,7 +848,7 @@ def archive_channel_locally(
     """Tombstones a channel this machine rejected (the auto-clean gate): the tombstone first,
     carrying subscribers, found_at and found_via itself since the rows they come from are about to
     go, then the channel, its links and its videos are deleted. Commits."""
-    now = _now()
+    now = utc_now()
     current = conn.execute(
         "SELECT first_seen_at, subscribers FROM channels WHERE channel_id=?", (channel_id,)
     ).fetchone()
@@ -953,7 +953,7 @@ def mark_archives_announced(conn: sqlite3.Connection, channel_ids: Iterable[str]
 def start_run(conn: sqlite3.Connection, keywords_total: int, kind: RunKind = "search") -> int:
     cur = conn.execute(
         "INSERT INTO runs (started_at, keywords_total, pid, kind) VALUES (?, ?, ?, ?)",
-        (_now(), keywords_total, os.getpid(), kind),
+        (utc_now(), keywords_total, os.getpid(), kind),
     )
     conn.commit()
     run_id = cur.lastrowid
@@ -1021,7 +1021,9 @@ def update_run_progress(
 def finish_run(
     conn: sqlite3.Connection, run_id: int, status: Literal["done", "interrupted"] = "done"
 ) -> None:
-    conn.execute("UPDATE runs SET status=?, finished_at=? WHERE run_id=?", (status, _now(), run_id))
+    conn.execute(
+        "UPDATE runs SET status=?, finished_at=? WHERE run_id=?", (status, utc_now(), run_id)
+    )
     conn.commit()
 
 
@@ -1179,7 +1181,7 @@ def apply_channel_blob(conn: sqlite3.Connection, blob: Mapping[str, Any], versio
         conn.commit()
         return False
 
-    first_seen = channel.get("first_seen_at") or _now()
+    first_seen = channel.get("first_seen_at") or utc_now()
     if row and row["first_seen_at"] and row["first_seen_at"] < first_seen:
         first_seen = row["first_seen_at"]
     conn.execute(
@@ -1214,11 +1216,11 @@ def apply_channel_blob(conn: sqlite3.Connection, blob: Mapping[str, Any], versio
             channel.get("videos_fetched_at"),
             version,
             version,
-            _now(),
+            utc_now(),
         ),
     )
     conn.execute("DELETE FROM videos WHERE channel_id=?", (channel_id,))
-    now = _now()
+    now = utc_now()
     videos: list[Mapping[str, Any]] = blob.get("videos") or []
     conn.executemany(
         """INSERT OR REPLACE INTO videos (video_id, channel_id, title, description, thumbnail,
@@ -1264,7 +1266,7 @@ def get_applied_segments(conn: sqlite3.Connection) -> set[str]:
 
 def mark_segment_applied(conn: sqlite3.Connection, key: str) -> None:
     conn.execute(
-        "INSERT OR IGNORE INTO _applied_segments (key, applied_at) VALUES (?, ?)", (key, _now())
+        "INSERT OR IGNORE INTO _applied_segments (key, applied_at) VALUES (?, ?)", (key, utc_now())
     )
 
 
@@ -1360,7 +1362,7 @@ def apply_remote_keyword(conn: sqlite3.Connection, rec: Mapping[str, Any]) -> No
         (
             rec["keyword"],
             rec.get("status", "pending"),
-            rec.get("added_at", _now()),
+            rec.get("added_at", utc_now()),
             rec.get("started_at"),
             rec.get("completed_at"),
             rec.get("channels_found", 0),
@@ -1377,7 +1379,12 @@ def apply_remote_channel_keyword(conn: sqlite3.Connection, rec: Mapping[str, Any
         "INSERT OR IGNORE INTO channel_keywords "
         "(channel_id, keyword, discovered_at, source, announced) "
         "SELECT ?, ?, ?, 'remote', 1 WHERE EXISTS (SELECT 1 FROM channels WHERE channel_id=?)",
-        (rec["channel_id"], rec["keyword"], rec.get("discovered_at") or _now(), rec["channel_id"]),
+        (
+            rec["channel_id"],
+            rec["keyword"],
+            rec.get("discovered_at") or utc_now(),
+            rec["channel_id"],
+        ),
     )
 
 
@@ -1398,7 +1405,7 @@ def clear_video_stamps(conn: sqlite3.Connection, channel_ids: Iterable[str]) -> 
     """Takes an inherited stamp off and waits for the reader's object (awaiting_peer_since),
     rather than putting the channel in the backlog."""
     ids = list(channel_ids)
-    now = _now()
+    now = utc_now()
     for start in range(0, len(ids), 500):
         chunk = ids[start : start + 500]
         conn.execute(
@@ -1505,7 +1512,7 @@ def apply_catalog_unarchived(conn: sqlite3.Connection, channel_id: str, handle: 
     conn.execute(
         "INSERT INTO channels (channel_id, handle, first_seen_at, force_refetch, announced_at) "
         "VALUES (?, ?, ?, 1, ?) ON CONFLICT(channel_id) DO UPDATE SET force_refetch=1",
-        (channel_id, handle or channel_id, _now(), _now()),
+        (channel_id, handle or channel_id, utc_now(), utc_now()),
     )
 
 

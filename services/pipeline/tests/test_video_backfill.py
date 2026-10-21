@@ -153,7 +153,7 @@ def test_a_pull_does_not_wipe_a_local_videos_fetched_stamp(conn: sqlite3.Connect
             "videos_fetched_at": None,
             "blob_version": None,
         },
-        store._now(),  # pyright: ignore[reportPrivateUsage]
+        store.utc_now(),
     )
     conn.commit()
     row = conn.execute("SELECT videos_fetched_at FROM channels WHERE channel_id='UC_a'").fetchone()

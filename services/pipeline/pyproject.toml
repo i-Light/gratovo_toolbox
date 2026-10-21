@@ -53,6 +53,8 @@ select = [
 "tests/**" = ["S101"] # pytest asserts
 # The store builds SQL from ? placeholders and fixed clauses only; every value is a parameter.
 "src/gratovo_pipeline/store.py" = ["S608"]
+# Its word lists read best as space-separated words.
+"src/gratovo_pipeline/found_emails.py" = ["SIM905"]
 
 [tool.pyright]
 include = ["src", "tests"]
