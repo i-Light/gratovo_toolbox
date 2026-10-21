@@ -185,6 +185,30 @@ def test_a_gateway_candidate_rewrites_the_url(pool: FakePool) -> None:
     assert session.proxies == {}
 
 
+def test_a_failed_attempt_logs_neither_the_gateway_nor_a_proxy_login(
+    pool: FakePool, logged: list[str]
+) -> None:
+    # The gateway URLs and proxy URLs are the job's secrets: the log reaches the page.
+    gateway = "https://g.execute-api.eu-west-1.amazonaws.com/p"
+    pool.candidate.base_url = gateway
+    session = FakeSession(
+        [
+            FakeResponse(status_code=403, url=gateway + "/results?q=a"),
+            curl_errors.ProxyError("CONNECT to http://ai-user:proxy-pass-123@proxy.example failed"),
+            curl_errors.Timeout("Operation timed out after g.execute-api.eu-west-1.amazonaws.com"),
+            FakeResponse(),
+        ]
+    )
+    scrapetube.request(session, "GET", "https://www.youtube.com/results?q=a")
+    pushed_back = [line for line in logged if "pushed back" in line]
+    assert len(pushed_back) == 3
+    for line in pushed_back:
+        assert "execute-api" not in line
+        assert "proxy-pass-123" not in line
+    assert "HTTP 403 from /p/results" in pushed_back[0]  # the stage path, not the host
+    assert "This machine: ProxyError)" in pushed_back[1]
+
+
 @pytest.mark.usefixtures("pool", "logged")
 def test_a_host_outside_the_rule_is_refused_before_any_request() -> None:
     session = FakeSession([FakeResponse()])

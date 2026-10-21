@@ -21,7 +21,7 @@ import random
 import threading
 from collections.abc import Callable, Generator, Mapping, Sequence
 from typing import Any, Final, Literal, Protocol
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, urlsplit
 
 import curl_cffi.requests as requests
 from curl_cffi.requests import exceptions as curl_errors
@@ -299,7 +299,8 @@ def _retry_after(response: Response | None) -> float:
 
 def _raise_if_blocked(response: Response) -> None:
     status = response.status_code
-    where = response.url.split("?")[0]
+    # The path only: through a gateway the host is the gateway's, and its URL is a secret.
+    where = urlsplit(response.url).path or "/"
     if status in (429, 403):
         raise ThrottledError(f"HTTP {status} from {where}")
     if status >= 500:
@@ -312,6 +313,12 @@ def _raise_if_blocked(response: Response) -> None:
         head = response.text[:4096].lower()
         if any(marker in head for marker in BLOCK_MARKERS):
             raise ThrottledError("served the 'unusual traffic' page")
+
+
+def _describe(error: Exception) -> str:
+    """An attempt's failure for the log. Our own errors name a status and a path; a library's
+    message can carry the proxy URL (with its login) or the gateway's host, so only its kind."""
+    return str(error) if isinstance(error, ScrapetubeError) else type(error).__name__
 
 
 def request(
@@ -388,7 +395,7 @@ def request(
 
         wait = min(max(hinted, base * (2 ** min(attempt - 1, 10))), MAX_BACKOFF)
         wait = min(random.uniform(wait, wait * 1.4), MAX_BACKOFF)  # noqa: S311
-        reason = f"{candidate.label}: {last}"
+        reason = f"{candidate.label}: {_describe(last)}"
         _log(
             "warn", f"YouTube pushed back ({reason}); waiting {wait:.0f}s before try {attempt + 1}."
         )
