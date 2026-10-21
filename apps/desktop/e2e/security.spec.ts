@@ -104,12 +104,24 @@ test.describe("the page", () => {
 });
 
 test.describe("the bridge", () => {
-  test("is one function on window.gratovo, and nothing else", async ({ page }) => {
+  test("is two functions on window.gratovo, invoke and on, and nothing else", async ({ page }) => {
     const shape = await page.evaluate(() => ({
-      keys: Object.keys(window.gratovo),
+      keys: Object.keys(window.gratovo).sort(),
       invoke: typeof window.gratovo.invoke,
+      on: typeof window.gratovo.on,
     }));
-    expect(shape).toEqual({ keys: ["invoke"], invoke: "function" });
+    expect(shape).toEqual({ keys: ["invoke", "on"], invoke: "function", on: "function" });
+  });
+
+  test("on() ignores an event name outside the list and gives back an unsubscribe", async ({
+    page,
+  }) => {
+    const answer = await page.evaluate(() => {
+      const on = window.gratovo.on as (name: string, listener: () => void) => unknown;
+      const unsubscribe = on("app:anything-else", () => undefined);
+      return typeof unsubscribe;
+    });
+    expect(answer).toBe("function");
   });
 
   test("answers the channels on the allowlist", async ({ app, page }) => {
