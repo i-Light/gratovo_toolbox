@@ -298,6 +298,19 @@ describe("createPuller", () => {
     expect(done).toEqual(["creators"]);
   });
 
+  it("skips a row the local copy can't hold, so the table still moves on", async () => {
+    server.tables["channel_state"]?.push(
+      channel("UC1", ts(2)),
+      channel("UC2", ts(3), { handle: null }),
+      channel("UC3", ts(4)),
+    );
+    await puller().pull(120_000);
+
+    expect(localIds(db, "channel_state", "channel_id")).toEqual(["UC1", "UC3"]);
+    expect(cursorOf(db, "channel_state")).toEqual({ at: ts(4), key: ["UC3"] });
+    expect(lines).toContain("pull.row_skipped channel_state");
+  });
+
   it("skips a pulled row that has a pending outbox entry", async () => {
     putLocal(db, "channel_state", channel("UC1", ts(5), { notes: "mine" }));
     enqueue(db, {
@@ -388,16 +401,6 @@ describe("createPuller", () => {
     expect(result).toEqual({ changed: new Set(), done: true, stalled: [] });
     expect(cursorOf(db, "channel_state")).toBeNull();
     expect(cursorOf(db, "activity_log")).toBeNull();
-  });
-
-  it("rolls back a failed page's rows and its cursor", async () => {
-    server.tables["channel_state"]?.push(
-      channel("UC1", ts(1)),
-      channel("UC2", ts(2), { handle: null }), // the local column is NOT NULL
-    );
-    await expect(puller().pull(120_000)).rejects.toThrow();
-    expect(localIds(db, "channel_state", "channel_id")).toEqual([]);
-    expect(cursorOf(db, "channel_state")).toBeNull();
   });
 
   it("stops between pages when the budget is spent and carries on next time", async () => {

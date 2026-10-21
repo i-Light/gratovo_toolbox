@@ -385,7 +385,22 @@ test.describe("the sync, against a fake Supabase", () => {
     // Whether or not the live client tried, it was refused; the catch-up still brings data.
     await expectInPalette(page, "tokenwise", /@tokenwise/, true);
     await expect(rail(page)).toBeVisible();
+    expect(supabase.requests.some((request) => request.method === "UPGRADE")).toBe(true);
     await expect(page.getByRole("alert")).toHaveCount(0);
+
+    // Your own presence doesn't need the live server: the rail shows you online.
+    await expect(page.locator("button.me")).toContainText(
+      strings.rail.roleOnline(strings.team.agencyRoles.scout),
+    );
+
+    // With the server gone too, a change waits quietly instead of failing.
+    await supabase.stop();
+    await setName(page, "Sam Rivera");
+    await syncNow(page);
+    await expect(saveState(page)).toHaveText(top.notSynced);
+    await expect(page.getByRole("alert")).toHaveCount(0);
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await supabase.start();
     expect(signedErrors).toEqual([]);
   });
 });

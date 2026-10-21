@@ -51,4 +51,20 @@ Checked after wave 2: typecheck, 454 main + 729 packages/data/renderer Vitest, `
 
 1. **Measure** (2026-10-21, read-only, counts only): `channel_state` 15,605 (15,604 `newlyFound`/`new`, 1 `newlyFound`/`contacted`); `brands` 0; `deals` 0; `activity_log` 364; open conflicts 0; tombstones 38,050 `channel_state`, 1 `sequences`, 1 `sequence_steps`; horizon `2026-09-13 06:53:09.109665+00`; history holds the three 3d-2a rows; none of S1's objects exist; no policy in schema `realtime`. `md5(prosrc)` of `apply_channel_edit` (042ff6b5…) and `canonical_edit_value` (22a6c0d0…) equal the baseline's bodies with CRLF line ends (production was created from a CRLF file): no drift. D13's cap holds (15,605 > 5,000; one creator past `new`).
 
-In flight: S15 (Electron tests). Next: R1 steps 2–4 with the owner's go; S32, S33; R1 steps 5–6 with the owner; L1.
+2. **`sync_columns`** (owner's go for steps 2–4, 2026-10-21): the file's SQL in one transaction with its history row. Checked: the five columns exist, no log row without `received_at`, `notification_switches` owned by `postgres` with RLS and three policies, `anon` holds nothing; as the owner (rolled back) their own row inserts and another member's is refused.
+3. **`creator_stage_edit`**: both functions owned by `postgres`, `authenticated` may execute, `anon` may not; as the owner (rolled back) a `creator_stage` and a `notes` edit on a throwaway channel both answer `applied`. The file's stray half-comment (lines 40–41, from the baseline copy) was removed before applying; comments only.
+4. **`realtime_private`**: the two policies exist with the expected rules (topics `toolbox:sync`/`toolbox:team`, broadcast and presence, `is_authorized()`), roles `authenticated`. History: six rows, matching the file names.
+
+Built by the lead after the owner asked for fewer agents (2026-10-21):
+
+| Task | Tier | Commit | Note |
+|---|---|---|---|
+| S15 | lead | 406fa26 | Took over the agent's half-done work (cut off at the usage limit): fixed a test that read the wrong request and two lint errors; the bridge test now expects `invoke` and `on`. The rename of `save-failed.css` went into this commit by mistake (`git mv` stages it); f5a60d1 completes it |
+| S14 fix | lead | f5a60d1 | The chip's width-keeping text was a real element, so it read "SavedNot synced": now a pseudo-element in `save-state.css`; the not-synced dot colour moved there too |
+| S32 | lead | (this commit) | `conflicts.spec.ts`: stage edits send the base (null, then the previous), a brand upserts only its columns, a deal step PATCHes `flow_step`; a scripted `conflict` shows the toast and notification, the creator shows theirs, Use mine sends `resolve_edit_conflict` and the notification goes. The fake needed no change |
+| S33 | lead | (this commit) | The no-Realtime case also checks the socket was refused, your own presence shows online, and with the server gone a rename waits as "Not synced" with no alert or dialog |
+| L1 fixes | lead | (this commit) | A row the local copy can't hold is skipped and logged (`pull.row_skipped <table>`) instead of failing its page every pass; the refused toast ignores the count carried in the first status after start |
+
+Checked: lint, typecheck, 1313 Vitest + 1 pytest, `test:sql` 11 files, `test:server` 7 files / 59 tests (before S32), `test:e2e` 62, sync and conflict specs `--repeat-each 3` (33). Docs: ADR 0012; ADR 0010 and 0011 consequences; architecture (3d-2b built, Security model, Versions); setup (new-app check, public access off, BitLocker, sign-out); migration plan ground rule 1 and status; owner-rules (nobody uses the old app). The owner chose (2026-10-21) to keep the money lock for steps 10–11.
+
+Next: R1 step 5 (the owner signs in to the new app) and step 6 (the owner turns off "Allow public access"); look at the chip, toasts and presence in dark at 1440 px; one review of the diff; PR, CI, merge.

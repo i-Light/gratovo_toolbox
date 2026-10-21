@@ -64,10 +64,13 @@ describe("the sync chip in the top bar", () => {
     render(<TopBar />);
     const toasts = (): number => appStore().getState().ui.toasts.length;
     expect(toasts()).toBe(0);
+    // The first status after start carries a count from before this page: not news.
     setSync({ state: "synced", pending: 0, refused: 1 });
+    expect(toasts()).toBe(0);
+    setSync({ state: "synced", pending: 0, refused: 2 });
     expect(toasts()).toBe(1);
     expect(appStore().getState().ui.toasts[0]?.msg).toBe(strings.top.refusedToast);
-    setSync({ state: "synced", pending: 0, refused: 1 });
+    setSync({ state: "synced", pending: 0, refused: 2 });
     expect(toasts()).toBe(1);
     setSync({ state: "synced", pending: 0, refused: 0 });
     expect(toasts()).toBe(1);

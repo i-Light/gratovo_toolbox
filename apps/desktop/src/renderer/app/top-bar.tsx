@@ -209,8 +209,17 @@ function SaveState() {
 /** Shows a toast each time the count of changes the server refused grows. */
 function RefusedToast() {
   const refused = useApp((s) => s.ui.sync.refused);
+  const state = useApp((s) => s.ui.sync.state);
   const seen = useRef(refused);
+  // The page starts at "off" with nothing refused; the first real status may carry a count from
+  // before this page loaded, which is not news.
+  const primed = useRef(state !== "off");
   useEffect(() => {
+    if (!primed.current) {
+      primed.current = state !== "off";
+      seen.current = refused;
+      return;
+    }
     if (refused > seen.current) {
       toast({
         msg: strings.top.refusedToast,
@@ -219,7 +228,7 @@ function RefusedToast() {
       });
     }
     seen.current = refused;
-  }, [refused]);
+  }, [refused, state]);
   return null;
 }
 

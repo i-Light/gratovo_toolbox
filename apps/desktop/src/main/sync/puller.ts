@@ -321,7 +321,14 @@ export function createPuller(o: {
           if (hasPending(db, t.name, key)) {
             continue;
           }
-          upsertRow(db, t, row);
+          try {
+            upsertRow(db, t, row);
+          } catch {
+            // A row the local copy can't hold (a NOT NULL column arriving null, say) is skipped,
+            // so one bad row can't stall its table forever. SQLite undoes only that statement.
+            log(`pull.row_skipped ${t.name}`);
+            continue;
+          }
           changed.add(t.part);
         }
       },
