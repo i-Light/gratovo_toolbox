@@ -26,6 +26,32 @@ function setup(overrides: Partial<Handlers> = {}) {
       lastSyncedAt: null,
     })),
     "presence:set": vi.fn(() => ({})),
+    "find:state": vi.fn(() => ({
+      queue: [],
+      at: 0,
+      rules: {
+        countries: [],
+        perKeyword: 200,
+        sortBy: "upload_date" as const,
+        resultsType: "video" as const,
+        autoClean: {
+          enabled: true,
+          minSubscribers: 50_000,
+          maxSubscribers: 2_000_000,
+          belowMin: "sweep" as const,
+          aboveMax: "delay" as const,
+          label: "inactive",
+        },
+      },
+      run: { state: "ready" as const, found: 0, kept: 0, swept: 0, error: null },
+      log: [],
+      kept: [],
+    })),
+    "find:add": vi.fn(() => ({ added: 0, skipped: 0 })),
+    "find:remove": vi.fn(() => ({ ok: true as const })),
+    "find:start-at": vi.fn(() => ({ ok: true as const })),
+    "find:start": vi.fn(() => ({ ok: true as const })),
+    "find:stop": vi.fn(() => ({})),
     ...overrides,
   };
   const onError = vi.fn();

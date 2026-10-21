@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { findStateSchema } from "./find";
 import { presenceMembersSchema } from "./presence";
 import { syncStatusSchema } from "./sync";
 
@@ -26,6 +27,7 @@ export const appEvents = {
   }),
   "sync:status": syncStatusSchema,
   "presence:changed": presenceMembersSchema,
+  "find:changed": findStateSchema,
 } as const;
 
 export type AppEventName = keyof typeof appEvents;

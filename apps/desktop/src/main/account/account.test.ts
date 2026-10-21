@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { getMeta, pendingCount } from "../data/repositories";
 import { openDatabase } from "../db/open-database";
-import { createHandlers } from "../handlers";
+import { createHandlers, type HandlerContext } from "../handlers";
 import { createNetwork } from "../net/network";
 import { createSecretStore, type Cipher } from "../secret-store";
 import type { SupabaseConfig } from "../supabase/config";
@@ -18,6 +18,11 @@ import type { Live, LiveDeps, PresenceState } from "../sync/live";
 
 import { createAccount, exampleFile, liveFile, type Account } from "./account";
 import { keyLifetimeMs } from "./team-keys";
+
+/** The find service is not under test here: sign-out has no search to end. */
+const noFind: HandlerContext["find"] = {
+  shutdown: () => Promise.resolve(),
+} as unknown as HandlerContext["find"];
 
 const config: SupabaseConfig = {
   url: "https://abcdefghijklmnopqrst.supabase.co",
@@ -989,7 +994,7 @@ describe("the sync", () => {
     expect(account.status().state).toBe("signed-out");
     expect(existsSync(livePath())).toBe(true);
     const dispatch = createDispatcher(
-      createHandlers({ version: "1.0.0", secrets, account }),
+      createHandlers({ version: "1.0.0", secrets, account, find: noFind }),
       () => {
         throw new Error("no handler should fail");
       },
@@ -1194,7 +1199,7 @@ describe("Realtime and presence", () => {
     server.addUser("sam@example.com", "full", ["owner"], true);
     const { account, events, lives, secrets } = makeAccount(server);
     await account.start();
-    const handlers = createHandlers({ version: "1.0.0", secrets, account });
+    const handlers = createHandlers({ version: "1.0.0", secrets, account, find: noFind });
 
     expect(await handlers["presence:set"]({ screen: "reach", idle: false })).toEqual({});
     expect(events).toEqual([]);
@@ -1294,7 +1299,7 @@ describe("nothing secret leaves", () => {
     const { account, logs, secrets, events } = makeAccount(server);
     await account.start();
     const dispatch = createDispatcher(
-      createHandlers({ version: "1.0.0", secrets, account }),
+      createHandlers({ version: "1.0.0", secrets, account, find: noFind }),
       (channel, error) => {
         logs.push(`${channel}: ${String(error)}`);
       },

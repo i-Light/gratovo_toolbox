@@ -91,6 +91,11 @@ export interface Account {
   /** At quit: closes the databases and stops the refresh timer. Deletes nothing. */
   close(): void;
   readonly teamKeys: { youtubeKey(): Promise<string | null> };
+  /**
+   * Which pipeline data the Find screen works on: the example folder when unconfigured, the live
+   * one (named by the copy's user id) when signed in, else null.
+   */
+  findContext(): { mode: "example" | "live"; workerId: string } | null;
 }
 
 export interface AccountDeps {
@@ -1004,5 +1009,14 @@ export function createAccount(deps: AccountDeps): Account {
     },
 
     teamKeys: { youtubeKey: () => keys.youtubeKey() },
+
+    findContext() {
+      if (state === "unconfigured") {
+        return { mode: "example", workerId: "example" };
+      }
+      return state === "signed-in" && live !== null
+        ? { mode: "live", workerId: live.userId }
+        : null;
+    },
   };
 }

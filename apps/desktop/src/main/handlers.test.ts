@@ -1,5 +1,5 @@
 import { exampleFrame, type DataSource, type DataWrite } from "@gratovo/core/data";
-import type { AuthStatus, SyncStatus } from "@gratovo/ipc";
+import type { AuthStatus, FindState, SyncStatus } from "@gratovo/ipc";
 import { describe, expect, it, vi } from "vitest";
 
 import { createHandlers, type HandlerContext } from "./handlers";
@@ -15,6 +15,41 @@ function storeWith(names: string[]): SecretStore {
     names: () => Promise.resolve([...names]),
   };
 }
+
+function findWith(overrides: Partial<HandlerContext["find"]> = {}): HandlerContext["find"] {
+  return {
+    state: () => findState,
+    add: () => ({ added: 0, skipped: 0 }),
+    remove: () => ({ ok: true }),
+    startAt: () => ({ ok: true }),
+    start: () => Promise.resolve({ ok: true }),
+    stop: () => undefined,
+    shutdown: () => Promise.resolve(),
+    ...overrides,
+  };
+}
+
+const findState: FindState = {
+  queue: [],
+  at: 0,
+  rules: {
+    countries: ["US"],
+    perKeyword: 200,
+    sortBy: "upload_date",
+    resultsType: "video",
+    autoClean: {
+      enabled: true,
+      minSubscribers: 50_000,
+      maxSubscribers: 2_000_000,
+      belowMin: "sweep",
+      aboveMax: "delay",
+      label: "inactive",
+    },
+  },
+  run: { state: "ready", found: 0, kept: 0, swept: 0, error: null },
+  log: [],
+  kept: [],
+};
 
 const frame = exampleFrame(Date.UTC(2026, 9, 20));
 
@@ -47,8 +82,12 @@ function accountWith(
   };
 }
 
-function handlersWith(account: HandlerContext["account"], names: string[] = []) {
-  return createHandlers({ version: "1.2.3", secrets: storeWith(names), account });
+function handlersWith(
+  account: HandlerContext["account"],
+  names: string[] = [],
+  find: HandlerContext["find"] = findWith(),
+) {
+  return createHandlers({ version: "1.2.3", secrets: storeWith(names), account, find });
 }
 
 describe("createHandlers", () => {
@@ -145,5 +184,53 @@ describe("the sync handlers", () => {
       [{ screen: "reach", idle: false }],
       [{ screen: "record", idle: true }],
     ]);
+  });
+});
+
+describe("the find handlers", () => {
+  it("pass each channel to the find service", async () => {
+    const add = vi.fn<HandlerContext["find"]["add"]>(() => ({ added: 1, skipped: 0 }));
+    const remove = vi.fn<HandlerContext["find"]["remove"]>(() => ({
+      ok: false,
+      problem: "running",
+    }));
+    const startAt = vi.fn<HandlerContext["find"]["startAt"]>(() => ({ ok: true }));
+    const start = vi.fn<HandlerContext["find"]["start"]>(() =>
+      Promise.resolve({ ok: false, problem: "no_keywords" }),
+    );
+    const stop = vi.fn<HandlerContext["find"]["stop"]>();
+    const mine = handlersWith(accountWith(), [], findWith({ add, remove, startAt, start, stop }));
+
+    expect(await mine["find:state"]({})).toEqual(findState);
+    expect(await mine["find:add"]({ keywords: ["ai agents"] })).toEqual({ added: 1, skipped: 0 });
+    expect(add).toHaveBeenCalledWith(["ai agents"]);
+    expect(await mine["find:remove"]({ index: 2 })).toEqual({ ok: false, problem: "running" });
+    expect(remove).toHaveBeenCalledWith(2);
+    expect(await mine["find:start-at"]({ index: 1 })).toEqual({ ok: true });
+    expect(startAt).toHaveBeenCalledWith(1);
+    expect(await mine["find:start"]({})).toEqual({ ok: false, problem: "no_keywords" });
+    expect(await mine["find:stop"]({})).toEqual({});
+    expect(stop).toHaveBeenCalledOnce();
+  });
+
+  it("ends a running search before signing out", async () => {
+    const order: string[] = [];
+    const mine = handlersWith(
+      accountWith({
+        signOut: () => {
+          order.push("sign-out");
+          return Promise.resolve();
+        },
+      }),
+      [],
+      findWith({
+        shutdown: () => {
+          order.push("shutdown");
+          return Promise.resolve();
+        },
+      }),
+    );
+    await mine["auth:sign-out"]({});
+    expect(order).toEqual(["shutdown", "sign-out"]);
   });
 });
