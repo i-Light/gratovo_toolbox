@@ -2,12 +2,14 @@ import type { DataSource } from "@gratovo/core/data";
 import type { Handlers } from "@gratovo/ipc";
 
 import type { Account } from "./account/account";
+import type { FindService } from "./find/find-service";
 import type { SecretStore } from "./secret-store";
 
 /** What the handlers need from the rest of the main process. */
 export interface HandlerContext {
   version: string;
   secrets: SecretStore;
+  find: FindService;
   account: Pick<
     Account,
     | "status"
@@ -22,7 +24,7 @@ export interface HandlerContext {
 }
 
 /** The main process's answer to each channel in `channels`. */
-export function createHandlers({ version, secrets, account }: HandlerContext): Handlers {
+export function createHandlers({ version, secrets, account, find }: HandlerContext): Handlers {
   /** The account's open source. The page never asks for data while none is open. */
   function openSource(): DataSource {
     const source = account.source();
@@ -46,6 +48,8 @@ export function createHandlers({ version, secrets, account }: HandlerContext): H
     "auth:sign-in": ({ email, password }) => account.signIn(email, password),
     "auth:recheck": () => account.recheck(),
     "auth:sign-out": async () => {
+      // A running search ends first: its data folder is the signed-in account's.
+      await find.shutdown();
       await account.signOut();
       return {};
     },
@@ -55,6 +59,15 @@ export function createHandlers({ version, secrets, account }: HandlerContext): H
     // A screen name and a flag only (D26); the account ignores it unless signed in.
     "presence:set": ({ screen, idle }) => {
       account.setPresence({ screen, idle });
+      return {};
+    },
+    "find:state": () => find.state(),
+    "find:add": ({ keywords }) => find.add(keywords),
+    "find:remove": ({ index }) => find.remove(index),
+    "find:start-at": ({ index }) => find.startAt(index),
+    "find:start": () => find.start(),
+    "find:stop": () => {
+      find.stop();
       return {};
     },
   };

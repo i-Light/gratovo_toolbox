@@ -2,6 +2,14 @@ import { z } from "zod";
 
 import { authStatusSchema, signInRequestSchema, signInResultSchema } from "./auth";
 import { dataWriteSchema, frameSchema } from "./data";
+import {
+  findAddRequestSchema,
+  findAddResultSchema,
+  findEditResultSchema,
+  findIndexRequestSchema,
+  findStartResultSchema,
+  findStateSchema,
+} from "./find";
 import { presenceSetSchema } from "./presence";
 import { syncStatusSchema } from "./sync";
 
@@ -76,6 +84,36 @@ export const channels = {
   /** Tells teammates which screen this person is on, and whether they are idle. */
   "presence:set": {
     request: presenceSetSchema,
+    response: z.strictObject({}),
+  },
+  /** The Find screen's queue, rules, run and results. */
+  "find:state": {
+    request: z.strictObject({}),
+    response: findStateSchema,
+  },
+  /** Adds keywords to the end of the queue; blanks and repeats are skipped. */
+  "find:add": {
+    request: findAddRequestSchema,
+    response: findAddResultSchema,
+  },
+  /** Removes one queue entry. Refused while a search runs. */
+  "find:remove": {
+    request: findIndexRequestSchema,
+    response: findEditResultSchema,
+  },
+  /** Sets where the next run begins. Refused while a search runs. */
+  "find:start-at": {
+    request: findIndexRequestSchema,
+    response: findEditResultSchema,
+  },
+  /** Starts the search from the queue's next keyword. */
+  "find:start": {
+    request: z.strictObject({}),
+    response: findStartResultSchema,
+  },
+  /** Asks the search to pause after the keyword in progress. */
+  "find:stop": {
+    request: z.strictObject({}),
     response: z.strictObject({}),
   },
 } as const;

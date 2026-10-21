@@ -5,6 +5,7 @@ import { Profiler } from "react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { initPrefs, setPref } from "../lib/prefs";
+import { stubFindBridge } from "../lib/find-test-bridge";
 import { appStore, go, resetAppStoreForTests } from "../lib/store";
 import { strings } from "../strings";
 import { App } from "./app";
@@ -14,6 +15,7 @@ import { Rail } from "./rail";
 const accountName = new RegExp(strings.rail.roleOnline("Owner"));
 
 beforeEach(() => {
+  stubFindBridge();
   localStorage.clear();
   initPrefs();
   resetAppStoreForTests({ screen: "today", tab: null });

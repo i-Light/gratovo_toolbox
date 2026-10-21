@@ -19,6 +19,15 @@ This app holds creators' and brands' contact details, deal terms, money, and the
 | Supabase service-role key | Server side only (Edge Functions, CI secrets). Never on a team member's machine. |
 | CI tokens and release credentials | GitHub Actions secrets. |
 
+## The pipeline's rules (step 3e-1)
+
+- Secrets reach the Python pipeline only on stdin, in the start message. Never in argv, the environment or a file.
+- The pipeline runs with a bare environment (`SystemRoot`, `PATH`, `TEMP`, `TMP`) and `-I`, so nothing from the user's shell reaches it.
+- The pipeline makes requests only to HTTPS hosts on its allow list (YouTube, Google's API, AWS gateway hosts, and the configured proxies). The YouTube key goes in a header, never a URL.
+- Logs are blanked of the job's secrets in main, before they reach the page or a file. The pipeline logs a status or an error's kind, never a URL.
+
+Why: [ADR 0013](docs/decisions/0013-pipeline.md).
+
 ## Known exposure in the old repository (action for the owner)
 
 The old repository `i-Light/gratovo_code` tracked `data/.env`, and it is on GitHub. It holds live values for these keys:

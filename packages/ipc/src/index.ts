@@ -36,6 +36,14 @@ export { createDispatcher } from "./dispatch";
 export type { DispatchErrorReporter, Handlers } from "./dispatch";
 export { appEvents, frameParts } from "./events";
 export type { AppEventName, AppEventPayload, FramePart } from "./events";
+export {
+  findErrors,
+  findKeywordStates,
+  findRulesSchema,
+  findRunStates,
+  findStateSchema,
+} from "./find";
+export type { FindState } from "./find";
 export { presenceMembersSchema, presenceScreens, presenceSetSchema } from "./presence";
 export type { PresenceScreen } from "./presence";
 export { syncStatusSchema, syncStates } from "./sync";

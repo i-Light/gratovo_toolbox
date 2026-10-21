@@ -11,7 +11,12 @@ export const bridgeChannel = "gratovo:invoke";
 export const eventChannel = "gratovo:event";
 
 /** The event names the page may listen for. A test keeps this equal to the keys of `appEvents`. */
-export const appEventNames = ["frame:changed", "sync:status", "presence:changed"] as const;
+export const appEventNames = [
+  "frame:changed",
+  "sync:status",
+  "presence:changed",
+  "find:changed",
+] as const;
 
 /** The name the preload script gives the bridge on the page's `window`. */
 export const bridgeGlobal = "gratovo";

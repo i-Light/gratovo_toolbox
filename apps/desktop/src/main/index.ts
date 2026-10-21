@@ -1,12 +1,20 @@
+import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+
 import { BrowserWindow, Menu, app, dialog, session } from "electron";
 
 import { createAccount } from "./account/account";
 import { builtPageUrl } from "./app-page";
 import { registerAppScheme, serveAppFiles } from "./app-protocol";
 import { createEventSender } from "./events";
+import { createFindService } from "./find/find-service";
 import { createHandlers } from "./handlers";
 import { registerBridge } from "./ipc-bridge";
 import { createNetwork } from "./net/network";
+import { openPipelineLog } from "./pipeline/logs";
+import { findPython, pipelineEnv } from "./pipeline/python-path";
+import { createPipelineSupervisor } from "./pipeline/supervisor";
 import { openSecretStore } from "./secrets";
 import {
   blockForeignRequests,
@@ -92,6 +100,13 @@ function start(): void {
       serveAppFiles(session.defaultSession, rendererRoot);
       const config = supabaseConfig();
       const secrets = openSecretStore();
+      const emit = createEventSender({
+        targets: () => BrowserWindow.getAllWindows(),
+        pageUrl: appPageUrl,
+        log: (line) => {
+          console.error(line);
+        },
+      });
       const account = createAccount({
         config,
         userData: app.getPath("userData"),
@@ -101,13 +116,45 @@ function start(): void {
         now: Date.now,
         reloadWindow: reloadWindows,
         // Main-to-page events go to the app's own page only, after a check of each payload.
-        emit: createEventSender({
-          targets: () => BrowserWindow.getAllWindows(),
-          pageUrl: appPageUrl,
-          log: (line) => {
-            console.error(line);
-          },
-        }),
+        emit,
+      });
+      const userData = app.getPath("userData");
+      const supervisor = createPipelineSupervisor({
+        spawn: (command, args, options) =>
+          spawn(command, [...args], { ...options, stdio: "pipe", windowsHide: true }),
+        python: () =>
+          findPython({ packaged: app.isPackaged, appPath: app.getAppPath(), exists: existsSync }),
+        env: pipelineEnv(process.env),
+        openLog: (logSecrets) =>
+          openPipelineLog({ folder: join(userData, "logs"), now: Date.now, secrets: logSecrets }),
+      });
+      const find = createFindService({
+        supervisor,
+        account,
+        secrets,
+        userData,
+        emit: (state) => {
+          emit("find:changed", state);
+        },
+        now: Date.now,
+      });
+      // A search running at quit is asked to stop first (and killed after 5 s); then the app quits
+      // again. The flag keeps that second quit from looping.
+      let quitting = false;
+      app.on("before-quit", (event) => {
+        if (quitting || !supervisor.running) {
+          return;
+        }
+        quitting = true;
+        event.preventDefault();
+        find
+          .shutdown()
+          .catch((error: unknown) => {
+            console.error("The search couldn't be stopped at quit:", error);
+          })
+          .finally(() => {
+            app.quit();
+          });
       });
       app.on("will-quit", () => {
         account.close();
@@ -116,7 +163,7 @@ function start(): void {
       // session this reads the local copy and checks with the server in the background. A database
       // that won't open lands in the start-up error dialog below.
       await account.start();
-      registerBridge(createHandlers({ version: app.getVersion(), secrets, account }));
+      registerBridge(createHandlers({ version: app.getVersion(), secrets, account, find }));
       // The app draws its whole frame. Electron's default menu (File, Edit, View…) would sit above
       // it on Windows and bring shortcuts the app doesn't want, such as reload and zoom. Copy,
       // paste and undo in text fields work without it on Windows.

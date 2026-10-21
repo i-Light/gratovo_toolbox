@@ -203,6 +203,32 @@ describe("the data channels through the dispatcher", () => {
       "sync:status": () => ({ state: "off" as const, pending: 0, refused: 0, lastSyncedAt: null }),
       "sync:now": () => ({ state: "off" as const, pending: 0, refused: 0, lastSyncedAt: null }),
       "presence:set": () => ({}),
+      "find:state": () => ({
+        queue: [],
+        at: 0,
+        rules: {
+          countries: [],
+          perKeyword: 200,
+          sortBy: "upload_date" as const,
+          resultsType: "video" as const,
+          autoClean: {
+            enabled: true,
+            minSubscribers: 50_000,
+            maxSubscribers: 2_000_000,
+            belowMin: "sweep" as const,
+            aboveMax: "delay" as const,
+            label: "inactive",
+          },
+        },
+        run: { state: "ready" as const, found: 0, kept: 0, swept: 0, error: null },
+        log: [],
+        kept: [],
+      }),
+      "find:add": () => ({ added: 0, skipped: 0 }),
+      "find:remove": () => ({ ok: true as const }),
+      "find:start-at": () => ({ ok: true as const }),
+      "find:start": () => ({ ok: true as const }),
+      "find:stop": () => ({}),
       ...overrides,
     };
     const onError = vi.fn();

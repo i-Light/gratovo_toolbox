@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { narrowQuery } from "../lib/media";
 import { getPrefs, initPrefs, prefsKey, setPref } from "../lib/prefs";
+import { stubFindBridge } from "../lib/find-test-bridge";
 import { appStore, go, resetAppStoreForTests, selectRoute } from "../lib/store";
 import { strings } from "../strings";
 import { App } from "./app";
@@ -13,6 +14,7 @@ import { App } from "./app";
 const bellName = new RegExp(`^${strings.top.notifications}`);
 
 beforeEach(() => {
+  stubFindBridge();
   localStorage.clear();
   initPrefs();
   resetAppStoreForTests({ screen: "today", tab: null });

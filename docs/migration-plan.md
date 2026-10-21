@@ -51,7 +51,7 @@ Replace the Flutter app (old repository `gratovo_code`) with a new desktop app t
 | 0 | Fresh repository | Done 2026-10-19 |
 | 1 | Agree the design | Prototype approved for building. The open questions in §9 were answered 2026-10-19 |
 | 2 | Choose the stack and record the decisions | Done as ADRs 0001 to 0006; the owner confirmed the stack (§9 Q8) |
-| 3 | Foundation | **In progress.** 3a (toolchain and skeleton) and 3b (security baseline) done 2026-10-19. 3c done 2026-10-20, in three parts: 3c-1 (the frame), 3c-2 (the overlays), 3c-3 (settings and checks; the app made dark only). 3d-1 (the local data layer) done 2026-10-20. 3d-2a (sign-in, roles, the network allowlist, team keys) done 2026-10-20, rolled out to production with the owner's go. 3d-2b (the sync) done 2026-10-21 (#12), its three migrations rolled out with the owner's go. **Next: 3e** (the Python pipeline), then 3f, 3g, 3h. Branch protection on `main` (3g) isn't set yet. A1 (key rotation) is deferred by the owner: use the existing keys, never in the repository |
+| 3 | Foundation | **In progress.** 3a (toolchain and skeleton) and 3b (security baseline) done 2026-10-19. 3c done 2026-10-20, in three parts: 3c-1 (the frame), 3c-2 (the overlays), 3c-3 (settings and checks; the app made dark only). 3d-1 (the local data layer) done 2026-10-20. 3d-2a (sign-in, roles, the network allowlist, team keys) done 2026-10-20, rolled out to production with the owner's go. 3d-2b (the sync) done 2026-10-21 (#12), its three migrations rolled out with the owner's go. 3e-1 (the pipeline's search, end to end on this computer) done 2026-10-21 (#14): ADR 0013. **Next: 3e-2** (sharing results through R2), in a fresh session (§10 rule 5), then 3e-3, 3f, 3g, 3h. Branch protection on `main` (3g) isn't set yet. A1 (key rotation) is deferred by the owner: use the existing keys, never in the repository |
 | 4 | Today | Not started |
 | 5 | Find | Not started |
 | 6 | Reach | Not started |
@@ -286,3 +286,27 @@ All twelve were answered by the owner on 2026-10-19. The consequences are writte
 | 11 | Team keys (YouTube, R2) | **Served after sign-in from a server function.** Never in the installer or the repository. | 3d |
 | 12 | Releases and code signing | **No code signing.** The app is for the owner and a few trusted members, so no certificate is bought. Windows will warn on first install, and members click through it. Updates still work unsigned. Where installers live was not chosen: the default is a private R2 bucket, handed out through the same server function as the team keys (builder's call, change it if you prefer). | 3h |
 
+
+## 10. Model use
+
+Added 2026-10-21 at the owner's request, to stretch the usage limit. The rule: **the strong model decides once and writes it down, cheaper models follow what is written, and real checks decide what counts.** The `smart-task-router` skill already works this way (its tiers E, N and H are the `router-easy`, `router-normal` and `router-hard` agents). This section fits it to this project. **Where the two disagree, this section wins.**
+
+### Which tier does what
+
+| Tier | Model | Use it for |
+|---|---|---|
+| E | Haiku (`router-easy`) | Copying a pattern that already exists in this repository. Adding strings to the strings file and values to `tokens.css`. Renames, imports, index files, scaffolding. Tests written from a spec that is already settled. Updating the status table and other docs. |
+| N, **the default** | Sonnet (`router-normal`) | Screens and components built to the prototype. Porting a pipeline module from `legacy/` together with its tests. Playwright tests. Fixing type, lint and test failures. Tidying code so it matches [conventions.md](conventions.md). |
+| H, sparingly | Opus (`router-hard`, `router-reviewer`) | Each step's plan in `.router/PLAN.md` and its contracts: IPC channels, the preload API, the pipeline protocol, shared types. Supabase schema, migrations, grants and RLS. The sync. Security: Electron hardening, secrets, the network allowlist. Anything that touches production data. Bugs a lower tier failed on twice. The review before every pull request. |
+| X | Fable | Only when the owner asks. |
+
+### Rules
+
+1. **Decide once, write it down.** Opus writes the step's plan with its contracts before anything is built. Lasting decisions go into this plan or an ADR in `decisions/`, so no later session works them out again.
+2. **Build tasks default to N.** Drop to E only when the task copies an existing pattern and has an automatic check.
+3. **Never E** for security, secrets, Supabase migrations, the sync, production data, or any task with no automatic check.
+4. **Escalation (this overrides the skill):** when a task fails, retry it once at the same tier with the error added to the spec. If it fails again, move it up one tier. The next task starts back at its planned tier. Two failures at H mean the plan is wrong for that part: re-plan it, don't push harder.
+5. **One part per session.** Work one part of a step (3e-1, 3e-2 and so on) per session, and start a fresh session for the next part. Long sessions cost more and drift.
+6. **Leave the next session a starting point.** After each part, update the status table (§5) and `.router/PROGRESS.md` in the same commit, so the next session starts from them instead of re-reading the codebase.
+7. **No agent for a trivial edit.** Starting an agent costs more than a one-line change.
+8. **The main session's model is the owner's choice.** A session that plans or reviews works best on Opus. A session that only carries out an existing plan can run on Sonnet, and it still hands H tasks to `router-hard`.
