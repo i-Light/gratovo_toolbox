@@ -59,12 +59,12 @@ Screens to edit creators, brands and deals (steps 4–8 use the write kinds buil
 ### Questions for the owner (recommendations included; none blocks starting)
 
 - **Q1. Lock money in the database now?** Today every authorized member can read `deals.brand_price`, `influencer_payout`, `brands.budget` through the API; only the app hides them. With the old app gone this can be fixed, but it needs the price columns moved to a table only money-seeing members can read (column rules on the same table would be undone by the next blanket grant), plus the pull and the frame reading it. *Recommend* a short step right after 3d-2b (call it 3d-3), not inside it: 3d-2b is already the biggest pull request so far.
-- **Q2. Turn off "Allow public access"** in Supabase › Project Settings › Realtime once R1 has applied the private-channel rules (D23). *Recommend yes:* the app uses private channels only, and it closes the public ones to anyone holding the app's public key. (It ends the old app's live updates, which you said don't matter.)
+- **Q2. Turn off "Allow public access"** in Supabase › Realtime › Settings › Channel Restrictions once R1 has applied the private-channel rules (D23). *Recommend yes:* the app uses private channels only, and it closes the public ones to anyone holding the app's public key. (It ends the old app's live updates, which you said don't matter.)
 
 ### What the owner does by hand
 
 1. Say "go" before each production step in R1 (the first is read-only counts).
-2. R1 step 6: Supabase › Project Settings › Realtime: turn **"Allow public access" off** (Q2), then tell the lead.
+2. R1 step 6: Supabase › Realtime › Settings › Channel Restrictions: turn **"Allow public access" off** (Q2), then tell the lead.
 3. After the rollout: sign in to the new app (`pnpm dev` with your `.env.local`), check that your creators, brands and the log appear, change your name, and leave the app open on Reach for a minute while the lead checks presence; if a teammate can sign in at the same time, check that each sees the other online.
 
 ## Contracts
@@ -429,7 +429,7 @@ Not for a sub-agent. The Supabase MCP (scoped to the project by the owner; no `g
 3. **Apply `creator_stage_edit`** (version `20261022090100`; **changes two existing functions**, D22). Check after: both owned by `postgres`, `authenticated` may execute, `anon` may not; in a rolled-back transaction as the owner, `apply_channel_edit` on a throwaway channel id with `creator_stage` returns `applied`, and with `notes` still returns `applied` (true/false only; the transaction rolls the row back).
 4. **Apply `realtime_private`** (version `20261022090200`; **adds policies to `realtime.messages`**, D23). If Supabase refuses the `create policy`, stop and tell the owner (the locked `realtime` schema is documented to allow policies). Check after: the two policies exist by name with the expected `qual`/`with_check` text.
 5. **The owner signs in to the new app** (`pnpm dev` with their `.env.local`): the copy fills (creators, brands, the log); a rename and a notification switch reach the server; an undo adds a line without deleting one (counts before and after); presence shows the owner online on their screen in a second session if a teammate can sign in (else checked by the lead reading `realtime` health only through the app's log line `live.subscribed`).
-6. **The owner turns off "Allow public access"** (Q2, by hand: Supabase › Project Settings › Realtime). Then the owner's app reconnects and still reaches `SUBSCRIBED` (its log line) and syncs.
+6. **The owner turns off "Allow public access"** (Q2, by hand: Supabase › Realtime › Settings › Channel Restrictions). Then the owner's app reconnects and still reaches `SUBSCRIBED` (its log line) and syncs.
 7. **Rollback, only with the owner's go:** step 4: `drop policy` both; step 3: re-run the baseline's two function definitions; step 2: `drop table public.notification_switches`, drop the four columns, the index and `received_at`; delete the history rows. Nothing else depends on them.
 8. **If anyone re-runs the old `schema.sql`** later, re-apply the three migrations right after.
 done_check: every step recorded in `PROGRESS.md` with the owner's go and the result; the history rows match the file names.

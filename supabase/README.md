@@ -21,6 +21,19 @@ The shared backend's schema and its tests.
   - `test_35_realtime_policies.sql`: the two Realtime policies (members on the two topics only; waiting members, anon, other topics and `postgres_changes` refused).
   - `run.ts`: the runner.
 
+## Every new table needs its own grants (Supabase, from 2026-10-30)
+
+Supabase told the owner by email (2026-10-20): from **2026-10-30** it stops granting Data API access to new tables in `public` by itself. Existing tables keep their grants. A table created after that date, by a migration, a preview branch or a local `supabase db reset`, is unreachable through PostgREST and supabase-js until a `grant` gives access. The API then answers "permission denied" with the statement to run.
+
+What every migration here does, in the same file that creates the table:
+
+- `alter table … enable row level security` and the policies the table needs;
+- `revoke all on <table> from public, anon`: **`anon` gets nothing.** Supabase's example grants `select` to `anon`; this project doesn't, because nothing is readable before sign-in;
+- `grant select, insert, update, delete on <table> to authenticated` (or `select` only for a read-only table, listed in `test_30_grants.sql`), and all four to `service_role`;
+- functions: `revoke execute … from public, anon`, then `grant execute … to authenticated`.
+
+`test_30_grants.sql` fails any `public` table without these grants, so a forgotten grant shows in `pnpm test:sql` and in CI. A "permission denied" error from the API on a new table means a grant is missing: add it to the migration, never fix it by hand in the dashboard.
+
 ## Run the tests
 
 Start Docker Desktop, then run `pnpm test:sql` (or `node supabase/tests/run.ts`). It starts a pinned `postgres:17` container named `gratovo-sqltest-<pid>`, applies the stubs, the baseline, the baseline a second time (to prove it re-runs), then the later migrations in name order, and records every privilege in `public` and `private`. Then it plays out an old `schema.sql` re-run: the baseline once more and the later migrations again. The privileges must come back exactly as recorded (so the baseline's blanket grants can't hide a later migration that forgot its own), and the tests run on that repaired database. Then it runs each `test_*.sql`, and always removes the container. While `legacy/` exists it also checks the baseline still matches `legacy/backend/schema.sql`. Nothing touches a real Supabase project. CI runs it as the job "SQL tests (Linux, Docker)".

@@ -128,7 +128,7 @@ Nobody uses the old app any more, so there is no old-app check. After a rollout 
 
 ### Live updates: turn off public access
 
-The app's live updates use private channels that only signed-in team members can join. Turn off the public ones in **Supabase › Project Settings › Realtime**: switch **Allow public access** off and save. Nothing uses public channels now, and with it on, anyone holding the app's public key could use them.
+The app's live updates use private channels that only signed-in team members can join. Turn off the public ones: in the Supabase dashboard, open **Realtime** in the left sidebar (not Project Settings), then its **Settings** page. Under **Channel Restrictions**, switch **Allow public access** off and save. The direct link is `https://supabase.com/dashboard/project/<your project ref>/realtime/settings`. Saving disconnects every live client for a moment; they reconnect by themselves. Nothing uses public channels now, and with it on, anyone holding the app's public key could use them.
 
 ### This computer's copy of the team's data
 
