@@ -11,8 +11,8 @@ const conflict = (id: string, over: Partial<EditConflict> = {}): EditConflict =>
   creator: "UC1",
   label: "@aimaven",
   field: "creator_stage",
-  mine: "Emailed",
-  theirs: "Replied",
+  mine: "emailed",
+  theirs: "replied",
   theirName: "Sara",
   ...over,
 });
@@ -43,7 +43,8 @@ describe("the conflict choice", () => {
     expect(toasts()).toHaveLength(1);
     const [t] = toasts();
     expect(t?.msg).toBe("Your change to @aimaven clashed with Sara's");
-    expect(t?.sub).toBe("Stage: yours Emailed, theirs Replied");
+    // A stage reads by its name, as everywhere else in the app.
+    expect(t?.sub).toBe("Stage: yours In sequence, theirs Replied");
     expect(t?.actions.map((a) => a.label)).toEqual([
       strings.conflicts.useMine,
       strings.conflicts.keepTheirs,
@@ -92,7 +93,7 @@ describe("the conflict choice", () => {
   it("shows the choice again on request, and ignores an unknown id", () => {
     setConflicts([conflict("c1", { field: "notes_x" })]);
     showConflictChoice("c1");
-    expect(toasts()[0]?.sub).toBe("notes_x: yours Emailed, theirs Replied");
+    expect(toasts()[0]?.sub).toBe("notes_x: yours emailed, theirs replied");
     showConflictChoice("nope");
     expect(toasts()).toHaveLength(1);
   });

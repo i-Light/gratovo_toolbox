@@ -54,7 +54,7 @@ describe("syncConflictNotices", () => {
       id: `conflict:${k1}`,
       icon: "alert",
       text: "Your change to @promptlab clashed with Sara's",
-      sub: "Stage: yours Emailed, theirs Replied",
+      sub: "Stage: yours In sequence, theirs Replied",
       at: Date.parse("2026-10-20T10:00:00Z"),
       go: { screen: "today", tab: null },
       read: false,

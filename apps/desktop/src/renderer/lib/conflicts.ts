@@ -32,6 +32,12 @@ function choose(id: string, choice: "mine" | "theirs"): void {
   }, failed);
 }
 
+/** A stage reads by its name ("Contact confirmed"), as everywhere else in the app; other values as they are. */
+function shown(field: string, value: string): string {
+  const stages: Readonly<Record<string, string>> = strings.record.stages;
+  return field === "creator_stage" ? (stages[value] ?? value) : value;
+}
+
 /** Shows the choice for one open conflict: both values, and Use mine / Keep theirs. Nothing for an unknown id. */
 export function showConflictChoice(id: string): void {
   const conflict = appStore()
@@ -44,7 +50,11 @@ export function showConflictChoice(id: string): void {
   const field = words.fields[conflict.field] ?? conflict.field;
   toast({
     msg: words.toast(conflict.label, conflict.theirName),
-    sub: words.sub(field, conflict.mine, conflict.theirs),
+    sub: words.sub(
+      field,
+      shown(conflict.field, conflict.mine),
+      shown(conflict.field, conflict.theirs),
+    ),
     icon: "alert",
     ms: choiceToastMs,
     actions: [

@@ -1,7 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
 
-import { creatorStages } from "@gratovo/core/data";
-
 import { listConflicts } from "../data/repositories/conflicts";
 import { upsertNotification } from "../data/repositories/notifications";
 import { strings } from "../strings";
@@ -13,11 +11,8 @@ const prefix = "conflict:";
 export type ConflictWords = typeof strings.conflict;
 
 /** A value as a person reads it: a stage key becomes its name, anything else stays as it is. */
-function show(field: string, value: string): string {
-  if (field === "creator_stage" && (creatorStages as readonly string[]).includes(value)) {
-    return value.charAt(0).toUpperCase() + value.slice(1);
-  }
-  return value;
+function show(field: string, value: string, words: ConflictWords): string {
+  return field === "creator_stage" ? (words.stages[value] ?? value) : value;
 }
 
 /**
@@ -68,7 +63,11 @@ function sync(db: DatabaseSync, w: ConflictWords): boolean {
     const detected = times.get(c.id);
     const at = (typeof detected === "string" ? serverTimeMs(detected) : null) ?? 0;
     const text = w.text(c.label, c.theirName === "someone" ? w.someone : c.theirName);
-    const sub = w.sub(w.fields[c.field] ?? c.field, show(c.field, c.mine), show(c.field, c.theirs));
+    const sub = w.sub(
+      w.fields[c.field] ?? c.field,
+      show(c.field, c.mine, w),
+      show(c.field, c.theirs, w),
+    );
     const old = existing.get(id);
     if (
       old !== undefined &&

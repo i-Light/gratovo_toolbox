@@ -12,6 +12,20 @@ export const strings = {
     sub: (field: string, mine: string, theirs: string): string =>
       `${field}: yours ${mine}, theirs ${theirs}`,
     someone: "someone",
+    /** A creator's stage as people read it (the renderer's `record.stages` say the same). */
+    stages: {
+      new: "New find",
+      shortlisted: "Needs contact",
+      contact: "Contact confirmed",
+      emailed: "In sequence",
+      replied: "Replied",
+      kit: "Media kit in",
+      audience: "Audience checked",
+      signed: "Signed",
+      rejected: "Rejected",
+      parked: "Parked",
+      never: "Never contact",
+    } as Readonly<Record<string, string>>,
     fields: {
       creator_stage: "Stage",
       notes: "Notes",
