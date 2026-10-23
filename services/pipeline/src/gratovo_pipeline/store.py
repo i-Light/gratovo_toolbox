@@ -6,8 +6,8 @@ WAL mode lets the app read the file while a run writes it; the app only ever rea
 
 Local first: a search works with no network, and sharing is a separate step that can fail without
 losing anything. The old store shared one file with the Flutter app; this one is the pipeline's
-alone, so its schema starts clean at version 1 with every column the old migrations added. News
-and transcripts (3e-3) add their tables in later versions.
+alone, so its schema started clean at version 1 with every column the old migrations added.
+Version 2 (3e-3, plan D7) adds `video_transcripts`, the subtitles and moments a first email reads.
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ type Discovered = dict[str, str]  # {handle: channel_id}
 type Row = dict[str, Any]
 type RunKind = Literal["search", "catch-up", "re-enrich"]
 
-SCHEMA_VERSION: Final = 1
+SCHEMA_VERSION: Final = 2
 
 SCHEMA: Final = """
 CREATE TABLE IF NOT EXISTS keywords (
@@ -164,6 +164,27 @@ CREATE TABLE IF NOT EXISTS runs (
 );
 """
 
+# Version 2. One video's subtitles, fetched only when a first email to its creator is drafted
+# (decision `subtitles`), and the usable moments the gratovo-moments skill read from them -- kept so
+# a redo or a later draft reuses both. Local to this machine, like the videos themselves.
+VIDEO_TRANSCRIPTS: Final = """
+CREATE TABLE IF NOT EXISTS video_transcripts (
+    video_id TEXT PRIMARY KEY,
+    channel_id TEXT NOT NULL,
+    fetched_at TEXT NOT NULL,
+    is_asr INTEGER,
+    transcript TEXT,
+    timed_transcript TEXT,
+    error TEXT,
+    moments TEXT,       -- JSON list; NULL until read
+    moments_at TEXT
+);
+"""
+
+# What each version adds to the one before it, run in order on a file older than it. Version 1 is
+# SCHEMA itself; a new file runs SCHEMA and then every step.
+MIGRATIONS: Final = {2: VIDEO_TRANSCRIPTS}
+
 # A second writer waits this long instead of failing at once with "database is locked". Far
 # longer than any statement here takes; short enough to surface a real deadlock.
 BUSY_TIMEOUT_MS: Final = 15000
@@ -233,6 +254,8 @@ def init_db(conn: sqlite3.Connection) -> None:
             f"pipeline.db is version {version}; this pipeline knows {SCHEMA_VERSION}"
         )
     conn.executescript(SCHEMA)
+    for step in range(max(version, 1) + 1, SCHEMA_VERSION + 1):
+        conn.executescript(MIGRATIONS[step])
     conn.execute(f"PRAGMA user_version={SCHEMA_VERSION}")
     conn.commit()
 
@@ -649,6 +672,54 @@ def get_channel_video_descriptions(
     ):
         result.setdefault(row["channel_id"], []).append(row["description"])
     return result
+
+
+def latest_video(conn: sqlite3.Connection, channel_id: str) -> Row | None:
+    """The channel's newest stored video (video_id, title, published_at), or None."""
+    row = conn.execute(
+        "SELECT video_id, title, published_at FROM videos WHERE channel_id = ? "
+        "AND video_id IS NOT NULL ORDER BY published_at DESC LIMIT 1",
+        (channel_id,),
+    ).fetchone()
+    return dict(row) if row else None
+
+
+def get_video_transcript(conn: sqlite3.Connection, video_id: str) -> Row | None:
+    row = conn.execute("SELECT * FROM video_transcripts WHERE video_id = ?", (video_id,)).fetchone()
+    return dict(row) if row else None
+
+
+def save_video_transcript(
+    conn: sqlite3.Connection, video_id: str, channel_id: str, fetched: Mapping[str, Any]
+) -> None:
+    """Keeps what `transcript.fetch` returned for [video_id] -- the subtitles, or why there were
+    none. Commits."""
+    asr = fetched.get("is_asr")
+    conn.execute(
+        "INSERT OR REPLACE INTO video_transcripts (video_id, channel_id, fetched_at, "
+        "is_asr, transcript, timed_transcript, error) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (
+            video_id,
+            channel_id,
+            utc_now(),
+            None if asr is None else int(bool(asr)),
+            fetched.get("transcript"),
+            fetched.get("timed_transcript"),
+            fetched.get("error"),
+        ),
+    )
+    conn.commit()
+
+
+def save_video_moments(
+    conn: sqlite3.Connection, video_id: str, moments: Iterable[Mapping[str, Any]]
+) -> None:
+    """Keeps the moments read from [video_id]'s subtitles. Commits."""
+    conn.execute(
+        "UPDATE video_transcripts SET moments = ?, moments_at = ? WHERE video_id = ?",
+        (json.dumps([dict(m) for m in moments], ensure_ascii=False), utc_now(), video_id),
+    )
+    conn.commit()
 
 
 def get_channel_about_texts(

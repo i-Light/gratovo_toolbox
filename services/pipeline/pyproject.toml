@@ -7,6 +7,10 @@ requires-python = ">=3.14"
 dependencies = [
   # The vendored scrapetube impersonates a browser's TLS handshake through it.
   "curl-cffi==0.16.3",
+  # The Gemini bridge's local WebSocket server, which the browser extension dials.
+  "websockets==17.3",
+  # Reads a video's published subtitles for a first email's moments (transcript.py, plan D12).
+  "yt-dlp==2026.10.21",
 ]
 
 [dependency-groups]
@@ -55,6 +59,8 @@ select = [
 "src/gratovo_pipeline/store.py" = ["S608"]
 # Its word lists read best as space-separated words.
 "src/gratovo_pipeline/found_emails.py" = ["SIM905"]
+# The wire names of the old bridge (PROTOCOL.md, DAEMON.md), kept so the ported code and tests read the same.
+"src/gratovo_pipeline/gemini/errors.py" = ["N818"]
 
 [tool.pyright]
 include = ["src", "tests"]

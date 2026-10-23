@@ -42,6 +42,8 @@ blob-report/
 *.db-shm
 *.sqlite3-wal
 *.sqlite3-shm
+# The quote-review leases (comms studio): working state, made on first use.
+services/pipeline/data/comms/playbook/review_claims.sqlite3
 *.log
 *.log.err
 /logs/

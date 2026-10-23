@@ -1,5 +1,6 @@
 import type { Readable, Writable } from "node:stream";
 
+import { readLines } from "./lines";
 import { secretsOf, type PipelineLog } from "./logs";
 import {
   maxLineLength,
@@ -108,8 +109,6 @@ export function createPipelineSupervisor(o: {
       let badInARow = 0;
       let protocolFailed = false;
       let finished = false;
-      let pending = "";
-      let skipping = false;
       let stderrPending = "";
       let spawned = false;
       let markExited: () => void = () => undefined;
@@ -200,31 +199,12 @@ export function createPipelineSupervisor(o: {
         handlers.onExit(exit);
       }
 
-      child.stdout.setEncoding("utf8");
-      child.stdout.on("data", (chunk: string) => {
-        let rest = chunk;
-        let newline = rest.indexOf("\n");
-        while (newline >= 0) {
-          const line = pending + rest.slice(0, newline);
-          pending = "";
-          rest = rest.slice(newline + 1);
-          if (skipping) {
-            skipping = false;
-          } else {
-            handleLine(line.endsWith("\r") ? line.slice(0, -1) : line);
-          }
-          newline = rest.indexOf("\n");
-        }
-        if (skipping) {
-          return;
-        }
-        pending += rest;
-        if (pending.length > maxLineLength) {
-          // Dropped whole, not read in pieces: the rest of it arrives before the next newline.
-          bad("too_long", pending);
-          pending = "";
-          skipping = true;
-        }
+      const stdout = readLines(child.stdout, {
+        maxLength: maxLineLength,
+        onLine: handleLine,
+        onTooLong: (start) => {
+          bad("too_long", start);
+        },
       });
       child.stderr.setEncoding("utf8");
       // Whole lines only, so a secret split across two chunks is still blanked in the log.
@@ -257,9 +237,7 @@ export function createPipelineSupervisor(o: {
           log.write("stderr", stderrPending);
           stderrPending = "";
         }
-        if (pending !== "" && !skipping) {
-          handleLine(pending);
-        }
+        stdout.flush();
         const note = `code ${String(code)}${signal === null ? "" : ` signal ${signal}`}`;
         if (protocolFailed) {
           finish({ kind: "failed", reason: "protocol" }, note);

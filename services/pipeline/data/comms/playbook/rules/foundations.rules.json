@@ -1,0 +1,2673 @@
+{
+  "area": "foundations",
+  "rules": [
+    {
+      "id": "FND-MIND-01",
+      "stage": "mindset",
+      "title": "A professional bringing money, never a fan",
+      "rule": "Write as a business owner bringing the reader money. No needy tone, no over-complimenting, no putting the creator on a pedestal.",
+      "dont": [
+        "Gush about their content",
+        "Sound grateful for their attention"
+      ],
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 2 influencers/2.How to Message Influencers - Coach Ammar",
+          "quote": "you are not a fanboy. You're a professional bringing value to the influencer. They need you as much as you need them.",
+          "at": "0:00"
+        }
+      ]
+    },
+    {
+      "id": "FND-SUBJ-01",
+      "stage": "subject",
+      "title": "Subject lines that break the pattern",
+      "rule": "Use either a short curiosity line or a subject distilled from the personalization. Never 'Partnership request', 'Partnership opportunity', 'Partnership inquiry', 'Sponsorship request', 'Collaboration request' or a bare 'Quick question': the course's own examples are now so overused that readers and spam filters recognise them (FND-MIND-22). Never copy subject lines from the internet.",
+      "do": [
+        "Write the personalization first, then pull its most specific detail into the subject"
+      ],
+      "dont": [
+        "'Partnership Opportunity'-style subjects",
+        "Subject lines copied from lists online",
+        "Money words or a dollar sign in a cold subject line",
+        "Meta subjects that admit it's cold ('I know you get these')",
+        "Capitalising Every Word or ending the subject with a full stop"
+      ],
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 2 influencers/2.How to Message Influencers - Coach Ammar",
+          "quote": "Influencers get dozens of \"Partnership Opportunity\" emails every day, and their brain is wired to skip patterns it recognises.",
+          "at": "6:37"
+        },
+        {
+          "doc": "module 2 influencers/2.How to Message Influencers - Coach Ammar",
+          "quote": "Never copy-paste subject lines from the internet."
+        },
+        {
+          "doc": "video:module 3 brands/3.2. How to Make Attractive Offers",
+          "quote": "your cameras need to be on my audience's head, right? That would be my subject line.",
+          "at": "27:09"
+        },
+        {
+          "doc": "video:module 2 influencers/2.How to Message Influencers - Coach Ammar",
+          "quote": "Make your personalization first, and from that personalization, just make title.",
+          "at": "9:45"
+        },
+        {
+          "doc": "video:module 2 influencers/2.How to Message Influencers - Coach Ammar",
+          "quote": "the brain is super capable of noticing patterns and it will just skip it.",
+          "at": "7:37"
+        },
+        {
+          "doc": "call:8Mofst5s8xu7pPnzTGNuaTPPMAPr-UDL",
+          "quote": "instead of copying Ayoub's partnership request, partnership opportunity, I just tried to personalize my subject line."
+        },
+        {
+          "doc": "call:rktyzkPYSiPbPjgsongfDX88WMykLcQi",
+          "quote": "So basically, it's not bad as it is, but it's overused."
+        },
+        {
+          "doc": "call:TRF8Zw_J9SKJCePKhZ1e5b4Cz5vvYEyw",
+          "quote": "Quick question used to be... Be the best one, but now it's overused, so everybody's using it, you know, it's not, it's not that valuable"
+        }
+      ]
+    },
+    {
+      "id": "FND-FMT-01",
+      "stage": "formatting",
+      "title": "Short, plain, inbox-safe",
+      "rule": "Aim for about 50 words in a first email and check its shape at a glance (the squint test): compact blocks (the personal line, the offer, then the question on its own line) separated by single line breaks, not every sentence on its own line. Never add links, logos, images, bold text, emojis or a fancy signature to a cold email; sign off with a simple closing and the first name. Once they have replied, links and attachments are fine, and a smiley can come later, in a warm thread.",
+      "dont": [
+        "Links, images, logos or a designed signature in a first email",
+        "Lots of one-line paragraphs and blank lines",
+        "Bold text or emojis in a cold email"
+      ],
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 2 influencers/2.How to Message Influencers - Coach Ammar",
+          "quote": "Target around 50 words. Short emails get read; long ones get skipped.",
+          "at": "24:46"
+        },
+        {
+          "doc": "module 2 influencers/2.How to Message Influencers - Coach Ammar",
+          "quote": "No fancy signatures, links, or logos. Your domain is young and you need to land in the inbox."
+        },
+        {
+          "doc": "module 2 influencers/2.How to Message Influencers - Coach Ammar",
+          "quote": "Avoid heavy whitespace and line breaks. Some providers flag it as spam."
+        },
+        {
+          "doc": "video:module 2 influencers/2.How to Message Influencers - Coach Ammar",
+          "quote": "No fancy signatures, no links, no anything.",
+          "at": "25:13"
+        },
+        {
+          "doc": "video:module 2 influencers/2.How to Message Influencers - Coach Ammar",
+          "quote": "I like to step back, you know, squint my eyes and see the shape, the general shape of my email.",
+          "at": "27:31"
+        },
+        {
+          "doc": "video:module 2 influencers/2.How to Message Influencers - Coach Ammar",
+          "quote": "Keep them around 50 words per email.",
+          "at": "27:05"
+        },
+        {
+          "doc": "call:rktyzkPYSiPbPjgsongfDX88WMykLcQi",
+          "quote": "Depends from email to email, but what I like to do usually is just, as I draw here, personalization, two, three sentences, you know, divided from offer, two, three sentences, CTA. So, it's compact."
+        },
+        {
+          "doc": "call:dZx8Gu_Sd_xa7agmvh3bssKuCtc_2m99",
+          "quote": "Also, bold text is no good. It triggers spam, leads. It's kind of misleading, so be careful."
+        },
+        {
+          "doc": "call:4P2fn5brNdYTpmERT1YA37farJ7du1QM",
+          "quote": "I use smileys, but not in first email. When you have a long thread, maybe, as Ayoub said, in a third, fourth follow-up, you can crack a joke."
+        },
+        {
+          "doc": "call:Yir-RmTx9HugUa2sZjUNKv98C_zADWGg",
+          "quote": "Yeah, if it is a second email You can post links images or whatever as long as the first email is now with links images And all that, you're gonna be fine with Shoda."
+        }
+      ]
+    },
+    {
+      "id": "FND-DLV-01",
+      "stage": "deliverability",
+      "title": "Volume with personalization: 30-50 a day",
+      "rule": "Send 30-50 personalized emails a day; a reply rate around one in fifty is normal at the start, so the system must keep the pipeline full rather than polish a few emails.",
+      "level": "should",
+      "src": [
+        {
+          "doc": "module 2 influencers/2.1. Setting expectations",
+          "quote": "Aim to Send 30-50 Emails a Day"
+        },
+        {
+          "doc": "module 2 influencers/2.1. Setting expectations",
+          "quote": "If you get more than 1 response every 50 emails, you're doing good."
+        },
+        {
+          "doc": "video:module 2 influencers/2.1. Setting expectations",
+          "quote": "Aim to do 30 to 50 emails a day.",
+          "at": "24:59"
+        }
+      ]
+    },
+    {
+      "id": "FND-ETH-01",
+      "stage": "ethics",
+      "title": "Never lie",
+      "rule": "No invented clients, deals, results or competing offers, in any message. The course grounds this in Islam and in reputation; the workflow treats any unsupported claim as a blocking error.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 2 influencers/2.3. Closing an influencer that has an agency",
+          "quote": "Don’t lie (it's against islam and puts in danger your reputation)"
+        },
+        {
+          "doc": "module 2 influencers/2.1. Setting expectations",
+          "quote": "Be Normal and Honest: Don't be sneaky or sketchy."
+        },
+        {
+          "doc": "video:module 2 influencers/2.3. Closing an influencer that has an agency",
+          "quote": "I'm currently looking at a partnership with Apple. Just because I'm looking at my iPhone and I may just say, look, Apple, I'm about to email them. Do I know if they're going to work with me? I don't know. I'm about to email them. Have I lied? Again, no. So I'm not showing you manipulation tactics. Be very careful with this one because you can easily slip in the lie section.",
+          "at": "7:38"
+        },
+        {
+          "doc": "video:module 2 influencers/2.6. Negotiating with Influencers (Psychology)",
+          "quote": "When you're saying brands' budget is capped at 3K, then I go behind their back and sell it at 5K. That's why sometimes I like to say myself, Max, I can pay you for this campaign is 1K.",
+          "at": "20:53"
+        },
+        {
+          "doc": "video:module 2 influencers/2.7. Negotiating with influencers (Step by step)",
+          "quote": "don't mention like brands have that budget because then it's just straight up lies. You don't even have to go there. This sentence saying we're working with 4K on a specific campaign, or the only budget I can allocate to this video with you is 4K.",
+          "at": "21:44"
+        },
+        {
+          "doc": "video:module 2 influencers/2.1. Setting expectations",
+          "quote": "You can say, for example, for that campaign, we're looking to pay 3K for a video. And that you saying that, yourself as the agency is looking to pay him 3K, and then you can pitch the influencer for 5k to the brand. You never lied, you just told him, look, this is what we're looking to pay you for that video.",
+          "at": "7:54"
+        }
+      ],
+      "dont": [
+        "Say 'we are looking at brands like X' unless X is really on the list the agency will pitch",
+        "Give a reason for a price or a delay that the agency does not believe"
+      ]
+    },
+    {
+      "id": "FND-WRITE-01",
+      "stage": "writing",
+      "title": "Never read like an AI template",
+      "rule": "Identical AI emails are spotted instantly. Every message must be specific to the person and differ in wording, structure and flow from every other message the agency sends.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 2 influencers/2.6. Common Mistakes When Messaging Influencers",
+          "quote": "AI gives everyone the same email. Creators receive 50 identical ones a day and spot them instantly."
+        },
+        {
+          "doc": "video:module 1 welcome/1.5. Marketing crash course",
+          "quote": "Some other guys use AI softwares. It's like a whole minigun firing emails left, right, and center that doesn't hit anything. We're like a sniper.",
+          "at": "12:03"
+        },
+        {
+          "doc": "video:module 1 welcome/1.3. Mindset & Misconceptions - Coach Ammar",
+          "quote": "ChatGPT can make some of those sentences that can land you in spam because a lot of those same patterns, same formats of an email can trigger all of those spam filters.",
+          "at": "10:08"
+        }
+      ]
+    },
+    {
+      "id": "FND-MIND-02",
+      "stage": "mindset",
+      "title": "Compliment the work, not the person",
+      "rule": "Praise, if any, is about a specific piece of work ('that segment was seamless'), never about the person ('you're amazing'). Praise hands over power and kills negotiation later.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 2 influencers/2.6. Common Mistakes When Messaging Influencers",
+          "quote": "Compliment the work instead of the person."
+        },
+        {
+          "doc": "module 2 influencers/2.6. Common Mistakes When Messaging Influencers",
+          "quote": "Fanboy talk hands them all the power. After three paragraphs of praise you can't negotiate rates or ask for changes."
+        },
+        {
+          "doc": "video:module 2 influencers/2.How to Message Influencers - Coach Ammar",
+          "quote": "Don't say your content is an amazing fit. Your content would be great. That's over-complimenting. Also, you give them too much right, and then they will increase their price",
+          "at": "22:49"
+        },
+        {
+          "doc": "video:module 2 influencers/2.6. Common Mistakes When Messaging Influencers",
+          "quote": "And also, if you are a fanboy, if you praise them too much, how you can ask something from them? For example, the most common one: hey, you should remove this music from your integration. If you start showing up as a fanboy, you cannot switch hats all of a sudden.",
+          "at": "5:26"
+        },
+        {
+          "doc": "video:module 2 influencers/2.2. Proposing your offer (no agent)",
+          "quote": "Now, conclude, and you say, okay, so we do like your profile. We do see you as a fit. Not even we do like your profile, because now I'm giving him back the power. I would say we do see you as a fit for our agency.",
+          "at": "8:31"
+        },
+        {
+          "doc": "call:RsLLW3BycyHF_u8YcTYbymWG6w9vjsp2",
+          "quote": "So anytime you're negotiating with someone, do not gas them up, do not hype them up, do not talk like this."
+        }
+      ]
+    },
+    {
+      "id": "FND-FMT-02",
+      "stage": "formatting",
+      "title": "Six sentences, 50-70 words, no introductions",
+      "rule": "A first email is about six sentences and 50-70 words. Skip the self-introduction and the mission statement; its one job is a reply.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 2 influencers/2.6. Common Mistakes When Messaging Influencers",
+          "quote": "Golden rule: 6 sentences, 50 to 70 words. Skip your intro and skip your mission statement."
+        },
+        {
+          "doc": "video:module 1 welcome/1.5. Marketing crash course",
+          "quote": "Hey, I hope you're doing great. Let me introduce myself, and actually, I like this about you and this and that. No one cares.",
+          "at": "10:35"
+        },
+        {
+          "doc": "video:module 1 welcome/1.5. Marketing crash course",
+          "quote": "usually when you beat around the bush, there's something you're trying to hide.",
+          "at": "10:51"
+        },
+        {
+          "doc": "video:module 2 influencers/2.7. Good vs Bad examples of approaching influencers",
+          "quote": "You need to understand in business, people don't owe you stuff. They don't owe you time.",
+          "at": "19:10"
+        }
+      ]
+    },
+    {
+      "id": "FND-MIND-03",
+      "stage": "mindset",
+      "title": "Nice, short, never needy, never the first offer",
+      "rule": "Always be nice; never sound needy; never send bulky messages; never accept the first offer from either side — moving the number shows you are in control.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 2 influencers/2.7. Good vs Bad examples of approaching influencers",
+          "quote": "Don’t send bulky messages: It’s confusing and instantly breaks the interest of the influencer."
+        },
+        {
+          "doc": "module 2 influencers/2.7. Good vs Bad examples of approaching influencers",
+          "quote": "Don’t accept the first offer: Try to play a bit to reduce or increase the offer whenever talking with the influencer or the brand."
+        },
+        {
+          "doc": "video:module 2 influencers/2.7. Good vs Bad examples of approaching influencers",
+          "quote": "Whatever price they give is too expensive. And now, what he did, huge mistake. They gave the price, and he was like, Whoa, that's great, that's awesome.",
+          "at": "6:45"
+        },
+        {
+          "doc": "call:1WQt-72tqsxQ673X6pStqW5j3aJ5FafT",
+          "quote": "I don't think responding straight away, it will show you that you need it or anything like that. just shows you that you're on job, right?"
+        },
+        {
+          "doc": "call:1WQt-72tqsxQ673X6pStqW5j3aJ5FafT",
+          "quote": "Just try not to be overly friendly, overly thankful and overly looking forward to the response."
+        },
+        {
+          "doc": "call:3zpg8yGDoh13UjMbSzYmephqssCN8hyb",
+          "quote": "if you overly explain, overly trying to convince, automatically going to sound needy"
+        }
+      ]
+    },
+    {
+      "id": "FND-DLV-02",
+      "stage": "deliverability",
+      "title": "Expected reply rates",
+      "rule": "Expect about 3-5% replies, 7-10% with follow-ups. Weekends are quiet. Only treat it as a problem after 100+ sends with no reply.",
+      "level": "should",
+      "src": [
+        {
+          "doc": "module 2 influencers/2.8. Follow-ups",
+          "quote": "Reply rate is usually 3-5%."
+        },
+        {
+          "doc": "call:733PUfTkZUsMyvcHxJwbFCTUdTwzz-Lf",
+          "quote": "If you're in between 7% to 10%, then you're doing fine. Everything above that is obviously really good. So if you are around 7% to 10%, when it comes to brand responses, not email responses, brand responses"
+        },
+        {
+          "doc": "call:wEsty33xNwcRdSY4Ag6zyfzyXSRopN4z",
+          "quote": "Like how many brands got replied back to me. So if you reach out to 25 brands, you know, 50 emails, you just count brands. You do not care about, is it follow-up or employee or stuff. Usually we do not count follow-ups in reply rates"
+        }
+      ]
+    },
+    {
+      "id": "FND-ETH-02",
+      "stage": "ethics",
+      "title": "Alignment, not manipulation",
+      "rule": "Persuasion in every message works by showing real alignment of interests, backed by facts; never by pressure tactics that rely on a false impression.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 2 influencers/2.SECRET SAUCE Influencer Negotiation - Coach Osama",
+          "quote": "Do the work with integrity. Build genuine relationships. Focus on alignment, not manipulation."
+        },
+        {
+          "doc": "video:module 3 brands/3.4. How to Negotiate with Brands",
+          "quote": "This is becoming lying and manipulation if the one of both is wrong. So, if the fact that he promoted something recently makes it that recent, like it will not go well if he promotes again, don't say, oh, he went super well, you're gonna have the same thing.",
+          "at": "7:27"
+        }
+      ]
+    },
+    {
+      "id": "FND-MIND-04",
+      "stage": "mindset",
+      "title": "Facts over feelings, empathy for their reality",
+      "rule": "Keep messages factual and calm whatever the other side's tone; creators work to feed families and carry pressures, so acknowledge their situation while staying on the numbers.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 2 influencers/2.SECRET SAUCE Influencer Negotiation - Coach Osama",
+          "quote": "Stick to facts, data, and metrics. Influencers can feel when you're emotional."
+        },
+        {
+          "doc": "module 2 influencers/2.SECRET SAUCE Influencer Negotiation - Coach Osama",
+          "quote": "Most influencers do this work to feed their family."
+        }
+      ]
+    },
+    {
+      "id": "FND-DLV-03",
+      "stage": "deliverability",
+      "title": "Brand outreach volume",
+      "rule": "Brand outreach needs volume: 50-100 emails a day is a reasonable pace to close within a month, two weeks without a deal is normal, and writing to several people at a company improves the odds.",
+      "level": "should",
+      "src": [
+        {
+          "doc": "module 3 brands/3.1. Setting Expectations",
+          "quote": "50-100 emails a day is a reasonable goal to close a deal within a month."
+        },
+        {
+          "doc": "module 3 brands/3.1. Setting Expectations",
+          "quote": "By pushing harder, going big on personalization, following up aggressively, and hit multiple people in the company, you’ll improve your chances drastically."
+        },
+        {
+          "doc": "video:module 3 brands/3.1. Setting Expectations",
+          "quote": "You have to email multiple people inside the company, not just one person, not just two people",
+          "at": "12:37"
+        },
+        {
+          "doc": "video:module 3 brands/3.1. Where to find high paying brands",
+          "quote": "You have to reach out to at least before expecting any. Responses or smelling a deal, at least 150 to 250 companies, at least, and that means multiple employees within the company.",
+          "at": "16:15"
+        }
+      ]
+    },
+    {
+      "id": "FND-DLV-04",
+      "stage": "deliverability",
+      "title": "Volume beats perfection",
+      "rule": "Students who sent 2,500+ emails had the highest success rate; no single email deserves more than about ten minutes. The workflow keeps quality by drafting, not by slowing the pipeline.",
+      "level": "should",
+      "src": [
+        {
+          "doc": "module 3 brands/3.Volume is the 1 Key To Success",
+          "quote": "Students who sent 2,500+ emails had the highest success rate."
+        },
+        {
+          "doc": "module 3 brands/3.Volume is the 1 Key To Success",
+          "quote": "Send more emails. Fast. •Max 10 minutes per email-then send it •Don't worry if it's not perfect •Imperfection is fine; inaction is not"
+        },
+        {
+          "doc": "video:module 3 brands/3.Volume is the 1 Key To Success",
+          "quote": "We've also seen that students who sent more than 2,500 emails to brands in total have the highest likelihood of success.",
+          "at": "2:59"
+        },
+        {
+          "doc": "video:module 3 brands/3.Volume is the 1 Key To Success",
+          "quote": "Some will buy, some won't buy, so what? Next door.",
+          "at": "4:18"
+        }
+      ]
+    },
+    {
+      "id": "FND-MIND-05",
+      "stage": "mindset",
+      "title": "Brands are relationships, written with precision",
+      "rule": "Approach brands to build relationships, not to milk them; brands are run by people who buy when they feel understood, so be specific and show you understand their situation.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 3 brands/3.1. Where to find high paying brands",
+          "quote": "Approach brand outreach with a relationship-building mindset."
+        },
+        {
+          "doc": "module 3 brands/3.1. Setting Expectations",
+          "quote": "Brands are run by people. People buy when they feel understood."
+        }
+      ]
+    },
+    {
+      "id": "FND-WRITE-02",
+      "stage": "writing",
+      "title": "Plain words, straight to the point",
+      "rule": "No fancy vocabulary: professional, direct sentences, and complete openness about what is being offered.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 3 brands/3.5. The foot in the door method",
+          "quote": "Don't use any fancy words, be professional but straight to the point."
+        },
+        {
+          "doc": "module 3 brands/3.5. The foot in the door method",
+          "quote": "Don't be snaky about the offer, show them you can get them results, and scale up the money once they trust you."
+        },
+        {
+          "doc": "video:module 7 Call recordings/7.2026.00.00.Abu Lahya 2026 Q&A PT 2",
+          "speaker": "Eyoub El Habib",
+          "quote": "They're gonna spend twenty seconds trying to understand what you're trying to do and decide to reply or ignore it.",
+          "at": "1:32:04"
+        }
+      ]
+    },
+    {
+      "id": "FND-DLV-05",
+      "stage": "deliverability",
+      "title": "Warm the mailbox before sending",
+      "rule": "Turn on warm-up for every sending mailbox and let it run before campaigns (auto-adjusting warm-up against live sending); a warmed domain is the foundation of deliverability.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 3 brands/3.Bonus - SmartLead Campaigns - Coach Osama",
+          "quote": "Don't rush this — a warmed domain is the foundation of everything."
+        },
+        {
+          "doc": "module 3 brands/3.Bonus - SmartLead Campaigns - Coach Osama",
+          "quote": "Enable auto-adjust warm-up/sending ratio — this balances your warm-up against your live sending."
+        }
+      ]
+    },
+    {
+      "id": "FND-DLV-06",
+      "stage": "deliverability",
+      "title": "Verify every address before sending",
+      "rule": "Run lead lists through an email verifier and send only to addresses marked valid; drop catch-all, invalid and risky ones to avoid bounces and blacklists.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 3 brands/3.Bonus - SmartLead Campaigns - Coach Osama",
+          "quote": "Only send to leads marked as accepted. Remove anything flagged as catch-all, invalid, or risky."
+        },
+        {
+          "doc": "module 3 brands/3.Bonus - SmartLead Campaigns - Coach Osama",
+          "quote": "Delete anything that isn't marked \"accepted.\" This protects your domain from bounces and keeps you off blacklists."
+        },
+        {
+          "doc": "video:module 3 brands/3.Bonus - SmartLead Campaigns - Coach Osama",
+          "quote": "You'd rather pay six pounds than lose your domains, and because essentially, if you send emails and the emails keep getting bounced up and stuff like that, you reach out to emails that are not existent",
+          "at": "9:07"
+        }
+      ]
+    },
+    {
+      "id": "FND-DLV-07",
+      "stage": "deliverability",
+      "title": "Sending limits and auto-stops",
+      "rule": "Keep a warmed mailbox around 120 emails a day at most, send in the recipient's time zone, stop a sequence the moment the person replies, and pause it for everyone at a company when anyone there replies.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 3 brands/3.Bonus - SmartLead Campaigns - Coach Osama",
+          "quote": "Daily send limit: 120 emails/day (safe for a warmed domain). - Time zone: Set to your target market (e.g., London for UK brands). - Enable: \"Stop sending when lead replies\" - essential. - Enable: \"Automatically pause sending\" - plain text mode recommended. - Auto-pause by domain (pauses if anyone from the same company replies) - Pro feature, worth upgrading for."
+        },
+        {
+          "doc": "video:module 3 brands/3.Bonus - SmartLead Campaigns - Coach Osama",
+          "quote": "And then emails will be sent every 20 minutes.",
+          "at": "25:10"
+        }
+      ]
+    },
+    {
+      "id": "FND-DLV-08",
+      "stage": "deliverability",
+      "title": "Spam-test before launching",
+      "rule": "Check every new email template through a spam tester and fix flagged words and formatting before it goes out; send plain text.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 3 brands/3.Bonus - SmartLead Campaigns - Coach Osama",
+          "quote": "Copy your email and run it through a spam tester before going live. - This checks your email score and flags any words or formatting that could land you in spam. - Fix any issues before launching - this step saves your campaign."
+        },
+        {
+          "doc": "video:module 3 brands/3.Bonus - SmartLead Campaigns - Coach Osama",
+          "quote": "you normally copy this and paste it into the spam checker to check if there's any spam words.",
+          "at": "26:28"
+        }
+      ]
+    },
+    {
+      "id": "FND-WRITE-03",
+      "stage": "writing",
+      "title": "Vary whole sentences between sends",
+      "rule": "Repeated phrases across sends hurt deliverability; every email varies its sentences — and a varied line is varied as a whole sentence, never a mix of halves.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 3 brands/3.Bonus - SmartLead Campaigns - Coach Osama",
+          "quote": "Spintax lets you write multiple variations of a line and Smartlead randomly picks one for each send."
+        },
+        {
+          "doc": "module 3 brands/3.Bonus - SmartLead Campaigns - Coach Osama",
+          "quote": "If you spintax part of a sentence, you must spintax the full sentence — don't mix it halfway."
+        },
+        {
+          "doc": "video:module 8 Bonuses/8.Abu Lahya Reviewing Emails",
+          "speaker": "Eyoub El Habib",
+          "quote": "I could send ten emails with no words that are the same in each email. There's a difference between systemizing and just copy-pasting.",
+          "at": "32:45"
+        }
+      ]
+    },
+    {
+      "id": "FND-FMT-03",
+      "stage": "formatting",
+      "title": "A comma after the name",
+      "rule": "Greetings put a comma after the name ('Hi Sarah,').",
+      "level": "should",
+      "src": [
+        {
+          "doc": "module 3 brands/3.Bonus - SmartLead Campaigns - Coach Osama",
+          "quote": "Always put a comma after the name — Hi [Name], not Hi [Name] — small detail, big difference."
+        }
+      ]
+    },
+    {
+      "id": "FND-WRITE-04",
+      "stage": "writing",
+      "title": "AI drafts need context and a human edit",
+      "rule": "AI output is only as good as the context it is given (role, situation, goal, format, what to avoid), and copying it without refining makes outreach robotic. The workflow feeds full case context and a person reviews every draft before it goes out.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 3 brands/3.5. How to Use AI Like a Pro",
+          "quote": "The key is to give it full context and structure your prompts so the output is exactly what you need."
+        },
+        {
+          "doc": "module 3 brands/3.5. How to Use AI Like a Pro",
+          "quote": "If you copy-paste everything AI generates without refining it, you’ll never improve—and your outreach will sound robotic and ineffective."
+        },
+        {
+          "doc": "video:module 2 influencers/2.6. Common Mistakes When Messaging Influencers",
+          "quote": "Learn how to actually write emails first, then automate, right?",
+          "at": "3:58"
+        },
+        {
+          "doc": "video:module 3 brands/3.5. How to Use AI Like a Pro",
+          "quote": "Not just like, hey, reply to this email. Because then it doesn't know anything, it doesn't have the full context, it doesn't have nothing. But if you give it the entire context, you get crazy, crazy good answers.",
+          "at": "1:07"
+        },
+        {
+          "doc": "video:module 3 brands/3.5. How to Use AI Like a Pro",
+          "quote": "Sometimes they actually leave template stuff inside. So they're like, they send me a cool email and there's like brand name inside the thing.",
+          "at": "14:17"
+        }
+      ]
+    },
+    {
+      "id": "FND-WRITE-05",
+      "stage": "writing",
+      "title": "Mid-conversation follow-ups need a real working day in between",
+      "rule": "Follow up only on working days and only after the person had a real working window (a Friday 4 pm message waits until Tuesday afternoon; holidays add time). Keep following up until they answer, spacing each nudge further apart.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 5 FAQs/5.How can I follow up mid-conversation",
+          "quote": "If there hasn’t been a solid workday window between your last message and the follow-up, wait it out."
+        },
+        {
+          "doc": "module 5 FAQs/5.How can I follow up mid-conversation",
+          "quote": "you should keep following up until they respond, while delaying each follow up more and more to avoid looking spammy and robotic."
+        },
+        {
+          "doc": "video:module 2 influencers/2.8. Follow-ups",
+          "quote": "If you send a message on Thursday, wait until Tuesday next week, for example, to start following up",
+          "at": "11:34"
+        }
+      ]
+    },
+    {
+      "id": "FND-MIND-06",
+      "stage": "mindset",
+      "title": "Light follow-ups by default, heavy only when it matters",
+      "rule": "Most follow-ups are light and friendly (a bump, a touch of humor). When a real deal is stalling, a heavier one states the true consequence respectfully (e.g. the brand will move on) — never confrontational, never invented.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 5 FAQs/5.When should I use a light or heavy follow-up",
+          "quote": "Use light follow-ups most of the time-things like: \"Hey, just bumping this to the top of your inbox in case it got buried. Looking forward to your thoughts!"
+        },
+        {
+          "doc": "module 5 FAQs/5.When should I use a light or heavy follow-up",
+          "quote": "But, when things are getting serious and you’re not getting the response you need, it’s time for a heavier follow-up."
+        }
+      ]
+    },
+    {
+      "id": "FND-WRITE-06",
+      "stage": "writing",
+      "title": "Replies: warm, contextual, one ask, easy to answer",
+      "rule": "Concise is not curt: thank them when they first reply, give a line of context, and make one request; once the conversation is running, skip the thanks and go straight to the point. Avoid stacking several asks, and offer simple options they can answer in a word ('brand awareness or direct ROI?').",
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 5 FAQs/5.How to Reply to Emails Professionally and Clearly",
+          "quote": "Example: \"Hey, please send your media kit.\" This comes across as cold and like you don’t care."
+        },
+        {
+          "doc": "module 5 FAQs/5.How to Reply to Emails Professionally and Clearly",
+          "quote": "Instead of asking broad questions, give them simple options so they can reply quickly."
+        },
+        {
+          "doc": "video:module 4 service delivery/4.5. Post Campaign Delivery - Coach Michael",
+          "quote": "This is always your goal when it comes to communication. You're making everyone's life easier.",
+          "at": "3:44"
+        },
+        {
+          "doc": "video:module 2 influencers/2.7. Good vs Bad examples of approaching influencers",
+          "quote": "You're asking one question, and that's the only thing you're trying to get. Especially if it's the first email you're sending. If it's later on, you can maybe ask two questions or three questions maximum",
+          "at": "10:56"
+        },
+        {
+          "doc": "call:qv1ptHdMsFd6ysPWTbyAtYQHi9YXZy4z",
+          "quote": "maybe you say that for a person, after that, you're in conversation with a person, you don't just keep saying, thank you, thank you, thank you, you don't keep thanking him, so we got straight away, which we like"
+        }
+      ]
+    },
+    {
+      "id": "FND-WRITE-07",
+      "stage": "writing",
+      "title": "Precision: name the brands, describe the audience",
+      "rule": "Never 'a few brands in mind' or 'our audience aligns perfectly': name the brands and describe the audience concretely (who, where, why they need the product). Vagueness is the usual reason replies do not come.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 5 FAQs/5.Be Clear and Personal in Outreach",
+          "quote": "Instead of saying you have \"a few brands in mind,\" you should name the actual brands you're thinking about."
+        },
+        {
+          "doc": "module 5 FAQs/5.Be Clear and Personal in Outreach",
+          "quote": "If you’re not getting high response rates or closing deals after 2-3 emails, it’s because your outreach is too vague."
+        },
+        {
+          "doc": "video:module 2 influencers/2.7. Good vs Bad examples of approaching influencers",
+          "quote": "you didn't mention the platform, you didn't mention who they guys were. You just said they had half a million followers. It's too vague. It doesn't make any sense. And it's multiple influencers combining that. It's confusing. They don't know how many.",
+          "at": "29:12"
+        }
+      ]
+    },
+    {
+      "id": "FND-DLV-09",
+      "stage": "deliverability",
+      "title": "No brand emails on weekends",
+      "rule": "Brands are emailed Monday to Friday only (Tuesday and Thursday answer best); a weekend email to a brand just lowers the reply chance. Creators can be written on weekends, though it is not ideal. Gaps between follow-ups are counted in working days: a Friday email followed up on Tuesday is two days, not four. Sending consistently every working day, with the follow-ups planned, matters more than the day of the week.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 5 FAQs/5.Can I reach out to a brand on a weekend",
+          "quote": "For brands, there is little to 0% chance that an employee would be working the weekend, so you're just decreasing your chances of them replying to you."
+        },
+        {
+          "doc": "module 5 FAQs/5.Can I reach out to a brand on a weekend",
+          "quote": "For influencers, you can get away messaging them on weekends (which isn't optimal anyway), but is not a disaster."
+        },
+        {
+          "doc": "call:XdvowjRCRkd_rPJyaDxKUUMSxEddGdrF",
+          "quote": "It's more about consistency and doing it all the time, and doing it on volume, rather than on which specific day."
+        },
+        {
+          "doc": "call:SskYfT675whFCXSwyryzy41upQyXxs8z",
+          "quote": "So if they're based in New York, just email them at New York time."
+        },
+        {
+          "doc": "call:r3s4v68ohZLri_xLymj1yMiPVcbhs_J3",
+          "quote": "Monday is because I think a lot of people will be back at work on Monday."
+        },
+        {
+          "doc": "call:CBzcE5pEbt9p38WeHsmWHTP5t9vNtwui",
+          "quote": "As as this is not five-day gap, it's just two-day or one-day gap, because we don't count a weekend, because basically they're not working, you know, so usually just count those working days."
+        }
+      ]
+    },
+    {
+      "id": "FND-ETH-03",
+      "stage": "ethics",
+      "title": "Emergency social proof: last resort, true, owner-approved",
+      "rule": "When a prospect insists on social proof the agency does not have, try everything else first (redirect, offer specifics, examples). Mentioning an incubator of agency owners or an advisor is allowed only as a last resort, only if true, without names — and the workflow asks a person before using it.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 5 FAQs/5.Emergency Social Proof Strategy",
+          "quote": "Use this only as a last resort to build trust."
+        },
+        {
+          "doc": "module 5 FAQs/5.Emergency Social Proof Strategy",
+          "quote": "Stay truthful and respectful. Don’t exaggerate or make claims that could backfire."
+        }
+      ]
+    },
+    {
+      "id": "FND-MIND-07",
+      "stage": "mindset",
+      "title": "Frame every offer by what they gain",
+      "rule": "Present proposals from the other side's benefit (a CPM deal framed as paying only for real results), never only from what the agency gets.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 5 FAQs/5.Focusing on your Prospects Benefits",
+          "quote": "When making offers with brands or influencers, always focus on their benefits, not just your own."
+        }
+      ]
+    },
+    {
+      "id": "FND-WRITE-08",
+      "stage": "writing",
+      "title": "One idea, connected sentences, an obvious next step",
+      "rule": "Each email carries one idea; every sentence leads into the next (observation → reason for writing → request), and the call to action is unmistakable. Readers skim the subject, the first lines and the ending.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 5 FAQs/5.How to Write Good Emails",
+          "quote": "One Idea Per Email: Focus on a single subject throughout the email."
+        },
+        {
+          "doc": "module 5 FAQs/5.How to Write Good Emails",
+          "quote": "Imagine the lowest attention span reader trying to understand."
+        },
+        {
+          "doc": "video:module 8 Bonuses/8.Abu Lahya Reviewing Emails",
+          "speaker": "Eyoub El Habib",
+          "quote": "you don't want to waste people's time. But then you still need context and you still need c connectors.",
+          "at": "37:08"
+        }
+      ]
+    },
+    {
+      "id": "FND-DLV-10",
+      "stage": "deliverability",
+      "title": "Not closing? Usually volume",
+      "rule": "When deals are not closing, the first fix is more outreach (50-100 a day; three to ten times what you do now) — volume also brings the rejections that teach.",
+      "level": "should",
+      "src": [
+        {
+          "doc": "module 5 FAQs/5.I'm struggling to close deals",
+          "quote": "If you're struggling with closing deals, it’s likely a volume problem."
+        },
+        {
+          "doc": "module 5 FAQs/5.I'm struggling to close deals",
+          "quote": "I was sending out 50-100 emails a day and closing one client a week max."
+        },
+        {
+          "doc": "video:module 1 welcome/1.12. PRACTICAL PRODUCTIVITY TIPS TO BE EFFICIENT",
+          "quote": "There is a direct correlation to how much outreach you do, to how much money you make.",
+          "at": "3:28"
+        }
+      ]
+    },
+    {
+      "id": "FND-DLV-11",
+      "stage": "deliverability",
+      "title": "YouTube contact lookups are rate-limited",
+      "rule": "Review a creator's profile before revealing their business email (lookups are capped), and keep prospecting on a dedicated account.",
+      "level": "tip",
+      "src": [
+        {
+          "doc": "module 5 FAQs/5.Youtube Email Limit",
+          "quote": "Use a separate email account dedicated to prospecting influencers."
+        }
+      ]
+    },
+    {
+      "id": "FND-CHAN-01",
+      "stage": "channels",
+      "title": "Instagram outreach from the personal account",
+      "rule": "Send Instagram DMs from the existing, reasonably professional personal account; a new low-follower 'agency' account signals a small, inexperienced agency.",
+      "level": "should",
+      "src": [
+        {
+          "doc": "module 5 FAQs/5.Do I need a new Instagram account",
+          "quote": "A new \"agency\" account with low followers screams \"small, inexperienced agency.\" Not the vibe you want."
+        }
+      ]
+    },
+    {
+      "id": "FND-MIND-08",
+      "stage": "mindset",
+      "title": "Cold outreach: the only goal is a reply",
+      "rule": "Cold means no relationship yet; the first message only has to earn a reply — closing comes later. Every message moves the person from cold to warm, so a no today can turn into a yes months later.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 1 welcome/1.1. Introduction to Cold Email - Coach Ammar",
+          "quote": "Your only objective in a cold email is to get a reply."
+        },
+        {
+          "doc": "module 1 welcome/1.1. Introduction to Cold Email - Coach Ammar",
+          "quote": "A no today can become a yes months later, because now they know who you are."
+        },
+        {
+          "doc": "video:module 1 welcome/1.1. Introduction to Cold Email - Coach Ammar",
+          "quote": "First email exists only for you to get a reply. That's all.",
+          "at": "2:03"
+        }
+      ]
+    },
+    {
+      "id": "FND-DLV-12",
+      "stage": "deliverability",
+      "title": "Three pillars: setup, list, copy",
+      "rule": "Outreach only works when the technical setup (domains, email health), the lead list and the copy all work together; the workflow checks all three, not just the wording.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 1 welcome/1.1. Introduction to Cold Email - Coach Ammar",
+          "quote": "Lead Gen Jay breaks cold email down into three pillars that all have to work together. Miss one and the whole system underperforms. - Technical setup. Your domain, email health, and sending infrastructure. - Lead list. The people you're reaching out to, whether influencers or brand contacts. - Copy. What you actually say in the email."
+        },
+        {
+          "doc": "video:module 7 Call recordings/7.2026.00.00.Abu Lahya 2026 Q&A PT 2",
+          "speaker": "Eyoub El Habib|Michael Coppotelli",
+          "quote": "If you improve your emails and you still don't get any improvement on the response rate, you probably have a deliverability issue.",
+          "at": "1:06:11"
+        }
+      ]
+    },
+    {
+      "id": "FND-WRITE-09",
+      "stage": "writing",
+      "title": "The two-recipients test",
+      "rule": "If the same email could go unchanged to two completely different people, it has no personalization. Using the person's name is the minimum.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 1 welcome/1.2. How to Write a Cold Email - Coach Ammar",
+          "quote": "if you could send the exact same email to both of them, it has no personalization."
+        },
+        {
+          "doc": "module 1 welcome/1.2. How to Write a Cold Email - Coach Ammar",
+          "quote": "Even using someone's name, something most emails skip, creates a connection a copy-paste template never will."
+        },
+        {
+          "doc": "video:module 1 welcome/1.2. How to Write a Cold Email - Coach Ammar",
+          "quote": "If your personalization is. That you can send the same exact email to Mr. Beast and Mufti Mank. That's no personalization. If you say, hey, I watch your content, amazing stuff, and you just maybe change the title of the video, maybe try to change one thing, it's not good.",
+          "at": "2:09"
+        },
+        {
+          "doc": "video:module 1 welcome/1.2. How to Write a Cold Email - Coach Ammar",
+          "quote": "if someone is calling you by your name, even if you don't know that person, you will be like, okay, yeah, there's a connection.",
+          "at": "0:32"
+        },
+        {
+          "doc": "video:module 2 influencers/2.7. Good vs Bad examples of approaching influencers",
+          "quote": "If you can copy paste your message literally and send it to another influencer, you know you have a trash email.",
+          "at": "18:09"
+        }
+      ]
+    },
+    {
+      "id": "FND-WRITE-10",
+      "stage": "writing",
+      "title": "About them, not about us",
+      "rule": "Flip the ratio: one line specific to the recipient beats five about the agency. Openers like 'I hope this email finds you well, my name is… and I run an agency' center the sender and could go to anyone.",
+      "dont": [
+        "'I hope this email finds you well'",
+        "Opening with your name and your agency",
+        "Time-of-day greetings ('Morning', 'Good evening'): an email is read whenever they open it"
+      ],
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 1 welcome/1.2. How to Write a Cold Email - Coach Ammar",
+          "quote": "Watch your ratio: three sentences about yourself equals one sentence about them. Flip it."
+        },
+        {
+          "doc": "module 1 welcome/1.2. How to Write a Cold Email - Coach Ammar",
+          "quote": "\"I hope this email finds you well, my name is Ammar and I run an influencer marketing agency.\""
+        },
+        {
+          "doc": "video:module 1 welcome/1.5. Marketing crash course",
+          "quote": "Literally, whenever myself I answer DMs from people who want to sell me something, the thing I'm repulsed by is guys who say, Hey, I am, I am, I am, and I'm getting, and I'm giving you, and I'm like, I hate this. The things I like are when people DM me, they're like, Hey, I know you have XYZ problems. I want to help you solve XYZ problems.",
+          "at": "4:21"
+        },
+        {
+          "doc": "video:module 1 welcome/1.2. How to Write a Cold Email - Coach Ammar",
+          "quote": "Three sentences about you is the same as one sentence about him. So, super, super important. I run an agency, I do this, I do this. No, hey, I saw you have no partnerships in this video. Let me help you.",
+          "at": "3:45"
+        },
+        {
+          "doc": "call:KYQEurfX6DLmBvFgBbVv-7Z1vUaF1xMo",
+          "quote": "Because they get tons and tons of emails. That's why I love the time introducing yourself, sometimes it's just useless, right?"
+        },
+        {
+          "doc": "call:D4LjueQ-zZFPt3gT_PmDE2eYYp5bU73d",
+          "quote": "And this first line should be like a hook. If you watch TikToks, if you're watching anything on social media, you will see those three seconds are the most important."
+        },
+        {
+          "doc": "call:hgLutVExzQLPzcCgyyu9HSCJ9NivEo4S",
+          "quote": "Guys, do not use these time, how we call them? Time-related greetings or something. Morning, evening, make no sense. Why? Because email at slow pace."
+        }
+      ]
+    },
+    {
+      "id": "FND-WRITE-11",
+      "stage": "writing",
+      "title": "Write at a 4th-grade reading level",
+      "rule": "Simple words and short sentences for a busy reader with no reason to care yet; no LinkedIn vocabulary or corporate phrasing.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 1 welcome/1.2. How to Write a Cold Email - Coach Ammar",
+          "quote": "Write at a 4th grade reading level. Skip the LinkedIn vocabulary and corporate phrasing."
+        },
+        {
+          "doc": "video:module 1 welcome/1.2. How to Write a Cold Email - Coach Ammar",
+          "quote": "But hey, write plainly. No one likes LinkedIn vocabulary. I'm thrilled to announce that I will do this. No, trust me. Fourth grade reading level. That's all you need. why? it's frictionless, it's easy to go through. even if he is busy, they will easily skim through your email and have a good understanding what that email is about.",
+          "at": "4:05"
+        },
+        {
+          "doc": "video:module 8 Bonuses/8.Abu Lahya Reviewing Emails",
+          "speaker": "Ammar Halilovic|Eyoub El Habib",
+          "quote": "One tip, super huge tip. Keep uh keep it below third grade. You know, always below third grade. Because elevating, uh, impressive supported devices, expanding, people don't know what it is.",
+          "at": "15:02"
+        }
+      ]
+    },
+    {
+      "id": "FND-MIND-09",
+      "stage": "mindset",
+      "title": "Power dynamics and thinking a few moves ahead",
+      "rule": "Be ready to walk away while staying respectful and pleasant; plan the conversation a few steps ahead — short messages first to get a reply, then create the need before presenting the offer. Before sending, read it as the recipient: short, clear, confident, nice, not needy?",
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 1 welcome/1.2. Learn how to Communicate(most important course)",
+          "quote": "Maintain a balance of power by being ready to walk away from a deal while still being respectful and nice to deal with."
+        },
+        {
+          "doc": "module 1 welcome/1.2. Learn how to Communicate(most important course)",
+          "quote": "Create a pain point or a need before presenting your offer to make it more relevant and appealing."
+        },
+        {
+          "doc": "module 1 welcome/1.2. Learn how to Communicate(most important course)",
+          "quote": "Check your first impression: Is it short? Is it clear? Is it confident? Is it nice?"
+        },
+        {
+          "doc": "video:module 1 welcome/1.2. Learn how to Communicate(most important course)",
+          "quote": "what is the shortest message I can send that would trigger him to reply to me without being weird or without diverting too much from the subject I want to get into?",
+          "at": "31:31"
+        },
+        {
+          "doc": "video:module 1 welcome/1.2. Learn how to Communicate(most important course)",
+          "quote": "you can create a pain point before presenting your offer so that you have ammo.",
+          "at": "36:37"
+        },
+        {
+          "doc": "video:module 1 welcome/1.2. Learn how to Communicate(most important course)",
+          "quote": "And before sending any emails, any messages, ask yourself. How am I perceived? What would they think or believe when they read this?",
+          "at": "9:24"
+        },
+        {
+          "doc": "video:module 2 influencers/2.SECRET SAUCE Influencer Negotiation - Coach Osama",
+          "quote": "Always, always, when you're about to send an email, think about the backlash that you might get from it and how you would respond",
+          "at": "53:15"
+        },
+        {
+          "doc": "video:module 3 brands/3.5. How to Use AI Like a Pro",
+          "quote": "Then, you can get it vouched directly by asking the AI to review your emails, act as influencer name, and critique the speech from their perspective.",
+          "at": "8:38"
+        }
+      ],
+      "steps": [
+        "Name the end goal with this person (a commission, a sale, a lower rate)",
+        "Plan the two to four messages that lead there; the first one only has to earn a reply",
+        "Before the offer, bring out a true need (e.g. no sponsors on recent videos) so the offer answers it",
+        "Before sending, reread it as the recipient: how does this make us look?"
+      ]
+    },
+    {
+      "id": "FND-DLV-13",
+      "stage": "deliverability",
+      "title": "About 50 emails per inbox per day; scale with domains",
+      "rule": "Each inbox handles about 50 emails a day (roughly 10 warm-up, 35 outreach including follow-ups, 5 kept for replies). Scale by adding domains with two inboxes each, never by pushing one inbox harder; every new inbox warms up first.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 1 welcome/1.4. Volume Limits Explained - Coach Ammar",
+          "quote": "the sweet spot sits around fifty emails per inbox per day."
+        },
+        {
+          "doc": "module 1 welcome/1.4. Volume Limits Explained - Coach Ammar",
+          "quote": "The formula is multiple domains with two inboxes per domain, so reaching 1,000 emails a day takes roughly ten domains at two inboxes each."
+        },
+        {
+          "doc": "video:module 1 welcome/1.4. Volume Limits Explained - Coach Ammar",
+          "quote": "Four weeks, two, three months, and then you can increase. Uh nowadays, more domains, less emails, which means you have uh two domains. It's better to have two domains And four emails, two inboxes from each domain.",
+          "at": "1:32"
+        }
+      ]
+    },
+    {
+      "id": "FND-DLV-14",
+      "stage": "deliverability",
+      "title": "Never cold email from the main domain",
+      "rule": "Cold outreach runs on domain variations (agency.net, agencyhq.com…), so a blacklisted outreach domain is retired and the main domain — the one important business email and the website depend on — stays clean.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 1 welcome/1.4. Volume Limits Explained - Coach Ammar",
+          "quote": "Never run cold outreach from your main agency domain."
+        },
+        {
+          "doc": "module 1 welcome/1.3. Domain Registration & DNS Basics",
+          "quote": "Your main domain (the one used for your website) must NEVER be used for cold email outreach."
+        },
+        {
+          "doc": "video:module 1 welcome/1.3. Domain Registration & DNS Basics",
+          "quote": "So that's why it's super important to save your main domain and use subdomains for your outreach.",
+          "at": "2:14"
+        },
+        {
+          "doc": "video:module 1 welcome/1.3. Domain Registration & DNS Basics",
+          "quote": "If you have a burned domain, you cannot use it anymore.",
+          "at": "1:32"
+        }
+      ]
+    },
+    {
+      "id": "FND-DLV-15",
+      "stage": "deliverability",
+      "title": "Volume amplifies quality — good or bad",
+      "rule": "A thousand bad emails make a thousand people associate the agency with spam, and three flags at one company can block it company-wide; get the message right before scaling it.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 1 welcome/1.4. Volume Limits Explained - Coach Ammar",
+          "quote": "Three people at the same company flagging you is enough to get you blocked company-wide."
+        },
+        {
+          "doc": "module 1 welcome/1.4. Volume Limits Explained - Coach Ammar",
+          "quote": "Volume doesn't create quality, it amplifies whatever you're already sending, so get the email right before you scale it."
+        }
+      ]
+    },
+    {
+      "id": "FND-ETH-04",
+      "stage": "ethics",
+      "title": "The business rules: honest, clear, consensual, no deception",
+      "rule": "Brokering between brands and creators is permissible when the service is honest, nothing haram is promoted and agreements are clear. Every message and deal respects: truthfulness, fulfilling contracts, no interest, no unclear terms, mutual consent, no cooperation in sin, no deception.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 1 welcome/1.8. Halal & Haram Aspects of IMA",
+          "quote": "An influencer marketing agency is a broker — connecting brands with influencers."
+        },
+        {
+          "doc": "module 1 welcome/1.8. Halal & Haram Aspects of IMA",
+          "quote": "\"Whoever deceives us is not one of us.\""
+        }
+      ]
+    },
+    {
+      "id": "FND-ETH-05",
+      "stage": "ethics",
+      "title": "Screen every brand: nothing haram is promoted",
+      "rule": "Never prospect or accept a brand whose product is haram (intoxicants, pork, drugs, musical instruments, interest-based finance and the like). The workflow flags uncertain categories for a person to decide.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 1 welcome/1.8. Halal & Haram Aspects of IMA",
+          "quote": "Forbidden things cannot be sold or promoted — such as intoxicants, pork, drugs, or musical instruments."
+        },
+        {
+          "doc": "module 1 welcome/1.8. Halal & Haram Aspects of IMA",
+          "quote": "A Muslim cannot help promote or support something Haram."
+        }
+      ]
+    },
+    {
+      "id": "FND-ETH-06",
+      "stage": "ethics",
+      "title": "Screen every creator: their main content must be halal",
+      "rule": "Do not work with creators whose primary content is haram. Music elsewhere in a creator's content does not block a deal when the ad itself and the brand are clean.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 1 welcome/1.8. Halal & Haram Aspects of IMA",
+          "quote": "Do NOT work with influencers whose primary content is Haram"
+        },
+        {
+          "doc": "module 1 welcome/1.8. Halal & Haram Aspects of IMA",
+          "quote": "If the ad YOU place is Halal, the music in the surrounding content is not your responsibility."
+        }
+      ]
+    },
+    {
+      "id": "FND-ETH-07",
+      "stage": "ethics",
+      "title": "Female and couple creators: the course's position (owner decides the policy)",
+      "rule": "The course strongly recommends avoiding female creators entirely and forbids female fitness creators; couple creators only with conditions (hijab, no intimate moments, nothing aimed at male attention). The agency's exact policy is a house choice; until set, the workflow follows the course and flags such creators.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 1 welcome/1.8. Halal & Haram Aspects of IMA",
+          "quote": "Section 4.1: Working with Female Influencers Strong Recommendation: Avoid Completely"
+        },
+        {
+          "doc": "module 1 welcome/1.8. Halal & Haram Aspects of IMA",
+          "quote": "Female fitness influencers: Absolutely forbidden"
+        }
+      ]
+    },
+    {
+      "id": "FND-ETH-08",
+      "stage": "ethics",
+      "title": "Boycotts are the owner's call",
+      "rule": "Working with a brand is permissible unless it directly harms Muslims or its product is haram; boycotting is a rewardable personal choice. Which brands the agency boycotts is a house choice.",
+      "level": "should",
+      "src": [
+        {
+          "doc": "module 1 welcome/1.8. Halal & Haram Aspects of IMA",
+          "quote": "Each person decides based on intention and conscience."
+        }
+      ]
+    },
+    {
+      "id": "FND-DLV-16",
+      "stage": "deliverability",
+      "title": "Sender setup: outreach domain, human name, authenticated",
+      "rule": "Send from a professional address on a separate outreach domain that looks like the main brand (never @gmail, never the main domain), with a real person's name (never contact@, info@, support@), and with SPF, DKIM and DMARC set up — broken authentication goes straight to spam.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 1 welcome/1.4. Setting up Your Emails",
+          "quote": "If the email doesn’t sound like a real person, your reply rate will drop."
+        },
+        {
+          "doc": "module 1 welcome/1.6. Email Deliverability Training (2026 Update)",
+          "quote": "If SPF + DKIM + DMARC are broken → you automatically spam."
+        },
+        {
+          "doc": "module 1 welcome/1.6. Email Deliverability Training (2026 Update)",
+          "quote": "Your outreach domain must look almost identical to your main brand."
+        },
+        {
+          "doc": "video:module 1 welcome/1.3. Domain Registration & DNS Basics",
+          "quote": "stay away from these: contact, info, support, admin team, partnerships, etc.",
+          "at": "9:20"
+        }
+      ]
+    },
+    {
+      "id": "FND-DLV-17",
+      "stage": "deliverability",
+      "title": "Warm-up before outreach, and keep it running",
+      "rule": "A new inbox warms up before any cold sending (the warm-up lesson says 14 days minimum, the 2026 update says Google now needs 30-90 days of behavior), starts slow (10-20 outreach a day, then 30), and keeps warm-up running in the background. Exact numbers are a house choice; the default is the stricter one.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 1 welcome/1.5. Warming Up Your Emails",
+          "quote": "Warm-up duration: Minimum 14 days before starting outreach."
+        },
+        {
+          "doc": "module 1 welcome/1.6. Email Deliverability Training (2026 Update)",
+          "quote": "Google now prioritizes 30–90 days of behavior before building strong trust with you."
+        },
+        {
+          "doc": "module 1 welcome/1.5. Warming Up Your Emails",
+          "quote": "Keep warm-up running in the background even after starting outreach to maintain inbox trust."
+        },
+        {
+          "doc": "video:module 1 welcome/1.3. Domain Registration & DNS Basics",
+          "quote": "Once when you set up your instantly, And your email to warm-up, don't use or don't send emails for at least two weeks",
+          "at": "38:29"
+        }
+      ]
+    },
+    {
+      "id": "FND-DLV-18",
+      "stage": "deliverability",
+      "title": "Daily caps per mailbox and list hygiene",
+      "rule": "2026 caps per mailbox: creators 40-70/day in month 1, 80-120 in months 2-3; brands 20-40 then 40-70; never above 150. Keep bounces under 3%, clean lists weekly and test inbox placement weekly. (Other lessons give 35, 50 or 120 per inbox — see house choices.)",
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 1 welcome/1.6. Email Deliverability Training (2026 Update)",
+          "quote": "NEVER exceed 150/day per mailbox. Google tracks volume and patterns."
+        },
+        {
+          "doc": "module 1 welcome/1.6. Email Deliverability Training (2026 Update)",
+          "quote": "Months 1-3: Increase slowly 100-150/day max across mailboxes High engagement Low bounce rate (<3%) Google must trust your domain before it inboxes you."
+        }
+      ]
+    },
+    {
+      "id": "FND-WRITE-12",
+      "stage": "writing",
+      "title": "Spam-trigger and hype words",
+      "rule": "Never use the course's spam magnets — 'offer', 'guarantee', 'opportunity', 'revenue', 'grow your brand', 'we help influencers…' — or hype language (scale, guaranteed, grow fast). Say it plainly instead ('quick idea', 'confident in the results', 'better results').",
+      "dont": [
+        "offer",
+        "guarantee",
+        "opportunity",
+        "revenue",
+        "grow your brand",
+        "we help influencers",
+        "scale",
+        "guaranteed",
+        "grow fast",
+        "Money words in a cold email: 'money', 'free', dollar signs or price figures"
+      ],
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 1 welcome/1.6. Email Deliverability Training (2026 Update)",
+          "quote": "Using hype language (revenue, scale, guaranteed, grow fast, etc.)"
+        },
+        {
+          "doc": "module 1 welcome/1.6. Email Deliverability Training (2026 Update)",
+          "quote": "Words like: - \"Offer\" - \"Guarantee\" - \"Opportunity\" - \"Revenue\" - \"Grow your brand\""
+        },
+        {
+          "doc": "video:module 7 Call recordings/7.2026.00.00.Abu Lahya 2026 Q&A PT 1",
+          "speaker": "Eyoub El Habib",
+          "quote": "just avoid using trigger words. Get rich now quickly, like don't don't send that",
+          "at": "39:00"
+        },
+        {
+          "doc": "call:XbYHTQzY6zYVEZhYXxT5gojYHeHZ5Zdo",
+          "quote": "anything that's money related could be spam bro, so be careful, be careful, never, you should never post or type any, any dollar, money, guarantee, free, and you have them a lot"
+        }
+      ]
+    },
+    {
+      "id": "FND-WRITE-13",
+      "stage": "writing",
+      "title": "Write it like a text message",
+      "rule": "Outreach reads like one person texting another: no paragraphs, no corporate or agency language, no pitch. Roughly 40% personalization (a post, a collab, a number), 40% one-line reason for writing, 20% a relaxed call to action ('worth showing you?', 'open to it?').",
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 1 welcome/1.6. Email Deliverability Training (2026 Update)",
+          "quote": "Rule 3 - Your email must read like a text message Not corporate. Not \"agency language.\" Not salesy."
+        },
+        {
+          "doc": "module 1 welcome/1.6. Email Deliverability Training (2026 Update)",
+          "quote": "Write like a friend texting another friend."
+        }
+      ]
+    },
+    {
+      "id": "FND-DLV-19",
+      "stage": "deliverability",
+      "title": "Cold sequences: two or three touches",
+      "rule": "Google now treats 6-10 step cold sequences as aggressive and ignored emails lower the domain score: automated cold sequences stop after 2-3 touches. The influencer follow-up lesson teaches up to six; how many the workflow sends is house choice HC-17, then only a new thread with real news or nothing.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 1 welcome/1.6. Email Deliverability Training (2026 Update)",
+          "quote": "Long outreach sequences with 6–10 emails → now a red flag."
+        },
+        {
+          "doc": "module 1 welcome/1.6. Email Deliverability Training (2026 Update)",
+          "quote": "Short sequences (2-3 emails max) Old system: 6-10 email sequences New system: 2-3 touchpoints ONLY Why? Because ignored emails destroy your engagement score"
+        }
+      ]
+    },
+    {
+      "id": "FND-WRITE-14",
+      "stage": "writing",
+      "title": "Near-identical emails get the domain blocked",
+      "rule": "Anything that reads templated, robotic, corporate or mass-generated is flagged, and many near-identical emails get the domain blocked — every email must differ in substance, not just the name.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 1 welcome/1.6. Email Deliverability Training (2026 Update)",
+          "quote": "If Google sees 50 nearly identical emails, it blocks the domain."
+        },
+        {
+          "doc": "module 1 welcome/1.6. Email Deliverability Training (2026 Update)",
+          "quote": "Anything that looks templated, robotic, corporate, or mass-generated → flagged."
+        }
+      ]
+    },
+    {
+      "id": "FND-DLV-20",
+      "stage": "deliverability",
+      "title": "Batch by email provider",
+      "rule": "Gmail, Outlook, Yahoo and company domains behave differently: send in separate batches and test placement for each.",
+      "level": "should",
+      "src": [
+        {
+          "doc": "module 1 welcome/1.6. Email Deliverability Training (2026 Update)",
+          "quote": "Segment outreach by provider Send different batches to: - Gmail - Outlook - Yahoo - Work domains Each behaves differently. Run inbox tests for each group."
+        }
+      ]
+    },
+    {
+      "id": "FND-MIND-10",
+      "stage": "mindset",
+      "title": "People buy to end a pain or reach an outcome",
+      "rule": "Find the specific pain or desired outcome (usually by homework, before asking), show you understand it, position the offer around it, build trust by being honest, and give a real reason to start now without pressure. B2B buyers also need logical, numeric justification they can show internally.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 1 welcome/1.4. Sales crash course",
+          "quote": "Brands or influencers buy because of one of two reasons: 1. They have a pain they need solved. 2. They have a desired outcome they want to achieve."
+        },
+        {
+          "doc": "module 1 welcome/1.4. Sales crash course",
+          "quote": "Pro tip, you can figure this one out on your own, without asking any questions if you do your homework correctly"
+        },
+        {
+          "doc": "module 1 welcome/1.4. Sales crash course",
+          "quote": "Create Natural Urgency: No pressure tactics. Just explain why starting now makes sense."
+        },
+        {
+          "doc": "video:module 1 welcome/1.4. Sales crash course",
+          "quote": "Either they have a pain that they want to solve or they have a desired outcome that they want to get to.",
+          "at": "0:18"
+        },
+        {
+          "doc": "video:module 1 welcome/1.4. Sales crash course",
+          "quote": "which is business to business which means the sales are very logical they're logical decisions they're not emotionals this is usually why you'll get closer to the dream outcome than closer to the pain when dealing with businesses",
+          "at": "26:21"
+        }
+      ]
+    },
+    {
+      "id": "FND-MIND-11",
+      "stage": "mindset",
+      "title": "Make them feel understood",
+      "rule": "People buy when they feel understood, not merely when you understand them: do the homework before writing (who they are, what they want, what is not working), write it down, and let the message show it.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 1 welcome/1.5. Marketing crash course",
+          "quote": "Most Important Takeaway: People buy when they feel understood, not just when you understand them."
+        },
+        {
+          "doc": "module 1 welcome/1.5. Marketing crash course",
+          "quote": "Before reaching out to anyone—brands or influencers—do your homework."
+        },
+        {
+          "doc": "video:module 1 welcome/1.5. Marketing crash course",
+          "quote": "People buy when they feel understood. Not when you understand them",
+          "at": "1:14"
+        }
+      ]
+    },
+    {
+      "id": "FND-ETH-09",
+      "stage": "ethics",
+      "title": "Be upfront about weaknesses",
+      "rule": "Never hide a crucial weakness (e.g. much of a creator's audience in low-income countries): state it and explain honestly when it matters less (an awareness campaign). Anything that would make a client feel scammed later is disclosed now.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 1 welcome/1.5. Marketing crash course",
+          "quote": "never lie or hide crucial details that would make them feel scammed later."
+        },
+        {
+          "doc": "module 1 welcome/1.5. Marketing crash course",
+          "quote": "If your influencer has a lot of views from low-income countries, be upfront about it."
+        },
+        {
+          "doc": "video:module 1 welcome/1.5. Marketing crash course",
+          "quote": "You have to even tell them things that they did not ask about, if these things would impact their buying decision.",
+          "at": "16:30"
+        },
+        {
+          "doc": "video:module 1 welcome/1.5. Marketing crash course",
+          "quote": "Don't say my guy gets a lot of views. And then don't mention that it's like super low purchase power country's views.",
+          "at": "16:15"
+        },
+        {
+          "doc": "call:FzsBzL_GyPPPhV7zzsfevWMdwp5e6ZSs",
+          "quote": "you can only give an estimate you can say we are assuming this and that because of the content we do because of the audience because of the comments"
+        },
+        {
+          "doc": "call:ynYG5niapsHCbZckr6SCf2fqzp7JpK8G",
+          "quote": "So you can do either one of two things. Either ask the influencer to say, hey, provide me with this data. Yeah. Or the brand straight away, listen, I don't think the influencer has this data."
+        },
+        {
+          "doc": "call:bTyvv89JWsTBysyL1QQ68BDxA6P8sthr",
+          "quote": "if you represent the influencer as a name relation influencer, which they would expect countries from those four countries and he's like 50% is from India, then they're gonna have a bad surprise in the conversion."
+        },
+        {
+          "doc": "call:RAzxuycPYALtcQfgfRUA6KrF2jZLdBwZ",
+          "quote": "I think you could explain it, and I think you could send both of them, and be like, usually, his main audience is from US, but he's been travelling in Japan, that's why"
+        },
+        {
+          "doc": "call:Ec6SWZb-yotR794TQyMBixCNaA7_roM6",
+          "quote": "Then try to, you know, give the details for those two influencers, even if it's bad, then, because if it's bad, you shouldn't have pitching at the beginning."
+        }
+      ]
+    },
+    {
+      "id": "FND-MIND-12",
+      "stage": "mindset",
+      "title": "Three business models, in order",
+      "rule": "Start as a broker (buy a creator's video below market, sell it to a brand); later act as an exclusive agent (15-40% on inbound and outbound deals, around 25% when starting); only an established agency manages brands' budgets.",
+      "level": "should",
+      "src": [
+        {
+          "doc": "module 1 welcome/1.6. The 3 Ways to Make Money With an IMA",
+          "quote": "This is the best way to start making $5,000 to $20,000 a month in profit."
+        },
+        {
+          "doc": "module 1 welcome/1.6. The 3 Ways to Make Money With an IMA",
+          "quote": "You'll be charging 15% to 40%, depending on the workload. Anything around 25% is good when you're starting."
+        },
+        {
+          "doc": "video:module 1 welcome/1.6. The 3 Ways to Make Money With an IMA",
+          "quote": "Long-term play, but when you're starting out, you don't have any leverage, you're just looking to close deals. So, start with being a broker.",
+          "at": "7:37"
+        },
+        {
+          "doc": "video:module 1 welcome/1.6. The 3 Ways to Make Money With an IMA",
+          "quote": "help brands spend their marketing budget and charge them a percentage of what you're spending for them.",
+          "at": "9:48"
+        }
+      ]
+    },
+    {
+      "id": "FND-MIND-13",
+      "stage": "mindset",
+      "title": "Volume with a brain, and realistic reply rates",
+      "rule": "About fifty good, individually different emails a day beat five perfect ones or a hundred AI-generated ones. Normal: ~3% replies overall, 3-5% from creators (up to 10% with follow-ups), lower from brands. Three or four creator replies per hundred means it works; five replies in five hundred means something is broken — check spam placement first. Track daily sending targets, not revenue.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 1 welcome/1.3. Mindset & Misconceptions - Coach Ammar",
+          "quote": "Fifty good emails a day, written by you and each one different, beats both extremes every time."
+        },
+        {
+          "doc": "module 1 welcome/1.3. Mindset & Misconceptions - Coach Ammar",
+          "quote": "If five hundred emails only bring five replies, something is actually broken, so check your spam placement first."
+        },
+        {
+          "doc": "module 1 welcome/1.3. Mindset & Misconceptions - Coach Ammar",
+          "quote": "Track email targets, not revenue targets."
+        },
+        {
+          "doc": "video:module 1 welcome/1.3. Mindset & Misconceptions - Coach Ammar",
+          "quote": "With influencers and creators in general, if you're starting out, it's about 5%. Three to five, it could be better. With follow-ups and stuff, it could go up to 10%.",
+          "at": "3:39"
+        },
+        {
+          "doc": "video:module 1 welcome/1.3. Mindset & Misconceptions - Coach Ammar",
+          "quote": "If you are in three to five percent, good, enjoy it, enjoy it, right? This is good. Everything more, good. Everything less, check your spam, inshallah.",
+          "at": "5:34"
+        },
+        {
+          "doc": "video:module 7 Call recordings/7.2026.00.00.Abu Lahya 2026 Q&A PT 1",
+          "speaker": "Eyoub El Habib",
+          "quote": "Some will buy, some won't buy. So, what? Next email.",
+          "at": "31:45"
+        },
+        {
+          "doc": "video:module 7 Call recordings/7.2026.00.00.Abu Lahya 2026 Q&A PT 2",
+          "speaker": "Eyoub El Habib",
+          "quote": "in one of them, you're offering money for free, in the other one, you're asking for money.",
+          "at": "2:46"
+        }
+      ]
+    },
+    {
+      "id": "FND-WRITE-15",
+      "stage": "writing",
+      "title": "Never copy the course's templates",
+      "rule": "Course examples teach the idea; copying them verbatim is how students stay stuck (and land in spam). Generated messages never reuse a course line.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 1 welcome/1.10. Guidelines & Best Practices",
+          "quote": "If you try to cheat the system — skip modules, copy and paste templates from the course and look for shortcuts — you’ll stay stuck."
+        },
+        {
+          "doc": "call:xC_GL8gDUfAkx9RksRtpysf2goHrYbzP",
+          "quote": "And if you are using the same thing, they will just recognize patterns and they will, you know, they won't answer your emails at best. Usually, they like to block those people, report those people. So, stay away from anything that's template"
+        },
+        {
+          "doc": "call:zVULpcM3WBAaBQxHfCADzjKpznawakkV",
+          "quote": "don't use follow-ups from the course. They are used way too much. They can trigger spam."
+        },
+        {
+          "doc": "call:s7XuMA5xwcnnoX-sxomydVhGxNRZ89yK",
+          "quote": "And who talks like this, bro? They enjoy taking tips. Nah, this is from the course."
+        },
+        {
+          "doc": "call:DwCWtd75Ha4AtC_U-9ARZsg9-zCNfKTg",
+          "quote": "Course material is not good to be used. It's just an example."
+        }
+      ]
+    },
+    {
+      "id": "FND-WRITE-16",
+      "stage": "writing",
+      "title": "What AI may and may not do here",
+      "rule": "AI refines wording, interprets emails, drafts and suggests tactics; it never invents lists of creators or brands and never sets prices. Creators and brands come from real records, prices from the CPM arithmetic, and a person checks facts and decides before anything is sent. Output is plain text, never markdown.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "module 1 welcome/1.9. AI Masterclass How to Use ChatGPT Like a Pro",
+          "quote": "Avoid AI for:\n• Copy-pasting emails directly\n• Listing influencers or brands\n• Pricing influencers or deliverables"
+        },
+        {
+          "doc": "module 1 welcome/1.9. AI Masterclass How to Use ChatGPT Like a Pro",
+          "quote": "Never trust AI outputs blindly.\nAlways cross-check facts, rewrite for tone, and ensure compliance."
+        },
+        {
+          "doc": "video:module 8 Bonuses/8.Abu Lahya Reviewing Emails",
+          "speaker": "Eyoub El Habib",
+          "quote": "The one number one is proofreading. So I s my prompt is literally like semi cum, do not change any single thing besides grammatical mistakes",
+          "at": "30:26"
+        },
+        {
+          "doc": "video:module 8 Bonuses/8.Abu Lahya Reviewing Emails",
+          "speaker": "Eyoub El Habib",
+          "quote": "find like five or ten different angles I could use. And it like triggers an idea, and then I go and I make the idea myself.",
+          "at": "30:51"
+        }
+      ]
+    },
+    {
+      "id": "FND-WRITE-17",
+      "stage": "writing",
+      "title": "Chain the steps: analyse, summarize, then draft",
+      "rule": "One task per step: analyse the data (e.g. is the US audience highest?), summarize the incoming email, then write the reply from both — never one sprawling instruction.",
+      "level": "should",
+      "src": [
+        {
+          "doc": "module 1 welcome/1.9. AI Masterclass How to Use ChatGPT Like a Pro",
+          "quote": "Split large prompts into stages. Bad: \"Analyze analytics, summarize email, and reply.\" Good: 1. \"Analyze the analytics and note if US audience is highest.\" 2. \"Summarize this email: [email].\" 3. \"Write a reply based on analytics and email summary."
+        }
+      ]
+    },
+    {
+      "id": "FND-MIND-14",
+      "stage": "mindset",
+      "title": "Write like the agency that does not need this deal",
+      "rule": "Every message reads as from an agency that wants this client but does not need it: short, unhurried, ready to walk away below its floor, and still pleasant to deal with. Neediness shows in a first message that stacks everything, follow-ups bunched together, big discounts handed out to keep them, and instant replies; once it shows, the deal and the price both get worse.",
+      "do": [
+        "Say the agency wants new clients and good partners, never that it needs them",
+        "Leave normal working time before replying and between follow-ups",
+        "Know the floor (price, margin, fit) before the conversation and hold it"
+      ],
+      "dont": [
+        "Beg, pile follow-ups on top of each other, or rush a discount to keep them",
+        "Swing into arrogance: confident and easy to deal with, never a pain"
+      ],
+      "level": "must",
+      "src": [
+        {
+          "doc": "video:module 1 welcome/1.2. Learn how to Communicate(most important course)",
+          "quote": "How would the best agency in the world act? Do you really think they would send like long emails, five follow-ups within 30 minutes to just try to get the deal? Would they give the huge discounts? Would they reply within one minute to make sure the guy doesn't leave?",
+          "at": "17:11"
+        },
+        {
+          "doc": "video:module 1 welcome/1.2. Learn how to Communicate(most important course)",
+          "quote": "We want new clients. We don't need new clients.",
+          "at": "18:03"
+        },
+        {
+          "doc": "video:module 1 welcome/1.2. Learn how to Communicate(most important course)",
+          "quote": "So, this creates a need of you needing to make money. This need, if expressed, will reduce the chances of you making money.",
+          "at": "14:54"
+        },
+        {
+          "doc": "video:module 1 welcome/1.2. Learn how to Communicate(most important course)",
+          "quote": "don't be a pain to deal with, but learn to walk away from deals.",
+          "at": "27:05"
+        },
+        {
+          "doc": "video:module 2 influencers/2.How to Message Influencers - Coach Ammar",
+          "quote": "if you think I cannot lose this guy, you're needy.",
+          "at": "1:47"
+        },
+        {
+          "doc": "video:module 2 influencers/2.SECRET SAUCE Influencer Negotiation - Coach Osama",
+          "quote": "And the professional approach, as a summary in itself, what is it? It's just being firm, polite, professional, and state the facts.",
+          "at": "12:49"
+        }
+      ]
+    },
+    {
+      "id": "FND-MIND-15",
+      "stage": "mindset",
+      "title": "Business readers buy on logic: no emotional power lines",
+      "rule": "Brands and creators are businesses, so persuade with facts and plain logic. Lines that show indifference ('this deal won't change our life') belong to emotional consumer selling; in a business message they only make the agency look difficult.",
+      "dont": [
+        "Tell a client the deal does not matter to us",
+        "Play hard to get with attitude instead of facts"
+      ],
+      "level": "must",
+      "src": [
+        {
+          "doc": "video:module 1 welcome/1.2. Learn how to Communicate(most important course)",
+          "quote": "And all like caring, changing your life is like emotional. Whereas with business, it is the opposite. It is completely logical. Like straight A one plus one equals two. Like it's very simple. And here, those kind of sentences, like I said, like, you know, I just give you the example with it won't change my life, but just saying here, don't use this with your clients because this doesn't work in B2B.",
+          "at": "20:07"
+        }
+      ]
+    },
+    {
+      "id": "FND-MIND-16",
+      "stage": "mindset",
+      "title": "Two things every buyer needs: trust and a sure payback",
+      "rule": "Whoever buys from the agency (a brand buying a creator, a creator giving us a share) needs two things: to trust and respect us — which comes from how we come across: legit, calm, competent — and to see the money coming back — which comes from an offer that makes sense: the right creator for the product, results before, a clear fit. Every pitch serves both.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "video:module 1 welcome/1.2. Learn how to Communicate(most important course)",
+          "quote": "When you're selling something to someone, they need two things. If you go close to join my program, you have those two things. The first one is that you trust me, the second one is that you know you will make your investments back.",
+          "at": "12:03"
+        },
+        {
+          "doc": "video:module 1 welcome/1.2. Learn how to Communicate(most important course)",
+          "quote": "And the second one. Is they know they can make the investment back, which is more like applicable to the guy itself and to the offer itself. They know they should know the offer is good, it works, the influencer had results before, the offer makes sense.",
+          "at": "13:04"
+        },
+        {
+          "doc": "video:module 7 Call recordings/7.2026.00.00.Abu Lahya 2026 Q&A PT 1",
+          "speaker": "Eyoub El Habib",
+          "quote": "as well as how much of an expert do you look like when you reach out to them? Do you look like you're just trying to sell them an influencer? Do you look like you know how marketing works?",
+          "at": "4:24"
+        }
+      ]
+    },
+    {
+      "id": "FND-WRITE-18",
+      "stage": "writing",
+      "title": "Step by step: the first message never carries the whole pitch",
+      "rule": "Do not put the price, the agency's description, the website and every reason to buy into one opening message. A first message only starts the conversation; the offer and the numbers come once they have engaged and we know what they need.",
+      "dont": [
+        "Open with price, credentials and a full pitch in one block"
+      ],
+      "level": "must",
+      "src": [
+        {
+          "doc": "video:module 1 welcome/1.2. Learn how to Communicate(most important course)",
+          "quote": "Yet, some guys are trying to close influencers or close brands, sending their price. That the company name, the website, the why they're good, everything in one email and just throwing it out. Like for some reason, it would be like a silver bullet, and the guy would just reply, Yes, please bank details so I can send you money. Like, this never happens, you know, it never happens. You need to go step by step.",
+          "at": "29:57"
+        }
+      ]
+    },
+    {
+      "id": "FND-WRITE-19",
+      "stage": "writing",
+      "title": "About five percent warmth",
+      "rule": "Sit closer to dry than gushing, but never cold: a short friendly touch (hoping their weekend went well), now and then a light smiley or a small joke. Use it sparingly — too much reads as childish or needy. The warmth tells them we will be reasonable when something goes wrong later (a late invoice, a cancelled post).",
+      "dont": [
+        "Jokes and smileys in every message",
+        "Flat, robotic replies",
+        "The word 'love' in a business email"
+      ],
+      "level": "should",
+      "src": [
+        {
+          "doc": "video:module 1 welcome/1.2. Learn how to Communicate(most important course)",
+          "quote": "show respect and care in your communication by managing between not being too excited, like too all over the place with getting a deal or with talking to them, and not being too, you know, too dry, like you really don't care. Like, be closer to the dry side, but not completely flat, dry, and like really not caring about them.",
+          "at": "42:12"
+        },
+        {
+          "doc": "video:module 1 welcome/1.2. Learn how to Communicate(most important course)",
+          "quote": "Maybe sometimes cracking a joke, like very lightly, you know, from time to time, not all the time. Those kind of things may be things that help you, right? I'm not, but be careful. Like, this can a double-edged sword. It can help you by making you look nicer. It can also make you look like a child and look needy.",
+          "at": "38:53"
+        },
+        {
+          "doc": "video:module 2 influencers/2.7. Good vs Bad examples of approaching influencers",
+          "quote": "Dry messages would show them and turn them off, would show them the low energy that you may have.",
+          "at": "5:57"
+        },
+        {
+          "doc": "call:sr8dYeXX8D3jj3yeVUPKSkUnomygC3W1",
+          "quote": "So, love, I absolutely hate saying this word, I try not to use it, and you use it with your wife, with your mother, in our emails, we try not to use that, inshallah."
+        }
+      ],
+      "when": "An ongoing conversation or relationship; a cold first message goes straight to the point (FND-FMT-02)"
+    },
+    {
+      "id": "FND-MIND-17",
+      "stage": "mindset",
+      "title": "A deal went wrong? Check how we came across first",
+      "rule": "When a deal dies, a reply never comes or something goes wrong, review our own messages before anything else: were we pleasant, did we sound needy or overexcited, did a line make the agency look small? Fix that in the next message.",
+      "level": "should",
+      "src": [
+        {
+          "doc": "video:module 1 welcome/1.2. Learn how to Communicate(most important course)",
+          "quote": "Whenever you don't close a deal, whenever something messes up, or the guy doesn't respond, or whatever happens. Don't send me a message. Go back to this video and trust me, you'll find your solution here. Like, genuinely, if you go through the checklist, you would see: was I nice? Was I too, you know, needy? Did I say something that made me appear in that way?",
+          "at": "43:57"
+        }
+      ]
+    },
+    {
+      "id": "FND-WRITE-20",
+      "stage": "writing",
+      "title": "Say the unwelcome thing without the words they don't want to hear",
+      "rule": "Get the point across without hitting their ego: describe the consequence, not the fault. Not 'your budget is too low' but 'with this range we can look at smaller creators'; not 'you are overpriced' but 'this rate will be harder to place'. Nice in tone, unchanged in substance.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "video:module 2 influencers/2.3. Closing an influencer that has an agency",
+          "quote": "you need to make people understand what you want them to understand without saying what they don't want to hear.",
+          "at": "35:35"
+        },
+        {
+          "doc": "video:module 2 influencers/2.3. Closing an influencer that has an agency",
+          "quote": "You can say to a brand, your budget is too low without saying that. You can say, unfortunately, we can look for smaller influencers if you want, because this budget won't be in the range that could afford big influencers.",
+          "at": "42:12"
+        }
+      ]
+    },
+    {
+      "id": "FND-MIND-18",
+      "stage": "mindset",
+      "title": "Listen first — in email, homework replaces the questionnaire",
+      "rule": "Before pitching, find their pain or goal. On a call that means questions; in email it means research (their recent videos and sponsors, a brand's past campaigns) so the message can name it instead of sending a list of questions. Where a question is needed, the best one is 'why': why the last video had no sponsor, why a brand does or does not use creators.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "video:module 1 welcome/1.4. Sales crash course",
+          "quote": "But what that means in listening is basically what comes from listening, is getting the information. So doing your homework on your own can. Replace that if you're not on sales call and if you don't want to send them 50 questions and look weird",
+          "at": "7:35"
+        },
+        {
+          "doc": "video:module 1 welcome/1.4. Sales crash course",
+          "quote": "If you could only ask one question, that would be why.",
+          "at": "8:18"
+        }
+      ]
+    },
+    {
+      "id": "FND-MIND-19",
+      "stage": "mindset",
+      "title": "Objections are normal: agree, then offer another view",
+      "rule": "Nearly every deal meets an objection; it is not a no. Agree and validate first, ask whether you may offer another way to see it, then answer the real concern with facts. Never contradict head-on. The only one to leave alone is a clear 'stop contacting us' — then stop.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "video:module 1 welcome/1.4. Sales crash course",
+          "quote": "99.9% of the time, you'll have objections, which means you'll have to do objection handling.",
+          "at": "20:22"
+        },
+        {
+          "doc": "video:module 1 welcome/1.4. Sales crash course",
+          "quote": "And be careful here, you never want to be frontal and brutal. You don't want to be like, hey, Why would you say that? That doesn't make sense. You're never going to be like that. You want to always agree, validate them. Completely normal. I totally agree.",
+          "at": "22:54"
+        },
+        {
+          "doc": "video:module 1 welcome/1.4. Sales crash course",
+          "quote": "The only objection you cannot handle is if someone states and clearly states we are absolutely not interested in going there anyway. We tried this before, we don't know what we don't want to do it. Please stop selling to me, or I'm going to block you.",
+          "at": "20:59"
+        },
+        {
+          "doc": "video:module 3 brands/3.6. PART 2 Objection Handling Full Training",
+          "quote": "the first thing, instead of trying to attack it and handle it, the first thing ever all the time is to lower the sales guard.",
+          "at": "1:57"
+        },
+        {
+          "doc": "call:XoGzVQaKYeEza9DEX8ukLSUw1wYdCmPv",
+          "quote": "Understand it, agree with it, and then just say, so I can have a rough idea of what the best sort of brands this influencer would fit"
+        }
+      ]
+    },
+    {
+      "id": "FND-WRITE-21",
+      "stage": "writing",
+      "title": "No sloppiness",
+      "rule": "Address them by name, proofread every message (no typos, clean line breaks), answer every question they asked and cover every concern they raised. Small slips tell the reader the agency will run their campaign carelessly too.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "video:module 1 welcome/1.4. Sales crash course",
+          "quote": "When you're sending out an email, you actually proofread the email before that.",
+          "at": "29:43"
+        },
+        {
+          "doc": "video:module 1 welcome/1.4. Sales crash course",
+          "quote": "If they see the way you're speaking, for example, you're responding fast to the emails, you're responding to actually the questions that they're asking. You make sure you cover the objections that they have.",
+          "at": "30:51"
+        }
+      ]
+    },
+    {
+      "id": "FND-WRITE-22",
+      "stage": "writing",
+      "title": "Show the quality, never claim it",
+      "rule": "Do not write that the agency is honest, trustworthy or the best — it reads as suspicious. Show it: state the catch up front, give precise facts, do what was promised.",
+      "dont": [
+        "'We are honest / trusted / the best agency'"
+      ],
+      "level": "should",
+      "src": [
+        {
+          "doc": "video:module 1 welcome/1.4. Sales crash course",
+          "quote": "I didn't say I'm honest because if I say that, I look weird. I just showed something that an honest guy would do.",
+          "at": "32:48"
+        }
+      ]
+    },
+    {
+      "id": "FND-FMT-04",
+      "stage": "formatting",
+      "title": "No em dashes",
+      "rule": "Never put a long dash (—) in a message: readers take it as the mark of AI-written text. Use a comma, a full stop or a plain hyphen instead.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "call:mYg8ZRv8nsWtnqvvd6U86MtHqUaHGzM9",
+          "quote": "never use the m dash, like just replace it with a comma because they can tell straight away, you might have used some AI"
+        },
+        {
+          "doc": "call:mYg8ZRv8nsWtnqvvd6U86MtHqUaHGzM9",
+          "quote": "Remember, we want to get rid of the em dash."
+        }
+      ]
+    },
+    {
+      "id": "FND-DLV-21",
+      "stage": "deliverability",
+      "title": "Plan by inputs: work back from deals to sends",
+      "rule": "Turn the goal into sends and count those, not the money: at the usual rates about 1,000 creator emails give roughly 50 replies and 5 closed creators, and brands need about twice the volume. The workflow tracks sends, replies and closes against that plan.",
+      "level": "should",
+      "src": [
+        {
+          "doc": "video:module 1 welcome/1.3. Mindset & Misconceptions - Coach Ammar",
+          "quote": "If you say, I need to close deals, I don't know, I have to make 5k this month, transfer it to emails.",
+          "at": "5:57"
+        },
+        {
+          "doc": "video:module 1 welcome/1.3. Mindset & Misconceptions - Coach Ammar",
+          "quote": "Let's say closing rate is 10%. Okay, you need five influencers. You need five influencers, which means that's 50 influencers who got back to you. With 5%, this is 5% of something, right? You sent, you need to send a lot of emails. I would say about thousand emails.",
+          "at": "4:12"
+        }
+      ]
+    },
+    {
+      "id": "FND-DLV-22",
+      "stage": "deliverability",
+      "title": "Review every 50 sends; judge patterns, not one-offs",
+      "rule": "After every batch of about 50 emails, look at the reply rate and what people replied to, keep what worked and change one thing at a time (subject, opening, offer or call to action — never all at once, or nobody knows what made the difference). One good open rate, a few angry replies or a couple of 'found you in spam' messages prove nothing; act on patterns (e.g. a spam rate around 30% is a real problem).",
+      "level": "should",
+      "src": [
+        {
+          "doc": "video:module 1 welcome/1.3. Mindset & Misconceptions - Coach Ammar",
+          "quote": "learn from every 50 emails that you sent. See if they reply. What is the reply rate? What do they reply to?",
+          "at": "9:22"
+        },
+        {
+          "doc": "video:module 1 welcome/1.3. Mindset & Misconceptions - Coach Ammar",
+          "quote": "But if it's one-off, trust me, you cannot say that one is working. Maybe that person or those people were just, you know, in the mood to open emails. Maybe the policy, there's a campaign this week in a company, we need to open every single email, even if it's spam. Don't judge just from that one. Make it a pattern.",
+          "at": "11:00"
+        },
+        {
+          "doc": "video:module 1 welcome/1.3. Mindset & Misconceptions - Coach Ammar",
+          "quote": "If you have 30% spam rate, that's bad. If you have 50, 60, that's bad. But one, two, three emails, if they say, hey, I found your email and spam, it means nothing.",
+          "at": "12:26"
+        },
+        {
+          "doc": "video:module 8 Bonuses/8.Abu Lahya Reviewing Emails",
+          "speaker": "Eyoub El Habib",
+          "quote": "send 50 emails, see what happens. Okay, 10 were good. Let's try and do more of the good stuff and try and send 50 of the good stuff. Volume first. Once you understand what quality is, double down quality and try and do more quality. But change one thing per email. Don't change change subject line, CTA, offer everything.",
+          "at": "35:00"
+        },
+        {
+          "doc": "video:module 8 Bonuses/8.Business FAQ With Abu Lahya x Fawaz",
+          "speaker": "Eyoub El Habib",
+          "quote": "which might be how many touch points you're doing, might be how often you're following up, might be the frame of all email, how you're presenting your offer"
+        },
+        {
+          "doc": "call:GzQvL2fUPM7HWPEcevsYtyKqb9AVPDYh",
+          "quote": "If they ghost you after you offer influencers, probably influencers are trash. If they ghost you after offer, probably your offer is trash."
+        }
+      ],
+      "do": [
+        "Find where threads stop: silence after the creators were shown points at the creators; silence after the price points at the offer"
+      ]
+    },
+    {
+      "id": "FND-MIND-20",
+      "stage": "mindset",
+      "title": "Present the outcome, never the effort",
+      "rule": "The agency is paid for the problem it solves, not for the emails it sends. Describe the work by its result for them (deals they would not get alone, better-fitting brands, time back), never by the hours or tasks behind it. The agency's share is what the deal is worth minus the creator's minimum acceptable fee — but leave the creator a fee they can respect.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "video:module 1 welcome/1.3. Understanding business",
+          "quote": "what we're doing is we're tying our work to the problem that we're solving.",
+          "at": "1:35"
+        },
+        {
+          "doc": "video:module 1 welcome/1.3. Understanding business",
+          "quote": "So, my thing is valued as whatever upside you have minus the minimum acceptable fee that he needs to take, right? So, if the guy charges 10 grand for a video and without you, he's not getting any deal. So, he's not making any nothing, zero, right? But he cannot pay you $9,999 because then he only makes a dollar and it's not respectful.",
+          "at": "1:52"
+        }
+      ]
+    },
+    {
+      "id": "FND-WRITE-23",
+      "stage": "writing",
+      "title": "One register from greeting to sign-off",
+      "rule": "Keep the whole message in one voice. A stiff template opening ('Hello [Name],' on its own line, a formal introduction) and a corporate call to action around a playful middle reads like a template with a joke pasted in. A simple sign-off with the first name is fine (FND-FMT-01); the greeting and the ask match the tone of the hook.",
+      "level": "should",
+      "src": [
+        {
+          "doc": "video:module 8 Bonuses/8.Abu Lahya Reviewing Emails",
+          "speaker": "Ammar Halilovic|Eyoub El Habib",
+          "quote": "You're also ending with kind regards and in between you speak about taking a shower on a plane. Like it doesn't make sense.",
+          "at": "4:12"
+        },
+        {
+          "doc": "video:module 8 Bonuses/8.Abu Lahya Reviewing Emails",
+          "speaker": "Ammar Halilovic|Eyoub El Habib",
+          "quote": "It can't be like super corporate introduction Very goofy middle and like corporate CTA.",
+          "at": "8:29"
+        }
+      ]
+    },
+    {
+      "id": "FND-WRITE-24",
+      "stage": "writing",
+      "title": "Research serves the message",
+      "rule": "Use only the details from research that lead somewhere: to the reason for writing or to the offer. Listing facts about them just to show homework was done (their side project, their app) adds length and reads like flattery or AI.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "video:module 2 influencers/2.7. Good vs Bad examples of approaching influencers",
+          "quote": "We don't need you to do homework. We need you to do homework for the stuff that helps you here.",
+          "at": "24:54"
+        },
+        {
+          "doc": "video:module 2 influencers/2.7. Good vs Bad examples of approaching influencers",
+          "quote": "you thought that making and doing your homework and doing research, the goal was just that you show that you've done research.",
+          "at": "24:06"
+        }
+      ]
+    },
+    {
+      "id": "FND-ETH-10",
+      "stage": "ethics",
+      "title": "Handle an objection only when the offer truly serves them",
+      "rule": "Objection handling is for a prospect who needs what is offered and would benefit; then it is a duty to help them see it clearly. Pressing someone for whom it is the wrong fit (wrong audience, a budget they have said is fixed, a product they cannot use) is harassment and deception — accept the no and offer what does fit, or nothing.",
+      "level": "must",
+      "src": [
+        {
+          "doc": "video:module 3 brands/3.5. Pre-HandlingHandling objection Aikido Mastery",
+          "quote": "There's a very fine line between objection handling and harassment.",
+          "at": "1:20"
+        },
+        {
+          "doc": "video:module 3 brands/3.5. Pre-HandlingHandling objection Aikido Mastery",
+          "quote": "when your prospect is in need of your solution and when he's going to benefit from this solution, now it becomes your duty to help him see clearly",
+          "at": "2:05"
+        },
+        {
+          "doc": "video:module 3 brands/3.6. PART 2 Objection Handling Full Training",
+          "quote": "hey, we currently capped out every single penny we can spend and it doesn't make any sense for us to do marketing right now, please don't email me. This is not an objection, they just don't need it.",
+          "at": "1:45"
+        }
+      ]
+    },
+    {
+      "id": "FND-CALL-01",
+      "stage": "calls",
+      "level": "should",
+      "title": "Propose a call only when email can't do the job",
+      "rule": "A call has to earn its time. Propose one when both sides need answers that would take three or four emails back and forth, when a new or nervous client needs to see a person before trusting us, when the relationship is ready to go a step further, or for a results review. If the call would only pass information one way, send an email (or a short recorded walkthrough) instead. Deals close over email all the time, so a call is never a required step. If a call would likely go badly (no time to prepare, a bad connection, someone uncomfortable on calls), stay on email. Creators prefer email: do not push them toward a call, but take one if they ask. With brands, proposing a call is good practice; if a brand ignores one call request, stay on email.",
+      "src": [
+        {
+          "doc": "video:module 8 Bonuses/8.How To Take sales calls",
+          "quote": "if it's just to give him information, echi send him a Loom video, send him an email, and you don't need to hop on a call",
+          "at": "12:33"
+        },
+        {
+          "doc": "video:module 8 Bonuses/8.How To Take sales calls",
+          "quote": "And if we have a problem that you need information from me, I need information from you We need to bounce you back and forth It's actually gonna take more than three or four back and forth Okay, we can do it on the call.",
+          "at": "13:04"
+        },
+        {
+          "doc": "video:module 8 Bonuses/8.How To Take sales calls",
+          "quote": "Maybe I should have done it more sometimes, but just this is a little disclaimer so that you don't think you need, oh, I need a call every time before closing deals.",
+          "at": "50:21"
+        },
+        {
+          "doc": "video:module 8 Bonuses/8.How To Take sales calls",
+          "quote": "If you think you're going to do good on the call, if you think you can make a great impression, book a call and speak to them on the call. If you think it's gonna be a mess, just stick to emails",
+          "at": "52:23"
+        },
+        {
+          "doc": "call:FxjmqvTMGLjszkFbt2m6AnvMhwsbKWAx",
+          "quote": "asking for a call, especially to influencers, is not that easy."
+        },
+        {
+          "doc": "call:FxjmqvTMGLjszkFbt2m6AnvMhwsbKWAx",
+          "quote": "For brands, I would say asking for a call is good practice."
+        },
+        {
+          "doc": "call:Bh7C-sZ5sogfMWryjz_BQmMkSRCBJppb",
+          "quote": "Someone asks for a call, it's always a good sign."
+        },
+        {
+          "doc": "call:hRSbMKSNwsitXbAUSVUzTfJTdip4jE2Z",
+          "quote": "If you have asked once and they didn't respond, that's already a sign that they don't want to do calls."
+        }
+      ]
+    },
+    {
+      "id": "FND-CALL-02",
+      "stage": "calls",
+      "level": "must",
+      "title": "Booking: a specific day, the time zone, a link that just works",
+      "rule": "Once a call is agreed, make booking a single step. Offer a specific day and time in their time zone ('Does Tuesday 10am CET work?') and send a calendar invite with a video-call link they can accept or move; it needs no account or app. A bare booking link can feel like being sold a sales call, so send one only when they ask for it or no time can be fixed. Keep the ask short: fifteen minutes is enough for a check-in with a brand.",
+      "src": [
+        {
+          "doc": "video:module 8 Bonuses/8.How To Take sales calls",
+          "quote": "We currently have this other brand. I'd love to speak to you about it. Would you? Would you have 15 minutes on Thursday?",
+          "at": "52:03"
+        },
+        {
+          "doc": "video:module 8 Bonuses/8.How To Take sales calls",
+          "quote": "send them a Calendly link and they can directly book in a time that works for them.",
+          "at": "3:17"
+        },
+        {
+          "doc": "video:module 8 Bonuses/8.How To Take sales calls",
+          "quote": "Google Meet, send the link, the guy doesn't even need to log in, he puts his name, he hops on.",
+          "at": "6:25"
+        },
+        {
+          "doc": "call:psVxJ53skT8NQHc_HphS11mKUYxMPuub",
+          "quote": "just give a calendar link with a suggested time and all that, and then they'll let you know if that works for them, if that doesn't work for them, but yeah, keep their time zone in mind."
+        },
+        {
+          "doc": "call:jr9irZMunxwikKbQKRsyjEzav5Ejz-MG",
+          "quote": "I think with calendar, calendar link, doesn't give the same effect because calendar link, what it might come off is, it might come off. You just want to jump in a call to sell me something, because that's what they associate it Calendly with."
+        }
+      ]
+    },
+    {
+      "id": "FND-CALL-03",
+      "stage": "calls",
+      "level": "must",
+      "title": "Running late or short on time: say so before the start",
+      "rule": "Be on time; even a minute late costs trust. If you will be late, or have less time than you booked, message them before the start time. Keep it short: a brief apology, how many minutes late you'll be, or an offer of a shorter call or a new time. Never simply turn up late.",
+      "src": [
+        {
+          "doc": "video:module 8 Bonuses/8.How To Take sales calls",
+          "quote": "maybe it's better to reschedule the call, or maybe it's better to let them know: look, I maybe. Maybe this could be a shorter call. I have 15 minutes in front of me, or maybe we can do it in half an hour so I can have you know the time to finish some errands and then come back. And you can as long as you let them know, this is okay. Another point: be on time. When you have calls, you must be on time.",
+          "at": "9:50"
+        },
+        {
+          "doc": "video:module 8 Bonuses/8.How To Take sales calls",
+          "quote": "You can have issues, you can be late, you can have Wi-Fi problems. Let him know. Send him an email before. Hey, bro, sorry to bother you. Sorry to let you know that late. I just had a little issue. I'll be running five minutes late.",
+          "at": "10:24"
+        }
+      ]
+    },
+    {
+      "id": "FND-CALL-04",
+      "stage": "calls",
+      "level": "must",
+      "title": "The call brief: one goal, one or two questions, the takeaway",
+      "rule": "Every call brief states four things: the goal of the call, a short agenda, the one or two key questions to ask, and the takeaway we must leave with (a decision, a document, a next meeting). Add what we know about the other side so that the small talk and the questions are informed. Keep it short and never a list of fifty questions. When the goal is met, end the call, even if booked time is left.",
+      "src": [
+        {
+          "doc": "video:module 8 Bonuses/8.How To Take sales calls",
+          "quote": "you make some research and you prepare the call agenda. It's basically that one thing that you want to speak about or that one main conclusion you're looking to get.",
+          "at": "11:00"
+        },
+        {
+          "doc": "video:module 8 Bonuses/8.How To Take sales calls",
+          "quote": "okay, what's this call? Okay, I need to speak with this guy about this. Okay, what are the key questions I need to ask?",
+          "at": "11:53"
+        },
+        {
+          "doc": "video:module 8 Bonuses/8.How To Take sales calls",
+          "quote": "Don't make a list of 50 different things. It's super weird. Think about the one or two main key points or key bullet points you want to hit, and then just flow with the call.",
+          "at": "41:34"
+        },
+        {
+          "doc": "video:module 8 Bonuses/8.How To Take sales calls",
+          "quote": "If within 15 minutes you covered everything you need to do, bounce.",
+          "at": "11:42"
+        }
+      ]
+    },
+    {
+      "id": "FND-CALL-05",
+      "stage": "calls",
+      "level": "should",
+      "title": "A minute or two of small talk, then state the goal",
+      "rule": "Open with one or two minutes of light small talk that doesn't pry: where they are, how things are going, something public about their work. Then state the goal of the call and what you hope to agree by the end. Every question after that ties back to the goal; if the talk drifts, bring it back. Ask questions conversationally, not as an interrogation, and invite theirs.",
+      "src": [
+        {
+          "doc": "video:module 8 Bonuses/8.How To Take sales calls",
+          "quote": "Have a one to two minute little chat with a person. Ask how the weather is. Ask how he's been doing. Ask about a specific thing you heard about him. Ask about where his name is from. A little thing. Break the ice. Don't be weird. Don't ask super intrusive questions.",
+          "at": "14:50"
+        },
+        {
+          "doc": "video:module 8 Bonuses/8.How To Take sales calls",
+          "quote": "To take control of the call and state what the goal of the call is and what you're going to speak about and what you want from it.",
+          "at": "15:07"
+        },
+        {
+          "doc": "video:module 8 Bonuses/8.How To Take sales calls",
+          "quote": "Okay, so the goal of this call was to just see how we could work together. I saw you work with some influencers. Now we have a couple of brands that we're looking for. This is what we want from X, Y, and Z.",
+          "at": "15:25"
+        },
+        {
+          "doc": "video:module 8 Bonuses/8.How To Take sales calls",
+          "quote": "Make sure you don't sound pushy like an interrogation or question, question, question.",
+          "at": "18:24"
+        }
+      ]
+    },
+    {
+      "id": "FND-CALL-06",
+      "stage": "calls",
+      "level": "must",
+      "title": "Leave with a next step, then confirm it by email",
+      "rule": "Before the call ends, ask what the next steps are and agree on them out loud: a next meeting, a document they will send, a decision by a date. After the call, send a short email: thanks, a quick summary, anything promised (a file, the recording), and the agreed next step with its date. If a call ends with no next step, it should have been an email.",
+      "src": [
+        {
+          "doc": "video:module 8 Bonuses/8.How To Take sales calls",
+          "quote": "you need to leave the meeting with something. There must be a takeaway.",
+          "at": "44:10"
+        },
+        {
+          "doc": "video:module 8 Bonuses/8.How To Take sales calls",
+          "quote": "If that's how you end your call, this call could have been an email.",
+          "at": "44:24"
+        },
+        {
+          "doc": "video:module 8 Bonuses/8.How To Take sales calls",
+          "quote": "So what's the next step? Okay, so what are the action steps from now?",
+          "at": "48:47"
+        },
+        {
+          "doc": "video:module 8 Bonuses/8.How To Take sales calls",
+          "quote": "hey, was lovely speaking to you. Here's a quick summary. You can send them a meeting recording. Or hey, lovely meeting you. Here's the file you asked for. Looking forward to our chat on Friday.",
+          "at": "39:13"
+        }
+      ]
+    },
+    {
+      "id": "FND-CALL-07",
+      "stage": "calls",
+      "level": "must",
+      "title": "Selling on a call: understand first, then the plan, then the price",
+      "rule": "A call that sells runs in this order: small talk and the goal, then discovery (their situation, agencies and brands they have worked with, what they want), then agreeing together on the one main problem, then showing how we would solve it with concrete first steps, and only then the price or commission. Before naming the price, check that the plan really solves their problem. Answer concerns heard in discovery (for example 'agencies charge too much') before the price comes up, not after it.",
+      "src": [
+        {
+          "doc": "video:module 8 Bonuses/8.How To Take sales calls",
+          "quote": "the price is the last thing you do, or the percentage you charge is the last thing",
+          "at": "30:40"
+        },
+        {
+          "doc": "video:module 8 Bonuses/8.How To Take sales calls",
+          "quote": "okay, so if I understand correctly, you're broke because you can't get brand deals. You speak about the problem that you just labeled. So that you he agrees, and is that the main issue that you have right now? You confirm this because that's what you're going to sell.",
+          "at": "26:02"
+        },
+        {
+          "doc": "video:module 8 Bonuses/8.How To Take sales calls",
+          "quote": "Okay, so does getting you one or two deals in the next two weeks sounds like a solution to your current problem?",
+          "at": "32:31"
+        },
+        {
+          "doc": "video:module 8 Bonuses/8.How To Take sales calls",
+          "quote": "Before the price drop, because you're genuine. If it's after the price drop, you're just trying to sell me. I don't think, I don't believe any single thing you say. Even if you tell me the sky is blue after the price, I don't believe it. I think the sky is red. Because you're just trying to convince me, just trying to sell me, you're not a good guy. You're just after my money, leave me alone. Okay? So handle all the headaches before the price drop.",
+          "at": "34:42"
+        },
+        {
+          "doc": "call:hReqtaZnWpPKrvVtaVxLiAFsZvti2Soz",
+          "quote": "So, don't make awkward, because it's very easy to make it awkward when you negotiate face-to-face."
+        }
+      ]
+    },
+    {
+      "id": "FND-CALL-08",
+      "stage": "calls",
+      "level": "must",
+      "title": "Discovery finds their real problem; it never inflates one",
+      "rule": "Pitch only against the biggest problem they actually have, confirmed in their own words. If their real problem is something we don't solve, don't stretch our offer to fit it. The course teaches pressing on a small creator's pain before the pitch. House reading, ethics first: ask in order to understand, then reflect back what they said. Never exaggerate the problem, invent urgency, or keep pressing after they say it isn't a problem (FND-ETH-10). Every example in a pitch must be real: name past clients, results or brands we have only when it is true.",
+      "dont": [
+        "Paint their situation worse than they described it",
+        "Use 'that's how we helped X' or 'we already have brands like Y' unless it is true"
+      ],
+      "src": [
+        {
+          "doc": "video:module 8 Bonuses/8.How To Take sales calls",
+          "quote": "So, if that's a little issue, and his actual issue is that his video editor is not editing on time, it wouldn't make sense to try and pitch him on solving his brain sort of things issue because that's not the burning problem. Trying to identify the biggest issue that he has, the biggest problem that he has.",
+          "at": "26:17"
+        },
+        {
+          "doc": "video:module 8 Bonuses/8.How To Take sales calls",
+          "quote": "okay, so if I understand correctly, you're broke because you can't get brand deals. You speak about the problem that you just labeled. So that you he agrees, and is that the main issue that you have right now? You confirm this because that's what you're going to sell.",
+          "at": "26:02"
+        }
+      ]
+    },
+    {
+      "id": "FND-CALL-09",
+      "stage": "calls",
+      "level": "should",
+      "title": "Brands buy on trust and numbers",
+      "rule": "Brands, and big creators with staff and bills, decide on logic: whether we look legitimate (how we carry ourselves, case studies) and whether the numbers make sense, meaning the return against what they spend. A return of three to ten times is a strong case. Don't probe a brand's pain points emotionally. A small creator decides more personally, so talk about what steady deals would change for them (more time for videos, paying their editor), using their own words.",
+      "src": [
+        {
+          "doc": "video:module 8 Bonuses/8.How To Take sales calls",
+          "quote": "if you're selling to a business, let's say you're selling to a brand, which is a huge company, don't even try and squeeze on the pain or squeeze on the pain points.",
+          "at": "24:38"
+        },
+        {
+          "doc": "video:module 8 Bonuses/8.How To Take sales calls",
+          "quote": "It's literally a question of two things. One is trust. You just need to look legit and just need that's done through the way you carry yourself, through how you speak with your case studies.",
+          "at": "47:06"
+        },
+        {
+          "doc": "video:module 8 Bonuses/8.How To Take sales calls",
+          "quote": "They need the numbers to make sense. That's it. They basically, and the simple way to think about it is they need to be making more than what they spend. And three to ten times more is a great number in terms of return on investment.",
+          "at": "47:26"
+        }
+      ]
+    },
+    {
+      "id": "FND-CALL-10",
+      "stage": "calls",
+      "level": "must",
+      "title": "Tailored offers take two calls, and the decision maker hears the pitch",
+      "rule": "When the offer has to be built for them (a brand campaign, a big creator), end the first call after discovery: say we'll prepare an offer and get back to them, and book the next call. Present the offer to the person who decides, on the second call or by email. If the first call was with someone who can't decide, ask them to bring the decision maker and send that person a summary before the call. A flat commission for a creator needs no second call.",
+      "src": [
+        {
+          "doc": "video:module 8 Bonuses/8.How To Take sales calls",
+          "quote": "if it's a personalized offer, so if it's not a flat percentage or not a flat influencer that you're trying to sell, you do a two-call close. So you end the call after phase two, you go back, you do some math, you do some checking, and you come back two days after and you do a pitch live on the call. You can also just send him an email with the offer. I usually prefer to do it on the call.",
+          "at": "27:41"
+        },
+        {
+          "doc": "video:module 8 Bonuses/8.How To Take sales calls",
+          "quote": "We'll circle back with the team, we'll check everything, prepare an offer, and get back to you.",
+          "at": "26:56"
+        },
+        {
+          "doc": "video:module 8 Bonuses/8.How To Take sales calls",
+          "quote": "But if he's not qualified to make decisions, don't pitch the offer because he would go with the boss and try and make the offer sound weird",
+          "at": "28:18"
+        }
+      ]
+    },
+    {
+      "id": "FND-CALL-11",
+      "stage": "calls",
+      "level": "must",
+      "title": "Nothing is signed or paid on a call",
+      "rule": "Never take a payment or sign a contract during a call. Send the contract or the invoice by email afterwards, and give them time to read it and bring in whoever else decides. Pushing for a commitment on the same call looks wrong.",
+      "src": [
+        {
+          "doc": "video:module 8 Bonuses/8.How To Take sales calls",
+          "quote": "Even with influencers, you're not going to collect anything. You're not going to sign contracts on the calls.",
+          "at": "44:58"
+        },
+        {
+          "doc": "video:module 8 Bonuses/8.How To Take sales calls",
+          "quote": "you send them an invoice after, or you send them a contract after. They need time to go through it. There are multiple decision makers involved on the call. It just looks weird if you're going to try and press it, give them the time to think about it.",
+          "at": "45:24"
+        }
+      ]
+    },
+    {
+      "id": "FND-CALL-12",
+      "stage": "calls",
+      "level": "tip",
+      "title": "Record calls openly",
+      "rule": "Record every call with a note-taker that joins the call visibly, and tell the other side at the start that it is recorded (house reading, ethics first: never record in secret). The recording settles any later disagreement over what was said, and its summary feeds the recap email (FND-CALL-06).",
+      "src": [
+        {
+          "doc": "video:module 8 Bonuses/8.How To Take sales calls",
+          "quote": "every single call you do must be recorded.",
+          "at": "3:41"
+        },
+        {
+          "doc": "video:module 8 Bonuses/8.How To Take sales calls",
+          "quote": "Some guy misunderstood something you spoke about, and he won't be like, Oh, I said this, or no, you said that. Just go back to the call and show him, Look, bro, watch the call recording.",
+          "at": "5:52"
+        },
+        {
+          "doc": "call:_KH2kCa4z3KsCqe_ZVV9JnN3mwhZHEAz",
+          "quote": "don't have it be like an elephant in the room. Let them know, hey, this is just like my, I don't know if you guys are familiar with that. It's just a meeting recorder. I could send this to you guys afterwards"
+        }
+      ]
+    },
+    {
+      "id": "FND-DLV-23",
+      "stage": "deliverability",
+      "level": "must",
+      "title": "Two people per brand domain per day, at most",
+      "rule": "When writing to several people at one brand, email at most two of them on the same day, and add the next two the following day alongside the follow-ups. Each email is written for its reader (FND-WRITE-03). Mailbox providers now flag a burst of emails to one domain.",
+      "src": [
+        {
+          "doc": "video:module 7 Call recordings/7.2026.00.00.Abu Lahya 2026 Q&A PT 2",
+          "speaker": "Michael Coppotelli|Eyoub El Habib",
+          "quote": "if you email more than two people to a domain in one day, it raises red flags. So the new rule that just got implemented within these past month or two is just make sure that if you're emailing one domain, you can email multiple brands, but for each brand, just do two.",
+          "at": "8:25"
+        }
+      ]
+    },
+    {
+      "id": "FND-MIND-21",
+      "stage": "mindset",
+      "level": "must",
+      "title": "Sell like a marketer, not a broker",
+      "rule": "Brands work through an agency, instead of going to the creator directly, when the agency brings expertise: why this creator's audience matches their buyers, which video the ad belongs in, how the creator should present the product, what happens if it underperforms, and the return on their spend. Pitches and replies show that thinking. An agency that only passes a creator along is a commodity, and brands go around it.",
+      "src": [
+        {
+          "doc": "video:module 7 Call recordings/7.2026.00.00.Abu Lahya 2026 Q&A PT 1",
+          "speaker": "Eyoub El Habib",
+          "quote": "They're getting a deep understanding of marketing rather than just focusing on influencers and brokering deals. They're actually understanding: okay, how does marketing work? Like, I'm advertising this company with this influencer. Why does it actually work? It works because this influencer has trust because he built stuff over time and hasn't sold many things. And also the audience matches the demographic of who they want to sell to.",
+          "at": "13:02"
+        },
+        {
+          "doc": "video:module 7 Call recordings/7.2026.00.00.Abu Lahya 2026 Q&A PT 1",
+          "speaker": "Eyoub El Habib",
+          "quote": "And the main thing I speak about is how can I get your return on your investment?",
+          "at": "14:17"
+        },
+        {
+          "doc": "video:module 7 Call recordings/7.2026.00.00.Abu Lahya 2026 Q&A PT 2",
+          "speaker": "Eyoub El Habib",
+          "quote": "You might you might sound like a commodity which is just helping the influencer get a deal and that's it. And then they're like, Yeah, then well, why don't we just go with the influencer himself?",
+          "at": "1:17:04"
+        },
+        {
+          "doc": "video:module 7 Call recordings/7.2026.00.00.Abu Lahya 2026 Q&A PT 2",
+          "speaker": "Eyoub El Habib",
+          "quote": "Whereas if you know about influencer marketing, you have expertise, you know how to pick the best influencers, you know how to get the campaign to be executed on time, you save the brand time, you save the brand money, you get them better results, then they actually rather work through you than work directly with the influencer.",
+          "at": "1:17:14"
+        },
+        {
+          "doc": "call:-eW8W3UZrXPpYCq_xAC2txNpiEqxEsbC",
+          "quote": "a lot of brands rather want to talk to someone who knows marketing, knows how to do sponsors, than dealing with influencers who are busy all the time"
+        }
+      ]
+    },
+    {
+      "id": "FND-MIND-22",
+      "stage": "mindset",
+      "level": "must",
+      "title": "Live coaching updates the recorded lessons",
+      "rule": "The recorded lessons are older than the live calls. Where coaches on the calls say a lesson is out of date (deliverability, subject lines, creator size, follow-up counts), the newer coaching applies, because inboxes and the market have changed. Where coaches disagree with each other, the owner decides (house choices).",
+      "src": [
+        {
+          "doc": "call:MsNSzf6udJV5YcgxdGXxLdj7qzRqcsZo",
+          "quote": "listen to the coaches, because we have more of a live understanding of what the reality is, compared to the coach, compared to the course, because sometimes the course is a bit behind of what actually is, you know, live and relevant."
+        },
+        {
+          "doc": "call:RsLLW3BycyHF_u8YcTYbymWG6w9vjsp2",
+          "quote": "When I joined the course, Gmail was fine. Website, you don't have to make it. Now it's changing. It's liquid. It's changing all the time."
+        },
+        {
+          "doc": "call:zNUYs9-nNwGdwXd-MphyriGRoX4yXAYf",
+          "quote": "But if you want my advice, because I feel like the course might need a small update, you should have like $4,000 to $5,000."
+        }
+      ]
+    },
+    {
+      "id": "FND-DLV-24",
+      "stage": "deliverability",
+      "level": "must",
+      "title": "A custom domain and a live website before any outreach",
+      "rule": "Coaches now require a professional domain and a simple live website (a landing page and a contact page) before the first outreach email. The older lesson that a Gmail address and no website were fine is out of date: people look the sender up, and when nothing comes up they grow suspicious.",
+      "src": [
+        {
+          "doc": "call:MsNSzf6udJV5YcgxdGXxLdj7qzRqcsZo",
+          "quote": "Now, what we say, because due to our experience, we say, you should have a domain, right?"
+        },
+        {
+          "doc": "call:kmBqngfH33FJjBwdPf8uiyQxzRMFZ4Po",
+          "quote": "I closed the brands with Gmail. Right. But now it's not the thing, now it's not the thing, we, they're, you know, they're looking, basically, the bar is risen."
+        },
+        {
+          "doc": "call:1y3mGsySdFUGnmwpyZpeVxy2tNmRqiEc",
+          "quote": "definitely get one, get professional domain and get website, Insha Allah, that way your outreach will be much better."
+        }
+      ]
+    },
+    {
+      "id": "FND-ETH-11",
+      "stage": "ethics",
+      "level": "must",
+      "title": "Never fake a reply in the subject line",
+      "rule": "Never put 'RE:' or 'FW:' in front of a subject unless the message really is a reply or a forward in that thread. Outreach tools promote it for open rates; it is a lie about a past conversation.",
+      "src": [
+        {
+          "doc": "call:m2GMZSanw7WKQBxa4d5t5STJiLA33zWR",
+          "quote": "I know it's a super trick. One of our sponsors instantly mentioned this one, like super good strategy for open emails, but don't use it."
+        },
+        {
+          "doc": "call:pTUsB9ynRcCZpg9XybZJucFQEn5ras4V",
+          "quote": "because I saw some email gurus mention, put RE in your subject line, it's a big problem, guys"
+        }
+      ]
+    },
+    {
+      "id": "FND-MIND-23",
+      "stage": "mindset",
+      "level": "should",
+      "title": "Answer promptly; take time only over a tricky reply",
+      "rule": "Answering quickly is not needy; neediness is in the tone (FND-MIND-03). Reply while they are still in their inbox and interested. The exception is a tricky message, such as a pushback on price or a delicate objection: think it through, even for a day or two, rather than answering on the spot.",
+      "src": [
+        {
+          "doc": "call:DLdWWAraYyfH4maBrDbiMoxNrSJRqLA1",
+          "quote": "a lot of students think if you respond right away, oh no, I'm going to look needy, that's not needy, you have misunderstood what needy is"
+        },
+        {
+          "doc": "call:DLdWWAraYyfH4maBrDbiMoxNrSJRqLA1",
+          "quote": "as soon as they respond, try to be as quick as you can, so they're still hooked, still interested, and still invested"
+        },
+        {
+          "doc": "call:GzQvL2fUPM7HWPEcevsYtyKqb9AVPDYh",
+          "quote": "When they send you a tricky email. Or something. Think about it. Don't be like, I have to answer straight away."
+        }
+      ]
+    },
+    {
+      "id": "FND-ETH-12",
+      "stage": "ethics",
+      "level": "must",
+      "title": "'Stop' or 'unsubscribe' ends the outreach",
+      "rule": "A reply asking us to stop, or a one-word 'unsubscribe', ends all outreach to that person at once: no more follow-ups and no new thread. When someone at a brand asks us to stop contacting the company, that covers their colleagues too (one coach would carry on with a colleague; house reading, ethics first: we don't). Continuing disrespects them and gets the domain reported and blocked.",
+      "src": [
+        {
+          "doc": "call:1e-m7pS5xpAijdYc5g-mkH2DXyohoEGJ",
+          "quote": "It's just a way to say, stop emailing me. I know what you're doing. Stop emailing me. I'm not interested."
+        },
+        {
+          "doc": "call:1e-m7pS5xpAijdYc5g-mkH2DXyohoEGJ",
+          "quote": "if you keep pushing, then they might report you as spam or might block you and it's just going to be more damage than good."
+        },
+        {
+          "doc": "call:xC_GL8gDUfAkx9RksRtpysf2goHrYbzP",
+          "quote": "Sometimes, you know, they say like, please stop, don't reach me out. Those are hostile leads."
+        }
+      ]
+    },
+    {
+      "id": "FND-ETH-13",
+      "stage": "ethics",
+      "level": "must",
+      "title": "Paid content is always disclosed",
+      "rule": "Every paid integration is disclosed as sponsored, as YouTube's rules and the law require. Never help a creator present paid content as unpaid. If a creator seems to have done so, ask them to clarify; if it is true, do not work with them.",
+      "src": [
+        {
+          "doc": "call:owippCqy5YiQxnRDt3katdxMosbgS7Gt",
+          "quote": "legally, they need to mention this video was sponsored by, that's YouTube, YouTube says that"
+        },
+        {
+          "doc": "call:owippCqy5YiQxnRDt3katdxMosbgS7Gt",
+          "quote": "because if it's the video, he needs to mention that, and if he hasn't mentioned that, that's fraud"
+        }
+      ]
+    },
+    {
+      "id": "FND-WRITE-25",
+      "stage": "writing",
+      "level": "must",
+      "title": "Replies give what was asked, at their length, and nothing more",
+      "rule": "The first cold email is short so it gets a reply. After that, answer what they asked, fully, and match how they write: a one-line reply gets a few short lines back, never paragraphs; a brand that writes two words asking the price gets the number. Read the room: the more you type, the less they read and the less they believe. Polite and warm, never curt or rude, but short.",
+      "src": [
+        {
+          "doc": "call:oJevNhZx6kJCvPsekoX_KedzB9Sy8bFn",
+          "quote": "The goal with the first email is to grab their attention and to make them respond."
+        },
+        {
+          "doc": "call:oJevNhZx6kJCvPsekoX_KedzB9Sy8bFn",
+          "quote": "when it comes to communication, they're asking for information, give them all the information that they need"
+        },
+        {
+          "doc": "call:oJevNhZx6kJCvPsekoX_KedzB9Sy8bFn",
+          "quote": "Like if they're asking the price, I'm not, I've seen how they responded like two or three times. I'm just sending them the price, right? Like I said, hey, I'm just sending them 2k, and not even a dot."
+        },
+        {
+          "doc": "call:r2o5ARxb77-sNa4J1Te4bAZdWCspz8W8",
+          "quote": "If he's sending me a one word reply, one sentence reply, I'm not going to go back to him with a whole paragraph and smiley faces or anything like that. I'll make it short, concise, sweet, straight to the point."
+        },
+        {
+          "doc": "call:r2o5ARxb77-sNa4J1Te4bAZdWCspz8W8",
+          "quote": "when we talk about not being needy, there's a big difference between not being needy and being rude. Like, we still want to be polite, kind, friendly, but not needy."
+        },
+        {
+          "doc": "call:4KB8uReB4S3zxScKG7mMJCRNpZheJztP",
+          "quote": "10 words. And you have more than 10 lines. 1, 2, 3, 4, 5, 6, 7, 8, 9. He has 10 words, you have 9 paragraphs."
+        },
+        {
+          "doc": "call:WbNZk2gwy2sNrw82HKrTK4yw_xJMqXUm",
+          "quote": "what I saw, the more you type about it, the less they listen to you and less they believe you."
+        },
+        {
+          "doc": "call:wr15a1hd-hGxXcxG6FgXLKVVoyymbFky",
+          "quote": "Boom, super short. And this guy started talking about his whole life story. Right? That's a big problem. That's a big problem. You need to start reading the room."
+        },
+        {
+          "doc": "call:tBJzZ1dtytx-9BVBVC-kimwrRCFXhXro",
+          "quote": "some brothers just over explain, you don't have to tell them about how you work and this and that. Just say to them, Hey, you know, I have this brands in mind, by the way, you know, let me know your price, just talk prices"
+        },
+        {
+          "doc": "call:x9h6TyfTG6J4ADjjhYCpfWvX7yi84fym",
+          "quote": "Well, I think the second part, reassuring him, so you're always free to work with other agencies. I would never mention this."
+        }
+      ],
+      "do": [
+        "Answer the question first, in the first line or two",
+        "Keep a reply to a one-line message to about three short sentences plus the ask",
+        "One request per reply"
+      ],
+      "dont": [
+        "Explain how the agency works when nobody asked",
+        "Reassure them about things they did not raise (that they are free to work with other agencies, that they can say no)",
+        "Add a disclaimer about what has not happened yet; the right verb already says it (INF-FIRST-21)",
+        "Describe a brand they can look up in a word, or tell a creator who a brand sponsored",
+        "List several of their own videos back to them",
+        "Apologise or justify at length"
+      ]
+    },
+    {
+      "id": "FND-WRITE-26",
+      "stage": "writing",
+      "level": "must",
+      "title": "No religious phrases in business messages, and a plain greeting in cold ones",
+      "rule": "Phrases like 'inshallah' or 'keep it halal' stay out of messages to creators and brands who may not share our faith: they confuse or put people off. A cold first message opens with a plain 'Hi' or 'Hey' even to someone who shares it: from a stranger, a religious greeting can read as using faith to get closer. Once the conversation is warm, follow their lead. The agency's halal principles are applied in what we choose to do (FND-ETH), not announced in the wording. This is the default of house choice HC-32; the alternative is FND-WRITE-29.",
+      "src": [
+        {
+          "doc": "call:bBth5cz5-y3dLakk2-P5w-Wy4aPNwWAy",
+          "quote": "they said to non-Muslims, keep it halal, to the influencers, yeah, and they said, oh, I'm not going to do this anymore"
+        },
+        {
+          "doc": "call:yGTYxqvF6KEJEdNs5MEgmgUzQh7s3P5C",
+          "quote": "In my opinion, in my opinion only, call outreach, keep it high, hey, hello, no matter the religion. Why? Because that guy, Hamza, for example, never saw you before. And he thought, he thinks maybe, hey, this guy tried to get closer to me using Islam. I'm not going to answer."
+        }
+      ]
+    },
+    {
+      "id": "FND-WRITE-27",
+      "stage": "writing",
+      "level": "should",
+      "title": "A follow-up is two or three short sentences, never a one-liner",
+      "rule": "Write each follow-up as two or three short sentences: shorter than the first email, but never a bare one-liner such as 'bumping this' or 'did you see my email?'. One-word and very short emails look automated to mail filters, and the course's own one-line follow-ups are now overused (FND-MIND-22).",
+      "src": [
+        {
+          "doc": "call:HzsYYQVFK6y2i5ooxi2yVTysy_psFNJt",
+          "quote": "Even if you send test, test, you know, or hello, or yep, nice. You know, all of those just one-word emails. They are super sensitive, and you can end up in spam just because of these. So, when you have, when you do follow-ups, do it two, three sentences."
+        },
+        {
+          "doc": "call:JnpryiUaDyKgXzesGZiwNY1FZMT1uh3V",
+          "quote": "It's a lot short. So, avoid short. I know these follow-ups are examples from our course. I know no problem with it, but make it long. Make it three sentences. It won't hurt you, trust me."
+        },
+        {
+          "doc": "call:JnpryiUaDyKgXzesGZiwNY1FZMT1uh3V",
+          "quote": "Two sentences, three sentences, good enough. But, you know, don't be like long sentences. Still, your follow-up should be a little bit shorter than your initial email or a lot shorter."
+        },
+        {
+          "doc": "call:yq3ce--DFytJN7r4zVJ9sM-arMsdTzXS",
+          "quote": "All you have to do, same thread, reply to yourself, write two, three sentences, or like, hey, I mentioned this one in my last email, check it out. Maybe summary of your email, if you have no idea, is good enough, so that's it."
+        },
+        {
+          "doc": "call:94z2xhPyaM2R5x7BL_cz7GTdxezRPAdW",
+          "quote": "Circling, just circling back here to see if you got any email. We spoke about it last time. Don't you ever think about using these follow-up templates. Guys, they are super dangerous. So if you want to, burn your domains."
+        }
+      ],
+      "dont": [
+        "Use the stock follow-up phrases everyone sends ('just bumping this', 'circling back', 'slipped through the cracks', 'just following up')"
+      ]
+    },
+    {
+      "id": "FND-WRITE-28",
+      "stage": "writing",
+      "level": "should",
+      "title": "'I' for what the sender did, 'we' for the agency",
+      "rule": "Write 'I' for what the sender personally did or will do (came across their video, will send the details) and 'we' for the agency's work (we work with brands such as X, we're looking to pair you with Y). 'We have a few brands in mind' tells a creator at once that they are dealing with an agency, not a brand. Never let 'I' claim something the sender did not do.",
+      "src": [
+        {
+          "doc": "call:xC_GL8gDUfAkx9RksRtpysf2goHrYbzP",
+          "quote": "So, if it's something, watching, sending, thinking, do it, do it for your own. I watched, I loved, I can send invoice, I can do this. If it's something, wa alaykum as-salam, Muhammad, may Allah bless you, mabro. If it's something company related, we work with influencers, we work with companies, that's when you use we as company in general."
+        },
+        {
+          "doc": "call:UpUM_LVKDG1yBGjTmtyH9w3eP45fuRyG",
+          "quote": "So you could reach out to them and tell them, hey, we have a few brands in mind. Okay, when they see this, are, khalas, this guy's an agent. So it depends really on how you frame it, inshallah."
+        }
+      ]
+    },
+    {
+      "id": "FND-CALL-13",
+      "stage": "calls",
+      "level": "should",
+      "title": "Send a short written agenda before a call",
+      "rule": "When a call is booked with a brand, send them a written agenda beforehand, at least 24 hours ahead: the goal in one line and four or five scannable talking points (for example: review of the last campaign, their plans for next quarter, next steps). It is our call brief (FND-CALL-04) in the form the other side sees.",
+      "src": [
+        {
+          "doc": "call:sQNXth6Zz9zs5a1DTtf-89aBHa_v8c4R",
+          "quote": "But before we jump on a call, what we want to do is actually have a written agenda. An agenda is essentially just a structure of a few key points of what this call will be about."
+        },
+        {
+          "doc": "call:sQNXth6Zz9zs5a1DTtf-89aBHa_v8c4R",
+          "quote": "if can put the rough minutes next to each point, and what you want to do is you definitely want to send this before the call, so at least 24 hours, um, before the call, you know, preferably as soon as possible."
+        }
+      ]
+    },
+    {
+      "id": "FND-WRITE-29",
+      "stage": "writing",
+      "level": "tip",
+      "title": "Coach Eyoub: faith phrases in his emails never caused a problem",
+      "rule": "Coach Eyoub writes phrases like 'inshallah' and 'Allahumma barik' in business emails and says they never caused trouble; when someone asks what one means, he explains it. One of the options of house choice HC-32; the default leaves such phrases out of business messages (FND-WRITE-26).",
+      "src": [
+        {
+          "doc": "call:L1n_d6D29abVJNYVKrUDA7J6qeyUQkem",
+          "quote": "I put in Shala, Lahma Barik with none more things. Never had a question. Sometimes out of curiosity, they're like, oh, what does this mean? And I just explained. But this won't be an issue."
+        }
+      ]
+    }
+  ]
+}

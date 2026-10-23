@@ -1,0 +1,33 @@
+# Index of reference files
+
+- references/brand-after.md
+- references/brand-closing.md
+- references/brand-contract.md
+- references/brand-delivery.md
+- references/brand-first-contact.md
+- references/brand-follow-up.md
+- references/brand-negotiation.md
+- references/brand-objections.md
+- references/brand-offer.md
+- references/brand-payment.md
+- references/brand-presenting.md
+- references/brand-qualify.md
+- references/brand-replies.md
+- references/examples.md
+- references/foundations.md
+- references/glossary.md
+- references/house-choices.md
+- references/influencer-after.md
+- references/influencer-closing.md
+- references/influencer-delivery.md
+- references/influencer-first-contact.md
+- references/influencer-follow-up.md
+- references/influencer-managers.md
+- references/influencer-negotiation.md
+- references/influencer-offer.md
+- references/influencer-onboarding.md
+- references/influencer-payment.md
+- references/influencer-pricing.md
+- references/influencer-qualify.md
+- references/influencer-replies.md
+- references/situations.md

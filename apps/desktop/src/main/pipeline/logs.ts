@@ -55,16 +55,21 @@ function stamp(ms: number): string {
   return new Date(ms).toISOString().replace(/[:.]/g, "-");
 }
 
-/** Opens a new log in folder, keeping the newest `keptLogs` with it. */
+/**
+ * Opens a new log in folder, keeping the newest `keptLogs` of the same kind with it. `kind` names
+ * the file: `pipeline` for the jobs, `gemini` for the bridge.
+ */
 export function openPipelineLog(o: {
   folder: string;
   now: () => number;
   secrets: readonly string[];
+  kind?: "pipeline" | "gemini";
 }): PipelineLog {
   mkdirSync(o.folder, { recursive: true });
-  const name = `pipeline-${stamp(o.now())}.log`;
+  const kind = o.kind ?? "pipeline";
+  const name = `${kind}-${stamp(o.now())}.log`;
   const older = readdirSync(o.folder)
-    .filter((n) => /^pipeline-.+\.log$/.test(n) && n !== name)
+    .filter((n) => n.startsWith(`${kind}-`) && n.endsWith(".log") && n !== name)
     .sort();
   for (const old of older.slice(0, Math.max(0, older.length - (keptLogs - 1)))) {
     rmSync(join(o.folder, old), { force: true });

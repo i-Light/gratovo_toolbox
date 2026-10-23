@@ -1,0 +1,3116 @@
+{
+  "$comment": "Generated from apps/desktop/src/main/pipeline/gemini-protocol.ts by its Vitest snapshot. Don't edit.",
+  "toGemini": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 100
+      },
+      "method": {
+        "type": "string",
+        "enum": [
+          "status",
+          "diagnostics",
+          "get_account",
+          "get_model",
+          "list_models",
+          "set_model",
+          "new_chat",
+          "send",
+          "stop",
+          "is_generating",
+          "get_last_response",
+          "get_conversation",
+          "queue_add",
+          "queue_list",
+          "queue_get",
+          "queue_cancel",
+          "queue_clear",
+          "queue_pause",
+          "queue_resume",
+          "get_selectors",
+          "set_selectors",
+          "tabs",
+          "open",
+          "focus",
+          "navigate",
+          "switch_account",
+          "reload_page",
+          "bridge.status",
+          "bridge.ensure_account",
+          "bridge.heal",
+          "bridge.open_gem",
+          "bridge.ask",
+          "bridge.wait",
+          "bridge.browser_info",
+          "bridge.ensure_window",
+          "bridge.install_addon",
+          "bridge.shutdown",
+          "action.generate_keywords",
+          "action.classify_channel",
+          "action.gem_create",
+          "action.gem_update",
+          "action.gem_read",
+          "action.skills_list",
+          "action.skill_read",
+          "action.skill_set_active",
+          "action.skill_delete",
+          "action.skill_deploy",
+          "action.comms_propose",
+          "action.comms_check"
+        ]
+      },
+      "params": {
+        "type": "object",
+        "propertyNames": {
+          "type": "string"
+        },
+        "additionalProperties": {}
+      }
+    },
+    "required": [
+      "id",
+      "method",
+      "params"
+    ],
+    "additionalProperties": false
+  },
+  "fromGemini": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "anyOf": [
+      {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "response"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ok": {
+            "type": "boolean",
+            "const": true
+          },
+          "result": {}
+        },
+        "required": [
+          "type",
+          "id",
+          "ok",
+          "result"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "response"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 100
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ok": {
+            "type": "boolean",
+            "const": false
+          },
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "NO_TAB",
+                  "TAB_NOT_READY",
+                  "SIGNED_OUT",
+                  "ELEMENT_NOT_FOUND",
+                  "GEMINI_ERROR",
+                  "BUSY",
+                  "TIMEOUT",
+                  "SEND_NOT_ACCEPTED",
+                  "TYPE_FAILED",
+                  "MODEL_NOT_FOUND",
+                  "THINKING_NOT_SET",
+                  "BAD_PARAMS",
+                  "INTERNAL",
+                  "GEM_UI_NOT_FOUND",
+                  "GEM_SAVE_FAILED",
+                  "MODE_NOT_SET",
+                  "DROP_FAILED",
+                  "WORKER_RESTARTED",
+                  "SKILL_NOT_FOUND",
+                  "SKILL_FILE_NOT_FOUND",
+                  "SKILL_UI_NOT_FOUND",
+                  "SKILL_UPLOAD_FAILED",
+                  "SKILL_SAVE_FAILED",
+                  "SKILL_TOGGLE_FAILED",
+                  "SKILL_DELETE_FAILED",
+                  "WRONG_CHAT",
+                  "EXTENSION_NOT_CONNECTED",
+                  "ACCOUNT_NOT_FOUND",
+                  "NO_SUGGESTION",
+                  "JOB_FAILED",
+                  "BROWSER_NOT_FOUND",
+                  "ADDON_UNSIGNED",
+                  "ADDON_INSTALL_FAILED",
+                  "BROWSER_LAUNCH_FAILED",
+                  "NOT_IMPLEMENTED",
+                  "ACTION_PARSE_FAILED",
+                  "ACTION_REFUSED",
+                  "SKILL_FILE_MISSING",
+                  "SKILL_INVALID",
+                  "SKILL_VERIFY_FAILED",
+                  "UNKNOWN"
+                ]
+              },
+              "message": {
+                "type": "string",
+                "maxLength": 4000
+              },
+              "details": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {}
+              }
+            },
+            "required": [
+              "code",
+              "message",
+              "details"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "ok",
+          "error"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "event"
+          },
+          "event": {
+            "type": "string",
+            "enum": [
+              "daemon",
+              "hello",
+              "job",
+              "status",
+              "log",
+              "progress"
+            ]
+          },
+          "data": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          }
+        },
+        "required": [
+          "type",
+          "event",
+          "data"
+        ],
+        "additionalProperties": false
+      }
+    ]
+  },
+  "events": {
+    "daemon": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": [
+            "listening",
+            "failed",
+            "extension_connected",
+            "extension_disconnected",
+            "browser_launching",
+            "browser_ready",
+            "addon_installing",
+            "stopped"
+          ]
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535
+        },
+        "pid": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 50
+        },
+        "reason": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "browser": {
+          "type": "string",
+          "maxLength": 50
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 2000
+        }
+      },
+      "required": [
+        "state"
+      ],
+      "additionalProperties": {}
+    },
+    "progress": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "done": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 2000
+        }
+      },
+      "required": [
+        "action",
+        "done",
+        "total",
+        "message"
+      ],
+      "additionalProperties": {}
+    }
+  },
+  "params": {
+    "bridge.status": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    },
+    "bridge.browser_info": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "browser": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 50
+        }
+      },
+      "additionalProperties": false
+    },
+    "bridge.ensure_window": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "browser": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 50
+        },
+        "focus": {
+          "type": "boolean"
+        },
+        "timeoutS": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 3600
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        }
+      },
+      "additionalProperties": false
+    },
+    "bridge.install_addon": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "browser": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 50
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "temporary",
+            "permanent"
+          ]
+        },
+        "force": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "bridge.ensure_account": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "match": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 320
+        }
+      },
+      "required": [
+        "match"
+      ],
+      "additionalProperties": false
+    },
+    "bridge.ask": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "prompt": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500000
+        },
+        "interrupt": {
+          "type": "boolean"
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "gem": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "newChat": {
+          "type": "boolean"
+        },
+        "timeoutS": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 3600
+        }
+      },
+      "required": [
+        "prompt"
+      ],
+      "additionalProperties": false
+    },
+    "bridge.shutdown": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    },
+    "action.generate_keywords": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "topic": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "exclusions": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "styles": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "language": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 50
+        },
+        "avoid": {
+          "maxItems": 10000,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 5000
+        },
+        "chats": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8
+        },
+        "perChat": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "angles": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "gem": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "newChat": {
+          "type": "boolean"
+        },
+        "timeoutS": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 3600
+        }
+      },
+      "required": [
+        "topic"
+      ],
+      "additionalProperties": false
+    },
+    "action.classify_channel": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "channel": {
+          "type": "object",
+          "properties": {
+            "handle": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            },
+            "title": {
+              "type": "string",
+              "maxLength": 300
+            },
+            "description": {
+              "type": "string",
+              "maxLength": 10000
+            },
+            "country": {
+              "type": "string",
+              "maxLength": 2
+            },
+            "subscriberCount": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "recentVideoTitles": {
+              "maxItems": 50,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "maxLength": 300
+              }
+            }
+          },
+          "required": [
+            "handle"
+          ],
+          "additionalProperties": false
+        },
+        "niche": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "criteria": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "gem": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "newChat": {
+          "type": "boolean"
+        },
+        "timeoutS": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 3600
+        }
+      },
+      "required": [
+        "channel",
+        "niche"
+      ],
+      "additionalProperties": false
+    },
+    "action.gem_create": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 5000
+        },
+        "instructions": {
+          "type": "string",
+          "maxLength": 100000
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "timeoutS": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 3600
+        }
+      },
+      "required": [
+        "name",
+        "description",
+        "instructions"
+      ],
+      "additionalProperties": false
+    },
+    "action.gem_update": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "gem": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 5000
+        },
+        "instructions": {
+          "type": "string",
+          "maxLength": 100000
+        },
+        "timeoutS": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 3600
+        }
+      },
+      "required": [
+        "gem"
+      ],
+      "additionalProperties": false
+    },
+    "action.gem_read": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "gem": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "timeoutS": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 3600
+        }
+      },
+      "required": [
+        "gem"
+      ],
+      "additionalProperties": false
+    },
+    "action.skills_list": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    },
+    "action.skill_read": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "contents": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    "action.skill_set_active": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "active": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "active"
+      ],
+      "additionalProperties": false
+    },
+    "action.skill_delete": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "confirm": {
+          "type": "boolean",
+          "const": true
+        }
+      },
+      "required": [
+        "name",
+        "confirm"
+      ],
+      "additionalProperties": false
+    },
+    "action.skill_deploy": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "folder": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "active": {
+          "type": "boolean"
+        },
+        "verify": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "folder"
+      ],
+      "additionalProperties": false
+    },
+    "action.comms_propose": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "request": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "first",
+                "reply",
+                "followUp",
+                "decision"
+              ]
+            },
+            "threadId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "channelId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "brandId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "contactEmail": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 320
+            },
+            "pitchChannelIds": {
+              "maxItems": 10,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              }
+            },
+            "followUpNumber": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 5
+            },
+            "steer": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 50
+              },
+              "additionalProperties": {
+                "type": "string",
+                "maxLength": 2000
+              }
+            },
+            "cashOffer": {
+              "type": "boolean"
+            },
+            "timeoutS": {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 3600
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false
+        },
+        "facts": {
+          "type": "object",
+          "properties": {
+            "agency": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "sender": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "whatWeDo": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 5000
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "website": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 500
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "trueClaims": {
+                      "maxItems": 50,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "maxLength": 1000
+                      }
+                    },
+                    "pastCampaigns": {
+                      "maxItems": 100,
+                      "type": "array",
+                      "items": {}
+                    },
+                    "incubator": {
+                      "type": "boolean"
+                    },
+                    "boycott": {
+                      "type": "object",
+                      "properties": {
+                        "countries": {
+                          "maxItems": 300,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 10
+                          }
+                        },
+                        "brands": {
+                          "maxItems": 1000,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200
+                          }
+                        }
+                      },
+                      "required": [
+                        "countries",
+                        "brands"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "sender",
+                    "whatWeDo",
+                    "website",
+                    "trueClaims",
+                    "pastCampaigns",
+                    "incubator",
+                    "boycott"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "thread": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "channelId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "brandId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "contactEmail": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 320
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "dealId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "messages": {
+                      "maxItems": 500,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "direction": {
+                            "type": "string",
+                            "enum": [
+                              "outbound",
+                              "inbound"
+                            ]
+                          },
+                          "subject": {
+                            "type": "string",
+                            "maxLength": 2000
+                          },
+                          "body": {
+                            "type": "string",
+                            "maxLength": 100000
+                          },
+                          "at": {
+                            "type": "string",
+                            "maxLength": 50
+                          }
+                        },
+                        "required": [
+                          "direction",
+                          "subject",
+                          "body",
+                          "at"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "channelId",
+                    "brandId",
+                    "contactEmail",
+                    "dealId",
+                    "messages"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "creators": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "pipelineStage": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 50
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "mediaKit": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
+                        "additionalProperties": {}
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "creatorGender": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 50
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "pipelineStage",
+                  "mediaKit",
+                  "creatorGender"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "brand": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "name": {
+                      "type": "string",
+                      "maxLength": 300
+                    },
+                    "website": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 500
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "category": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "country": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 100
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "campaignBrief": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 20000
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "contactName": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "contacts": {
+                      "maxItems": 100,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "maxLength": 200
+                          },
+                          "email": {
+                            "type": "string",
+                            "maxLength": 320
+                          },
+                          "primary": {
+                            "type": "boolean"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "website",
+                    "category",
+                    "country",
+                    "campaignBrief",
+                    "contactName",
+                    "contacts"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "deal": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "brandName": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 300
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "stage": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 50
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "creatorReceives": {
+                      "anyOf": [
+                        {
+                          "type": "number",
+                          "minimum": 0
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "currency": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 10
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "deliverables": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 5000
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "deadline": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 50
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "paymentTerms": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 2000
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "brandName",
+                    "stage",
+                    "creatorReceives",
+                    "currency",
+                    "deliverables",
+                    "deadline",
+                    "paymentTerms"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "recentOutbound": {
+              "maxItems": 50,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "threadId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 100
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "body": {
+                    "type": "string",
+                    "maxLength": 100000
+                  }
+                },
+                "required": [
+                  "threadId",
+                  "body"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "agency",
+            "thread",
+            "creators",
+            "brand",
+            "deal",
+            "recentOutbound"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "request",
+        "facts"
+      ],
+      "additionalProperties": false
+    },
+    "action.comms_check": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "request": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "first",
+                "reply",
+                "followUp",
+                "decision"
+              ]
+            },
+            "threadId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "channelId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "brandId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "contactEmail": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 320
+            },
+            "pitchChannelIds": {
+              "maxItems": 10,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              }
+            },
+            "followUpNumber": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 5
+            },
+            "steer": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 50
+              },
+              "additionalProperties": {
+                "type": "string",
+                "maxLength": 2000
+              }
+            },
+            "cashOffer": {
+              "type": "boolean"
+            },
+            "timeoutS": {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 3600
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false
+        },
+        "facts": {
+          "type": "object",
+          "properties": {
+            "agency": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "sender": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "whatWeDo": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 5000
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "website": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 500
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "trueClaims": {
+                      "maxItems": 50,
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "maxLength": 1000
+                      }
+                    },
+                    "pastCampaigns": {
+                      "maxItems": 100,
+                      "type": "array",
+                      "items": {}
+                    },
+                    "incubator": {
+                      "type": "boolean"
+                    },
+                    "boycott": {
+                      "type": "object",
+                      "properties": {
+                        "countries": {
+                          "maxItems": 300,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 10
+                          }
+                        },
+                        "brands": {
+                          "maxItems": 1000,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 200
+                          }
+                        }
+                      },
+                      "required": [
+                        "countries",
+                        "brands"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "sender",
+                    "whatWeDo",
+                    "website",
+                    "trueClaims",
+                    "pastCampaigns",
+                    "incubator",
+                    "boycott"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "thread": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "channelId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "brandId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "contactEmail": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 320
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "dealId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 200
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "messages": {
+                      "maxItems": 500,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "direction": {
+                            "type": "string",
+                            "enum": [
+                              "outbound",
+                              "inbound"
+                            ]
+                          },
+                          "subject": {
+                            "type": "string",
+                            "maxLength": 2000
+                          },
+                          "body": {
+                            "type": "string",
+                            "maxLength": 100000
+                          },
+                          "at": {
+                            "type": "string",
+                            "maxLength": 50
+                          }
+                        },
+                        "required": [
+                          "direction",
+                          "subject",
+                          "body",
+                          "at"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "channelId",
+                    "brandId",
+                    "contactEmail",
+                    "dealId",
+                    "messages"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "creators": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "pipelineStage": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 50
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "mediaKit": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "propertyNames": {
+                          "type": "string"
+                        },
+                        "additionalProperties": {}
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "creatorGender": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 50
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "pipelineStage",
+                  "mediaKit",
+                  "creatorGender"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "brand": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 200
+                    },
+                    "name": {
+                      "type": "string",
+                      "maxLength": 300
+                    },
+                    "website": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 500
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "category": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "country": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 100
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "campaignBrief": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 20000
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "contactName": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 200
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "contacts": {
+                      "maxItems": 100,
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string",
+                            "maxLength": 200
+                          },
+                          "email": {
+                            "type": "string",
+                            "maxLength": 320
+                          },
+                          "primary": {
+                            "type": "boolean"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "website",
+                    "category",
+                    "country",
+                    "campaignBrief",
+                    "contactName",
+                    "contacts"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "deal": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "brandName": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 300
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "stage": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 50
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "creatorReceives": {
+                      "anyOf": [
+                        {
+                          "type": "number",
+                          "minimum": 0
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "currency": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 10
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "deliverables": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 5000
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "deadline": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 50
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "paymentTerms": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 2000
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "brandName",
+                    "stage",
+                    "creatorReceives",
+                    "currency",
+                    "deliverables",
+                    "deadline",
+                    "paymentTerms"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "recentOutbound": {
+              "maxItems": 50,
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "threadId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 100
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "body": {
+                    "type": "string",
+                    "maxLength": 100000
+                  }
+                },
+                "required": [
+                  "threadId",
+                  "body"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "agency",
+            "thread",
+            "creators",
+            "brand",
+            "deal",
+            "recentOutbound"
+          ],
+          "additionalProperties": false
+        },
+        "subject": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "body": {
+          "type": "string",
+          "maxLength": 100000
+        }
+      },
+      "required": [
+        "request",
+        "facts",
+        "subject",
+        "body"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "results": {
+    "bridge.status": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "listening": {
+          "type": "boolean"
+        },
+        "port": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "extensionConnected": {
+          "type": "boolean"
+        },
+        "hello": {
+          "anyOf": [
+            {
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": {}
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "status": {
+          "anyOf": [
+            {
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": {}
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "statusError": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "message"
+          ],
+          "additionalProperties": {}
+        }
+      },
+      "required": [
+        "listening",
+        "port",
+        "extensionConnected",
+        "hello",
+        "status"
+      ],
+      "additionalProperties": {}
+    },
+    "bridge.browser_info": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "selected": {
+          "type": "string"
+        },
+        "browsers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "path": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "version": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "channel": {
+                "type": "string"
+              },
+              "installed": {
+                "type": "boolean"
+              },
+              "running": {
+                "type": "boolean"
+              },
+              "canRunUnsigned": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "path",
+              "version",
+              "channel",
+              "installed",
+              "running",
+              "canRunUnsigned"
+            ],
+            "additionalProperties": {}
+          }
+        },
+        "addon": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "shippedVersion": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "installedVersion": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "state": {
+              "type": "string",
+              "enum": [
+                "missing",
+                "temporary",
+                "installed",
+                "outdated",
+                "unsigned_blocked",
+                "unknown"
+              ]
+            },
+            "signed": {
+              "type": "boolean"
+            },
+            "restartNeeded": {
+              "type": "boolean"
+            },
+            "method": {
+              "type": "string",
+              "enum": [
+                "none",
+                "rdp_temporary",
+                "profile_xpi",
+                "policy",
+                "unpacked"
+              ]
+            },
+            "message": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "shippedVersion",
+            "installedVersion",
+            "state",
+            "signed",
+            "restartNeeded",
+            "method",
+            "message"
+          ],
+          "additionalProperties": {}
+        },
+        "profile": {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": [
+                "managed",
+                "existing"
+              ]
+            },
+            "dir": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "exists": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "mode",
+            "dir",
+            "exists"
+          ],
+          "additionalProperties": {}
+        },
+        "extensionDir": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "xpiPath": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "selected",
+        "browsers",
+        "addon",
+        "profile",
+        "extensionDir",
+        "xpiPath"
+      ],
+      "additionalProperties": {}
+    },
+    "bridge.ensure_window": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "connected": {
+          "type": "boolean"
+        },
+        "launched": {
+          "type": "boolean"
+        },
+        "reused": {
+          "type": "boolean"
+        },
+        "browser": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "addon": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "state": {
+                  "type": "string",
+                  "enum": [
+                    "missing",
+                    "temporary",
+                    "installed",
+                    "outdated",
+                    "unsigned_blocked",
+                    "unknown"
+                  ]
+                },
+                "version": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "method": {
+                  "type": "string",
+                  "enum": [
+                    "none",
+                    "rdp_temporary",
+                    "profile_xpi",
+                    "policy",
+                    "unpacked"
+                  ]
+                }
+              },
+              "required": [
+                "state",
+                "version",
+                "method"
+              ],
+              "additionalProperties": {}
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tab": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "tabId": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "url": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "tabId",
+                "url"
+              ],
+              "additionalProperties": {}
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "account": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "email": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "index": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "additionalProperties": {}
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "ok": {
+                "type": "boolean"
+              },
+              "ms": {
+                "type": "number",
+                "minimum": 0
+              },
+              "detail": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "ok",
+              "ms"
+            ],
+            "additionalProperties": {}
+          }
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "connected",
+        "launched",
+        "reused",
+        "browser",
+        "addon",
+        "tab",
+        "account",
+        "steps",
+        "message"
+      ],
+      "additionalProperties": {}
+    },
+    "bridge.install_addon": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": [
+            "missing",
+            "temporary",
+            "installed",
+            "outdated",
+            "unsigned_blocked",
+            "unknown"
+          ]
+        },
+        "version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "method": {
+          "type": "string",
+          "enum": [
+            "none",
+            "rdp_temporary",
+            "profile_xpi",
+            "policy",
+            "unpacked"
+          ]
+        },
+        "restartNeeded": {
+          "type": "boolean"
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "state",
+        "version",
+        "method",
+        "restartNeeded",
+        "message"
+      ],
+      "additionalProperties": {}
+    },
+    "bridge.ensure_account": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "email": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "index": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": {}
+    },
+    "bridge.ask": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "html": {
+          "type": "string"
+        },
+        "model": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "durationMs": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "text",
+        "html",
+        "model",
+        "durationMs"
+      ],
+      "additionalProperties": {}
+    },
+    "bridge.shutdown": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "ok": {
+          "type": "boolean",
+          "const": true
+        }
+      },
+      "required": [
+        "ok"
+      ],
+      "additionalProperties": {}
+    },
+    "action.generate_keywords": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "keywords": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "dropped": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "chats": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "index": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "requested": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "received": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "ok": {
+                "type": "boolean"
+              },
+              "error": {},
+              "durationMs": {
+                "type": "number",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "index",
+              "requested",
+              "received",
+              "ok",
+              "error",
+              "durationMs"
+            ],
+            "additionalProperties": {}
+          }
+        },
+        "partial": {
+          "type": "boolean"
+        },
+        "raw": {
+          "type": "string"
+        },
+        "model": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "keywords",
+        "dropped",
+        "raw",
+        "model"
+      ],
+      "additionalProperties": {}
+    },
+    "action.classify_channel": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "niche": {
+          "type": "string"
+        },
+        "audience": {
+          "type": "string"
+        },
+        "language": {
+          "type": "string"
+        },
+        "brandFit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "redFlags": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "raw": {
+          "type": "string"
+        },
+        "model": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "niche",
+        "audience",
+        "language",
+        "brandFit",
+        "reasons",
+        "redFlags",
+        "raw",
+        "model"
+      ],
+      "additionalProperties": {}
+    },
+    "action.gem_create": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string"
+        },
+        "gemId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "url",
+        "gemId",
+        "name"
+      ],
+      "additionalProperties": {}
+    },
+    "action.gem_update": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string"
+        },
+        "gemId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "changed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "url",
+        "gemId",
+        "name",
+        "changed"
+      ],
+      "additionalProperties": {}
+    },
+    "action.gem_read": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string"
+        },
+        "gemId": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "instructions": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "url",
+        "gemId",
+        "name",
+        "description",
+        "instructions"
+      ],
+      "additionalProperties": {}
+    },
+    "action.skills_list": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "skills": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "active": {
+                "type": "boolean"
+              },
+              "state": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "description",
+              "active",
+              "state"
+            ],
+            "additionalProperties": {}
+          }
+        }
+      },
+      "required": [
+        "skills"
+      ],
+      "additionalProperties": {}
+    },
+    "action.skill_read": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {}
+    },
+    "action.skill_set_active": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "active": {
+          "type": "boolean"
+        },
+        "changed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "active",
+        "changed"
+      ],
+      "additionalProperties": {}
+    },
+    "action.skill_delete": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "deleted": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "deleted"
+      ],
+      "additionalProperties": {}
+    },
+    "action.skill_deploy": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "zipBytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "hasScripts": {
+          "type": "boolean"
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "create",
+            "replace"
+          ]
+        },
+        "active": {
+          "type": "boolean"
+        },
+        "verified": {
+          "type": "boolean"
+        },
+        "onPage": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "name",
+        "description",
+        "files",
+        "sha256",
+        "bytes",
+        "zipBytes",
+        "hasScripts",
+        "mode",
+        "active",
+        "verified",
+        "onPage"
+      ],
+      "additionalProperties": {}
+    },
+    "action.comms_propose": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "ready",
+            "needs_human",
+            "blocked",
+            "no_message"
+          ]
+        },
+        "proposal": {
+          "anyOf": [
+            {
+              "type": "object",
+              "propertyNames": {
+                "type": "string"
+              },
+              "additionalProperties": {}
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "severity": {
+                "type": "string"
+              },
+              "rule": {
+                "type": "string"
+              },
+              "detail": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "severity",
+              "rule",
+              "detail"
+            ],
+            "additionalProperties": {}
+          }
+        },
+        "gates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          }
+        },
+        "case": {
+          "type": "object",
+          "properties": {
+            "side": {
+              "type": "string"
+            },
+            "stage": {
+              "type": "string"
+            },
+            "goal": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "side",
+            "stage",
+            "goal"
+          ],
+          "additionalProperties": {}
+        },
+        "moments": {
+          "type": "array",
+          "items": {}
+        },
+        "momentsNote": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "seconds": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "model": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "thinking": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "status",
+        "proposal",
+        "findings",
+        "gates",
+        "case",
+        "moments",
+        "momentsNote",
+        "seconds",
+        "model",
+        "thinking"
+      ],
+      "additionalProperties": {}
+    },
+    "action.comms_check": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "findings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "severity": {
+                "type": "string"
+              },
+              "rule": {
+                "type": "string"
+              },
+              "detail": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "code",
+              "severity",
+              "rule",
+              "detail"
+            ],
+            "additionalProperties": {}
+          }
+        },
+        "gates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {}
+          }
+        },
+        "blocking": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "findings",
+        "gates",
+        "blocking"
+      ],
+      "additionalProperties": {}
+    }
+  }
+}

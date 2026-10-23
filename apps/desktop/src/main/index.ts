@@ -12,6 +12,7 @@ import { createFindService } from "./find/find-service";
 import { createHandlers } from "./handlers";
 import { registerBridge } from "./ipc-bridge";
 import { createNetwork } from "./net/network";
+import { createGeminiService } from "./pipeline/gemini-service";
 import { openPipelineLog } from "./pipeline/logs";
 import { findPython, pipelineEnv } from "./pipeline/python-path";
 import { createPipelineSupervisor } from "./pipeline/supervisor";
@@ -128,6 +129,22 @@ function start(): void {
         openLog: (logSecrets) =>
           openPipelineLog({ folder: join(userData, "logs"), now: Date.now, secrets: logSecrets }),
       });
+      // The Gemini bridge (step 3e-3). Nothing starts it yet: keyword ideas (step 5) and drafts
+      // (step 6) will. It is created here so quitting always stops it.
+      const gemini = createGeminiService({
+        spawn: (command, args, options) =>
+          spawn(command, [...args], { ...options, stdio: "pipe", windowsHide: true }),
+        python: () =>
+          findPython({ packaged: app.isPackaged, appPath: app.getAppPath(), exists: existsSync }),
+        env: pipelineEnv(process.env),
+        openLog: () =>
+          openPipelineLog({
+            folder: join(userData, "logs"),
+            now: Date.now,
+            secrets: [],
+            kind: "gemini",
+          }),
+      });
       const find = createFindService({
         supervisor,
         account,
@@ -138,23 +155,24 @@ function start(): void {
         },
         now: Date.now,
       });
-      // A search running at quit is asked to stop first (and killed after 5 s); then the app quits
-      // again. The flag keeps that second quit from looping.
+      // A search or a Gemini bridge running at quit is asked to stop first (and killed after
+      // 5 s); then the app quits again. The flag keeps that second quit from looping.
       let quitting = false;
       app.on("before-quit", (event) => {
-        if (quitting || !supervisor.running) {
+        if (quitting || (!supervisor.running && gemini.state === "stopped")) {
           return;
         }
         quitting = true;
         event.preventDefault();
-        find
-          .shutdown()
-          .catch((error: unknown) => {
+        // allSettled never rejects, and each shutdown already logs its own failure.
+        void Promise.allSettled([
+          find.shutdown().catch((error: unknown) => {
             console.error("The search couldn't be stopped at quit:", error);
-          })
-          .finally(() => {
-            app.quit();
-          });
+          }),
+          gemini.shutdown(),
+        ]).finally(() => {
+          app.quit();
+        });
       });
       app.on("will-quit", () => {
         account.close();

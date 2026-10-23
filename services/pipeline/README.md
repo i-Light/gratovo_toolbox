@@ -22,6 +22,11 @@ All code is in `src/gratovo_pipeline/`.
 | `search/` | One keyword: `discover`, `keyword`, `auto_clean`, `uploads`, `backfill`, `pacing`, `signals`, `context`, plus `found_emails`. |
 | `jobs/search.py` | The search run: the keyword loop, stop, resume and `end`. |
 | `example/` | The offline example source (`channels.json`, 30 made-up AI creators). |
+| `gemini/` | The Gemini bridge (`python -m gratovo_pipeline.gemini`): one long-lived process on 127.0.0.1, with `daemon.py`, `server.py`, `client.py`, `actions.py` (keywords, classification, gems, skills, comms), `errors.py`, `browser/` (Firefox detect, profile, session, window guard). |
+| `comms/` | The comms engine (playbook, checks, `engine.py`, `course.py`, `moments.py`), used by the app, plus the tools a person runs by hand (`coach`, `gradbar`, `pairwise`, `scenarios`, `mine_calls`, `pool`, `skill_build`, `verify`, `quote_review`, `video_check`). |
+| `transcript.py` | Subtitles through yt-dlp, run as a module of this Python, on a checked video id only (ADR 0014). |
+| `paths.py` | The one module that knows where `data/` and the course folders are. |
+| `data/` | The comms playbook and skill (`data/comms/`) and the Gemini prompts (`data/gemini-skills/`). |
 
 `tests/` mirrors these, with a socket guard in `conftest.py` that fails any test that reaches the network.
 
@@ -47,6 +52,32 @@ echo '{"type":"start","protocol":1,"source":"example","dataDir":"C:\\Temp\\pipel
 ```
 
 It prints `ready`, then `run`, `keyword`, `channel` and `log` lines, and ends with one `end` line and exit code 0. `dataDir` must be an absolute path; the run writes only `pipeline.db` there. The example source has no network and no key. Use a folder you can delete afterwards.
+
+## Run the bridge by hand
+
+The bridge is one long-lived process. Run it with a free port and temporary folders, so it can't touch the app's profile:
+
+```
+uv run python -I -u -m gratovo_pipeline.gemini --port <free port> --profile-dir <tmp> --extension-dir <tmp>
+```
+
+It prints a `listening` event. Then type one request line and press Enter:
+
+```
+{"id":"1","method":"bridge.status","params":{}}
+```
+
+Only one bridge may run at a time. Never start a second one, and never use port 8765 while the app may be running its bridge. Stop it by closing stdin (Ctrl+Z, Enter in PowerShell) or with `bridge.shutdown`. There is no extension yet (step 6), so `bridge.browser_info` reports the add-on as missing.
+
+## Run the comms tools by hand
+
+The comms tools measure and tune the drafting work. They are not called from the app. They need the owner's course, which is not in the repository. Give its folder with `--course-dir` (and `--video-dir` for the videos), or set `GRATOVO_COURSE_DIR` and `GRATOVO_VIDEO_DIR`. Without the course, a tool stops with one line that names the flag and the variable. For example:
+
+```
+uv run python -m gratovo_pipeline.comms.verify --course-dir <folder>
+```
+
+Decisions: [ADR 0014](../../docs/decisions/0014-gemini-bridge-and-comms.md).
 
 ## Rules
 
