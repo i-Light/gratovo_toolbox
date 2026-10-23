@@ -1,15 +1,19 @@
+import copy
+import importlib
 import io
 import json
 import socket
+import sys
 import threading
-from collections.abc import Callable
-from typing import Any
+from collections.abc import Callable, Iterator
+from typing import Any, cast
 
 import pytest
 from helpers import START, changed, schema_errors
 
-from gratovo_pipeline import protocol
-from gratovo_pipeline.protocol import BadStartError, Emitter, listen_for_stop, parse_start
+from gratovo_pipeline import __main__ as gratovo_main
+from gratovo_pipeline import jobs, net, protocol
+from gratovo_pipeline.protocol import BadStartError, Emitter, Start, listen_for_stop, parse_start
 
 Check = Callable[[str], dict[str, Any]]
 
@@ -171,3 +175,586 @@ def test_the_app_closing_stdin_stops_the_run() -> None:
 def test_the_network_is_blocked_in_tests() -> None:
     with pytest.raises(RuntimeError, match="network"):
         socket.create_connection(("www.youtube.com", 443))
+
+
+# --- the jobs other than search (3e-3b) ---
+
+AUTO_CLEAN: dict[str, Any] = START["job"]["rules"]["autoClean"]
+SEND: dict[str, Any] = {
+    "to": "sam@aitoolsweekly.com",
+    "subject": "Your Claude Code series",
+    "body": "Hi Sam,\n\nYour agents video was the clearest walk-through I have seen.",
+    "sendKey": "reach:UCabc_123-x:first",
+    "approvedBy": "owner@gratovo.com",
+}
+
+# Each kind with every optional field, and with none: both parse to themselves.
+GOOD_JOBS: list[dict[str, Any]] = [
+    {"kind": "mail.status"},
+    {"kind": "mail.send", "message": SEND},
+    {
+        "kind": "mail.send",
+        "message": {
+            **SEND,
+            "mailbox": "outreach@gratovo.com",
+            "conversationKey": "UCabc_123-x",
+            "newThread": True,
+            "channelId": "UCabc_123-x",
+            "labels": ["Gratovo", "AI creators"],
+        },
+    },
+    {"kind": "mail.replies"},
+    {
+        "kind": "mail.replies",
+        "mailbox": "outreach@gratovo.com",
+        "conversationKey": "UCabc_123-x",
+        "limit": 500,
+    },
+    {"kind": "mail.ack", "messageIds": ["18f2c3a9b7d4e001", "18f2c3a9b7d4e002"]},
+    {"kind": "mail.cancel", "conversationKey": "UCabc_123-x"},
+    {"kind": "video_stats", "videoUrl": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
+    {"kind": "refetch", "handles": ["@aitoolsweekly"], "autoClean": None},
+    {
+        "kind": "refetch",
+        "handles": ["@aitoolsweekly", "@claude.daily", "@llm-news_today"],
+        "keyword": "ai agents",
+        "autoClean": AUTO_CLEAN,
+    },
+    {"kind": "backfill", "only": ["backlog"]},
+    {
+        "kind": "backfill",
+        "only": ["channels", "videos", "backfill", "backlog"],
+        "handles": ["@aitoolsweekly"],
+        "months": 24,
+        "maxApiCalls": 0,
+        "includeAbsent": True,
+        "limit": 100_000,
+    },
+    {"kind": "gateways.deploy", "regions": ["eu-west-1", "us-east-2", "ap-southeast-1"]},
+    {"kind": "gateways.destroy", "gateways": [{"region": "eu-west-1", "apiId": "a1b2c3d4e5"}]},
+    {"kind": "gateways.test"},
+]
+
+# Two jobs of a kind (all fields, and the required ones only) get told apart by their place.
+GOOD_IDS = [f"{job['kind']}-{i}" for i, job in enumerate(GOOD_JOBS)]
+
+
+def live(job: object, base: dict[str, Any] = START) -> dict[str, Any]:
+    """base running job on live data: only a search runs on example data."""
+    return changed("source", "live", changed("job", job, base))
+
+
+def test_every_kind_has_a_good_job() -> None:
+    assert {job["kind"] for job in GOOD_JOBS} == set(protocol.RESULT_KINDS)
+
+
+@pytest.mark.parametrize("job", GOOD_JOBS, ids=GOOD_IDS)
+def test_a_good_job_of_each_kind_parses_to_the_same_values(
+    job: dict[str, Any], protocol_schema: dict[str, Any]
+) -> None:
+    message = live(job)
+    assert schema_errors(protocol_schema["toPipeline"], message) == []
+    assert parse_start(json.dumps(message)) == message
+
+
+# Each breaks the schema, so the JSON Schema refuses it too.
+BAD_JOBS: list[dict[str, Any]] = [
+    {"kind": "news"},
+    {"kind": "mail.status", "mailbox": "outreach@gratovo.com"},
+    {"kind": "mail.send"},
+    {"kind": "mail.send", "message": {k: v for k, v in SEND.items() if k != "sendKey"}},
+    {"kind": "mail.send", "message": {k: v for k, v in SEND.items() if k != "approvedBy"}},
+    {"kind": "mail.send", "message": {**SEND, "sendKey": "short"}},
+    {"kind": "mail.send", "message": {**SEND, "sendKey": "has spaces in it"}},
+    {"kind": "mail.send", "message": {**SEND, "approvedBy": ""}},
+    {"kind": "mail.send", "message": {**SEND, "to": "not an address"}},
+    {"kind": "mail.send", "message": {**SEND, "to": "a@b.co,c@d.co"}},
+    {"kind": "mail.send", "message": {**SEND, "body": ""}},
+    {"kind": "mail.send", "message": {**SEND, "body": "x" * 100_001}},
+    {"kind": "mail.send", "message": {**SEND, "subject": "x" * 999}},
+    {"kind": "mail.send", "message": {**SEND, "labels": ["a"] * 11}},
+    {"kind": "mail.send", "message": {**SEND, "channelId": "../etc"}},
+    {"kind": "mail.send", "message": {**SEND, "replyTo": "a@b.co"}},
+    {"kind": "mail.replies", "limit": 0},
+    {"kind": "mail.replies", "limit": 501},
+    {"kind": "mail.replies", "limit": True},
+    {"kind": "mail.replies", "mailbox": None},
+    {"kind": "mail.ack", "messageIds": []},
+    {"kind": "mail.ack", "messageIds": ["../inbox"]},
+    {"kind": "mail.ack", "messageIds": ["a1"] * 501},
+    {"kind": "mail.cancel"},
+    {"kind": "mail.cancel", "conversationKey": "x" * 201},
+    {"kind": "video_stats", "videoUrl": ""},
+    {"kind": "video_stats", "videoUrl": "x" * 2001},
+    {"kind": "refetch", "handles": [], "autoClean": None},
+    {"kind": "refetch", "handles": ["aitoolsweekly"], "autoClean": None},
+    {"kind": "refetch", "handles": ["@aitoolsweekly"]},
+    {"kind": "refetch", "handles": ["@aitoolsweekly"], "autoClean": {"enabled": True}},
+    {"kind": "refetch", "handles": ["@a"] * 2001, "autoClean": None},
+    {"kind": "backfill", "only": []},
+    {"kind": "backfill", "only": ["sync"]},
+    {"kind": "backfill", "only": ["videos"], "months": 25},
+    {"kind": "backfill", "only": ["videos"], "maxApiCalls": -1},
+    {"kind": "backfill", "only": ["videos"], "handles": []},
+    {"kind": "backfill", "only": ["videos"], "limit": 0},
+    {"kind": "gateways.deploy", "regions": []},
+    {"kind": "gateways.deploy", "regions": ["EU-WEST-1"]},
+    {"kind": "gateways.deploy", "regions": ["eu-west-1.evil.example"]},
+    {"kind": "gateways.deploy", "regions": ["eu-west-1"] * 21},
+    {"kind": "gateways.destroy", "gateways": []},
+    {"kind": "gateways.destroy", "gateways": [{"region": "eu-west-1", "apiId": "A1/B2"}]},
+    {"kind": "gateways.destroy", "gateways": [{"region": "eu-west-1"}]},
+    {"kind": "gateways.test", "regions": ["eu-west-1"]},
+]
+
+
+@pytest.mark.parametrize("job", BAD_JOBS)
+def test_a_job_that_breaks_the_schema_is_refused(
+    job: dict[str, Any], protocol_schema: dict[str, Any]
+) -> None:
+    bad = live(job)
+    assert schema_errors(protocol_schema["toPipeline"], bad) != []
+    with pytest.raises(BadStartError):
+        parse_start(json.dumps(bad))
+
+
+# The checks JSON Schema can't express, which zod makes with refinements.
+@pytest.mark.parametrize(
+    "job",
+    [
+        {"kind": "refetch", "handles": ["@AIToolsWeekly", "@aitoolsweekly"], "autoClean": None},
+        {"kind": "backfill", "only": ["videos", "videos"]},
+        {"kind": "gateways.deploy", "regions": ["eu-west-1", "eu-west-1"]},
+    ],
+)
+def test_a_job_that_breaks_a_refinement_is_refused(job: dict[str, Any]) -> None:
+    with pytest.raises(BadStartError, match=r"unique|repeat"):
+        parse_start(json.dumps(live(job)))
+
+
+@pytest.mark.parametrize("job", GOOD_JOBS, ids=GOOD_IDS)
+def test_only_a_search_runs_on_example_data(job: dict[str, Any]) -> None:
+    with pytest.raises(BadStartError, match="example data"):
+        parse_start(json.dumps(changed("job", job)))
+
+
+MAIL_SETTINGS: dict[str, Any] = {
+    "label": "Gratovo",
+    "senderName": None,
+    "mailboxes": [
+        {"address": "outreach@gratovo.com", "dailyCap": 30, "warmupStartedOn": "2026-10-01"},
+        {"address": "hello@gratovo.com", "dailyCap": 10, "warmupStartedOn": None},
+    ],
+}
+MAIL_SECRETS: dict[str, Any] = {
+    "client": {"id": "client-id.apps.example", "secret": "client-secret-not-real"},
+    "mailboxes": [{"address": "outreach@gratovo.com", "refreshToken": "refresh-not-real"}],
+}
+AWS_KEYS: dict[str, Any] = {
+    "accessKeyId": "AKIAEXAMPLEKEY0000",
+    "secretAccessKey": "secret-access-key-not-real",
+}
+
+
+def changed_at(path: str, value: object, base: dict[str, Any]) -> dict[str, Any]:
+    """changed(), where a number in the path is a list index (`a.0.b`)."""
+    message = copy.deepcopy(base)
+    *parents, last = path.split(".")
+    node: Any = message
+    for key in parents:
+        node = node[int(key)] if key.isdigit() else node[key]
+    node[last] = value
+    return message
+
+
+def with_mail() -> dict[str, Any]:
+    message = live({"kind": "mail.status"})
+    message = changed("settings.mail", MAIL_SETTINGS, message)
+    message = changed("secrets.mail", MAIL_SECRETS, message)
+    return changed("secrets.aws", AWS_KEYS, message)
+
+
+def test_the_mail_settings_and_the_mail_and_aws_secrets_parse(
+    protocol_schema: dict[str, Any],
+) -> None:
+    message = with_mail()
+    assert schema_errors(protocol_schema["toPipeline"], message) == []
+    assert parse_start(json.dumps(message)) == message
+
+
+@pytest.mark.parametrize(
+    ("path", "value"),
+    [
+        ("settings.mail.label", ""),
+        ("settings.mail.senderName", "x" * 101),
+        ("settings.mail.mailboxes", [MAIL_SETTINGS["mailboxes"][0]] * 21),
+        ("settings.mail.mailboxes.0.dailyCap", 51),
+        ("settings.mail.mailboxes.0.dailyCap", 9),
+        ("settings.mail.mailboxes.0.warmupStartedOn", "1 October"),
+        ("settings.mail.mailboxes.0.address", "nobody"),
+        ("secrets.mail.client", {"id": "client-id"}),
+        ("secrets.mail.mailboxes.0.refreshToken", ""),
+        ("secrets.aws.accessKeyId", "akia-lowercase"),
+        ("secrets.aws.secretAccessKey", ""),
+        ("secrets.aws.sessionToken", "x"),
+    ],
+)
+def test_mail_settings_and_secrets_that_break_the_schema_are_refused(
+    path: str, value: object, protocol_schema: dict[str, Any]
+) -> None:
+    bad = changed_at(path, value, with_mail())
+    assert schema_errors(protocol_schema["toPipeline"], bad) != []
+    with pytest.raises(BadStartError):
+        parse_start(json.dumps(bad))
+
+
+@pytest.mark.parametrize(
+    ("path", "secret"),
+    [
+        ("secrets.aws.accessKeyId", "akia-the-real-key-id"),
+        ("job.message.to", "sam-at-aitoolsweekly.com"),
+        ("job.message.sendKey", "has a secret in it"),
+    ],
+)
+def test_the_refusal_never_repeats_a_value(path: str, secret: str) -> None:
+    bad = changed("job", {"kind": "mail.send", "message": dict(SEND)}, with_mail())
+    bad = changed(path, secret, bad)
+    with pytest.raises(BadStartError) as refused:
+        parse_start(json.dumps(bad))
+    assert secret not in str(refused.value)
+
+
+# --- results and replies ---
+
+ERROR: dict[str, Any] = {"code": "mail_auth", "message": "Google refused this mailbox's sign-in."}
+RESULTS: list[tuple[protocol.ResultKind, dict[str, Any]]] = [
+    (
+        "mail.status",
+        {
+            "configured": True,
+            "label": "Gratovo",
+            "senderName": None,
+            "accounts": [
+                {
+                    "account": "outreach@gratovo.com",
+                    "connected": True,
+                    "counters": {
+                        "conversations": 12,
+                        "sent": 14,
+                        "awaitingReply": 9,
+                        "replied": 3,
+                        "pendingSteps": 0,
+                        "dueSteps": 0,
+                        "failedSteps": 0,
+                        "unreportedReplies": 2,
+                    },
+                    "limits": {
+                        "dailyCap": 30,
+                        "warmupStartedOn": "2026-10-01",
+                        "sentToday": 4,
+                        "leftToday": 26,
+                    },
+                    "lastSweepAt": "2026-10-22T09:00:00Z",
+                    "error": None,
+                },
+                {
+                    "account": None,
+                    "connected": False,
+                    "counters": None,
+                    "limits": None,
+                    "lastSweepAt": None,
+                    "error": ERROR,
+                },
+            ],
+        },
+    ),
+    (
+        "mail.send",
+        {
+            "duplicate": False,
+            "account": "outreach@gratovo.com",
+            "conversationKey": "UCabc_123-x",
+            "messageId": "18f2c3a9b7d4e001",
+            "threadId": None,
+            "rfcMessageId": "<CAabc@mail.gmail.com>",
+            "labelled": True,
+            "threaded": False,
+            "to": "sam@aitoolsweekly.com",
+            "subject": "Your Claude Code series",
+            "sentAt": "2026-10-22T09:00:00Z",
+        },
+    ),
+    (
+        "mail.replies",
+        {
+            "accounts": [
+                {
+                    "account": "outreach@gratovo.com",
+                    "checked": 60,
+                    "replies": 2,
+                    "cancelledQueued": 1,
+                    "error": None,
+                },
+                {
+                    "account": "hello@gratovo.com",
+                    "checked": 0,
+                    "replies": 0,
+                    "cancelledQueued": 0,
+                    "error": {**ERROR, "code": "network"},
+                },
+            ]
+        },
+    ),
+    ("mail.ack", {"acknowledged": 2}),
+    ("mail.cancel", {"cancelled": 1, "closed": True}),
+    ("video_stats", {"videoId": "dQw4w9WgXcQ", "views": 1_600_000_000, "fetchedAt": "2026-10-22"}),
+    (
+        "refetch",
+        {"processed": 3, "swept": 1, "deferred": 0, "failedCount": 1, "failed": ["@gone"]},
+    ),
+    (
+        "backfill",
+        {
+            "channels": {"targets": 4, "filled": 3},
+            "videos": None,
+            "backfill": {"channels": 2, "saved": 31},
+            "backlog": {"stamped": 5},
+            "apiCalls": 9,
+            "budgetReached": False,
+        },
+    ),
+    (
+        "gateways.deploy",
+        {
+            "deployed": [
+                {
+                    "region": "eu-west-1",
+                    "apiId": "a1b2c3d4e5",
+                    "url": "https://a1b2c3d4e5.execute-api.eu-west-1.amazonaws.com",
+                }
+            ],
+            "failed": [{"region": "us-east-2", "message": "AWS refused the keys."}],
+        },
+    ),
+    (
+        "gateways.destroy",
+        {
+            "deleted": [{"region": "eu-west-1", "apiId": "a1b2c3d4e5"}],
+            "failed": [{"region": "us-east-2", "apiId": "f6g7h8", "message": "AWS didn't answer."}],
+        },
+    ),
+    (
+        "gateways.test",
+        {
+            "results": [
+                {"region": "eu-west-1", "status": 204, "ok": True, "message": None},
+                {"region": None, "status": None, "ok": False, "message": "No answer."},
+            ]
+        },
+    ),
+]
+
+
+def test_every_kind_has_a_result() -> None:
+    assert [kind for kind, _ in RESULTS] == list(protocol.RESULT_KINDS)
+
+
+@pytest.mark.parametrize(("kind", "data"), RESULTS, ids=[kind for kind, _ in RESULTS])
+def test_each_result_matches_the_schema(
+    kind: protocol.ResultKind, data: dict[str, Any], check_from_pipeline: Check
+) -> None:
+    out = io.StringIO()
+    # The overloads pair each kind with its data; the table holds them all, so go round them.
+    cast("Any", Emitter(out)).result(kind, data)
+    message = check_from_pipeline(out.getvalue())
+    assert message == {"type": "result", "kind": kind, "data": data}
+
+
+def test_a_result_is_cut_to_fit_the_schema(check_from_pipeline: Check) -> None:
+    out = io.StringIO()
+    emit = Emitter(out)
+    emit.result(
+        "gateways.deploy",
+        {"deployed": [], "failed": [{"region": "eu-west-1", "message": "x" * 2000}]},
+    )
+    emit.result(
+        "refetch",
+        {
+            "processed": 300,
+            "swept": 0,
+            "deferred": 0,
+            "failedCount": 300,
+            "failed": [f"@gone{i}" for i in range(300)],
+        },
+    )
+    send = dict(RESULTS[1][1])
+    send["rfcMessageId"] = "<" + "x" * 1000 + ">"
+    emit.result("mail.send", cast("protocol.MailSendData", send))
+    deploy, refetch, sent = (
+        check_from_pipeline(line) for line in out.getvalue().splitlines(keepends=True)
+    )
+    assert len(deploy["data"]["failed"][0]["message"]) == protocol.MAX_TEXT
+    assert len(refetch["data"]["failed"]) == protocol.MAX_FAILED_HANDLES
+    assert refetch["data"]["failedCount"] == 300
+    assert sent["data"]["rfcMessageId"] is None
+
+
+def write_reply(out: io.StringIO, **changes: Any) -> None:
+    fields: dict[str, Any] = {
+        "account": "outreach@gratovo.com",
+        "conversation_key": "UCabc_123-x",
+        "channel_id": "UCabc_123-x",
+        "message_id": "18f2c3a9b7d4e001",
+        "sender": "sam@aitoolsweekly.com",
+        "sender_name": "Sam from AI Tools Weekly",
+        "subject": "Re: Your Claude Code series",
+        "body": "Thanks! Send over the details and the rates.",
+        "received_at": "2026-10-22T09:14:00Z",
+        "is_first_reply": True,
+        "cancelled_follow_ups": 1,
+    }
+    fields.update(changes)
+    Emitter(out).reply(**fields)
+
+
+def test_a_reply_matches_the_schema(check_from_pipeline: Check) -> None:
+    out = io.StringIO()
+    write_reply(out)
+    message = check_from_pipeline(out.getvalue())
+    assert message["type"] == "reply"
+    assert message["from"] == "sam@aitoolsweekly.com"
+    assert message["fromName"] == "Sam from AI Tools Weekly"
+    assert message["body"] == "Thanks! Send over the details and the rates."
+    assert message["bodyCut"] is False
+
+
+def test_a_long_reply_body_is_cut_to_16000_characters(check_from_pipeline: Check) -> None:
+    out = io.StringIO()
+    body = "".join(f"line {i} about our AI agents review. " for i in range(2500))[:70_000]
+    write_reply(out, body=body)
+    message = check_from_pipeline(out.getvalue())
+    assert message["bodyCut"] is True
+    assert message["body"] == body[: protocol.MAX_REPLY_BODY]
+
+
+@pytest.mark.parametrize("unit", ['"\n', '"\n\x07', "\x00"], ids=["quotes", "controls", "nul"])
+def test_a_body_that_escapes_past_the_line_limit_is_cut_until_it_fits(
+    unit: str, check_from_pipeline: Check
+) -> None:
+    out = io.StringIO()
+    body = unit * 30_000
+    write_reply(out, body=body)
+    line = out.getvalue()
+    assert len(line.encode("utf-8")) <= protocol.MAX_LINE
+    message = check_from_pipeline(line)
+    assert message["bodyCut"] is True
+    assert body.startswith(message["body"])
+    assert 0 < len(message["body"]) <= protocol.MAX_REPLY_BODY
+
+
+def test_a_reply_s_other_text_is_cut_to_the_schema(check_from_pipeline: Check) -> None:
+    out = io.StringIO()
+    write_reply(
+        out,
+        sender="x" * 400,
+        sender_name="y" * 400,
+        subject="z" * 2000,
+        channel_id="not a channel id",
+        received_at=None,
+    )
+    message = check_from_pipeline(out.getvalue())
+    assert (len(message["from"]), len(message["fromName"]), len(message["subject"])) == (
+        320,
+        300,
+        998,
+    )
+    assert message["channelId"] is None
+    assert message["bodyCut"] is False
+
+
+# --- the dispatcher and the entry point ---
+
+
+@pytest.fixture
+def base_network_rule() -> Iterator[None]:
+    """Puts the network rule back to the search's after a test that ran the entry point."""
+    yield
+    net.allow_job_hosts("search")
+
+
+JOB_MODULES: dict[str, str] = {
+    "search": "search",
+    "mail.status": "mail",
+    "mail.send": "mail",
+    "mail.replies": "mail",
+    "mail.ack": "mail",
+    "mail.cancel": "mail",
+    "video_stats": "video_stats",
+    "refetch": "refetch",
+    "backfill": "backfill",
+    "gateways.deploy": "gateways",
+    "gateways.destroy": "gateways",
+    "gateways.test": "gateways",
+}
+
+
+def start_for(job: dict[str, Any]) -> Start:
+    return parse_start(json.dumps(START if job["kind"] == "search" else live(job)))
+
+
+@pytest.mark.parametrize("job", [START["job"], *GOOD_JOBS], ids=["search", *GOOD_IDS])
+def test_the_dispatcher_runs_the_module_of_each_kind(
+    job: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ran: list[str] = []
+    for name in set(JOB_MODULES.values()):
+        module = importlib.import_module(f"gratovo_pipeline.jobs.{name}")
+
+        def record(_start: Start, _emitter: Emitter, *, name: str = name) -> None:
+            ran.append(name)
+
+        monkeypatch.setattr(module, "run", record)
+    jobs.run(start_for(job), Emitter(io.StringIO()))
+    assert ran == [JOB_MODULES[job["kind"]]]
+
+
+@pytest.mark.parametrize("job", GOOD_JOBS, ids=GOOD_IDS)
+def test_a_job_not_built_yet_ends_failed_with_crash(
+    job: dict[str, Any], check_from_pipeline: Check
+) -> None:
+    module = importlib.import_module(f"gratovo_pipeline.jobs.{JOB_MODULES[job['kind']]}")
+    if "A stub" not in (module.__doc__ or ""):
+        pytest.skip("built since: its own tests cover it")  # each later task replaces a stub
+    out = io.StringIO()
+    jobs.run(start_for(job), Emitter(out))
+    (end,) = (check_from_pipeline(line) for line in out.getvalue().splitlines(keepends=True))
+    assert end == {
+        "type": "end",
+        "state": "failed",
+        "at": 0,
+        "found": 0,
+        "kept": 0,
+        "error": {"code": "crash", "message": "This job isn't built yet."},
+    }
+
+
+def test_the_entry_point_opens_the_job_s_hosts_then_runs_it(
+    monkeypatch: pytest.MonkeyPatch, base_network_rule: None
+) -> None:
+    seen: list[str] = []
+
+    def record(start: Start, _emitter: Emitter) -> None:
+        seen.append(start["job"]["kind"])
+        net.check_url("https://gmail.googleapis.com/gmail/v1/users/me/profile")
+
+    def no_listener(_stream: object, _on_stop: object) -> None:
+        pass
+
+    line = json.dumps(live({"kind": "mail.status"})) + "\n"
+    monkeypatch.setattr(sys, "stdin", io.StringIO(line))
+    monkeypatch.setattr(sys, "stdout", io.StringIO())
+    monkeypatch.setattr(jobs, "run", record)
+    monkeypatch.setattr(protocol, "listen_for_stop", no_listener)
+
+    assert gratovo_main.main() == 0
+    assert seen == ["mail.status"]

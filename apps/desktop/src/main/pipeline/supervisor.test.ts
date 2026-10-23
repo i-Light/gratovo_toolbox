@@ -9,7 +9,7 @@ import { PassThrough } from "node:stream";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { openPipelineLog } from "./logs";
-import type { PipelineMessage, Start } from "./protocol";
+import type { PipelineMessage, SearchJob, Start } from "./protocol";
 import { findPython, pipelineEnv } from "./python-path";
 import {
   createPipelineSupervisor,
@@ -21,7 +21,7 @@ import {
 
 const key = "example-key-not-real";
 
-function startMessage(dataDir: string, overrides: Partial<Start["job"]> = {}): Start {
+function startMessage(dataDir: string, overrides: Partial<SearchJob> = {}): Start {
   return {
     type: "start",
     protocol: 1,

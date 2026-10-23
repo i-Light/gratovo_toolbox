@@ -1,6 +1,6 @@
 import { join } from "node:path";
 
-import type { FindState } from "@gratovo/ipc";
+import { findErrors, type FindState } from "@gratovo/ipc";
 
 import { redact, secretsOf } from "../pipeline/logs";
 import type { PipelineMessage } from "../pipeline/protocol";
@@ -244,7 +244,9 @@ export function createFindService(deps: FindServiceDeps): FindService {
       } else {
         s.run.state = "failed";
         const code = end.error?.code;
-        s.run.error = code === undefined || code === "bad_start" ? "crash" : code;
+        // A search ends with one of the find errors; any other code (bad_start, or one that only
+        // another job sends) means the two sides disagree, which the screen shows as a crash.
+        s.run.error = findErrors.find((known) => known === code) ?? "crash";
       }
     } else if (how.reason === "killed" && stopRequested) {
       s.run.state = "paused";

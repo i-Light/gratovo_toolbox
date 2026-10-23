@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { findStateSchema, type FindState } from "@gratovo/ipc";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { PipelineMessage, Start } from "../pipeline/protocol";
+import type { PipelineMessage, SearchJob, Start } from "../pipeline/protocol";
 import type {
   JobHandlers,
   PipelineExit,
@@ -212,7 +212,7 @@ describe("the find service", () => {
       expect(service.add(["ai video tools"])).toEqual({ added: 1, skipped: 0 });
       expect(service.state().queue).toHaveLength(4);
       // The running job kept its own list.
-      expect(supervisor.starts[0]?.job.keywords).toHaveLength(3);
+      expect((supervisor.starts[0]?.job as SearchJob | undefined)?.keywords).toHaveLength(3);
     });
 
     it("emits at once after each user action", () => {
@@ -290,7 +290,7 @@ describe("the find service", () => {
         settings: {},
         secrets: { youtubeKey: null, proxyUrls: [], gatewayUrls: [] },
       });
-      expect(supervisor.starts[0]?.job.rules.perKeyword).toBe(200);
+      expect((supervisor.starts[0]?.job as SearchJob | undefined)?.rules.perKeyword).toBe(200);
     });
 
     it("sends the live key, the user id, and the proxies and gateways from the secret store", async () => {
@@ -538,7 +538,7 @@ describe("the find service", () => {
       expect(service.startAt(1)).toEqual({ ok: false, problem: "running" });
       answer();
       expect(await starting).toEqual({ ok: true });
-      expect(supervisor.starts[0]?.job.keywords).toEqual(["ai agents"]);
+      expect((supervisor.starts[0]?.job as SearchJob | undefined)?.keywords).toEqual(["ai agents"]);
     });
 
     it("doesn't start a live search after a sign-out during the key lookup", async () => {

@@ -185,3 +185,72 @@ def test_describe_never_shows_a_secret() -> None:
     assert "hunter2" not in text
     assert "abc123" not in text
     assert "youtube key: set" in text
+
+
+# --- the other jobs (plan D15) ---
+
+
+def job_config(job: dict[str, object], **changes: object) -> Config:
+    """A Config for a job other than search: those run on live data only."""
+    return config(source="live", job=job, **changes)
+
+
+def test_a_job_other_than_search_gets_neutral_search_fields() -> None:
+    cfg = job_config({"kind": "mail.status"})
+    assert cfg.source == "live"
+    assert cfg.keywords == ()
+    assert cfg.start_at == 0
+    assert cfg.handles_limit == 200
+    assert (cfg.sort_by, cfg.results_type) == ("upload_date", "video")
+    assert cfg.country_filter is None
+    assert cfg.auto_clean is None
+
+
+def test_a_job_other_than_search_keeps_the_routes_pacing_and_key() -> None:
+    cfg = job_config(
+        {"kind": "backfill", "only": ["videos"]},
+        secrets__gatewayUrls=GATEWAYS,
+        settings={"parallel": {"enabled": False, "maxWorkers": 4}},
+    )
+    assert cfg.gateway_urls == tuple(GATEWAYS)
+    assert cfg.rotating_connections == 2
+    assert cfg.pacing == "fast"
+    assert cfg.youtube_key == "test-key"
+
+
+def test_a_refetch_brings_its_own_auto_clean_rule() -> None:
+    clean = {
+        "enabled": True,
+        "minSubscribers": 10_000,
+        "maxSubscribers": 5_000_000,
+        "belowMin": "delay",
+        "aboveMax": "sweep",
+        "label": "irrelevant",
+    }
+    rule = job_config({"kind": "refetch", "handles": ["@aitoolsweekly"], "autoClean": clean})
+    assert rule.auto_clean is not None
+    assert (rule.auto_clean.min_subscribers, rule.auto_clean.max_subscribers) == (
+        10_000,
+        5_000_000,
+    )
+    assert (rule.auto_clean.below_min, rule.auto_clean.above_max) == ("delay", "sweep")
+    assert rule.keywords == ()
+
+
+@pytest.mark.parametrize(
+    "clean",
+    [
+        None,
+        {
+            "enabled": False,
+            "minSubscribers": 0,
+            "maxSubscribers": 0,
+            "belowMin": "off",
+            "aboveMax": "off",
+            "label": "inactive",
+        },
+    ],
+)
+def test_a_refetch_without_a_rule_or_with_it_off_cleans_nothing(clean: object) -> None:
+    job = {"kind": "refetch", "handles": ["@aitoolsweekly"], "autoClean": clean}
+    assert job_config(job).auto_clean is None
