@@ -718,26 +718,6 @@ def test_the_dispatcher_runs_the_module_of_each_kind(
     assert ran == [JOB_MODULES[job["kind"]]]
 
 
-@pytest.mark.parametrize("job", GOOD_JOBS, ids=GOOD_IDS)
-def test_a_job_not_built_yet_ends_failed_with_crash(
-    job: dict[str, Any], check_from_pipeline: Check
-) -> None:
-    module = importlib.import_module(f"gratovo_pipeline.jobs.{JOB_MODULES[job['kind']]}")
-    if "A stub" not in (module.__doc__ or ""):
-        pytest.skip("built since: its own tests cover it")  # each later task replaces a stub
-    out = io.StringIO()
-    jobs.run(start_for(job), Emitter(out))
-    (end,) = (check_from_pipeline(line) for line in out.getvalue().splitlines(keepends=True))
-    assert end == {
-        "type": "end",
-        "state": "failed",
-        "at": 0,
-        "found": 0,
-        "kept": 0,
-        "error": {"code": "crash", "message": "This job isn't built yet."},
-    }
-
-
 def test_the_entry_point_opens_the_job_s_hosts_then_runs_it(
     monkeypatch: pytest.MonkeyPatch, base_network_rule: None
 ) -> None:
