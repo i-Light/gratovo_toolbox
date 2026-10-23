@@ -66,6 +66,43 @@ type Event = { type: "event"; event: "daemon" | "hello" | "job" | "status" | "lo
 
 Main: `apps/desktop/src/main/pipeline/gemini-service.ts`: `start(): Promise<{ok: true} | {ok: false, problem: "running" | "no_python" | "port_in_use"}>`, `call(method, params, {timeoutS}) → Promise<Result>` (correlates by `id`, a timeout answers `TIMEOUT` and leaves the request to finish), `onEvent(listener)`, `stop()`. Logs to `<userData>/logs/gemini-<stamp>.log` like the job logs (newest 40).
 
+### Comms over the bridge (3e-3a, B5; D6, D10)
+
+```ts
+// action.comms_propose params; action.comms_check takes the same plus { subject: string; body: string }
+type CommsRequest = {
+  kind: "first" | "reply" | "followUp" | "decision";
+  threadId?: string; channelId?: string; brandId?: string; contactEmail?: string;
+  pitchChannelIds?: string[];          // a brand pitch's creators, at most 10
+  followUpNumber?: number;             // 1..5
+  steer?: Record<string, string>;      // the Steer panel: knob id → option id, plus "note"
+  cashOffer?: boolean;                 // HC-10 for this case only
+  timeoutS?: number;
+};
+// The app's side of the case, read by main from its own tables (step 6). Python reads nothing else
+// of the app's; channels and videos come from pipeline.db, which Python owns.
+type CommsFacts = {
+  agency: { name: string | null; sender: string | null; whatWeDo: string | null; website: string | null;
+            trueClaims: string[]; pastCampaigns: unknown[]; incubator: boolean;
+            boycott: { countries: string[]; brands: string[] } } | null;     // null: the defaults, as before
+  thread: { id: string; channelId: string | null; brandId: string | null; contactEmail: string | null;
+            dealId: string | null;
+            messages: { direction: "outbound" | "inbound"; subject: string; body: string; at: string }[] } | null;
+  creators: Record<string, { pipelineStage: string | null; mediaKit: Record<string, unknown> | null;
+                             creatorGender: string | null }>;   // channel_state by channel id
+  brand: { id: string; name: string; website: string | null; category: string | null; country: string | null;
+           campaignBrief: string | null; contactName: string | null;
+           contacts: { name?: string; email?: string; primary?: boolean }[] } | null;
+  deal: { brandName: string | null; stage: string | null; creatorReceives: number | null; currency: string | null;
+          deliverables: string | null; deadline: string | null; paymentTerms: string | null } | null;
+          // the channel's latest deal; never the brand's price (HC-04)
+  recentOutbound: string[];             // our recent sent bodies, newest first, at most 50 (the templated check)
+};
+// comms_propose → { status: "ready" | "needs_human" | "blocked" | "no_message"; proposal; findings; gates;
+//                   case: { side, stage, goal }; moments; momentsNote; seconds; model; thinking }  (as the old action)
+// comms_check  → { findings; gates; blocking: boolean }   (no Gemini call)
+```
+
 ### Job additions (3e-3b)
 
 ```ts

@@ -25,8 +25,10 @@ This app holds creators' and brands' contact details, deal terms, money, and the
 - The pipeline runs with a bare environment (`SystemRoot`, `PATH`, `TEMP`, `TMP`) and `-I`, so nothing from the user's shell reaches it.
 - The pipeline makes requests only to HTTPS hosts on its allow list (YouTube, Google's API, AWS gateway hosts, and the configured proxies). The YouTube key goes in a header, never a URL.
 - Logs are blanked of the job's secrets in main, before they reach the page or a file. The pipeline logs a status or an error's kind, never a URL.
+- The Gemini bridge (step 3e-3a) listens on 127.0.0.1 only, and it needs no secrets: it runs with the same bare environment and gets no key, proxy or token on its command line or in its environment.
+- The one exception to the host rule: subtitles run yt-dlp, which makes its own requests, so `net.check_url` can't check them. yt-dlp runs only as a module of the pipeline's Python, with no config, plugins or cache, only on a watch URL built from a checked 11-character video id, and it is stopped after 120 s.
 
-Why: [ADR 0013](docs/decisions/0013-pipeline.md).
+Why: [ADR 0013](docs/decisions/0013-pipeline.md) and [ADR 0014](docs/decisions/0014-gemini-bridge-and-comms.md).
 
 ## Known exposure in the old repository (action for the owner)
 
