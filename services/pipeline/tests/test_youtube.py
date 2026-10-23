@@ -302,3 +302,49 @@ def test_the_real_opener_follows_no_redirect() -> None:
     handler = youtube._NoRedirect()  # pyright: ignore[reportPrivateUsage]
     elsewhere = "https://elsewhere.example/"
     assert handler.redirect_request(request, None, 302, "Found", Message(), elsewhere) is None
+
+
+# --- one handle ---
+
+
+def test_a_handle_is_looked_up_in_one_call(rec: Recorder) -> None:
+    opener = FakeOpener({"items": [CHANNEL]})
+    found = api(opener, rec).channel_for_handle("@aitoolsweekly")
+
+    assert len(opener.requests) == 1
+    url = urlsplit(opener.requests[0].full_url)
+    assert url.path == "/youtube/v3/channels"
+    assert opener.query() == {
+        "forHandle": ["@aitoolsweekly"],
+        "part": ["snippet,statistics,brandingSettings"],
+    }
+    assert found is not None
+    channel_id, info = found
+    assert channel_id == "UCaitools00000000000000a"
+    assert (info["Name"], info["Handle"], info["Subscribers"], info["Country"]) == (
+        "AI Tools Weekly",
+        "@aitoolsweekly",
+        "48200",
+        "US",
+    )
+    assert opener.requests[0].unredirected_hdrs.get("X-goog-api-key") == KEY
+    assert KEY not in opener.requests[0].full_url
+
+
+def test_a_handle_nobody_owns_is_none(rec: Recorder) -> None:
+    assert api(FakeOpener({"pageInfo": {}}), rec).channel_for_handle("@nobody") is None
+    assert api(FakeOpener({"items": []}), rec).channel_for_handle("@nobody") is None
+
+
+def test_a_handle_lookup_names_failures_like_the_batch_call(rec: Recorder) -> None:
+    quota = FakeOpener(http_error(403, "quotaExceeded"))
+    with pytest.raises(YouTubeError) as spent:
+        api(quota, rec).channel_for_handle("@aitoolsweekly")
+    assert spent.value.code == "quota"
+
+    flaky = FakeOpener(http_error(503), {"items": [CHANNEL]})
+    assert api(flaky, rec).channel_for_handle("@aitoolsweekly") is not None
+    assert rec.waits == [youtube.RETRY_WAITS[0]]
+
+    refused = FakeOpener(http_error(400, "invalidRequest"))
+    assert api(refused, rec).channel_for_handle("@aitoolsweekly") is None
