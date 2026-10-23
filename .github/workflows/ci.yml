@@ -254,6 +254,8 @@ jobs:
           total=0
           for f in "${files[@]}"; do
             jq -r '.runs[].results[]? | "\(.ruleId): \(.message.text) (\(.locations[0].physicalLocation.artifactLocation.uri):\(.locations[0].physicalLocation.region.startLine))"' "$f"
+            # The numbered links in a message, (1) and so on: where the flagged data comes from.
+            jq -r '.runs[].results[]?.relatedLocations[]? | "  (\(.id)) \(.physicalLocation.artifactLocation.uri):\(.physicalLocation.region.startLine) \(.message.text // "")"' "$f"
             n=$(jq '[.runs[].results[]?] | length' "$f")
             total=$((total + n))
           done
