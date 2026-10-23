@@ -18,7 +18,7 @@ Branch `feat/3e-3b-mail-and-refetch`, from `main` at f5a9e7a (3e-3a merged as #1
 | C5a | H | done (e69cea2) | `aws_sign.py`: SigV4, 42 tests incl. AWS's IAM example and four suite vectors; `sign(..., content_sha256_header=False)`, `SigningError`, both keys hidden from repr, no session token |
 | C5b | N | done | `jobs/gateways.py`, 13 tests; ends `aws` only when nothing deployed and every failure was an auth refusal; AWS ids checked before use in a URL; a half-built API is deleted best effort |
 | C6 | H | done | supervisor passes `result`/`reply`, `ended.result`; bad-line codes `wrong_result`, `extra_result`, `unexpected_reply`; result and reply text never logged, even on a bad line; `secretsOf` covers mail, AWS and destroy apiIds; quick lane logs `quick-<stamp>.log`; `pipeline-secrets.ts` (gateway changes queued per store; old list read strictly) and `jobs.ts` (`laneFor`, `runJob`); `index.ts` builds both lanes and shuts both on quit |
-| C7 | E | to do | |
+| C7 | E | done | ADR 0015, the pipeline README, architecture, the plan's status row; read through; no commit |
 | L1 | lead | to do | |
 
 ## Lessons carried from 3e-3a
