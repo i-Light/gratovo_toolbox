@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  type GeminiParams,
   geminiMethods,
   geminiRequestLine,
   maxGeminiLineLength,
@@ -104,6 +105,67 @@ describe("geminiRequestLine", () => {
     expect(() => geminiRequestLine("1", "bridge.status", { extra: 1 } as never)).toThrow();
   });
 
+  it("writes a comms request with main's facts, and refuses a brand price in the deal", () => {
+    const facts: GeminiParams<"action.comms_propose">["facts"] = {
+      agency: null,
+      thread: {
+        id: "t1",
+        channelId: "UC_a",
+        brandId: null,
+        contactEmail: "sam@example.com",
+        dealId: "d1",
+        messages: [
+          { direction: "inbound", subject: "Re: hi", body: "What do you pay?", at: "2026-10-16" },
+        ],
+      },
+      creators: { UC_a: { pipelineStage: "negotiating", mediaKit: null, creatorGender: null } },
+      brand: null,
+      deal: {
+        brandName: "Wispr Flow",
+        stage: "negotiating",
+        creatorReceives: 1200,
+        currency: "USD",
+        deliverables: null,
+        deadline: null,
+        paymentTerms: null,
+      },
+      recentOutbound: ["Hi Sam, saw your test."],
+    };
+    const request: GeminiParams<"action.comms_propose">["request"] = {
+      kind: "reply",
+      threadId: "t1",
+      steer: { english: "nonnative" },
+    };
+    const sent = (line: string) => JSON.parse(line) as { method: string; params: unknown };
+
+    const line = geminiRequestLine("c1", "action.comms_propose", { request, facts });
+    expect(sent(line).params).toEqual({ request, facts });
+    const check = geminiRequestLine("c2", "action.comms_check", {
+      request,
+      facts,
+      subject: "Re: hi",
+      body: "Hi Sam,\n\nWhat do you usually charge?\n\nMoustafa",
+    });
+    expect(sent(check).method).toBe("action.comms_check");
+
+    const priced = { ...facts, deal: { ...facts.deal, brandPrice: 3000 } };
+    expect(() =>
+      geminiRequestLine("c3", "action.comms_propose", { request, facts: priced } as never),
+    ).toThrow();
+    expect(() =>
+      geminiRequestLine("c4", "action.comms_propose", {
+        request: {
+          ...request,
+          pitchChannelIds: Array.from({ length: 11 }, (_, i) => `UC_${String(i)}`),
+        },
+        facts,
+      }),
+    ).toThrow();
+    expect(() =>
+      geminiRequestLine("c5", "action.comms_check", { request, facts } as never),
+    ).toThrow();
+  });
+
   it("knows none of the retired drafting actions", () => {
     for (const retired of ["draft_email", "qa_email", "lint_email", "draft_reply", "parse_draft"]) {
       expect(geminiMethods).not.toContain(`action.${retired}`);
@@ -125,6 +187,40 @@ describe("readGeminiResult", () => {
       extra: "kept",
     });
     expect(result).toMatchObject({ brandFit: 4, extra: "kept" });
+  });
+
+  it("reads a comms proposal and a check", () => {
+    const finding = {
+      code: "COURSE_CHECK_SKIPPED",
+      severity: "warn",
+      rule: "FND-WRITE-15",
+      detail: "d",
+    };
+    const proposal = readGeminiResult("action.comms_propose", {
+      status: "blocked",
+      proposal: null,
+      findings: [finding],
+      gates: [],
+      case: { side: "influencer", stage: "replied", goal: "Decide the next step." },
+      moments: [],
+      momentsNote: null,
+      seconds: 0,
+      model: null,
+      thinking: null,
+    });
+    expect(proposal?.status).toBe("blocked");
+    expect(
+      readGeminiResult("action.comms_check", { findings: [finding], gates: [], blocking: false }),
+    ).toMatchObject({ blocking: false });
+
+    expect(readGeminiResult("action.comms_propose", { status: "sent" })).toBeNull();
+    expect(
+      readGeminiResult("action.comms_check", {
+        findings: [{ code: 1 }],
+        gates: [],
+        blocking: true,
+      }),
+    ).toBeNull();
   });
 
   it("returns null for one that doesn't", () => {

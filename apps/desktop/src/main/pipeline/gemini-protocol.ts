@@ -220,6 +220,112 @@ const askCommon = {
 
 const empty = z.strictObject({});
 
+// The Comms queue (.router/PLAN.md D6, D10). The request names what to write; the facts are the
+// app's side of the case, read by main from its own tables (step 6). Python reads nothing else of
+// the app's: channels and videos come from pipeline.db, which it owns.
+const recordId = z.string().min(1).max(200);
+const email = z.string().min(1).max(320);
+const someText = (max: number) => z.string().max(max).nullable();
+
+export const commsKinds = ["first", "reply", "followUp", "decision"] as const;
+
+const commsRequest = z.strictObject({
+  kind: z.enum(commsKinds),
+  threadId: recordId.optional(),
+  channelId: recordId.optional(),
+  brandId: recordId.optional(),
+  contactEmail: email.optional(),
+  // A brand pitch's creators.
+  pitchChannelIds: z.array(recordId).max(10).optional(),
+  followUpNumber: z.number().int().min(1).max(5).optional(),
+  // The Steer panel: knob id → option id, plus "note".
+  steer: z.record(z.string().min(1).max(50), z.string().max(2000)).optional(),
+  // HC-10 for this case only.
+  cashOffer: z.boolean().optional(),
+  timeoutS: timeoutS.optional(),
+});
+
+const commsFacts = z.strictObject({
+  // null: the defaults, as before (placeholders, the incubator claim, IL boycotted).
+  agency: z
+    .strictObject({
+      name: someText(200),
+      sender: someText(200),
+      whatWeDo: someText(5000),
+      website: someText(500),
+      trueClaims: z.array(z.string().max(1000)).max(50),
+      pastCampaigns: z.array(z.unknown()).max(100),
+      incubator: z.boolean(),
+      boycott: z.strictObject({
+        countries: z.array(z.string().min(1).max(10)).max(300),
+        brands: z.array(z.string().min(1).max(200)).max(1000),
+      }),
+    })
+    .nullable(),
+  thread: z
+    .strictObject({
+      id: recordId,
+      channelId: recordId.nullable(),
+      brandId: recordId.nullable(),
+      contactEmail: email.nullable(),
+      dealId: recordId.nullable(),
+      messages: z
+        .array(
+          z.strictObject({
+            direction: z.enum(["outbound", "inbound"]),
+            subject: z.string().max(2000),
+            body: z.string().max(100_000),
+            at: z.string().max(50),
+          }),
+        )
+        .max(500),
+    })
+    .nullable(),
+  // channel_state by channel id.
+  creators: z.record(
+    recordId,
+    z.strictObject({
+      pipelineStage: someText(50),
+      mediaKit: z.record(z.string(), z.unknown()).nullable(),
+      creatorGender: someText(50),
+    }),
+  ),
+  brand: z
+    .strictObject({
+      id: recordId,
+      name: z.string().max(300),
+      website: someText(500),
+      category: someText(200),
+      country: someText(100),
+      campaignBrief: someText(20_000),
+      contactName: someText(200),
+      contacts: z
+        .array(
+          z.strictObject({
+            name: z.string().max(200).optional(),
+            email: z.string().max(320).optional(),
+            primary: z.boolean().optional(),
+          }),
+        )
+        .max(100),
+    })
+    .nullable(),
+  // The channel's latest deal; never the brand's price (HC-04), so there is no field for it.
+  deal: z
+    .strictObject({
+      brandName: someText(300),
+      stage: someText(50),
+      creatorReceives: z.number().min(0).nullable(),
+      currency: someText(10),
+      deliverables: someText(5000),
+      deadline: someText(50),
+      paymentTerms: someText(2000),
+    })
+    .nullable(),
+  // Our recent sent bodies, newest first (the templated check).
+  recentOutbound: z.array(z.string().max(100_000)).max(50),
+});
+
 export const geminiParamsSchemas = {
   "bridge.status": empty,
   "bridge.browser_info": z.strictObject({ browser: browserId.optional() }),
@@ -303,6 +409,14 @@ export const geminiParamsSchemas = {
     active: z.boolean().optional(),
     verify: z.boolean().optional(),
   }),
+  "action.comms_propose": z.strictObject({ request: commsRequest, facts: commsFacts }),
+  // The text a person edited, checked again before it goes (no Gemini call).
+  "action.comms_check": z.strictObject({
+    request: commsRequest,
+    facts: commsFacts,
+    subject: z.string().max(2000),
+    body: z.string().max(100_000),
+  }),
 } as const satisfies Partial<Record<GeminiMethod, z.ZodType>>;
 
 export type TypedGeminiMethod = keyof typeof geminiParamsSchemas;
@@ -326,6 +440,17 @@ const account = z.looseObject({
   index: z.number().int().min(0).nullable().optional(),
 });
 const raw = { raw: z.string(), model: nullableText };
+// One thing the comms checks found; `block` stops the message, `warn` is shown to the person.
+const commsFinding = z.looseObject({
+  code: z.string(),
+  severity: z.string(),
+  rule: z.string(),
+  detail: z.string(),
+});
+// What a person must confirm before sending (price, terms, a claim, ethics, the model's own).
+const commsGate = details;
+
+export const commsStatuses = ["ready", "needs_human", "blocked", "no_message"] as const;
 
 export const geminiResultSchemas = {
   "bridge.status": z.looseObject({
@@ -474,6 +599,24 @@ export const geminiResultSchemas = {
     verified: z.boolean(),
     // The files the Skills page shows after the upload, or null when it wasn't read back.
     onPage: z.array(z.string()).nullable(),
+  }),
+  // One proposal for the Comms queue. Nothing is sent: every message waits for a person.
+  "action.comms_propose": z.looseObject({
+    status: z.enum(commsStatuses),
+    proposal: details.nullable(),
+    findings: z.array(commsFinding),
+    gates: z.array(commsGate),
+    case: z.looseObject({ side: z.string(), stage: z.string(), goal: z.string() }),
+    moments: z.array(z.unknown()),
+    momentsNote: nullableText,
+    seconds: z.number().min(0).nullable(),
+    model: nullableText,
+    thinking: nullableText,
+  }),
+  "action.comms_check": z.looseObject({
+    findings: z.array(commsFinding),
+    gates: z.array(commsGate),
+    blocking: z.boolean(),
   }),
 } as const satisfies Record<TypedGeminiMethod, z.ZodType>;
 

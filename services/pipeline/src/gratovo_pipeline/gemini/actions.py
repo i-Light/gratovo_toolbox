@@ -14,8 +14,8 @@ of the work:
 
 Every result carries `raw` (the full reply) and `model`, per DAEMON.md.
 
-`comms_propose` and `comms_check` are registered but not ported yet (task B5): they answer
-`NOT_IMPLEMENTED`.
+The Comms queue's two actions (`comms_propose`, `comms_check`) build the live case from main's
+`facts` and the pipeline's own `pipeline.db` in the bridge's `--data-dir` (plan D6, D10).
 """
 
 from __future__ import annotations
@@ -24,6 +24,7 @@ import inspect
 import json
 import logging
 import re
+import sqlite3
 import threading
 from collections.abc import Callable
 from pathlib import Path
@@ -37,8 +38,8 @@ from . import gems, keywords_batch, skills
 from .errors import (
     ActionParseFailed,
     ActionRefused,
+    BadParams,
     GeminiError,
-    NotImplementedYet,
     SkillFileMissing,
 )
 from .json_reply import extract_json, parse_json_reply
@@ -330,19 +331,129 @@ def classify_channel(gemini: Gemini, params: Params) -> Params:
     }
 
 
-# --- the Comms queue (not ported yet: task B5) -------------------------------------------
+# --- the Comms queue (docs/plans/decisions_build_plan.md, step 6; 3e-3 plan D6, D10) -------
+
+PIPELINE_DB = "pipeline.db"
+COMMS_TIMEOUT_S = 300
+
+
+def _comms_db(gemini: Gemini) -> sqlite3.Connection:
+    """pipeline.db in the bridge's `--data-dir`: the channels and videos the case reads, and the
+    subtitles cache (`video_transcripts`) the moments of a creator's latest video are kept in."""
+    from gratovo_pipeline import store
+
+    data_dir: Path | None = getattr(gemini, "data_dir", None)
+    if data_dir is None:
+        raise BadParams(message="the bridge was started without --data-dir")
+    data_dir.mkdir(parents=True, exist_ok=True)
+    conn = store.get_connection(data_dir / PIPELINE_DB)
+    try:
+        store.init_db(conn)  # the pipeline's own tables, the subtitles cache among them
+    except BaseException:
+        conn.close()
+        raise
+    return conn
+
+
+def _comms_params(params: Params) -> tuple[Params, Params]:
+    """(the request, main's facts): the app's side of the case, read by main from its own tables
+    (plan D6). Anything that is not an object counts as empty."""
+    request: Any = params.get("request")
+    facts: Any = params.get("facts")
+    return (
+        cast("Params", request) if isinstance(request, dict) else {},
+        cast("Params", facts) if isinstance(facts, dict) else {},
+    )
+
+
+def _comms_timeout(request: Params, params: Params) -> int:
+    # The contract carries it in the request; the old wire had it beside the request.
+    asked: Any = request.get("timeoutS", params.get("timeoutS"))
+    if isinstance(asked, bool) or not isinstance(asked, int | float) or asked <= 0:
+        return COMMS_TIMEOUT_S
+    return int(asked)
 
 
 def comms_propose(gemini: Gemini, params: Params) -> Params:
-    """One proposal for the Comms queue (the live case through the comms engine). Not ported yet."""
-    del gemini, params
-    raise NotImplementedYet(message="not implemented yet")
+    """One proposal for the Comms queue: the live case from main's facts and pipeline.db
+    (comms/live_case.py) -- with the usable moments of the creator's latest video for a first email
+    (decision `subtitles`) -- through `engine.propose` (variant auto). Nothing is sent: every
+    message waits for a person."""
+    from gratovo_pipeline.comms import engine, live_case, moments
+
+    request, facts = _comms_params(params)
+    timeout_s = _comms_timeout(request, params)
+    conn = _comms_db(gemini)
+    try:
+        found: Params | None = None
+        note: str | None = None
+        channel_id = request.get("channelId")
+        # Only for a first email to a creator (no brand).
+        if (
+            request.get("kind") == "first"
+            and isinstance(channel_id, str)
+            and channel_id
+            and not request.get("brandId")
+        ):
+            try:
+                found = moments.for_latest_video(conn, gemini, channel_id, timeout_s=timeout_s)
+            except Exception as exc:  # a first email is still worth drafting without them
+                note = f"the latest video's moments could not be read: {exc}"
+        case = live_case.build_case(conn, request, facts, moments=found)
+    finally:
+        conn.close()
+    result = engine.propose(gemini, case, variant="auto", timeout_s=timeout_s)
+    return {
+        "status": result.get("status"),
+        "proposal": result.get("proposal"),
+        "findings": result.get("findings") or [],
+        "gates": result.get("gates") or [],
+        "case": {"side": case.get("side"), "stage": case.get("stage"), "goal": case.get("goal")},
+        "moments": (found or {}).get("moments") or [],
+        "momentsNote": note or (found or {}).get("note"),
+        "seconds": result.get("seconds"),
+        "model": result.get("model"),
+        "thinking": result.get("thinking"),
+    }
 
 
-def comms_check(params: Params) -> Params:
-    """Text a person edited, checked again before it goes. No Gemini call. Not ported yet."""
-    del params
-    raise NotImplementedYet(message="not implemented yet")
+def comms_check(gemini: Gemini, params: Params) -> Params:
+    """Text a person edited, checked again before it goes (the engine's deterministic checks and
+    the gates a person must confirm), against the same live case. No Gemini call: `gemini` is
+    asked only for its `data_dir`."""
+    from gratovo_pipeline.comms import checks, live_case
+
+    request, facts = _comms_params(params)
+    conn = _comms_db(gemini)
+    try:
+        case = live_case.build_case(conn, request, facts)
+    finally:
+        conn.close()
+    proposal: Params = {
+        "message": {
+            "channel": "email",
+            "subject": str(params.get("subject") or ""),
+            "body": str(params.get("body") or ""),
+        }
+    }
+    findings = (
+        checks.policy_findings(case)
+        + checks.check(case, proposal)
+        + checks.placeholders(proposal["message"]["subject"], proposal["message"]["body"])
+    )
+    # FACT_NUMBER stops the model inventing a number. A number a person typed is theirs: it does
+    # not block, it raises the gate they confirm (the price gate for money).
+    findings = [
+        dict(f, severity="warn", detail=f"a number you typed: {f['detail'].split(' (')[0]}")
+        if f.get("code") == "FACT_NUMBER"
+        else f
+        for f in findings
+    ]
+    return {
+        "findings": findings,
+        "gates": checks.gates(case, proposal),
+        "blocking": bool(checks.blocking(findings)),
+    }
 
 
 # --- dispatch -----------------------------------------------------------------------
@@ -364,11 +475,6 @@ def _skill_deploy(gemini: Gemini, params: Params, emit: Emit | None = None) -> P
     return skills.action_deploy(gemini, params, emit=emit)
 
 
-def _comms_check(gemini: Gemini, params: Params) -> Params:
-    del gemini
-    return comms_check(params)
-
-
 #: Each action is called as `action(gemini, params)`, and as `action(gemini, params, emit=emit)`
 #: when it has an `emit` parameter (see `run_action`).
 ACTIONS: dict[str, Callable[..., Params]] = {
@@ -386,9 +492,9 @@ ACTIONS: dict[str, Callable[..., Params]] = {
     "skill_delete": skills.action_delete,
     "skill_deploy": _skill_deploy,
     # The Comms queue: a proposal from the live case (asks Gemini), and edited text checked again
-    # (does not). Both answer NOT_IMPLEMENTED until task B5.
+    # (does not).
     "comms_propose": comms_propose,
-    "comms_check": _comms_check,
+    "comms_check": comms_check,
 }
 
 

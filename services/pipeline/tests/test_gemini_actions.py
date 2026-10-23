@@ -4,8 +4,7 @@ No browser, no network beyond 127.0.0.1: Gemini's replies are scripted on the `F
 what is pinned here is the half of an action that is ours -- the prompt it builds (skill file
 prepended, `avoid` list trimmed), and how it reads a reply that arrives fenced, bare, wrapped in
 chatter, or as garbage. The old drafting actions (draft / QA / lint / reply) are gone (decision
-old-files). The Comms queue's actions are ported in task B5 and pinned in tests/test_comms_*; here
-they only answer `NOT_IMPLEMENTED` for now.
+old-files). The Comms queue's actions are pinned in tests/test_comms_actions.py.
 """
 
 from __future__ import annotations
@@ -228,11 +227,3 @@ def test_run_action_dispatch(harness: Harness) -> None:
     with pytest.raises(GeminiError) as info:
         harness.gemini.action("action.nope", {})
     assert info.value.code == "BAD_PARAMS"
-
-
-def test_the_comms_actions_are_registered_but_not_ported_yet(harness: Harness) -> None:
-    harness.attach({})
-    for name in ("comms_propose", "comms_check"):
-        with pytest.raises(GeminiError) as info:
-            harness.gemini.action(f"action.{name}", {})
-        assert info.value.code == "NOT_IMPLEMENTED"

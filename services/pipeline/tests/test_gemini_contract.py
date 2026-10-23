@@ -318,20 +318,6 @@ def test_a_body_that_raises_not_implemented_is_answered_as_not_implemented(
         }, method
 
 
-def test_not_implemented_yet_names_the_method_too() -> None:
-    # The comms actions raise the bridge's own NotImplementedYet until task B5; DAEMON.md §2
-    # gives NOT_IMPLEMENTED the details `{method}` either way.
-    daemon, stream = make_daemon()
-    if not is_stub(actions.comms_check):
-        pytest.skip("action.comms_check has its body now (task B5)")
-    daemon.handle({"id": "c", "method": "action.comms_check", "params": {}})
-    assert lines(stream)[0]["error"] == {
-        "code": "NOT_IMPLEMENTED",
-        "message": "not implemented yet",
-        "details": {"method": "action.comms_check"},
-    }
-
-
 def test_other_exceptions_are_still_internal_errors(monkeypatch: pytest.MonkeyPatch) -> None:
     daemon, stream = make_daemon()
 
@@ -824,8 +810,77 @@ def send(params: dict[str, Any]) -> dict[str, Any]:
     return answer("Hello from Gemini.")
 
 
+# The comms engine's answer to a reply (an invented thread in the course's style).
+COMMS_REPLY = (
+    "```json\n"
+    '{"situation": {"side": "influencer", "stage": "replied", "reply_type": '
+    '"inf.asks_price_from_us", "summary": "s"}, "decision": {"action": "send_message", '
+    '"why": "They asked what we pay; we ask their rate first.", "rules": ["INF-PRICE-09"]}, '
+    '"message": {"channel": "email", "subject": "Re: hi", "body": "Hi Sam,\\n\\nWhat do you '
+    'usually charge for a sponsored segment?\\n\\nMoustafa"}, "needs_human": [], '
+    '"follow_up": {"in_working_days": 2, "note": null}, "facts_used": []}\n'
+    "```"
+)
+COMMS_REQUEST: dict[str, Any] = {"kind": "reply", "threadId": "t1"}
+COMMS_FACTS: dict[str, Any] = {
+    "agency": None,
+    "thread": {
+        "id": "t1",
+        "channelId": "UC_a",
+        "brandId": None,
+        "contactEmail": "sam@example.com",
+        "dealId": None,
+        "messages": [
+            {
+                "direction": "outbound",
+                "subject": "hi",
+                "body": "Hi Sam, saw your test.",
+                "at": "2026-10-14",
+            },
+            {
+                "direction": "inbound",
+                "subject": "Re: hi",
+                "body": "What do you pay?",
+                "at": "2026-10-16",
+            },
+        ],
+    },
+    "creators": {},
+    "brand": None,
+    "deal": None,
+    "recentOutbound": [],
+}
+
+
+def seed_pipeline_db(folder: Path) -> None:
+    """The bridge's `--data-dir` with a pipeline.db that knows Sam's AI-tools channel."""
+    from gratovo_pipeline import store
+
+    folder.mkdir(parents=True, exist_ok=True)
+    c = store.get_connection(folder / "pipeline.db")
+    try:
+        store.init_db(c)
+        c.execute(
+            "INSERT INTO channels (channel_id, handle, name, first_seen_at) "
+            "VALUES ('UC_a', '@sam', 'Sam', 'T')"
+        )
+        c.commit()
+    finally:
+        c.close()
+
+
 def extension_handlers() -> dict[str, Scripted]:
     state = {"url": "https://gemini.google.com/u/0/app"}
+    last_prompt = {"text": ""}
+
+    def send_any(p: dict[str, Any]) -> dict[str, Any]:
+        last_prompt["text"] = str(p.get("text") or "")
+        if "(case ref " in last_prompt["text"]:  # the comms engine's prompt
+            return {**answer(COMMS_REPLY), "textRaw": COMMS_REPLY, "thinking": "High"}
+        return send(p)
+
+    def conversation(_p: dict[str, Any]) -> list[dict[str, Any]]:
+        return [{"role": "user", "text": last_prompt["text"]}, {"role": "model", "text": "answer"}]
 
     def navigate(p: dict[str, Any]) -> dict[str, Any]:
         state["url"] = p["url"]
@@ -839,7 +894,8 @@ def extension_handlers() -> dict[str, Scripted]:
     }
     return {
         "status": STATUS,
-        "send": send,
+        "send": send_any,
+        "get_conversation": conversation,
         "get_account": ACCOUNT,
         "open": {"tabId": 3, "url": GEMINI_APP},
         "get_url": lambda _p: {"url": state["url"], "accountIndex": 0},
@@ -1019,6 +1075,22 @@ def test_every_typed_result_the_daemon_produces_fits_mains_schema(
     assert toggled["result"]["changed"] is True
     deleted = live.call("action.skill_delete", {"name": "gratovo-comms", "confirm": True})
     assert deleted["result"]["deleted"] is True
+
+    # The Comms queue: a proposal through Gemini, then the text checked again without it.
+    seed_pipeline_db(tmp_path / "example-pipeline")
+    proposed = live.call("action.comms_propose", {"request": COMMS_REQUEST, "facts": COMMS_FACTS})
+    assert proposed["result"]["status"] == "ready", proposed
+    assert proposed["result"]["case"]["stage"] == "replied"
+    checked = live.call(
+        "action.comms_check",
+        {
+            "request": COMMS_REQUEST,
+            "facts": COMMS_FACTS,
+            "subject": "Re: hi",
+            "body": "Hi Sam,\n\nWhat do you usually charge for a sponsored segment?\n\nMoustafa",
+        },
+    )
+    assert checked["result"]["blocking"] is False
 
     # A browser that is not Firefox: the add-on is loaded by hand (and that browser is now the
     # only one admitted, so this goes last).
