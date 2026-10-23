@@ -554,10 +554,10 @@ class BridgeServer:
         try:
             parsed: object = json.loads(text)
         except ValueError:
-            self._log.warning("ignoring a frame that is not JSON: %.200r", text)
+            self._log.warning("ignoring a frame that is not JSON: %s", _one_line(text[:200]))
             return
         if not isinstance(parsed, dict):
-            self._log.warning("ignoring a frame that is not an object: %.200r", text)
+            self._log.warning("ignoring a frame that is not an object: %s", _one_line(text[:200]))
             return
         frame: dict[str, Any] = parsed  # pyright: ignore[reportUnknownVariableType]
         kind = frame.get("type")
@@ -570,13 +570,13 @@ class BridgeServer:
         elif kind == "pong":
             pass
         else:
-            self._log.warning("ignoring a frame of unknown type %r", kind)
+            self._log.warning("ignoring a frame of unknown type %s", _one_line(kind))
 
     def _on_response(self, frame: dict[str, Any]) -> None:
         entry = self._pending.pop(str(frame.get("id")), None)
         if entry is None:
             # A late answer to a request that already timed out; harmless.
-            self._log.debug("response for unknown request id %r", frame.get("id"))
+            self._log.debug("response for unknown request id %s", _one_line(frame.get("id")))
             return
         future, _owner = entry
         if future.done():
@@ -590,7 +590,7 @@ class BridgeServer:
         event = frame.get("event")
         raw_data: Any = frame.get("data")
         if not isinstance(event, str):
-            self._log.warning("ignoring an event without a name: %r", frame)
+            self._log.warning("ignoring an event without a name: %s", _one_line(frame))
             return
         data: dict[str, Any] = (
             cast("dict[str, Any]", raw_data) if isinstance(raw_data, dict) else {"value": raw_data}
@@ -599,8 +599,8 @@ class BridgeServer:
             self.hello = data
             self._log.info(
                 "extension hello: version %s, port %s",
-                data.get("extensionVersion"),
-                data.get("port"),
+                _one_line(data.get("extensionVersion")),
+                _one_line(data.get("port")),
             )
         elif event == "log":
             level = _LOG_LEVELS.get(str(data.get("level", "info")).lower(), logging.INFO)
@@ -609,12 +609,19 @@ class BridgeServer:
                 self._ext_log.log(
                     level,
                     "%s -- %s",
-                    data.get("message", ""),
-                    json.dumps(context, ensure_ascii=False, default=str),
+                    _one_line(data.get("message", "")),
+                    _one_line(json.dumps(context, ensure_ascii=False, default=str)),
                 )
             else:
-                self._ext_log.log(level, "%s", data.get("message", ""))
+                self._ext_log.log(level, "%s", _one_line(data.get("message", "")))
         self._emit(event, data)
+
+
+def _one_line(value: object, limit: int = 2000) -> str:
+    r"""Text from the extension made safe for one log line: line breaks shown as `\n`, never
+    written, so nothing the page sends can forge a line in main's log; cut at `limit`."""
+    text = value if isinstance(value, str) else repr(value)
+    return text[:limit].replace("\r", "\\r").replace("\n", "\\n")
 
 
 def _hello_browser(hello: object) -> str | None:

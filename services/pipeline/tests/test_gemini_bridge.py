@@ -585,3 +585,15 @@ def test_heal_prepends_the_picked_suggestion(harness: Harness) -> None:
     assert no_suggestion.value.code == "NO_SUGGESTION"
     with pytest.raises(BadParams):
         g.heal("nope")
+
+
+def test_text_from_the_extension_never_breaks_a_log_line() -> None:
+    from gratovo_pipeline.gemini.server import _one_line  # pyright: ignore[reportPrivateUsage]
+
+    forged = "ok\n2026-10-23 INFO gratovo_pipeline.gemini: extension connected\r\n"
+    line = _one_line(forged)
+    assert "\n" not in line
+    assert "\r" not in line
+    assert line.startswith(r"ok\n2026-10-23")
+    assert _one_line({"id": 3}) == "{'id': 3}"
+    assert len(_one_line("x" * 5000)) == 2000
