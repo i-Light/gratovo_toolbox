@@ -9,6 +9,8 @@ dependencies = [
   "curl-cffi==0.16.3",
   # The Gemini bridge's local WebSocket server, which the browser extension dials.
   "websockets==17.3",
+  # Reads a video's published subtitles for a first email's moments (transcript.py, plan D12).
+  "yt-dlp==2026.10.21",
 ]
 
 [dependency-groups]
