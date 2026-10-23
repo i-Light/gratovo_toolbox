@@ -8,6 +8,7 @@ import {
   startLine,
   stopLine,
   type PipelineMessage,
+  type ResultMessage,
   type Start,
 } from "./protocol";
 import type { PythonCommand } from "./python-path";
@@ -17,8 +18,10 @@ import type { PythonCommand } from "./python-path";
  * start line (the only place the secrets go), reads the JSON lines it answers with, and stops it.
  *
  * Every line is checked against the protocol. One that fails is logged (its first 200 characters)
- * and ignored; three in a row end the job, since the two sides no longer agree. A stop asks first
- * and kills 30 s later; on quit it asks, closes stdin and kills 5 s later.
+ * and ignored; three in a row end the job, since the two sides no longer agree. A `result` for
+ * another kind, a second `result`, or a `reply` from a job other than `mail.replies` counts as a
+ * bad line too. Results and replies never reach the log file: they carry mail and gateway URLs.
+ * A stop asks first and kills 30 s later; on quit it asks, closes stdin and kills 5 s later.
  */
 
 export interface ChildLike {
@@ -39,9 +42,9 @@ export type SpawnPipeline = (
 
 export type EndMessage = Extract<PipelineMessage, { type: "end" }>;
 
-/** How a job finished: with its own end line, or not. */
+/** How a job finished: with its own end line (and its result, if it sent one), or not. */
 export type PipelineExit =
-  | { kind: "ended"; end: EndMessage }
+  | { kind: "ended"; end: EndMessage; result: ResultMessage | null }
   | { kind: "failed"; reason: "crash" | "protocol" | "killed" | "spawn" };
 
 export interface JobHandlers {
@@ -66,6 +69,8 @@ export const stopGraceMs = 30_000;
 export const quitGraceMs = 5_000;
 const badLinesToFail = 3;
 const loggedLineLength = 200;
+/** A result or reply line, even one that failed its check: none of its text goes in the log. */
+const privateLine = /"type"\s*:\s*"(?:result|reply)"/;
 
 export function createPipelineSupervisor(o: {
   spawn: SpawnPipeline;
@@ -106,6 +111,7 @@ export function createPipelineSupervisor(o: {
       });
 
       let end: EndMessage | null = null;
+      let result: ResultMessage | null = null;
       let badInARow = 0;
       let protocolFailed = false;
       let finished = false;
@@ -157,7 +163,10 @@ export function createPipelineSupervisor(o: {
       }
 
       function bad(problem: string, line: string): void {
-        log.write("protocol", `${problem}: ${line.slice(0, loggedLineLength)}`);
+        const shown = privateLine.test(line)
+          ? "(a result or reply line, not shown)"
+          : line.slice(0, loggedLineLength);
+        log.write("protocol", `${problem}: ${shown}`);
         badInARow += 1;
         if (badInARow >= badLinesToFail && !protocolFailed) {
           protocolFailed = true;
@@ -174,8 +183,22 @@ export function createPipelineSupervisor(o: {
           bad(parsed.problem, line);
           return;
         }
-        badInARow = 0;
         const message = parsed.message;
+        if (message.type === "result") {
+          if (message.kind !== start.job.kind) {
+            bad("wrong_result", line);
+            return;
+          }
+          if (result !== null || end !== null) {
+            bad("extra_result", line);
+            return;
+          }
+          result = message;
+        } else if (message.type === "reply" && start.job.kind !== "mail.replies") {
+          bad("unexpected_reply", line);
+          return;
+        }
+        badInARow = 0;
         if (message.type === "end") {
           end = message;
         } else if (message.type === "log") {
@@ -242,7 +265,7 @@ export function createPipelineSupervisor(o: {
         if (protocolFailed) {
           finish({ kind: "failed", reason: "protocol" }, note);
         } else if (end !== null && code === 0) {
-          finish({ kind: "ended", end }, note);
+          finish({ kind: "ended", end, result }, note);
         } else if (current.killedByUs) {
           finish({ kind: "failed", reason: "killed" }, note);
         } else {

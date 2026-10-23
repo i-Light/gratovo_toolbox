@@ -19,10 +19,24 @@ export interface PipelineLog {
   close(): void;
 }
 
-/** The job's secrets as text that could turn up in a log: the key, each URL, and its login. */
-export function secretsOf(start: Pick<Start, "secrets">): string[] {
-  const { youtubeKey, proxyUrls, gatewayUrls } = start.secrets;
+/**
+ * The job's secrets as text that could turn up in a log: the key, each URL and its login, the mail
+ * client's secret and id and each refresh token, the AWS keys, and the API ids a destroy names.
+ */
+export function secretsOf(start: Pick<Start, "secrets"> & { job?: Start["job"] }): string[] {
+  const { youtubeKey, proxyUrls, gatewayUrls, mail, aws } = start.secrets;
   const found: string[] = youtubeKey === null ? [] : [youtubeKey];
+  if (mail !== undefined) {
+    found.push(mail.client.id, mail.client.secret);
+    found.push(...mail.mailboxes.map((mailbox) => mailbox.refreshToken));
+  }
+  if (aws !== undefined) {
+    found.push(aws.accessKeyId, aws.secretAccessKey);
+  }
+  if (start.job?.kind === "gateways.destroy") {
+    // An API id is the first label of a gateway's host: with it the gateway can be reached.
+    found.push(...start.job.gateways.map((gateway) => gateway.apiId));
+  }
   for (const raw of [...proxyUrls, ...gatewayUrls]) {
     found.push(raw);
     try {
@@ -57,13 +71,14 @@ function stamp(ms: number): string {
 
 /**
  * Opens a new log in folder, keeping the newest `keptLogs` of the same kind with it. `kind` names
- * the file: `pipeline` for the jobs, `gemini` for the bridge.
+ * the file: `pipeline` for the store lane's jobs, `quick` for the quick lane's (mail, video stats,
+ * gateways), `gemini` for the bridge. No kind's name starts another's, so each keeps its own 40.
  */
 export function openPipelineLog(o: {
   folder: string;
   now: () => number;
   secrets: readonly string[];
-  kind?: "pipeline" | "gemini";
+  kind?: "pipeline" | "quick" | "gemini";
 }): PipelineLog {
   mkdirSync(o.folder, { recursive: true });
   const kind = o.kind ?? "pipeline";

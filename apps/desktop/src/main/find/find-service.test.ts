@@ -311,6 +311,30 @@ describe("the find service", () => {
       });
     });
 
+    it("reads the gateways' object shape", async () => {
+      mode = "live";
+      secretValues = {
+        "pipeline.gateways": JSON.stringify({
+          enabled: true,
+          gateways: [{ region: "us-east-1", apiId: "abc123", url: gateway }],
+        }),
+      };
+      await started(["a one"]);
+      expect(supervisor.starts[0]?.secrets).toMatchObject({ gatewayUrls: [gateway] });
+    });
+
+    it("sends no gateway while they are turned off", async () => {
+      mode = "live";
+      secretValues = {
+        "pipeline.gateways": JSON.stringify({
+          enabled: false,
+          gateways: [{ region: "us-east-1", apiId: "abc123", url: gateway }],
+        }),
+      };
+      await started(["a one"]);
+      expect(supervisor.starts[0]?.secrets).toMatchObject({ gatewayUrls: [] });
+    });
+
     it("treats a missing or malformed proxy list as none", async () => {
       secretValues = { "pipeline.proxies": "{not json", "pipeline.gateways": '["ok", 5]' };
       await started(["a one"]);
@@ -320,7 +344,7 @@ describe("the find service", () => {
     it("sets the run to running, clears the log and emits", async () => {
       await started();
       supervisor.send({ type: "log", level: "info", text: "hello" });
-      supervisor.finish({ kind: "ended", end: endLine() });
+      supervisor.finish({ kind: "ended", result: null, end: endLine() });
       expect(service.state().log).toHaveLength(1);
       service.startAt(0);
       expect(await service.start()).toEqual({ ok: true });
@@ -403,7 +427,7 @@ describe("the find service", () => {
     });
 
     it("done: takes at from the end line and puts running entries back to queued", () => {
-      supervisor.finish({ kind: "ended", end: endLine({ state: "done", at: 3 }) });
+      supervisor.finish({ kind: "ended", result: null, end: endLine({ state: "done", at: 3 }) });
       const state = service.state();
       expect(state.run).toMatchObject({ state: "done", error: null });
       expect(state.at).toBe(3);
@@ -411,7 +435,7 @@ describe("the find service", () => {
     });
 
     it("stopped: paused", () => {
-      supervisor.finish({ kind: "ended", end: endLine({ state: "stopped", at: 1 }) });
+      supervisor.finish({ kind: "ended", result: null, end: endLine({ state: "stopped", at: 1 }) });
       expect(service.state().run).toMatchObject({ state: "paused", error: null });
       expect(service.state().at).toBe(1);
     });
@@ -426,6 +450,7 @@ describe("the find service", () => {
     ] as const)("failed with %s: the error code is %s, never Python's text", (code, expected) => {
       supervisor.finish({
         kind: "ended",
+        result: null,
         end: endLine({
           state: "failed",
           at: 0,
@@ -455,14 +480,14 @@ describe("the find service", () => {
     it("re-reads the kept list from pipeline.db after the exit", () => {
       supervisor.send(channel("UC_live", "kept"));
       expect(service.state().kept.map((c) => c.channelId)).toEqual(["UC_live"]);
-      supervisor.finish({ kind: "ended", end: endLine() });
+      supervisor.finish({ kind: "ended", result: null, end: endLine() });
       // There is no pipeline.db in this folder, so the list is what the database holds: none.
       expect(service.state().kept).toEqual([]);
     });
 
     it("emits when the run ends", () => {
       emitted = [];
-      supervisor.finish({ kind: "ended", end: endLine() });
+      supervisor.finish({ kind: "ended", result: null, end: endLine() });
       expect(emitted.at(-1)?.run.state).toBe("done");
     });
   });
@@ -591,7 +616,7 @@ describe("the find service", () => {
       supervisor.send(keyword(0, "started"));
       supervisor.send(channel("UC_a", "kept"));
       supervisor.send(keyword(0, "done", { found: 3, kept: 1 }));
-      supervisor.finish({ kind: "ended", end: endLine() });
+      supervisor.finish({ kind: "ended", result: null, end: endLine() });
       const everything = JSON.stringify([
         service.state(),
         emitted,

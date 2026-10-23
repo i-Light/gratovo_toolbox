@@ -95,6 +95,39 @@ class FakeChild extends EventEmitter implements ChildLike {
 
 const end = { type: "end", state: "done", at: 2, found: 9, kept: 5 } as const;
 
+function liveStart(job: Start["job"]): Start {
+  return {
+    type: "start",
+    protocol: 1,
+    source: "live",
+    dataDir: "D:\\mail",
+    worker: "user-1",
+    job,
+    settings: {},
+    secrets: { youtubeKey: null, proxyUrls: [], gatewayUrls: [] },
+  };
+}
+
+const jobEnd = { type: "end", state: "done", at: 0, found: 0, kept: 0 } as const;
+const ackResult = { type: "result", kind: "mail.ack", data: { acknowledged: 2 } } as const;
+const repliesResult = { type: "result", kind: "mail.replies", data: { accounts: [] } } as const;
+const privateBody = "Happy to talk about a sponsored AI tools review next month.";
+const reply = {
+  type: "reply",
+  account: "outreach@example.com",
+  conversationKey: "UC_ai_daily",
+  channelId: "UC_ai_daily",
+  messageId: "18f0a1b2c3d4",
+  from: "creator@example.com",
+  fromName: "AI Daily",
+  subject: "Re: AI tools review",
+  body: privateBody,
+  bodyCut: false,
+  receivedAt: "2026-10-22T10:00:00Z",
+  isFirstReply: true,
+  cancelledFollowUps: 1,
+} as const;
+
 /** Lets stream events and the close event run. */
 async function settle(): Promise<void> {
   for (let i = 0; i < 5; i += 1) {
@@ -189,8 +222,69 @@ describe("the pipeline supervisor", () => {
     child.exit(0);
     await settle();
 
-    expect(exits).toEqual([{ kind: "ended", end }]);
+    expect(exits).toEqual([{ kind: "ended", end, result: null }]);
     expect(pipeline.running).toBe(false);
+  });
+
+  it("passes replies and the result on, and carries the result in the exit", async () => {
+    supervisor().start(liveStart({ kind: "mail.replies" }), handlers);
+    child.send(reply);
+    child.send(repliesResult);
+    child.send(jobEnd);
+    child.exit(0);
+    await settle();
+
+    expect(messages).toEqual([reply, repliesResult, jobEnd]);
+    expect(exits).toEqual([{ kind: "ended", end: jobEnd, result: repliesResult }]);
+    expect(await logText()).not.toContain(privateBody);
+  });
+
+  it.each([
+    ["a result for another kind", [repliesResult], null],
+    ["a second result", [ackResult, ackResult], ackResult],
+    ["a reply from a job other than mail.replies", [reply], null],
+    ["a result after the end", [jobEnd, ackResult], null],
+  ])("treats %s as a bad line and keeps it out of the log", async (_name, lines, kept) => {
+    supervisor().start(liveStart({ kind: "mail.ack", messageIds: ["18f0a1b2c3d4"] }), handlers);
+    for (const line of lines) {
+      child.send(line);
+    }
+    child.send(jobEnd);
+    child.exit(0);
+    await settle();
+
+    expect(messages.filter((m) => m.type === "reply" || m.type === "result")).toEqual(
+      kept === null ? [] : [kept],
+    );
+    expect(exits).toEqual([{ kind: "ended", end: jobEnd, result: kept }]);
+    const text = await logText();
+    expect(text).toContain("protocol");
+    expect(text).toContain("not shown");
+    expect(text).not.toContain(privateBody);
+    expect(text).not.toContain("acknowledged");
+  });
+
+  it("ends the job after three bad result or reply lines in a row", async () => {
+    supervisor().start(liveStart({ kind: "mail.ack", messageIds: ["18f0a1b2c3d4"] }), handlers);
+    child.send(reply);
+    child.send(repliesResult);
+    child.send(reply);
+    await settle();
+
+    expect(child.killed).toBe(true);
+    expect(exits).toEqual([{ kind: "failed", reason: "protocol" }]);
+  });
+
+  it("keeps a reply line that fails its check out of the log", async () => {
+    supervisor().start(liveStart({ kind: "mail.replies" }), handlers);
+    child.send({ ...reply, messageId: "not a gmail id!" });
+    child.send(jobEnd);
+    child.exit(0);
+    await settle();
+
+    const text = await logText();
+    expect(text).toContain("bad_message: (a result or reply line, not shown)");
+    expect(text).not.toContain(privateBody);
   });
 
   it.each([
@@ -262,7 +356,9 @@ describe("the pipeline supervisor", () => {
     vi.advanceTimersByTime(60_000);
 
     expect(child.killed).toBe(false);
-    expect(exits).toEqual([{ kind: "ended", end: { ...end, state: "stopped", at: 1 } }]);
+    expect(exits).toEqual([
+      { kind: "ended", end: { ...end, state: "stopped", at: 1 }, result: null },
+    ]);
   });
 
   it("on quit, stops, closes stdin and kills after 5 s", async () => {
