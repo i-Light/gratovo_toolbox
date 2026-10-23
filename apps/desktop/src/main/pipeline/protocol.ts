@@ -28,6 +28,16 @@ const handle = z.string().regex(/^@[A-Za-z0-9._-]{1,100}$/);
 const region = z.string().regex(/^[a-z]{2}(-[a-z]+)+-\d$/);
 const apiId = z.string().regex(/^[a-z0-9]{1,32}$/);
 const gmailId = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
+/**
+ * Text that goes into a mail header: a line break there would start a new header. Every line
+ * boundary Python's email module refuses, not only CR and LF.
+ */
+const headerText = (max: number) =>
+  z
+    .string()
+    .max(max)
+    // eslint-disable-next-line no-control-regex -- the control characters are the point: they break lines
+    .regex(/^[^\r\n\v\f\x1c-\x1e\x85\u2028\u2029]*$/);
 const conversationKey = z.string().min(1).max(200);
 const channelId = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -84,7 +94,7 @@ const mailSendJob = z.strictObject({
   kind: z.literal("mail.send"),
   message: z.strictObject({
     to: email,
-    subject: z.string().max(998),
+    subject: headerText(998),
     body: z.string().min(1).max(100_000),
     /** The connected mailbox that sends it: needed only when more than one is connected. */
     mailbox: email.optional(),
@@ -198,7 +208,7 @@ export const startSchema = z
       mail: z
         .strictObject({
           label: z.string().min(1).max(100),
-          senderName: z.string().max(100).nullable(),
+          senderName: headerText(100).nullable(),
           mailboxes: z
             .array(
               z.strictObject({

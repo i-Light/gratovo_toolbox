@@ -158,7 +158,7 @@ describe("the pipeline's secrets", () => {
       expect(logged()).not.toContain("abc123");
     });
 
-    it("merges a deploy by region and turns them on", async () => {
+    it("adds a deploy, keeps what it replaced, and turns them on", async () => {
       const store = fakeStore({
         "pipeline.gateways": JSON.stringify({
           enabled: false,
@@ -177,9 +177,11 @@ describe("the pipeline's secrets", () => {
         failed: [{ region: "ap-south-1", message: "AccessDenied" }],
       });
 
+      // The old us-east-1 gateway still runs in AWS: it stays, so it can be destroyed.
       const expected = {
         enabled: true,
         gateways: [
+          { region: "us-east-1", apiId: "abc123", url: east },
           { region: null, apiId: null, url: "https://gateway.example.com/prod" },
           { region: "us-east-1", apiId: "ghi789", url: eastAgain },
           { region: "eu-west-2", apiId: "def456", url: london },
@@ -187,6 +189,42 @@ describe("the pipeline's secrets", () => {
       };
       expect(saved).toEqual(expected);
       expect(store.stored("pipeline.gateways")).toEqual(expected);
+    });
+
+    it("drops the untracked ones first when the list is full", async () => {
+      const tracked = Array.from({ length: 99 }, (_, i) => ({
+        region: "us-east-1",
+        apiId: `id${String(i)}`,
+        url: `https://g${String(i)}.execute-api.us-east-1.amazonaws.com/prod`,
+      }));
+      const untracked = { region: null, apiId: null, url: "https://gateway.example.com/prod" };
+      const store = fakeStore({
+        "pipeline.gateways": JSON.stringify({ enabled: true, gateways: [untracked, ...tracked] }),
+      });
+      const saved = await saveDeployedGateways(store, {
+        deployed: [{ region: "eu-west-2", apiId: "def456", url: london }],
+        failed: [],
+      });
+      expect(saved.gateways).toHaveLength(100);
+      expect(saved.gateways).not.toContainEqual(untracked);
+      expect(saved.gateways.filter((g) => g.apiId !== null)).toHaveLength(100);
+    });
+
+    it("refuses rather than forget a gateway it could still destroy", async () => {
+      const tracked = Array.from({ length: 100 }, (_, i) => ({
+        region: "us-east-1",
+        apiId: `id${String(i)}`,
+        url: `https://g${String(i)}.execute-api.us-east-1.amazonaws.com/prod`,
+      }));
+      const raw = JSON.stringify({ enabled: true, gateways: tracked });
+      const store = fakeStore({ "pipeline.gateways": raw });
+      await expect(
+        saveDeployedGateways(store, {
+          deployed: [{ region: "eu-west-2", apiId: "def456", url: london }],
+          failed: [],
+        }),
+      ).rejects.toThrow("destroy some first");
+      expect(store.map.get("pipeline.gateways")).toBe(raw);
     });
 
     it("turns an old plain list into the object shape when it changes", async () => {

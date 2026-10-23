@@ -186,7 +186,8 @@
                       },
                       "subject": {
                         "type": "string",
-                        "maxLength": 998
+                        "maxLength": 998,
+                        "pattern": "^[^\\r\\n\\v\\f\\x1c-\\x1e\\x85\\u2028\\u2029]*$"
                       },
                       "body": {
                         "type": "string",
@@ -608,7 +609,8 @@
                     "anyOf": [
                       {
                         "type": "string",
-                        "maxLength": 100
+                        "maxLength": 100,
+                        "pattern": "^[^\\r\\n\\v\\f\\x1c-\\x1e\\x85\\u2028\\u2029]*$"
                       },
                       {
                         "type": "null"

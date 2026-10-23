@@ -25,6 +25,7 @@ Scopes the mailbox grant needs: `gmail.modify` (label a sent message, read a thr
 from __future__ import annotations
 
 import base64
+import http.client
 import json
 import random
 import re
@@ -44,8 +45,11 @@ API: Final = "https://gmail.googleapis.com/gmail/v1/users/me"
 TIMEOUT: Final = 30.0
 
 # Retried with a pause: 429 is Gmail's per-user rate limit and the 5xx family is Google having a
-# bad moment. Anything else (400, 401, 403) is a fact about the request or the grant.
+# bad moment. Anything else (400, 401, 403) is a fact about the request or the grant. A send is
+# retried on 429 alone: after a 5xx or a lost answer Gmail may have the message, and a second
+# POST would send it twice.
 RETRY_STATUSES: Final = frozenset({429, 500, 502, 503, 504})
+SEND_RETRY_STATUSES: Final = frozenset({429})
 MAX_ATTEMPTS: Final = 4
 BASE_BACKOFF_SECONDS: Final = 1.0
 
@@ -54,7 +58,12 @@ MAX_BODY_BYTES: Final = 1_000_000
 MAX_ANSWER: Final = 16 * 1024 * 1024
 
 _RECONNECT: Final = "Reconnect the mailbox in Settings."
+_MAYBE_SENT: Final = (
+    "Gmail didn't confirm the send, so the message may have gone out. Check the Sent folder "
+    "before sending it again."
+)
 _SAFE_REASON: Final = re.compile(r"[a-z][a-z_]{0,39}")
+_UNSENT: Final = "unsent"  # a _Failure's reason when the request never went out
 
 type ErrorCode = Literal["mail_not_connected", "mail_auth", "mail_api", "network", "bad_start"]
 
@@ -97,6 +106,10 @@ class MailNetworkError(MailError):
     code: ErrorCode = "network"
 
 
+class MailUnreachableError(MailNetworkError):
+    """Google couldn't be reached at all: the request never went out, so nothing was sent."""
+
+
 class BadAddressError(MailError):
     """The recipient isn't a usable email address."""
 
@@ -105,6 +118,12 @@ class BadAddressError(MailError):
 
 class MessageTooLargeError(MailError):
     """The body is too large to be outreach."""
+
+    code: ErrorCode = "bad_start"
+
+
+class BadHeaderError(MailError):
+    """A subject or sender name that can't go in a header (a line break, say)."""
 
     code: ErrorCode = "bad_start"
 
@@ -193,9 +212,12 @@ def _request(
     headers: Mapping[str, str] | None = None,
     unredirected: Mapping[str, str] | None = None,
     data: bytes | None = None,
+    idempotent: bool = True,
 ) -> object:
     """One call with the retries. Returns the parsed JSON answer; raises `_Failure` for a
-    refusal or an unreachable host, MailApiError for an answer that isn't JSON."""
+    refusal or an unreachable host, MailApiError for an answer that isn't JSON. A call that
+    isn't `idempotent` is retried only on 429, never after a lost answer or a 5xx."""
+    retry_statuses = RETRY_STATUSES if idempotent else SEND_RETRY_STATUSES
     net.check_url(url)
     for attempt in range(MAX_ATTEMPTS):
         request = urllib.request.Request(  # noqa: S310 - check_url allowed it
@@ -211,12 +233,20 @@ def _request(
             finally:
                 body.close()
         except HTTPError as error:
-            if error.code in RETRY_STATUSES and not last:
+            if error.code in retry_statuses and not last:
                 _pause(sleep, attempt)
                 continue
             raise _Failure(error.code, _reason(error)) from None
-        except URLError, TimeoutError, ConnectionError, OSError:
+        except URLError:
+            # urllib wraps only a request that never went out (connect, DNS, TLS, writing it):
+            # Gmail has nothing, so even a send may try again.
             if not last:
+                _pause(sleep, attempt)
+                continue
+            raise _Failure(0, _UNSENT) from None
+        except TimeoutError, ConnectionError, OSError, http.client.HTTPException:
+            # The request went out and the answer was lost: Gmail may have acted on it.
+            if idempotent and not last:
                 _pause(sleep, attempt)
                 continue
             raise _Failure(0, None) from None
@@ -385,11 +415,16 @@ class GmailClient:
 
         message = EmailMessage()
         message["To"] = recipient
-        message["Subject"] = subject
-        if self._sender_name:
-            # Gmail overwrites any attempt to send as another address; the display name is the
-            # only part of From worth setting.
-            message["From"] = formataddr((self._sender_name, self.address))
+        try:
+            message["Subject"] = subject
+            if self._sender_name:
+                # Gmail overwrites any attempt to send as another address; the display name is
+                # the only part of From worth setting.
+                message["From"] = formataddr((self._sender_name, self.address))
+        except ValueError:
+            raise BadHeaderError(
+                "The subject or the sender name has a line break, so it can't be sent."
+            ) from None
         if in_reply_to:
             message["In-Reply-To"] = in_reply_to
             # The whole ancestry, not only the parent: clients walk this chain.
@@ -404,7 +439,18 @@ class GmailClient:
         }
         if thread_id:
             payload["threadId"] = thread_id
-        sent = self._call("/messages/send", body=payload)
+        try:
+            sent = self._call("/messages/send", body=payload, idempotent=False)
+        except MailUnreachableError:
+            raise MailUnreachableError(
+                "Couldn't reach Gmail, so nothing was sent. Try again once the connection is back."
+            ) from None
+        except MailNetworkError:
+            raise MailNetworkError(_MAYBE_SENT) from None
+        except MailApiError as error:
+            if error.status is not None and error.status >= 500:
+                raise MailApiError(_MAYBE_SENT, status=error.status) from None
+            raise
         message_id = _str(sent.get("id"))
         if not message_id:
             raise MailApiError("Gmail sent the message without saying its id.")
@@ -478,7 +524,9 @@ class GmailClient:
 
     # --- the call ---
 
-    def _call(self, path: str, *, body: Mapping[str, object] | None = None) -> dict[str, Any]:
+    def _call(
+        self, path: str, *, body: Mapping[str, object] | None = None, idempotent: bool = True
+    ) -> dict[str, Any]:
         url = f"{API}{path}"
         data = json.dumps(body).encode() if body is not None else None
         try:
@@ -491,6 +539,7 @@ class GmailClient:
                 | ({"Content-Type": "application/json"} if body is not None else {}),
                 unredirected={"Authorization": f"Bearer {self._token}"},
                 data=data,
+                idempotent=idempotent,
             )
         except _Failure as failure:
             _raise_api_failure(failure)
@@ -500,6 +549,8 @@ class GmailClient:
 def _raise_api_failure(failure: _Failure) -> NoReturn:
     status = failure.status
     if status == 0:
+        if failure.reason == _UNSENT:
+            raise MailUnreachableError("Couldn't reach Gmail.") from None
         raise MailNetworkError("Couldn't reach Gmail.") from None
     if status == 401:
         raise MailAuthError(f"Gmail rejected the credentials. {_RECONNECT}") from None

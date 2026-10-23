@@ -112,6 +112,10 @@ const jobCases: { good: Job; bad: Record<string, unknown>[] }[] = [
       { kind: "mail.send", message: { ...sendMessage, body: "" } },
       { kind: "mail.send", message: { ...sendMessage, body: "x".repeat(100_001) } },
       { kind: "mail.send", message: { ...sendMessage, subject: "x".repeat(999) } },
+      { kind: "mail.send", message: { ...sendMessage, subject: "Hi\nBcc: a@b.co" } },
+      { kind: "mail.send", message: { ...sendMessage, subject: "Hi\r there" } },
+      { kind: "mail.send", message: { ...sendMessage, subject: "Hi\u2028there" } },
+      { kind: "mail.send", message: { ...sendMessage, subject: "Hi\vthere" } },
       { kind: "mail.send", message: { ...sendMessage, labels: Array(11).fill("a") } },
       { kind: "mail.send", message: { ...sendMessage, replyTo: "a@b.co" } },
     ],
@@ -214,14 +218,19 @@ describe("the jobs other than search", () => {
   });
 
   it("takes the mail settings and the mail and AWS secrets", () => {
-    const withMail = ({ dailyCap = 30, warmupStartedOn = "2026-10-01", accessKeyId = "" }) => ({
+    const withMail = ({
+      dailyCap = 30,
+      warmupStartedOn = "2026-10-01",
+      accessKeyId = "",
+      senderName = "Sam",
+    }) => ({
       ...start,
       source: "live",
       job: { kind: "mail.status" },
       settings: {
         mail: {
           label: "Gratovo",
-          senderName: "Sam",
+          senderName,
           mailboxes: [{ address: "outreach@gratovo.com", dailyCap, warmupStartedOn }],
         },
       },
@@ -241,6 +250,7 @@ describe("the jobs other than search", () => {
     expect(startSchema.safeParse(withMail({ dailyCap: 51 })).success).toBe(false);
     expect(startSchema.safeParse(withMail({ warmupStartedOn: "1 October" })).success).toBe(false);
     expect(startSchema.safeParse(withMail({ accessKeyId: "akia-lowercase" })).success).toBe(false);
+    expect(startSchema.safeParse(withMail({ senderName: "Sam\nBcc: a@b.co" })).success).toBe(false);
   });
 });
 

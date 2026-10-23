@@ -168,7 +168,10 @@ function change(
 }
 
 /**
- * Merges a `gateways.deploy` result: a region deployed again replaces its old entry. Deploying any
+ * Merges a `gateways.deploy` result. A region deployed again keeps its old entry: that API still
+ * runs in AWS, and its id is the only way `gateways.destroy` can remove it. Past the cap, the
+ * oldest entries with no id (which nothing here can destroy) go first; if that isn't enough it
+ * throws rather than drop an id. A caller checks there is room before it deploys. Deploying any
  * turns them on.
  */
 export function saveDeployedGateways(
@@ -179,14 +182,21 @@ export function saveDeployedGateways(
     if (data.deployed.length === 0) {
       return null;
     }
-    const byRegion = new Map(
-      data.deployed.map(({ region: r, apiId: id, url: u }) => [
-        r,
-        { region: r, apiId: id, url: u },
-      ]),
-    );
-    const kept = current.gateways.filter((g) => g.region === null || !byRegion.has(g.region));
-    return { enabled: true, gateways: [...kept, ...byRegion.values()].slice(-maxGateways) };
+    const added = data.deployed.map(({ region: r, apiId: id, url: u }) => ({
+      region: r,
+      apiId: id,
+      url: u,
+    }));
+    const same = (a: Gateway, b: Gateway) => a.region === b.region && a.apiId === b.apiId;
+    const gateways = [...current.gateways.filter((g) => !added.some((a) => same(a, g))), ...added];
+    while (gateways.length > maxGateways) {
+      const untracked = gateways.findIndex((g) => g.apiId === null);
+      if (untracked === -1) {
+        throw new Error(`more than ${String(maxGateways)} gateways: destroy some first`);
+      }
+      gateways.splice(untracked, 1);
+    }
+    return { enabled: true, gateways };
   });
 }
 

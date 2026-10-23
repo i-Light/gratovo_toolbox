@@ -346,6 +346,18 @@ def test_blocked_ends_failed_with_no_result(run: Run) -> None:
     assert run_status(run) == "interrupted"
 
 
+def test_a_sweep_that_cannot_open_still_ends(run: Run) -> None:
+    class NoSweep(RefetchFake):
+        def sweep(self) -> Any:
+            raise OSError("disk")
+
+    go(run, start_for(run, ["@aitoolsweekly"]), NoSweep())
+
+    assert run.of("result") == []
+    assert (run.end()["state"], run.end()["error"]["code"]) == ("failed", "crash")
+    assert run_status(run) == "interrupted"
+
+
 def test_a_spent_quota_ends_failed_as_quota(run: Run) -> None:
     source = RefetchFake()
 

@@ -376,7 +376,8 @@ def _send_request(
         )
     except gmail.MailError as error:
         # Gmail refused: nothing went out, so the same key may try again. When Google couldn't
-        # be reached, or answered without a readable id, the message may have gone: the claim
+        # be reached, failed with a 5xx, or answered without a readable id, the message may
+        # have gone: the claim
         # stays, and a retry is refused as uncertain. (So does a process killed in the call.)
         if _refused(error):
             mailbox.release_send_key(conn, send_key)
@@ -411,11 +412,15 @@ def _send_request(
 
 
 def _refused(error: gmail.MailError) -> bool:
-    """Whether Gmail said no outright, so the message certainly didn't go."""
+    """Whether Gmail said no outright, or was never reached, so the message certainly didn't go."""
+    if isinstance(error, gmail.MailUnreachableError):
+        return True
     if isinstance(error, gmail.MailNetworkError):
         return False
     if isinstance(error, gmail.MailApiError):
-        return error.status is not None  # no status: Gmail answered, but not readably
+        # No status: Gmail answered, but not readably. A 5xx: Gmail may have taken the message
+        # before it failed.
+        return error.status is not None and error.status < 500
     return True
 
 
@@ -540,6 +545,7 @@ def _sweep_replies(
     for conversation in rows:
         checked += 1
         key = str(conversation["conversation_key"])
+        mailbox.mark_checked(conn, key, account)
         try:
             incoming = client.replies(
                 str(conversation["gmail_thread_id"]),
@@ -555,7 +561,8 @@ def _sweep_replies(
         # Bookkeeping, not enforcement: `due_steps` already refuses a replied conversation. This
         # makes the cancellation visible, so the app can say what it stopped.
         cancelled[key] = mailbox.cancel_steps(conn, key, account, reason="replied")
-        mailbox.close_conversation(conn, key, account)
+        # Not closed: the conversation leaves the sweep until the team writes again, and then the
+        # creator's next answer is found too.
     return cancelled, checked
 
 

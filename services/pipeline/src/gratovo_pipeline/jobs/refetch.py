@@ -283,30 +283,35 @@ def run(start: Start, emitter: Emitter, *, source: RefetchSource | None = None) 
 
     search = Search(conn, run_id, cfg, source, pacer, emitter)
     tally = _Tally()
-    sweep = source.sweep()
     stopped = False
+    failure: _EndError | None = None
     try:
-        for index, handle in enumerate(handles):
-            run_control.check_stop()
-            if index:
-                pacer.pause("found_channels_delay", reason="the next handle")
-            try:
-                _refetch_one(search, source, sweep, handle, keyword, tally)
-            except KeyboardInterrupt, YouTubeError, SearchBlockedError, net.HostNotAllowedError:
-                raise
-            except Exception as error:  # one handle's trouble must not end the run
-                search.warn(f"Couldn't refetch {handle} ({type(error).__name__}). Skipping it.")
-                tally.failed.append(handle)
+        sweep = source.sweep()
+        try:
+            for index, handle in enumerate(handles):
+                run_control.check_stop()
+                if index:
+                    pacer.pause("found_channels_delay", reason="the next handle")
+                try:
+                    _refetch_one(search, source, sweep, handle, keyword, tally)
+                except KeyboardInterrupt, YouTubeError, SearchBlockedError, net.HostNotAllowedError:
+                    raise
+                except Exception as error:  # one handle's trouble must not end the run
+                    search.warn(f"Couldn't refetch {handle} ({type(error).__name__}). Skipping it.")
+                    tally.failed.append(handle)
+        finally:
+            sweep.close()
     except KeyboardInterrupt:  # RunAborted too: a stop
         stopped = True
     except BaseException as error:
         failure = _failure(error)
-        _finish(conn, run_id, tally, "interrupted")
+    try:
+        _finish(conn, run_id, tally, "done" if failure is None and not stopped else "interrupted")
+    except BaseException as error:  # every way out ends with `end`
+        failure = failure or _failure(error)
+    if failure is not None:
         end("failed", failure)
-        sweep.close()
         return
-    sweep.close()
-    _finish(conn, run_id, tally, "interrupted" if stopped else "done")
     emitter.result(
         "refetch",
         {

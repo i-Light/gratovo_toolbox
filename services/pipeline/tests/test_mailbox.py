@@ -11,6 +11,7 @@ file may hold some, and the reply sweep cancels them.)
 from __future__ import annotations
 
 import sqlite3
+import time
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -284,6 +285,64 @@ def test_a_replied_conversation_stops_being_swept(conn: sqlite3.Connection) -> N
     assert len(mailbox.open_conversations(conn, ACCOUNT)) == 1
     mailbox.record_replies(conn, KEY, ACCOUNT, [reply()])
     assert mailbox.open_conversations(conn, ACCOUNT) == []
+
+
+@pytest.fixture
+def ticking(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A clock that moves a second on each read: the store's times are to the second."""
+    seconds = iter(range(1_800_000_000, 1_900_000_000))
+    monkeypatch.setattr(
+        mailbox, "now", lambda: time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(next(seconds)))
+    )
+
+
+def keys(rows: list[sqlite3.Row]) -> list[str]:
+    return [str(r["conversation_key"]) for r in rows]
+
+
+@pytest.mark.usefixtures("ticking")
+def test_writing_back_after_a_reply_puts_the_conversation_back_in_the_sweep(
+    conn: sqlite3.Connection,
+) -> None:
+    open_conversation(conn)
+    mailbox.record_replies(conn, KEY, ACCOUNT, [reply()])
+    assert mailbox.open_conversations(conn, ACCOUNT) == []
+
+    mailbox.record_send(
+        conn,
+        conversation_key=KEY,
+        account=ACCOUNT,
+        result=sent_result("m2"),
+        recipient="creator@example.com",
+        subject="Re: Collaboration",
+        body="Great, here are the details.",
+    )
+    assert keys(mailbox.open_conversations(conn, ACCOUNT)) == [KEY]
+    assert mailbox.counters(conn, ACCOUNT)["awaitingReply"] == 1
+
+    mailbox.record_replies(conn, KEY, ACCOUNT, [reply("r2")])
+    assert mailbox.open_conversations(conn, ACCOUNT) == []
+
+
+@pytest.mark.usefixtures("ticking")
+def test_a_send_reopens_a_closed_conversation(conn: sqlite3.Connection) -> None:
+    open_conversation(conn)
+    mailbox.close_conversation(conn, KEY, ACCOUNT)
+    assert mailbox.open_conversations(conn, ACCOUNT) == []
+
+    open_conversation(conn)
+    assert keys(mailbox.open_conversations(conn, ACCOUNT)) == [KEY]
+
+
+@pytest.mark.usefixtures("ticking")
+def test_the_sweep_takes_the_least_recently_checked_first(conn: sqlite3.Connection) -> None:
+    for key in ("a", "b", "c"):
+        open_conversation(conn, key=key)
+    assert keys(mailbox.open_conversations(conn, ACCOUNT, limit=2)) == ["a", "b"]
+
+    mailbox.mark_checked(conn, "a", ACCOUNT)
+    mailbox.mark_checked(conn, "b", ACCOUNT)
+    assert keys(mailbox.open_conversations(conn, ACCOUNT, limit=2)) == ["c", "a"]
 
 
 # --- CountersTest ---

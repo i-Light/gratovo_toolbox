@@ -220,7 +220,7 @@ def test_every_region_refused_for_the_keys_ends_with_aws(check_from_pipeline: Ch
         FakeAws(handler), check_from_pipeline, deploy(["us-east-1", "eu-west-1"]), secrets__aws=AWS
     )
 
-    assert [line["type"] for line in lines if line["type"] != "log"] == ["result", "end"]
+    assert [line["type"] for line in lines if line["type"] != "log"] == ["end"], "no result"
     assert end_of(lines)["state"] == "failed"
     assert end_of(lines)["error"]["code"] == "aws"
 

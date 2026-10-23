@@ -111,6 +111,11 @@ function liveStart(job: Start["job"]): Start {
 const jobEnd = { type: "end", state: "done", at: 0, found: 0, kept: 0 } as const;
 const ackResult = { type: "result", kind: "mail.ack", data: { acknowledged: 2 } } as const;
 const repliesResult = { type: "result", kind: "mail.replies", data: { accounts: [] } } as const;
+const refetchResult = {
+  type: "result",
+  kind: "refetch",
+  data: { processed: 1, swept: 0, deferred: 0, failedCount: 0, failed: [] },
+} as const;
 const privateBody = "Happy to talk about a sponsored AI tools review next month.";
 const reply = {
   type: "reply",
@@ -237,6 +242,28 @@ describe("the pipeline supervisor", () => {
     expect(messages).toEqual([reply, repliesResult, jobEnd]);
     expect(exits).toEqual([{ kind: "ended", end: jobEnd, result: repliesResult }]);
     expect(await logText()).not.toContain(privateBody);
+  });
+
+  it.each([
+    ["mail.ack", "failed"],
+    ["mail.ack", "stopped"],
+    ["refetch", "failed"],
+  ] as const)("leaves a %s result on %s out of the exit", async (kind, state) => {
+    const job =
+      kind === "mail.ack"
+        ? { kind, messageIds: ["18f0a1b2c3d4"] }
+        : { kind, handles: ["@aitoolsweekly"], autoClean: null };
+    const sent = kind === "mail.ack" ? ackResult : refetchResult;
+    supervisor().start(liveStart(job), handlers);
+    child.send(sent);
+    child.send({ ...jobEnd, state });
+    child.exit(0);
+    await settle();
+
+    expect(exits).toEqual([{ kind: "ended", end: { ...jobEnd, state }, result: null }]);
+    const text = await logText();
+    expect(text).toContain(`result_on_${state}`);
+    expect(text).not.toContain(privateBody);
   });
 
   it.each([

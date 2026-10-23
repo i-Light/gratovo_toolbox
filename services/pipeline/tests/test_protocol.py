@@ -272,6 +272,10 @@ BAD_JOBS: list[dict[str, Any]] = [
     {"kind": "mail.send", "message": {**SEND, "body": ""}},
     {"kind": "mail.send", "message": {**SEND, "body": "x" * 100_001}},
     {"kind": "mail.send", "message": {**SEND, "subject": "x" * 999}},
+    {"kind": "mail.send", "message": {**SEND, "subject": "Hi\nBcc: a@b.co"}},
+    {"kind": "mail.send", "message": {**SEND, "subject": "Hi\r there"}},
+    {"kind": "mail.send", "message": {**SEND, "subject": "Hi\u2028there"}},
+    {"kind": "mail.send", "message": {**SEND, "subject": "Hi\x0bthere"}},
     {"kind": "mail.send", "message": {**SEND, "labels": ["a"] * 11}},
     {"kind": "mail.send", "message": {**SEND, "channelId": "../etc"}},
     {"kind": "mail.send", "message": {**SEND, "replyTo": "a@b.co"}},
@@ -387,6 +391,7 @@ def test_the_mail_settings_and_the_mail_and_aws_secrets_parse(
     [
         ("settings.mail.label", ""),
         ("settings.mail.senderName", "x" * 101),
+        ("settings.mail.senderName", "Sam\nBcc: a@b.co"),
         ("settings.mail.mailboxes", [MAIL_SETTINGS["mailboxes"][0]] * 21),
         ("settings.mail.mailboxes.0.dailyCap", 51),
         ("settings.mail.mailboxes.0.dailyCap", 9),

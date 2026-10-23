@@ -480,6 +480,15 @@ def _string(value: object, where: str, low: int, high: int) -> str:
     return value
 
 
+def _header(value: object, where: str, high: int) -> str:
+    """Text that goes into a mail header: a line break there would start a new header. Every
+    boundary `str.splitlines` knows, which is what the email module refuses."""
+    text = _string(value, where, 0, high)
+    if len(f"{text}x".splitlines()) > 1:
+        raise BadStartError(f"{where} must be one line")
+    return text
+
+
 def _matching(value: object, where: str, pattern: re.Pattern[str], what: str) -> str:
     if not isinstance(value, str) or not pattern.fullmatch(value):
         raise BadStartError(f"{where} must be {what}")
@@ -608,7 +617,7 @@ def _outgoing_mail(value: object) -> OutgoingMail:
     send_key = _string(raw["sendKey"], f"{where}.sendKey", 8, 200)
     mail: OutgoingMail = {
         "to": _email(raw["to"], f"{where}.to"),
-        "subject": _string(raw["subject"], f"{where}.subject", 0, 998),
+        "subject": _header(raw["subject"], f"{where}.subject", 998),
         "body": _string(raw["body"], f"{where}.body", 1, 100_000),
         "sendKey": _matching(
             send_key, f"{where}.sendKey", _SEND_KEY, "letters, digits and _ : . - only"
@@ -764,9 +773,7 @@ def _mail_settings(value: object) -> MailSettings:
         )
     return {
         "label": _string(raw["label"], "settings.mail.label", 1, 100),
-        "senderName": None
-        if sender is None
-        else _string(sender, "settings.mail.senderName", 0, 100),
+        "senderName": None if sender is None else _header(sender, "settings.mail.senderName", 100),
         "mailboxes": mailboxes,
     }
 

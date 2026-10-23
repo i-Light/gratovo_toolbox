@@ -2,6 +2,7 @@
 failure gets. No test reaches the network."""
 
 import base64
+import http.client
 import io
 import json
 from collections.abc import Iterator
@@ -341,6 +342,70 @@ def test_a_first_send_builds_the_message_and_labels_it() -> None:
     query = parse_qs(urlsplit(opener.requests[5].full_url).query)
     assert query == {"format": ["metadata"], "metadataHeaders": ["Message-ID"]}
     assert all(r.get_header("Authorization") == f"Bearer {ACCESS}" for r in opener.requests)
+
+
+def _send(mail: GmailClient, subject: str = "Hi") -> gmail.SendResult:
+    return mail.send(to="creator@aitoolsweekly.example", subject=subject, body="Hello")
+
+
+@pytest.mark.parametrize(
+    ("answer", "kind"),
+    [
+        (TimeoutError("slow"), MailNetworkError),
+        (ConnectionResetError("reset"), MailNetworkError),
+        (http_error(503), MailApiError),
+        (http_error(500), MailApiError),
+    ],
+)
+def test_a_send_is_posted_once_when_its_answer_is_lost(answer: Answer, kind: type) -> None:
+    """Gmail may have the message: a second POST would send it twice."""
+    sleeper = Sleeper()
+    opener = FakeOpener(PROFILE, answer, {"id": "m2", "threadId": "t2"})
+    with pytest.raises(kind, match="Sent folder"):
+        _send(client(opener, sleeper))
+    sends = [r for r in opener.requests if r.full_url.endswith("/messages/send")]
+    assert len(sends) == 1
+    assert sleeper.waits == []
+
+
+def test_a_send_that_never_went_out_is_retried() -> None:
+    sleeper = Sleeper()
+    refused = URLError(ConnectionRefusedError("refused"))
+    opener = FakeOpener(PROFILE, refused, {"id": "m1", "threadId": "t1"}, {"payload": {}})
+    assert _send(client(opener, sleeper))["messageId"] == "m1"
+    assert len(sleeper.waits) == 1
+
+
+def test_a_send_that_could_never_go_out_says_nothing_was_sent() -> None:
+    opener = FakeOpener(PROFILE, *[URLError(ConnectionRefusedError("refused"))] * 4)
+    with pytest.raises(gmail.MailUnreachableError, match="nothing was sent") as raised:
+        _send(client(opener, Sleeper()))
+    assert raised.value.code == "network"
+
+
+def test_a_cut_off_answer_to_a_send_may_have_gone_out() -> None:
+    opener = FakeOpener(PROFILE, http.client.IncompleteRead(b"{"), {"id": "m2"})
+    with pytest.raises(MailNetworkError, match="Sent folder") as raised:
+        _send(client(opener, Sleeper()))
+    assert not isinstance(raised.value, gmail.MailUnreachableError)
+    assert [r.full_url.endswith("/messages/send") for r in opener.requests].count(True) == 1
+
+
+def test_a_rate_limited_send_is_retried() -> None:
+    sleeper = Sleeper()
+    opener = FakeOpener(PROFILE, http_error(429), {"id": "m1", "threadId": "t1"}, {"payload": {}})
+    assert _send(client(opener, sleeper))["messageId"] == "m1"
+    assert [r.full_url.endswith("/messages/send") for r in opener.requests].count(True) == 2
+    assert len(sleeper.waits) == 1
+
+
+@pytest.mark.parametrize("subject", ["Hi\nBcc: someone@example.com", "Hi\r\nthere"])
+def test_a_subject_with_a_line_break_is_refused_before_any_send(subject: str) -> None:
+    opener = FakeOpener(PROFILE)
+    with pytest.raises(gmail.BadHeaderError) as raised:
+        _send(client(opener), subject)
+    assert raised.value.code == "bad_start"
+    assert not any(r.full_url.endswith("/messages/send") for r in opener.requests)
 
 
 def test_a_threaded_send_carries_the_thread_and_the_chain() -> None:

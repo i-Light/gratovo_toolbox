@@ -409,8 +409,9 @@ def test_a_second_reply_is_not_a_first_reply(room: Mailroom) -> None:
     room.sweep(connect_to(client))
     assert room.run({"kind": "mail.ack", "messageIds": ["r1"]}).data == {"acknowledged": 1}
 
-    # The conversation is closed after a reply, so a later message in it is found by asking
-    # about that conversation directly, as the app does when somebody opens the thread.
+    # A replied conversation leaves the sweep until the team writes again, so a later message
+    # in it is found by asking about that conversation directly, as the app does when somebody
+    # opens the thread.
     client.thread_replies["t1"].append(reply("r2", at=1_700_000_500_000))
     ran = room.sweep(connect_to(client), conversationKey=KEY)
 
@@ -457,7 +458,7 @@ def test_an_unacknowledged_reply_is_reported_again(room: Mailroom) -> None:
     assert room.sweep(connect_to(client)).replies == []
 
 
-def test_the_sweep_stops_at_its_limit_oldest_first(room: Mailroom) -> None:
+def test_the_sweep_stops_at_its_limit_and_takes_the_rest_next_time(room: Mailroom) -> None:
     room.open_conversation()
     room.open_conversation(
         key="thread-two", recipient="b@example.com", thread="t2", message_id="m9"
@@ -468,6 +469,18 @@ def test_the_sweep_stops_at_its_limit_oldest_first(room: Mailroom) -> None:
 
     assert ran.data["accounts"][0]["checked"] == 1
     assert client.thread_reads == ["t1"]
+    room.sweep(connect_to(client), limit=1)
+    assert client.thread_reads == ["t1", "t2"], "the least recently checked goes first"
+
+
+def test_a_replied_conversation_is_left_open(room: Mailroom) -> None:
+    room.open_conversation()
+    room.sweep(connect_to(FakeGmailClient(thread_replies={"t1": [reply()]})))
+
+    conversation = mailbox.get_conversation(room.conn, KEY, ACCOUNT)
+    assert conversation is not None
+    assert conversation["closed_at"] is None, "the team may write again"
+    assert conversation["checked_at"] is not None
 
 
 def test_a_reply_body_longer_than_16000_characters_arrives_cut(room: Mailroom) -> None:
@@ -557,16 +570,36 @@ def test_a_different_key_is_a_different_message(room: Mailroom) -> None:
     assert len(client.sends) == 2
 
 
-def test_a_refused_send_can_be_retried_with_the_same_key(room: Mailroom) -> None:
-    refused = FakeGmailClient(send_error=gmail.MailApiError("Gmail is unavailable.", status=503))
-    failed = room.send(connect_to(refused))
-    assert (failed.state, failed.code) == ("failed", "mail_api")
+@pytest.mark.parametrize(
+    "error",
+    [
+        gmail.MailApiError("Gmail refused the request.", status=403),
+        gmail.MailApiError("Gmail is rate limiting this mailbox.", status=429),
+        gmail.BadHeaderError("The subject has a line break."),
+        gmail.MailUnreachableError("Couldn't reach Gmail, so nothing was sent."),
+    ],
+)
+def test_a_refused_send_can_be_retried_with_the_same_key(
+    room: Mailroom, error: gmail.MailError
+) -> None:
+    failed = room.send(connect_to(FakeGmailClient(send_error=error)))
+    assert (failed.state, failed.code) == ("failed", error.code)
 
     client = FakeGmailClient()
     ran = room.send(connect_to(client))
 
     assert len(client.sends) == 1
     assert ran.data["duplicate"] is False
+
+
+def test_a_send_that_failed_with_a_5xx_keeps_its_claim(room: Mailroom) -> None:
+    """Gmail may have taken the message before it failed: a retry must not send it again."""
+    broken = FakeGmailClient(send_error=gmail.MailApiError("Gmail is unavailable.", status=503))
+    assert room.send(connect_to(broken)).code == "mail_api"
+
+    client = FakeGmailClient()
+    assert room.send(connect_to(client)).code == "send_uncertain"
+    assert client.sends == []
 
 
 def test_a_claim_never_confirmed_is_refused_as_uncertain(room: Mailroom) -> None:

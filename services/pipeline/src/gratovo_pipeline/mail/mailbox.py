@@ -26,9 +26,10 @@ Rows are keyed by `(conversation_key, account)`. The key is the app's outreach t
 
 COMPATIBILITY
 -------------
-The tables and columns are the old app's, so a `mailbox.db` it wrote opens unchanged (D17). Two
-additions: `PRAGMA user_version` 1, and `approved_by` on `sent_messages` and `send_keys` (who
-approved the send), added by a guarded `ALTER TABLE` when the column is missing.
+The tables and columns are the old app's, so a `mailbox.db` it wrote opens unchanged (D17). The
+additions: `PRAGMA user_version` 1, `approved_by` on `sent_messages` and `send_keys` (who approved
+the send), and `checked_at` on `conversations` (when the reply sweep last asked Gmail about it),
+each added by a guarded `ALTER TABLE` when the column is missing.
 """
 
 from __future__ import annotations
@@ -130,6 +131,9 @@ CREATE TABLE IF NOT EXISTS inbound_messages (
 );
 CREATE INDEX IF NOT EXISTS idx_inbound_unreported
     ON inbound_messages(account, reported_at);
+-- The reply sweep's "is this conversation waiting on them?" reads the last reply seen.
+CREATE INDEX IF NOT EXISTS idx_inbound_conversation
+    ON inbound_messages(conversation_key, account, seen_at);
 
 -- One row per caller-chosen send key: the app hands the same key with every
 -- attempt at one message. `claimed` is written before Gmail is asked and
@@ -159,6 +163,16 @@ CREATE TABLE IF NOT EXISTS mailbox_state (
 _ADDED_COLUMNS: Final = (
     ("sent_messages", "approved_by"),
     ("send_keys", "approved_by"),
+    ("conversations", "checked_at"),
+)
+
+# A conversation is waiting on the other side while nothing has come back, or while our last
+# message is newer than the last reply seen (the team wrote back). Both times are this machine's.
+_AWAITING: Final = (
+    "c.gmail_thread_id IS NOT NULL AND c.closed_at IS NULL "
+    "AND (c.reply_seen_at IS NULL OR c.last_sent_at > ("
+    "  SELECT MAX(i.seen_at) FROM inbound_messages i "
+    "   WHERE i.conversation_key = c.conversation_key AND i.account = c.account))"
 )
 
 LAST_SWEEP_KEY: Final = "last_reply_sweep_at"
@@ -335,7 +349,8 @@ def record_send(
                last_rfc_id     = COALESCE(?, last_rfc_id),
                subject         = COALESCE(subject, ?),
                first_sent_at   = COALESCE(first_sent_at, ?),
-               last_sent_at    = ?
+               last_sent_at    = ?,
+               closed_at       = NULL
          WHERE conversation_key = ? AND account = ?
         """,
         (
@@ -418,23 +433,31 @@ def close_conversation(conn: sqlite3.Connection, conversation_key: str, account:
 def open_conversations(
     conn: sqlite3.Connection, account: str, *, limit: int | None = None
 ) -> list[sqlite3.Row]:
-    """Conversations worth asking Gmail about.
+    """Conversations worth asking Gmail about: those waiting on the other side.
 
-    A conversation drops out of this list once a reply has been seen or it has
-    been closed -- polling a finished conversation costs an API call per sweep
-    and can only ever return what it returned last time.
+    A conversation drops out once a reply has been seen, and comes back when the team writes again
+    (a send also reopens a closed one). The least recently checked come first, so a `limit` below
+    the number waiting rotates through them all instead of asking about the same ones each time.
     """
     sql = (
-        "SELECT * FROM conversations "
-        " WHERE account = ? AND gmail_thread_id IS NOT NULL "
-        "   AND reply_seen_at IS NULL AND closed_at IS NULL "
-        " ORDER BY last_sent_at ASC"
+        "SELECT c.* FROM conversations c "  # noqa: S608 - _AWAITING is a constant
+        f" WHERE c.account = ? AND {_AWAITING} "
+        " ORDER BY c.checked_at IS NOT NULL, c.checked_at ASC, c.last_sent_at ASC"
     )
     params: Params = [account]
     if limit:
         sql += " LIMIT ?"
         params.append(int(limit))
     return conn.execute(sql, params).fetchall()
+
+
+def mark_checked(conn: sqlite3.Connection, conversation_key: str, account: str) -> None:
+    """Stamps when the reply sweep last asked Gmail about a conversation."""
+    conn.execute(
+        "UPDATE conversations SET checked_at = ? WHERE conversation_key = ? AND account = ?",
+        (now(), conversation_key, account),
+    )
+    conn.commit()
 
 
 def sent_message_ids(conn: sqlite3.Connection, conversation_key: str, account: str) -> set[str]:
@@ -775,9 +798,7 @@ def counters(conn: sqlite3.Connection, account: str) -> dict[str, int]:
         "conversations": scalar("SELECT COUNT(*) FROM conversations WHERE account = ?", (account,)),
         "sent": scalar("SELECT COUNT(*) FROM sent_messages WHERE account = ?", (account,)),
         "awaitingReply": scalar(
-            "SELECT COUNT(*) FROM conversations "
-            " WHERE account = ? AND reply_seen_at IS NULL AND closed_at IS NULL "
-            "   AND gmail_thread_id IS NOT NULL",
+            f"SELECT COUNT(*) FROM conversations c WHERE c.account = ? AND {_AWAITING}",  # noqa: S608
             (account,),
         ),
         "replied": scalar(

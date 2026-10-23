@@ -75,7 +75,7 @@ MAX_BODY: Final = 1024 * 1024
 AUTH_ERRORS: Final = frozenset(
     {"UnrecognizedClientException", "InvalidSignatureException", "AccessDeniedException"}
 )
-_API_ID: Final = re.compile(r"[A-Za-z0-9]{1,32}")
+_API_ID: Final = re.compile(r"[a-z0-9]{1,32}")  # the protocol's apiId
 _ERROR_TYPE: Final = re.compile(r"[A-Za-z][A-Za-z0-9]{0,59}")
 _GATEWAY_REGION: Final = re.compile(
     r"[a-z0-9]+\.execute-api\.(?P<region>[a-z]{2}(?:-[a-z]+)+-[0-9])\.amazonaws\.com"
@@ -170,12 +170,13 @@ def _deploy(job: GatewaysDeployJob, creds: Credentials, emitter: Emitter, opener
             continue
         deployed.append({"region": region, "apiId": api_id, "url": url})
         emitter.log("info", f"Gateway in {region} is ready.")
-    emitter.result("gateways.deploy", {"deployed": deployed, "failed": failed})
     # `aws` (the keys were refused) only when that is why every region failed: with one region
     # working, or failing for another reason, the keys are good and the result tells the rest.
+    # A failed job sends no result, and here there is nothing deployed to report.
     if not deployed and failed and auth_failures == len(failed):
         _end_auth(emitter)
         return
+    emitter.result("gateways.deploy", {"deployed": deployed, "failed": failed})
     emitter.end(state="done", at=0, found=0, kept=0)
 
 

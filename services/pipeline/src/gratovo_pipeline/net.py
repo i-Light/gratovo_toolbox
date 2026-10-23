@@ -9,8 +9,9 @@ these hosts, and its address comes from the owner's own settings.
 A few jobs need more, and only those jobs get it (plan D20). The entry point calls
 `allow_job_hosts` once, with the job's kind, before the job runs: the mail jobs add Gmail's API
 and Google's token endpoint, the gateway jobs add AWS's API Gateway control plane (where gateways
-are made and deleted). A search never reaches either, so a bug in it can't write to a mailbox or
-an AWS account.
+are made and deleted). A search can't reach those hosts, and it never holds a mailbox token or an
+AWS key, so a bug in it can't write to a mailbox or an AWS account. (Google's general API host,
+which the Data API needs, also serves Gmail; without a token that does nothing.)
 
 Redirects a server sends are followed by the HTTP library and aren't checked here: the request
 was already one the rule allows, and YouTube's own redirects stay on YouTube's hosts.
