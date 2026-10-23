@@ -1,0 +1,22 @@
+{
+ "calls": {
+  "first-emails": {
+   "share_id": "test-call-1",
+   "title": "Coaching call: first emails to AI creators",
+   "date": "2026-01-15",
+   "transcript": "@0:05 - Coach Nadia (nadia@example.com)\nRead me the first line of your email to the AI tools channel.\n@0:12 - Student Omar\nHi, I loved your video about Wispr Flow and I run an agency.\n@0:30 - Coach Nadia\nDrop the compliment and name the one thing in the video that made you write.\n@0:41 - Coach Nadia\nThen ask one question and stop there.\n"
+  },
+  "booked": {
+   "share_id": "test-call-2",
+   "title": "Coaching call: creators who are booked",
+   "date": "2026-02-03",
+   "transcript": "@1:02:10 - Coach Idris\nWhen an AI news creator says they are booked, ask which month opens up and put it in the calendar.\n"
+  },
+  "empty": {
+   "share_id": "test-call-3",
+   "title": "A call with no transcript",
+   "date": "2026-02-10",
+   "transcript": ""
+  }
+ }
+}

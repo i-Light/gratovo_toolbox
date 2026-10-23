@@ -283,9 +283,9 @@ ERROR_CLASSES: tuple[type[GeminiError], ...] = (
 
 _BY_CODE: dict[str, type[GeminiError]] = {cls.code: cls for cls in ERROR_CLASSES}
 
-# Codes the extension raises from its Skills page, mode switch and job queue that nothing catches
-# by class: they come through as a plain `GeminiError` with the code kept.
-EXTENSION_ONLY_CODES: frozenset[str] = frozenset(
+# Codes nothing catches by class: the extension's from its Skills page, mode switch and job queue,
+# and the comms engine's WRONG_CHAT. They come through as a plain `GeminiError` with the code kept.
+UNCLASSED_CODES: frozenset[str] = frozenset(
     {
         "MODE_NOT_SET",
         "DROP_FAILED",
@@ -297,11 +297,12 @@ EXTENSION_ONLY_CODES: frozenset[str] = frozenset(
         "SKILL_SAVE_FAILED",
         "SKILL_TOGGLE_FAILED",
         "SKILL_DELETE_FAILED",
+        "WRONG_CHAT",
     }
 )
 
-# Every code an error may carry on the wire: the classes', the extension's own, and "UNKNOWN".
-ERROR_CODES: frozenset[str] = frozenset({*_BY_CODE, *EXTENSION_ONLY_CODES, GeminiError.code})
+# Every code an error may carry on the wire: the classes', the unclassed ones, and "UNKNOWN".
+ERROR_CODES: frozenset[str] = frozenset({*_BY_CODE, *UNCLASSED_CODES, GeminiError.code})
 
 
 def error_from_payload(payload: object) -> GeminiError:
@@ -324,7 +325,7 @@ def error_from_payload(payload: object) -> GeminiError:
     else:
         details = {"raw": raw_details} if raw_details is not None else {}
     cls = _BY_CODE.get(code)
-    if cls is None and code in EXTENSION_ONLY_CODES:
+    if cls is None and code in UNCLASSED_CODES:
         return GeminiError(code, message, details)
     if cls is None:
         if code != "UNKNOWN":

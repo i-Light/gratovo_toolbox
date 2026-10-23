@@ -168,6 +168,7 @@
                   "SKILL_SAVE_FAILED",
                   "SKILL_TOGGLE_FAILED",
                   "SKILL_DELETE_FAILED",
+                  "WRONG_CHAT",
                   "EXTENSION_NOT_CONNECTED",
                   "ACCOUNT_NOT_FOUND",
                   "NO_SUGGESTION",

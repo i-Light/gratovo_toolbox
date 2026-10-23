@@ -108,6 +108,8 @@ export const geminiErrorCodes = [
   "SKILL_SAVE_FAILED",
   "SKILL_TOGGLE_FAILED",
   "SKILL_DELETE_FAILED",
+  // the comms engine's: the answer on the tab follows another prompt
+  "WRONG_CHAT",
   // the bridge's
   "EXTENSION_NOT_CONNECTED",
   "ACCOUNT_NOT_FOUND",
