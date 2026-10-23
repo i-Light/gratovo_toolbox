@@ -31,7 +31,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from types import TracebackType
-from typing import Any, Self
+from typing import Any, Self, cast
 
 from .errors import (
     AccountNotFound,
@@ -554,7 +554,8 @@ class Gemini:
     def jobs(self) -> list[Job]:
         """Every job the extension still holds, oldest first (finished ones included)."""
         listed: dict[str, Any] = self.call("queue_list") or {}
-        return [Job(j) for j in listed.get("jobs", []) if isinstance(j, dict)]  # pyright: ignore[reportUnknownVariableType]
+        items: list[Any] = listed.get("jobs") or []
+        return [Job(cast("dict[str, Any]", j)) for j in items if isinstance(j, dict)]
 
     def cancel(self, job: JobRef) -> Job:
         """Cancels a queued job, or stops a running one; returns the job."""
@@ -679,9 +680,8 @@ class Gemini:
                 ),
                 details={"element": element, "known": sorted(elements)},
             )
-        suggestions: list[dict[str, Any]] = [
-            s for s in (elements[element].get("suggestions") or []) if isinstance(s, dict)
-        ]
+        offered: list[Any] = elements[element].get("suggestions") or []
+        suggestions: list[dict[str, Any]] = [s for s in offered if isinstance(s, dict)]
         if not suggestions or not 0 <= pick < len(suggestions):
             raise GeminiError(
                 "NO_SUGGESTION",
@@ -692,15 +692,15 @@ class Gemini:
         # A suggestion may be the bare strategy or wrap it as {"strategy": …}.
         wrapped: object = chosen.get("strategy")
         strategy: dict[str, Any] = wrapped if isinstance(wrapped, dict) else chosen  # pyright: ignore[reportUnknownVariableType]
-        found_overrides: object = diag.get("overrides")
-        overrides: dict[str, Any] = (
-            found_overrides  # pyright: ignore[reportUnknownVariableType]
-            if isinstance(found_overrides, dict)
-            else (self.selectors() or {}).get("overrides") or {}
-        )
-        current: list[dict[str, Any]] = [
-            s for s in (overrides.get(element) or []) if isinstance(s, dict)
-        ]
+        found_overrides: Any = diag.get("overrides")
+        overrides: dict[str, Any]
+        if isinstance(found_overrides, dict):
+            overrides = cast("dict[str, Any]", found_overrides)
+        else:
+            stored: dict[str, Any] = self.selectors() or {}
+            overrides = stored.get("overrides") or {}
+        listed_current: list[Any] = overrides.get(element) or []
+        current: list[dict[str, Any]] = [s for s in listed_current if isinstance(s, dict)]
         new_overrides = {**overrides, element: [strategy, *[s for s in current if s != strategy]]}
         self.set_selectors(new_overrides)
         return strategy, suggestions

@@ -15,7 +15,17 @@ Branch `feat/3e-3-pipeline-rest`, from `main` at 11b3c7a. The plan is `.router/P
 
 | id | state | tier used | note |
 |---|---|---|---|
-| A1 to A8, B1 to B5, L1 | not started | – | Plan written and answered; building starts with A1 |
+| A1 | done (cef52e7) | H (lead) | `gemini-protocol.ts`, `gemini.schema.json`; the extension's own codes added later |
+| A2 | done | N | server, client (actions imported lazily), `tests/fake_extension.py`; the CLI tests dropped (D13). Also lead: `errors.py` (every class, code list = TS list), `progress.py`, the `loopback` test fixture, `json_reply.py`, `paths.py` |
+| A3 | in progress | N | actions, keywords_batch, the three client tests A4 set aside, pyright clean on `gemini/`. Hit the usage limit 2026-10-21, resumed 2026-10-23 |
+| A4 | done | N | gems, skills |
+| A5 | done | N | `gemini/browser/` (profile folder passed in) |
+| A6 | next, after A3 | H | daemon and `browser_manager.py` on `python -m gratovo_pipeline.gemini`; makes A7's real-process test pass |
+| A7 | done, real test waits for A6 | H (lead) | `gemini-service.ts`, `lines.ts` shared with the supervisor, quit hook in `index.ts` |
+| B1 | in progress | H | course (configured, no `E:` default), playbook, checks (`COURSE_CHECK_SKIPPED`), readiness written; engine and example_bank to go. Resumed 2026-10-23 |
+| B2 to B5, A8, L1 | not started | – | – |
+
+Data moved (lead): `services/pipeline/data/comms/` and `data/gemini-skills/`; the quote-review lease file is ignored. The owner's new files under `design/` (workbench v6) aren't part of this step.
 
 ## Rules carried from 3e-1
 

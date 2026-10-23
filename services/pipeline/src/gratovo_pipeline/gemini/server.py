@@ -60,7 +60,7 @@ import time
 import uuid
 from collections.abc import Callable
 from types import TracebackType
-from typing import Any, Self
+from typing import Any, Self, cast
 
 from websockets.asyncio.server import Server, ServerConnection, serve
 from websockets.exceptions import ConnectionClosed
@@ -588,12 +588,12 @@ class BridgeServer:
 
     def _on_event(self, frame: dict[str, Any]) -> None:
         event = frame.get("event")
-        raw_data: object = frame.get("data")
+        raw_data: Any = frame.get("data")
         if not isinstance(event, str):
             self._log.warning("ignoring an event without a name: %r", frame)
             return
         data: dict[str, Any] = (
-            raw_data if isinstance(raw_data, dict) else {"value": raw_data}  # pyright: ignore[reportUnknownVariableType]
+            cast("dict[str, Any]", raw_data) if isinstance(raw_data, dict) else {"value": raw_data}
         )
         if event == "hello":
             self.hello = data
