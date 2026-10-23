@@ -48,11 +48,12 @@ class FakeSweep:
         self.source = source
         self.closed = False
 
-    def recent_video_ids(self, handle: str) -> list[str]:
+    def recent_video_ids(self, handle: str, *, limit: int | None = None) -> list[str]:
         if self.source.on_read:
             self.source.on_read(handle)
         self.source.read.append(handle)
-        return list(self.source.uploads.get(handle, []))
+        self.source.limits.append(limit)
+        return list(self.source.uploads.get(handle, []))[:limit]
 
     def close(self) -> None:
         self.closed = True
@@ -74,6 +75,7 @@ class FakeSource:
         self.uploads = {k: list(v) for k, v in (uploads or {}).items()}
         self.missing_videos: set[str] = set()
         self.read: list[str] = []
+        self.limits: list[int | None] = []  # the `limit` each read asked for (None: no limit)
         self.channel_calls: list[list[str]] = []
         self.video_calls: list[list[str]] = []
         self.sweeps: list[FakeSweep] = []
