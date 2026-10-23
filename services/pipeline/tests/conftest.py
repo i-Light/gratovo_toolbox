@@ -96,6 +96,21 @@ def check_from_pipeline(protocol_schema: dict[str, Any]) -> Callable[[str], dict
 
 
 @pytest.fixture
+def check_from_gemini(gemini_schema: dict[str, Any]) -> Callable[[str], dict[str, Any]]:
+    """The same for the Gemini bridge: one line it wrote in, the message out, or a failed test."""
+
+    def check(line: str) -> dict[str, Any]:
+        assert line.endswith("\n")
+        assert "\n" not in line[:-1]
+        message = cast("dict[str, Any]", json.loads(line))
+        errors = schema_errors(gemini_schema["fromGemini"], message)
+        assert errors == [], errors
+        return message
+
+    return check
+
+
+@pytest.fixture
 def conn(tmp_path: Path) -> Iterator[sqlite3.Connection]:
     """A fresh pipeline.db in a temporary folder. The behaviour under test is mostly SQL, so a
     real database rather than a fake: a fake store would test the fake."""

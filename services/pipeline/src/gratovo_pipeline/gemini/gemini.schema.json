@@ -1667,7 +1667,17 @@
           "type": "boolean"
         },
         "onPage": {
-          "type": "boolean"
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [

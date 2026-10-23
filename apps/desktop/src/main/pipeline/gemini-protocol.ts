@@ -472,7 +472,8 @@ export const geminiResultSchemas = {
     mode: z.enum(["create", "replace"]),
     active: z.boolean(),
     verified: z.boolean(),
-    onPage: z.boolean(),
+    // The files the Skills page shows after the upload, or null when it wasn't read back.
+    onPage: z.array(z.string()).nullable(),
   }),
 } as const satisfies Record<TypedGeminiMethod, z.ZodType>;
 
