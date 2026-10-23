@@ -22,7 +22,6 @@ course."""
 from __future__ import annotations
 
 import argparse
-import importlib
 import io
 import json
 import math
@@ -418,8 +417,9 @@ def main(argv: list[str] | None = None) -> int:
         mined: Path | None = args.mined_dir / MINED_NAME if args.mined_dir else None
         print(json.dumps(build(mined), ensure_ascii=False, indent=1))
     else:
-        # Late, by name: scenarios is a hand-run tool (ported with task B3).
-        scenarios = importlib.import_module("gratovo_pipeline.comms.scenarios")
+        # Late: scenarios is a hand-run tool.
+        from gratovo_pipeline.comms import scenarios
+
         case = next(c["case"] for c in scenarios.cases() if c["id"] == args.case_id)
         print(render(for_case(case, args.k)))
     return 0

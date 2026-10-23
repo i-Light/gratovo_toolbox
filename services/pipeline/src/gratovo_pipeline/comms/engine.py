@@ -21,7 +21,6 @@ Nothing is ever sent from here: every outgoing message waits for a person (owner
 
 from __future__ import annotations
 
-import importlib
 import json
 import re
 import time
@@ -842,8 +841,8 @@ def propose(
         message = _object(data.get("message"))
         if message is None or checks.blocking(findings):
             break
-        # Late: coach imports this module. By name until comms.coach is ported (task B3).
-        coach = importlib.import_module("gratovo_pipeline.comms.coach")
+        # Late: coach imports this module.
+        from gratovo_pipeline.comms import coach
 
         draft = (f"Subject: {message['subject']}\n\n" if message.get("subject") else "") + str(
             message.get("body") or ""

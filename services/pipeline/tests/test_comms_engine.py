@@ -17,7 +17,6 @@ from gratovo_pipeline.comms import course, engine
 from gratovo_pipeline.gemini.errors import GeminiError
 
 FIXTURE = Path(__file__).parent / "course_fixture"
-NEEDS_COACH = pytest.mark.skip(reason="needs comms.coach (task B3)")
 
 
 @pytest.fixture(autouse=True)
@@ -385,7 +384,6 @@ MIXED_REVIEW = (
 )
 
 
-@NEEDS_COACH
 def test_a_draft_the_coach_calls_good_is_kept_as_it_is() -> None:
     g = FakeGemini(GOOD, GOOD_REVIEW)
     result = engine.propose(g, REPLY_CASE, coach_rounds=1)
@@ -396,7 +394,6 @@ def test_a_draft_the_coach_calls_good_is_kept_as_it_is() -> None:
     assert g.sent[1]["newChat"] is True
 
 
-@NEEDS_COACH
 def test_a_draft_the_coach_objects_to_is_rewritten_once_in_a_fresh_chat_against_its_points() -> (
     None
 ):

@@ -23,7 +23,6 @@ def test_the_bank_is_large_checked_and_clean() -> None:
     assert not any(example_bank.INVENTED.search(e.get("rewrite") or "") for e in bank)
 
 
-@pytest.mark.skip(reason="needs comms.scenarios (task B3)")
 def test_a_case_gets_close_entries_of_its_side_and_stage_one_per_call() -> None:
     scenarios = importlib.import_module("gratovo_pipeline.comms.scenarios")
     case = next(c["case"] for c in scenarios.cases() if c["id"] == "inf-counter-1")
