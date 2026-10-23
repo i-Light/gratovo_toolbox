@@ -75,7 +75,7 @@ def facts(**fields: Any) -> dict[str, Any]:
         "creators": {},
         "brand": None,
         "deal": None,
-        "recentOutbound": ["Hi Sam, saw your test."],
+        "recentOutbound": [{"threadId": "t7", "body": "Hi Sam, saw your test."}],
     }
     base.update(fields)
     return base
@@ -489,3 +489,41 @@ def test_every_comms_line_the_daemon_writes_fits_mains_schema(
     missing = reply(method="action.comms_check", params={"request": REPLY, "facts": facts()})
     assert missing["error"]["code"] == "BAD_PARAMS"
     assert fake.texts == [], "only the ready proposal asked Gemini"
+
+
+def test_a_check_reads_the_store_without_writing_or_upgrading_it(tmp_path: Path) -> None:
+    import sqlite3
+
+    from gratovo_pipeline import store
+
+    db = tmp_path / "pipeline.db"
+    old = sqlite3.connect(db)
+    old.execute("CREATE TABLE channels (channel_id TEXT PRIMARY KEY)")
+    old.execute("PRAGMA user_version=1")
+    old.commit()
+    old.close()
+    before = db.read_bytes()
+
+    gemini = _BridgeOnly(tmp_path)
+    conn = actions._comms_db(gemini, write=False)  # pyright: ignore[reportPrivateUsage, reportArgumentType]
+    try:
+        with pytest.raises(sqlite3.OperationalError):
+            conn.execute("CREATE TABLE written (x)")
+    finally:
+        conn.close()
+    assert db.read_bytes() == before, "a check never migrates the search job's file"
+    assert store.SCHEMA_VERSION == 2
+
+
+def test_a_check_with_no_store_yet_creates_none(tmp_path: Path) -> None:
+    gemini = _BridgeOnly(tmp_path)
+    conn = actions._comms_db(gemini, write=False)  # pyright: ignore[reportPrivateUsage, reportArgumentType]
+    conn.close()
+    assert not (tmp_path / "pipeline.db").exists()
+
+
+class _BridgeOnly:
+    """Just the bridge's data folder, which is all `_comms_db` reads."""
+
+    def __init__(self, data_dir: Path) -> None:
+        self.data_dir = data_dir

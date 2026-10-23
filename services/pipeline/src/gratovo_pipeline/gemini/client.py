@@ -4,7 +4,7 @@
 
     with Gemini() as g:                      # starts the server, waits for the extension
         g.ensure_account("moustafa")
-        print(g.ask("Five keywords about solar panels", new_chat=True))
+        print(g.ask("Five keywords about AI video tools", new_chat=True))
 
 Every method is a thin, blocking wrapper over one extension RPC
 (PROTOCOL.md §3) plus a handful of compositions -- `ask`, `wait`,

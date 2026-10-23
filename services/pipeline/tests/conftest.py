@@ -26,7 +26,7 @@ def _refuse(*_args: object, **_kwargs: object) -> None:
     raise NetworkBlockedError("tests must not reach the network")
 
 
-_LOOPBACK = frozenset({"127.0.0.1", "::1", "localhost"})
+_LOOPBACK = frozenset({"127.0.0.1", "::1"})
 _REAL_CONNECT = socket.socket.connect
 _REAL_CONNECT_EX = socket.socket.connect_ex
 _REAL_CREATE_CONNECTION = socket.create_connection

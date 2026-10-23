@@ -172,7 +172,10 @@ def test_answers_the_extensions_ping(harness: Harness) -> None:
 
 
 def test_two_concurrent_calls_are_correlated(harness: Harness) -> None:
+    slow_arrived = threading.Event()
+
     async def slow(params: dict[str, Any]) -> dict[str, Any]:
+        slow_arrived.set()
         await asyncio.sleep(0.4)
         return {"which": "slow", "n": params["n"]}
 
@@ -185,7 +188,8 @@ def test_two_concurrent_calls_are_correlated(harness: Harness) -> None:
 
     worker = threading.Thread(target=call_slow)
     worker.start()
-    time.sleep(0.05)  # make sure `slow` is already in flight
+    # `slow` is in flight (the fake has it), however busy the machine is.
+    assert slow_arrived.wait(5)
     results["fast"] = (g.call("fast", {"n": 2}), time.monotonic())
     worker.join(5)
     assert results["slow"][0] == {"which": "slow", "n": 1}
@@ -597,3 +601,46 @@ def test_text_from_the_extension_never_breaks_a_log_line() -> None:
     assert line.startswith(r"ok\n2026-10-23")
     assert _one_line({"id": 3}) == "{'id': 3}"
     assert len(_one_line("x" * 5000)) == 2000
+
+
+def _dial(port: int, origin: str | None) -> str:
+    """Dials the bridge as a browser would, naming `origin`; "open" or the refusal."""
+    from websockets.asyncio.client import connect
+    from websockets.exceptions import InvalidStatus
+    from websockets.typing import Origin
+
+    async def attempt() -> str:
+        try:
+            async with connect(
+                f"ws://127.0.0.1:{port}",
+                origin=None if origin is None else Origin(origin),
+                open_timeout=2,
+            ):
+                return "open"
+        except InvalidStatus as refused:
+            return f"refused {refused.response.status_code}"
+
+    return asyncio.run(attempt())
+
+
+@pytest.mark.parametrize(
+    "origin",
+    ["https://evil.example", "http://127.0.0.1:3000", "null", "file://"],
+)
+def test_a_web_page_cannot_connect(harness: Harness, origin: str) -> None:
+    # Any page open in the person's browser can dial ws://127.0.0.1:8765; it must not become
+    # "the extension" and read the prompts.
+    assert _dial(harness.port, origin) == "refused 403"
+    assert not harness.gemini.connected
+
+
+@pytest.mark.parametrize(
+    "origin",
+    [
+        "moz-extension://6f1c2b1e-0d2a-4f7e-9c1a-3b5d7e9f1a2c",
+        "chrome-extension://abcdefghijklmnopabcdefghijklmnop",
+        None,
+    ],
+)
+def test_the_add_on_and_programs_on_this_computer_can(harness: Harness, origin: str | None) -> None:
+    assert _dial(harness.port, origin) == "open"

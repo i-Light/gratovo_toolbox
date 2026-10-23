@@ -29,7 +29,7 @@ About 16,700 lines of source and 6,300 of tests: too much for one pull request. 
 
 For each part: its ported pytest suites pass, each old test ported first and seen to fail; pyright strict, ruff, Vitest, typecheck, lint and Windows CI green; every new stdin/stdout message is in a zod schema with its JSON Schema file committed and checked by both sides (ADR 0013 §3); secrets only on stdin; no test reaches the network beyond `127.0.0.1`. Callers in the app (screens, IPC) arrive with steps 5 to 9: 3e-3 builds the pipeline side and main's process supervisor for it, no UI.
 
-- **3e-3a:** the daemon starts from main, says `listening`, answers `bridge.status` and `bridge.browser_info` in a real-process Vitest test, and stops on quit. Every bridge test runs against the fake extension. And: `action.comms_propose` on a case built from a request plus `pipeline.db` returns a checked proposal with a fake Gemini; `comms_check` makes no Gemini call; `python -m gratovo_pipeline.comms.verify` passes on the moved playbook (with an invented test course); the course data is in `services/pipeline/data/`; the quality tools' tests pass under `comms/studio/`.
+- **3e-3a:** the daemon starts from main, says `listening`, answers `bridge.status` and `bridge.browser_info` in a real-process Vitest test, and stops on quit. Every bridge test runs against the fake extension. And: `action.comms_propose` on a case built from a request plus `pipeline.db` returns a checked proposal with a fake Gemini; `comms_check` makes no Gemini call; `python -m gratovo_pipeline.comms.verify` passes on the moved playbook (with an invented test course); the course data is in `services/pipeline/data/`; the quality tools' tests pass (in the flat `comms/` package, D1).
 - **3e-3b:** the mail jobs report status, send exactly once per `sendKey`, and never send without one (tests prove no automatic send); `video_stats`, `refetch`, `backfill` and `gateways` jobs run on fakes; the `search` job is unchanged.
 
 ## Decisions
@@ -96,7 +96,7 @@ type CommsFacts = {
   deal: { brandName: string | null; stage: string | null; creatorReceives: number | null; currency: string | null;
           deliverables: string | null; deadline: string | null; paymentTerms: string | null } | null;
           // the channel's latest deal; never the brand's price (HC-04)
-  recentOutbound: string[];             // our recent sent bodies, newest first, at most 50 (the templated check)
+  recentOutbound: { threadId: string | null; body: string }[];  // our recent sent emails, newest first, at most 50; the case leaves out its own thread by id (the templated check)
 };
 // comms_propose → { status: "ready" | "needs_human" | "blocked" | "no_message"; proposal; findings; gates;
 //                   case: { side, stage, goal }; moments; momentsNote; seconds; model; thinking }  (as the old action)

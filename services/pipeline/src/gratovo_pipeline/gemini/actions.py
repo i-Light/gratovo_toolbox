@@ -337,18 +337,36 @@ PIPELINE_DB = "pipeline.db"
 COMMS_TIMEOUT_S = 300
 
 
-def _comms_db(gemini: Gemini) -> sqlite3.Connection:
-    """pipeline.db in the bridge's `--data-dir`: the channels and videos the case reads, and the
-    subtitles cache (`video_transcripts`) the moments of a creator's latest video are kept in."""
+def _comms_db(gemini: Gemini, *, write: bool) -> sqlite3.Connection:
+    """pipeline.db in the bridge's `--data-dir`: the channels and videos the case reads, and, with
+    `write`, the subtitles cache (`video_transcripts`) a first email's moments are kept in.
+
+    The search job owns the file (ADR 0013 §6). The bridge reads it, and writes only that cache
+    (plan D10): a check opens it read-only, so it never waits on a running search; a draft creates
+    or upgrades it only when it doesn't exist yet or is older than this pipeline.
+    """
     from gratovo_pipeline import store
 
     data_dir: Path | None = getattr(gemini, "data_dir", None)
     if data_dir is None:
         raise BadParams(message="the bridge was started without --data-dir")
+    path = data_dir / PIPELINE_DB
+    if not write:
+        if not path.exists():
+            # No search has run on this data yet: an empty store, so the case has no channel facts.
+            empty = sqlite3.connect(":memory:")
+            empty.row_factory = sqlite3.Row
+            store.init_db(empty)
+            return empty
+        conn = sqlite3.connect(f"{path.resolve().as_uri()}?mode=ro", uri=True)
+        conn.row_factory = sqlite3.Row
+        return conn
     data_dir.mkdir(parents=True, exist_ok=True)
-    conn = store.get_connection(data_dir / PIPELINE_DB)
+    conn = store.get_connection(path)
     try:
-        store.init_db(conn)  # the pipeline's own tables, the subtitles cache among them
+        version: int = conn.execute("PRAGMA user_version").fetchone()[0]
+        if version != store.SCHEMA_VERSION:
+            store.init_db(conn)  # a new file, or one a search hasn't upgraded yet
     except BaseException:
         conn.close()
         raise
@@ -383,7 +401,7 @@ def comms_propose(gemini: Gemini, params: Params) -> Params:
 
     request, facts = _comms_params(params)
     timeout_s = _comms_timeout(request, params)
-    conn = _comms_db(gemini)
+    conn = _comms_db(gemini, write=True)
     try:
         found: Params | None = None
         note: str | None = None
@@ -424,7 +442,7 @@ def comms_check(gemini: Gemini, params: Params) -> Params:
     from gratovo_pipeline.comms import checks, live_case
 
     request, facts = _comms_params(params)
-    conn = _comms_db(gemini)
+    conn = _comms_db(gemini, write=False)
     try:
         case = live_case.build_case(conn, request, facts)
     finally:

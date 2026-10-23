@@ -3,6 +3,7 @@ import { EventEmitter } from "node:events";
 import { existsSync } from "node:fs";
 import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
+import { createServer } from "node:net";
 import { join, resolve } from "node:path";
 import { PassThrough } from "node:stream";
 
@@ -11,6 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { GeminiEvent } from "./gemini-protocol";
 import {
   bridgeArgs,
+  callTimeoutMs,
   createGeminiService,
   listenTimeoutMs,
   type GeminiService,
@@ -64,6 +66,21 @@ class FakeChild extends EventEmitter implements ChildLike {
     this.exit(null, "SIGTERM");
     return true;
   }
+}
+
+/** A port nothing on this computer listens on right now. */
+function freePort(): Promise<number> {
+  return new Promise((resolvePort, reject) => {
+    const server = createServer();
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      const port = typeof address === "object" && address !== null ? address.port : 0;
+      server.close(() => {
+        resolvePort(port);
+      });
+    });
+  });
 }
 
 async function settle(): Promise<void> {
@@ -324,6 +341,32 @@ describe("the Gemini bridge service", () => {
   });
 });
 
+describe("how long main waits for the bridge", () => {
+  it("waits the bridge's own default for a method, plus 30 s", () => {
+    expect(callTimeoutMs("bridge.ask", { prompt: "AI news keywords" })).toBe(270_000);
+    expect(callTimeoutMs("action.gem_read", { gem: "abc" })).toBe(120_000);
+    expect(callTimeoutMs("bridge.status", {})).toBe(30_000);
+  });
+
+  it("takes the call's own timeoutS when it names one", () => {
+    expect(callTimeoutMs("bridge.ask", { prompt: "AI news keywords", timeoutS: 10 })).toBe(40_000);
+  });
+
+  it("gives a keyword batch its time once per chat", () => {
+    expect(callTimeoutMs("action.generate_keywords", { topic: "AI agents", chats: 4 })).toBe(
+      (240 * 4 + 60) * 1000 + 30_000,
+    );
+  });
+
+  it("reads a draft's timeoutS inside its request and leaves room for the subtitles", () => {
+    const params = { request: { kind: "first", channelId: "UCabc", timeoutS: 100 } };
+    expect(callTimeoutMs("action.comms_propose", params)).toBe((100 * 3 + 660) * 1000 + 30_000);
+    expect(callTimeoutMs("action.comms_propose", { request: { kind: "reply" } })).toBe(
+      (300 * 3 + 660) * 1000 + 30_000,
+    );
+  });
+});
+
 describe("the real Gemini bridge", () => {
   const appPath = resolve(import.meta.dirname, "../../..");
   const python = findPython({ packaged: false, appPath, exists: existsSync });
@@ -346,19 +389,18 @@ describe("the real Gemini bridge", () => {
           }),
       });
       try {
+        // A free port, never 8765: a real bridge (or the owner's browser add-on) may be there.
+        const port = await freePort();
         const start = await bridge.start({
+          port,
           dataDir: join(folder, "example-pipeline"),
           profileDir: join(folder, "gemini-profile"),
           extensionDir: join(folder, "no-extension-yet"),
         });
-        if (!start.ok && start.problem === "port_in_use") {
-          // Another bridge (the owner's) holds 8765 on this computer: nothing to prove here.
-          return;
-        }
         expect(start).toEqual({ ok: true });
         expect(await bridge.call("bridge.status", {})).toMatchObject({
           ok: true,
-          result: { listening: true, port: 8765, extensionConnected: false },
+          result: { listening: true, port, extensionConnected: false },
         });
         expect(await bridge.call("bridge.browser_info", {})).toMatchObject({
           ok: true,

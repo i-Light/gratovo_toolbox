@@ -59,11 +59,13 @@ import threading
 import time
 import uuid
 from collections.abc import Callable
+from http import HTTPStatus
 from types import TracebackType
 from typing import Any, Self, cast
 
 from websockets.asyncio.server import Server, ServerConnection, serve
 from websockets.exceptions import ConnectionClosed
+from websockets.http11 import Request, Response
 from websockets.protocol import State
 
 from .errors import BridgeTimeout, ExtensionNotConnected, error_from_payload
@@ -395,9 +397,10 @@ class BridgeServer:
             self._handler,
             self._host,
             self._requested_port,
-            # The extension's Origin is `chrome-extension://<id>`; None means
-            # "accept any", which is right for a loopback-only server.
+            # Origins are checked in `_refuse_web_pages` instead: the add-on's id differs per
+            # install, so there is no fixed list to give here.
             origins=None,
+            process_request=_refuse_web_pages,
             ping_interval=20,
             ping_timeout=20,
             max_size=MAX_FRAME_BYTES,
@@ -615,6 +618,34 @@ class BridgeServer:
             else:
                 self._ext_log.log(level, "%s", _one_line(data.get("message", "")))
         self._emit(event, data)
+
+
+# Where a browser add-on's WebSocket comes from: Firefox, and Chrome or Edge.
+EXTENSION_ORIGIN_SCHEMES = frozenset({"moz-extension", "chrome-extension"})
+
+
+def _refuse_web_pages(connection: ServerConnection, request: Request) -> Response | None:
+    """Lets in the add-on, and programs on this computer; refuses every web page.
+
+    Listening on 127.0.0.1 keeps other computers out, but not the pages open in the person's
+    browser: any of them may open `ws://127.0.0.1:8765`, say `hello`, and would then read every
+    prompt (creators, brands, threads) and answer it. A browser always names a page's origin
+    (`https://…`, or `null` for a file); an add-on's is `moz-extension://…` or
+    `chrome-extension://…`. A program that isn't a browser sends no Origin; it is let in, as
+    anything running on this computer could reach the bridge anyway (the tests' fake extension).
+    """
+    origin = request.headers.get("Origin")
+    if origin is None:
+        return None
+    scheme = origin.partition("://")[0].lower()
+    if scheme in EXTENSION_ORIGIN_SCHEMES:
+        return None
+    logging.getLogger(__name__).warning(
+        "refused a connection from a web page (%s)", _one_line(origin, 200)
+    )
+    return connection.respond(
+        HTTPStatus.FORBIDDEN, "Only the Gratovo browser add-on may connect.\n"
+    )
 
 
 def _one_line(value: object, limit: int = 2000) -> str:

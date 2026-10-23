@@ -1368,8 +1368,29 @@
               "maxItems": 50,
               "type": "array",
               "items": {
-                "type": "string",
-                "maxLength": 100000
+                "type": "object",
+                "properties": {
+                  "threadId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 100
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "body": {
+                    "type": "string",
+                    "maxLength": 100000
+                  }
+                },
+                "required": [
+                  "threadId",
+                  "body"
+                ],
+                "additionalProperties": false
               }
             }
           },
@@ -1955,8 +1976,29 @@
               "maxItems": 50,
               "type": "array",
               "items": {
-                "type": "string",
-                "maxLength": 100000
+                "type": "object",
+                "properties": {
+                  "threadId": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 100
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "body": {
+                    "type": "string",
+                    "maxLength": 100000
+                  }
+                },
+                "required": [
+                  "threadId",
+                  "body"
+                ],
+                "additionalProperties": false
               }
             }
           },
@@ -2490,8 +2532,15 @@
           ]
         },
         "durationMs": {
-          "type": "number",
-          "minimum": 0
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [

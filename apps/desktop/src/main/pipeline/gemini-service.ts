@@ -26,6 +26,8 @@ import { quitGraceMs, type ChildLike, type SpawnPipeline } from "./supervisor";
  */
 
 export interface GeminiStartOptions {
+  /** The port, 8765 unless a test names a free one: never two bridges on one port. */
+  port?: number;
   /** The data source's pipeline folder: `pipeline.db`, which the comms actions read. */
   dataDir: string;
   /** `<userData>/gemini-profile`: the browser profile the bridge manages. */
@@ -56,8 +58,9 @@ export interface GeminiService {
   readonly state: GeminiState;
   start(options: GeminiStartOptions): Promise<GeminiStart>;
   /**
-   * Asks the bridge. Resolves with its answer, or `TIMEOUT` after `timeoutMs` (default: the
-   * method's own `timeoutS` plus 30 s, else 30 s), leaving the bridge to finish; never rejects.
+   * Asks the bridge. Resolves with its answer, or `TIMEOUT` after `timeoutMs` (by default
+   * `callTimeoutMs`: the bridge's own time for the method plus 30 s), leaving the bridge to finish;
+   * never rejects.
    */
   call<M extends TypedGeminiMethod>(
     method: M,
@@ -84,7 +87,7 @@ export function bridgeArgs(options: GeminiStartOptions): string[] {
     "-m",
     "gratovo_pipeline.gemini",
     "--port",
-    String(geminiPort),
+    String(options.port ?? geminiPort),
     "--data-dir",
     options.dataDir,
     "--profile-dir",
@@ -101,14 +104,58 @@ export function bridgeArgs(options: GeminiStartOptions): string[] {
   return args;
 }
 
-function defaultTimeout(params: unknown): number {
-  if (typeof params === "object" && params !== null && "timeoutS" in params) {
-    const seconds = (params as { timeoutS?: unknown }).timeoutS;
-    if (typeof seconds === "number" && seconds > 0) {
-      return seconds * 1000 + callSlackMs;
-    }
+/**
+ * How long the bridge itself may take on a method when the call names no `timeoutS`: its own
+ * defaults (DAEMON.md, `gemini/actions.py`), in seconds. Main waits that long plus `callSlackMs`,
+ * so the bridge's own answer (which says what stalled) arrives first.
+ */
+const bridgeDefaultS: Partial<Record<TypedGeminiMethod, number>> = {
+  "bridge.ask": 240,
+  "bridge.ensure_window": 45,
+  "bridge.install_addon": 90,
+  "action.generate_keywords": 240,
+  "action.classify_channel": 240,
+  "action.gem_create": 180,
+  "action.gem_update": 180,
+  "action.gem_read": 90,
+  "action.skill_deploy": 600,
+  "action.comms_propose": 300,
+};
+
+/**
+ * A draft first reads the latest video's subtitles (up to three yt-dlp runs of 120 s each) and its
+ * moments (one Gemini answer), then asks Gemini for the draft and up to two repairs.
+ */
+const commsProposeExtraS = 3 * 120 + 300;
+
+function positive(value: unknown): number | undefined {
+  return typeof value === "number" && value > 0 ? value : undefined;
+}
+
+/** The call's own `timeoutS` (a comms request carries it inside `request`), else the default. */
+export function callTimeoutMs(method: TypedGeminiMethod, params: unknown): number {
+  const fields =
+    typeof params === "object" && params !== null ? (params as Record<string, unknown>) : {};
+  const request = fields.request;
+  const inRequest =
+    typeof request === "object" && request !== null
+      ? positive((request as Record<string, unknown>).timeoutS)
+      : undefined;
+  const seconds = positive(fields.timeoutS) ?? inRequest ?? bridgeDefaultS[method];
+  if (seconds === undefined) {
+    return defaultCallTimeoutMs;
   }
-  return defaultCallTimeoutMs;
+  switch (method) {
+    case "action.generate_keywords": {
+      // `timeoutS` is for each chat of a batch (DAEMON.md "batches").
+      const chats = positive(fields.chats) ?? 1;
+      return (seconds * chats + 60) * 1000 + callSlackMs;
+    }
+    case "action.comms_propose":
+      return (seconds * 3 + commsProposeExtraS) * 1000 + callSlackMs;
+    default:
+      return seconds * 1000 + callSlackMs;
+  }
 }
 
 interface Pending {
@@ -341,7 +388,7 @@ export function createGeminiService(o: {
       nextId += 1;
       // Built (and checked) first: params that break their schema throw here, which is main's bug.
       const line = geminiRequestLine(id, method, params);
-      const timeoutMs = options?.timeoutMs ?? defaultTimeout(params);
+      const timeoutMs = options?.timeoutMs ?? callTimeoutMs(method, params);
       return new Promise((resolve) => {
         const timer = setTimeout(() => {
           current.pending.delete(id);

@@ -322,8 +322,11 @@ const commsFacts = z.strictObject({
       paymentTerms: someText(2000),
     })
     .nullable(),
-  // Our recent sent bodies, newest first (the templated check).
-  recentOutbound: z.array(z.string().max(100_000)).max(50),
+  // Our recent sent emails, newest first, each with its thread (the templated check leaves out
+  // the case's own thread, by id).
+  recentOutbound: z
+    .array(z.strictObject({ threadId: someText(100), body: z.string().max(100_000) }))
+    .max(50),
 });
 
 export const geminiParamsSchemas = {
@@ -525,7 +528,8 @@ export const geminiResultSchemas = {
     text: z.string(),
     html: z.string(),
     model: nullableText,
-    durationMs: z.number().min(0),
+    // Passed on from the extension, which may leave it out.
+    durationMs: z.number().min(0).nullable(),
   }),
   "bridge.shutdown": z.looseObject({ ok: z.literal(true) }),
   "action.generate_keywords": z.looseObject({

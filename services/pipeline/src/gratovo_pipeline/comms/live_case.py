@@ -516,11 +516,21 @@ def build_case(
             goal = GOALS.get(kind, GOALS["reply"])
 
     # Our recent sent bodies (main's, newest first), less this thread's own: they are not "other"
-    # messages (the old query left the thread out).
-    own = {_s(m.get("body")) for m in _messages(thread_source) if m.get("direction") == "outbound"}
-    history = [
-        b for b in _list(known.get("recentOutbound")) if isinstance(b, str) and b not in own
-    ][:HISTORY]
+    # messages. By thread, as the old query left the thread out (`thread_id != ?`): the same text
+    # sent to someone else still counts.
+    this_thread = _s((thread_source or {}).get("id")) or None
+    history: list[str] = []
+    for entry in _list(known.get("recentOutbound")):
+        if not isinstance(entry, dict):
+            continue
+        sent = cast("dict[str, Any]", entry)
+        body = sent.get("body")
+        if not isinstance(body, str) or not body:
+            continue
+        if this_thread is not None and sent.get("threadId") == this_thread:
+            continue
+        history.append(body)
+    history = history[:HISTORY]
     case: dict[str, Any] = {
         "side": side,
         "stage": stage,

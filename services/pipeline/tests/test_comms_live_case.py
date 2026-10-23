@@ -121,7 +121,7 @@ def test_a_first_email_to_a_creator(conn: sqlite3.Connection) -> None:
     case = live_case.build_case(
         conn,
         {"kind": "first", "channelId": "UC_a"},
-        facts(recentOutbound=["An email to someone else."]),
+        facts(recentOutbound=[{"threadId": "t9", "body": "An email to someone else."}]),
         today=TODAY,
         moments=moments,
     )
@@ -162,7 +162,7 @@ def test_a_reply_carries_the_thread_oldest_first(conn: sqlite3.Connection) -> No
         ),
     )
     # Main's list of our sent bodies has this thread's own opening email in it too.
-    sent = ["Hi, saw your coding tool test."]
+    sent = [{"threadId": "t1", "body": "Hi, saw your coding tool test."}]
 
     case = live_case.build_case(
         conn,
@@ -179,6 +179,23 @@ def test_a_reply_carries_the_thread_oldest_first(conn: sqlite3.Connection) -> No
     ]
     assert case["thread"][1]["at"] == "2026-10-16"
     assert case["recent_messages"] == [], "the thread's own emails are not 'other' messages"
+
+
+def test_the_same_text_sent_in_another_thread_still_counts(conn: sqlite3.Connection) -> None:
+    # The old query left out this thread by id, not by text: one pasted email sent to two
+    # creators is still a recent message when drafting for the second.
+    opening = "Hi, saw your coding tool test."
+    t1 = thread("t1", channel_id="UC_a", messages=(("outbound", opening, "2026-10-14T09:00:00Z"),))
+    sent = [{"threadId": "t1", "body": opening}, {"threadId": "t2", "body": opening}]
+
+    case = live_case.build_case(
+        conn,
+        {"kind": "followUp", "threadId": "t1"},
+        facts(thread=t1, recentOutbound=sent),
+        today=TODAY,
+    )
+
+    assert case["recent_messages"] == [opening]
 
 
 def test_the_thread_is_put_in_order_whatever_order_it_comes_in(conn: sqlite3.Connection) -> None:

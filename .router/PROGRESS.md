@@ -7,28 +7,20 @@ Branch `feat/3e-3-pipeline-rest`, from `main` at 11b3c7a. The plan is `.router/P
 ## The owner's answers (2026-10-21)
 
 1. **Two pull requests:** 3e-3a (the Gemini bridge and the comms engine, with the course data and transcripts) and 3e-3b (Gmail and the mailbox, video stats, refetch and backfill, the AWS gateway tool). One per session.
-2. **The comms quality tools** (coach, graduate bar, pairwise, scenarios, call mining, quote review, Whisper check) are ported, under `comms/studio/`, as tools a session runs by hand.
+2. **The comms quality tools** are ported, as tools a session runs by hand (in the flat `comms/` package, D1).
 3. **The course text for the copy check** comes from a folder path set in Settings on this computer (D8). Without it, that one check is skipped and the proposal says so.
 4. **News and the Email library wait** for their parity §6 decision (step 9): `feeds.py`, `news.py` and `email_library.py` aren't ported.
 
-## Tasks (3e-3a)
+## 3e-3a: done (2026-10-23), in its pull request
 
-| id | state | tier used | note |
-|---|---|---|---|
-| A1 | done (cef52e7) | H (lead) | `gemini-protocol.ts`, `gemini.schema.json`; the extension's own codes added later |
-| A2 | done | N | server, client (actions imported lazily), `tests/fake_extension.py`; the CLI tests dropped (D13). Also lead: `errors.py` (every class, code list = TS list), `progress.py`, the `loopback` test fixture, `json_reply.py`, `paths.py` |
-| A3 | in progress | N | actions, keywords_batch, the three client tests A4 set aside, pyright clean on `gemini/`. Hit the usage limit 2026-10-21, resumed 2026-10-23 |
-| A4 | done | N | gems, skills |
-| A5 | done | N | `gemini/browser/` (profile folder passed in) |
-| A6 | next, after A3 | H | daemon and `browser_manager.py` on `python -m gratovo_pipeline.gemini`; makes A7's real-process test pass |
-| A7 | done, real test waits for A6 | H (lead) | `gemini-service.ts`, `lines.ts` shared with the supervisor, quit hook in `index.ts` |
-| B1 | in progress | H | course (configured, no `E:` default), playbook, checks (`COURSE_CHECK_SKIPPED`), readiness written; engine and example_bank to go. Resumed 2026-10-23 |
-| B2 to B5, A8, L1 | not started | – | – |
+Every task of PLAN.md's 3e-3a table is done: A1 to A8, B1 to B5, L1. Decisions in ADR 0014. Checks at the end: 1,501 Vitest, 855 pytest (3 skipped: the owner's course and mined calls), lint and typecheck clean, 63 Electron tests, Windows CI. `router-reviewer` found 12 points; all were fixed (the bridge now refuses web pages, main's timeouts match the bridge's, a check opens pipeline.db read-only, the real-process test uses a free port, recent emails are filtered by thread) or recorded in ADR 0014's consequences.
 
-Data moved (lead): `services/pipeline/data/comms/` and `data/gemini-skills/`; the quote-review lease file is ignored. The owner's new files under `design/` (workbench v6) aren't part of this step.
+For the owner (in the PR): two old bugs fixed (the opener check, verify's "50k"); the shipped `gratovo-comms` skill is older than the playbook (rebuild and deploy it); 41 video quotes wait for a check by ear.
 
-## Rules carried from 3e-1
+## Next: 3e-3b, in a fresh session (plan §10 rule 5)
 
-Secrets only in the start message (the bridge needs none); `python -I`; no network in tests (the bridge's tests may use `127.0.0.1` only, D5); pyright strict; each old test ported first and seen to fail; stage named paths and commit once agents are done.
+1. Branch from `main` after 3e-3a merges. Detail PLAN.md's 3e-3b outline first (tier H): C1 the job additions in `protocol.ts` and the Python mirror (the contract is in PLAN.md "Job additions"), C2 mail (gmail over urllib, mailbox.db, send with `sendKey` and `approvedBy`, never automatic; ports test_mailbox and test_email_send_no_auto_send), C3 video_stats, C4 refetch and backfill (the manual refetch and import_handles, enrich without its sync; 3e-1 left the catch-up thread pool and `[catchup-io]` lines), C5 `aws_sign.py` and the gateways job, C6 main's `result` handling and the secret-store keys (`mail.client`, `mail.mailboxes`, `aws.keys`), C7 ADR 0015 and the status table; L1.
+2. Rules: D9, D11, D12 and D13 of PLAN.md; never send an email, never read the mailbox; the consent flow to connect a mailbox is step 6 (main), so no refresh token ever goes to stdout.
+3. Lessons from 3e-3a: shell heredocs eat backslashes (write patch scripts to a file, or use the editor); CodeQL fails CI on any result (py/log-injection hit the bridge); agents running at once must not share files, and the lead commits named paths once each lands.
 
-Carried: the packaged build must ship `@supabase/realtime-js` with main (3h), and Deno for yt-dlp (3h, D12); the two known sync limits in ADR 0012. Code scanning isn't enabled for the repository, so CodeQL can't publish results (a repository setting, the owner's choice).
+Carried: the packaged build must ship `@supabase/realtime-js` with main, and Deno plus `yt-dlp-ejs` for subtitles (3h); the two known sync limits in ADR 0012. Code scanning isn't enabled for the repository, so CodeQL can't publish results (a repository setting, the owner's choice). The owner's new files under `design/` (workbench v6) aren't part of this step and aren't committed.

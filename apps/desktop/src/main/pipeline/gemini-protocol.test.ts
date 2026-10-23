@@ -129,7 +129,7 @@ describe("geminiRequestLine", () => {
         deadline: null,
         paymentTerms: null,
       },
-      recentOutbound: ["Hi Sam, saw your test."],
+      recentOutbound: [{ threadId: "t7", body: "Hi Sam, saw your test." }],
     };
     const request: GeminiParams<"action.comms_propose">["request"] = {
       kind: "reply",
