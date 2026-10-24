@@ -181,35 +181,150 @@ function capped(limit: number, cap: number): number {
   return Math.max(0, Math.min(Math.floor(limit), cap));
 }
 
+/** The most lines `logPage` returns (`logPageMax` in the ipc package). */
+export const logPageCap = 100;
+
+/** The most people `peopleInLog` returns. */
+export const peopleCap = 50;
+
+/** Where a line sits: the cursor for the next page is the last line's `{ at, id }`. */
+export interface LogCursor {
+  at: number;
+  id: string;
+}
+
+/** A line's `who` as SQL: the member id, else the old app's name. */
+const whoSql = "COALESCE(a.actor_id, a.actor_name)";
+
+/**
+ * The conditions that make a row visible, as SQL, with their parameters in order: not an undo or
+ * redo marker, not undone by its newest marker, and (without money) no money field.
+ */
+function visibleSql(seesMoney: boolean): { sql: string; params: string[] } {
+  return {
+    sql: `NOT (a.entity_type = 'activity_log' AND a.action IN ('undo', 'redo'))
+       AND COALESCE((SELECT m.action FROM activity_log m
+                     WHERE m.entity_type = 'activity_log' AND m.entity_id = a.id
+                       AND m.action IN ('undo', 'redo')
+                     ORDER BY m.at_ms DESC, m.id DESC LIMIT 1), '') <> 'undo'
+       ${seesMoney ? "" : `AND (a.field IS NULL OR a.field NOT IN (${moneyFieldList}))`}`,
+    params: seesMoney ? [] : [...moneyFields],
+  };
+}
+
+/**
+ * One page of the whole log, newest first by `(at_ms, id)`, strictly after the `before` cursor,
+ * at most `limit` (never more than `logPageCap`), hidden and mapped as `newestLog` does. `who`
+ * keeps one person's lines (the member id, else the old app's name). `more` is whether at least
+ * one further visible line exists.
+ */
+export function logPage(
+  db: DatabaseSync,
+  o: { seesMoney: boolean; before: LogCursor | null; limit: number; who: string | null },
+): { lines: LogEntry[]; more: boolean } {
+  const limit = capped(o.limit, logPageCap);
+  if (limit === 0) {
+    return { lines: [], more: false };
+  }
+  const read = readLines(db, {
+    seesMoney: o.seesMoney,
+    count: limit + 1,
+    before: o.before,
+    who: o.who,
+  });
+  return { lines: read.slice(0, limit), more: read.length > limit };
+}
+
+/**
+ * Who has lines in the log, with how many, most lines first and then by name, at most
+ * `peopleCap`. Counts use the same undo-hiding as the pages. For a member without money they drop
+ * rows with a money field but skip the text test (`mentionsMoney`), so a count can run a little
+ * high; the chips are a guide, the page itself is exact. The name is the profile's display name,
+ * else the newest line's `actor_name`.
+ */
+export function peopleInLog(
+  db: DatabaseSync,
+  o: { seesMoney: boolean },
+): { who: string; name: string; count: number }[] {
+  const visible = visibleSql(o.seesMoney);
+  const rows = db
+    .prepare(
+      `SELECT ${whoSql} AS who, COUNT(*) AS n, MAX(a.at_ms) AS newest,
+              (SELECT p.display_name FROM profiles p WHERE p.id = a.actor_id) AS profile_name,
+              (SELECT l.actor_name FROM activity_log l
+               WHERE ${whoSql.replaceAll("a.", "l.")} = ${whoSql}
+               ORDER BY l.at_ms DESC, l.id DESC LIMIT 1) AS latest_name
+       FROM activity_log a
+       WHERE ${visible.sql}
+       GROUP BY who`,
+    )
+    .all(...visible.params);
+  return rows
+    .map((row) => {
+      const profile = optional(row["profile_name"]);
+      return {
+        who: String(row["who"]),
+        name: profile !== null && profile !== "" ? profile : String(row["latest_name"] ?? ""),
+        count: Number(row["n"]),
+      };
+    })
+    .sort((x, y) => y.count - x.count || x.name.localeCompare(y.name))
+    .slice(0, peopleCap);
+}
+
+/** How many visible lines were written at or after `since` (ms). Money text is not tested, as in `peopleInLog`. */
+export function linesSince(db: DatabaseSync, o: { seesMoney: boolean; since: number }): number {
+  const visible = visibleSql(o.seesMoney);
+  const row = db
+    .prepare(`SELECT COUNT(*) AS n FROM activity_log a WHERE a.at_ms >= ? AND ${visible.sql}`)
+    .get(o.since, ...visible.params);
+  return Number(row?.["n"] ?? 0);
+}
+
 function readLines(
   db: DatabaseSync,
-  o: { seesMoney: boolean; count: number; ref?: string },
+  o: {
+    seesMoney: boolean;
+    count: number;
+    ref?: string;
+    before?: LogCursor | null;
+    who?: string | null;
+  },
 ): LogEntry[] {
   const { count } = o;
   if (count === 0) {
     return [];
   }
+  const visible = visibleSql(o.seesMoney);
+  const before = o.before ?? null;
+  const who = o.who ?? null;
+  const conditions: string[] = [];
+  const filters: (string | number)[] = [];
+  if (o.ref !== undefined) {
+    conditions.push("a.entity_type = 'channel' AND a.entity_id = ?");
+    filters.push(o.ref);
+  }
+  if (before !== null) {
+    conditions.push("(a.at_ms < ? OR (a.at_ms = ? AND a.id < ?))");
+    filters.push(before.at, before.at, before.id);
+  }
+  if (who !== null) {
+    conditions.push(`${whoSql} = ?`);
+    filters.push(who);
+  }
   const statement = db.prepare(
     `SELECT a.id, a.at, a.at_ms, a.actor_id, a.actor_name, a.action, a.entity_type, a.entity_id,
             a.entity_label, a.field, a.old_value, a.new_value, a.detail
      FROM activity_log a
-     WHERE ${o.ref === undefined ? "" : "a.entity_type = 'channel' AND a.entity_id = ? AND"}
-       NOT (a.entity_type = 'activity_log' AND a.action IN ('undo', 'redo'))
-       AND COALESCE((SELECT m.action FROM activity_log m
-                     WHERE m.entity_type = 'activity_log' AND m.entity_id = a.id
-                       AND m.action IN ('undo', 'redo')
-                     ORDER BY m.at_ms DESC, m.id DESC LIMIT 1), '') <> 'undo'
-       ${o.seesMoney ? "" : `AND (a.field IS NULL OR a.field NOT IN (${moneyFieldList}))`}
+     WHERE ${conditions.map((c) => `${c} AND`).join(" ")}
+       ${visible.sql}
      ORDER BY a.at_ms DESC, a.id DESC
      LIMIT ? OFFSET ?`,
   );
   const lines: LogEntry[] = [];
   // Without money, some rows are dropped after the query, so read on until `count` lines are kept.
   for (let offset = 0; lines.length < count; offset += pageSize) {
-    const params: (string | number)[] = [
-      ...(o.ref === undefined ? [] : [o.ref]),
-      ...(o.seesMoney ? [] : moneyFields),
-    ];
+    const params = [...filters, ...visible.params];
     const page = statement.all(...params, o.seesMoney ? count : pageSize, offset);
     for (const row of page) {
       const detail = parseDetail(row["detail"]);
