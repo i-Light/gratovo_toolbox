@@ -1,12 +1,12 @@
 import { emptyFindFilter, isGold } from "@gratovo/core/find";
 import type { RejectReason } from "@gratovo/core/data";
-import { Btn, Empty, Tag } from "@gratovo/ui";
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { Btn, Empty } from "@gratovo/ui";
+import { useEffect, useMemo, useState } from "react";
 
 import { openRecord } from "../lib/actions";
+import { setGalleryFilter } from "../lib/find-gallery-state";
 import { ensureCreators, neverContact, reject, shortlist } from "../lib/find-actions";
-import { useCatalogQuery, useRuns } from "../lib/find-catalog";
-import { shortDate } from "../lib/format";
+import { useCatalogQuery } from "../lib/find-catalog";
 import { useKeys } from "../lib/keys";
 import { go, useApp } from "../lib/store";
 import { strings } from "../strings";
@@ -17,30 +17,17 @@ const text = strings.findTriage;
 /** One page of Review new. */
 const pageSize = 40;
 
-/* Which search Review new is narrowed to, or null for every new channel. The route has no place for
-   an option, so the choice lives here; "Review results" on a run sets it and the chip clears it. */
-let reviewRunId: number | null = null;
-const reviewListeners = new Set<() => void>();
-
-function subscribeReviewRun(listener: () => void): () => void {
-  reviewListeners.add(listener);
-  return () => {
-    reviewListeners.delete(listener);
-  };
-}
-
-/** Narrows Review new to one run (or to none) and opens it. */
+/**
+ * "Review results": the newest run opens Review new; an older one opens the gallery filtered to that
+ * run (D26), since the gallery's filter carries the run.
+ */
 export function reviewResults(run: number | null): void {
-  reviewRunId = run;
-  reviewListeners.forEach((listener) => {
-    listener();
-  });
-  go("find", "triage");
-}
-
-/** For tests: forget the run filter. */
-export function resetReviewRunForTests(): void {
-  reviewRunId = null;
+  if (run === null) {
+    go("find", "triage");
+    return;
+  }
+  setGalleryFilter({ ...emptyFindFilter, runs: [run] });
+  go("find", "gallery");
 }
 
 /** The channels Review new asks main for: one page at a time. */
@@ -48,7 +35,6 @@ const reviewSort = "triage" as const;
 
 /** What the Review new tab holds: the page it asks for and the answer. */
 export interface Review {
-  readonly runId: number | null;
   readonly offset: number;
   readonly setOffset: (offset: number) => void;
   readonly query: ReturnType<typeof useCatalogQuery>;
@@ -59,29 +45,20 @@ export interface Review {
  * facets are asked for: this view shows none.
  */
 export function useReview(): Review {
-  const runId = useSyncExternalStore(subscribeReviewRun, () => reviewRunId);
-  const [paging, setPaging] = useState({ runId, offset: 0 });
-  // A different run starts at the first page.
-  const offset = paging.runId === runId ? paging.offset : 0;
+  const [offset, setOffset] = useState(0);
   const query = useCatalogQuery({
-    filter: { ...emptyFindFilter, stages: ["new"], runs: runId === null ? [] : [runId] },
+    filter: { ...emptyFindFilter, stages: ["new"] },
     sort: reviewSort,
     offset,
     limit: pageSize,
     facets: false,
   });
-  const setOffset = useCallback(
-    (next: number): void => {
-      setPaging({ runId, offset: next });
-    },
-    [runId],
-  );
-  return { runId, offset, setOffset, query };
+  return { offset, setOffset, query };
 }
 
-/** The Review new count for the tab: all new channels, known only when no run narrows the list. */
+/** The Review new count for the tab: all new channels. */
 export function reviewTabCount(review: Review): number | null {
-  return review.runId === null && review.query.status === "ready" ? review.query.total : null;
+  return review.query.status === "ready" ? review.query.total : null;
 }
 
 /** The count for the other tabs: one item and no facets, only for its total. */
@@ -98,9 +75,8 @@ export function useReviewCount(): number | null {
 
 /** Review new: the channels no one has decided on, one at a time. */
 export function Triage({ review }: { readonly review: Review }) {
-  const { runId, offset, setOffset } = review;
+  const { offset, setOffset } = review;
   const { status, total, items } = review.query;
-  const { runs } = useRuns();
   // Ages ("2 days ago") are read against the time the visit started; a long visit needs no refresh.
   const [now] = useState(() => Date.now());
   const [at, setAt] = useState(0);
@@ -209,25 +185,6 @@ export function Triage({ review }: { readonly review: Review }) {
     { active: item !== undefined },
   );
 
-  const runStart = runId === null ? undefined : runs.find((r) => r.id === runId)?.startedAt;
-  const chip =
-    runId === null ? null : (
-      <span className="row" style={{ gap: "6px" }}>
-        <Tag tone="info" icon="scan">
-          {text.runChip(runStart === undefined ? text.runIdChip(runId) : shortDate(runStart))}
-        </Tag>
-        <Btn
-          size="sm"
-          kind="ghost"
-          onClick={() => {
-            reviewResults(null);
-          }}
-        >
-          {text.clearRun}
-        </Btn>
-      </span>
-    );
-
   if (status === "failed") {
     return (
       <div className="card">
@@ -241,7 +198,6 @@ export function Triage({ review }: { readonly review: Review }) {
   if (item === undefined) {
     return (
       <div className="tr-view">
-        {chip}
         <div className="card">
           <Empty
             icon="checkc"
@@ -270,8 +226,6 @@ export function Triage({ review }: { readonly review: Review }) {
           <b className="num">{total}</b> {text.newWord} · <b className="num">{gold}</b>{" "}
           {text.gold(total > pageSize)} · {text.order}
         </span>
-        <span className="sp"></span>
-        {chip}
       </div>
       <div className="tr-progress">
         <span className="num">

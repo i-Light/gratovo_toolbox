@@ -14,8 +14,8 @@ Started 2026-10-24. The plan is `.router/PLAN.md` (decisions D1 to D18, contract
 | G1 | N | done | `Gallery`, facets, chips, saved views, toolbar, `useGalleryPages` (one page at a time, facets on offset 0), 7 prefs; Found by lists runs with kept > 0 |
 | P1 | N | done | `renderer/record/creator-*`, `RecordBody` in record-summary; `record: []` already shows the record in live; falls back to the summary when the catalog lacks a creator |
 | G2 | N | done | cards (stretched Open button, `content-visibility`), table, `useFindSelection(order, ready)`, bulk bar, compare; fit popup clipped in cards → W2 moves it to `Floating` |
-| W2 | N | running | wiring, live gate, smoke test |
-| R2 | H | todo | review |
+| W2 | N | done | live `find: search, triage, gallery`; older runs → gallery filtered; fit list through `Floating`; `e2e/find-gallery.spec.ts`; 20 Electron tests green; screenshots looked at by the lead |
+| R2 | H | running | review |
 | L2 | lead | todo | checks, PR, merge |
 
 

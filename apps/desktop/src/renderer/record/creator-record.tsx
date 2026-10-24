@@ -10,7 +10,6 @@ import { CreatorNext } from "./creator-next";
 import { CreatorNotes } from "./creator-notes";
 import { CreatorOverview } from "./creator-overview";
 import { channelUrl } from "./detail";
-import "./record.css";
 
 const text = strings.creatorRecord;
 

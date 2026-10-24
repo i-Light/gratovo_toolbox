@@ -9,6 +9,7 @@ import { go, selectRoute, useApp } from "../lib/store";
 import { shownTabs } from "../lib/wired";
 import { strings } from "../strings";
 import { Keywords } from "./keywords";
+import { Gallery } from "./gallery";
 import { LiveRun } from "./live-run";
 import { Rules } from "./rules";
 import { Runs } from "./runs";
@@ -16,7 +17,7 @@ import { reviewTabCount, Triage, useReview, useReviewCount } from "./triage";
 
 const text = strings.findSearch;
 
-/** The page's subtitle: on live data only Search and Review new are built, so it names just those. */
+/** The page's subtitle: on live data only Search, Review new and Gallery are built, so it names just those. */
 function useSub(): string | undefined {
   const source = useApp((s) => s.data.source);
   const sub = source === "example" ? screens.find.sub : strings.findTriage.liveSub;
@@ -171,11 +172,28 @@ function TriageTab() {
   );
 }
 
-/** The Find screen: Search and Review new are built; the other tabs wait for their steps. */
+function GalleryTab() {
+  const info = screens.find;
+  const sub = useSub();
+  return (
+    <div className="page">
+      <PageHead title={info.name} {...(sub === undefined ? {} : { sub })} />
+      <SearchTabs />
+      <Panel>
+        <Gallery />
+      </Panel>
+    </div>
+  );
+}
+
+/** The Find screen: Search, Review new and Gallery are built; Contacts waits for its step. */
 export function FindScreen() {
   const tab = useApp((s) => selectRoute(s).tab);
   if (tab === "search") {
     return <SearchTab />;
+  }
+  if (tab === "gallery") {
+    return <GalleryTab />;
   }
   return tab === "triage" ? <TriageTab /> : <PlaceholderScreen screen="find" />;
 }

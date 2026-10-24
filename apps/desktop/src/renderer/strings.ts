@@ -1013,7 +1013,7 @@ export const strings = {
     },
   },
   findTriage: {
-    liveSub: "Search and review",
+    liveSub: "Search, review and browse",
     tabsLabel: "Find sections",
     loadFailed: "Couldn’t load the new channels.",
     listLabel: "Channel to review",
@@ -1026,13 +1026,10 @@ export const strings = {
     emptyTally: (shortlisted: number, rejected: number): string =>
       `This visit: ${String(shortlisted)} shortlisted, ${String(rejected)} rejected.`,
     goSearch: "Go to Search",
-    runChip: (date: string): string => `From the search of ${date}`,
-    clearRun: "Show all new",
     position: (i: number, n: number): string => `${String(i)} of ${String(n)}`,
     tally: (shortlisted: number, rejected: number): string =>
       `${String(shortlisted)} shortlisted · ${String(rejected)} rejected`,
     keysHint: "J is next, K is previous.",
-    runIdChip: (id: number): string => `#${String(id)}`,
     prev: "Previous",
     next: "Next",
     shortlist: "Shortlist",
@@ -1297,8 +1294,8 @@ export const strings = {
     find: {
       name: "Find",
       sub: "Search, triage, contacts",
-      // The rail's line on live data, where only Search and Review new are wired.
-      subLive: "Search and review",
+      // The rail's line on live data, where Search, Review new and Gallery are wired.
+      subLive: "Search, review and browse",
       tabs: { search: "Search", triage: "Review new", gallery: "Gallery", contacts: "Contacts" },
     },
     reach: {

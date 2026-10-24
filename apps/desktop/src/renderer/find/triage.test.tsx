@@ -9,7 +9,7 @@ import { aiChannel, stubFindBridge } from "../lib/find-test-bridge";
 import { setPref } from "../lib/prefs";
 import { appStore, resetAppStoreForTests, selectRoute } from "../lib/store";
 import { strings } from "../strings";
-import { resetReviewRunForTests, reviewResults, Triage, useReview } from "./triage";
+import { Triage, useReview } from "./triage";
 
 const t = strings.findTriage;
 const reasons = strings.findActions.reasons;
@@ -71,7 +71,6 @@ const creatorOf = (id: string) =>
 
 beforeEach(() => {
   resetFindForTests();
-  resetReviewRunForTests();
   resetAppStoreForTests({ screen: "find", tab: "triage" });
   setPref("letters", "");
 });
@@ -110,10 +109,19 @@ describe("Review new", () => {
     expect(chip.getAttribute("aria-expanded")).toBe("false");
     await click(chip);
     expect(chip.getAttribute("aria-expanded")).toBe("true");
-    const parts = within(card.getByRole("list", { name: t.fitDetail })).getAllByRole("listitem");
+    const parts = within(screen.getByRole("list", { name: t.fitDetail })).getAllByRole("listitem");
     expect(parts).toHaveLength(5);
     expect(parts[0]?.textContent).toContain("Median views 20/30");
     expect(parts[4]?.textContent).toContain("Sponsored before 15/15");
+    // The list is drawn in the floating layer, outside the card that would clip it.
+    expect(card.queryByRole("list", { name: t.fitDetail })).toBeNull();
+    expect(screen.getByRole("list", { name: t.fitDetail }).closest("article")).toBeNull();
+    fireEvent.keyDown(chip, { key: "Escape" });
+    expect(chip.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByRole("list", { name: t.fitDetail })).toBeNull();
+    await click(chip);
+    fireEvent.mouseDown(document.body);
+    expect(screen.queryByRole("list", { name: t.fitDetail })).toBeNull();
     expect(card.queryByText(/Emailed before/)).toBeNull();
   });
 
@@ -312,35 +320,14 @@ describe("Review new", () => {
     expect(kbds).toEqual(["S", "R", "←", "→", "O"]);
   });
 
-  it("narrows to one run with a chip that clears", async () => {
-    const calls = stubFindBridge({
-      items: [aiChannel("UC-r1", "Run One", { run: 1 }), aiChannel("UC-r2", "Run Two", { run: 2 })],
-      runs: [
-        {
-          id: 1,
-          startedAt: new Date(2026, 9, 20, 14, 5).getTime(),
-          finishedAt: null,
-          status: "done",
-          keywords: 3,
-          found: 10,
-          kept: 4,
-          gold: 1,
-        },
-      ],
-    });
+  it("asks only for new channels, whatever run they came from", async () => {
+    const calls = stubFindBridge({ items: [aiChannel("UC-r1", "Run One", { run: 1 })] });
     await show();
-    expect(screen.queryByText(/From the search of/)).toBeNull();
-    await act(async () => {
-      reviewResults(1);
-      await Promise.resolve();
-    });
-    expect(screen.getByText(t.runChip("Oct 20"))).toBeTruthy();
-    expect(heading()).toBe("Run One");
-    const queries = calls.filter(([c]) => c === "find:query");
-    const last = queries[queries.length - 1]?.[1] as { filter: { runs: number[] } };
-    expect(last.filter.runs).toEqual([1]);
-    await click(screen.getByRole("button", { name: t.clearRun }));
-    expect(screen.queryByText(/From the search of/)).toBeNull();
+    const query = calls.find(([c]) => c === "find:query")?.[1] as {
+      filter: { stages: string[]; runs: number[] };
+    };
+    expect(query.filter.stages).toEqual(["new"]);
+    expect(query.filter.runs).toEqual([]);
   });
 
   it("takes no keys when no channel shows", async () => {

@@ -9,6 +9,7 @@ import "./app/load-failed.css";
 import "./app/save-state.css";
 import "./find/find.css";
 import "./overlays/overlays.css";
+import "./record/record.css";
 import "./settings/settings.css";
 
 import { createRoot } from "react-dom/client";
