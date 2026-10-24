@@ -264,7 +264,11 @@ describe("bringBack", () => {
 describe("neverContact and allowAgain", () => {
   it("marks never with the reason text and the time", () => {
     expect(neverContact(ada, "Asked us to stop")).toBe(true);
-    expect(find("UC-ada")).toMatchObject({ stage: "never", rejectedAt: now });
+    expect(find("UC-ada")).toMatchObject({
+      stage: "never",
+      rejectedAt: now,
+      neverReason: "Asked us to stop",
+    });
     expect(lines()[0]).toMatchObject({
       action: "creator.never",
       detail: "Asked us to stop",
@@ -279,12 +283,21 @@ describe("neverContact and allowAgain", () => {
     neverContact(ada, "Asked us to stop");
     expect(neverContact(ada, "again")).toBe(false);
     expect(allowAgain(ada)).toBe(true);
-    expect(find("UC-ada")).toMatchObject({ stage: "new", rejectedAt: null });
+    expect(find("UC-ada")).toMatchObject({ stage: "new", rejectedAt: null, neverReason: null });
     expect(lines()[0]).toMatchObject({ action: "creator.allow" });
     expect(toasts().at(-1)?.msg).toBe("Ada AI Tools can be emailed again");
     expect(toasts().at(-1)?.sub).toBe("Back in Review new; searches no longer skip it.");
     undo();
-    expect(find("UC-ada")?.stage).toBe("never");
+    expect(find("UC-ada")).toMatchObject({ stage: "never", neverReason: "Asked us to stop" });
+  });
+
+  it("clears a stale never reason when a channel is rejected or brought back", () => {
+    ensureCreators([{ ...ada, neverReason: "old" }]);
+    reject([ada], "ai");
+    expect(find("UC-ada")?.neverReason).toBeNull();
+    ensureCreators([{ ...bo, stage: "rejected", neverReason: "old" }]);
+    bringBack({ ...bo, stage: "rejected" });
+    expect(find("UC-bo")?.neverReason).toBeNull();
   });
 });
 

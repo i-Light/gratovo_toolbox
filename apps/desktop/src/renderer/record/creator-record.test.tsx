@@ -68,6 +68,8 @@ function bridge(fixture: Fixture): void {
       }
       case "log:for":
         return Promise.resolve({ ok: true, value: { lines: fixture.lines ?? [] } });
+      case "toolbox:restore":
+        return Promise.resolve({ ok: true, value: { ok: true, restored: 1, refetch: false } });
       case "data:write":
         return Promise.resolve(fixture.writeOk === false ? { ok: false } : { ok: true, value: {} });
       default:
@@ -223,6 +225,25 @@ describe("the next step", () => {
     expect(screen.getByText(t.next.rejectedLine(strings.findActions.reasons.ai))).toBeTruthy();
     await click(screen.getByRole("button", { name: t.bringBack }));
     expect(creatorOf("UC-a")?.stage).toBe("new");
+  });
+
+  it("rejected and archived for good: Bring back also restores the channel", async () => {
+    await show("UC-a", {
+      items: {
+        "UC-a": detail("UC-a", { stage: "rejected", rejectReason: "ai", archivedAt: 1_000 }),
+      },
+    });
+    await click(screen.getByRole("button", { name: t.bringBack }));
+    expect(creatorOf("UC-a")?.stage).toBe("new");
+    expect(calls.filter(([c]) => c === "toolbox:restore")).toEqual([
+      ["toolbox:restore", { ids: ["UC-a"] }],
+    ]);
+  });
+
+  it("rejected, not archived: Bring back never asks main to restore", async () => {
+    await show("UC-a", { items: { "UC-a": detail("UC-a", { stage: "rejected" }) } });
+    await click(screen.getByRole("button", { name: t.bringBack }));
+    expect(calls.filter(([c]) => c === "toolbox:restore")).toHaveLength(0);
   });
 
   it("never: Allow again needs a yes, and Keep blocked changes nothing", async () => {

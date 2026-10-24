@@ -89,3 +89,19 @@
   min-height: var(--row-h);
   border-top: 1px solid var(--line);
 }
+
+/* the Never contact tool */
+.tb-why {
+  flex: 2 1 220px;
+  width: auto;
+}
+
+/* the Activity log */
+.tb-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.tb-line {
+  white-space: normal;
+}

@@ -140,6 +140,7 @@ export function reject(items: readonly CatalogItem[], reason: RejectReason): boo
       c.stage = "rejected";
       c.rejectReason = reason;
       c.rejectedAt = now;
+      c.neverReason = null;
     },
     line: t.rejected,
     detail: reason,
@@ -158,6 +159,7 @@ export function bringBack(item: CatalogItem): boolean {
       c.stage = "new";
       c.rejectReason = null;
       c.rejectedAt = null;
+      c.neverReason = null;
     },
     line: t.broughtBack,
     detail: null,
@@ -175,6 +177,7 @@ export function neverContact(item: CatalogItem, reasonText: string): boolean {
       c.stage = "never";
       c.rejectReason = null;
       c.rejectedAt = now;
+      c.neverReason = reasonText;
     },
     line: t.never,
     detail: reasonText,
@@ -192,6 +195,7 @@ export function allowAgain(item: CatalogItem): boolean {
       c.stage = "new";
       c.rejectReason = null;
       c.rejectedAt = null;
+      c.neverReason = null;
     },
     line: t.allowed,
     detail: null,

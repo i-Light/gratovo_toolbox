@@ -236,10 +236,44 @@ describe("Toolbox › Archived for good", () => {
     await show();
     await click(screen.getByRole("button", { name: t.bringBackLabel("Agent Lab") }));
     expect(creatorOf(id)).toMatchObject({ stage: "new" });
-    const toasts = appStore()
-      .getState()
-      .ui.toasts.map((x) => x.msg);
-    expect(toasts).toContain(strings.findActions.broughtBack("Agent Lab"));
-    expect(toasts).toContain(r.returnsLater);
+    // One toast: the act's (it carries Undo), its second line saying how the restore went.
+    const toasts = appStore().getState().ui.toasts;
+    expect(toasts).toHaveLength(1);
+    expect(toasts[0]).toMatchObject({
+      msg: strings.findActions.broughtBack("Agent Lab"),
+      sub: r.returnsLater,
+    });
+    expect(toasts[0]?.actions.map((a) => a.label)).toContain(strings.actions.undo);
+  });
+
+  it("puts the refetch words in the same toast, and a busy restore adds its own problem toast", async () => {
+    const detail = toolboxItem("UC-rej", "Agent Lab", null);
+    const id = "UC".concat("r".repeat(22));
+    stubToolboxBridge({
+      archived: [tomb(1, { id, name: "Agent Lab", stage: "rejected" })],
+      detail: { ...detail, id },
+      restore: { ok: true, restored: 1, refetch: true },
+    });
+    await show();
+    await click(screen.getByRole("button", { name: t.bringBackLabel("Agent Lab") }));
+    expect(
+      appStore()
+        .getState()
+        .ui.toasts.map((x) => x.sub),
+    ).toEqual([r.comingBackSub]);
+    cleanup();
+    resetAppStoreForTests({ screen: "toolbox", tab: "archive" });
+    stubToolboxBridge({
+      archived: [tomb(1, { id, name: "Agent Lab", stage: "rejected" })],
+      detail: { ...detail, id },
+      restore: { ok: false, problem: "busy" },
+    });
+    await show();
+    await click(screen.getByRole("button", { name: t.bringBackLabel("Agent Lab") }));
+    expect(
+      appStore()
+        .getState()
+        .ui.toasts.map((x) => x.msg),
+    ).toEqual([strings.findActions.broughtBack("Agent Lab"), r.busy]);
   });
 });

@@ -1,4 +1,12 @@
-import type { ArchivedChannel, CatalogItem, ToolboxItem, ToolboxList } from "@gratovo/core/find";
+import type { LogEntry } from "@gratovo/core/data";
+import {
+  queryCatalog,
+  type ArchivedChannel,
+  type CatalogItem,
+  type FindFilter,
+  type ToolboxItem,
+  type ToolboxList,
+} from "@gratovo/core/find";
 import type { Bridge } from "@gratovo/ipc/bridge";
 
 import { aiChannel } from "./find-test-bridge";
@@ -14,6 +22,12 @@ export interface ToolboxFixture {
   readonly restore?: unknown;
   /** What `find:item` answers with. */
   readonly detail?: CatalogItem | null;
+  /** The catalog `find:query` searches (Never contact's "Add a channel"). */
+  readonly catalog?: readonly CatalogItem[];
+  /** The whole activity log; `log:page` sorts, filters by `who`, pages and counts people. */
+  readonly log?: readonly LogEntry[];
+  /** The name `log:page` gives each person, by id. */
+  readonly names?: Readonly<Record<string, string>>;
 }
 
 export interface ToolboxBridge {
@@ -93,6 +107,42 @@ export function stubToolboxBridge(fixture: ToolboxFixture = {}): ToolboxBridge {
           ok: true,
           value: fixture.restore ?? { ok: true, restored: 1, refetch: false },
         });
+      case "find:query": {
+        const q = input as { filter: FindFilter; sort: "fit"; offset: number; limit: number };
+        const page = queryCatalog(fixture.catalog ?? [], q.filter, q.sort, q.offset, q.limit);
+        return Promise.resolve({ ok: true, value: { version: 1, ...page } });
+      }
+      case "log:page": {
+        const q = input as {
+          before: { at: number; id: string } | null;
+          limit: number;
+          who: string | null;
+        };
+        const sorted = [...(fixture.log ?? [])].sort((a, b) =>
+          a.at === b.at ? (a.id < b.id ? 1 : -1) : b.at - a.at,
+        );
+        const mine = sorted.filter((l) => q.who === null || l.who === q.who);
+        const from =
+          q.before === null
+            ? 0
+            : mine.findIndex((l) => l.id === q.before?.id && l.at === q.before.at) + 1;
+        const counts = new Map<string, number>();
+        for (const l of sorted) {
+          counts.set(l.who, (counts.get(l.who) ?? 0) + 1);
+        }
+        return Promise.resolve({
+          ok: true,
+          value: {
+            lines: mine.slice(from, from + q.limit),
+            more: from + q.limit < mine.length,
+            people: [...counts].map(([who, count]) => ({
+              who,
+              name: fixture.names?.[who] ?? who,
+              count,
+            })),
+          },
+        });
+      }
       case "find:item":
         return Promise.resolve({ ok: true, value: { item: fixture.detail ?? null } });
       default:

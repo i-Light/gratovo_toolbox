@@ -5,6 +5,7 @@ import { ContactBlock } from "../find/contact-block";
 import { rejectReasons } from "../find/triage-card";
 import { allowAgain, bringBack, reject, shortlist } from "../lib/find-actions";
 import { useApp } from "../lib/store";
+import { restoreForGood } from "../lib/toolbox";
 import { strings } from "../strings";
 import type { CreatorDetail } from "./detail";
 
@@ -104,7 +105,17 @@ export function CreatorNext({ item }: { readonly item: CreatorDetail }) {
         size="sm"
         icon="undo"
         onClick={() => {
-          bringBack(item);
+          // Archived for good: the tombstone goes too, and its numbers are read again (D38).
+          if (item.archivedAt === null) {
+            bringBack(item);
+          } else {
+            void restoreForGood({
+              id: item.id,
+              name: item.name,
+              handle: item.handle,
+              stage: item.stage,
+            });
+          }
         }}
       >
         {text.bringBack}
