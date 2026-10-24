@@ -349,6 +349,45 @@ describe("the toolbox handlers", () => {
       items: [],
     });
   });
+
+  function withArchive(archive: HandlerContext["archive"]) {
+    return createHandlers({
+      version: "1.2.3",
+      secrets: storeWith([]),
+      account: accountWith(),
+      find: findWith(),
+      catalog: createStubCatalog(),
+      ideas: createStubIdeas(),
+      ...(archive === undefined ? {} : { archive }),
+      ...createStubServices(),
+    });
+  }
+
+  it("starts a sweep and answers at once, without waiting for it", async () => {
+    const sweep = vi.fn();
+    const restore = vi.fn(() => new Promise<never>(() => undefined));
+    const mine = withArchive({ sweep, restore });
+    expect(await mine["toolbox:sweep"]({})).toEqual({});
+    expect(sweep).toHaveBeenCalledTimes(1);
+  });
+
+  it("hands Bring back to the archive service and answers with its result", async () => {
+    const restore = vi.fn(() => Promise.resolve({ ok: true as const, restored: 1, refetch: true }));
+    const mine = withArchive({ sweep: vi.fn(), restore });
+    const answer = await mine["toolbox:restore"]({ ids: [gone] });
+    expect(answer).toEqual({ ok: true, restored: 1, refetch: true });
+    expect(restore).toHaveBeenCalledWith([gone]);
+    expect(channels["toolbox:restore"].response.safeParse(answer).success).toBe(true);
+  });
+
+  it("answers no_python for Bring back without the archive service", async () => {
+    const mine = withArchive(undefined);
+    expect(await mine["toolbox:restore"]({ ids: [gone] })).toEqual({
+      ok: false,
+      problem: "no_python",
+    });
+    expect(await mine["toolbox:sweep"]({})).toEqual({});
+  });
 });
 
 describe("the find catalog handlers", () => {

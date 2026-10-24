@@ -4,6 +4,7 @@ import type { CreatorStage, DataSource, DataWrite } from "@gratovo/core/data";
 import type { Handlers } from "@gratovo/ipc";
 
 import type { Account } from "./account/account";
+import type { ArchiveService } from "./find/archive-service";
 import type { FindCatalog } from "./find/catalog-types";
 import type { FindIdeas } from "./find/ideas";
 import type { FindService } from "./find/find-service";
@@ -36,6 +37,11 @@ export interface HandlerContext extends HandlerServices {
    * email finder can look for their addresses (plan step 5c, D30).
    */
   onShortlisted?: (ids: readonly string[]) => void;
+  /**
+   * The archive service (plan step 5d, D37 and D38): the sweep and Bring back from "Archived for
+   * good". Without it a restore answers `no_python`, as no job can run.
+   */
+  archive?: Pick<ArchiveService, "sweep" | "restore">;
   account: Pick<
     Account,
     | "status"
@@ -157,13 +163,18 @@ export function createHandlers(context: HandlerContext): Handlers {
       const page = await openSource().logPage(request);
       return { lines: [...page.lines], more: page.more, people: [...page.people] };
     },
-    // Plan step 5d: stubs until the archive service (B15) is built.
+    // Plan step 5d: the Toolbox (D34 to D40).
     "toolbox:list": async ({ list, offset, limit }) =>
       toolboxList(await catalog.snapshot(), list, find.state().rules.archiveDays, offset, limit),
     "toolbox:archived": async (request) =>
       readArchived(pipelineDb(), request, await archivedNames()),
-    "toolbox:restore": () => ({ ok: false as const, problem: "no_python" as const }),
-    "toolbox:sweep": () => ({}),
+    "toolbox:restore": ({ ids }) =>
+      context.archive?.restore(ids) ?? { ok: false as const, problem: "no_python" as const },
+    // The sweep runs in the background; the list reads again on the catalog's change.
+    "toolbox:sweep": () => {
+      context.archive?.sweep();
+      return {};
+    },
     "toolbox:counts": async () => {
       const midnight = new Date();
       midnight.setHours(0, 0, 0, 0);

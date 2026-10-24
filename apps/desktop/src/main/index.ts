@@ -9,6 +9,7 @@ import { builtPageUrl } from "./app-page";
 import { registerAppScheme, serveAppFiles } from "./app-protocol";
 import { createEventSender } from "./events";
 import { isGoogleConsentUrl } from "./external-links";
+import { createArchiveService } from "./find/archive-service";
 import { createCatalog } from "./find/catalog";
 import { catalogChannels, createEmailFinder } from "./find/email-finder";
 import { createIdeas } from "./find/ideas";
@@ -275,7 +276,8 @@ function start(): void {
           console.error("The Gemini bridge couldn't be stopped after a data switch:", error);
         });
       };
-      // Set once the email finder exists (it needs the catalog, made after the find service).
+      // Set once the email finder and the archive service exist (they need the catalog, made after
+      // the find service).
       let yieldLane: () => Promise<void> = () => Promise.resolve();
       const find = createFindService({
         supervisor,
@@ -341,7 +343,38 @@ function start(): void {
           emit("find:emails", event);
         },
       });
-      yieldLane = () => emailFinder.yieldLane();
+      // Archiving rejected creators for good, and bringing them back (plan step 5d, D37, D38):
+      // local, so on live and example data alike; the refetch after a restore is live only.
+      const archive = createArchiveService({
+        supervisor,
+        context: () => {
+          const found = account.findContext();
+          const dataDir = find.folder();
+          return found === null || dataDir === null
+            ? null
+            : { source: found.mode, dataDir, worker: found.workerId };
+        },
+        searching: () => {
+          try {
+            const run = find.state().run.state;
+            return run === "running" || run === "stopping";
+          } catch {
+            return false;
+          }
+        },
+        snapshot: () => catalog.snapshot(),
+        archiveDays: () => find.state().rules.archiveDays,
+        youtubeKey: () => account.teamKeys.youtubeKey(),
+        routing: () => searchRouting(secrets),
+        settings: () => startSettings(account.source(), { mail: false }),
+        onPipelineChanged: () => {
+          invalidateCatalog();
+        },
+      });
+      // Both give way when Start is pressed; the search starts once both have.
+      yieldLane = async () => {
+        await Promise.all([emailFinder.yieldLane(), archive.yieldLane()]);
+      };
       // Keyword ideas (plan D33): the bridge when the owner has it running, a stand-in on the
       // example data. Nothing here starts the bridge.
       const ideas = createIdeas({
@@ -458,6 +491,7 @@ function start(): void {
       app.on("will-quit", () => {
         geminiControl.dispose();
         emailFinder.dispose();
+        archive.dispose();
         catalog.close();
         account.close();
       });
@@ -478,6 +512,7 @@ function start(): void {
           onShortlisted: (ids) => {
             emailFinder.shortlisted(ids);
           },
+          archive,
           importer,
           connections,
           gemini: geminiControl,

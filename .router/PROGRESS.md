@@ -15,10 +15,10 @@ Started 2026-10-24. The plan is `.router/PLAN.md` (decisions D1 to D18, contract
 | id | tier | state | note |
 |---|---|---|---|
 | C4 | H | done | c91f8e7. neverReason read in creators.ts (contract suite). Example data accepts the two archive jobs (D37). Results carry `data: {...}` as others. Restore handles must match `^@[A-Za-z0-9._-]{1,100}$` else null |
-| B13 | N | todo | |
-| B14 | N | todo | |
-| B15 | H | todo | |
-| B16 | N | todo | |
+| B13 | N | done | 5736f75. `jobs/archive.py`; null handle falls back to the row's, else ""; stop between channels → result + `stopped` |
+| B14 | N | done | 8531b81. `catalog.snapshot()`, `find/toolbox.ts` (`toolboxList`, `toolboxCounts`, `countArchived`, `readArchived`). Lead: `log:page` and `logSince` added to the DataSource (contract test), context hook dropped |
+| B15 | H | done | `archive-service.ts`: first sweep 30 s after start, then hourly; search told apart by `find.state().run.state`; a waiting restore goes before its own next job; a running restore isn't stopped by Start; a failed restore job throws (generic failure on the page: review) |
+| B16 | N | done | e51c1a9. `logPage`, `peopleInLog`, `linesSince`; counts skip the money-text filter (money-field rule kept) |
 | B17 | N | todo | |
 | B18 | N | todo | |
 | W4 | N | todo | |
