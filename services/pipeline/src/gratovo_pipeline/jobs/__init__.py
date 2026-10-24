@@ -37,14 +37,9 @@ def run(start: Start, emitter: Emitter) -> None:
 
         import_legacy.run(start, emitter)
     elif kind in ("archive.sweep", "archive.restore"):
-        # Plan step 5d: the protocol knows these jobs, but they aren't built yet (task B13).
-        emitter.end(
-            state="failed",
-            at=0,
-            found=0,
-            kept=0,
-            error=("crash", f"{kind} is not built yet"),
-        )
+        from gratovo_pipeline.jobs import archive
+
+        archive.run(start, emitter)
     else:  # gateways.deploy, gateways.destroy, gateways.test
         from gratovo_pipeline.jobs import gateways
 
