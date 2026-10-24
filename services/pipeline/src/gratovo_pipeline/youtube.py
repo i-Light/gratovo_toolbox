@@ -168,6 +168,18 @@ class YouTubeApi:
                 found[handle] = _channel_info(item, handle, channel_id)
         return found
 
+    def channel_for_handle(self, handle: str) -> tuple[str, ChannelInfo] | None:
+        """(channel_id, info) for a handle the store doesn't know yet, in one call; None when
+        YouTube has no such channel (or the answer was unusable). `handle` is `@name`."""
+        items = self._query(
+            "channels", {"forHandle": handle}, "snippet,statistics,brandingSettings"
+        )
+        for item in items:
+            channel_id = _str(item.get("id"))
+            if channel_id:
+                return channel_id, _channel_info(item, handle, channel_id)
+        return None
+
     def videos(self, video_ids: Sequence[str]) -> dict[str, VideoInfo]:
         """{video_id: info}. A video the API didn't return is left out."""
         found: dict[str, VideoInfo] = {}
@@ -184,7 +196,10 @@ class YouTubeApi:
             return []
         if len(ids) > BATCH_SIZE:
             raise ValueError(f"at most {BATCH_SIZE} ids a call, got {len(ids)}")
-        url = f"{API}/{call}?{urlencode({'id': ','.join(ids), 'part': part})}"
+        return self._query(call, {"id": ",".join(ids)}, part)
+
+    def _query(self, call: Call, params: Mapping[str, str], part: str) -> list[dict[str, Any]]:
+        url = f"{API}/{call}?{urlencode({**params, 'part': part})}"
         net.check_url(url)
         try:
             answer = self._get_with_retries(call, url)

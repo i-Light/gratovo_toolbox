@@ -413,4 +413,6 @@ def test_a_start_line_longer_than_a_message_line_is_read_whole(
     monkeypatch.setattr(protocol, "listen_for_stop", no_listener)
 
     assert gratovo_main.main() == 0
-    assert len(seen[0]["job"]["keywords"]) == 500
+    job = seen[0]["job"]
+    assert job["kind"] == "search"
+    assert len(job["keywords"]) == 500

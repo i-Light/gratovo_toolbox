@@ -6,12 +6,16 @@ from __future__ import annotations
 import dataclasses
 import sqlite3
 from collections.abc import Mapping, Sequence
-from typing import Protocol
+from typing import Final, Protocol
 
 from gratovo_pipeline.config import Config
 from gratovo_pipeline.protocol import LogLevel, Outcome
 from gratovo_pipeline.search.pacing import Pacer
 from gratovo_pipeline.youtube import ChannelInfo, VideoInfo
+
+# The uploads window read per channel unless a job asks for more. It stays at 15 for a search
+# (the owner's note on the old code); widening that is the on-hold gap search-1.
+RECENT_VIDEOS: Final = 15
 
 
 class SearchBlockedError(RuntimeError):
@@ -23,7 +27,10 @@ class Sweep(Protocol):
     """Reads channels' recent uploads one after another, on one session (a browser opens the
     connection once and keeps it)."""
 
-    def recent_video_ids(self, handle: str) -> list[str]: ...
+    def recent_video_ids(self, handle: str, *, limit: int = RECENT_VIDEOS) -> list[str]:
+        """At most `limit` of the channel's newest upload ids (15 unless a job asks for more)."""
+        ...
+
     def close(self) -> None: ...
 
 

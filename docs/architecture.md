@@ -43,6 +43,8 @@ The app reads and writes a local SQLite database first, so every click answers a
 
 **Built in 3d-2b** ([decisions/0012-sync-engine.md](decisions/0012-sync-engine.md)): the sync engine in `apps/desktop/src/main/sync/`, one pass at a time. It drains a first-in, first-out outbox of intent (each write and its outbox row in one transaction; a creator's stage through `apply_channel_edit`'s compare-and-set, conflicts you settle), re-fetches what the server refused or contested, reads profiles, roles, your switches and your open conflicts whole, then keyset-pulls creators, brands, deals and the log (by the server's receive time) with tombstones and the purge horizon. Nothing unsent is overwritten. Main tells the page about changes over one event channel (`frame:changed`, `sync:status`, `presence:changed`), and the page adopts them without writing them back or losing Undo. Realtime runs on two private topics of the app's own (`toolbox:sync`, `toolbox:team`) through `@supabase/realtime-js` behind the network allowlist; the 20 s catch-up carries on without it. Sign-out keeps unsent changes for the same account.
 
+**Built in 3e-3b** ([decisions/0015-pipeline-mail-and-jobs.md](decisions/0015-pipeline-mail-and-jobs.md)): the pipeline runs its jobs in two lanes. The store lane (`search`, `refetch`, `backfill`) writes `pipeline.db`, so only one runs at a time. The quick lane (`mail.status`, `mail.send`, `mail.replies`, `mail.ack`, `mail.cancel`, `video_stats`, `gateways.deploy`, `gateways.destroy`, `gateways.test`) writes `mailbox.db` and the AWS calls, one at a time. Both lanes stop on quit. A job that answers in `result` sends it once, before `end`; a sweep's replies come one line each. Each job gets only the hosts it needs. The secrets for mail and AWS stay in main's secret store and arrive only in the start message.
+
 **Built in 3e-1** ([decisions/0013-pipeline.md](decisions/0013-pipeline.md)): a search runs as a child process. Main's supervisor (`apps/desktop/src/main/pipeline/`) starts one `python -I -u -m gratovo_pipeline` job at a time, with a bare environment, and talks to it in JSON lines on stdin and stdout. The line schemas are zod in main, checked on every line, and mirrored in Python. The find service (`main/find/`) keeps the queue and the rules in `find.json` beside `pipeline.db`, and reads the kept channels from `pipeline.db` read-only. Secrets (the YouTube key, the proxy and gateway URLs) arrive only in the start message. Every request the pipeline makes goes through its own host check (`net.check_url`: HTTPS, YouTube, Google's API, AWS gateway hosts, the configured proxies), because main's allowlist can't see those requests.
 
 ### One data source switch: live or example
@@ -89,7 +91,7 @@ gratovo_toolbox/
 ├── tooling/
 │   └── eslint-config/        the lint plugins, on TypeScript 6 (see decision 0007)
 ├── services/
-│   ├── pipeline/             Python: src/gratovo_pipeline/ (search, gemini/ bridge, comms/ engine, transcripts), tests/, pyproject.toml; see ADR 0014
+│   ├── pipeline/             Python: src/gratovo_pipeline/ (search, gemini/ bridge, comms/ engine, transcripts), tests/, pyproject.toml; see ADRs 0013 to 0015
 │   └── gemini-extension/     the browser extension
 ├── supabase/
 │   ├── migrations/           ordered SQL migrations, additive until cutover

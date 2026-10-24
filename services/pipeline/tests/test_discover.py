@@ -202,6 +202,25 @@ def test_a_sweep_reads_uploads_on_one_session(
     assert session.closed
 
 
+def test_a_sweep_can_be_asked_for_more_than_the_search_window(
+    monkeypatch: pytest.MonkeyPatch, rec: Recorder
+) -> None:
+    limits: list[int] = []
+
+    def fake_channel(**kwargs: Any) -> Iterator[dict[str, Any]]:
+        limits.append(kwargs["limit"])
+        return iter([])
+
+    monkeypatch.setattr(scrapetube, "get_session", FakeSession)
+    monkeypatch.setattr(scrapetube, "get_channel", fake_channel)
+
+    sweep = live(rec).sweep()
+    sweep.recent_video_ids("@ai-tools-weekly")
+    sweep.recent_video_ids("@ai-tools-weekly", limit=120)
+
+    assert limits == [15, 120]  # a search never passes one
+
+
 def test_a_sweep_read_that_fails_is_an_empty_list_unless_blocked(
     monkeypatch: pytest.MonkeyPatch, rec: Recorder
 ) -> None:

@@ -1018,6 +1018,147 @@ def mark_archives_announced(conn: sqlite3.Connection, channel_ids: Iterable[str]
         )
 
 
+# --- enrichment: blanks to refill and failed fetches to retry (the backfill job) ---
+
+# The columns a blank is looked for in, by the name the job uses.
+_ENRICH_CHANNEL_FIELDS: Final = {
+    "country": "country",
+    "subscribers": "subscribers",
+    "name": "name",
+    "description": "description",
+}
+_ENRICH_VIDEO_FIELDS: Final = {
+    "view_count": "view_count",
+    "published_at": "published_at",
+    "title": "title",
+}
+
+
+def _missing_sql(column: str) -> str:
+    return f"({column} IS NULL OR {column} = '')"
+
+
+def _handle_clause(handles: Iterable[str] | None, alias: str = "channels") -> tuple[str, list[str]]:
+    wanted = list(handles or ())
+    if not wanted:
+        return "", []
+    return f" AND {alias}.handle IN ({_placeholders(wanted)})", wanted
+
+
+def field_coverage_watermark(
+    conn: sqlite3.Connection, table: Literal["channels", "videos"], field: str
+) -> str | None:
+    """The earliest fetch time at which this field was ever recorded. A row fetched before it
+    was fetched when the pipeline did not collect the field yet, so a refetch will likely fill
+    it; one fetched at or after it came back blank from a fetch that did collect it, so YouTube
+    has no value. None when the field was never recorded (nothing can be inferred)."""
+    fields = _ENRICH_CHANNEL_FIELDS if table == "channels" else _ENRICH_VIDEO_FIELDS
+    column = fields.get(field)
+    if not column:
+        raise ValueError(f"unknown {table} field: {field}")
+    row = conn.execute(
+        f"SELECT MIN(last_fetched_at) AS w FROM {table} "
+        f"WHERE last_fetched_at IS NOT NULL AND NOT {_missing_sql(column)}"
+    ).fetchone()
+    return str(row["w"]) if row and row["w"] else None
+
+
+def get_channels_missing(
+    conn: sqlite3.Connection,
+    fields: Iterable[str],
+    handles: Iterable[str] | None = None,
+    before: str | None = None,
+) -> Discovered:
+    """Channels blank in ANY of `fields`, oldest first. `before` keeps only rows last fetched
+    before that time (a watermark); a channel never fetched always qualifies."""
+    columns = [_ENRICH_CHANNEL_FIELDS[f] for f in fields if f in _ENRICH_CHANNEL_FIELDS]
+    if not columns:
+        return {}
+    missing = " OR ".join(_missing_sql(c) for c in columns)
+    sql = f"SELECT handle, channel_id FROM channels WHERE ({missing})"
+    params: list[Any] = []
+    if before:
+        sql += " AND (last_fetched_at IS NULL OR last_fetched_at < ?)"
+        params.append(before)
+    clause, handle_params = _handle_clause(handles)
+    params.extend(handle_params)
+    rows = conn.execute(f"{sql}{clause} ORDER BY first_seen_at", params)
+    return {r["handle"]: r["channel_id"] for r in rows}
+
+
+def get_channels_failed(
+    conn: sqlite3.Connection, handles: Iterable[str] | None = None
+) -> Discovered:
+    """Channels whose last fetch failed. Always worth retrying: a failure says nothing about
+    what YouTube holds, only that the question was never answered."""
+    clause, params = _handle_clause(handles)
+    rows = conn.execute(
+        f"SELECT handle, channel_id FROM channels WHERE last_fetch_status='failed'{clause} "
+        "ORDER BY first_seen_at",
+        params,
+    )
+    return {r["handle"]: r["channel_id"] for r in rows}
+
+
+def get_videos_needing_refetch(
+    conn: sqlite3.Connection,
+    fields: Iterable[str],
+    handles: Iterable[str] | None = None,
+    before: str | None = None,
+) -> list[tuple[str, str]]:
+    """[(video_id, channel_id)] for videos blank in any of `fields` (and fetched before `before`,
+    when given) plus every video whose last fetch failed, whatever `before` says."""
+    columns = [_ENRICH_VIDEO_FIELDS[f] for f in fields if f in _ENRICH_VIDEO_FIELDS]
+    conditions: list[str] = []
+    params: list[Any] = []
+    if columns:
+        missing = " OR ".join(_missing_sql(c) for c in columns)
+        if before:
+            conditions.append(
+                f"(({missing}) AND (v.last_fetched_at IS NULL OR v.last_fetched_at < ?))"
+            )
+            params.append(before)
+        else:
+            conditions.append(f"({missing})")
+    conditions.append("v.last_fetch_status = 'failed'")
+    clause, handle_params = _handle_clause(handles, alias="c")
+    params.extend(handle_params)
+    rows = conn.execute(
+        "SELECT v.video_id, v.channel_id FROM videos v "
+        "JOIN channels c ON c.channel_id = v.channel_id "
+        f"WHERE ({' OR '.join(conditions)}){clause} ORDER BY v.channel_id, v.video_id",
+        params,
+    )
+    return [(r["video_id"], r["channel_id"]) for r in rows]
+
+
+def get_channel_video_span(
+    conn: sqlite3.Connection, channel_id: str
+) -> tuple[int, str | None, str | None]:
+    """How much history one channel has stored: (count, oldest, newest). Only videos with a
+    publish date count, so a failed fetch can't make the window look wider than it is."""
+    row = conn.execute(
+        "SELECT COUNT(*) AS n, MIN(published_at) AS oldest, MAX(published_at) AS newest "
+        "FROM videos WHERE channel_id=? AND published_at IS NOT NULL AND published_at <> ''",
+        (channel_id,),
+    ).fetchone()
+    return (int(row["n"] or 0), row["oldest"], row["newest"])
+
+
+def get_existing_video_ids(conn: sqlite3.Connection, channel_id: str) -> set[str]:
+    rows = conn.execute("SELECT video_id FROM videos WHERE channel_id=?", (channel_id,))
+    return {r["video_id"] for r in rows}
+
+
+def get_channels(conn: sqlite3.Connection, handles: Iterable[str] | None = None) -> Discovered:
+    """{handle: channel_id} for the given handles that are stored, or for every channel."""
+    clause, params = _handle_clause(handles)
+    rows = conn.execute(
+        f"SELECT handle, channel_id FROM channels WHERE 1=1{clause} ORDER BY first_seen_at", params
+    )
+    return {r["handle"]: r["channel_id"] for r in rows}
+
+
 # --- runs (one machine's facts, never shared) ---
 
 
@@ -1030,6 +1171,11 @@ def start_run(conn: sqlite3.Connection, keywords_total: int, kind: RunKind = "se
     run_id = cur.lastrowid
     assert run_id is not None  # noqa: S101 - an INSERT always sets it
     return run_id
+
+
+def set_run_kind(conn: sqlite3.Connection, run_id: int, kind: RunKind) -> None:
+    conn.execute("UPDATE runs SET kind=? WHERE run_id=?", (kind, run_id))
+    conn.commit()
 
 
 def _process_alive(pid: int | None) -> bool:

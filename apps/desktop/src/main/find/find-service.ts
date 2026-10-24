@@ -1,8 +1,9 @@
 import { join } from "node:path";
 
-import type { FindState } from "@gratovo/ipc";
+import { findErrors, type FindState } from "@gratovo/ipc";
 
 import { redact, secretsOf } from "../pipeline/logs";
+import { gatewayUrlsForSearch } from "../pipeline/pipeline-secrets";
 import type { PipelineMessage } from "../pipeline/protocol";
 import type { PipelineExit, PipelineSupervisor } from "../pipeline/supervisor";
 import type { SecretStore } from "../secret-store";
@@ -70,7 +71,7 @@ interface Session {
 
 const readyRun = (): Run => ({ state: "ready", found: 0, kept: 0, swept: 0, error: null });
 
-/** A secret-store value holding a JSON list of URLs; anything else is no URLs. */
+/** The proxies: a secret-store value holding a JSON list of URLs; anything else is no URLs. */
 async function urlList(secrets: Pick<SecretStore, "get">, name: string): Promise<string[]> {
   try {
     const raw = await secrets.get(name);
@@ -244,7 +245,9 @@ export function createFindService(deps: FindServiceDeps): FindService {
       } else {
         s.run.state = "failed";
         const code = end.error?.code;
-        s.run.error = code === undefined || code === "bad_start" ? "crash" : code;
+        // A search ends with one of the find errors; any other code (bad_start, or one that only
+        // another job sends) means the two sides disagree, which the screen shows as a crash.
+        s.run.error = findErrors.find((known) => known === code) ?? "crash";
       }
     } else if (how.reason === "killed" && stopRequested) {
       s.run.state = "paused";
@@ -335,7 +338,7 @@ export function createFindService(deps: FindServiceDeps): FindService {
           }
         }
         const proxyUrls = await urlList(secrets, "pipeline.proxies");
-        const gatewayUrls = await urlList(secrets, "pipeline.gateways");
+        const gatewayUrls = await gatewayUrlsForSearch(secrets);
         // The lookups above took time: another start may have got in, or the account signed out
         // or changed (a live search must never start for someone no longer signed in).
         if (isRunning()) {

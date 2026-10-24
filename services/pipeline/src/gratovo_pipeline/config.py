@@ -13,7 +13,7 @@ from typing import Final, Literal
 from urllib.parse import urlsplit
 
 from gratovo_pipeline import parallel
-from gratovo_pipeline.protocol import AutoCleanAction, Start
+from gratovo_pipeline.protocol import AutoClean, AutoCleanAction, Start
 
 type DelayKey = Literal[
     "human_scroll_delay",
@@ -64,6 +64,11 @@ OTHER_DELAYS: Final[dict[DelayKey, Delay]] = {
 }
 
 BACKFILL_BATCH_SIZE: Final = 25
+# A search's rules come from its start line. A job other than `search` has none, so it gets these:
+# the owner's 200 channels a keyword, sorted by upload date, from videos, in any country.
+HANDLES_LIMIT: Final = 200
+SORT_BY: Final = "upload_date"
+RESULTS_TYPE: Final = "video"
 _LABELS: Final[tuple[AutoCleanLabel, ...]] = ("haramStuff", "irrelevant", "inactive")
 
 
@@ -86,6 +91,31 @@ def _label(value: str) -> AutoCleanLabel:
         if label == value:
             return label
     return "irrelevant"
+
+
+def _auto_clean(clean: AutoClean | None) -> AutoCleanRule | None:
+    if clean is None or not clean["enabled"]:
+        return None
+    return AutoCleanRule(
+        min_subscribers=clean["minSubscribers"],
+        max_subscribers=clean["maxSubscribers"],
+        below_min=clean["belowMin"],
+        above_max=clean["aboveMax"],
+        label=_label(clean["label"]),
+    )
+
+
+@dataclasses.dataclass(frozen=True)
+class _SearchFields:
+    """What only a search sets; the defaults are what every other job gets."""
+
+    keywords: tuple[str, ...] = ()
+    start_at: int = 0
+    handles_limit: int = HANDLES_LIMIT
+    sort_by: Literal["relevance", "upload_date", "view_count", "rating"] = SORT_BY
+    results_type: Literal["video", "channel"] = RESULTS_TYPE
+    country_filter: frozenset[str] | None = None
+    auto_clean: AutoCleanRule | None = None
 
 
 def _usable(urls: list[str]) -> tuple[str, ...]:
@@ -116,12 +146,10 @@ class Config:
 
     @classmethod
     def from_start(cls, start: Start) -> Config:
-        job, rules, settings, secrets = (
-            start["job"],
-            start["job"]["rules"],
-            start["settings"],
-            start["secrets"],
-        )
+        """The configuration of any job (plan D15). The routes, pacing and key are every job's;
+        the search fields are neutral unless the job is a search, and a refetch brings its own
+        auto-clean rule."""
+        job, settings, secrets = start["job"], start["settings"], start["secrets"]
         proxy_urls = _usable(secrets["proxyUrls"])
         gateway_urls = _usable(secrets["gatewayUrls"])
         # No switch sent means the app set proxies up and wants them used.
@@ -142,29 +170,31 @@ class Config:
             "pacing", "fast" if rotating > 0 and workers < 2 else "normal"
         )
 
-        clean = rules["autoClean"]
-        auto_clean = (
-            AutoCleanRule(
-                min_subscribers=clean["minSubscribers"],
-                max_subscribers=clean["maxSubscribers"],
-                below_min=clean["belowMin"],
-                above_max=clean["aboveMax"],
-                label=_label(clean["label"]),
+        if job["kind"] == "search":
+            rules = job["rules"]
+            search = _SearchFields(
+                keywords=tuple(job["keywords"]),
+                start_at=job["startAt"],
+                handles_limit=rules["perKeyword"],
+                sort_by=rules["sortBy"],
+                results_type=rules["resultsType"],
+                country_filter=frozenset(rules["countries"]) or None,
+                auto_clean=_auto_clean(rules["autoClean"]),
             )
-            if clean["enabled"]
-            else None
-        )
+        else:
+            clean = job["autoClean"] if job["kind"] == "refetch" else None
+            search = _SearchFields(auto_clean=_auto_clean(clean))
         return cls(
             source=start["source"],
             data_dir=Path(start["dataDir"]),
             worker=start["worker"],
-            keywords=tuple(job["keywords"]),
-            start_at=job["startAt"],
-            handles_limit=rules["perKeyword"],
-            sort_by=rules["sortBy"],
-            results_type=rules["resultsType"],
-            country_filter=frozenset(rules["countries"]) or None,
-            auto_clean=auto_clean,
+            keywords=search.keywords,
+            start_at=search.start_at,
+            handles_limit=search.handles_limit,
+            sort_by=search.sort_by,
+            results_type=search.results_type,
+            country_filter=search.country_filter,
+            auto_clean=search.auto_clean,
             youtube_key=secrets["youtubeKey"],
             proxies_enabled=proxies["enabled"],
             include_direct=proxies["includeDirect"],

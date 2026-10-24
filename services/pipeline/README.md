@@ -2,7 +2,7 @@
 
 The Python side of the app: YouTube search and enrichment, R2 storage, Gmail and the comms engine. The desktop app runs it as a child process and talks to it in JSON lines on stdin and stdout.
 
-Step 3a set up the project. Step 3e ports the code from `legacy/pipeline/` (see the [migration plan](../../docs/migration-plan.md#step-3-foundation)). Step 3e-1 has the search: the decisions are in [ADR 0013](../../docs/decisions/0013-pipeline.md).
+Step 3a set up the project. Step 3e ports the code from `legacy/pipeline/` (see the [migration plan](../../docs/migration-plan.md#step-3-foundation)). Step 3e-1 has the search: the decisions are in [ADR 0013](../../docs/decisions/0013-pipeline.md). Step 3e-3 added the Gemini bridge and the comms engine ([ADR 0014](../../docs/decisions/0014-gemini-bridge-and-comms.md)), and step 3e-3b the mail and the other jobs, in two lanes ([ADR 0015](../../docs/decisions/0015-pipeline-mail-and-jobs.md)).
 
 ## Layout
 
@@ -16,11 +16,18 @@ All code is in `src/gratovo_pipeline/`.
 | `run_control.py` | The stop flag, set by a reader thread on stdin. |
 | `parallel.py` | Parallel keyword runs (off by default, as in the old app). |
 | `store.py` | `pipeline.db`: the schema (version 1), the search tables and their functions. |
-| `net.py` | The host rule: `check_url` allows HTTPS to YouTube, Google's API, AWS gateway hosts and the configured proxies. |
+| `net.py` | The host rule: `check_url` allows HTTPS to YouTube, Google's API, AWS gateway hosts and the configured proxies. `allow_job_hosts(kind)` adds the hosts a job needs (ADR 0015). |
 | `youtube.py` | The YouTube Data API (`channels.list`, `videos.list`) over `urllib`. |
 | `scrapetube/` | The vendored scraper (curl_cffi) and the proxy pool (direct, proxies, gateways). |
 | `search/` | One keyword: `discover`, `keyword`, `auto_clean`, `uploads`, `backfill`, `pacing`, `signals`, `context`, plus `found_emails`. |
 | `jobs/search.py` | The search run: the keyword loop, stop, resume and `end`. |
+| `jobs/mail.py` | The mail jobs on the quick lane: `mail.status`, `mail.send`, `mail.replies`, `mail.ack` and `mail.cancel`. |
+| `jobs/video_stats.py` | The video stats job: one video's view count. |
+| `jobs/refetch.py` | The refetch job: a list of handles, read again and swept (the old manual refetch). |
+| `jobs/backfill.py` | The backfill job: channels, videos, the backfill and `backlog` (the catch-up). |
+| `jobs/gateways.py` | The gateways jobs: `gateways.deploy`, `gateways.destroy` and `gateways.test` on API Gateway v2. |
+| `mail/` | Gmail over `urllib` (`gmail.py`) and `mailbox.db` (`mailbox.py`), the same tables as the old file. |
+| `aws_sign.py` | AWS Signature Version 4 for the gateway calls. No boto3. |
 | `example/` | The offline example source (`channels.json`, 30 made-up AI creators). |
 | `gemini/` | The Gemini bridge (`python -m gratovo_pipeline.gemini`): one long-lived process on 127.0.0.1, with `daemon.py`, `server.py`, `client.py`, `actions.py` (keywords, classification, gems, skills, comms), `errors.py`, `browser/` (Firefox detect, profile, session, window guard). |
 | `comms/` | The comms engine (playbook, checks, `engine.py`, `course.py`, `moments.py`), used by the app, plus the tools a person runs by hand (`coach`, `gradbar`, `pairwise`, `scenarios`, `mine_calls`, `pool`, `skill_build`, `verify`, `quote_review`, `video_check`). |

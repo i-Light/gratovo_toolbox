@@ -15,13 +15,10 @@ from gratovo_pipeline import net
 from gratovo_pipeline.config import Config
 from gratovo_pipeline.protocol import LogLevel
 from gratovo_pipeline.scrapetube import scrapetube
-from gratovo_pipeline.search.context import SearchBlockedError
+from gratovo_pipeline.search.context import RECENT_VIDEOS, SearchBlockedError
 from gratovo_pipeline.search.pacing import Pacer
 from gratovo_pipeline.youtube import ChannelInfo, VideoInfo, YouTubeApi
 
-# The uploads window read per channel. It stays at 15 (the owner's note on the old code: enough
-# to span about a month); widening it is the on-hold gap search-1.
-RECENT_VIDEOS: Final = 15
 _PROGRESS_EVERY: Final = 20
 
 
@@ -61,12 +58,12 @@ class LiveSweep:
         self._pacer = pacer
         self._log = log
 
-    def recent_video_ids(self, handle: str) -> list[str]:
+    def recent_video_ids(self, handle: str, *, limit: int = RECENT_VIDEOS) -> list[str]:
         ids: list[str] = []
         try:
             for video in scrapetube.get_channel(
                 channel_url=f"https://www.youtube.com/{handle}",
-                limit=RECENT_VIDEOS,
+                limit=limit,
                 sleep=self._pacer.range("human_scroll_delay"),
                 session=self._session,
             ):

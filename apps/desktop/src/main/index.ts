@@ -120,15 +120,26 @@ function start(): void {
         emit,
       });
       const userData = app.getPath("userData");
-      const supervisor = createPipelineSupervisor({
-        spawn: (command, args, options) =>
-          spawn(command, [...args], { ...options, stdio: "pipe", windowsHide: true }),
-        python: () =>
-          findPython({ packaged: app.isPackaged, appPath: app.getAppPath(), exists: existsSync }),
-        env: pipelineEnv(process.env),
-        openLog: (logSecrets) =>
-          openPipelineLog({ folder: join(userData, "logs"), now: Date.now, secrets: logSecrets }),
-      });
+      // Two lanes (plan D14, `laneFor`): the store lane runs the jobs that write `pipeline.db`,
+      // the quick lane mail, video stats and gateways, so a Send never waits behind a search.
+      const pipelineLane = (kind: "pipeline" | "quick") =>
+        createPipelineSupervisor({
+          spawn: (command, args, options) =>
+            spawn(command, [...args], { ...options, stdio: "pipe", windowsHide: true }),
+          python: () =>
+            findPython({ packaged: app.isPackaged, appPath: app.getAppPath(), exists: existsSync }),
+          env: pipelineEnv(process.env),
+          openLog: (logSecrets) =>
+            openPipelineLog({
+              folder: join(userData, "logs"),
+              now: Date.now,
+              secrets: logSecrets,
+              kind,
+            }),
+        });
+      const supervisor = pipelineLane("pipeline");
+      // Nothing runs on it yet: mail (steps 6 to 9), video stats and the gateways card will.
+      const quickLane = pipelineLane("quick");
       // The Gemini bridge (step 3e-3). Nothing starts it yet: keyword ideas (step 5) and drafts
       // (step 6) will. It is created here so quitting always stops it.
       const gemini = createGeminiService({
@@ -155,11 +166,11 @@ function start(): void {
         },
         now: Date.now,
       });
-      // A search or a Gemini bridge running at quit is asked to stop first (and killed after
-      // 5 s); then the app quits again. The flag keeps that second quit from looping.
+      // A job in either lane or a Gemini bridge running at quit is asked to stop first (and
+      // killed after 5 s); then the app quits again. The flag keeps that second quit from looping.
       let quitting = false;
       app.on("before-quit", (event) => {
-        if (quitting || (!supervisor.running && gemini.state === "stopped")) {
+        if (quitting || (!supervisor.running && !quickLane.running && gemini.state === "stopped")) {
           return;
         }
         quitting = true;
@@ -169,6 +180,7 @@ function start(): void {
           find.shutdown().catch((error: unknown) => {
             console.error("The search couldn't be stopped at quit:", error);
           }),
+          quickLane.shutdown(),
           gemini.shutdown(),
         ]).finally(() => {
           app.quit();

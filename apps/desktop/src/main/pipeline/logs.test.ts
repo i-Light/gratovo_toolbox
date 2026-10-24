@@ -77,4 +77,59 @@ describe("pipeline logs", () => {
     // Too short to be a secret worth hiding, and hiding it would blank ordinary words.
     expect(redact("a b", ["a", "b"])).toBe("a b");
   });
+
+  const noUrls = { youtubeKey: null, proxyUrls: [], gatewayUrls: [] };
+
+  it("blanks the mail client's id and secret and every mailbox's refresh token", () => {
+    const secrets = secretsOf({
+      secrets: {
+        ...noUrls,
+        mail: {
+          client: { id: "example-client.apps.example.com", secret: "example-client-secret" },
+          mailboxes: [
+            { address: "outreach@example.com", refreshToken: "example-refresh-one" },
+            { address: "partners@example.com", refreshToken: "example-refresh-two" },
+          ],
+        },
+      },
+    });
+
+    expect(redact("client example-client.apps.example.com", secrets)).toBe("client [secret]");
+    expect(redact("secret=example-client-secret", secrets)).toBe("secret=[secret]");
+    expect(redact("tokens example-refresh-one, example-refresh-two", secrets)).toBe(
+      "tokens [secret], [secret]",
+    );
+    // The addresses aren't secrets: the log names the mailbox that failed.
+    expect(redact("outreach@example.com refused", secrets)).toBe("outreach@example.com refused");
+  });
+
+  it("blanks both AWS keys", () => {
+    const secrets = secretsOf({
+      secrets: {
+        ...noUrls,
+        aws: { accessKeyId: "AKIAEXAMPLENOTREAL01", secretAccessKey: "example/aws+secret/key" },
+      },
+    });
+
+    expect(redact("signed with AKIAEXAMPLENOTREAL01", secrets)).toBe("signed with [secret]");
+    expect(redact("key example/aws+secret/key", secrets)).toBe("key [secret]");
+  });
+
+  it("blanks every API id a gateways.destroy job names", () => {
+    const secrets = secretsOf({
+      secrets: noUrls,
+      job: {
+        kind: "gateways.destroy",
+        gateways: [
+          { region: "us-east-1", apiId: "abc123def4" },
+          { region: "eu-west-2", apiId: "zyx987wvu6" },
+        ],
+      },
+    });
+
+    expect(redact("deleted abc123def4 and zyx987wvu6 in us-east-1", secrets)).toBe(
+      "deleted [secret] and [secret] in us-east-1",
+    );
+    expect(secretsOf({ secrets: noUrls, job: { kind: "gateways.test" } })).toEqual([]);
+  });
 });

@@ -93,12 +93,12 @@ def _video(channel: ExampleChannel, n: int, now: float) -> VideoInfo:
 
 
 class ExampleSweep:
-    def recent_video_ids(self, handle: str) -> list[str]:
+    def recent_video_ids(self, handle: str, *, limit: int = 15) -> list[str]:
         run_control.sleep(READ_PAUSE)
         channel = _BY_HANDLE.get(handle)
         if channel is None:
             return []
-        return [_video_id(channel, n) for n in range(channel.uploads)]
+        return [_video_id(channel, n) for n in range(channel.uploads)][:limit]
 
     def close(self) -> None:
         pass

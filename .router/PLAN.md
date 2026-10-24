@@ -4,7 +4,7 @@ Written 2026-10-21 by the lead (Opus) on branch `feat/3e-3-pipeline-rest`, from 
 
 Read `.router/CONTEXT.md` §1 to §3 first (3e-1's recon, still true), then this. Bash commands start with `export PATH="$HOME/.local/opt/node-v24.22.0-win-x64:$HOME/.local/bin:$PATH";`. **Never read `.env*`, `*.local.json`, `aws_gateways.json` or `gmail_accounts*`**, and never read, print or handle a key or token value. Nothing here touches production Supabase. Never send an email, never read the mailbox, never run two Gemini bridges (port 8765).
 
-**Status: the owner answered on 2026-10-21 (§Questions). Two pull requests: 3e-3a (the Gemini bridge and the comms engine) and 3e-3b (mail and the remaining jobs). Building 3e-3a.**
+**Status: the owner answered on 2026-10-21 (§Questions). Two pull requests: 3e-3a (the Gemini bridge and the comms engine) merged as #16 on 2026-10-23; 3e-3b (mail and the remaining jobs) detailed at the end of §Tasks and being built.**
 
 ## What 3e-3 ports (recon, 2026-10-21)
 
@@ -137,9 +137,107 @@ type CommsFacts = {
 | A8 | E | all | `docs/decisions/0014-gemini-bridge-and-comms.md`, `services/pipeline/README.md`, `docs/architecture.md`, `docs/migration-plan.md`, `.router/PROGRESS.md` | D1 to D8, D10 and D12 (transcripts) as an ADR; the status table | read through |
 | L1 | lead | all | – | Full checks; `router-reviewer` on the diff; fixes; Windows CI by workflow_dispatch; PR, CI green, merge | all green |
 
-### 3e-3b: mail and the remaining jobs (outline; next session)
+### 3e-3b: mail and the remaining jobs (detailed 2026-10-23 by the lead, on `feat/3e-3b-mail-and-refetch` from `main` at f5a9e7a)
 
-C1 (H) the job additions in `protocol.ts` and the Python mirror; C2 (H) `mail/gmail.py` over urllib, `mail/mailbox.py`, `mail/send.py`, test_mailbox and test_email_send_no_auto_send ported, D9's rules; C3 (N) `video_stats` with its tests; C4 (N) `refetch` and `backfill` from 3e-1's store and the old enrich and import_handles; C5 (H) `aws_sign.py` and `gateways`; C6 (N) main's handling of `result` and the secret-store keys of D9 and D11; C7 (E) ADR 0015, docs, status; L1.
+3e-3a merged as #16. This section replaces the outline and, where they differ, overrides D9, D11, D12 and "Job additions" above.
+
+#### Decisions for 3e-3b (D14 to D21)
+
+- **D14. Two lanes in main.** ADR 0013 §2 ran one job at a time; a Send must not wait hours for a search. Main keeps two supervisors: the **store lane** (`search`, `refetch`, `backfill`: they write `pipeline.db`, so never two at once) and the **quick lane** (`mail.*`, `video_stats`, `gateways.*`: one at a time, so `mailbox.db` has one writer). `laneFor(kind)` decides. Both stop on quit.
+- **D15. One envelope, every kind.** `start` keeps its shape; `job` becomes a union on `kind`. `secrets.youtubeKey/proxyUrls/gatewayUrls` stay required (null and `[]` when a job needs none). Every kind except `search` needs `source: "live"` (example mode fakes these on main's side in steps 5 to 9); `source: "example"` with another kind is `bad_start`. For kinds other than `search`, `end.at`, `found` and `kept` are 0: the answer is in `result`. `Config.from_start` works for every kind (search fields neutral when the kind isn't `search`; the refetch job's `autoClean` feeds `auto_clean`).
+- **D16. `result` and `reply`.** `{type: "result", kind, data}` is the job's answer: at most once, before `end`; always on `done`, and on `stopped` for `refetch` and `backfill` (partial counts); never on `failed`. Replies stream as one `{type: "reply", …}` line each (a sweep's bodies would pass the 64 KiB line limit): a body is cut to 16,000 characters, then halved until the line fits, with `bodyCut: true`.
+- **D17. Mail (amends D9).** `mail/gmail.py` (Gmail over `urllib`: token refresh at `oauth2.googleapis.com/token`, REST at `gmail.googleapis.com/gmail/v1/users/me/…`; no redirects, no proxies, timeout 30 s; retries 429 and 5xx as the old `_call`, 4 tries, backoff with jitter; the access token lives only in memory and only in the `Authorization` header), `mail/mailbox.py` (the old store, same tables so an old `mailbox.db` opens unchanged; adds `approved_by TEXT` to `sent_messages` and `send_keys` by a guarded `ALTER`; `user_version` 1), `jobs/mail.py` (the five jobs). `mailbox.db` is `<dataDir>/mailbox.db`; main passes `<userData>/mail` as `dataDir`. **`sendKey` and `approvedBy` are required** (the schema refuses a send without them; the old "no key" path is gone). `mail.replies` sweeps the named mailbox or every connected one; one failing mailbox is reported in its entry and the rest go on. Replies stay unreported until `mail.ack` (no `--ack-now`). Queued follow-ups from an old file are cancelled by the sweep, never sent (test_email_send_no_auto_send). Not ported: `--authorize` and `--sign-out` (consent in main, step 6), `--pending` (nothing queues any more), `--test-send` (step 9 decides; the Settings card can use `mail.send` to the mailbox's own address), the `replyTo` header, `--dry-run`, `--ack-now`.
+- **D18. Refetch and backfill (amends D11).** `refetch` is the old `run_manual_refetch` (import_handles' file reading stays in main: it sends parsed handles). Each handle is emitted as a `channel` line (`keyword` = the job's keyword, default `__manual_refetch__`), so the screen can show it live. `YouTubeApi` gains `channel_for_handle(handle)` (`channels.list?forHandle=`). `backfill` ports enrich.py's three jobs without the report and without the sync, plus `backlog` (3e-1's `backfill_missing_videos` over the whole store: the old catch-up button). Run kinds: `re-enrich` for both jobs, `catch-up` while `backlog` runs. A stop ends `stopped` with what was saved.
+- **D19. Gateways (amends D11).** `list`, `enable` and `disable` change only main's stored state, so they stay in main (C6). Python does `gateways.deploy {regions}`, `gateways.destroy {gateways: [{region, apiId}]}` and `gateways.test` (every URL in `secrets.gatewayUrls`, `GET <url>/generate_204`, `ok` when the status is below 500). Requests to `apigateway.<region>.amazonaws.com` (API Gateway v2 REST: `POST /v2/apis`, `/v2/apis/{id}/integrations`, `/routes`, `/stages`; `DELETE /v2/apis/{id}`), signed by `aws_sign.py` (SigV4, service `apigateway`). STS isn't needed. One region failing doesn't stop the others. `pipeline.gateways` in the secret store becomes `{enabled, gateways: [{region, apiId, url}]}`; the old plain list is still read (as enabled, with no api ids).
+- **D20. The network rule per job (amends D12).** `net.allow_job_hosts(kind)` is called once by the entry point before the job runs. `mail.*` adds `gmail.googleapis.com` and `oauth2.googleapis.com`; `gateways.*` adds `apigateway.<region>.amazonaws.com`. Everything else keeps 3e-1's list.
+- **D21. Secrets in main.** `mail.client` (`{id, secret}`), `mail.mailboxes` (`[{address, refreshToken}]`) and `aws.keys` (`{accessKeyId, secretAccessKey}`) are JSON in the secret store, read and checked by `pipeline-secrets.ts` (bad JSON or shape → treated as missing, logged by name only). `secretsOf` blanks the client secret, each refresh token, both AWS keys, and each gateway's `apiId`. A deploy's `result` is merged into `pipeline.gateways` and never logged.
+
+#### Contracts (zod in `protocol.ts`; Python mirrors them in `protocol.py`)
+
+```ts
+const email = z.string().min(3).max(320).regex(/^[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+$/);
+const handle = z.string().regex(/^@[A-Za-z0-9._-]{1,100}$/);
+const region = z.string().regex(/^[a-z]{2}(-[a-z]+)+-\d$/);
+const apiId = z.string().regex(/^[a-z0-9]{1,32}$/);
+const gmailId = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
+const conversationKey = z.string().min(1).max(200);
+const channelId = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
+
+// start.job: discriminatedUnion("kind", [searchJob (unchanged), …])
+{ kind: "mail.status" }
+{ kind: "mail.send"; message: { to: email; subject: string /*0..998*/; body: string /*1..100_000*/;
+    mailbox?: email; conversationKey?: conversationKey; newThread?: boolean; channelId?: channelId;
+    labels?: string[] /*≤10, each 1..100*/; sendKey: string /*8..200, [A-Za-z0-9_:.-]*/; approvedBy: string /*1..100*/ } }
+{ kind: "mail.replies"; mailbox?: email; conversationKey?: conversationKey; limit?: number /*1..500, default 60*/ }
+{ kind: "mail.ack"; messageIds: gmailId[] /*1..500*/ }
+{ kind: "mail.cancel"; conversationKey: conversationKey }
+{ kind: "video_stats"; videoUrl: string /*1..2000*/ }
+{ kind: "refetch"; handles: handle[] /*1..2000, unique ignoring case*/; keyword?: keyword; autoClean: AutoClean | null }
+{ kind: "backfill"; only: ("channels"|"videos"|"backfill"|"backlog")[] /*1..4, unique*/; handles?: handle[] /*1..500*/;
+    months?: number /*1..24, default 2*/; maxApiCalls?: number /*0..10_000, default 100; 0 = no ceiling*/;
+    includeAbsent?: boolean; limit?: number /*1..100_000*/ }
+{ kind: "gateways.deploy"; regions: region[] /*1..20, unique*/ }
+{ kind: "gateways.destroy"; gateways: { region; apiId }[] /*1..50*/ }
+{ kind: "gateways.test" }
+// refine: source "example" only with kind "search"
+
+// start.settings gains (optional):
+mail?: { label: string /*1..100*/; senderName: string | null /*≤100*/;
+         mailboxes: { address: email; dailyCap: number /*10..50*/; warmupStartedOn: string | null /*YYYY-MM-DD*/ }[] /*≤20*/ }
+// start.secrets gains (optional):
+mail?: { client: { id: string /*1..300*/; secret: string /*1..300*/ }; mailboxes: { address: email; refreshToken: string /*1..2000*/ }[] /*≤20*/ }
+aws?: { accessKeyId: string /*[A-Z0-9]{16,128}*/; secretAccessKey: string /*1..200*/ }
+
+// stdout gains:
+{ type: "reply"; account: email; conversationKey; channelId: channelId | null; messageId: gmailId; from: string /*≤320*/;
+  fromName: string | null /*≤300*/; subject: string /*≤998*/; body: string; bodyCut: boolean; receivedAt: string | null;
+  isFirstReply: boolean; cancelledFollowUps: number }
+{ type: "result"; kind: "mail.status"; data: { configured: boolean; label: string; senderName: string | null;
+    accounts: { account: string | null; connected: boolean;
+      counters: { conversations; sent; awaitingReply; replied; pendingSteps; dueSteps; failedSteps; unreportedReplies } | null;
+      limits: { dailyCap; warmupStartedOn: string | null; sentToday; leftToday } | null;
+      lastSweepAt: string | null; error: { code: "mail_auth" | "mail_api" | "network"; message } | null }[] } }
+{ type: "result"; kind: "mail.send"; data: { duplicate: boolean; account: email; conversationKey; messageId: gmailId;
+    threadId: gmailId | null; rfcMessageId: string | null /*≤998*/; labelled: boolean; threaded: boolean; to: email;
+    subject: string | null; sentAt: string } }
+{ type: "result"; kind: "mail.replies"; data: { accounts: { account: email; checked; replies; cancelledQueued;
+    error: { code: "mail_auth" | "mail_api" | "network"; message } | null }[] } }
+{ type: "result"; kind: "mail.ack"; data: { acknowledged } }
+{ type: "result"; kind: "mail.cancel"; data: { cancelled; closed: boolean } }
+{ type: "result"; kind: "video_stats"; data: { videoId: string /*11*/; views: size; fetchedAt: string } }
+{ type: "result"; kind: "refetch"; data: { processed; swept; deferred; failedCount; failed: string[] /*≤200 handles*/ } }
+{ type: "result"; kind: "backfill"; data: { channels: { targets; filled } | null; videos: { targets; filled } | null;
+    backfill: { channels; saved } | null; backlog: { stamped } | null; apiCalls; budgetReached: boolean } }
+{ type: "result"; kind: "gateways.deploy"; data: { deployed: { region; apiId; url }[]; failed: { region; message }[] } }
+{ type: "result"; kind: "gateways.destroy"; data: { deleted: { region; apiId }[]; failed: { region; apiId; message }[] } }
+{ type: "result"; kind: "gateways.test"; data: { results: { region: region | null; status: number | null; ok: boolean; message: string | null }[] } }
+// end.error.code gains: "mail_not_connected" | "mail_auth" | "mail_api" | "daily_cap_reached" | "send_uncertain"
+//                       | "not_a_video" | "not_found" | "no_aws_keys" | "aws"
+// (numbers not typed above are `count`; messages are 1..500, cut by the Emitter)
+```
+
+Python side, written by C1 for the others to use: `protocol.Job` (union of TypedDicts), `Emitter.result(kind, data)`, `Emitter.reply(...)`, `jobs.run(start, emitter)` dispatching on `kind` (each job module exports `run(start: Start, emitter: Emitter) -> None` and always ends with `end`), `net.allow_job_hosts(kind)`.
+
+Mail error mapping (jobs/mail.py): no client or no mailbox in `secrets.mail` → `mail_not_connected` (`mail.status` reports `configured: false` instead); the named mailbox not connected → `mail_not_connected`; two or more connected and none named for `mail.send` → `bad_start`; token refused (`invalid_grant`, `invalid_client`, 401) → `mail_auth` (message as the old `_describe_auth_failure`, without the CLI command); other Gmail refusals → `mail_api`; unreachable → `network`; the cap → `daily_cap_reached`; a claimed key never confirmed → `send_uncertain`; a bad address → `bad_start`. `mail.ack` and `mail.cancel` need no secrets and make no request.
+
+#### Tasks
+
+| id | tier | depends | files | spec | done_check |
+|---|---|---|---|---|---|
+| C1 | H | – | `main/pipeline/protocol.ts` + `protocol.test.ts`, `protocol.schema.json`, `protocol.py`, `config.py`, `net.py`, `__main__.py`, `jobs/__init__.py`, stub `jobs/{mail,video_stats,refetch,backfill,gateways}.py`, `tests/test_protocol.py`, `tests/test_net.py`, `tests/test_config.py` | The contracts above on both sides; D15, D16, D20; stubs end `failed`/`crash` "not built yet" | Vitest, pytest, pyright, ruff; schema file equals the script's output |
+| C2a | N | C1 | `mail/__init__.py`, `mail/gmail.py`, `tests/test_gmail.py` | D17's transport through a fake opener; the old parsing helpers and their tests (MessageParsingTest) | pytest, pyright, ruff |
+| C2b | N | C1 | `mail/mailbox.py`, `tests/test_mailbox.py` | The old store, typed; `approved_by`; the store halves of test_mailbox (Sequence, Threading, ReplyReporting, Counters, SendKey store parts) | pytest |
+| C2c | H | C2a, C2b | `jobs/mail.py`, `tests/test_mail_jobs.py`, `tests/test_email_send_no_auto_send.py` | The five jobs on a fake client (ToolSweep, SendKey, DailyCap, NoAutomaticSend ported); every line checked against the schema; a test that no request is made without a send job | pytest |
+| C3 | N | C1 | `jobs/video_stats.py`, `tests/test_video_stats.py` | The old tool as a job; `video_id_from` kept; one `videos.list` call; codes per the contract | pytest |
+| C4a | N | C1 | `jobs/refetch.py`, `youtube.py` (`channel_for_handle`), `tests/test_refetch_job.py`, `tests/test_youtube.py` | D18; fakes local to the test file | pytest |
+| C4b | N | C1 | `jobs/backfill.py`, `store.py` (enrich's queries), `tests/test_enrich_job.py` | D18; budget and stop as the old tool | pytest |
+| C5a | H | – | `aws_sign.py`, `tests/test_aws_sign.py` | SigV4 over plain dicts; AWS's published IAM ListUsers example as a test; no secret in any error | pytest |
+| C5b | N | C1, C5a | `jobs/gateways.py`, `tests/test_gateways_job.py` | D19 against a fake transport | pytest |
+| C6 | H | C1 | `main/pipeline/supervisor.ts` (+test: `result` and `reply` passed on, `ended` carries the result), `main/pipeline/logs.ts` (+test), `main/pipeline/pipeline-secrets.ts` (+test), `main/pipeline/jobs.ts` (+test: `laneFor`, `runJob`), `main/index.ts` (the second supervisor and its shutdown), `find/find-service.ts` (reads the new `pipeline.gateways` shape) | D14, D19 (main's half), D21 | Vitest, typecheck, lint |
+| C7 | E | all | `docs/decisions/0015-pipeline-mail-and-jobs.md`, `services/pipeline/README.md`, `docs/architecture.md`, `docs/migration-plan.md`, `.router/PROGRESS.md` | D14 to D21 as an ADR; the status table | read through |
+| L1 | lead | all | – | Full checks; `router-reviewer` on the diff; fixes; PR, CI green, merge | all green |
+
+Parallel after C1: C2a, C2b, C3, C4a, C4b, C5a and C6 share no files. Only C1 edits `fakes.py`, `conftest.py` or `helpers.py`; the others keep their fakes in their own test file.
 
 ## Questions for the owner (answered 2026-10-21)
 
