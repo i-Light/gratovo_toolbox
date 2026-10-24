@@ -2,7 +2,7 @@
 
 ## Git
 
-- `main` is always releasable and protected (from step 3g): changes land through pull requests with green CI.
+- `main` is always releasable: changes land through pull requests with green CI. Branch protection that enforces it comes in step 7 (was 3g).
 - One branch per piece of work: `type/short-description` (`feat/`, `fix/`, `docs/`, `chore/`, `refactor/`, `test/`). Cloud sessions may use their own `claude/...` branch names.
 - Commits are small and say why. The subject is in the imperative and under about 70 characters; the body says what changed and why. Commits made by Claude end with the co-author line.
 - Never force-push a shared branch, never rewrite `main`, never commit secrets (see [SECURITY.md](../SECURITY.md)).
@@ -11,16 +11,20 @@
 ## How a plan step runs
 
 1. **Start.** Read the [migration plan](migration-plan.md): its status table (§5) says which step is next, and the step says what done means. If `.router/PROGRESS.md` exists, a step is in progress: carry on from it. Write the step's working plan with the `smart-task-router` skill: `.router/CONTEXT.md` and `.router/PLAN.md`, with tasks, tiers and done-checks.
-2. **Build** in small tasks, each with a check (a test, typecheck, lint, a screenshot). Use the skills listed in [CLAUDE.md](../CLAUDE.md).
-3. **Verify** the step's acceptance checks, then look at the result yourself: dark, at desktop width (1440 px). No light-theme checks (the app is dark only for now) and no phone or narrow-width checks (owner, 2026-10-20).
+2. **Build** in small tasks, each with a check (a test, typecheck, lint, a screenshot). Use the skills listed in [CLAUDE.md](../CLAUDE.md). Build in pipeline order, and keep anything not wired to real data hidden in live mode (ground rule 9 of the plan).
+3. **Verify** in two tiers (ground rule 10 of the plan, owner 2026-10-24):
+   - **Every sub-step's pull request:** `pnpm lint`, `pnpm typecheck` and `pnpm test` (Vitest and pytest), plus at most one new, light Electron smoke test that the new screen renders and completes its main IPC round trip. The Electron tests that already exist still run in CI.
+   - **At the end of a major step:** the full Playwright flow suite for that stage (the keyboard matrix, undo edge cases, the parity flows) in one batch.
+
+   Then look at the result yourself: dark, at desktop width (1440 px). No light-theme checks (the app is dark only for now) and no phone or narrow-width checks (owner, 2026-10-20).
 4. **Review.** Run an independent reviewer (the `router-reviewer` agent, or a fresh agent), fix what it finds, and re-run the checks.
 5. **Finish.** Update the plan's status table, and remove `.router/` if the step is complete (anything worth keeping moves into these docs first). Commit, push the branch, and open a pull request that lists what was checked and how.
 6. **Merge.** When CI is green and the review findings are fixed, the session merges its own pull request. The owner doesn't merge or do anything by hand on GitHub (their rule of 2026-10-19).
-7. **Owner check.** The owner tries it, with prototype mode on for new screens, and comments. Their comments start the next round.
+7. **Owner check.** The owner tries it in the real app (from step 7, with prototype mode on for screens not wired yet) and comments. Their comments start the next round.
 
 **Stopping mid-step.** Commit the work in progress on the branch, with `.router/PROGRESS.md` saying exactly where you stopped and what is next. There is no hand-off file (the owner removed it on 2026-10-20). A cloud session sees only what is pushed.
 
-## Continuous integration (from step 3g)
+## Continuous integration (since step 3b)
 
 | Job | Runs |
 |---|---|
@@ -31,7 +35,7 @@
 | sql | Supabase migrations plus SQL and RLS tests in Docker |
 | security | gitleaks, OSV-Scanner (dependency audit), CodeQL; also weekly |
 
-## Releases (from step 3h)
+## Releases (from step T5)
 
 - The version follows SemVer from commit types: `feat` → minor, `fix` → patch, breaking → major.
 - A tag `vX.Y.Z` builds the Windows installer and publishes it to the private release location (migration plan §9 Q12). Builds are unsigned by the owner's choice.
@@ -74,3 +78,9 @@ Each of these cost a CI round or a review finding (step 3c).
 - lefthook on Windows can't run a multi-line `run:` script: put the script in a file (`tooling/hooks/`).
 - The lead's screenshot scripts are in [lead-scripts.md](lead-scripts.md). Accessibility is checked by `e2e/accessibility.spec.ts`.
 - Production rollouts through the Supabase MCP (3d-2a): the owner's MCP has no `get_project` or `get_advisors`, so check by SQL (owners, `has_function_privilege`, `has_table_privilege` for `anon` and `authenticated`) and ask the owner to look at the Data API's exposed schemas. Claude Code's permission check holds SQL that grants an account rights until the owner says "go" for that exact step. To prove a definer function works for a member without handling their token, run it as them inside a rolled-back transaction (`set_config('request.jwt.claims', …, true)`, `set local role authenticated`) and select only true or false.
+- Python's `write_text` on Windows writes CRLF, and a heredoc or the editor can turn `\r`, `\n` and ` ` in a replacement into real characters. Patch with a script file that reads and writes bytes, then grep the result. A raw U+2028 ends a JavaScript regex literal. Shell heredocs also eat backslashes (3e-3).
+- CodeQL fails CI on any result, and treats anything read out of a `secrets` object as secret, even a mailbox address. Keep values that go to stdout apart from the secrets at the protocol boundary, keep text from outside on one log line, and never log a value from a request (3e-3). The CI step prints each result's sources, so a result can be traced from the log.
+- Git Bash finds Node 24.19 first: put `~/.local/opt/node-v24.22.0-win-x64` first on `PATH` before `pnpm install`.
+- A send is not idempotent: never retry it after the request may have reached the server (3e-3b).
+- Agents running at once must not share files, and the pre-commit hook (lint-staged) stashes unstaged changes while it runs: the lead commits named paths once every agent is done.
+- Still owed by later steps: the packaged build ships `@supabase/realtime-js` with main, and Deno plus `yt-dlp-ejs` for subtitles (T5); the two known sync limits in ADR 0012. Code scanning isn't enabled for the repository (the owner's choice). The owner's files under `design/` aren't part of any step unless the owner says so.
