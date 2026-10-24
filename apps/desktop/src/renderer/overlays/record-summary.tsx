@@ -3,6 +3,7 @@ import type { CSSProperties } from "react";
 
 import type { RecordRef } from "../lib/routes";
 import { dealName, findRecord, useApp } from "../lib/store";
+import { CreatorRecord } from "../record/creator-record";
 import { strings } from "../strings";
 import { brandSub, creatorSub, dealSub } from "./record-text";
 
@@ -65,5 +66,32 @@ export function RecordSummary({ record }: { readonly record: RecordRef }) {
       </div>
       <p className="hint">{strings.record.fullRecordLater}</p>
     </>
+  );
+}
+
+/**
+ * What the peek and the record page show for a record: the creator record for a creator, the
+ * summary for a brand or a deal. An example-data creator that the page holds shows the summary
+ * at once; on live data one the catalog lacks but the page still holds falls back to it.
+ */
+export function RecordBody({
+  record,
+  layout,
+}: {
+  readonly record: RecordRef;
+  readonly layout: "peek" | "page";
+}) {
+  const held = useApp((s) => s.data.creators.some((c) => c.id === record.id));
+  const example = useApp((s) => s.data.source === "example");
+  // Example creators (c1, c2 ...) are not in the catalog: asking would only flash a skeleton.
+  if (record.kind !== "creator" || (example && held)) {
+    return <RecordSummary record={record} />;
+  }
+  return (
+    <CreatorRecord
+      id={record.id}
+      layout={layout}
+      fallback={held ? <RecordSummary record={record} /> : undefined}
+    />
   );
 }

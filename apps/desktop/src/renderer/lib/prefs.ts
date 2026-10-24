@@ -1,3 +1,5 @@
+import { creatorStages } from "@gratovo/core/data";
+import { emptyFindFilter, findSignals, type FindFilter } from "@gratovo/core/find";
 import { useSyncExternalStore } from "react";
 import { z } from "zod";
 
@@ -10,6 +12,14 @@ export interface Prefs {
   readonly letters: "" | "off";
   /** "min" collapses the rail. */
   readonly rail: "" | "min";
+  /** The gallery's last filter, sort, view, card size and show toggles (step 5b, D20). */
+  readonly findFilter: FindFilter;
+  readonly findSort: "fit" | "median" | "subs" | "found" | "latest";
+  readonly findView: "gallery" | "table";
+  readonly findSize: "s" | "m" | "l";
+  readonly findPics: boolean;
+  readonly findLatest: boolean;
+  readonly findSignals: boolean;
 }
 
 /** The one localStorage key that holds all preferences as JSON. */
@@ -21,6 +31,13 @@ const defaults: Prefs = {
   motion: "",
   letters: "",
   rail: "",
+  findFilter: emptyFindFilter,
+  findSort: "fit",
+  findView: "gallery",
+  findSize: "m",
+  findPics: true,
+  findLatest: true,
+  findSignals: true,
 };
 
 // One schema per field, so a bad value in one field cannot reset the others. A key that is not
@@ -31,6 +48,22 @@ const fields = {
   motion: z.enum(["", "reduce"]),
   letters: z.enum(["", "off"]),
   rail: z.enum(["", "min"]),
+  findFilter: z.object({
+    stages: z.array(z.enum(creatorStages)),
+    signals: z.array(z.enum(findSignals)),
+    countries: z.array(z.string()),
+    minMedian: z.number().nonnegative(),
+    maxMedian: z.number().nonnegative().nullable(),
+    minUploads: z.number().nonnegative(),
+    runs: z.array(z.number().int().nonnegative()),
+    q: z.string(),
+  }),
+  findSort: z.enum(["fit", "median", "subs", "found", "latest"]),
+  findView: z.enum(["gallery", "table"]),
+  findSize: z.enum(["s", "m", "l"]),
+  findPics: z.boolean(),
+  findLatest: z.boolean(),
+  findSignals: z.boolean(),
 } as const;
 
 function parseStored(text: string | null): Record<string, unknown> {
@@ -67,6 +100,13 @@ export function readPrefs(storage: Pick<Storage, "getItem"> | null): Prefs {
     motion: pick("motion", stored),
     letters: pick("letters", stored),
     rail: pick("rail", stored),
+    findFilter: pick("findFilter", stored),
+    findSort: pick("findSort", stored),
+    findView: pick("findView", stored),
+    findSize: pick("findSize", stored),
+    findPics: pick("findPics", stored),
+    findLatest: pick("findLatest", stored),
+    findSignals: pick("findSignals", stored),
   };
 }
 

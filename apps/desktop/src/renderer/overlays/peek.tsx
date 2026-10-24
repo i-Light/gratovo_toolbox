@@ -5,7 +5,7 @@ import { useReturnFocus } from "../lib/focus";
 import { useKeys } from "../lib/keys";
 import { useApp } from "../lib/store";
 import { strings } from "../strings";
-import { RecordSummary } from "./record-summary";
+import { RecordBody } from "./record-summary";
 
 /**
  * The side panel that shows a record next to the list. Previous and Next step through the list the
@@ -74,7 +74,11 @@ export function Peek() {
         <IconBtn icon="x" label={text.close} kbd={strings.keys.esc} onClick={closePeek} />
       </div>
       <div className="peek-b">
-        <RecordSummary key={`${peek.record.kind}${peek.record.id}`} record={peek.record} />
+        <RecordBody
+          key={`${peek.record.kind}${peek.record.id}`}
+          record={peek.record}
+          layout="peek"
+        />
       </div>
     </aside>
   );

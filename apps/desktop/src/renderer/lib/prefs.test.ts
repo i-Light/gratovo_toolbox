@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import { emptyFindFilter } from "@gratovo/core/find";
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -11,6 +12,13 @@ const defaults: Prefs = {
   motion: "",
   letters: "",
   rail: "",
+  findFilter: emptyFindFilter,
+  findSort: "fit",
+  findView: "gallery",
+  findSize: "m",
+  findPics: true,
+  findLatest: true,
+  findSignals: true,
 };
 
 function storageWith(text: string | null): Pick<Storage, "getItem"> {
@@ -33,7 +41,38 @@ describe("readPrefs", () => {
       letters: "off",
       rail: "min",
     };
-    expect(readPrefs(storageWith(JSON.stringify(saved)))).toEqual(saved);
+    expect(readPrefs(storageWith(JSON.stringify(saved)))).toEqual({ ...defaults, ...saved });
+  });
+
+  it("reads the gallery's filter, sort, view, size and show toggles", () => {
+    const saved = {
+      findFilter: {
+        ...emptyFindFilter,
+        stages: ["new"],
+        countries: ["US"],
+        runs: [3],
+        q: "agents",
+      },
+      findSort: "median",
+      findView: "table",
+      findSize: "l",
+      findPics: false,
+      findLatest: false,
+      findSignals: false,
+    };
+    expect(readPrefs(storageWith(JSON.stringify(saved)))).toEqual({ ...defaults, ...saved });
+  });
+
+  it("falls back to the default for a bad gallery value, field by field", () => {
+    const text = JSON.stringify({
+      findFilter: { ...emptyFindFilter, stages: ["bogus"] },
+      findSort: "triage",
+      findView: "cards",
+      findSize: "xl",
+      findPics: "yes",
+      findLatest: false,
+    });
+    expect(readPrefs(storageWith(text))).toEqual({ ...defaults, findLatest: false });
   });
 
   // Your name was a preference until 3d-1 moved it to your account (G13); the trimming tests went

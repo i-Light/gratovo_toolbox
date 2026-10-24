@@ -11,9 +11,9 @@ Started 2026-10-24. The plan is `.router/PLAN.md` (decisions D1 to D18, contract
 | id | tier | state | note |
 |---|---|---|---|
 | C2 | H | done | views in `find.views`, `logFor`/`linesFor`, notes write + outbox (`''` is null, as the server), conflict values cut; lead: notes up to 50,000 with `notesCut` |
-| G1 | N | running | gallery shell, facets, chips, saved views |
-| P1 | N | running | creator peek and record |
-| G2 | N | todo | cards, table, selection, bulk bar, compare |
+| G1 | N | done | `Gallery`, facets, chips, saved views, toolbar, `useGalleryPages` (one page at a time, facets on offset 0), 7 prefs; Found by lists runs with kept > 0 |
+| P1 | N | done | `renderer/record/creator-*`, `RecordBody` in record-summary; `record: []` already shows the record in live; falls back to the summary when the catalog lacks a creator |
+| G2 | N | running | cards, table, selection, bulk bar, compare |
 | W2 | N | todo | wiring, live gate, smoke test |
 | R2 | H | todo | review |
 | L2 | lead | todo | checks, PR, merge |

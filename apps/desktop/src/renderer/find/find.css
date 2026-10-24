@@ -457,3 +457,158 @@
   text-align: end;
   font-variant-numeric: tabular-nums;
 }
+
+/* Find › Gallery shell: the facets column, the toolbar card and the chips. From the prototype's
+   index.html (.facets, .fopt, .chip rows); the narrow-width rules are left out (desktop only). */
+.gal-wrap {
+  display: grid;
+  grid-template-columns: 232px minmax(0, 1fr);
+  gap: var(--gap);
+  align-items: start;
+}
+.facets {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  position: sticky;
+  top: 0;
+  align-self: start;
+  max-height: calc(100vh - 110px);
+  overflow-y: auto;
+  padding-inline-end: 4px;
+}
+.facet {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.facet h4 {
+  font: 600 12px var(--f-ui);
+  text-transform: none;
+  color: var(--muted);
+  margin-bottom: 2px;
+}
+.fopt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  border: 0;
+  background: none;
+  text-align: start;
+  width: 100%;
+  color: var(--ink-2);
+}
+.fopt:hover:not(:disabled) {
+  background: var(--sunk);
+}
+.fopt:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.fopt .bx {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1.6px solid var(--line-2);
+  display: grid;
+  place-items: center;
+  flex: none;
+  color: transparent;
+}
+.fopt[aria-pressed="true"] {
+  color: var(--ink);
+}
+.fopt[aria-pressed="true"] .bx {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+.fopt .c {
+  margin-inline-start: auto;
+  font: 500 11px var(--f-mono);
+  color: var(--muted);
+}
+.fchips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.fchips .chip:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.gal-search {
+  min-width: 200px;
+  gap: 6px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-s);
+  padding: 0 8px;
+  height: 34px;
+  background: var(--panel);
+  color: var(--muted);
+}
+.gal-search-in {
+  border: 0;
+  outline: none;
+  background: none;
+  flex: 1;
+  min-width: 0;
+  color: var(--ink);
+}
+.gal-search:focus-within {
+  border-color: var(--accent);
+}
+.gal-chips {
+  gap: 6px;
+}
+.chip-t {
+  max-width: 28ch;
+}
+.saved-views {
+  gap: 6px;
+  max-width: 100%;
+}
+.view-chip {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+}
+.view-chip .chip {
+  border-start-end-radius: 0;
+  border-end-end-radius: 0;
+  max-width: 100%;
+  min-width: 0;
+}
+.view-x {
+  display: inline-grid;
+  place-items: center;
+  height: 30px;
+  width: 24px;
+  border: 1px solid var(--line-2);
+  border-inline-start: 0;
+  border-start-end-radius: 15px;
+  border-end-end-radius: 15px;
+  background: var(--panel);
+  color: var(--muted);
+}
+.view-x:hover {
+  color: var(--ink);
+  border-color: var(--accent-line);
+}
+.gal-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.gal-list li {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
