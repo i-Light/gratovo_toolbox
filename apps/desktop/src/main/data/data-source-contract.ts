@@ -818,6 +818,192 @@ export function describeDataSourceContract(
         expect((await start().frame()).log).toEqual([expected]);
       });
 
+      function notesWrite(id: string, notes: string, handle = "", name = ""): DataWrite {
+        return { kind: "creator.notes", id, base: "", notes, handle, name };
+      }
+
+      function storedRow(id: string): Record<string, unknown> | undefined {
+        let out: Record<string, unknown> | undefined;
+        withDb(file, (db) => {
+          out = db
+            .prepare(
+              `SELECT s.notes, s.creator_stage, s.vetting_status, s.pipeline_stage, s.handle, c.name
+               FROM channel_state s LEFT JOIN channels c ON c.channel_id = s.channel_id
+               WHERE s.channel_id = ?`,
+            )
+            .get(id);
+        });
+        return out;
+      }
+
+      it("stores a creator's notes, and empty text clears them as the server does", async () => {
+        const source = start();
+        const before = await source.frame();
+        await source.write([notesWrite("c11", "Wants a demo of the agent before a quote.")]);
+        expect(await source.creatorNotes("c11")).toBe("Wants a demo of the agent before a quote.");
+        // Notes aren't in the frame or the catalog's states, and the stage is untouched.
+        expect(await source.frame()).toEqual(before);
+        expect((await source.creatorStates()).find((c) => c.id === "c11")).not.toHaveProperty(
+          "notes",
+        );
+        await source.write([notesWrite("c11", "")]);
+        expect(storedRow("c11")?.["notes"]).toBeNull();
+        expect(await source.creatorNotes("c11")).toBeNull();
+        // A creator with no notes, an unknown id and a stored empty text all read as none.
+        expect(await source.creatorNotes("c12")).toBeNull();
+        expect(await source.creatorNotes("c999")).toBeNull();
+        withDb(file, (db) => {
+          db.prepare("UPDATE channel_state SET notes = '' WHERE channel_id = 'c12'").run();
+        });
+        expect(await source.creatorNotes("c12")).toBeNull();
+      });
+
+      it("notes on a channel with no row create it as a stage write does, with no stage", async () => {
+        const source = start();
+        await source.write([
+          notesWrite(agentLab, "Covers coding agents weekly.", "@agentlab", "Agent Lab"),
+        ]);
+        expect(storedRow(agentLab)).toEqual({
+          notes: "Covers coding agents weekly.",
+          creator_stage: null,
+          vetting_status: "newlyFound",
+          pipeline_stage: "new",
+          handle: "@agentlab",
+          name: "Agent Lab",
+        });
+        expect((await source.creatorStates()).find((c) => c.id === agentLab)).toMatchObject({
+          stage: "new",
+          hasAppStage: false,
+        });
+        expect(await source.creatorNotes(agentLab)).toBe("Covers coding agents weekly.");
+        // No handle: the row is named by its id, as the server names it.
+        await source.write([notesWrite(fresh, "AI news daily.")]);
+        expect(storedRow(fresh)).toMatchObject({ handle: fresh, name: null });
+        // A later stage write finds the row and keeps the notes.
+        await source.write([stage(agentLab, "shortlisted")]);
+        expect(storedRow(agentLab)).toMatchObject({
+          notes: "Covers coding agents weekly.",
+          creator_stage: "shortlisted",
+        });
+      });
+
+      it("notes on an id that is not a channel id create nothing", async () => {
+        const source = start();
+        const before = await source.creatorStates();
+        for (const id of ["UC_agent_lab", "c999", `UC${"a".repeat(23)}`]) {
+          await source.write([notesWrite(id, "Hello", "@x", "X")]);
+          expect(storedRow(id)).toBeUndefined();
+        }
+        expect(await source.creatorStates()).toEqual(before);
+      });
+
+      it("reads one creator's lines, newest first, hidden and mapped as the frame does", async () => {
+        const source = start();
+        const idC = "00000000-0000-4000-8000-00000000000c";
+        const idD = "00000000-0000-4000-8000-00000000000d";
+        await source.write([
+          line(idA, contractNow - 3000, "c11", "creator.shortlist", null),
+          line(idB, contractNow - 1000, "c11", "creator.reject", "views"),
+          line(idC, contractNow - 2000, "c12", "creator.never", null),
+          {
+            kind: "log.add",
+            id: idD,
+            at: contractNow,
+            text: "A note",
+            ref: null,
+            action: null,
+            detail: null,
+          },
+        ]);
+        withDb(file, (db) => {
+          // The old app's line on the creator counts; another kind of entity with the same id doesn't.
+          insertLogRow(
+            db,
+            logRow("old1", "2026-10-20T11:59:59.500Z", {
+              actor_id: null,
+              actor_name: "Sara",
+              action: "emailSent",
+              entity_type: "channel",
+              entity_id: "c11",
+              entity_label: "Model Matters",
+            }),
+          );
+          insertLogRow(
+            db,
+            logRow("deal1", "2026-10-20T11:59:59.900Z", {
+              entity_type: "deal",
+              entity_id: "c11",
+              detail: { text: "Not a creator line" },
+            }),
+          );
+        });
+        const lines = await source.logFor("c11", 10);
+        expect(lines.map((l) => l.id)).toEqual(["old1", idB, idA]);
+        expect(lines[1]).toEqual({
+          id: idB,
+          at: contractNow - 1000,
+          who: "u1",
+          text: `Line ${idB}`,
+          ref: "c11",
+          action: "creator.reject",
+          detail: "views",
+        });
+        expect(lines[0]).toMatchObject({ who: "Sara", ref: "c11", action: null });
+        // The same lines the frame shows for this creator, in the same order.
+        expect(lines).toEqual((await source.frame()).log.filter((l) => l.ref === "c11"));
+        expect((await source.logFor("c11", 2)).map((l) => l.id)).toEqual(["old1", idB]);
+        expect(await source.logFor("c999", 10)).toEqual([]);
+        // An undo hides a line here too.
+        withDb(file, (db) => {
+          insertLogRow(
+            db,
+            logRow("k1", new Date(contractNow).toISOString(), {
+              action: "undo",
+              entity_type: "activity_log",
+              entity_id: idB,
+            }),
+          );
+        });
+        expect((await source.logFor("c11", 10)).map((l) => l.id)).toEqual(["old1", idA]);
+      });
+
+      it("hides a creator's money lines from a member without money", async () => {
+        const source = start();
+        withDb(file, (db) => {
+          insertLogRow(
+            db,
+            logRow("m1", "2026-10-20T11:00:00Z", {
+              entity_type: "channel",
+              entity_id: "c11",
+              detail: { text: "Shortlisted Model Matters" },
+            }),
+          );
+          insertLogRow(
+            db,
+            logRow("m2", "2026-10-20T11:01:00Z", {
+              action: "updated",
+              entity_type: "channel",
+              entity_id: "c11",
+              field: "brand_price",
+              old_value: "1",
+              new_value: "2",
+            }),
+          );
+          insertLogRow(
+            db,
+            logRow("m3", "2026-10-20T11:02:00Z", {
+              entity_type: "channel",
+              entity_id: "c11",
+              detail: { text: "Agreed $4,000 with Model Matters" },
+            }),
+          );
+        });
+        setAccess(file, [{ profileId: "u1", roles: ["owner"], seesMoney: true }]);
+        expect((await source.logFor("c11", 10)).map((l) => l.id)).toEqual(["m3", "m2", "m1"]);
+        setAccess(file, [{ profileId: "u1", roles: ["scout"], seesMoney: false }]);
+        expect((await source.logFor("c11", 10)).map((l) => l.id)).toEqual(["m1"]);
+      });
+
       it("gives the catalog every creator's state with its fields", async () => {
         const source = start();
         withDb(file, (db) => {

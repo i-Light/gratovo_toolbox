@@ -5,6 +5,7 @@ import {
   frameSources,
   logActions,
   nameMax,
+  notesMax,
   notificationIcons,
   rejectReasons,
   type Brand,
@@ -97,6 +98,20 @@ export const logEntrySchema: z.ZodType<LogEntry> = z.strictObject({
   ...logRef,
 });
 
+/** The most lines `log:for` answers with. */
+export const logForMax = 100;
+
+/** `log:for`: one creator's lines (plan step 5, D17 and D23). */
+export const logForRequestSchema = z.strictObject({
+  ref: id,
+  limit: z.number().int().min(1).max(logForMax),
+});
+
+/** Newest first. */
+export const logForResultSchema = z.strictObject({
+  lines: z.array(logEntrySchema).max(logForMax),
+});
+
 export const creatorSchema: z.ZodType<Creator> = z.strictObject({
   id,
   name: text,
@@ -177,6 +192,14 @@ export const dataWriteSchema: z.ZodType<DataWrite> = z.discriminatedUnion("kind"
     handle: text,
     name: text,
     reason: z.exactOptional(z.enum(rejectReasons)),
+  }),
+  z.strictObject({
+    kind: z.literal("creator.notes"),
+    id,
+    base: z.string().max(notesMax),
+    notes: z.string().max(notesMax),
+    handle: text,
+    name: text,
   }),
   z.strictObject({
     kind: z.literal("brand.set"),

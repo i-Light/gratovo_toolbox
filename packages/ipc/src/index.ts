@@ -51,6 +51,9 @@ export {
   frameNotificationSchema,
   frameSchema,
   logEntrySchema,
+  logForMax,
+  logForRequestSchema,
+  logForResultSchema,
   mateRunSchema,
   notifySettingsSchema,
   railCountsSchema,
@@ -77,8 +80,14 @@ export {
   findRunsMax,
   findRunStates,
   findStateSchema,
+  findViewsResultSchema,
+  findViewsSetRequestSchema,
+  findViewsSetResultSchema,
   fitSchema,
   itemVideosMax,
+  savedViewSchema,
+  savedViewsSchema,
+  viewsSetMax,
 } from "./find";
 export type { FindState } from "./find";
 export {

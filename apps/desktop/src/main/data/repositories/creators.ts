@@ -89,6 +89,43 @@ export function readTags(db: DatabaseSync, id: string): string[] | null {
 const channelIdPattern = /^UC[A-Za-z0-9_-]{22}$/;
 
 /**
+ * Creates the row of a creator that has none, when its id is a real channel id; false (and
+ * nothing written) otherwise. The handle is the id when it is empty, as the server names it; the
+ * legacy fields are the old app's defaults (`newlyFound`, `new`), as the server writes them for a
+ * channel it has never seen; `creator_stage` is `stage` (null leaves it unset); the name goes to
+ * `channels` when there is one. `now` is in ms.
+ */
+function createCreatorRow(
+  db: DatabaseSync,
+  creator: { readonly id: string; readonly handle: string; readonly name: string },
+  stage: CreatorStage | null,
+  now: number,
+): boolean {
+  if (!channelIdPattern.test(creator.id)) {
+    return false;
+  }
+  // The legacy fields stay at the old app's defaults: writing them from the stage would make a
+  // never-then-allow channel read as "lost", and so as emailed before.
+  db.prepare(
+    `INSERT INTO channel_state
+       (channel_id, handle, vetting_status, pipeline_stage, creator_stage, updated_at)
+     VALUES (?, ?, 'newlyFound', 'new', ?, ?)`,
+  ).run(
+    creator.id,
+    creator.handle === "" ? creator.id : creator.handle,
+    stage,
+    new Date(now).toISOString(),
+  );
+  if (creator.name !== "") {
+    db.prepare(
+      `INSERT INTO channels (channel_id, name) VALUES (?, ?)
+       ON CONFLICT (channel_id) DO UPDATE SET name = excluded.name`,
+    ).run(creator.id, creator.name);
+  }
+  return true;
+}
+
+/**
  * A creator's stage write (plan step 5, D4 and D5). A creator with no row gets one when its id is
  * a real channel id: the handle (the id when it is empty, as the server names it), the old app's
  * defaults (`newlyFound`, `new`) as the server writes them for a channel it has never seen, the
@@ -119,26 +156,8 @@ export function writeCreatorStage(
   let tags: string[];
   let due: string | null;
   if (row === undefined) {
-    if (!channelIdPattern.test(write.id)) {
+    if (!createCreatorRow(db, write, write.stage, now)) {
       return;
-    }
-    // The legacy fields stay at the old app's defaults: writing them from the stage would make a
-    // never-then-allow channel read as "lost", and so as emailed before.
-    db.prepare(
-      `INSERT INTO channel_state
-         (channel_id, handle, vetting_status, pipeline_stage, creator_stage, updated_at)
-       VALUES (?, ?, 'newlyFound', 'new', ?, ?)`,
-    ).run(
-      write.id,
-      write.handle === "" ? write.id : write.handle,
-      write.stage,
-      new Date(now).toISOString(),
-    );
-    if (write.name !== "") {
-      db.prepare(
-        `INSERT INTO channels (channel_id, name) VALUES (?, ?)
-         ON CONFLICT (channel_id) DO UPDATE SET name = excluded.name`,
-      ).run(write.id, write.name);
     }
     // A row the server has never seen has its defaults: stage new, no tags, no due date.
     before = "new";
@@ -183,6 +202,47 @@ export function setCreatorTags(
        archive_due_at = CASE WHEN ? THEN COALESCE(archive_due_at, ?) ELSE NULL END
      WHERE channel_id = ?`,
   ).run(JSON.stringify(tags), rejected ? 1 : 0, new Date(now + archiveDelayMs).toISOString(), id);
+}
+
+/** Stored notes as the server keeps them: empty text is no notes (its `canonical_edit_value`). */
+export function storedNotes(notes: string): string | null {
+  return notes === "" ? null : notes;
+}
+
+/**
+ * A creator's stored notes, or undefined when the creator has no row. One lookup by the primary
+ * key; the Find detail reads them this way (D24).
+ */
+export function readNotes(db: DatabaseSync, id: string): string | null | undefined {
+  const row = db.prepare("SELECT notes FROM channel_state WHERE channel_id = ?").get(id);
+  if (row === undefined) {
+    return undefined;
+  }
+  return typeof row["notes"] === "string" ? storedNotes(row["notes"]) : null;
+}
+
+/**
+ * A creator's notes write (plan step 5, D24): `channel_state.notes`, with `""` stored as null as
+ * the server stores it. A creator with no row gets one as a stage write makes it (D4), with no
+ * stage of its own; any other unknown id does nothing. `now` is in ms.
+ */
+export function writeCreatorNotes(
+  db: DatabaseSync,
+  write: {
+    readonly id: string;
+    readonly notes: string;
+    readonly handle: string;
+    readonly name: string;
+  },
+  now: number,
+): void {
+  if (readNotes(db, write.id) === undefined && !createCreatorRow(db, write, null, now)) {
+    return;
+  }
+  db.prepare("UPDATE channel_state SET notes = ? WHERE channel_id = ?").run(
+    storedNotes(write.notes),
+    write.id,
+  );
 }
 
 /** The most creators a frame carries (the IPC list limit, `listMax` in the ipc package). */
@@ -235,6 +295,7 @@ export function listCreators(db: DatabaseSync, o: { limit?: number } = {}): Crea
  * Every creator's stored state, for the Find catalog to join to the pipeline's channels (plan
  * step 5, D1): every `channel_state` row, not capped as the frame is, in the order added. `name`
  * is null when `channels` has none. `lastActivity` is the newest visible line about the creator.
+ * Notes are left out: the detail reads one creator's with `readNotes`.
  */
 export function creatorStates(db: DatabaseSync): CreatorState[] {
   const rows = db

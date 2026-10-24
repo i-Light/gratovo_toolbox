@@ -74,7 +74,8 @@ export interface FindBridgeFixture {
 /**
  * For tests that open Find without caring about it: a bridge whose `find:state` fails, whose
  * catalog channels answer empty (or with the fixture's items and runs, filtered and sorted as main
- * does), and that has no events. Returns the calls made, in order.
+ * does), whose saved views and creator lines are none (a save is accepted), and that has no
+ * events. Returns the calls made, in order.
  */
 export function stubFindBridge(fixture: FindBridgeFixture = {}): [string, unknown][] {
   const calls: [string, unknown][] = [];
@@ -102,6 +103,12 @@ export function stubFindBridge(fixture: FindBridgeFixture = {}): [string, unknow
         return Promise.resolve({ ok: true, value: { item: null } });
       case "find:runs":
         return Promise.resolve({ ok: true, value: { runs: fixture.runs ?? [] } });
+      case "find:views":
+        return Promise.resolve({ ok: true, value: { views: [] } });
+      case "find:views-set":
+        return Promise.resolve({ ok: true, value: { ok: true } });
+      case "log:for":
+        return Promise.resolve({ ok: true, value: { lines: [] } });
       default:
         return Promise.resolve({ ok: false, reason: "test" });
     }

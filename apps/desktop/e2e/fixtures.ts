@@ -131,8 +131,18 @@ export const test = base.extend<
       // runs while the app is open on the same machine.
       const userData = await mkdtemp(join(tmpdir(), "gratovo-e2e-"));
       await use(userData);
-      // Windows can hold a file for a moment after the app exits.
-      await rm(userData, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+      // Windows can hold a file for a while after the app exits (Chromium's DIPS file did on a busy
+      // CI runner). A temp folder left behind isn't the test's failure: retry for about five
+      // seconds, then leave it for the system to clear.
+      await rm(userData, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 }).catch(
+        (error: unknown) => {
+          const code = (error as { code?: unknown }).code;
+          if (code !== "EBUSY" && code !== "EPERM") {
+            throw error;
+          }
+          console.warn(`Left the test's data folder behind (${code}): ${userData}`);
+        },
+      );
     },
     { scope: "test" },
   ],

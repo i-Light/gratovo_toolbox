@@ -13,7 +13,7 @@ import {
   mailConnectResultSchema,
   pickFolderRequestSchema,
 } from "./connections";
-import { dataWriteSchema, frameSchema } from "./data";
+import { dataWriteSchema, frameSchema, logForRequestSchema, logForResultSchema } from "./data";
 import {
   findAddRequestSchema,
   findAddResultSchema,
@@ -27,6 +27,9 @@ import {
   findRunsResultSchema,
   findStartResultSchema,
   findStateSchema,
+  findViewsResultSchema,
+  findViewsSetRequestSchema,
+  findViewsSetResultSchema,
 } from "./find";
 import { geminiOpenWindowRequestSchema, geminiStatusSchema } from "./gemini";
 import {
@@ -157,6 +160,21 @@ export const channels = {
   "find:runs": {
     request: z.strictObject({}),
     response: findRunsResultSchema,
+  },
+  /** The gallery's saved views for the open data source (D16, D20). */
+  "find:views": {
+    request: z.strictObject({}),
+    response: findViewsResultSchema,
+  },
+  /** Replaces the saved views. More than 20 is refused as `too_many`, and nothing is stored. */
+  "find:views-set": {
+    request: findViewsSetRequestSchema,
+    response: findViewsSetResultSchema,
+  },
+  /** One creator's activity lines, newest first (a record's Activity tab, D23). */
+  "log:for": {
+    request: logForRequestSchema,
+    response: logForResultSchema,
   },
   /** Replaces the search rules (Settings › Search rules); `find:changed` follows. */
   "rules:set": {

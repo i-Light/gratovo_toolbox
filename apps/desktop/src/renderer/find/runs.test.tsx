@@ -2,11 +2,14 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { emptyFindFilter } from "@gratovo/core/find";
+
+import { getPrefs } from "../lib/prefs";
 import { aiChannel, stubFindBridge, type TestRun } from "../lib/find-test-bridge";
 import { appStore, resetAppStoreForTests, selectRoute } from "../lib/store";
 import { strings } from "../strings";
 import { Runs } from "./runs";
-import { resetReviewRunForTests, Triage, useReview } from "./triage";
+import { Triage, useReview } from "./triage";
 
 const t = strings.findRuns;
 
@@ -26,7 +29,6 @@ const run = (id: number, startedAt: number, over: Partial<TestRun> = {}): TestRu
 });
 
 beforeEach(() => {
-  resetReviewRunForTests();
   resetAppStoreForTests({ screen: "find", tab: "search" });
 });
 afterEach(cleanup);
@@ -82,27 +84,23 @@ describe("the Runs table", () => {
     expect(rows[4]?.textContent).not.toContain(t.status.stopped);
   });
 
-  it("opens Review new for the newest run, and Review new filtered to an older one", async () => {
-    const calls = stubFindBridge({
+  it("opens Review new for the newest run, and the gallery filtered to an older one", async () => {
+    stubFindBridge({
       items: [aiChannel("UC-a", "Agent Lab")],
       runs: [run(3, today.getTime()), run(2, older)],
     });
     await show();
     const buttons = screen.getAllByRole("button", { name: /^Review results of the search of / });
-    const lastFilter = () => {
-      const queries = calls.filter(([c]) => c === "find:query");
-      return (queries[queries.length - 1]?.[1] as { filter: { runs: number[] } }).filter.runs;
-    };
     await act(async () => {
       fireEvent.click(buttons[1] as HTMLElement);
       await Promise.resolve();
     });
-    expect(selectRoute(appStore().getState())).toMatchObject({ screen: "find", tab: "triage" });
-    expect(lastFilter()).toEqual([2]);
+    expect(selectRoute(appStore().getState())).toMatchObject({ screen: "find", tab: "gallery" });
+    expect(getPrefs().findFilter).toEqual({ ...emptyFindFilter, runs: [2] });
     await act(async () => {
       fireEvent.click(buttons[0] as HTMLElement);
       await Promise.resolve();
     });
-    expect(lastFilter()).toEqual([]);
+    expect(selectRoute(appStore().getState())).toMatchObject({ screen: "find", tab: "triage" });
   });
 });

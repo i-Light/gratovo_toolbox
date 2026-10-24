@@ -1,6 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 
-import type { DataSource } from "@gratovo/core/data";
+import type { DataSource, DataWrite } from "@gratovo/core/data";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createSqliteSource } from "../data/sqlite-source";
@@ -446,6 +446,130 @@ describe("recordIntent", () => {
       ).toBe(new Date(t0 + 7 * 24 * 60 * 60 * 1000).toISOString());
       expect(entries().map((e) => e.payload)).toEqual([
         { id: "t1", resolution: "mine", value: ["irrelevant"] },
+      ]);
+    });
+
+    /** A notes write; `from` is the text the person started editing from. */
+    function notes(id: string, text: string, from = "", handle = "", name = ""): DataWrite {
+      return { kind: "creator.notes", id, base: from, notes: text, handle, name };
+    }
+
+    function storedNotes(id = ch): unknown {
+      return db.prepare("SELECT notes FROM channel_state WHERE channel_id = ?").get(id)?.["notes"];
+    }
+
+    it("creator.notes queues channel.edit of notes with the text the edit started from as base", async () => {
+      seedCreator("shortlisted");
+      await source.write([notes(ch, "Wants a demo of the agent first.")]);
+      expect(storedNotes()).toBe("Wants a demo of the agent first.");
+      expect(entries()).toEqual([
+        {
+          kind: "channel.edit",
+          payload: {
+            channelId: ch,
+            field: "notes",
+            base: null,
+            next: "Wants a demo of the agent first.",
+            label: "@aiweekly",
+          },
+          target: { table: "channel_state", key: ch },
+        },
+      ]);
+      await source.write([
+        notes(ch, "Demo booked for Friday.", "Wants a demo of the agent first."),
+      ]);
+      expect(edits().at(-1)).toEqual({
+        field: "notes",
+        base: "Wants a demo of the agent first.",
+        next: "Demo booked for Friday.",
+        label: "@aiweekly",
+      });
+    });
+
+    it("the same notes again queue nothing, and empty text is no notes, as the server reads it", async () => {
+      seedCreator("new");
+      await source.write([notes(ch, "")]);
+      expect(pendingCount(db)).toBe(0);
+      // A stored empty text (the old app wrote some) is no notes too.
+      db.prepare("UPDATE channel_state SET notes = '' WHERE channel_id = ?").run(ch);
+      await source.write([notes(ch, "")]);
+      expect(pendingCount(db)).toBe(0);
+      await source.write([notes(ch, "Covers Claude and Cursor.")]);
+      // Saved again from the text it now has: nothing changed, nothing to send.
+      await source.write([notes(ch, "Covers Claude and Cursor.", "Covers Claude and Cursor.")]);
+      expect(edits()).toHaveLength(1);
+      await source.write([notes(ch, "", "Covers Claude and Cursor.")]);
+      expect(storedNotes()).toBeNull();
+      expect(edits().at(-1)).toEqual({
+        field: "notes",
+        base: "Covers Claude and Cursor.",
+        next: null,
+        label: "@aiweekly",
+      });
+    });
+
+    it("a teammate's note that came in mid-edit is the server's to settle, not overwritten", async () => {
+      seedCreator("shortlisted");
+      // Sara's note was pulled after the page opened with no notes.
+      db.prepare("UPDATE channel_state SET notes = 'Rate card asked' WHERE channel_id = ?").run(ch);
+      await source.write([notes(ch, "Wants a demo first", "")]);
+      // The edit's base is what the person started from, so the server sees two edits and files
+      // a conflict. Here the new text is stored as it is.
+      expect(storedNotes()).toBe("Wants a demo first");
+      expect(edits()).toEqual([
+        { field: "notes", base: null, next: "Wants a demo first", label: "@aiweekly" },
+      ]);
+    });
+
+    it("notes equal to the text they started from queue nothing, though stored text differs", async () => {
+      seedCreator("shortlisted");
+      db.prepare("UPDATE channel_state SET notes = 'Rate card asked' WHERE channel_id = ?").run(ch);
+      await source.write([notes(ch, "Covers Claude Code.", "Covers Claude Code.")]);
+      expect(storedNotes()).toBe("Covers Claude Code.");
+      expect(pendingCount(db)).toBe(0);
+    });
+
+    it("notes on a channel with no row create it and queue the edit with a null base", async () => {
+      await source.write([
+        notes(freshId, "Found through ai agents.", "", "@agentlab", "Agent Lab"),
+      ]);
+      expect(storedNotes(freshId)).toBe("Found through ai agents.");
+      expect(edits()).toEqual([
+        { field: "notes", base: null, next: "Found through ai agents.", label: "@agentlab" },
+      ]);
+    });
+
+    it("notes on an unknown id that is not a channel id create nothing and queue nothing", async () => {
+      for (const id of ["UC_new", "agent-lab", `UC${"a".repeat(23)}`]) {
+        await source.write([notes(id, "Hello", "", "@x", "X")]);
+        expect(db.prepare("SELECT 1 FROM channel_state WHERE channel_id = ?").get(id)).toBe(
+          undefined,
+        );
+      }
+      expect(entries()).toEqual([]);
+    });
+
+    it("a notes conflict shows like the others, and keeping yours puts your notes back", async () => {
+      seedCreator("shortlisted");
+      db.prepare(
+        "UPDATE channel_state SET notes = 'Sara: rate card asked' WHERE channel_id = ?",
+      ).run(ch);
+      const mine = "Wants a demo first. ".repeat(250).trim();
+      db.prepare(
+        `INSERT INTO edit_conflicts (id, channel_id, channel_label, field, base_value, mine_value,
+           theirs_value, mine_actor_name, theirs_actor_name, detected_at, updated_at)
+         VALUES ('n1', ?, '@aiweekly', 'notes', 'null', ?, '"Sara: rate card asked"',
+                 'Sam', 'Sara', 'x', 'x')`,
+      ).run(ch, JSON.stringify(mine));
+      // A 5,000-character note is cut to fit: the frame still loads.
+      const [conflict] = (await source.frame()).conflicts;
+      expect(conflict).toMatchObject({ id: "n1", field: "notes", theirs: "Sara: rate card asked" });
+      expect(conflict?.mine.length).toBe(500);
+      expect(conflict?.mine.startsWith("Wants a demo first.")).toBe(true);
+      await source.write([{ kind: "conflict.resolve", id: "n1", choice: "mine" }]);
+      expect(storedNotes()).toBe(mine);
+      expect(entries().map((e) => e.payload)).toEqual([
+        { id: "n1", resolution: "mine", value: mine },
       ]);
     });
 

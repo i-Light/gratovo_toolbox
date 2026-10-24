@@ -1,6 +1,6 @@
 import { Btn } from "@gratovo/ui";
 
-import { RecordSummary } from "../overlays/record-summary";
+import { RecordBody } from "../overlays/record-summary";
 import type { RecordRef } from "../lib/routes";
 import { back } from "../lib/store";
 import { strings } from "../strings";
@@ -21,7 +21,7 @@ export function RecordPage({ record }: { readonly record: RecordRef | undefined 
         {record === undefined ? (
           <p className="hint">{strings.record.notFound}</p>
         ) : (
-          <RecordSummary key={`${record.kind}${record.id}`} record={record} />
+          <RecordBody key={`${record.kind}${record.id}`} record={record} layout="page" />
         )}
       </div>
     </div>

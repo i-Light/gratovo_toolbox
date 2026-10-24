@@ -1,0 +1,218 @@
+/* The creator record (peek and page). .rec-h and .nextcard are the prototype's (index.html l.266-272); the rest is this record's own, in the same tokens. */
+.rec-h {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.rec-h .t {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+.rec-h .t h2 {
+  overflow-wrap: anywhere;
+}
+.nextcard {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--r-l);
+  background: color-mix(in srgb, var(--hue, var(--accent)) 9%, var(--panel));
+  border: 1px solid color-mix(in srgb, var(--hue, var(--accent)) 28%, transparent);
+  flex-wrap: wrap;
+}
+.nextcard .nt {
+  flex: 1;
+  min-width: 160px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow-wrap: anywhere;
+}
+.nextcard .nt small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.nextcard .nx {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.cr {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+.cr-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: center;
+  min-width: 0;
+}
+.cr-meta .handle {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.cr-link {
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 12.5px;
+}
+.cr-link:hover {
+  text-decoration: underline;
+}
+.cr-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.cr-panel[hidden] {
+  display: none;
+}
+.cr-vids {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.cr[data-layout="page"] .cr-vids {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.cr-vid {
+  color: inherit;
+  text-decoration: none;
+  border-radius: 9px;
+}
+.cr-vid:hover b {
+  text-decoration: underline;
+}
+.cr-fit {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  gap: 4px 12px;
+  font-size: 13px;
+}
+.cr-fit li {
+  display: contents;
+}
+.cr-fit .n {
+  font-variant-numeric: tabular-nums;
+}
+.cr-fit .note {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.cr-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+}
+.cr-tags .tag {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.cr-desc {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-2, var(--ink));
+}
+.cr-notes {
+  width: 100%;
+  min-height: 180px;
+  resize: vertical;
+  font: inherit;
+  font-size: 13.5px;
+  line-height: 1.5;
+  padding: 10px 12px;
+  border-radius: var(--r-md, 10px);
+  border: 1px solid var(--line);
+  background: var(--sunk);
+  color: var(--ink);
+  box-sizing: border-box;
+}
+.cr-notes[readonly] {
+  color: var(--muted);
+}
+.cr-notes-foot {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-height: 20px;
+}
+.cr-saved {
+  color: var(--good);
+  font-size: 12.5px;
+}
+.cr-day {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.cr-day h4 {
+  margin: 0;
+}
+.cr-lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cr-lines li {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.cr-skel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.cr-skel i {
+  display: block;
+  border-radius: 8px;
+  background: var(--sunk-2);
+  height: 14px;
+}
+.cr-skel .head {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.cr-skel .head i:first-child {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  flex: none;
+}
+.cr-skel .head span {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cr-skel .tabsk {
+  display: flex;
+  gap: 12px;
+}
+.cr-skel .tabsk i {
+  width: 80px;
+  height: 22px;
+}

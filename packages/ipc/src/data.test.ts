@@ -131,6 +131,14 @@ describe("dataWriteSchema", () => {
     { kind: "log.remove", id: "l1" },
     { kind: "creator.stage", id: "c1", stage: "emailed", handle: "", name: "" },
     {
+      kind: "creator.notes",
+      id: "c1",
+      base: "",
+      notes: "Wants a demo first",
+      handle: "",
+      name: "",
+    },
+    {
       kind: "brand.set",
       id: "b1",
       name: "Quill AI",
@@ -193,6 +201,28 @@ describe("the new write kinds", () => {
     expect(ok(base)).toBe(false);
   });
 
+  it("creator.notes carries up to 50,000 characters, the text it started from, the handle and the name", () => {
+    const base = {
+      kind: "creator.notes",
+      id: "UC1",
+      base: "",
+      notes: "",
+      handle: "@a",
+      name: "A",
+    };
+    expect(ok(base)).toBe(true);
+    expect(ok({ ...base, notes: "x".repeat(50_000) })).toBe(true);
+    expect(ok({ ...base, notes: "x".repeat(50_001) })).toBe(false);
+    expect(ok({ ...base, base: "x".repeat(50_000) })).toBe(true);
+    expect(ok({ ...base, base: "x".repeat(50_001) })).toBe(false);
+    expect(ok({ ...base, id: "" })).toBe(false);
+    expect(ok({ kind: "creator.notes", id: "UC1", notes: "Hi" })).toBe(false);
+    expect(ok({ kind: "creator.notes", id: "UC1", notes: "", handle: "@a", name: "A" })).toBe(
+      false,
+    );
+    expect(ok({ ...base, stage: "new" })).toBe(false);
+  });
+
   it("brand.set bounds the name, what it sells and the status", () => {
     const base = { kind: "brand.set", id: "b1", name: "Quill AI", sells: "", status: "" };
     expect(ok(base)).toBe(true);
@@ -238,6 +268,39 @@ describe("frame conflicts", () => {
     expect(ok(Array(101).fill(conflict))).toBe(false);
     expect(ok([{ ...conflict, extra: 1 }])).toBe(false);
     expect(ok([{ ...conflict, theirName: undefined }])).toBe(false);
+  });
+});
+
+describe("log:for", () => {
+  const line = {
+    id: "l1",
+    at: 1,
+    who: "u1",
+    text: "Shortlisted Prompt Lab",
+    ref: "UC1",
+    action: "creator.shortlist",
+    detail: null,
+  };
+
+  it("takes a ref and a limit of 1 to 100, and nothing else", () => {
+    const request = channels["log:for"].request;
+    expect(request.safeParse({ ref: "UC1", limit: 1 }).success).toBe(true);
+    expect(request.safeParse({ ref: "UC1", limit: 100 }).success).toBe(true);
+    expect(request.safeParse({ ref: "UC1", limit: 0 }).success).toBe(false);
+    expect(request.safeParse({ ref: "UC1", limit: 101 }).success).toBe(false);
+    expect(request.safeParse({ ref: "UC1", limit: 1.5 }).success).toBe(false);
+    expect(request.safeParse({ ref: "", limit: 10 }).success).toBe(false);
+    expect(request.safeParse({ ref: "x".repeat(101), limit: 10 }).success).toBe(false);
+    expect(request.safeParse({ ref: "UC1" }).success).toBe(false);
+    expect(request.safeParse({ ref: "UC1", limit: 10, before: 5 }).success).toBe(false);
+  });
+
+  it("answers at most 100 lines in the frame's line shape", () => {
+    const response = channels["log:for"].response;
+    expect(response.safeParse({ lines: [] }).success).toBe(true);
+    expect(response.safeParse({ lines: Array(100).fill(line) }).success).toBe(true);
+    expect(response.safeParse({ lines: Array(101).fill(line) }).success).toBe(false);
+    expect(response.safeParse({ lines: [{ ...line, ref: undefined }] }).success).toBe(false);
   });
 });
 
@@ -303,6 +366,9 @@ describe("the data channels through the dispatcher", () => {
       "find:query": () => ({ version: 0, total: 0, items: [], facets: emptyFacets }),
       "find:item": () => ({ item: null }),
       "find:runs": () => ({ runs: [] }),
+      "find:views": () => ({ views: [] }),
+      "find:views-set": () => ({ ok: true as const }),
+      "log:for": () => ({ lines: [] }),
       "rules:set": () => ({}),
       "import:candidates": () => ({ candidates: [] }),
       "import:pick": () => ({ path: null }),

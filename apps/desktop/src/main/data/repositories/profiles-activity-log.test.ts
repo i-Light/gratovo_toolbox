@@ -6,7 +6,14 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { openDatabase } from "../../db/open-database";
-import { addLogEntry, logCap, newestLog, removeLogEntry } from "./activity-log";
+import {
+  addLogEntry,
+  linesFor,
+  linesForCap,
+  logCap,
+  newestLog,
+  removeLogEntry,
+} from "./activity-log";
 import {
   getProfile,
   listProfiles,
@@ -177,6 +184,38 @@ describe("activity log", () => {
     expect(newestLog(db, { seesMoney: true, limit: 3 })).toHaveLength(3);
     expect(newestLog(db, { seesMoney: true, limit: 500 })).toHaveLength(logCap);
     expect(newestLog(db, { seesMoney: true, limit: 0 })).toEqual([]);
+  });
+
+  it("reads one creator's lines, newest first, capped at 100 and at the limit asked for", () => {
+    for (let i = 0; i < 120; i += 1) {
+      addLogEntry(db, "u1", {
+        id: `l${String(i).padStart(3, "0")}`,
+        at: t0 + i,
+        who: "",
+        text: "Shortlisted Agent Lab",
+        ref: i % 2 === 0 ? "UCagentLabAiTools000001x" : "UCfreshAiNewsChannel0001",
+        action: "creator.shortlist",
+      });
+    }
+    addLogEntry(db, "u1", { id: "app", at: t0 + 500, who: "", text: "Added keywords" });
+    const all = linesFor(db, "UCagentLabAiTools000001x", { seesMoney: true, limit: 500 });
+    expect(all).toHaveLength(60);
+    expect(all[0]).toMatchObject({ id: "l118", ref: "UCagentLabAiTools000001x" });
+    expect(all.every((line) => line.ref === "UCagentLabAiTools000001x")).toBe(true);
+    for (let i = 0; i < 60; i += 1) {
+      addLogEntry(db, "u1", {
+        id: `m${String(i).padStart(3, "0")}`,
+        at: t0 + 1000 + i,
+        who: "",
+        text: "x",
+        ref: "UCagentLabAiTools000001x",
+      });
+    }
+    const capped = linesFor(db, "UCagentLabAiTools000001x", { seesMoney: true, limit: 500 });
+    expect(capped).toHaveLength(linesForCap);
+    expect(capped[0]?.id).toBe("m059");
+    expect(linesFor(db, "UCagentLabAiTools000001x", { seesMoney: true, limit: 3 })).toHaveLength(3);
+    expect(linesFor(db, "UCagentLabAiTools000001x", { seesMoney: false, limit: 0 })).toEqual([]);
   });
 
   it("removes a line, and reports an unknown id", () => {

@@ -35,10 +35,14 @@ import {
   setNotificationRead,
   setNotify,
 } from "./repositories";
+import { linesFor } from "./repositories/activity-log";
 import {
   creatorStates,
   parseTags,
+  readNotes,
   setCreatorTags,
+  storedNotes,
+  writeCreatorNotes,
   writeCreatorStage,
 } from "./repositories/creators";
 
@@ -155,6 +159,9 @@ export function createSqliteSource(db: DatabaseSync, options: SqliteSourceOption
       case "creator.stage":
         writeCreatorStage(db, write, clock());
         return;
+      case "creator.notes":
+        writeCreatorNotes(db, write, clock());
+        return;
       case "brand.set":
         setBrand(db, write, clock());
         return;
@@ -163,8 +170,8 @@ export function createSqliteSource(db: DatabaseSync, options: SqliteSourceOption
         return;
       case "conflict.resolve": {
         const settled = markResolved(db, write.id);
-        // Keeping yours puts your stage or your tags back; keeping theirs needs nothing (the
-        // server's value is here).
+        // Keeping yours puts your stage, your tags or your notes back; keeping theirs needs
+        // nothing (the server's value is here).
         if (settled === null || write.choice !== "mine") {
           return;
         }
@@ -176,6 +183,14 @@ export function createSqliteSource(db: DatabaseSync, options: SqliteSourceOption
           setCreatorStage(db, settled.channelId, settled.mine as CreatorStage);
         } else if (settled.field === "channel_tags" && Array.isArray(settled.mine)) {
           setCreatorTags(db, settled.channelId, parseTags(JSON.stringify(settled.mine)), clock());
+        } else if (
+          settled.field === "notes" &&
+          (settled.mine === null || typeof settled.mine === "string")
+        ) {
+          db.prepare("UPDATE channel_state SET notes = ? WHERE channel_id = ?").run(
+            settled.mine === null ? null : storedNotes(settled.mine),
+            settled.channelId,
+          );
         }
         return;
       }
@@ -186,6 +201,15 @@ export function createSqliteSource(db: DatabaseSync, options: SqliteSourceOption
     // The database is synchronous; the promises keep callers ready for it to move elsewhere.
     frame: () => settle(readFrame),
     creatorStates: () => settle(() => creatorStates(db)),
+    creatorNotes: (id) => settle(() => readNotes(db, id) ?? null),
+    // Money is hidden as the frame hides it: a member without it gets no money line.
+    logFor: (ref, limit) =>
+      settle(() =>
+        linesFor(db, ref, {
+          seesMoney: seesMoney(listMemberAccess(db).get(me) ?? noAccess),
+          limit,
+        }),
+      ),
     write: (writes) =>
       settle(() => {
         inTransaction(db, () => {

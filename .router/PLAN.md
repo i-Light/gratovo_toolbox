@@ -111,8 +111,44 @@ Tiers by the migration plan's §10. Done-checks are run by the lead, never trust
 | R1 | H | all | – | `router-reviewer` on the diff. Findings become tasks. | – |
 | L1 | lead | R1 | – | Full checks, look at it in dark at 1440, status table, PR, CI, merge. | CI green |
 
-## Tasks, 5b, 5c, 5d (outline; detailed when each starts)
+## 5b: the gallery and the creator record
 
-- **5b:** C2 contracts (`find:views`, `find:views-set`, `log:for`, `creator.notes` write, peek/record detail); gallery (facets, chips, saved views, card S/M/L, show toggles, table view, select with Shift, Ctrl A, Esc, bulk Shortlist and Reject with reason, Compare 2–4); thumbnail flip; peek and record (Overview: numbers, latest videos, fit parts, sponsors, addresses; Notes; Activity); Insights-style filter shape kept for step 9; smoke test.
+Branch `feat/5b-find-gallery-record` from `main` after #20 merges.
+
+**Decisions, 5b**
+- **D19. Paging, not one big list.** The gallery asks for pages of 120 and loads the next page when the last card scrolls into view. "Select all" selects every item loaded so far and says how many ("Select the 240 shown"); a bulk action never touches channels the page hasn't loaded. Shift-click selects the range between two loaded cards; Ctrl-click toggles one; Ctrl A selects the loaded ones; Esc clears.
+- **D20. Filters and display.** The filter is `FindFilter` (the shape step 9's Insights drill-down will write). The last filter, sort, view (gallery or table), card size (S, M, L) and the three show toggles (Pictures, Latest video, Signals) are device prefs. Saved views are `local_settings` `find.views` (D16): `{name ≤ 60, filter}`, at most 20, through `find:views` and `find:views-set`. Facets: Stage, Signals, Channel country (D8), Median views at least (Any, 25K, 45K, 80K), Uploads in 30 days (Any, 3, 5), Found by (runs). No "Who has it" (step T).
+- **D21. Bulk bar.** Shortlist (new or rejected), Reject with a reason picker, Compare (2 to 4). "Give to…" waits for step T.
+- **D22. Compare.** Up to 4 loaded items side by side, the prototype's rows (find.js l.323-344) with D8's honest rows: fit, subscribers, median views, uploads (Shorts flagged over 20), engagement ("not known"), channel country, sponsors. Best value per row in the good tone.
+- **D23. The creator record (peek and page).** One body, `renderer/record/creator-*.tsx`, used by the peek (narrow) and the record page (wide). Tabs: **Overview** (header: avatar, name, handle with a link to the channel on YouTube, stage tag, fit chip; the one next step with its button: new → Shortlist / Reject, shortlisted → "Confirm an address" (disabled with "arrives with contacts" in 5b; 5c wires it), rejected → Bring back, never → Allow again; numbers; the latest 6 videos with thumbnails, each opening on YouTube; fit parts with notes; sponsors; found addresses count; the channel description, first 600 characters with "Show all"), **Notes** (a text box saved on blur, "Saved" flag, not undoable, like your name), **Activity** (the lines on this creator, `log:for`, newest first, with who and when). Emails and Deals tabs wait for steps 6 and 8 (hidden). Opens from cards, the table, triage (O), the palette and notifications. Alt ↑/↓ walks the list it was opened from (the existing `peek(record, list)`).
+- **D24. Notes.** `creator.notes {id, notes ≤ 50,000}` (the lead raised it from 5,000 after C2: a longer note pulled from the server comes back cut with `notesCut: true` and the Notes tab shows it read-only, so a save can't drop the rest) is a write the page sends straight through `data:write` (not through the persister: notes aren't in the frame). Main stores `channel_state.notes` (creating the row as D4 does, real ids only) and enqueues `channel.edit notes` with the stored text as base. The catalog item detail (`find:item`) carries `notes`.
+- **D25. Links out.** Video and channel links are `https://www.youtube.com/watch?v=<id>` and `https://www.youtube.com/channel/<id>`, built from checked ids and opened through the existing external-link allowlist.
+- **D26. "Review results"** on an older run opens the gallery filtered to that run (`runs: [id]`, stages empty); the newest run still opens Review new. The run filter moves from triage's module store into the filter itself.
+
+**Contracts, 5b**
+```ts
+// packages/core/src/find/types.ts
+interface SavedView { name: string; filter: FindFilter }          // name 1..60, at most 20 views
+// find:item detail gains: notes: string (≤ 50000), notesCut: boolean
+// DataWrite gains:
+| { kind: "creator.notes"; id: string; base: string; notes: string; handle: string; name: string }   // base: the text the edit started from ("" = none), ≤ 50000
+// packages/ipc channels
+"find:views":     {} -> { views: SavedView[] }
+"find:views-set": { views: SavedView[] } -> { ok: true } | { ok: false; problem: "too_many" }
+"log:for":        { ref: string; limit: 1..100 } -> { lines: LogEntry[] }               // newest first
+```
+
+| id | tier | depends | files (about) | spec | done-check |
+|---|---|---|---|---|---|
+| C2 | H | – | core types, ipc, `main/handlers.ts`, `main/data/repositories/{creators,activity-log}.ts`, `main/sync/intents.ts`, `main/find/catalog.ts` (notes in detail), settings read/write | Contracts 5b plus their main side: views in `local_settings`, `log:for` query (one indexed query), notes write + outbox + contract tests. | `pnpm test` |
+| G1 | N | C2 | `renderer/find/gallery.tsx`, `gallery-facets.tsx`, `gallery-toolbar.tsx`, `gallery-chips.tsx`, `saved-views.tsx`, `lib/find-filter-prefs.ts` + tests | D19 paging hook use, D20: the shell, facets with counts, chips, search, sort, view and size toggles, saved views; results area renders `GalleryResults` (G2) | vitest |
+| P1 | N | C2 | `renderer/record/creator-*.tsx`, `overlays/peek.tsx`, `app/record-page.tsx`, `lib/wired.ts` (record) + tests | D23, D24, D25 | vitest |
+| G2 | N | G1 | `renderer/find/gallery-results.tsx`, `gallery-card.tsx`, `gallery-table.tsx`, `bulk-bar.tsx`, `compare.tsx` + tests | D19 selection, cards with hover flip (find.js l.297-322), table, D21, D22 | vitest |
+| W2 | N | G2, P1 | `find-screen.tsx`, `runs.tsx`, `triage.tsx`, `lib/wired.ts`, `e2e/find-gallery.spec.ts` | live `find: ["search","triage","gallery"]`, `record: ["creator"]` (check the shape); D26; one smoke test: gallery shows the found channels, a facet narrows them, Shift-select two, Compare shows both, open one in the peek | Windows e2e |
+| R2 | H | all | – | review | – |
+| L2 | lead | R2 | – | checks, look at it, PR, merge | CI |
+
+## Tasks, 5c, 5d (outline; detailed when each starts)
+
 - **5c:** C3 contracts (`creator.contact`, `find:ideas`, `log:page`, `toolbox:archive`, `toolbox:archived`, jobs `archive.sweep`, `archive.restore`, `refetch` after shortlist, schema v2 `found_email_sources`); Python email sources; core confidence; Contacts tab and Confirm with name, Confirm all 90%+; keyword ideas inline; Toolbox screen with Archive, Never-contact, Activity log; live gate; smoke test.
 - **5d:** the Find flow suite (D18), ADR 0017, architecture and parity notes, the status table, `.router/` removed.

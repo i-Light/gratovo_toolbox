@@ -12,7 +12,6 @@ import { exampleData } from "../lib/example-data";
 import { appStore, initAppStore, resetAppStoreForTests, selectRoute } from "../lib/store";
 import { strings } from "../strings";
 import { FindScreen } from "./find-screen";
-import { resetReviewRunForTests } from "./triage";
 
 const t = strings.findSearch;
 
@@ -412,13 +411,14 @@ describe("the tabs", () => {
   };
   const names = (): string[] => screen.getAllByRole("tab").map((el) => el.textContent);
 
-  it("shows only Search and Review new on live data, with the count", async () => {
+  it("shows Search, Review new and Gallery on live data, with the count", async () => {
     initAppStore({ ...exampleData(Date.now()), source: "live" }, { screen: "find", tab: "search" });
     setup(makeState(), onTriage);
     await show();
     expect(names()).toEqual([
       strings.screens.find.tabs.search,
       `${strings.screens.find.tabs.triage}7`,
+      strings.screens.find.tabs.gallery,
     ]);
     expect(screen.getByText(strings.findTriage.liveSub)).toBeTruthy();
     await click(screen.getByRole("tab", { name: new RegExp(strings.screens.find.tabs.triage) }));
@@ -468,7 +468,6 @@ describe("loading and example data", () => {
 
 describe("break-ui: worst case data", () => {
   it("renders Review new for a channel with the worst data", async () => {
-    resetReviewRunForTests();
     resetAppStoreForTests({ screen: "find", tab: "triage" });
     const worst = aiChannel("UC-worst", "N".repeat(120), {
       handle: `@${"h".repeat(119)}`,

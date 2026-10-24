@@ -1,13 +1,16 @@
-import { creatorStages, rejectReasons } from "@gratovo/core/data";
+import { creatorStages, notesMax, rejectReasons } from "@gratovo/core/data";
 import {
   findSignals,
   findSorts,
+  savedViewsMax,
+  viewNameMax,
   type CatalogItem,
   type CatalogVideo,
   type Facets,
   type FindFilter,
   type Fit,
   type FitPart,
+  type SavedView,
 } from "@gratovo/core/find";
 import { z } from "zod";
 
@@ -203,14 +206,24 @@ export const findQueryItemSchema: z.ZodType<CatalogItem & { fit: Fit }> = z.stri
   fit: fitSchema,
 });
 
-/** `find:item`'s detail: the fit, the description and up to 15 videos. */
+/** `find:item`'s detail: the fit, the description, up to 15 videos and the notes (D24). */
 export const findItemDetailSchema: z.ZodType<
-  CatalogItem & { fit: Fit; description: string; videos: CatalogVideo[] }
+  CatalogItem & {
+    fit: Fit;
+    description: string;
+    videos: CatalogVideo[];
+    notes: string;
+    notesCut: boolean;
+  }
 > = z.strictObject({
   ...catalogItemShape,
   fit: fitSchema,
   description: z.string().max(5000),
   videos: z.array(catalogVideoSchema).max(detailVideosMax),
+  notes: z.string().max(notesMax),
+  // True when the stored note is longer than `notesMax`: the page shows it read-only, so saving
+  // can't drop the rest.
+  notesCut: z.boolean(),
 });
 
 export const findFilterSchema: z.ZodType<FindFilter, FindFilter> = z.strictObject({
@@ -223,6 +236,32 @@ export const findFilterSchema: z.ZodType<FindFilter, FindFilter> = z.strictObjec
   runs: z.array(runId).max(findRunsMax),
   q: z.string().max(200),
 });
+
+/** A saved view: a trimmed name and a filter (D20). */
+export const savedViewSchema: z.ZodType<SavedView, SavedView> = z.strictObject({
+  name: z.string().trim().min(1).max(viewNameMax),
+  filter: findFilterSchema,
+});
+
+/** The stored and answered list: at most 20. */
+export const savedViewsSchema = z.array(savedViewSchema).max(savedViewsMax);
+
+/**
+ * The most views `find:views-set` takes in. More than `savedViewsMax` is a value (`too_many`)
+ * the page can word, so the request takes a few more before the call itself fails.
+ */
+export const viewsSetMax = 100;
+
+export const findViewsResultSchema = z.strictObject({ views: savedViewsSchema });
+
+export const findViewsSetRequestSchema = z.strictObject({
+  views: z.array(savedViewSchema).max(viewsSetMax),
+});
+
+export const findViewsSetResultSchema = z.discriminatedUnion("ok", [
+  z.strictObject({ ok: z.literal(true) }),
+  z.strictObject({ ok: z.literal(false), problem: z.literal("too_many") }),
+]);
 
 /** At most this many keys in an open-ended facet (countries, runs). */
 const facetKeysMax = 1000;

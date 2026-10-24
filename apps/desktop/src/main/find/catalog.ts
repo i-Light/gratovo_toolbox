@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 
-import type { CreatorStage, CreatorState } from "@gratovo/core/data";
+import { notesMax, type CreatorStage, type CreatorState } from "@gratovo/core/data";
 import { fitOf, queryCatalog, type CatalogItem, type CatalogVideo } from "@gratovo/core/find";
 
 import type { Catalog, CatalogDeps } from "./catalog-types";
@@ -372,7 +372,20 @@ export function createCatalog(deps: CatalogDeps): Catalog {
           db.close();
         }
       }
-      return { item: { ...row, fit: fitOf(row), description, videos: [...videos] } };
+      // The notes are read here, for this one creator, rather than kept in the rows: a notes save
+      // then needs no rebuild (D24). A note pulled from the server may be longer than the app
+      // writes; the detail shows the start and says so, and the page shows it read-only.
+      const full = (await deps.source()?.creatorNotes(id)) ?? "";
+      return {
+        item: {
+          ...row,
+          fit: fitOf(row),
+          description,
+          videos: [...videos],
+          notes: full.slice(0, notesMax),
+          notesCut: full.length > notesMax,
+        },
+      };
     },
     async runs() {
       const { rows } = await ready();

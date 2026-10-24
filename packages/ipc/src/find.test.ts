@@ -190,9 +190,17 @@ describe("the catalog channels", () => {
       description: "AI tools, weekly.",
       videos: Array(15).fill(video),
     };
-    expect(response.safeParse({ item: detail }).success).toBe(true);
+    expect(response.safeParse({ item: detail }).success).toBe(false);
+    const withNotes = { ...detail, notes: "Wants a demo of the agent first.", notesCut: false };
+    expect(response.safeParse({ item: withNotes }).success).toBe(true);
     expect(response.safeParse({ item: null }).success).toBe(true);
-    expect(response.safeParse({ item: { ...detail, description: "x".repeat(5001) } }).success).toBe(
+    expect(
+      response.safeParse({ item: { ...withNotes, description: "x".repeat(5001) } }).success,
+    ).toBe(false);
+    expect(response.safeParse({ item: { ...withNotes, notes: "x".repeat(50_000) } }).success).toBe(
+      true,
+    );
+    expect(response.safeParse({ item: { ...withNotes, notes: "x".repeat(50_001) } }).success).toBe(
       false,
     );
   });
@@ -213,6 +221,43 @@ describe("the catalog channels", () => {
     const response = channels["find:runs"].response;
     expect(response.safeParse({ runs: [run] }).success).toBe(true);
     expect(response.safeParse({ runs: Array(51).fill(run) }).success).toBe(false);
+  });
+
+  it("find:views takes nothing and answers at most 20 views", () => {
+    const view = { name: "Gold mines in the US", filter: emptyFindFilter };
+    expect(parseRequest("find:views", {}).ok).toBe(true);
+    expect(parseRequest("find:views", { limit: 5 }).ok).toBe(false);
+    const response = channels["find:views"].response;
+    expect(response.safeParse({ views: [] }).success).toBe(true);
+    expect(response.safeParse({ views: Array(20).fill(view) }).success).toBe(true);
+    expect(response.safeParse({ views: Array(21).fill(view) }).success).toBe(false);
+  });
+
+  it("find:views-set trims each name, bounds it to 1..60, and checks the filter", () => {
+    const view = { name: "Gold mines in the US", filter: emptyFindFilter };
+    const set = (views: unknown) => parseRequest("find:views-set", { views });
+    expect(set([view]).ok).toBe(true);
+    expect(set([]).ok).toBe(true);
+    const trimmed = set([{ ...view, name: "  AI news  " }]);
+    expect(trimmed.ok && trimmed.channel === "find:views-set" && trimmed.value.views[0]?.name).toBe(
+      "AI news",
+    );
+    expect(set([{ ...view, name: "   " }]).ok).toBe(false);
+    expect(set([{ ...view, name: "x".repeat(60) }]).ok).toBe(true);
+    expect(set([{ ...view, name: "x".repeat(61) }]).ok).toBe(false);
+    expect(set([{ ...view, filter: { ...emptyFindFilter, stages: ["won"] } }]).ok).toBe(false);
+    expect(set([{ ...view, color: "gold" }]).ok).toBe(false);
+    // More than 20 reaches main, which answers too_many; the call itself stays bounded.
+    expect(set(Array(21).fill(view)).ok).toBe(true);
+    expect(set(Array(101).fill(view)).ok).toBe(false);
+  });
+
+  it("find:views-set answers ok, or too_many and nothing else", () => {
+    const response = channels["find:views-set"].response;
+    expect(response.safeParse({ ok: true }).success).toBe(true);
+    expect(response.safeParse({ ok: false, problem: "too_many" }).success).toBe(true);
+    expect(response.safeParse({ ok: false, problem: "full" }).success).toBe(false);
+    expect(response.safeParse({ ok: true, problem: "too_many" }).success).toBe(false);
   });
 
   it("find:catalog carries the catalog's version and nothing else", () => {

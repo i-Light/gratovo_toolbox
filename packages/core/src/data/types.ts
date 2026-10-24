@@ -87,6 +87,10 @@ export function notifyKind(icon: string): NotifyKind | "problem" {
 /** The longest name kept; a longer one is cut to this. */
 export const nameMax = 80;
 
+/** The longest note on a creator (plan step 5, D24). */
+// Room for the old app's longest notes; a longer pulled note shows read-only (`notesCut`).
+export const notesMax = 50_000;
+
 /** A person on the team. */
 export interface TeamMember {
   readonly id: string;
@@ -304,6 +308,21 @@ export type DataWrite =
       readonly name: string;
       readonly reason?: RejectReason;
     }
+  /**
+   * A creator's notes, at most `notesMax` (D24). Not undoable and not in the frame: the page sends
+   * it straight through. Like a stage, it carries the handle and the name so main can create the
+   * row for a channel only the pipeline knows; `""` clears the notes. `base` is the text the
+   * person started editing from (`""` for none): the server compares it with what it holds, so a
+   * teammate's note that came in meanwhile is a conflict, not overwritten.
+   */
+  | {
+      readonly kind: "creator.notes";
+      readonly id: string;
+      readonly base: string;
+      readonly notes: string;
+      readonly handle: string;
+      readonly name: string;
+    }
   /** Inserts a new brand or updates the three fields of an existing one. */
   | {
       readonly kind: "brand.set";
@@ -322,6 +341,16 @@ export interface DataSource {
   frame(): Promise<Frame>;
   /** Every creator's stored state, not capped as the frame's creators are (plan step 5, D1). */
   creatorStates(): Promise<readonly CreatorState[]>;
+  /**
+   * One creator's stored notes, read on their own (D24): null when there are none or no row. The
+   * catalog asks for them per detail, so a notes save needs no rebuild.
+   */
+  creatorNotes(id: string): Promise<string | null>;
+  /**
+   * The newest visible lines about one creator (`ref`), newest first, at most `limit`, read the
+   * way the frame reads its log (plan step 5, D17 and D23).
+   */
+  logFor(ref: string, limit: number): Promise<readonly LogEntry[]>;
   /** In order, in one transaction: all or none. */
   write(writes: readonly DataWrite[]): Promise<void>;
   /** A local setting (`local_settings`), parsed from its JSON; undefined when it is not set. */

@@ -8,6 +8,9 @@ import { toast } from "./toast";
 /** The choice waits for an answer, so the toast stays longer than a plain one (milliseconds). */
 const choiceToastMs = 30_000;
 
+/** The longest side of a clash the toast shows, in characters. */
+const shownMax = 120;
+
 let send: Bridge["invoke"] | null = null;
 
 /** The bridge's `invoke`, from `installConflictToasts` or, before that, the page's own bridge. */
@@ -35,7 +38,9 @@ function choose(id: string, choice: "mine" | "theirs"): void {
 /** A stage reads by its name ("Contact confirmed"), as everywhere else in the app; other values as they are. */
 function shown(field: string, value: string): string {
   const stages: Readonly<Record<string, string>> = strings.record.stages;
-  return field === "creator_stage" ? (stages[value] ?? value) : value;
+  const text = field === "creator_stage" ? (stages[value] ?? value) : value;
+  // A long note would fill the toast: each side is cut, as main's notice does.
+  return text.length > shownMax ? `${text.slice(0, shownMax - 1)}…` : text;
 }
 
 /** Shows the choice for one open conflict: both values, and Use mine / Keep theirs. Nothing for an unknown id. */

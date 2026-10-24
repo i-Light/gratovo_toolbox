@@ -1,4 +1,11 @@
-export { emptyFacets, emptyFindFilter, findSignals, findSorts } from "./types";
+export {
+  emptyFacets,
+  emptyFindFilter,
+  findSignals,
+  findSorts,
+  savedViewsMax,
+  viewNameMax,
+} from "./types";
 export type {
   CatalogItem,
   CatalogVideo,
@@ -7,6 +14,7 @@ export type {
   FindSort,
   Fit,
   FitPart,
+  SavedView,
   Signal,
 } from "./types";
 export { fitOf, fitScore, isGold } from "./fit";

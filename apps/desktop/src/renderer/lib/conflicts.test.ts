@@ -98,3 +98,14 @@ describe("the conflict choice", () => {
     expect(toasts()).toHaveLength(1);
   });
 });
+
+describe("long notes in the choice", () => {
+  it("cuts each side to 120 characters", () => {
+    stop = installConflictToasts(okInvoke());
+    setConflicts([
+      conflict("n1", { field: "notes", mine: "m".repeat(300), theirs: "t".repeat(121) }),
+    ]);
+    const sub = toasts()[0]?.sub ?? "";
+    expect(sub).toBe(`Notes: yours ${"m".repeat(119)}…, theirs ${"t".repeat(119)}…`);
+  });
+});

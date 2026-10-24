@@ -315,10 +315,8 @@
   display: inline-flex;
 }
 .fit-pop {
-  position: absolute;
-  inset-inline-end: 0;
-  top: calc(100% + 6px);
-  z-index: 5;
+  position: fixed;
+  z-index: 60;
   margin: 0;
   padding: 8px 12px;
   list-style: none;
@@ -333,9 +331,6 @@
   font-size: 12.5px;
   font-weight: 400;
   color: var(--ink);
-}
-.fit-pop[hidden] {
-  display: none;
 }
 .fit svg {
   transform: rotate(-90deg);
@@ -456,4 +451,428 @@
 .tbl th.n {
   text-align: end;
   font-variant-numeric: tabular-nums;
+}
+
+/* Find › Gallery shell: the facets column, the toolbar card and the chips. From the prototype's
+   index.html (.facets, .fopt, .chip rows); the narrow-width rules are left out (desktop only). */
+.gal-wrap {
+  display: grid;
+  grid-template-columns: 232px minmax(0, 1fr);
+  gap: var(--gap);
+  align-items: start;
+}
+.facets {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  position: sticky;
+  top: 0;
+  align-self: start;
+  max-height: calc(100vh - 110px);
+  overflow-y: auto;
+  padding-inline-end: 4px;
+}
+.facet {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.facet h4 {
+  font: 600 12px var(--f-ui);
+  text-transform: none;
+  color: var(--muted);
+  margin-bottom: 2px;
+}
+.fopt {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  border: 0;
+  background: none;
+  text-align: start;
+  width: 100%;
+  color: var(--ink-2);
+}
+.fopt:hover:not(:disabled) {
+  background: var(--sunk);
+}
+.fopt:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.fopt .bx {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1.6px solid var(--line-2);
+  display: grid;
+  place-items: center;
+  flex: none;
+  color: transparent;
+}
+.fopt[aria-pressed="true"] {
+  color: var(--ink);
+}
+.fopt[aria-pressed="true"] .bx {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+.fopt .c {
+  margin-inline-start: auto;
+  font: 500 11px var(--f-mono);
+  color: var(--muted);
+}
+.fchips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.fchips .chip:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.gal-search {
+  min-width: 200px;
+  gap: 6px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-s);
+  padding: 0 8px;
+  height: 34px;
+  background: var(--panel);
+  color: var(--muted);
+}
+.gal-search-in {
+  border: 0;
+  outline: none;
+  background: none;
+  flex: 1;
+  min-width: 0;
+  color: var(--ink);
+}
+.gal-search:focus-within {
+  border-color: var(--accent);
+}
+.gal-chips {
+  gap: 6px;
+}
+.chip-t {
+  max-width: 28ch;
+}
+.saved-views {
+  gap: 6px;
+  max-width: 100%;
+}
+.view-chip {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+}
+.view-chip .chip {
+  border-start-end-radius: 0;
+  border-end-end-radius: 0;
+  max-width: 100%;
+  min-width: 0;
+}
+.view-x {
+  display: inline-grid;
+  place-items: center;
+  height: 30px;
+  width: 24px;
+  border: 1px solid var(--line-2);
+  border-inline-start: 0;
+  border-start-end-radius: 15px;
+  border-end-end-radius: 15px;
+  background: var(--panel);
+  color: var(--muted);
+}
+.view-x:hover {
+  color: var(--ink);
+  border-color: var(--accent-line);
+}
+/* Find › Gallery results: cards, table rows, the bulk bar and Compare. From the prototype's
+   index.html (.gal, .gcard, .gsel, .gstage, .scrub, .bulkbar) and find.js (.cmp); desktop only. */
+.gal {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--card-w, 260px), 1fr));
+  gap: 12px;
+}
+.gcard {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r-l);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  min-width: 0;
+  transition:
+    border-color 0.12s,
+    box-shadow 0.12s;
+  /* Cards far off screen skip layout and paint; the size is a guess that holds the scroll steady. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 300px;
+}
+.gcard:hover {
+  border-color: var(--line-2);
+  box-shadow: var(--shadow-2);
+}
+.gcard[data-selected="true"] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+.gal-busy {
+  opacity: 0.6;
+}
+.gcard.dim .thumbwrap,
+.gcard.dim .gb {
+  opacity: 0.55;
+}
+/* One button covers the card so the whole card opens the peek; the parts that act sit above it. */
+.gcard .gopen {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border: 0;
+  background: none;
+  border-radius: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+.gcard .gopen:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.gcard .thumbwrap {
+  position: relative;
+  border-start-start-radius: calc(var(--r-l) - 1px);
+  border-start-end-radius: calc(var(--r-l) - 1px);
+  overflow: hidden;
+}
+.gcard .thumb {
+  border-radius: 0;
+  width: 100%;
+}
+.gcard .gb {
+  padding: 10px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+}
+.gcard .gname {
+  gap: 8px;
+  position: relative;
+  z-index: 2;
+  pointer-events: none;
+}
+.gcard .gname .fit-wrap {
+  pointer-events: auto;
+}
+.gcard .gtitle-name {
+  font-weight: 600;
+  font-size: 13.5px;
+}
+.gcard .gname .av {
+  flex: none;
+}
+.gcard .gtitle {
+  position: relative;
+  z-index: 2;
+  pointer-events: auto;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.gcard .gmeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.gcard .gmeta b {
+  color: var(--ink);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.gcard .gsig {
+  position: relative;
+  z-index: 2;
+  pointer-events: auto;
+  gap: 4px;
+  min-width: 0;
+}
+.gcard .gsig .tag {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gcard .gsel {
+  position: absolute;
+  top: 8px;
+  inset-inline-start: 8px;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  border: 1.8px solid var(--ink);
+  background: color-mix(in srgb, var(--panel) 70%, transparent);
+  display: grid;
+  place-items: center;
+  color: var(--ink);
+  z-index: 3;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.gcard:hover .gsel,
+.gcard .gsel:focus-visible,
+.gcard[data-selected="true"] .gsel,
+.gal.selecting .gsel {
+  opacity: 1;
+}
+.gcard[data-selected="true"] .gsel {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+.gcard .gstage {
+  position: absolute;
+  top: 8px;
+  inset-inline-end: 8px;
+  z-index: 2;
+  pointer-events: none;
+}
+.gcard .scrub {
+  display: flex;
+  gap: 3px;
+  position: absolute;
+  bottom: 0;
+  inset-inline: 0;
+  padding: 0 6px 5px;
+  z-index: 2;
+  pointer-events: none;
+}
+.gcard .scrub i {
+  flex: 1;
+  height: 3px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--ink) 35%, transparent);
+}
+.gcard .scrub i.on {
+  background: var(--ink);
+}
+.tbl tbody tr.click {
+  cursor: pointer;
+}
+.tbl tbody tr.click:hover td {
+  background: var(--sunk);
+}
+.tbl tbody tr[aria-selected="true"] td {
+  background: var(--accent-soft);
+}
+.tbl .tbl-open {
+  border: 0;
+  background: none;
+  padding: 0;
+  font-weight: 500;
+  color: var(--ink);
+  text-align: start;
+  max-width: 260px;
+  cursor: pointer;
+}
+.tbl .tbl-sort {
+  padding: 0 4px;
+  height: 22px;
+  font: inherit;
+  color: inherit;
+}
+.tbl .tbl-sort[aria-pressed="true"] {
+  color: var(--ink);
+}
+.bulkbar {
+  position: sticky;
+  bottom: 16px;
+  z-index: 20;
+  align-self: center;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 8px 8px 14px;
+  border-radius: 14px;
+  background: var(--ink);
+  color: var(--panel);
+  box-shadow: var(--shadow-3);
+  animation: rise 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+  max-width: 100%;
+}
+.bulkbar .btn {
+  background: transparent;
+  color: var(--panel);
+  border-color: color-mix(in srgb, var(--panel) 30%, transparent);
+}
+.bulkbar .btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--panel) 12%, transparent);
+}
+.bulkbar .btn.pri {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+.bulkbar .bulk-reason {
+  max-width: 180px;
+  background: transparent;
+  color: inherit;
+}
+.bulkbar .bulk-reason option {
+  color: var(--ink);
+  background: var(--panel);
+}
+.cmp-scroll {
+  overflow-x: auto;
+}
+.cmp-grid {
+  display: flex;
+  flex-direction: column;
+}
+.cmp,
+.cmp-row {
+  display: grid;
+  gap: 12px;
+  align-items: start;
+}
+.cmp-row {
+  padding: 9px 0;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+}
+.cmp-row .lbl {
+  color: var(--muted);
+}
+.cmp-row > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.cmp .cc {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding-bottom: 10px;
+}
+.cmp .cmp-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.cmp-row .num.best {
+  color: var(--good);
+  font-weight: 600;
 }
