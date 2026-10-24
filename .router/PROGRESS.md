@@ -1,12 +1,29 @@
 # Progress: step 5 (Find)
 
-Started 2026-10-24. The plan is `.router/PLAN.md` (decisions D1 to D18, contracts, tasks), the recon `.router/CONTEXT.md`, the agent rules `.router/specs/rules.md`. Step 5 is four pull requests: 5a, 5b, 5c, 5d.
+Started 2026-10-24. The plan is `.router/PLAN.md` (decisions D1 to D18, contracts, tasks), the recon `.router/CONTEXT.md`, the agent rules `.router/specs/rules.md`. Step 5 is five pull requests: 5a to 5e.
 
 **5a done:** PR #20, merged 2026-10-24 as 835a404. **5b done:** PR #21, merged 2026-10-24 as 19ad4d3.
 
 **Step 5 is now five pull requests** (lead, after 5b): 5c contacts and keyword ideas, 5d Toolbox, 5e the flow suite and ADR 0017 (PLAN.md "The rest of step 5").
 
-**Now: 5c** (contacts, the email finder, keyword ideas) on branch `feat/5c-find-contacts` from `main` at 19ad4d3, in its pull request (L3). Plan: PLAN.md "5c" (D27 to D33). After it merges: detail 5d in PLAN.md (its outline is there) in a fresh session.
+**5c done:** PR #22, merged 2026-10-25 as f3d9883.
+
+**Now: 5d** (Toolbox: Archive, Never contact, Activity log) on branch `feat/5d-toolbox` from `main` at f3d9883. Plan: PLAN.md "5d" (D34 to D41). After it merges: 5e in a fresh session.
+
+## Tasks, 5d
+
+| id | tier | state | note |
+|---|---|---|---|
+| C4 | H | todo | |
+| B13 | N | todo | |
+| B14 | N | todo | |
+| B15 | H | todo | |
+| B16 | N | todo | |
+| B17 | N | todo | |
+| B18 | N | todo | |
+| W4 | N | todo | |
+| R4 | H | todo | |
+| L4 | lead | todo | |
 
 ## Tasks, 5c
 
@@ -20,7 +37,7 @@ Started 2026-10-24. The plan is `.router/PLAN.md` (decisions D1 to D18, contract
 | B12 | N | done | `KeywordIdeas` picker; `kind=""` workaround on the closed button: tidy |
 | W3 | N | done | live `find` gains `contacts` (tab with its count, palette action, subtitles), Contacts pages through `useGalleryPages` (120 a page), `installEmailJobs` shows `find:emails` in the tray (a finished row carries its note), the B12 `kind` tidy; `e2e/find-contacts.spec.ts` green. Lead: the gallery test's "today's search" run started an hour back, so it failed just after midnight |
 | R3 | H | done | review: 0 blockers, 7 important, 14 minor. Fixed as R3a (main, ipc, Python: odd old address on undo, other contacts kept, v3 migration safe to re-run, no lookup on an undone confirm, finder can't wedge) and R3b (renderer: Confirm all skips confirmed channels, looked-up last, focus after a card leaves, failed tray icon, e2e wait, a11y). Lead: Contacts cards one across with the peek open; D31/D33 notes |
-| L3 | lead | running | checks green (lint, typecheck, 2,331 + 1,488 unit tests, 67 Electron tests), looked at in dark at 1440 px; `Btn` gained `expanded` and `ref` (lead, R3b); PR |
+| L3 | lead | done | checks green (lint, typecheck, 2,331 + 1,488 unit tests, 67 Electron tests), looked at in dark at 1440 px; `Btn` gained `expanded` and `ref` (lead, R3b); PR |
 
 ## Tasks, 5b
 
