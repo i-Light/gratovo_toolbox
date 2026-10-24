@@ -875,6 +875,12 @@ def parse_start(line: str) -> Start:
     # Example data fakes the other jobs on main's side (steps 5 to 9): only a search runs on it.
     if source == "example" and job["kind"] != "search":
         raise BadStartError("only a search runs on example data")
+    settings = _settings(raw["settings"])
+    secrets = _secrets(raw["secrets"])
+    # A mailbox's address is read from the settings, never the secrets (ADR 0015 §8), so every
+    # connected mailbox must be listed there.
+    if not _mailboxes_listed(settings, secrets):
+        raise BadStartError("every connected mailbox must be listed in settings.mail.mailboxes")
     return {
         "type": "start",
         "protocol": 1,
@@ -882,9 +888,16 @@ def parse_start(line: str) -> Start:
         "dataDir": data_dir,
         "worker": worker,
         "job": job,
-        "settings": _settings(raw["settings"]),
-        "secrets": _secrets(raw["secrets"]),
+        "settings": settings,
+        "secrets": secrets,
     }
+
+
+def _mailboxes_listed(settings: Settings, secrets: Secrets) -> bool:
+    mail = secrets.get("mail")
+    listing = settings.get("mail")
+    listed = {e["address"].strip().lower() for e in (listing["mailboxes"] if listing else [])}
+    return mail is None or all(m["address"].strip().lower() in listed for m in mail["mailboxes"])
 
 
 def listen_for_stop(stream: TextIO, on_stop: Callable[[], None]) -> threading.Thread:

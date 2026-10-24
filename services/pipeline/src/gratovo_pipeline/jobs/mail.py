@@ -39,7 +39,6 @@ from gratovo_pipeline.protocol import (
     EndErrorCode,
     MailAccountStatus,
     MailAccountSweep,
-    MailboxSecret,
     MailCancelData,
     MailRepliesJob,
     MailSecrets,
@@ -123,38 +122,55 @@ class _Mail:
 
     @property
     def configured(self) -> bool:
-        return self.secrets is not None and bool(self.secrets["mailboxes"])
+        return bool(self._connected())
 
-    def mailboxes(self) -> list[MailboxSecret]:
-        if self.secrets is None or not self.secrets["mailboxes"]:
+    def _connected(self) -> list[str]:
+        """The connected mailboxes, lower-cased, in the order the settings list them. The
+        address a line reports is never read out of the secrets (ADR 0015 §8); `parse_start`
+        makes sure every connected mailbox is listed in the settings."""
+        mail = self.settings.get("mail")
+        listed = [e["address"].strip().lower() for e in mail["mailboxes"]] if mail else []
+        return [a for a in dict.fromkeys(listed) if self._refresh_token(a) is not None]
+
+    def _refresh_token(self, account: str) -> str | None:
+        for box in self.secrets["mailboxes"] if self.secrets else []:
+            if box["address"].strip().lower() == account:
+                return box["refreshToken"]
+        return None
+
+    def mailboxes(self) -> list[str]:
+        """The connected mailboxes' accounts: the key their rows have in the store."""
+        accounts = self._connected()
+        if not accounts:
             raise _EndError(
                 "mail_not_connected", "No mailbox is connected. Connect one in Settings."
             )
-        return self.secrets["mailboxes"]
+        return accounts
 
-    def named(self, wanted: str) -> MailboxSecret:
+    def named(self, wanted: str) -> str:
         """The mailbox `wanted` names, matched without regard to case as Gmail does."""
-        for box in self.mailboxes():
-            if account_of(box) == wanted.strip().lower():
-                return box
+        for account in self.mailboxes():
+            if account == wanted.strip().lower():
+                return account
         raise _EndError(
             "mail_not_connected", "That mailbox isn't connected. Connect it in Settings."
         )
 
-    def connect(self, box: MailboxSecret) -> MailClient:
-        """A live client for `box`, checked to be the address it was saved as."""
+    def connect(self, account: str) -> MailClient:
+        """A live client for `account`, checked to be the address it was saved as."""
         secrets = self.secrets
-        if secrets is None:
+        token = self._refresh_token(account)
+        if secrets is None or token is None:
             raise _EndError(
-                "mail_not_connected", "No mailbox is connected. Connect one in Settings."
+                "mail_not_connected", "That mailbox isn't connected. Connect it in Settings."
             )
         client = self._connect(
             client_id=secrets["client"]["id"],
             client_secret=secrets["client"]["secret"],
-            refresh_token=box["refreshToken"],
+            refresh_token=token,
             sender_name=self.sender_name,
         )
-        if client.address.strip().lower() != account_of(box):
+        if client.address.strip().lower() != account:
             raise gmail.MailAuthError(_ANOTHER_ADDRESS)
         return client
 
@@ -174,11 +190,6 @@ def mailbox_limits(settings: Settings, account: str) -> tuple[int, str | None]:
             cap = max(DAILY_CAP_MIN, min(DAILY_CAP_MAX, entry["dailyCap"]))
             return cap, entry["warmupStartedOn"]
     return DEFAULT_DAILY_CAP, None
-
-
-def account_of(box: MailboxSecret) -> str:
-    """The key a mailbox's rows have in the store: its listed address, lower-cased."""
-    return box["address"].strip().lower()
 
 
 def local_day_start() -> str:
@@ -240,16 +251,15 @@ def _status(mail: _Mail, emitter: Emitter) -> None:
     if mail.configured:
         conn = _open(mail.db_path)
         try:
-            data["accounts"] = [_account_status(mail, conn, box) for box in mail.mailboxes()]
+            data["accounts"] = [_account_status(mail, conn, a) for a in mail.mailboxes()]
         finally:
             conn.close()
     emitter.result("mail.status", data)
 
 
-def _account_status(mail: _Mail, conn: sqlite3.Connection, box: MailboxSecret) -> MailAccountStatus:
+def _account_status(mail: _Mail, conn: sqlite3.Connection, account: str) -> MailAccountStatus:
     """One mailbox: a live check plus its numbers. Never raises: a lapsed token on one mailbox
     must not stop the others from reporting, so the failure is this entry's `error`."""
-    account = account_of(box)
     entry: MailAccountStatus = {
         "account": account,
         "connected": False,
@@ -259,7 +269,7 @@ def _account_status(mail: _Mail, conn: sqlite3.Connection, box: MailboxSecret) -
         "error": None,
     }
     try:
-        mail.connect(box)
+        mail.connect(account)
         counters = mailbox.counters(conn, account)
         cap, warmup, sent = mail.cap_status(conn, account)
         entry["connected"] = True
@@ -293,18 +303,18 @@ def _send(mail: _Mail, message: OutgoingMail, emitter: Emitter) -> None:
         raise _EndError("bad_start", "The message body is empty.")
     wanted = message.get("mailbox")
     if wanted is not None:
-        box = mail.named(wanted)
+        account = mail.named(wanted)
     else:
-        boxes = mail.mailboxes()
-        if len(boxes) > 1:
+        accounts = mail.mailboxes()
+        if len(accounts) > 1:
             raise _EndError(
                 "bad_start", "More than one mailbox is connected: say which one sends this message."
             )
-        box = boxes[0]
+        account = accounts[0]
     conn = _open(mail.db_path)
     try:
-        client = mail.connect(box)
-        data = _send_request(mail, client, conn, account_of(box), message)
+        client = mail.connect(account)
+        data = _send_request(mail, client, conn, account, message)
     finally:
         conn.close()
     emitter.result("mail.send", data)
@@ -473,13 +483,13 @@ def _already_sent(
 
 def _replies(mail: _Mail, job: MailRepliesJob, emitter: Emitter) -> None:
     wanted = job.get("mailbox")
-    boxes = mail.mailboxes() if wanted is None else [mail.named(wanted)]
+    accounts = mail.mailboxes() if wanted is None else [mail.named(wanted)]
     limit = job.get("limit", REPLIES_LIMIT)
     conn = _open(mail.db_path)
     try:
         accounts = [
-            _sweep_account(mail, conn, box, job.get("conversationKey"), limit, emitter)
-            for box in boxes
+            _sweep_account(mail, conn, account, job.get("conversationKey"), limit, emitter)
+            for account in accounts
         ]
     finally:
         conn.close()
@@ -489,14 +499,13 @@ def _replies(mail: _Mail, job: MailRepliesJob, emitter: Emitter) -> None:
 def _sweep_account(
     mail: _Mail,
     conn: sqlite3.Connection,
-    box: MailboxSecret,
+    account: str,
     conversation_key: str | None,
     limit: int,
     emitter: Emitter,
 ) -> MailAccountSweep:
     """One mailbox's sweep (the old `cmd_run_due`). Never raises: one failing mailbox is
     reported in its entry and the others go on."""
-    account = account_of(box)
     entry: MailAccountSweep = {
         "account": account,
         "checked": 0,
@@ -505,7 +514,7 @@ def _sweep_account(
         "error": None,
     }
     try:
-        client = mail.connect(box)
+        client = mail.connect(account)
         cancelled, entry["checked"] = _sweep_replies(
             client, conn, account, conversation_key=conversation_key, limit=limit, emitter=emitter
         )

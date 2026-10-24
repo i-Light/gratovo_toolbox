@@ -389,6 +389,25 @@ def test_the_mail_settings_and_the_mail_and_aws_secrets_parse(
 @pytest.mark.parametrize(
     ("path", "value"),
     [
+        ("settings.mail.mailboxes.0.address", "other@gratovo.com"),
+        ("settings.mail.mailboxes", []),
+        ("secrets.mail.mailboxes.0.address", "unlisted@gratovo.com"),
+    ],
+)
+def test_a_connected_mailbox_missing_from_the_settings_is_refused(path: str, value: object) -> None:
+    """The address a line reports comes from the settings, never the secrets."""
+    with pytest.raises(BadStartError, match="listed in settings"):
+        parse_start(json.dumps(changed_at(path, value, with_mail())))
+
+
+def test_a_connected_mailbox_is_matched_without_regard_to_case() -> None:
+    message = changed_at("settings.mail.mailboxes.0.address", "Outreach@Gratovo.com", with_mail())
+    assert parse_start(json.dumps(message)) == message
+
+
+@pytest.mark.parametrize(
+    ("path", "value"),
+    [
         ("settings.mail.label", ""),
         ("settings.mail.senderName", "x" * 101),
         ("settings.mail.senderName", "Sam\nBcc: a@b.co"),

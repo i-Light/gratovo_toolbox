@@ -251,7 +251,19 @@ export const startSchema = z
   .refine((start) => start.source === "live" || start.job.kind === "search", {
     message: "only a search runs on example data",
     path: ["source"],
-  });
+  })
+  // A mailbox's address is read from the settings, never the secrets (ADR 0015 §8).
+  .refine(
+    (start) => {
+      const key = (address: string) => address.trim().toLowerCase();
+      const listed = new Set((start.settings.mail?.mailboxes ?? []).map((m) => key(m.address)));
+      return (start.secrets.mail?.mailboxes ?? []).every((m) => listed.has(key(m.address)));
+    },
+    {
+      message: "every connected mailbox must be listed in settings.mail.mailboxes",
+      path: ["settings"],
+    },
+  );
 
 export const stopSchema = z.strictObject({ type: z.literal("stop") });
 

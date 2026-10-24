@@ -252,6 +252,34 @@ describe("the jobs other than search", () => {
     expect(startSchema.safeParse(withMail({ accessKeyId: "akia-lowercase" })).success).toBe(false);
     expect(startSchema.safeParse(withMail({ senderName: "Sam\nBcc: a@b.co" })).success).toBe(false);
   });
+
+  it("refuses a connected mailbox the settings don't list", () => {
+    const withBoxes = (listed: string[], connected: string[]) => ({
+      ...start,
+      source: "live",
+      job: { kind: "mail.status" },
+      settings: {
+        mail: {
+          label: "Gratovo",
+          senderName: null,
+          mailboxes: listed.map((address) => ({ address, dailyCap: 35, warmupStartedOn: null })),
+        },
+      },
+      secrets: {
+        ...start.secrets,
+        mail: {
+          client: { id: "client-id", secret: "client-secret" },
+          mailboxes: connected.map((address) => ({ address, refreshToken: "token" })),
+        },
+      },
+    });
+    const one = "outreach@gratovo.com";
+    expect(startSchema.safeParse(withBoxes([one], [one])).success).toBe(true);
+    expect(startSchema.safeParse(withBoxes(["Outreach@Gratovo.com"], [one])).success).toBe(true);
+    expect(startSchema.safeParse(withBoxes([one, "hello@gratovo.com"], [one])).success).toBe(true);
+    expect(startSchema.safeParse(withBoxes([], [one])).success).toBe(false);
+    expect(startSchema.safeParse(withBoxes(["hello@gratovo.com"], [one])).success).toBe(false);
+  });
 });
 
 describe("stopLine", () => {

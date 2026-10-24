@@ -254,7 +254,9 @@ class Mailroom:
         secrets: dict[str, Any] = {"youtubeKey": None, "proxyUrls": [], "gatewayUrls": []}
         message["settings"] = settings
         message["secrets"] = secrets
-        if caps is not None or label is not None or sender_name is not None:
+        # Every connected mailbox is listed in the settings, as main always does.
+        listed = {**dict.fromkeys(mailboxes or (), mail_job.DEFAULT_DAILY_CAP), **(caps or {})}
+        if listed or label is not None or sender_name is not None:
             settings["mail"] = {
                 "label": label or "Gratovo Outreach",
                 "senderName": sender_name,
@@ -264,7 +266,7 @@ class Mailroom:
                         "dailyCap": cap,
                         "warmupStartedOn": (warmups or {}).get(address),
                     }
-                    for address, cap in (caps or {}).items()
+                    for address, cap in listed.items()
                 ],
             }
         if mailboxes is not None:

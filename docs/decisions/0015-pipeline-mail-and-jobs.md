@@ -51,7 +51,7 @@ Two things are new. A send must not wait for a search that runs for hours. And t
 
 8. **Secrets in main (amends ADR 0013 §4).**
    - `mail.client` (`{id, secret}`), `mail.mailboxes` (`[{address, refreshToken}]`) and `aws.keys` (`{accessKeyId, secretAccessKey}`) are JSON in the secret store. `pipeline-secrets.ts` reads them and checks their shape. Bad JSON or a wrong shape counts as missing, and main logs only the name.
-   - `start.settings.mail` holds the label, the sender name and each mailbox's daily cap (10 to 50) and warm-up date. `start.secrets.mail` and `start.secrets.aws` carry the keys above.
+   - `start.settings.mail` holds the label, the sender name and each mailbox's daily cap (10 to 50) and warm-up date. `start.secrets.mail` and `start.secrets.aws` carry the keys above. Every connected mailbox must be listed in `start.settings.mail.mailboxes` (both schemas refuse a start otherwise), because the jobs read each mailbox's address from there and take only its token from the secrets. So the address that result and reply lines report never comes out of the secrets, and CodeQL can check that nothing from the secrets reaches stdout.
    - `secretsOf` blanks the client secret, each refresh token, both AWS keys and each gateway's `apiId` in any line main logs or shows. A deploy's `result` is merged into `pipeline.gateways` and is never logged.
    - Result and reply text are never logged, not even on a bad line, because reply bodies are people's mail.
    *Why:* the same rule as ADR 0013 §4. A secret is blanked before it can reach a log, and a bad secret is treated as missing, never as a value.
