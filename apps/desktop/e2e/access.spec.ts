@@ -129,7 +129,8 @@ test.describe("what a signed-in member sees", () => {
       page.getByRole("button", { name: strings.auth.signOut, exact: true }),
     ).toBeVisible();
 
-    await expect(sectionButton(page, tabs.team)).toBeVisible();
+    // Team and money has no rows yet, so live mode hides it until its step (ground rule 9).
+    await expect(sectionButton(page, tabs.team)).toHaveCount(0);
     await expect(sectionButton(page, tabs.connections)).toBeVisible();
     await openSettingsSection(page, tabs.notifications);
     await expect(

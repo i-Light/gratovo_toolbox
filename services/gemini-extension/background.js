@@ -710,7 +710,7 @@ async function handleRequest(method, params) {
   if (typeof method !== 'string') throw gbError('BAD_PARAMS', 'method must be a string');
   log('debug', 'handleRequest', { method });
   const fn = BACKGROUND_METHOD_TABLE.get(method);
-  if (fn !== undefined) return fn(params);
+  if (typeof fn === 'function') return fn(params);
   if (!CONTENT_METHODS.has(method)) throw gbError('BAD_PARAMS', 'Unknown method "' + method + '"');
   const tab = await getTargetTab(params);
   return callContent(tab.id, method, params);
