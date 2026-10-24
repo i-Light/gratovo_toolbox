@@ -82,8 +82,16 @@ test.describe("Find › Search", () => {
     // The Runs table shows the run with what it found and kept (the catalog reads it from the run
     // history a moment after the end).
     await expect(runRow(page)).toBeVisible(run);
-    // Its "running" tag goes once the end has been read.
+    // The pause ended one run and the resume started another: both show (a header row and two),
+    // the paused one tagged as a pause, and the newest has no tag once its end has been read.
+    await expect(
+      page.getByRole("table", { name: findRuns.listLabel }).getByRole("row"),
+    ).toHaveCount(3, run);
+    await expect(
+      page.getByRole("table", { name: findRuns.listLabel }).getByRole("row").nth(2),
+    ).toContainText(findRuns.status.paused);
     await expect(runRow(page)).not.toContainText(findRuns.status.running, run);
+    await expect(runRow(page)).not.toContainText(findRuns.status.paused, run);
     await expect.poll(() => runCount(page, 2), run).toBeGreaterThan(0);
     await expect.poll(() => runCount(page, 3), run).toBeGreaterThan(0);
     const runBefore = await runRow(page).allTextContents();

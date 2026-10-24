@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { facetCounts, hasSignal, passes, queryCatalog, sortItems } from "./filter";
-import { emptyFindFilter, type CatalogItem, type FindFilter } from "./types";
+import { emptyFacets, emptyFindFilter, type CatalogItem, type FindFilter } from "./types";
 
 function makeItem(patch: Partial<CatalogItem> = {}): CatalogItem {
   return {
@@ -340,6 +340,16 @@ describe("queryCatalog", () => {
     expect(ids(queryCatalog(all, emptyFindFilter, "median", 2, 2).items)).toEqual(["a", "e"]);
     expect(ids(queryCatalog(all, emptyFindFilter, "median", 4, 2).items)).toEqual(["b"]);
     expect(queryCatalog(all, emptyFindFilter, "median", 10, 2).items).toEqual([]);
+  });
+
+  it("counts the facets unless asked not to", () => {
+    expect(queryCatalog(all, emptyFindFilter, "fit", 0, 2, { facets: true }).facets).toEqual(
+      facetCounts(all, emptyFindFilter),
+    );
+    const light = queryCatalog(all, emptyFindFilter, "fit", 0, 2, { facets: false });
+    expect(light.facets).toEqual(emptyFacets);
+    expect(light.total).toBe(5);
+    expect(ids(light.items)).toEqual(ids(queryCatalog(all, emptyFindFilter, "fit", 0, 2).items));
   });
 
   it("returns an empty page for an empty catalog", () => {

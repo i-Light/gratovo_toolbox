@@ -553,3 +553,30 @@ describe("break-ui: worst case data", () => {
     await click(screen.getByRole("button", { name: t.live.start }));
   });
 });
+
+describe("the Find tabs as an ARIA tab list", () => {
+  it("has one panel, a roving tab stop and arrows that move between tabs", async () => {
+    // Example data shows every Find tab.
+    const { stubFindBridge } = await import("../lib/find-test-bridge");
+    stubFindBridge();
+    resetFindForTests();
+    resetAppStoreForTests({ screen: "find", tab: "triage" });
+    await act(async () => {
+      render(<FindScreen />);
+      await Promise.resolve();
+    });
+    const selected = screen.getByRole("tab", { selected: true });
+    expect(selected.getAttribute("tabindex")).toBe("0");
+    const panel = screen.getByRole("tabpanel");
+    expect(selected.getAttribute("aria-controls")).toBe(panel.id);
+    expect(panel.getAttribute("aria-labelledby")).toBe(selected.id);
+    for (const other of screen.getAllByRole("tab", { selected: false })) {
+      expect(other.getAttribute("tabindex")).toBe("-1");
+    }
+    await act(async () => {
+      fireEvent.keyDown(selected, { key: "ArrowLeft" });
+      await Promise.resolve();
+    });
+    expect(selectRoute(appStore().getState()).tab).toBe("search");
+  });
+});

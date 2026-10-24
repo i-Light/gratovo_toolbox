@@ -179,7 +179,9 @@ def run(start: Start, emitter: Emitter, *, source: Source | None = None) -> None
             connect=lambda: store.get_connection(cfg.data_dir / DB_NAME),
         )
     except KeyboardInterrupt:  # RunAborted too: a stop
-        _finish(conn, run_id, results, "interrupted")
+        # "stopped", not "interrupted": the person paused it, so the history shows a pause, not a
+        # failure (plan step 5). A failure or a killed process stays "interrupted".
+        _finish(conn, run_id, results, "stopped")
         end("stopped")
         return
     except BaseException as error:
@@ -194,7 +196,7 @@ def run(start: Start, emitter: Emitter, *, source: Source | None = None) -> None
         end("failed", failure)
         return
     if run_control.stop_requested() and end_at() < total:  # stopped before a keyword began
-        _finish(conn, run_id, results, "interrupted")
+        _finish(conn, run_id, results, "stopped")
         end("stopped")
         return
     _finish(conn, run_id, results, "done")
@@ -205,7 +207,7 @@ def _finish(
     conn: sqlite3.Connection,
     run_id: int,
     results: dict[int, KeywordResult],
-    status: Literal["done", "interrupted"],
+    status: Literal["done", "stopped", "interrupted"],
 ) -> None:
     try:
         store.update_run_progress(conn, run_id, keywords_done=len(results))

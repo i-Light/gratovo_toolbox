@@ -1,8 +1,9 @@
 import { randomBytes } from "node:crypto";
 import {
+  type FileHandle,
   mkdir,
+  open,
   readdir,
-  readFile,
   rename,
   stat,
   unlink,
@@ -230,18 +231,25 @@ export function createImageService(deps: ImageServiceDeps): ImageService {
   async function readCached(base: string): Promise<ImageReply | null> {
     for (const [extension, type] of typesByExtension) {
       const file = join(deps.cacheDir, `${base}.${extension}`);
+      // One open file for the check, the read and the touch, so a file swapped in between can't
+      // be served.
+      let handle: FileHandle | undefined;
       try {
-        const info = await stat(file);
+        // Read-write: Windows refuses to set the times through a read-only handle.
+        handle = await open(file, "r+");
+        const info = await handle.stat();
         if (!info.isFile() || info.size === 0 || info.size > maxBytes) {
           continue;
         }
-        const body = await readFile(file);
+        const body = await handle.readFile();
         // Pruning goes by modification time, so a picture in use stays.
         const seconds = now() / 1000;
-        await utimes(file, seconds, seconds).catch(() => undefined);
+        await handle.utimes(seconds, seconds).catch(() => undefined);
         return { status: 200, type, body };
       } catch {
         // Not cached with this extension.
+      } finally {
+        await handle?.close().catch(() => undefined);
       }
     }
     return null;

@@ -9,6 +9,7 @@ import type { Bridge } from "@gratovo/ipc/bridge";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { undo } from "./actions";
 import { ensureCreators, shortlist } from "./find-actions";
 import { useCatalogItem, useCatalogQuery, useRuns } from "./find-catalog";
 import { resetAppStoreForTests } from "./store";
@@ -205,6 +206,44 @@ describe("useCatalogItem and useRuns", () => {
     });
     await waitFor(() => {
       expect(pending).toHaveLength(2);
+    });
+  });
+});
+
+describe("Undo after a rebuild", () => {
+  it("puts a shortlisted channel back when the overlay passes again, though main dropped it", async () => {
+    const { result: out } = renderHook(() => useCatalogQuery(params));
+    await answer(0, result(1, [item("UC-a", "Ada"), item("UC-b", "Bo")]));
+    act(() => {
+      shortlist([item("UC-a", "Ada")]);
+    });
+    act(() => {
+      fire(2);
+    });
+    await waitFor(() => {
+      expect(pending).toHaveLength(2);
+    });
+    await answer(1, result(2, [item("UC-b", "Bo")]));
+    expect(out.current.items.map((i) => i.id)).toEqual(["UC-b"]);
+    act(() => {
+      undo();
+    });
+    expect(out.current.items.map((i) => i.id).sort()).toEqual(["UC-a", "UC-b"]);
+    expect(out.current.total).toBe(2);
+  });
+
+  it("overlays only the stage and the reject reason", async () => {
+    const all = { ...params, filter: { ...filter, stages: ["new", "shortlisted"] as const } };
+    const { result: out } = renderHook(() => useCatalogQuery(all));
+    await answer(0, result(1, [{ ...item("UC-a", "Ada"), email: "a@x.ai", emailConfirmed: true }]));
+    act(() => {
+      ensureCreators([item("UC-a", "Ada")]);
+      shortlist([item("UC-a", "Ada")]);
+    });
+    expect(out.current.items[0]).toMatchObject({
+      stage: "shortlisted",
+      email: "a@x.ai",
+      emailConfirmed: true,
     });
   });
 });

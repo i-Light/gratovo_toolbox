@@ -27,6 +27,23 @@ const contacted: ReadonlySet<CreatorStage> = new Set([
   "audience",
   "signed",
 ]);
+/** The old app's `pipeline_stage` values that mean it mailed the creator; never `new` or `lost`. */
+const legacyContacted: ReadonlySet<string> = new Set([
+  "contacted",
+  "interested",
+  "roster",
+  "negotiating",
+  "contract",
+  "awaitingDelivery",
+  "paid",
+]);
+const countryPattern = /^[A-Z]{2}$/;
+
+/** A two-letter country code, upper case; anything else ("", "usa", "u s") is none. */
+function countryOf(text: string | null): string | null {
+  const code = (text ?? "").trim().toUpperCase();
+  return countryPattern.test(code) ? code : null;
+}
 
 interface ChannelRow {
   channel_id: string;
@@ -111,8 +128,10 @@ function emailedBefore(state: CreatorState | undefined): CatalogItem["emailedBef
   if (state === undefined) {
     return null;
   }
-  const legacy = state.legacyPipelineStage.trim();
-  if ((legacy === "" || legacy === "new") && !contacted.has(state.stage)) {
+  // The legacy stage counts only while the app has no stage of its own: once it has, the legacy
+  // field may be a leftover (a never then allow wrote "lost") and says nothing about mail.
+  const legacy = !state.hasAppStage && legacyContacted.has(state.legacyPipelineStage.trim());
+  if (!legacy && !contacted.has(state.stage)) {
     return null;
   }
   return { at: state.lastActivity?.at ?? null, who: state.lastActivity?.who ?? null };
@@ -192,7 +211,7 @@ function build(dbPath: string | null, states: readonly CreatorState[], now: numb
       subscribers: count(channel.subscribers),
       medianViews: channel.median_views_last_30 ?? 0,
       uploads30: channel.videos_last_30 ?? 0,
-      country: channel.country,
+      country: countryOf(channel.country),
       sponsors: sponsorsOf(channel.seen_brands),
       foundEmails: jsonList(channel.found_emails).length,
       latestUploadAt: parseTime(channel.latest_upload_at),
@@ -318,9 +337,9 @@ export function createCatalog(deps: CatalogDeps): Catalog {
     channelPicture(id: string): string | null {
       return built?.pictures.get(id) ?? null;
     },
-    async query({ filter, sort, offset, limit }) {
+    async query({ filter, sort, offset, limit, facets }) {
       const { rows } = await ready();
-      const page = queryCatalog(rows, filter, sort, offset, limit);
+      const page = queryCatalog(rows, filter, sort, offset, limit, { facets: facets !== false });
       return { version, total: page.total, items: [...page.items], facets: page.facets };
     },
     async item(id: string) {

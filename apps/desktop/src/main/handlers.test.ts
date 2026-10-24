@@ -289,6 +289,9 @@ describe("the find catalog handlers", () => {
     const request = { filter: emptyFindFilter, sort: "fit" as const, offset: 120, limit: 60 };
     await mine["find:query"](request);
     expect(query).toHaveBeenCalledWith(request);
+    // A page that hides the facets asks for none, and the catalog hears it.
+    await mine["find:query"]({ ...request, facets: false });
+    expect(query).toHaveBeenLastCalledWith({ ...request, facets: false });
     await mine["find:item"]({ id: "UCbbbbbbbbbbbbbbbbbbbbbb" });
     expect(item).toHaveBeenCalledWith("UCbbbbbbbbbbbbbbbbbbbbbb");
   });
@@ -323,6 +326,11 @@ describe("data:write and the catalog", () => {
     expect(await written([stage])).toBe(1);
     expect(await written([logLine("UCaaaaaaaaaaaaaaaaaaaaaa")])).toBe(1);
     expect(await written([{ kind: "log.remove", id: "l1" }])).toBe(1);
+  });
+
+  it("tells the catalog after a conflict is settled, keeping yours or theirs", async () => {
+    expect(await written([{ kind: "conflict.resolve", id: "k1", choice: "mine" }])).toBe(1);
+    expect(await written([{ kind: "conflict.resolve", id: "k1", choice: "theirs" }])).toBe(1);
   });
 
   it("stays quiet for writes the catalog does not show", async () => {

@@ -1,5 +1,11 @@
 import type { ChannelResponse } from "@gratovo/ipc";
-import { passes, type CatalogItem, type FindFilter, type FindSort } from "@gratovo/core/find";
+import {
+  passes,
+  sortItems,
+  type CatalogItem,
+  type FindFilter,
+  type FindSort,
+} from "@gratovo/core/find";
 import type { Creator } from "@gratovo/core/data";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -11,6 +17,8 @@ interface QueryParams {
   readonly sort: FindSort;
   readonly offset: number;
   readonly limit: number;
+  /** False when the page shows no facets: main then skips the counting and answers zeros. */
+  readonly facets?: boolean;
 }
 type QueryResult = ChannelResponse<"find:query">;
 type QueryItem = QueryResult["items"][number];
@@ -33,31 +41,56 @@ function useCatalogTick(): number {
 
 /**
  * Puts the page's own creator state over a catalog item (D2), so a key press shows at once while
- * main's counts catch up. Keeps the item itself when nothing differs.
+ * main's counts catch up. Only what a page action changes: the stage and the reject reason. The
+ * address and the archive date come from main. Keeps the item itself when nothing differs.
  */
 function overlay<T extends CatalogItem>(item: T, creator: Creator | undefined): T {
   if (
     creator === undefined ||
-    (creator.stage === item.stage &&
-      creator.email === item.email &&
-      creator.emailConfirmed === item.emailConfirmed &&
-      creator.rejectReason === item.rejectReason &&
-      creator.archiveDueAt === item.archiveDueAt)
+    (creator.stage === item.stage && creator.rejectReason === item.rejectReason)
   ) {
     return item;
   }
-  return {
-    ...item,
-    stage: creator.stage,
-    email: creator.email,
-    emailConfirmed: creator.emailConfirmed,
-    rejectReason: creator.rejectReason,
-    archiveDueAt: creator.archiveDueAt,
-  };
+  return { ...item, stage: creator.stage, rejectReason: creator.rejectReason };
 }
+
+/** How many items of earlier answers are kept so Undo can bring one back before the next rebuild. */
+const keptMax = 200;
 
 function byId(creators: readonly Creator[]): Map<string, Creator> {
   return new Map(creators.map((c) => [c.id, c]));
+}
+
+/** A page of the catalog as the hook keeps it. */
+interface Shown extends QueryResult {
+  readonly filter: FindFilter;
+  /**
+   * Items seen in earlier answers of this same request that this one no longer holds. A rebuild may
+   * drop a shortlisted channel from main's answer; Undo then puts it back from here (at most
+   * `keptMax`). Cleared when the request changes.
+   */
+  readonly earlier: readonly QueryItem[];
+}
+
+/** Adds an answer's items to what earlier answers showed; returns the ones this answer lacks. */
+function remember(
+  before: { key: string; items: Map<string, QueryItem> },
+  key: string,
+  items: readonly QueryItem[],
+): { seen: { key: string; items: Map<string, QueryItem> }; earlier: QueryItem[] } {
+  const kept = before.key === key ? new Map(before.items) : new Map<string, QueryItem>();
+  const now = new Set(items.map((i) => i.id));
+  const earlier = [...kept.values()].filter((i) => !now.has(i.id));
+  for (const item of items) {
+    kept.delete(item.id);
+    kept.set(item.id, item);
+  }
+  while (kept.size > keptMax) {
+    const oldest = kept.keys().next();
+    if (oldest.done === true) break;
+    kept.delete(oldest.value);
+  }
+  return { seen: { key, items: kept }, earlier };
 }
 
 /** What an answer remembers: the request it answers, and how it went. */
@@ -80,15 +113,20 @@ export function useCatalogQuery(params: QueryParams): {
 } {
   const key = JSON.stringify(params);
   const tick = useCatalogTick();
-  const [answer, setAnswer] = useState<Answer<QueryResult & { filter: FindFilter }>>({
+  const [answer, setAnswer] = useState<Answer<Shown>>({
     key: "",
     value: null,
   });
   const newest = useRef(-1);
+  // Items seen in earlier answers of this same request, by id (see `Shown.earlier`).
+  const seen = useRef<{ key: string; items: Map<string, QueryItem> }>({
+    key: "",
+    items: new Map(),
+  });
   useEffect(() => {
     let stopped = false;
     const request = JSON.parse(key) as QueryParams;
-    const done = (value: (QueryResult & { filter: FindFilter }) | null): void => {
+    const done = (value: Shown | null): void => {
       if (!stopped) {
         setAnswer({ key, value });
       }
@@ -99,7 +137,9 @@ export function useCatalogQuery(params: QueryParams): {
           done(null);
         } else if (result.value.version >= newest.current) {
           newest.current = result.value.version;
-          done({ ...result.value, filter: request.filter });
+          const remembered = remember(seen.current, key, result.value.items);
+          seen.current = remembered.seen;
+          done({ ...result.value, filter: request.filter, earlier: remembered.earlier });
         }
       },
       () => {
@@ -111,6 +151,7 @@ export function useCatalogQuery(params: QueryParams): {
     };
   }, [key, tick]);
   const creators = useApp((s) => s.data.creators);
+  const sort = params.sort;
   const shown = useMemo(() => {
     const value = answer.key === key ? answer.value : null;
     if (value === null) {
@@ -120,8 +161,24 @@ export function useCatalogQuery(params: QueryParams): {
     const items = value.items
       .map((item) => overlay(item, mine.get(item.id)))
       .filter((item) => passes(item, value.filter));
-    return { value, items, dropped: value.items.length - items.length };
-  }, [answer, key, creators]);
+    // Items that left main's answer come back when the page's own state makes them pass again.
+    const back: QueryItem[] = [];
+    for (const old of value.earlier) {
+      const creator = mine.get(old.id);
+      if (creator !== undefined) {
+        const now = overlay(old, creator);
+        if (passes(now, value.filter)) {
+          back.push(now);
+        }
+      }
+    }
+    const merged = back.length === 0 ? items : sortItems([...items, ...back], sort);
+    return {
+      value,
+      items: merged as QueryItem[],
+      shift: back.length - (value.items.length - items.length),
+    };
+  }, [answer, key, creators, sort]);
   if (shown === null) {
     return {
       status: answer.key === key ? "failed" : "loading",
@@ -133,7 +190,7 @@ export function useCatalogQuery(params: QueryParams): {
   }
   return {
     status: "ready",
-    total: Math.max(0, shown.value.total - shown.dropped),
+    total: Math.max(0, shown.value.total + shown.shift),
     items: shown.items,
     facets: shown.value.facets,
     version: shown.value.version,

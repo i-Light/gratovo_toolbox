@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { fitOf, isGold } from "./fit";
+import { fitOf, fitScore, isGold } from "./fit";
 import type { CatalogItem } from "./types";
 import { formatCount } from "./words";
 
@@ -128,6 +128,35 @@ describe("fitOf", () => {
     });
   });
 
+  it("names the first 3 sponsors and counts the rest", () => {
+    expect(part({ sponsors: ["Clipforge", "Promptly", "Synthwave"] }, "sponsored").note).toBe(
+      "Clipforge, Promptly, Synthwave",
+    );
+    expect(
+      part({ sponsors: ["Clipforge", "Promptly", "Synthwave", "Agently", "Vectorly"] }, "sponsored")
+        .note,
+    ).toBe("Clipforge, Promptly, Synthwave +2 more");
+  });
+
+  it("shortens long sponsor names so the count of the rest still shows", () => {
+    const long = (word: string) => `${word} AI Productivity Suite for Creators and Teams`;
+    const note = part(
+      { sponsors: [long("Clip"), long("Prompt"), long("Vector"), "Agently"] },
+      "sponsored",
+    ).note;
+    expect(note.endsWith(" +1 more")).toBe(true);
+    expect(note).toContain("…");
+  });
+
+  it("keeps every note to 200 characters, however long the names", () => {
+    const sponsors = Array.from({ length: 50 }, (_, i) => `${String(i)}${"x".repeat(99)}`);
+    const fit = fitOf(makeItem({ sponsors, country: "Z".repeat(300) }));
+    for (const p of fit.parts) {
+      expect(p.note.length).toBeLessThanOrEqual(200);
+    }
+    expect(fit.parts[4]?.note.endsWith(" +47 more")).toBe(true);
+  });
+
   it("zeroes median and posting when there are no numbers", () => {
     const fit = fitOf(makeItem({ hasNumbers: false, medianViews: 0, uploads30: 0 }));
     expect(fit.parts[0]).toMatchObject({ points: 0, note: "No numbers yet" });
@@ -171,5 +200,29 @@ describe("isGold", () => {
 
   it("is false when the subscribers are unknown", () => {
     expect(isGold(makeItem({ ...gold, subscribers: null }))).toBe(false);
+  });
+});
+
+describe("fitScore", () => {
+  it("agrees with fitOf on a varied set", () => {
+    const items: CatalogItem[] = [];
+    for (const medianViews of [0, 12000, 41000, 90000, 500000]) {
+      for (const uploads30 of [0, 1, 3, 4, 21]) {
+        for (const country of [null, "US", "IN"]) {
+          for (const engagement of [null, 0, 3, 9]) {
+            for (const sponsors of [[], ["Clipforge"]]) {
+              for (const hasNumbers of [true, false]) {
+                items.push(
+                  makeItem({ medianViews, uploads30, country, engagement, sponsors, hasNumbers }),
+                );
+              }
+            }
+          }
+        }
+      }
+    }
+    for (const item of items) {
+      expect(fitScore(item)).toBe(fitOf(item).score);
+    }
   });
 });

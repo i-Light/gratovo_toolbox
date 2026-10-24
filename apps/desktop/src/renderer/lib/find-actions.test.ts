@@ -134,7 +134,7 @@ describe("shortlist", () => {
     });
     const toast = toasts().at(-1);
     expect(toast?.msg).toBe("Ada AI Tools shortlisted");
-    expect(toast?.sub).toBe("Confirming an address comes next.");
+    expect(toast?.sub).toBe("Shortlisted channels wait for a confirmed address before any email.");
     expect(toast?.actions.map((a) => a.label)).toEqual([strings.actions.undo]);
     await settle();
     // The persister writes the stage first, so main holds the row before the line names it.
@@ -170,7 +170,7 @@ describe("shortlist", () => {
   });
 
   it("takes a rejected channel and clears its reason", () => {
-    reject([ada], "views", 7);
+    reject([ada], "views");
     shortlist([ada]);
     expect(find("UC-ada")).toMatchObject({
       stage: "shortlisted",
@@ -190,7 +190,7 @@ describe("shortlist", () => {
 
 describe("reject", () => {
   it("rejects with the reason and the time, and names it in the toast", async () => {
-    expect(reject([ada], "audience", 14)).toBe(true);
+    expect(reject([ada], "audience")).toBe(true);
     expect(find("UC-ada")).toMatchObject({
       stage: "rejected",
       rejectReason: "audience",
@@ -204,7 +204,7 @@ describe("reject", () => {
     const toast = toasts().at(-1);
     expect(toast?.msg).toBe("Ada AI Tools rejected");
     expect(toast?.sub).toBe(
-      "Audience outside US, UK, CA or AU. Archived for good in 14 days; bring it back any time before.",
+      "Audience outside US, UK, CA or AU. It leaves Review new; Undo brings it back.",
     );
     await settle();
     expect(writes.flat().find((w) => w.kind === "creator.stage")).toEqual({
@@ -219,13 +219,13 @@ describe("reject", () => {
 
   it("rejects a shortlisted channel, several at once, but not a signed one", () => {
     shortlist([ada]);
-    expect(reject([ada, bo, item("UC-s", "Sia", "signed")], "ai", 7)).toBe(true);
+    expect(reject([ada, bo, item("UC-s", "Sia", "signed")], "ai")).toBe(true);
     expect(lines().filter((l) => l.action === "creator.reject")).toHaveLength(2);
     expect(toasts().at(-1)?.msg).toBe("2 rejected");
   });
 
   it("Undo restores the stage and removes the lines", () => {
-    reject([ada, bo], "posting", 7);
+    reject([ada, bo], "posting");
     undo();
     expect(find("UC-ada")).toMatchObject({ stage: "new", rejectReason: null, rejectedAt: null });
     expect(lines()).toHaveLength(0);
@@ -234,7 +234,7 @@ describe("reject", () => {
 
 describe("bringBack", () => {
   it("returns a rejected channel to new and clears the reason", () => {
-    reject([ada], "views", 7);
+    reject([ada], "views");
     expect(bringBack(ada)).toBe(true);
     expect(find("UC-ada")).toMatchObject({ stage: "new", rejectReason: null, rejectedAt: null });
     expect(lines()[0]).toMatchObject({ ref: "UC-ada", action: "creator.restore", detail: null });

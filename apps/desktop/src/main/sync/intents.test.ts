@@ -292,18 +292,20 @@ describe("recordIntent", () => {
       });
     }
 
+    const freshId = "UCagentLabAiTools000001x";
+
     it("a stage on a creator with no row creates it and queues the edit with a null base", async () => {
       await source.write([
         {
           kind: "creator.stage",
-          id: "UC_new",
+          id: freshId,
           stage: "shortlisted",
           handle: "@agentlab",
           name: "Agent Lab",
         },
       ]);
       expect(
-        db.prepare("SELECT creator_stage FROM channel_state WHERE channel_id = 'UC_new'").get()?.[
+        db.prepare("SELECT creator_stage FROM channel_state WHERE channel_id = ?").get(freshId)?.[
           "creator_stage"
         ],
       ).toBe("shortlisted");
@@ -311,15 +313,27 @@ describe("recordIntent", () => {
         {
           kind: "channel.edit",
           payload: {
-            channelId: "UC_new",
+            channelId: freshId,
             field: "creator_stage",
             base: null,
             next: "shortlisted",
             label: "@agentlab",
           },
-          target: { table: "channel_state", key: "UC_new" },
+          target: { table: "channel_state", key: freshId },
         },
       ]);
+    });
+
+    it("a stage on an unknown id that is not a channel id creates nothing and queues nothing", async () => {
+      for (const id of ["UC_new", "agent-lab", `UC${"a".repeat(23)}`]) {
+        await source.write([
+          { kind: "creator.stage", id, stage: "rejected", handle: "@x", name: "X", reason: "ai" },
+        ]);
+        expect(db.prepare("SELECT 1 FROM channel_state WHERE channel_id = ?").get(id)).toBe(
+          undefined,
+        );
+      }
+      expect(entries()).toEqual([]);
     });
 
     it("a reject queues the stage, then the tags with the stored list as base", async () => {
@@ -355,7 +369,7 @@ describe("recordIntent", () => {
       await source.write([
         {
           kind: "creator.stage",
-          id: "UC_new",
+          id: freshId,
           stage: "rejected",
           handle: "@agentlab",
           name: "Agent Lab",

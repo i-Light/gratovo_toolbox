@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import { type CSSProperties, type KeyboardEvent, type ReactNode } from "react";
 import { Btn, Empty, Icon, PageHead } from "@gratovo/ui";
 
 import { PlaceholderScreen } from "../app/placeholder-screen";
@@ -12,7 +12,7 @@ import { Keywords } from "./keywords";
 import { LiveRun } from "./live-run";
 import { Rules } from "./rules";
 import { Runs } from "./runs";
-import { Triage, useReviewCount } from "./triage";
+import { reviewTabCount, Triage, useReview, useReviewCount } from "./triage";
 
 const text = strings.findSearch;
 
@@ -23,15 +23,46 @@ function useSub(): string | undefined {
   return sub ?? undefined;
 }
 
-/** The Find tabs that may show, with the Review new count. Nothing shows while there is one tab. */
-function FindTabs() {
+/** The one panel the tabs control; its label is the selected tab. */
+const panelId = "find-panel";
+const tabId = (key: string): string => `find-tab-${key}`;
+
+/**
+ * The Find tabs that may show, with the Review new count. Nothing shows while there is one tab.
+ * The arrow keys move between the tabs (the ARIA tabs pattern): only the selected tab is in the
+ * Tab order.
+ */
+function FindTabs({ reviewCount }: { readonly reviewCount: number | null }) {
   const source = useApp((s) => s.data.source);
   const tab = useApp((s) => selectRoute(s).tab);
-  const reviewCount = useReviewCount();
   const tabs = shownTabs("find", source);
   if (tabs.length < 2) {
     return null;
   }
+  const move = (event: KeyboardEvent<HTMLButtonElement>): void => {
+    const here = tabs.findIndex((t) => t.key === tab);
+    const to =
+      event.key === "ArrowRight"
+        ? (here + 1) % tabs.length
+        : event.key === "ArrowLeft"
+          ? (here - 1 + tabs.length) % tabs.length
+          : event.key === "Home"
+            ? 0
+            : event.key === "End"
+              ? tabs.length - 1
+              : -1;
+    const next = tabs[to];
+    if (next === undefined) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    go("find", next.key);
+    // Each tab is its own screen with its own tab list, so focus follows once the new one is there.
+    requestAnimationFrame(() => {
+      document.getElementById(tabId(next.key))?.focus();
+    });
+  };
   return (
     <div
       className="tabs find-tabs"
@@ -42,9 +73,13 @@ function FindTabs() {
       {tabs.map((t) => (
         <button
           key={t.key}
+          id={tabId(t.key)}
           type="button"
           role="tab"
           aria-selected={tab === t.key}
+          aria-controls={panelId}
+          tabIndex={tab === t.key ? 0 : -1}
+          onKeyDown={move}
           onClick={() => {
             go("find", t.key);
           }}
@@ -59,6 +94,21 @@ function FindTabs() {
   );
 }
 
+/** The tabs on the Search tab: the Review new count needs its own small query there. */
+function SearchTabs() {
+  return <FindTabs reviewCount={useReviewCount()} />;
+}
+
+/** The panel the selected tab shows. */
+function Panel({ children }: { readonly children: ReactNode }) {
+  const tab = useApp((s) => selectRoute(s).tab);
+  return (
+    <div id={panelId} role="tabpanel" aria-labelledby={tabId(tab ?? "")}>
+      {children}
+    </div>
+  );
+}
+
 function SearchTab() {
   const { state, load, reload } = useFind();
   const account = useAccount();
@@ -67,39 +117,41 @@ function SearchTab() {
   return (
     <div className="page">
       <PageHead title={info.name} {...(sub === undefined ? {} : { sub })} />
-      <FindTabs />
-      {state === null ? (
-        load === "failed" ? (
-          <div className="card">
-            <Empty
-              icon="alert"
-              title={text.loadFailed}
-              action={
-                <Btn size="sm" onClick={reload}>
-                  {text.retry}
-                </Btn>
-              }
-            />
-          </div>
-        ) : null
-      ) : (
-        <>
-          {account.signedIn ? null : (
-            <p className="hint find-example">
-              <Icon name="info" />
-              {text.exampleData}
-            </p>
-          )}
-          <div className="fd-grid">
-            <Keywords state={state} />
-            <div className="col">
-              <LiveRun state={state} />
-              <Rules rules={state.rules} />
+      <SearchTabs />
+      <Panel>
+        {state === null ? (
+          load === "failed" ? (
+            <div className="card">
+              <Empty
+                icon="alert"
+                title={text.loadFailed}
+                action={
+                  <Btn size="sm" onClick={reload}>
+                    {text.retry}
+                  </Btn>
+                }
+              />
             </div>
-          </div>
-          <Runs />
-        </>
-      )}
+          ) : null
+        ) : (
+          <>
+            {account.signedIn ? null : (
+              <p className="hint find-example">
+                <Icon name="info" />
+                {text.exampleData}
+              </p>
+            )}
+            <div className="fd-grid">
+              <Keywords state={state} />
+              <div className="col">
+                <LiveRun state={state} />
+                <Rules rules={state.rules} />
+              </div>
+            </div>
+            <Runs />
+          </>
+        )}
+      </Panel>
     </div>
   );
 }
@@ -107,11 +159,14 @@ function SearchTab() {
 function TriageTab() {
   const info = screens.find;
   const sub = useSub();
+  const review = useReview();
   return (
     <div className="page">
       <PageHead title={info.name} {...(sub === undefined ? {} : { sub })} />
-      <FindTabs />
-      <Triage />
+      <FindTabs reviewCount={reviewTabCount(review)} />
+      <Panel>
+        <Triage review={review} />
+      </Panel>
     </div>
   );
 }

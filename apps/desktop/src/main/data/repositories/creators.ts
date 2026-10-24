@@ -2,6 +2,7 @@ import type { DatabaseSync, SQLOutputValue } from "node:sqlite";
 
 import {
   creatorStageFrom,
+  creatorStages,
   legacyCreatorFields,
   primaryEmail,
   rejectReasons,
@@ -84,14 +85,18 @@ export function readTags(db: DatabaseSync, id: string): string[] | null {
   return row === undefined ? null : parseTags(row["channel_tags"]);
 }
 
+/** A real YouTube channel id: the only kind of id a stage write may create a row for. */
+const channelIdPattern = /^UC[A-Za-z0-9_-]{22}$/;
+
 /**
- * A creator's stage write (plan step 5, D4 and D5). A creator with no row gets one: the handle
- * (the id when it is empty, as the server names it), the legacy fields, the stage and the name.
- * An existing row has only `creator_stage` set, as before. Then the tags follow the stage, the way
- * the server's archive countdown reads them: a move to `rejected` adds `inactive` (reason
- * `posting`) or `irrelevant`, and sets the due date 7 days on when it has none, as the trigger
- * will; a move away from `rejected` takes the three rejecting tags off and clears the due date.
- * `now` is in ms.
+ * A creator's stage write (plan step 5, D4 and D5). A creator with no row gets one when its id is
+ * a real channel id: the handle (the id when it is empty, as the server names it), the old app's
+ * defaults (`newlyFound`, `new`) as the server writes them for a channel it has never seen, the
+ * app's stage and the name. Any other unknown id does nothing. An existing row has only
+ * `creator_stage` set, as before. Then the tags follow the stage, the way the server's archive
+ * countdown reads them: a move to `rejected` adds `inactive` (reason `posting`) or `irrelevant`,
+ * and sets the due date 7 days on when it has none, as the trigger will; a move away from
+ * `rejected` takes the three rejecting tags off and clears the due date. `now` is in ms.
  */
 export function writeCreatorStage(
   db: DatabaseSync,
@@ -114,16 +119,18 @@ export function writeCreatorStage(
   let tags: string[];
   let due: string | null;
   if (row === undefined) {
-    const fields = legacyCreatorFields(write.stage);
+    if (!channelIdPattern.test(write.id)) {
+      return;
+    }
+    // The legacy fields stay at the old app's defaults: writing them from the stage would make a
+    // never-then-allow channel read as "lost", and so as emailed before.
     db.prepare(
       `INSERT INTO channel_state
          (channel_id, handle, vetting_status, pipeline_stage, creator_stage, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, 'newlyFound', 'new', ?, ?)`,
     ).run(
       write.id,
       write.handle === "" ? write.id : write.handle,
-      fields.vettingStatus,
-      fields.pipelineStage,
       write.stage,
       new Date(now).toISOString(),
     );
@@ -253,6 +260,7 @@ export function creatorStates(db: DatabaseSync): CreatorState[] {
       ...storedFields(row),
       engagement: typeof engagement === "number" ? engagement : null,
       legacyPipelineStage: String(row["pipeline_stage"]),
+      hasAppStage: isAppStage(row["creator_stage"]),
       lastActivity:
         row["last_who"] === null
           ? null
@@ -306,19 +314,30 @@ function storedFields(
   const contacts = String(row["contacts"]);
   const action = row["reject_action"];
   const due = row["archive_due_at"] === null ? NaN : Date.parse(String(row["archive_due_at"]));
+  const stage = creatorStageFrom({
+    creatorStage: row["creator_stage"] === null ? null : String(row["creator_stage"]),
+    vettingStatus: String(row["vetting_status"]),
+    pipelineStage: String(row["pipeline_stage"]),
+  });
+  // The line outlives the stage: once a creator is brought back, its old reason no longer holds.
+  const rejected = stage === "rejected";
   return {
-    stage: creatorStageFrom({
-      creatorStage: row["creator_stage"] === null ? null : String(row["creator_stage"]),
-      vettingStatus: String(row["vetting_status"]),
-      pipelineStage: String(row["pipeline_stage"]),
-    }),
+    stage,
     email: primaryEmail(contacts),
     emailConfirmed: primaryConfirmed(contacts),
     // A never line has no reason: only a reject line gives one.
-    rejectReason: action === "creator.reject" ? reasonFrom(row["reject_detail"]) : null,
-    rejectedAt: action === null ? null : lineMs(row["reject_at_ms"], row["reject_at"]),
+    rejectReason: rejected && action === "creator.reject" ? reasonFrom(row["reject_detail"]) : null,
+    rejectedAt:
+      (rejected || stage === "never") && action !== null
+        ? lineMs(row["reject_at_ms"], row["reject_at"])
+        : null,
     archiveDueAt: Number.isNaN(due) ? null : due,
   };
+}
+
+/** Whether a stored `creator_stage` is one of the app's stages (one the stage is read from). */
+function isAppStage(value: unknown): boolean {
+  return typeof value === "string" && (creatorStages as readonly string[]).includes(value);
 }
 
 /** A line's time in ms: `at_ms`, else its ISO text (0 when that doesn't read either). */

@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { CreatorState, DataSource } from "@gratovo/core/data";
-import { emptyFindFilter } from "@gratovo/core/find";
+import { emptyFacets, emptyFindFilter } from "@gratovo/core/find";
 
 import { createCatalog } from "./catalog";
 import {
@@ -193,7 +193,7 @@ describe("the catalog", () => {
   });
 
   it("works out emailedBefore from the old stage, the stage and the last activity", async () => {
-    const ids = ["e1", "e2", "e3", "e4", "e5"].map(channelId);
+    const ids = ["e1", "e2", "e3", "e4", "e5", "e6", "e7", "e8"].map(channelId);
     const catalog = open({ channels: ids.map((id) => ({ id })) });
     const who = { at: 5000, who: "Sara" };
     states = [
@@ -202,14 +202,43 @@ describe("the catalog", () => {
       creatorState(ids[2] ?? "", { stage: "shortlisted" }),
       creatorState(ids[3] ?? "", { stage: "rejected", legacyPipelineStage: "lost" }),
       creatorState(ids[4] ?? "", { stage: "emailed", lastActivity: who }),
+      // The app's own stage wins over a leftover legacy one.
+      creatorState(ids[5] ?? "", { hasAppStage: true, legacyPipelineStage: "contacted" }),
+      creatorState(ids[6] ?? "", { stage: "parked", legacyPipelineStage: "lost" }),
+      creatorState(ids[7] ?? "", { stage: "signed", legacyPipelineStage: "paid" }),
     ];
     const items = await all(catalog);
     const before = (n: number) => items.find((item) => item.id === ids[n])?.emailedBefore;
     expect(before(0)).toEqual(who);
     expect(before(1)).toEqual({ at: null, who: null });
     expect(before(2)).toBeNull();
-    expect(before(3)).toEqual({ at: null, who: null });
+    // Lost is not a contacted stage.
+    expect(before(3)).toBeNull();
     expect(before(4)).toEqual(who);
+    expect(before(5)).toBeNull();
+    expect(before(6)).toBeNull();
+    expect(before(7)).toEqual({ at: null, who: null });
+  });
+
+  it("keeps a country only as a two-letter code, upper-cased", async () => {
+    const ids = ["k1", "k2", "k3", "k4", "k5"].map(channelId);
+    const countries = ["", "usa", "u s", "gb", " CA "];
+    const catalog = open({
+      channels: ids.map((id, n) => ({ id, country: countries[n] ?? null })),
+    });
+    const items = await all(catalog);
+    const country = (n: number) => items.find((item) => item.id === ids[n])?.country;
+    expect([0, 1, 2, 3, 4].map(country)).toEqual([null, null, null, "GB", "CA"]);
+  });
+
+  it("skips the facet counts when asked", async () => {
+    const catalog = open({ channels: [{ id: a, country: "US" }] });
+    const request = { ...everything, offset: 0, limit: 10 };
+    const full = await catalog.query(request);
+    expect(full.facets.countries).toEqual({ US: 1 });
+    const light = await catalog.query({ ...request, facets: false });
+    expect(light.facets).toEqual(emptyFacets);
+    expect(light.total).toBe(1);
   });
 
   it("reads sponsors as deduped strings and bad JSON as empty", async () => {

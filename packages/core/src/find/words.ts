@@ -27,4 +27,7 @@ export const fitWords = {
   engagement: (rate: number) => `${String(rate)}%`,
   engagementUnknown: "Not known yet",
   sponsorsNone: "No sponsors seen",
+  /** The first few sponsors by name, and how many more there are. */
+  sponsors: (named: readonly string[], more: number) =>
+    `${named.join(", ")}${more > 0 ? ` +${String(more)} more` : ""}`,
 } as const;

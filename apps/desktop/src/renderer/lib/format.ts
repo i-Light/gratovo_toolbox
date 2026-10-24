@@ -51,3 +51,8 @@ export function clock(ts: number): string {
   const two = (n: number): string => String(n).padStart(2, "0");
   return `${two(date.getHours())}:${two(date.getMinutes())}`;
 }
+
+/** A day as "Oct 24": the shared short date, in the app's one language. */
+export function shortDate(ts: number): string {
+  return new Date(ts).toLocaleDateString(time.dateLocale, { month: "short", day: "numeric" });
+}

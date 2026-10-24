@@ -1031,7 +1031,8 @@ export const strings = {
     position: (i: number, n: number): string => `${String(i)} of ${String(n)}`,
     tally: (shortlisted: number, rejected: number): string =>
       `${String(shortlisted)} shortlisted · ${String(rejected)} rejected`,
-    keysHint: "J and K step through the channels too.",
+    keysHint: "J is next, K is previous.",
+    runIdChip: (id: number): string => `#${String(id)}`,
     prev: "Previous",
     next: "Next",
     shortlist: "Shortlist",
@@ -1071,6 +1072,7 @@ export const strings = {
     fitTip: (score: number, parts: string): string => `Fit ${String(score)}/100 · ${parts}`,
     fitPart: (label: string, points: number, of: number, note: string): string =>
       `${label} ${String(points)}/${String(of)} (${note})`,
+    fitDetail: "How the fit score is made up",
     fitParts: {
       median: "Median views",
       posting: "Posting",
@@ -1099,6 +1101,8 @@ export const strings = {
       notStarted: "not started",
     },
     review: "Review results",
+    actions: "Actions",
+    reviewOf: (when: string): string => `Review results of the search of ${when}`,
   },
   placeholder: {
     title: (name: string) => `${name} is still being built`,
@@ -1176,11 +1180,10 @@ export const strings = {
   findActions: {
     shortlisted: (name: string): string => `${name} shortlisted`,
     shortlistedMany: (n: number): string => `${String(n)} shortlisted`,
-    shortlistSub: "Confirming an address comes next.",
+    shortlistSub: "Shortlisted channels wait for a confirmed address before any email.",
     rejected: (name: string): string => `${name} rejected`,
     rejectedMany: (n: number): string => `${String(n)} rejected`,
-    rejectSub: (reason: string, days: number): string =>
-      `${reason}. Archived for good in ${String(days)} days; bring it back any time before.`,
+    rejectSub: (reason: string): string => `${reason}. It leaves Review new; Undo brings it back.`,
     reasons: {
       ai: "Not about AI tools",
       views: "Too few views",
@@ -1223,6 +1226,7 @@ export const strings = {
     },
   },
   time: {
+    dateLocale: "en-US",
     justNow: "just now",
     minutesAgo: (n: number) => `${String(n)} min ago`,
     hoursAgo: (n: number) => `${String(n)} h ago`,

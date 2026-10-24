@@ -272,7 +272,17 @@ test.describe("the sync, against a fake Supabase", () => {
       page.evaluate((sent) => window.gratovo.invoke("data:write", { writes: sent }), writes);
     const lineText = "Moved @tokenwise to Emailed";
     expect(
-      await write([{ kind: "log.add", id: "line-e2e-1", at: Date.now(), text: lineText }]),
+      await write([
+        {
+          kind: "log.add",
+          id: "line-e2e-1",
+          at: Date.now(),
+          text: lineText,
+          ref: null,
+          action: null,
+          detail: null,
+        },
+      ]),
     ).toMatchObject({
       ok: true,
     });
@@ -297,7 +307,17 @@ test.describe("the sync, against a fake Supabase", () => {
 
     // And the redo is another new line.
     expect(
-      await write([{ kind: "log.add", id: "line-e2e-1", at: Date.now(), text: lineText }]),
+      await write([
+        {
+          kind: "log.add",
+          id: "line-e2e-1",
+          at: Date.now(),
+          text: lineText,
+          ref: null,
+          action: null,
+          detail: null,
+        },
+      ]),
     ).toMatchObject({ ok: true });
     await syncNow(page);
     await expect.poll(() => supabase.rows("activity_log").length).toBe(3);

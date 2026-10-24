@@ -162,6 +162,7 @@ export function creatorState(id: string, over: Partial<CreatorState> = {}): Crea
     archiveDueAt: null,
     engagement: null,
     legacyPipelineStage: "new",
+    hasAppStage: false,
     lastActivity: null,
     ...over,
   };

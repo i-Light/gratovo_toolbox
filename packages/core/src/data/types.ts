@@ -183,6 +183,11 @@ export interface CreatorState {
   readonly engagement: number | null;
   /** The old app's `pipeline_stage`, for "emailed before" (D12). */
   readonly legacyPipelineStage: string;
+  /**
+   * Whether the app's own `creator_stage` is set. When it is, the stage is the app's and the
+   * legacy stage is no guide to "emailed before".
+   */
+  readonly hasAppStage: boolean;
   /** The newest visible activity line about the creator: when, and the actor's name. */
   readonly lastActivity: { readonly at: number; readonly who: string } | null;
 }

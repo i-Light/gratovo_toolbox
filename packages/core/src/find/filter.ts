@@ -4,8 +4,9 @@
  */
 
 import { creatorStages, type CreatorStage } from "../data/types";
-import { fitOf, isGold } from "./fit";
+import { fitOf, fitScore, isGold } from "./fit";
 import {
+  emptyFacets,
   findSignals,
   type CatalogItem,
   type Facets,
@@ -90,7 +91,7 @@ export function sortItems(items: readonly CatalogItem[], sort: FindSort): Catalo
   const keyed = items.map((item, index) => ({
     item,
     index,
-    fit: sort === "fit" || sort === "triage" ? fitOf(item).score : 0,
+    fit: sort === "fit" || sort === "triage" ? fitScore(item) : 0,
     gold: sort === "triage" ? isGold(item) : false,
   }));
   keyed.sort((a, b) => {
@@ -168,13 +169,22 @@ export interface CatalogPage {
   readonly facets: Facets;
 }
 
-/** Filter, sort and slice; the fit is worked out only for the page that is returned. */
+/** What else a query works out. `facets` false skips the counts and answers all zeros. */
+export interface QueryOptions {
+  readonly facets?: boolean;
+}
+
+/**
+ * Filter, sort and slice; the fit is worked out only for the page that is returned. The facet
+ * counts are the costly part, so a page that doesn't show them can ask for none.
+ */
 export function queryCatalog(
   items: readonly CatalogItem[],
   filter: FindFilter,
   sort: FindSort,
   offset: number,
   limit: number,
+  options: QueryOptions = {},
 ): CatalogPage {
   const shown = sortItems(
     items.filter((item) => passes(item, filter)),
@@ -183,6 +193,6 @@ export function queryCatalog(
   return {
     total: shown.length,
     items: shown.slice(offset, offset + limit).map((item) => ({ ...item, fit: fitOf(item) })),
-    facets: facetCounts(items, filter),
+    facets: options.facets === false ? emptyFacets : facetCounts(items, filter),
   };
 }

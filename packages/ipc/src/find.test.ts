@@ -1,9 +1,9 @@
-import { emptyFacets, emptyFindFilter } from "@gratovo/core/find";
+import { emptyFacets, emptyFindFilter, queryCatalog, type CatalogItem } from "@gratovo/core/find";
 import { describe, expect, it } from "vitest";
 
 import { channels, parseRequest } from "./channels";
 import { appEvents } from "./events";
-import { findStateSchema } from "./find";
+import { findQueryResultSchema, findStateSchema } from "./find";
 
 const state = {
   queue: [
@@ -152,6 +152,23 @@ describe("the catalog channels", () => {
       parseRequest("find:query", { ...request, filter: { ...emptyFindFilter, q: "x".repeat(201) } })
         .ok,
     ).toBe(false);
+  });
+
+  it("find:query may skip the facets, and nothing else rides along", () => {
+    expect(parseRequest("find:query", { ...request, facets: false }).ok).toBe(true);
+    expect(parseRequest("find:query", { ...request, facets: true }).ok).toBe(true);
+    expect(parseRequest("find:query", { ...request, facets: "no" }).ok).toBe(false);
+  });
+
+  it("a channel with 50 long sponsor names still makes a valid page", () => {
+    const sponsors = Array.from(
+      { length: 50 },
+      (_, i) => `${String(i)} ${"Agentic AI".repeat(10)}`,
+    );
+    const many = { ...item, sponsors } as CatalogItem;
+    const page = queryCatalog([many], emptyFindFilter, "fit", 0, 120);
+    const answer = { version: 1, total: page.total, items: [...page.items], facets: page.facets };
+    expect(findQueryResultSchema.safeParse(answer).success).toBe(true);
   });
 
   it("find:query answers items with their fit, at most 3 videos each, and the facets", () => {

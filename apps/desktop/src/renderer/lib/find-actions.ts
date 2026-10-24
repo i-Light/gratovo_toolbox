@@ -119,11 +119,7 @@ export function shortlist(items: readonly CatalogItem[]): boolean {
 }
 
 /** Rejects the channels that are new or shortlisted, with one of the four reasons. */
-export function reject(
-  items: readonly CatalogItem[],
-  reason: RejectReason,
-  archiveDays: number,
-): boolean {
+export function reject(items: readonly CatalogItem[], reason: RejectReason): boolean {
   return change(items, {
     from: ["new", "shortlisted"],
     action: "creator.reject",
@@ -136,7 +132,7 @@ export function reject(
     detail: reason,
     msg: t.rejected,
     msgMany: t.rejectedMany,
-    sub: t.rejectSub(t.reasons[reason], archiveDays),
+    sub: t.rejectSub(t.reasons[reason]),
   });
 }
 

@@ -196,7 +196,7 @@ def test_a_stop_mid_run_ends_stopped_at_the_keyword_in_progress(tmp_path: Path, 
     conn = store.get_connection(tmp_path / "example-pipeline" / "pipeline.db")
     try:
         row = conn.execute("SELECT status FROM runs").fetchone()
-        assert row["status"] == "interrupted"
+        assert row["status"] == "stopped"
     finally:
         conn.close()
 

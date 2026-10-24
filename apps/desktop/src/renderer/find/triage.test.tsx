@@ -3,28 +3,34 @@ import { formatCount } from "@gratovo/core/find";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { useKeyListener } from "../app/global-keys";
+import { useGlobalKeys, useKeyListener } from "../app/global-keys";
 import { resetFindForTests } from "../lib/find";
 import { aiChannel, stubFindBridge } from "../lib/find-test-bridge";
 import { setPref } from "../lib/prefs";
 import { appStore, resetAppStoreForTests, selectRoute } from "../lib/store";
 import { strings } from "../strings";
-import { resetReviewRunForTests, reviewResults, Triage } from "./triage";
+import { resetReviewRunForTests, reviewResults, Triage, useReview } from "./triage";
 
 const t = strings.findTriage;
 const reasons = strings.findActions.reasons;
 
 /** The page's one key listener, as the app mounts it. */
 function Keys() {
+  useGlobalKeys();
   useKeyListener();
   return null;
+}
+
+/** Triage with the query the screen gives it. */
+function ReviewNew() {
+  return <Triage review={useReview()} />;
 }
 
 async function show(): Promise<void> {
   render(
     <>
       <Keys />
-      <Triage />
+      <ReviewNew />
     </>,
   );
   await act(async () => {
@@ -100,9 +106,14 @@ describe("Review new", () => {
     expect(card.getByText("Notion AI")).toBeTruthy();
     expect(card.getByText(t.emailsFound(2))).toBeTruthy();
     expect(card.getByText(t.foundBy("ai agents"))).toBeTruthy();
-    const label = card.getByRole("img", { name: /^Fit \d+\/100/ }).getAttribute("aria-label");
-    expect(label).toContain("Median views 20/30");
-    expect(label).toContain("Sponsored before 15/15");
+    const chip = card.getByRole("button", { name: /^Fit [0-9]+$/ });
+    expect(chip.getAttribute("aria-expanded")).toBe("false");
+    await click(chip);
+    expect(chip.getAttribute("aria-expanded")).toBe("true");
+    const parts = within(card.getByRole("list", { name: t.fitDetail })).getAllByRole("listitem");
+    expect(parts).toHaveLength(5);
+    expect(parts[0]?.textContent).toContain("Median views 20/30");
+    expect(parts[4]?.textContent).toContain("Sponsored before 15/15");
     expect(card.queryByText(/Emailed before/)).toBeNull();
   });
 
@@ -161,7 +172,7 @@ describe("Review new", () => {
     expect(screen.getByText(t.tally(0, 1))).toBeTruthy();
     // No find:state is loaded here, so the rules' default of 7 days is used.
     const toast = appStore().getState().ui.toasts.at(-1);
-    expect(toast?.sub).toBe(strings.findActions.rejectSub(reasons.views, 7));
+    expect(toast?.sub).toBe(strings.findActions.rejectSub(reasons.views));
   });
 
   it("1 to 4 reject at once, and Esc closes the reason row", async () => {
@@ -210,20 +221,59 @@ describe("Review new", () => {
     expect(heading()).toBe("Agent Lab");
   });
 
-  it("steps with the arrows and J and K, wrapping forward and stopping at the start", async () => {
+  it("steps with the arrows and J (next) and K (previous), stopping at both ends", async () => {
     stubFindBridge({ items: [gold, plain, third] });
     await show();
-    await press("ArrowRight");
-    expect(heading()).toBe("Model Weekly");
     await press("k");
-    expect(heading()).toBe("Prompt Garage");
+    expect(heading()).toBe("Agent Lab");
     await press("ArrowRight");
-    expect(heading()).toBe("Agent Lab");
-    await press("j");
-    expect(heading()).toBe("Agent Lab");
-    await click(screen.getByRole("button", { name: new RegExp(t.next) }));
     expect(heading()).toBe("Model Weekly");
+    await press("j");
+    expect(heading()).toBe("Prompt Garage");
+    await press("j");
+    expect(heading()).toBe("Prompt Garage");
+    await press("k");
+    expect(heading()).toBe("Model Weekly");
+    await click(screen.getByRole("button", { name: new RegExp(t.next) }));
+    expect(heading()).toBe("Prompt Garage");
     await click(screen.getByRole("button", { name: new RegExp(t.prev) }));
+    expect(heading()).toBe("Model Weekly");
+  });
+
+  it("asks for the next page past the last loaded channel and keeps the count true", async () => {
+    const many = Array.from({ length: 45 }, (_, i) =>
+      aiChannel(`UC-${String(i).padStart(2, "0")}`, `Chan ${String(i).padStart(2, "0")}`, {
+        medianViews: 5_000 - i,
+        subscribers: 300_000,
+      }),
+    );
+    const calls = stubFindBridge({ items: many });
+    await show();
+    for (let i = 0; i < 40; i++) {
+      await press("j");
+    }
+    expect(screen.getByText(t.position(41, 45))).toBeTruthy();
+    const offsets = calls
+      .filter(([c]) => c === "find:query")
+      .map(([, q]) => (q as { offset: number }).offset);
+    expect(offsets).toContain(40);
+    expect(
+      calls
+        .filter(([c]) => c === "find:query")
+        .every(([, q]) => (q as { facets?: boolean }).facets === false),
+    ).toBe(true);
+  });
+
+  it("takes an undone shortlist off the tally", async () => {
+    stubFindBridge({ items: [gold, plain] });
+    await show();
+    await press("s");
+    expect(screen.getByText(t.tally(1, 0))).toBeTruthy();
+    await act(async () => {
+      fireEvent.keyDown(document, { key: "z", ctrlKey: true });
+      await Promise.resolve();
+    });
+    expect(screen.queryByText(t.tally(1, 0))).toBeNull();
     expect(heading()).toBe("Agent Lab");
   });
 

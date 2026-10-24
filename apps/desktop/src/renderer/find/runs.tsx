@@ -1,9 +1,9 @@
 import { Btn, Tag } from "@gratovo/ui";
 
-import { clock } from "../lib/format";
+import { clock, shortDate } from "../lib/format";
 import { useRuns } from "../lib/find-catalog";
 import { strings } from "../strings";
-import { reviewResults, shortDate } from "./triage";
+import { reviewResults } from "./triage";
 
 const text = strings.findRuns;
 
@@ -12,11 +12,12 @@ function StatusTag({ status }: { readonly status: string }) {
   switch (status) {
     case "running":
       return <Tag tone="info">{text.status.running}</Tag>;
+    // A search the person paused ends "stopped"; a failure or a killed process "interrupted".
     case "paused":
+    case "stopped":
       return <Tag>{text.status.paused}</Tag>;
     case "interrupted":
     case "failed":
-    case "stopped":
       return (
         <Tag tone="crit" icon="alert">
           {text.status.stopped}
@@ -30,9 +31,12 @@ function StatusTag({ status }: { readonly status: string }) {
   }
 }
 
-function when(at: number, now: Date): string {
+function when(at: number, now: Date, withTime = false): string {
   const day = new Date(at);
-  return day.toDateString() === now.toDateString() ? text.today(clock(at)) : shortDate(at);
+  if (!withTime) {
+    return day.toDateString() === now.toDateString() ? text.today(clock(at)) : shortDate(at);
+  }
+  return `${shortDate(at)}, ${clock(at)}`;
 }
 
 /** The search runs, newest first, each with a way to review what it found. */
@@ -72,7 +76,9 @@ export function Runs() {
                 <th className="n">{text.found}</th>
                 <th className="n">{text.kept}</th>
                 <th className="n">{text.gold}</th>
-                <th></th>
+                <th>
+                  <span className="sr">{text.actions}</span>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -95,6 +101,7 @@ export function Runs() {
                         size="sm"
                         {...(latest ? { kind: "pri" } : {})}
                         icon="eye"
+                        label={text.reviewOf(when(r.startedAt, now, true))}
                         onClick={() => {
                           reviewResults(latest ? null : r.id);
                         }}

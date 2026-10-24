@@ -45,8 +45,9 @@ export interface FindServiceDeps {
    */
   creatorStates?: () => Promise<readonly CreatorState[]>;
   /**
-   * Called when `pipeline.db` has changed: a keyword finished or failed, a channel line came, or
-   * the job ended. The catalog rebuilds on it.
+   * Called when `pipeline.db` has changed: a keyword finished or failed, or the job ended. Not on
+   * each channel line: a keyword writes its channels as it goes, and its done line follows (D1).
+   * The catalog rebuilds on it.
    */
   onPipelineChanged?: () => void;
   /** The least time between two emits while a run streams. Default 250. */
@@ -138,16 +139,18 @@ export function createFindService(deps: FindServiceDeps): FindService {
     return supervisor.running;
   }
 
+  /** Where a mode's queue and `pipeline.db` live. */
+  function folderFor(mode: FindMode): string {
+    return join(deps.userData, mode === "example" ? "example-pipeline" : "pipeline");
+  }
+
   /** The open session; read again when the data changed (sign-in, sign-out). */
   function open(): { session: Session; mode: FindMode; workerId: string } {
     const context = account.findContext();
     if (context === null) {
       throw new Error(noData);
     }
-    const folder = join(
-      deps.userData,
-      context.mode === "example" ? "example-pipeline" : "pipeline",
-    );
+    const folder = folderFor(context.mode);
     if (session?.folder !== folder) {
       session = { folder, ...readFindFile(folder), run: readyRun(), log: [], kept: null };
     }
@@ -256,7 +259,6 @@ export function createFindService(deps: FindServiceDeps): FindService {
         break;
       }
       case "channel":
-        deps.onPipelineChanged?.();
         if (m.outcome === "kept") {
           s.run.kept += 1;
           const channel: Kept = {
@@ -324,8 +326,10 @@ export function createFindService(deps: FindServiceDeps): FindService {
       return build(open().session);
     },
 
+    // Read only: asking where the folder is must not switch the session (and drop a run's state).
     folder() {
-      return account.findContext() === null ? null : open().session.folder;
+      const context = account.findContext();
+      return context === null ? null : folderFor(context.mode);
     },
 
     add(keywords) {

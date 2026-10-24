@@ -244,6 +244,8 @@ export const findQueryRequestSchema = z.strictObject({
   sort: z.enum(findSorts),
   offset: z.number().int().min(0).max(100_000),
   limit: z.number().int().min(1).max(findPageMax),
+  /** Default true. False skips the facet counts (all zeros come back), for a page that hides them. */
+  facets: z.boolean().optional(),
 });
 
 export const findQueryResultSchema = z.strictObject({

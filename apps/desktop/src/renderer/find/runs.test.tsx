@@ -6,7 +6,7 @@ import { aiChannel, stubFindBridge, type TestRun } from "../lib/find-test-bridge
 import { appStore, resetAppStoreForTests, selectRoute } from "../lib/store";
 import { strings } from "../strings";
 import { Runs } from "./runs";
-import { resetReviewRunForTests, Triage } from "./triage";
+import { resetReviewRunForTests, Triage, useReview } from "./triage";
 
 const t = strings.findRuns;
 
@@ -31,11 +31,16 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+/** Triage with the query the screen gives it. */
+function ReviewNew() {
+  return <Triage review={useReview()} />;
+}
+
 async function show(): Promise<void> {
   render(
     <>
       <Runs />
-      <Triage />
+      <ReviewNew />
     </>,
   );
   await act(async () => {
@@ -57,11 +62,13 @@ describe("the Runs table", () => {
         run(3, today.getTime(), { status: "running", gold: 0 }),
         run(2, older, { status: "interrupted", keywords: 5, found: 1200, kept: 80, gold: 7 }),
         run(1, older - 86_400_000, { status: "pending" }),
+        // A search the person paused: a pause, not a failure.
+        run(0, older - 2 * 86_400_000, { status: "stopped" }),
       ],
     });
     await show();
     const rows = within(screen.getByRole("table", { name: t.listLabel })).getAllByRole("row");
-    expect(rows).toHaveLength(4);
+    expect(rows).toHaveLength(5);
     expect(rows[1]?.textContent).toContain(t.today("14:05"));
     expect(rows[1]?.textContent).toContain(t.status.running);
     expect(rows[2]?.textContent).toContain("Oct 12");
@@ -71,6 +78,8 @@ describe("the Runs table", () => {
       .map((c) => c.textContent);
     expect(cells.slice(1, 5)).toEqual(["5", "1200", "80", "7"]);
     expect(rows[3]?.textContent).toContain(t.status.notStarted);
+    expect(rows[4]?.textContent).toContain(t.status.paused);
+    expect(rows[4]?.textContent).not.toContain(t.status.stopped);
   });
 
   it("opens Review new for the newest run, and Review new filtered to an older one", async () => {
@@ -79,7 +88,7 @@ describe("the Runs table", () => {
       runs: [run(3, today.getTime()), run(2, older)],
     });
     await show();
-    const buttons = screen.getAllByRole("button", { name: t.review });
+    const buttons = screen.getAllByRole("button", { name: /^Review results of the search of / });
     const lastFilter = () => {
       const queries = calls.filter(([c]) => c === "find:query");
       return (queries[queries.length - 1]?.[1] as { filter: { runs: number[] } }).filter.runs;

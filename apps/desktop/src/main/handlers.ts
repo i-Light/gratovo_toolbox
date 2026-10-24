@@ -20,7 +20,7 @@ export interface HandlerContext extends HandlerServices {
   catalog: FindCatalog;
   /**
    * Called after a stored `data:write` batch that changes what the catalog shows: a creator's
-   * stage, or a log line about a creator (plan D1). The catalog rebuilds on it.
+   * stage, a log line about a creator, or a settled conflict (plan D1). The catalog rebuilds on it.
    */
   onCreatorsWritten?: () => void;
   account: Pick<
@@ -36,10 +36,14 @@ export interface HandlerContext extends HandlerServices {
   >;
 }
 
-/** Whether one write can change a catalog row: a stage, or a log line on a creator (add) or any removal. */
+/**
+ * Whether one write can change a catalog row: a stage, a log line on a creator (add) or any
+ * removal, or a conflict settled (keeping yours puts your stage back).
+ */
 function changesCatalog(write: DataWrite): boolean {
   return (
     write.kind === "creator.stage" ||
+    write.kind === "conflict.resolve" ||
     (write.kind === "log.add" && write.ref !== null) ||
     write.kind === "log.remove"
   );
