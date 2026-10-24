@@ -807,6 +807,8 @@ export const strings = {
         no_data: "Sign in first. There is no data open to bring it into.",
         not_found: "That file isn't there any more. Choose it again.",
         own_data: "That is this app's own data. Choose the old app's gratovo.db instead.",
+        old_app_open:
+          "The old app seems to be open, or it didn't close cleanly. Open it and close it once, then try again.",
         not_sqlite: "That isn't a database file. Choose the old app's gratovo.db.",
         no_channels: "That database isn't the old app's. Choose the old app's gratovo.db.",
         running: "A search or another import is running. Wait for it to finish, then try again.",

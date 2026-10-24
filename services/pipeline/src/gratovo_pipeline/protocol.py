@@ -79,11 +79,13 @@ EndErrorCode = Literal[
     "no_aws_keys",
     "aws",
     # import.legacy: the old file is missing or can't be read, isn't SQLite, has no `channels`
-    # table, or lies inside this app's data folder; or pipeline.db is newer than this pipeline.
+    # table, or lies inside this app's data folder, or has an unfinished `-wal` beside
+    # it (the old app is open); or pipeline.db is newer than this pipeline.
     "source_unreadable",
     "not_sqlite",
     "no_channels_table",
     "source_in_data_dir",
+    "old_app_open",
     "store_too_new",
 ]
 ResultKind = Literal[

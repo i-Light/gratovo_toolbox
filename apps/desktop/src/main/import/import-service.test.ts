@@ -152,6 +152,7 @@ describe("the importer", () => {
       ["not_sqlite", "not_sqlite"],
       ["no_channels_table", "no_channels"],
       ["source_in_data_dir", "own_data"],
+      ["old_app_open", "old_app_open"],
       ["store_too_new", "failed"],
       ["crash", "failed"],
     ] as const;

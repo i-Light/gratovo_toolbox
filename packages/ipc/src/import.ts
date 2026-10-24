@@ -64,6 +64,8 @@ export const importProblems = [
   "not_found",
   /** The path is inside the new app's own data folder. */
   "own_data",
+  /** The old app is open, or left an unfinished `-wal` file: open and close it once. */
+  "old_app_open",
   "not_sqlite",
   /** A SQLite file, but not the old app's: it has no `channels` table. */
   "no_channels",

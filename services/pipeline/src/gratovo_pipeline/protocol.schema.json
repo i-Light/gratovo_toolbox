@@ -2398,6 +2398,7 @@
                   "not_sqlite",
                   "no_channels_table",
                   "source_in_data_dir",
+                  "old_app_open",
                   "store_too_new"
                 ]
               },

@@ -1,8 +1,10 @@
 """The `import.legacy` job: copies the old app's gratovo.db into this app's pipeline.db (plan D2
 to D5, step 4).
 
-The old file is opened read-only (a `mode=ro` URI) and is never written. The tables both sides
-have are copied with `INSERT OR IGNORE`, only the columns both sides have, one transaction and
+The old file is opened read-only and immutable (`mode=ro&immutable=1`, so SQLite makes no
+-shm/-wal beside it) and is never written. A non-empty `-wal` beside it is refused.
+The tables both sides have are copied with `INSERT OR IGNORE`, only the columns both sides
+have, one transaction and
 one `progress` line per table. A row this app already holds wins. A real import first backs an
 existing pipeline.db up into `backupDir`; a dry run writes nothing at all (it counts against an
 in-memory copy of the new schema, plus the real pipeline.db attached read-only when there is one).
@@ -108,6 +110,11 @@ def _uri(path: Path, mode: str) -> str:
     return f"{path.as_uri()}?mode={mode}"
 
 
+def _old_uri(path: Path) -> str:
+    """The old file, read-only and immutable: SQLite then creates no -shm/-wal beside it."""
+    return f"{path.as_uri()}?mode=ro&immutable=1"
+
+
 def _inside(path: Path, folder: Path) -> bool:
     inner = Path(os.path.normcase(str(path)))
     outer = Path(os.path.normcase(str(folder)))
@@ -131,6 +138,17 @@ def _check_source(source: Path, data_dir: Path) -> Path:
         )
     if header != SQLITE_HEADER:
         raise _EndError("not_sqlite", "That file isn't a SQLite database.")
+    wal = resolved.with_name(resolved.name + "-wal")
+    try:
+        unsent = wal.is_file() and wal.stat().st_size > 0
+    except OSError:
+        unsent = False
+    if unsent:
+        raise _EndError(
+            "old_app_open",
+            "The old app seems to be open, or it didn't close cleanly. "
+            "Open it and close it once, then try again.",
+        )
     return resolved
 
 
@@ -321,7 +339,7 @@ def _import(
     conn = _open_destination(dest, dry_run)
     try:
         try:
-            conn.execute("ATTACH DATABASE ? AS old", (_uri(source, "ro"),))
+            conn.execute("ATTACH DATABASE ? AS old", (_old_uri(source),))
             if dry_run and have_dst:
                 conn.execute("ATTACH DATABASE ? AS dst", (_uri(dest, "ro"),))
             old_tables = _tables(conn, "old")

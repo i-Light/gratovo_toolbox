@@ -132,6 +132,48 @@ def test_real_run_copies_and_the_old_file_is_untouched(run: Run) -> None:
     assert fingerprint(run.source) == before
 
 
+def to_wal(path: Path) -> None:
+    """Puts the old file in WAL mode and closes cleanly, so no -wal/-shm is left."""
+    conn = sqlite3.connect(path)
+    assert conn.execute("PRAGMA journal_mode=WAL").fetchone()[0] == "wal"
+    conn.close()
+    assert sorted(p.name for p in path.parent.iterdir()) == [path.name]
+
+
+@pytest.mark.parametrize("dry_run", [True, False])
+def test_a_wal_mode_old_file_gets_no_companions(run: Run, dry_run: bool) -> None:
+    to_wal(run.source)
+    names = sorted(p.name for p in run.source.parent.iterdir())
+    before = fingerprint(run.source)
+    run.go(dry_run=dry_run)
+    assert run.end()["state"] == "done"
+    assert run.counts()["videos"] == (3, 3, 0)
+    assert sorted(p.name for p in run.source.parent.iterdir()) == names
+    assert fingerprint(run.source) == before
+
+
+def test_a_non_empty_wal_beside_the_old_file_is_refused(run: Run) -> None:
+    to_wal(run.source)
+    wal = run.source.with_name(run.source.name + "-wal")
+    wal.write_bytes(b"unsent pages")
+    for dry_run in (True, False):
+        run.go(dry_run=dry_run)
+        assert error_code(run) == "old_app_open"
+    assert not (run.data_dir / "pipeline.db").exists()
+    assert wal.read_bytes() == b"unsent pages"
+
+
+def test_an_empty_wal_beside_the_old_file_is_ignored(run: Run) -> None:
+    to_wal(run.source)
+    wal = run.source.with_name(run.source.name + "-wal")
+    wal.write_bytes(b"")
+    run.go()
+    assert run.end()["state"] == "done"
+    assert run.counts()["videos"] == (3, 3, 0)
+    assert wal.read_bytes() == b""
+    assert not run.source.with_name(run.source.name + "-shm").exists()
+
+
 def test_second_run_backs_up_adds_nothing_and_new_rows_win(run: Run) -> None:
     run.go()
     conn = run.dest()

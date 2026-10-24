@@ -23,10 +23,13 @@ Branch `feat/4-live-data-and-connections`, from `docs/plan-pipeline-first` at 8e
 | B9 | N | done | both sections real; Find's rules card has "Edit rules"; no Undo on save (`rules:set` is IPC, not `act`) |
 | B10 | N | done | `connections-section.tsx` + `connections/` (12 rows), import dialog, `app/first-run.ts`; set-only secret inputs; inline confirms. Tidy later: `routing-rows.tsx` (493 lines) and `gmail-rows.tsx` (381) are over the ~300 guide |
 | W1 | N | done | real services in `index.ts`; Gemini log blanks the token; `canAddMailbox` pre-check; consent page words in `main/strings.ts`; Gemini stops on every source switch via `reloadWindow`; `stub-services.ts` kept for tests only |
-| F1 | N | – | **after W1 and B10:** the old file opened `mode=ro&immutable=1`; a non-empty `-wal` beside it → end code `old_app_open` (Python, protocol both sides, ipc reason, B4 mapping, B10 words). Found by the rehearsal: `mode=ro` created `-shm`/`-wal` beside the copy |
-| T1 | N | – | the one smoke test |
-| D1 | E | – | docs |
-| L1 | lead | – | checks, rehearsal, review, PR |
+| F1 | N | done | rehearsal re-run on a fresh copy: only `gratovo.db` left beside it. Was: **after W1 and B10:** the old file opened `mode=ro&immutable=1`; a non-empty `-wal` beside it → end code `old_app_open` (Python, protocol both sides, ipc reason, B4 mapping, B10 words). Found by the rehearsal: `mode=ro` created `-shm`/`-wal` beside the copy |
+| T1 | N | done | `e2e/live-gate.spec.ts` (owner, live): rail shows Find only (Settings is in the account menu), first-run lands on Connections, Python row and "Not brought in yet", palette has no Go to Today; plus smoke/settings/frame specs 13/13 locally |
+| D1 | N | done | ADR 0016, architecture, SECURITY, pipeline README, parity note on the AWS row |
+| R1 | H | in progress | review fixes: import path realpath + `data_dir.parent`, runs dedupe on (started_at, kind) and `running`→`interrupted`, import state written before best-effort steps, UNC refusal, `protocolVersion`, keyword.py `finally` |
+| R2 | N | in progress | review fixes: consent ignores wrong state (404, no settle), `email_verified` must be true, revoke the token when saving fails, cheap `mailboxCount()`, no `mail` in search starts, Gemini stop tied to source open/close, split `connections-service.ts` |
+| R3 | N | in progress | review fix: one component per file under `renderer/settings/connections/` and `search-rules-section.tsx` |
+| L1 | lead | – | checks, rehearsal (done), review (done: 0 blockers, 3 important, 9 minor), PR |
 
 ## Rehearsal (lead, 2026-10-24)
 

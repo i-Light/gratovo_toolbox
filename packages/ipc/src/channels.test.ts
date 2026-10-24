@@ -207,6 +207,7 @@ describe("the import channels", () => {
       }),
     ).toBe(true);
     expect(accepts("import:run", "response", { ok: false, reason: "no_channels" })).toBe(true);
+    expect(accepts("import:run", "response", { ok: false, reason: "old_app_open" })).toBe(true);
     expect(accepts("import:run", "response", { ok: false, reason: "nope" })).toBe(false);
     expect(accepts("import:run", "response", { ok: true, report: { ...report, extra: 1 } })).toBe(
       false,
