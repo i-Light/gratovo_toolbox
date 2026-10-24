@@ -18,7 +18,7 @@ Started 2026-10-24. The plan is `.router/PLAN.md` (decisions D1 to D18, contract
 | B10 | H | done | `email-finder.ts` (live only, 2 s debounce, 50 a job, yields the lane to a search), `ideas.ts` (bridge, `avoid`, 60 s gap, `newChat`), event `find:emails` (renderer doesn't listen yet) |
 | B11 | N | done | Contacts tab, `ContactBlock`, `confirmAddress`, `confirmMany`; record's Confirm wired. Paging grows `limit` past 120: W3 fixes |
 | B12 | N | done | `KeywordIdeas` picker; `kind=""` workaround on the closed button: tidy |
-| W3 | N | running |
+| W3 | N | done | live `find` gains `contacts` (tab with its count, palette action, subtitles), Contacts pages through `useGalleryPages` (120 a page), `installEmailJobs` shows `find:emails` in the tray (a finished row carries its note), the B12 `kind` tidy; `e2e/find-contacts.spec.ts` green. Lead: the gallery test's "today's search" run started an hour back, so it failed just after midnight |
 | R3 | H | todo | review |
 | L3 | lead | todo | checks, PR, merge |
 

@@ -146,6 +146,8 @@ export interface Job {
   readonly progress: number;
   readonly total: number;
   readonly done: boolean;
+  /** A line to show under a finished job instead of "Finished" (why it failed). */
+  readonly note?: string;
 }
 
 /** Something wrong that the problems bar shows. */

@@ -1029,7 +1029,7 @@ export const strings = {
     },
   },
   findTriage: {
-    liveSub: "Search, review and browse",
+    liveSub: "Search, review, browse and confirm contacts",
     tabsLabel: "Find sections",
     loadFailed: "Couldn’t load the new channels.",
     listLabel: "Channel to review",
@@ -1311,7 +1311,7 @@ export const strings = {
       name: "Find",
       sub: "Search, triage, contacts",
       // The rail's line on live data, where Search, Review new and Gallery are wired.
-      subLive: "Search, review and browse",
+      subLive: "Search, review, browse and confirm contacts",
       tabs: { search: "Search", triage: "Review new", gallery: "Gallery", contacts: "Contacts" },
     },
     reach: {

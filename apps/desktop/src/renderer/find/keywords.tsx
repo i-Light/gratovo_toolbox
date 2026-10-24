@@ -196,7 +196,7 @@ export function Keywords({ state }: { readonly state: FindState }) {
             {text.count(queue.length, done)}
           </span>
         </h3>
-        <Btn size="sm" icon="sparkle" kind={ideasOpen ? "pri" : ""} onClick={toggleIdeas}>
+        <Btn size="sm" icon="sparkle" {...(ideasOpen ? { kind: "pri" } : {})} onClick={toggleIdeas}>
           {strings.findSearch.ideas.suggest}
         </Btn>
       </div>

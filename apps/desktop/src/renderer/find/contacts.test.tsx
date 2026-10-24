@@ -223,4 +223,16 @@ describe("Find › Contacts", () => {
     expect(creatorOf("UC-w")?.contactName).toHaveLength(80);
     expect(creatorOf("UC-w")?.email).toHaveLength(254);
   });
+  it("pages 130 shortlisted channels: 120, then Show more adds the rest", async () => {
+    const many = Array.from({ length: 130 }, (_, i) =>
+      aiChannel(`UC-m${String(i)}`, `Channel ${String(i)}`, short),
+    );
+    stubFindBridge({ items: many });
+    await show();
+    expect(screen.getAllByRole("article")).toHaveLength(120);
+    expect(screen.getByText(t.loadedOf(120, 130))).toBeTruthy();
+    await click(screen.getByRole("button", { name: t.showMore }));
+    expect(screen.getAllByRole("article")).toHaveLength(130);
+    expect(screen.queryByRole("button", { name: t.showMore })).toBeNull();
+  });
 });
