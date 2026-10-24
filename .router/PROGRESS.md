@@ -2,9 +2,25 @@
 
 Started 2026-10-24. The plan is `.router/PLAN.md` (decisions D1 to D18, contracts, tasks), the recon `.router/CONTEXT.md`, the agent rules `.router/specs/rules.md`. Step 5 is four pull requests: 5a, 5b, 5c, 5d.
 
-**5a done:** PR #20, merged 2026-10-24 as 835a404.
+**5a done:** PR #20, merged 2026-10-24 as 835a404. **5b done:** PR #21, merged 2026-10-24 as 19ad4d3.
 
-**Now: 5b** (the gallery and the creator record) on branch `feat/5b-find-gallery-record` from `main` at 835a404. Plan: PLAN.md "5b" (D19 to D26).
+**Step 5 is now five pull requests** (lead, after 5b): 5c contacts and keyword ideas, 5d Toolbox, 5e the flow suite and ADR 0017 (PLAN.md "The rest of step 5").
+
+**Now: 5c** (contacts, the email finder, keyword ideas) on branch `feat/5c-find-contacts` from `main` at 19ad4d3. Plan: PLAN.md "5c" (D27 to D33).
+
+## Tasks, 5c
+
+| id | tier | state | note |
+|---|---|---|---|
+| C3 | H | running | contracts, persister rule, `creator.contact` in main, `find:ideas` stub |
+| B8 | N | todo | Python: address sources, schema 3 |
+| B9 | N | todo | core confidence; catalog reads the sources |
+| B10 | H | todo | main: the finder after a shortlist, keyword ideas |
+| B11 | N | todo | Contacts tab, contact block, Confirm, Confirm all 90%+ |
+| B12 | N | todo | keyword ideas in the Keywords card |
+| W3 | N | todo | wiring, live gate, smoke test |
+| R3 | H | todo | review |
+| L3 | lead | todo | checks, PR, merge |
 
 ## Tasks, 5b
 
@@ -16,7 +32,7 @@ Started 2026-10-24. The plan is `.router/PLAN.md` (decisions D1 to D18, contract
 | G2 | N | done | cards (stretched Open button, `content-visibility`), table, `useFindSelection(order, ready)`, bulk bar, compare; fit popup clipped in cards → W2 moves it to `Floating` |
 | W2 | N | done | live `find: search, triage, gallery`; older runs → gallery filtered; fit list through `Floating`; `e2e/find-gallery.spec.ts`; 20 Electron tests green; screenshots looked at by the lead |
 | R2 | H | done | review: 1 blocker (notes lost on Esc/Alt+↓), 6 important, 14 minor, all fixed (R2a main, R2b record, R2c gallery). Lead: notes carry the text the edit started from, so a teammate's newer note makes a conflict; unused strings dropped; the heavy-owner timing bounds tripled for parallel runs |
-| L2 | lead | in progress | lint, typecheck, 2,206 Vitest, 1,476 pytest and the full Electron suite (66) green locally; gallery, compare and peek looked at in dark at 1440; PR, CI, merge |
+| L2 | lead | done | PR #21, CI green after an e2e cleanup fix (Windows held Chromium's DIPS file), merged |
 
 
 
@@ -38,6 +54,8 @@ Started 2026-10-24. The plan is `.router/PLAN.md` (decisions D1 to D18, contract
 | L1 | lead | done | PR #20, CI green, merged |
 
 ## Notes for 5c and later
+
+- For docs/workflow.md lessons (5e): never park files in `git stash` around a commit. When the pre-commit hook fails, lint-staged leaves its own backup stash, and a later pop takes the wrong entry.
 
 - `record/use-creator-item.ts` duplicates a little of `lib/find-catalog.ts`'s `useCatalogItem` to tell a failed load from a missing channel: fold them together.
 - The shortlisted creator's next step says "Confirm an address" disabled; 5c wires it.

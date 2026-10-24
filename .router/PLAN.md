@@ -16,8 +16,9 @@ From keywords to shortlisted creators with confirmed addresses, on real pipeline
 |---|---|---|
 | **5a** | The catalog (pipeline channels joined to creators), fit score, the write path for shortlist, reject, bring back and never, Find › Review new (triage), run history with "Review results" | Find › Review new |
 | **5b** | Find › Gallery (facets with counts, saved views, card sizes, table view, bulk bar, compare, thumbnail flip) and the creator peek and record (overview, fit reasons, notes, activity) | Find › Gallery, the record |
-| **5c** | Contacts (the email finder with source and confidence, Confirm address with the name, Confirm all 90%+), Gemini keyword ideas, Toolbox › Archive (countdown, sweep, Bring back), Never-contact, Activity log | Find › Contacts, Toolbox |
-| **5d** | The consolidated Find flow suite (Playwright), ADR 0017, docs, status table | – |
+| **5c** | Contacts (the email finder with source and confidence, Confirm address with the name, Confirm all 90%+), Gemini keyword ideas | Find › Contacts |
+| **5d** | Toolbox › Archive (countdown, sweep, Bring back), Never-contact, Activity log | Toolbox |
+| **5e** | The consolidated Find flow suite (Playwright), ADR 0017, docs, status table | – |
 
 ## Decisions
 
@@ -148,7 +149,51 @@ interface SavedView { name: string; filter: FindFilter }          // name 1..60,
 | R2 | H | all | – | review | – |
 | L2 | lead | R2 | – | checks, look at it, PR, merge | CI |
 
-## Tasks, 5c, 5d (outline; detailed when each starts)
+## The rest of step 5: three more pull requests (lead, after 5b)
 
-- **5c:** C3 contracts (`creator.contact`, `find:ideas`, `log:page`, `toolbox:archive`, `toolbox:archived`, jobs `archive.sweep`, `archive.restore`, `refetch` after shortlist, schema v2 `found_email_sources`); Python email sources; core confidence; Contacts tab and Confirm with name, Confirm all 90%+; keyword ideas inline; Toolbox screen with Archive, Never-contact, Activity log; live gate; smoke test.
-- **5d:** the Find flow suite (D18), ADR 0017, architecture and parity notes, the status table, `.router/` removed.
+5c, 5d and 5e replace the old "5c" and "5d" outline: one pull request for contacts, keyword ideas and Toolbox would have been the largest yet, so Toolbox gets its own. The sub-step table above reads: 5c contacts and keyword ideas, 5d Toolbox, 5e the flow suite and ADR 0017.
+
+## 5c: contacts, the email finder and keyword ideas
+
+**Decisions, 5c**
+- **D27. Where an address came from.** Python records, per found address, `{email, source: "about"|"video", videos: n, business: bool}` in a new column `channels.found_email_sources` (JSON), `pipeline.db` schema version 3 (additive `ALTER TABLE`; `found_emails` stays as it is). `business` is true when a business word ("business", "inquiries", "enquiries", "collab", "sponsor", "partnership", "brand deals") sits within 40 characters before the address. Imported old rows have no sources: their addresses read as `{source:"about", videos:0, business:false}`.
+- **D28. Confidence** (core, pure, `emailConfidence(found)`): About with a business word 0.95; About 0.9; video descriptions in 3 or more videos 0.8; in 1 or 2 videos 0.6. Free-mail domains (gmail.com, outlook.com, hotmail.com, yahoo.com, icloud.com, proton.me, protonmail.com) take 0.05 off. Shown as "95% sure". Sorted most sure first.
+- **D29. Catalog items carry their addresses:** `emails: FoundEmail[]` (at most 10, most sure first), replacing the `foundEmails` count (the count is `emails.length`).
+- **D30. The finder after a shortlist (live only).** After a shortlist, main queues a store-lane `refetch {handles}` with no auto-clean for the shortlisted creators with no confirmed address (at most 50 handles a job; more → several jobs; a running search → it waits behind it). The tray shows "Finding emails for <n> channels", then "<k> emails found". Refetch re-reads the About text and the latest videos, so the addresses and their sources refresh. Example data never refetches (refetch has no offline source): the addresses the search read are used as they are, and the tray says nothing.
+- **D31. Confirm an address.** Undoable (`act`). The creator gains `contactName: string | null`. Confirming sets `email`, `emailConfirmed: true`, `contactName`, and moves `shortlisted` → `contact`. The persister writes `creator.contact {id, email, confirmed, contactName, source, confidence, handle, name}` when `email`, `emailConfirmed` or `contactName` change (and `creator.stage` for the stage). Main stores it as the primary contact `{method:"email", value, label: contactName, primary:true, confirmed, source, confidence}`, other contacts kept, and enqueues `channel.edit contacts` with the stored JSON as base. Undo writes the previous contact back the same way. An address typed by hand is allowed (checked as an address; source `"typed"`, confidence null).
+- **D32. Find › Contacts.** Creators at `shortlisted`, those still being looked up last (prototype find.js l.419-432). Each card: the channel, "N addresses found" with each address, where it came from and how sure; a name field ("Who reads this inbox?", optional, used in the greeting later); Confirm per address; "Type another address". "Confirm all 90%+ (n)" confirms the best address of each card whose best is at least 0.9, in one act, names left empty. Empty state as the prototype. The record's "Confirm an address" (D23) opens the same contact block in the peek.
+- **D33. Gemini keyword ideas** are D15: `find:ideas {count 1..20}` → `{ok:true, keywords, dropped}` or `{ok:false, problem:"bridge_off"|"busy"|"failed"}`. The topic is built in main from the five best keywords by kept ratio (at least 3 found) and the agency niche ("AI tools and AI news on YouTube"); exclusions are the queue's keywords. One request at a time (`busy`). The Keywords card's "Suggest with Gemini" shows the prototype's inline picker (find.js l.130-140). Example data: a stand-in in main returns 8 fixed AI keywords after 0.9 s and never calls the bridge.
+
+**Contracts, 5c**
+```ts
+// core: data/types.ts
+interface Creator { ...; contactName: string | null }
+| { kind: "creator.contact"; id; email: string | null; confirmed: boolean; contactName: string | null;
+    source: "about" | "video" | "typed" | null; confidence: number | null; handle: string; name: string }
+// core: find/types.ts
+interface FoundEmail { email: string; source: "about" | "video"; videos: number; business: boolean; confidence: number }
+interface CatalogItem { ...; emails: FoundEmail[] /* ≤10, most sure first */; contactName: string | null } // foundEmails removed
+// ipc
+"find:ideas": { count: 1..20 } -> { ok: true; keywords: string[]; dropped: number } | { ok: false; problem: "bridge_off" | "busy" | "failed" }
+// pipeline: schema 3, channels.found_email_sources TEXT (a JSON list as D27)
+```
+
+| id | tier | depends | files (about) | done-check |
+|---|---|---|---|---|
+| C3 | H | – | core types, ipc, the persister rule, main `creator.contact` repository + intent, catalog `emails` (empty until B9), `find:ideas` handler stub | `pnpm test` |
+| B8 | N | C3 | Python: `found_emails.py` sources, `store.py` schema 3, `search/signals.py`, the import job's column list; tests | pytest, pyright |
+| B9 | N | C3 | core `emailConfidence` + tests; the catalog reads `found_email_sources` | vitest |
+| B10 | H | C3 | main: the finder queue after a shortlist (refetch jobs, the tray job), `find:ideas` with the bridge and the stand-in | vitest |
+| B11 | N | C3, B9 | renderer: Contacts tab, the contact block (shared with the record), Confirm, Confirm all 90%+, typed address; the record's next step wired | vitest |
+| B12 | N | C3 | renderer: keyword ideas in the Keywords card | vitest |
+| W3 | N | all | wiring; live `find` gains `contacts`; rail and page subtitles; one smoke test (example: search, shortlist two in Review new, Contacts shows them, Confirm all 90%+ moves them on, the record says Contact confirmed) | Windows e2e |
+| R3 | H | all | review | – |
+| L3 | lead | R3 | checks, look, PR, merge | CI |
+
+## 5d: Toolbox (outline; detailed when 5c merges)
+
+A Toolbox screen listing only built tools (live and example). **Archive:** rejected creators with the countdown (`archiveDueAt + (archiveDays − 7) days`, D6) and Bring back; below, "Archived for good" from `channel_archive` (paged, searchable by handle; `toolbox:archived {q, offset, limit}`), where Bring back is `refetch {handles}` (refetch already lifts a tombstone when a handle is named) plus stage `new`. The sweep: a store-lane job `archive.sweep {channelIds}` tombstoning rejected channels past their due date, run at start, hourly and when Archive opens, on live and example data (it is local). The reject toast gains the archive wording. **Never contact:** the list, add a channel (search the catalog) with a reason, Allow again with the confirm. **Activity log:** `log:page {before?, limit ≤ 100, who?}`, grouped by day, person chips (you and anyone in the log), 30 then "Show more". Live `toolbox` wired. One smoke test.
+
+## 5e: the flow suite and the record of decisions (outline)
+
+The Find flow suite (D18), ADR 0017 (step 5's decisions), architecture and parity notes, the status table, `.router/` removed.
