@@ -1,4 +1,4 @@
-import type { MouseEventHandler, ReactNode } from "react";
+import type { MouseEventHandler, ReactNode, Ref } from "react";
 
 import { cx } from "./cx";
 import { Icon } from "./icon";
@@ -18,6 +18,10 @@ export interface BtnProps {
   /** An accessible name, for a button whose children are not text. */
   readonly label?: string;
   readonly disabled?: boolean;
+  /** For a button that opens and closes something: `aria-expanded`. */
+  readonly expanded?: boolean;
+  /** The button element, to send focus back to it. */
+  readonly ref?: Ref<HTMLButtonElement>;
   readonly onClick: MouseEventHandler<HTMLButtonElement>;
   readonly children?: ReactNode;
 }
@@ -32,11 +36,14 @@ export function Btn({
   tip,
   label,
   disabled,
+  expanded,
+  ref,
   onClick,
   children,
 }: BtnProps) {
   return (
     <button
+      ref={ref}
       type="button"
       className={cx("btn", kind, size)}
       onClick={onClick}
@@ -44,6 +51,7 @@ export function Btn({
       data-tip={tip}
       data-kbd={tip === undefined ? undefined : kbd}
       aria-label={label}
+      aria-expanded={expanded}
     >
       {icon === undefined ? null : <Icon name={icon} className={iconClassName} />}
       {children}

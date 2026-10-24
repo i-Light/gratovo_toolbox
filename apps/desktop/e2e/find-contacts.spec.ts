@@ -1,7 +1,7 @@
 import { strings } from "../src/renderer/strings";
 import { expect, test } from "./fixtures";
 
-const { screens, findSearch, findContacts } = strings;
+const { screens, findSearch, findContacts, findTriage } = strings;
 
 // Two AI keywords the example source knows (services/pipeline .../example/channels.json).
 const keywords = ["ai agents explained", "claude code tutorial"];
@@ -31,6 +31,7 @@ test.describe("Find › Contacts", () => {
     await page.getByRole("tab", { name: new RegExp(`^${screens.find.tabs.triage}`) }).click();
     await expect(page.getByRole("article")).toBeVisible(run);
     await page.keyboard.press("s");
+    await expect(page.getByText(findTriage.tally(1, 0))).toBeVisible();
     await page.keyboard.press("s");
 
     // Both wait in Contacts, each with its addresses.

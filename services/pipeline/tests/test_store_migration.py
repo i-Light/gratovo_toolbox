@@ -125,3 +125,31 @@ def test_a_version_2_file_gains_found_email_sources_and_keeps_its_data(tmp_path:
     assert row["found_emails"] == '["hi@aitoolsweekly.example"]'
     assert row["found_email_sources"] is None
     conn.close()
+
+
+def test_a_version_2_file_that_already_has_the_column_opens_and_ends_at_version_3(
+    tmp_path: Path,
+) -> None:
+    """A crash between the column and the version, or two openers at once, leaves the column in
+    a version-2 file; opening it again must not fail on "duplicate column name"."""
+    path = tmp_path / "pipeline.db"
+    conn = store.get_connection(path)
+    store.init_db(conn)
+    conn.execute("PRAGMA user_version=2")
+    conn.execute(
+        "INSERT INTO channels (channel_id, handle, first_seen_at, found_email_sources) "
+        "VALUES ('UC_a', '@aitools', 'T', '[]')"
+    )
+    conn.commit()
+    conn.close()
+
+    conn = store.get_connection(path)
+    store.init_db(conn)
+    store.init_db(conn)
+
+    assert _version(conn) == 3
+    row = conn.execute(
+        "SELECT found_email_sources FROM channels WHERE channel_id='UC_a'"
+    ).fetchone()
+    assert row["found_email_sources"] == "[]"
+    conn.close()

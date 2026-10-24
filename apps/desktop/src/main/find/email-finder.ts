@@ -237,11 +237,20 @@ export function createEmailFinder(deps: EmailFinderDeps): EmailFinder {
       return;
     }
     working = true;
-    void next().then((started) => {
-      if (!started) {
+    void next().then(
+      (started) => {
+        if (!started) {
+          working = false;
+        }
+      },
+      () => {
+        // Something threw (the lane's start, the data's context): without this the finder would
+        // stay "working" and ignore every later shortlist. The lookup fails as any other does,
+        // letting its channels go; the next shortlist starts afresh.
         working = false;
-      }
-    });
+        fail("crash");
+      },
+    );
   }
 
   /** Prepares and starts the next batch; true when a job started (its exit carries on). */

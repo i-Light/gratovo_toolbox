@@ -617,7 +617,9 @@ describe("recordIntent", () => {
         ch,
       );
       await source.write([contact(ch, "biz@aiweekly.tv")]);
-      expect(storedContacts()).toEqual([phone, confirmedEntry]);
+      // The old address stays, no longer primary.
+      const next = [phone, { ...old, primary: false }, confirmedEntry];
+      expect(storedContacts()).toEqual(next);
       expect(entries()).toEqual([
         {
           kind: "channel.edit",
@@ -625,7 +627,7 @@ describe("recordIntent", () => {
             channelId: ch,
             field: "contacts",
             base: [phone, old],
-            next: [phone, confirmedEntry],
+            next,
             label: "@aiweekly",
           },
           target: { table: "channel_state", key: ch },

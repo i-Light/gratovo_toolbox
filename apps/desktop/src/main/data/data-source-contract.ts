@@ -928,6 +928,15 @@ export function describeDataSourceContract(
         return out;
       }
 
+      function readStoredText(id: string): string | undefined {
+        let out: string | undefined;
+        withDb(file, (db) => {
+          const row = db.prepare("SELECT contacts FROM channel_state WHERE channel_id = ?").get(id);
+          out = row === undefined ? undefined : String(row["contacts"]);
+        });
+        return out;
+      }
+
       function setContacts(id: string, contacts: unknown): void {
         withDb(file, (db) => {
           db.prepare("UPDATE channel_state SET contacts = ? WHERE channel_id = ?").run(
@@ -957,8 +966,14 @@ export function describeDataSourceContract(
           other,
         ]);
         const frame = await writeAll(source, contact("c11", "biz@modelmatters.ai"));
-        // The new entry takes the old primary's place.
-        expect(storedContacts("c11")).toEqual([phone, primary, other]);
+        // The old primary stays where it was, no longer primary; the new address goes last.
+        const kept = [
+          phone,
+          { method: "email", value: "modelmatters.yt@gmail.com", primary: false },
+          other,
+          primary,
+        ];
+        expect(storedContacts("c11")).toEqual(kept);
         expect(frame.creators.find((c) => c.id === "c11")).toMatchObject({
           stage: "new",
           email: "biz@modelmatters.ai",
@@ -974,7 +989,84 @@ export function describeDataSourceContract(
         });
         // The same contact again gives the same list.
         await source.write([contact("c11", "biz@modelmatters.ai")]);
-        expect(storedContacts("c11")).toEqual([phone, primary, other]);
+        expect(storedContacts("c11")).toEqual(kept);
+      });
+
+      it("confirming another address keeps the old one and its label, and undo swaps them back", async () => {
+        const source = start();
+        const a = {
+          method: "email",
+          value: "team@modelmatters.ai",
+          primary: true,
+          label: "manager",
+        };
+        const b = { method: "email", value: "press@modelmatters.ai", label: "press" };
+        setContacts("c11", [a, b]);
+        await source.write([contact("c11", "press@modelmatters.ai", { contactName: null })]);
+        const confirmed = [
+          { ...a, primary: false },
+          {
+            method: "email",
+            value: "press@modelmatters.ai",
+            label: "press",
+            primary: true,
+            confirmed: true,
+            source: "about",
+            confidence: 0.95,
+          },
+        ];
+        expect(storedContacts("c11")).toEqual(confirmed);
+        // The label of a confirmed address is its contact name.
+        expect((await source.frame()).creators.find((c) => c.id === "c11")).toMatchObject({
+          email: "press@modelmatters.ai",
+          emailConfirmed: true,
+          contactName: "press",
+        });
+        // The same write again changes nothing, down to the text.
+        const text = readStoredText("c11");
+        await source.write([contact("c11", "press@modelmatters.ai", { contactName: null })]);
+        expect(readStoredText("c11")).toBe(text);
+        // Undo writes the old address back unconfirmed.
+        await source.write([
+          contact("c11", "team@modelmatters.ai", {
+            confirmed: false,
+            contactName: null,
+            source: null,
+            confidence: null,
+          }),
+        ]);
+        expect(storedContacts("c11")).toEqual([
+          {
+            method: "email",
+            value: "team@modelmatters.ai",
+            label: "manager",
+            primary: true,
+            confirmed: false,
+            source: null,
+            confidence: null,
+          },
+          { ...confirmed[1], primary: false },
+        ]);
+        expect((await source.frame()).creators.find((c) => c.id === "c11")).toMatchObject({
+          email: "team@modelmatters.ai",
+          emailConfirmed: false,
+          contactName: null,
+        });
+      });
+
+      it("a bare-string old primary stays, as an email entry that is not primary", async () => {
+        const source = start();
+        const phone = { method: "phone", value: "+1 555 0100" };
+        setContacts("c11", ["team@modelmatters.ai", phone]);
+        await source.write([contact("c11", "biz@modelmatters.ai")]);
+        expect(storedContacts("c11")).toEqual([
+          { method: "email", value: "team@modelmatters.ai", primary: false },
+          phone,
+          primary,
+        ]);
+        expect((await source.frame()).creators.find((c) => c.id === "c11")?.email).toBe(
+          "biz@modelmatters.ai",
+        );
       });
 
       it("undo puts the old address back unconfirmed, and a null address removes the primary", async () => {
@@ -1022,6 +1114,7 @@ export function describeDataSourceContract(
           contact("c11", "hello@modelmatters.ai", { source: "typed", confidence: null }),
         ]);
         expect(storedContacts("c11")).toEqual([
+          { method: "email", value: "modelmatters.yt@gmail.com", primary: false },
           {
             ...primary,
             value: "hello@modelmatters.ai",

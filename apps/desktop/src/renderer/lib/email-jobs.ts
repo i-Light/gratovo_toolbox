@@ -4,6 +4,7 @@ import { appStore, type Job } from "./store";
 
 /** The email lookup is one job at a time, so it keeps one row in the tray. */
 const jobId = "find-emails";
+export { jobId as emailJobId };
 
 /** How long a finished lookup stays in the tray. */
 export const emailJobStaysMs = 8000;
@@ -33,6 +34,7 @@ export function installEmailJobs(bridge: Pick<Bridge, "on">): () => void {
       progress: 0,
       total: event.channels,
       done: finished,
+      ...(event.state === "failed" ? { failed: true } : {}),
       ...(finished && event.detail !== null ? { note: event.detail } : {}),
     });
     if (finished) {

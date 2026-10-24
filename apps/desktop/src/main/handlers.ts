@@ -1,4 +1,4 @@
-import type { DataSource, DataWrite } from "@gratovo/core/data";
+import type { CreatorStage, DataSource, DataWrite } from "@gratovo/core/data";
 import type { Handlers } from "@gratovo/ipc";
 
 import type { Account } from "./account/account";
@@ -81,13 +81,24 @@ export function createHandlers(context: HandlerContext): Handlers {
     "frame:load": () => openSource().frame(),
     // A rejection goes up to the dispatcher, which logs it; the page learns only that it failed.
     "data:write": async ({ writes }) => {
-      await openSource().write(writes);
+      const source = openSource();
+      const toShortlist = writes.flatMap((write) =>
+        write.kind === "creator.stage" && write.stage === "shortlisted" ? [write.id] : [],
+      );
+      // Only a creator coming from new or rejected (or with no row yet) needs its addresses looked
+      // up. Undoing a Confirm moves contact back to shortlisted, and must not spend quota (D30).
+      const before =
+        toShortlist.length === 0 || context.onShortlisted === undefined
+          ? new Map<string, CreatorStage>()
+          : new Map((await source.creatorStates()).map((c) => [c.id, c.stage]));
+      await source.write(writes);
       if (writes.some(changesCatalog)) {
         context.onCreatorsWritten?.();
       }
-      const shortlisted = writes.flatMap((write) =>
-        write.kind === "creator.stage" && write.stage === "shortlisted" ? [write.id] : [],
-      );
+      const shortlisted = toShortlist.filter((id) => {
+        const stage = before.get(id);
+        return stage === undefined || stage === "new" || stage === "rejected";
+      });
       if (shortlisted.length > 0) {
         context.onShortlisted?.(shortlisted);
       }

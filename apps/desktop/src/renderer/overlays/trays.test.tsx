@@ -122,6 +122,23 @@ describe("the jobs tray", () => {
     expect(within(tray).getByText(strings.trays.mateRunning("Omar", 12, 40))).toBeTruthy();
   });
 
+  it("shows a different icon on a failed job than on a finished one", async () => {
+    const base = { kind: "contacts", progress: 0, total: 1, done: true } as const;
+    appStore().ui((ui) => {
+      ui.jobs = [
+        { ...base, id: "a", label: "Bad lookup", failed: true },
+        { ...base, id: "b", label: "Good lookup" },
+      ];
+    });
+    render(<App />);
+    await userEvent.click(jobsButton());
+    const tray = screen.getByRole("dialog", { name: strings.top.jobs });
+    const icon = (label: string) =>
+      within(tray).getByText(label).closest(".tray-i")?.querySelector("svg")?.innerHTML;
+    expect(icon("Bad lookup")).toBeTruthy();
+    expect(icon("Bad lookup")).not.toBe(icon("Good lookup"));
+  });
+
   it("swaps to the other tray when the other button is used", async () => {
     render(<App />);
     await userEvent.click(jobsButton());

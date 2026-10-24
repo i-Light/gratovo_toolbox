@@ -43,6 +43,7 @@ describe("the email lookup in the jobs tray", () => {
     fire({ state: "done", channels: 3, found: 2, label: "2 emails found", detail: null });
     expect(jobs()).toHaveLength(1);
     expect(jobs()[0]).toMatchObject({ label: "2 emails found", done: true });
+    expect(jobs()[0]?.failed).toBeUndefined();
     vi.advanceTimersByTime(emailJobStaysMs);
     expect(jobs()).toEqual([]);
   });
@@ -55,7 +56,7 @@ describe("the email lookup in the jobs tray", () => {
       label: "Couldn’t look up emails",
       detail: "Offline.",
     });
-    expect(jobs()[0]).toMatchObject({ done: true, note: "Offline." });
+    expect(jobs()[0]).toMatchObject({ done: true, failed: true, note: "Offline." });
   });
 
   it("a new lookup replaces the finished row and cancels its clearing", () => {

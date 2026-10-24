@@ -17,7 +17,7 @@ import os
 import sqlite3
 import sys
 import time
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from pathlib import Path
 from typing import Any, Final, Literal, cast
 
@@ -181,15 +181,25 @@ CREATE TABLE IF NOT EXISTS video_transcripts (
 );
 """
 
-# Version 3. Where each found address came from (found_emails.Source, as a JSON list), next to the
-# plain list in `found_emails`. NULL on a row not yet derived, or imported from an older file.
-FOUND_EMAIL_SOURCES: Final = """
-ALTER TABLE channels ADD COLUMN found_email_sources TEXT;
-"""
+
+def _add_found_email_sources(conn: sqlite3.Connection) -> None:
+    """Version 3. Where each found address came from (found_emails.Source, as a JSON list), next to
+    the plain list in `found_emails`. NULL on a row not yet derived, or imported from an older file.
+
+    SQLite has no ADD COLUMN IF NOT EXISTS, and the column can already be there in a version-2
+    file: a crash between the ALTER and the version, or two openers at once. Adding it again would
+    fail every later open, so it is added only when missing."""
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(channels)").fetchall()}
+    if "found_email_sources" not in columns:
+        conn.execute("ALTER TABLE channels ADD COLUMN found_email_sources TEXT")
+
 
 # What each version adds to the one before it, run in order on a file older than it. Version 1 is
-# SCHEMA itself; a new file runs SCHEMA and then every step.
-MIGRATIONS: Final = {2: VIDEO_TRANSCRIPTS, 3: FOUND_EMAIL_SOURCES}
+# SCHEMA itself; a new file runs SCHEMA and then every step. Each step is safe to run twice.
+MIGRATIONS: Final[dict[int, Callable[[sqlite3.Connection], object]]] = {
+    2: lambda conn: conn.executescript(VIDEO_TRANSCRIPTS),
+    3: _add_found_email_sources,
+}
 
 # A second writer waits this long instead of failing at once with "database is locked". Far
 # longer than any statement here takes; short enough to surface a real deadlock.
@@ -261,7 +271,7 @@ def init_db(conn: sqlite3.Connection) -> None:
         )
     conn.executescript(SCHEMA)
     for step in range(max(version, 1) + 1, SCHEMA_VERSION + 1):
-        conn.executescript(MIGRATIONS[step])
+        MIGRATIONS[step](conn)
     conn.execute(f"PRAGMA user_version={SCHEMA_VERSION}")
     conn.commit()
 

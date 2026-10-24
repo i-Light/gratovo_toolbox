@@ -369,4 +369,18 @@ describe("confirmAddress and confirmMany", () => {
     expect(find("UC-bo")?.stage).toBe("shortlisted");
     expect(lines()).toHaveLength(0);
   });
+
+  it("confirmMany skips an entry that is not an address and confirms the rest", () => {
+    expect(
+      confirmMany([
+        { item: shortlisted(ada), choice: { ...sure, contactName: "" } },
+        { item: shortlisted(bo), choice: { ...sure, email: "nope", contactName: "" } },
+      ]),
+    ).toBe(true);
+    expect(find("UC-ada")?.stage).toBe("contact");
+    expect(find("UC-bo")).toBeUndefined();
+    expect(
+      confirmMany([{ item: shortlisted(bo), choice: { ...sure, email: "nope", contactName: "" } }]),
+    ).toBe(false);
+  });
 });

@@ -148,6 +148,8 @@ export interface Job {
   readonly done: boolean;
   /** A line to show under a finished job instead of "Finished" (why it failed). */
   readonly note?: string;
+  /** The job ended in failure: the tray shows the alert icon, not the check. */
+  readonly failed?: boolean;
 }
 
 /** Something wrong that the problems bar shows. */

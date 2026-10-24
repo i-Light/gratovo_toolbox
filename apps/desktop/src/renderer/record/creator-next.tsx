@@ -1,5 +1,5 @@
 import { Btn, Icon } from "@gratovo/ui";
-import { useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 
 import { ContactBlock } from "../find/contact-block";
 import { rejectReasons } from "../find/triage-card";
@@ -20,6 +20,15 @@ export function CreatorNext({ item }: { readonly item: CreatorDetail }) {
   const [picking, setPicking] = useState(false);
   const [asking, setAsking] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  // After a confirm the block goes; focus lands on the next-step line, not on the page.
+  const line_ = useRef<HTMLElement>(null);
+  const refocus = useRef(false);
+  useEffect(() => {
+    if (!confirming && refocus.current) {
+      refocus.current = false;
+      line_.current?.focus();
+    }
+  }, [confirming]);
   // The page's own creator holds the address once it is confirmed (it leads main's catalog).
   const creator = useApp((s) => s.data.creators.find((c) => c.id === item.id));
   const email = creator?.email ?? item.email;
@@ -62,6 +71,7 @@ export function CreatorNext({ item }: { readonly item: CreatorDetail }) {
         kind="pri"
         size="sm"
         icon="mail"
+        expanded={confirming}
         onClick={() => {
           setConfirming(!confirming);
         }}
@@ -76,6 +86,7 @@ export function CreatorNext({ item }: { readonly item: CreatorDetail }) {
       <Btn
         size="sm"
         kind="ghost"
+        expanded={confirming}
         onClick={() => {
           setConfirming(!confirming);
         }}
@@ -143,7 +154,9 @@ export function CreatorNext({ item }: { readonly item: CreatorDetail }) {
     <div className="nextcard" style={{ "--hue": "var(--find)" } as CSSProperties}>
       <Icon name="flag" />
       <span className="nt">
-        <b style={{ fontWeight: 600 }}>{line}</b>
+        <b ref={line_} tabIndex={-1} style={{ fontWeight: 600 }}>
+          {line}
+        </b>
         {hint === null ? null : <small>{hint}</small>}
       </span>
       {actions === null ? null : <span className="nx">{actions}</span>}
@@ -153,6 +166,7 @@ export function CreatorNext({ item }: { readonly item: CreatorDetail }) {
             item={item}
             startOpen={stage === "contact"}
             onDone={() => {
+              refocus.current = true;
               setConfirming(false);
             }}
           />

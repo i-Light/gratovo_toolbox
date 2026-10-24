@@ -258,10 +258,11 @@ export function writeCreatorNotes(
 type ContactWrite = Omit<Extract<DataWrite, { kind: "creator.contact" }>, "kind">;
 
 /**
- * A creator's primary email contact write (plan step 5, D31): the primary email entry becomes
- * `{method: "email", value, label, primary: true, confirmed, source, confidence}` in its place,
- * every other contact kept; a null email removes it. A creator with no row gets one as a stage
- * write makes it (D4), with no stage of its own; any other unknown id does nothing. `now` is in ms.
+ * A creator's primary email contact write (plan step 5, D31): the address becomes the primary
+ * entry `{method: "email", value, label, primary: true, confirmed, source, confidence}`, the old
+ * primary and every other contact kept (`contactsWithPrimary`); a null email removes the primary.
+ * A creator with no row gets one as a stage write makes it (D4), with no stage of its own; any
+ * other unknown id does nothing. `now` is in ms.
  */
 export function writeCreatorContact(db: DatabaseSync, write: ContactWrite, now: number): void {
   const row = db.prepare("SELECT contacts FROM channel_state WHERE channel_id = ?").get(write.id);
@@ -549,35 +550,54 @@ function emailValue(item: unknown): string | null {
 }
 
 /**
- * The contacts with `write`'s address as the primary email (D31). The old primary entry goes, and
- * so does any other entry with the same address, so it is not listed twice; the new entry takes
- * the place of the first one removed (or goes last), so writing the same contact again gives the
- * same list and the sync sees no change. A null email only removes.
+ * The contacts with `write`'s address as the primary email (D31). Nothing else is lost: the old
+ * primary stays where it was with `primary: false` (a bare string becomes an email entry), and
+ * every other contact is kept as it is. Entries with the same address become the one new entry, at
+ * the place of the first of them (or last), keeping its label when the write names nobody. So undo
+ * can swap two addresses back, and writing the same contact again gives the same text: the sync
+ * sees no change. A null email only removes the primary entry.
  */
 function contactsWithPrimary(existingJson: string, write: ContactWrite): string {
   const oldPrimary = primaryEmail(existingJson);
-  const kept: unknown[] = [];
+  const email = write.email;
+  if (email === null) {
+    return JSON.stringify(
+      contactList(existingJson).filter((item) => !isPrimaryEmailEntry(item, oldPrimary)),
+    );
+  }
+  const next: unknown[] = [];
   let at: number | null = null;
+  let label: string | null = null;
   for (const item of contactList(existingJson)) {
-    const same = write.email !== null && emailValue(item) === write.email;
-    if (isPrimaryEmailEntry(item, oldPrimary) || same) {
-      at ??= kept.length;
+    if (emailValue(item) === email) {
+      if (at === null) {
+        at = next.length;
+        // A bare string has no label; emailValue said anything else is an object.
+        const stored = typeof item === "string" ? null : (item as Record<string, unknown>)["label"];
+        label = typeof stored === "string" ? stored : null;
+      }
       continue;
     }
-    kept.push(item);
+    if (isPrimaryEmailEntry(item, oldPrimary)) {
+      next.push(
+        typeof item === "string"
+          ? { method: "email", value: item.trim(), primary: false }
+          : { ...(item as Readonly<Record<string, unknown>>), primary: false },
+      );
+      continue;
+    }
+    next.push(item);
   }
-  if (write.email !== null) {
-    kept.splice(at ?? kept.length, 0, {
-      method: "email",
-      value: write.email,
-      label: write.contactName,
-      primary: true,
-      confirmed: write.confirmed,
-      source: write.source,
-      confidence: write.confidence,
-    });
-  }
-  return JSON.stringify(kept);
+  next.splice(at ?? next.length, 0, {
+    method: "email",
+    value: email,
+    label: write.contactName ?? label,
+    primary: true,
+    confirmed: write.confirmed,
+    source: write.source,
+    confidence: write.confidence,
+  });
+  return JSON.stringify(next);
 }
 
 function contactsWithEmail(existingJson: string, email: string | null): string {

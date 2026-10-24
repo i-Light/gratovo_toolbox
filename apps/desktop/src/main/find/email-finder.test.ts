@@ -338,6 +338,27 @@ describe("the email finder", () => {
     });
   });
 
+  it("a start that throws fails the lookup and leaves the finder working for the next shortlist", async () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    vi.spyOn(lane, "start").mockImplementationOnce(() => {
+      throw new Error("spawn EPERM C:\\data\\pipeline");
+    });
+    creator("ch_a");
+    creator("ch_b");
+    finder.shortlisted(["ch_a"]);
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(events.at(-1)).toMatchObject({
+      state: "failed",
+      channels: 1,
+      detail: strings.emailFinder.problems["crash"],
+    });
+    expect(logged).toHaveBeenCalledWith("Email finder: a lookup failed (crash).");
+    expect(JSON.stringify(logged.mock.calls)).not.toContain("EPERM");
+    finder.shortlisted(["ch_b"]);
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(handlesOf(lane.starts[0])).toEqual(["@ch_b"]);
+  });
+
   it("lets the waiting creators go when the data closes", async () => {
     creator("ch_a");
     lane.running = true;

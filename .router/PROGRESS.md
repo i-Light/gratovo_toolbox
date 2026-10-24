@@ -6,7 +6,7 @@ Started 2026-10-24. The plan is `.router/PLAN.md` (decisions D1 to D18, contract
 
 **Step 5 is now five pull requests** (lead, after 5b): 5c contacts and keyword ideas, 5d Toolbox, 5e the flow suite and ADR 0017 (PLAN.md "The rest of step 5").
 
-**Now: 5c** (contacts, the email finder, keyword ideas) on branch `feat/5c-find-contacts` from `main` at 19ad4d3. Plan: PLAN.md "5c" (D27 to D33).
+**Now: 5c** (contacts, the email finder, keyword ideas) on branch `feat/5c-find-contacts` from `main` at 19ad4d3, in its pull request (L3). Plan: PLAN.md "5c" (D27 to D33). After it merges: detail 5d in PLAN.md (its outline is there) in a fresh session.
 
 ## Tasks, 5c
 
@@ -19,8 +19,8 @@ Started 2026-10-24. The plan is `.router/PLAN.md` (decisions D1 to D18, contract
 | B11 | N | done | Contacts tab, `ContactBlock`, `confirmAddress`, `confirmMany`; record's Confirm wired. Paging grows `limit` past 120: W3 fixes |
 | B12 | N | done | `KeywordIdeas` picker; `kind=""` workaround on the closed button: tidy |
 | W3 | N | done | live `find` gains `contacts` (tab with its count, palette action, subtitles), Contacts pages through `useGalleryPages` (120 a page), `installEmailJobs` shows `find:emails` in the tray (a finished row carries its note), the B12 `kind` tidy; `e2e/find-contacts.spec.ts` green. Lead: the gallery test's "today's search" run started an hour back, so it failed just after midnight |
-| R3 | H | todo | review |
-| L3 | lead | todo | checks, PR, merge |
+| R3 | H | done | review: 0 blockers, 7 important, 14 minor. Fixed as R3a (main, ipc, Python: odd old address on undo, other contacts kept, v3 migration safe to re-run, no lookup on an undone confirm, finder can't wedge) and R3b (renderer: Confirm all skips confirmed channels, looked-up last, focus after a card leaves, failed tray icon, e2e wait, a11y). Lead: Contacts cards one across with the peek open; D31/D33 notes |
+| L3 | lead | running | checks green (lint, typecheck, 2,331 + 1,488 unit tests, 67 Electron tests), looked at in dark at 1440 px; `Btn` gained `expanded` and `ref` (lead, R3b); PR |
 
 ## Tasks, 5b
 

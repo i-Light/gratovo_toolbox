@@ -287,5 +287,10 @@ export function confirmAddress(item: CatalogItem, choice: AddressChoice): boolea
 export function confirmMany(
   list: readonly { readonly item: CatalogItem; readonly choice: AddressChoice }[],
 ): boolean {
-  return confirmList(list.map((e) => ({ ...e, choice: { ...e.choice, contactName: "" } })));
+  // One that is not an address is skipped; the rest are still confirmed.
+  const fine = list.filter((e) => isAddress(e.choice.email.trim()));
+  if (fine.length === 0) {
+    return false;
+  }
+  return confirmList(fine.map((e) => ({ ...e, choice: { ...e.choice, contactName: "" } })));
 }

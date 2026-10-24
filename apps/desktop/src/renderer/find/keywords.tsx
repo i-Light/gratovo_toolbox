@@ -1,6 +1,6 @@
 import type { FindState } from "@gratovo/ipc";
 import { Btn, Icon, cx } from "@gratovo/ui";
-import { memo, useCallback, useState } from "react";
+import { memo, useCallback, useRef, useState } from "react";
 
 import { addMax, keywordMax, parseKeywords } from "../lib/find";
 import { strings } from "../strings";
@@ -104,6 +104,7 @@ export function Keywords({ state }: { readonly state: FindState }) {
   const [busy, setBusy] = useState(false);
   const [ideasOpen, setIdeasOpen] = useState(false);
   const ideas = useIdeas();
+  const suggest = useRef<HTMLButtonElement>(null);
   const { queue, at } = state;
   const active = state.run.state === "running" || state.run.state === "stopping";
   const done = queue.filter((k) => k.state === "done").length;
@@ -164,6 +165,11 @@ export function Keywords({ state }: { readonly state: FindState }) {
     }
   };
 
+  // Closing the picker (Esc or Close) sends focus back to the button that opened it.
+  const closeIdeas = (): void => {
+    setIdeasOpen(false);
+    suggest.current?.focus();
+  };
   const toggleIdeas = (): void => {
     if (ideasOpen) {
       setIdeasOpen(false);
@@ -196,7 +202,14 @@ export function Keywords({ state }: { readonly state: FindState }) {
             {text.count(queue.length, done)}
           </span>
         </h3>
-        <Btn size="sm" icon="sparkle" {...(ideasOpen ? { kind: "pri" } : {})} onClick={toggleIdeas}>
+        <Btn
+          ref={suggest}
+          size="sm"
+          icon="sparkle"
+          {...(ideasOpen ? { kind: "pri" } : {})}
+          expanded={ideasOpen}
+          onClick={toggleIdeas}
+        >
           {strings.findSearch.ideas.suggest}
         </Btn>
       </div>
@@ -205,9 +218,7 @@ export function Keywords({ state }: { readonly state: FindState }) {
           state={ideas.state}
           have={queue.map((k) => k.keyword)}
           onAsk={ideas.ask}
-          onClose={() => {
-            setIdeasOpen(false);
-          }}
+          onClose={closeIdeas}
           onAdd={addIdeas}
         />
       ) : null}

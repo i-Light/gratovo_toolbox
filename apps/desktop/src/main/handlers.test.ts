@@ -1,4 +1,9 @@
-import { exampleFrame, type DataSource, type DataWrite } from "@gratovo/core/data";
+import {
+  exampleFrame,
+  type CreatorStage,
+  type DataSource,
+  type DataWrite,
+} from "@gratovo/core/data";
 import { emptyFacets, emptyFindFilter } from "@gratovo/core/find";
 import {
   channels,
@@ -415,12 +420,34 @@ describe("data:write and the email finder (plan D30)", () => {
     name: id,
   });
 
-  function withFinder(write: DataSource["write"] = () => Promise.resolve()) {
+  function withFinder(
+    write: DataSource["write"] = () => Promise.resolve(),
+    stages: Readonly<Record<string, CreatorStage>> = {},
+  ) {
     const onShortlisted = vi.fn<(ids: readonly string[]) => void>();
+    const creatorStates = () =>
+      Promise.resolve(
+        Object.entries(stages).map(([id, stage]) => ({
+          id,
+          handle: `@${id}`,
+          name: id,
+          stage,
+          email: null,
+          emailConfirmed: false,
+          contactName: null,
+          rejectReason: null,
+          rejectedAt: null,
+          archiveDueAt: null,
+          engagement: null,
+          legacyPipelineStage: "",
+          hasAppStage: true,
+          lastActivity: null,
+        })),
+      );
     const mine = createHandlers({
       version: "1.2.3",
       secrets: storeWith([]),
-      account: accountWith({}, sourceWith({ write })),
+      account: accountWith({}, sourceWith({ write, creatorStates })),
       find: findWith(),
       catalog: createStubCatalog(),
       ideas: createStubIdeas(),
@@ -444,6 +471,34 @@ describe("data:write and the email finder (plan D30)", () => {
       "UCaaaaaaaaaaaaaaaaaaaaaa",
       "UCcccccccccccccccccccccc",
     ]);
+  });
+
+  it("looks up only creators coming from new or rejected, not an undone confirm", async () => {
+    const { mine, onShortlisted } = withFinder(() => Promise.resolve(), {
+      UCaaaaaaaaaaaaaaaaaaaaaa: "new",
+      UCbbbbbbbbbbbbbbbbbbbbbb: "contact",
+      UCcccccccccccccccccccccc: "rejected",
+      UCdddddddddddddddddddddd: "shortlisted",
+    });
+    await mine["data:write"]({
+      writes: [
+        moved("UCaaaaaaaaaaaaaaaaaaaaaa", "shortlisted"),
+        moved("UCbbbbbbbbbbbbbbbbbbbbbb", "shortlisted"),
+        moved("UCcccccccccccccccccccccc", "shortlisted"),
+        moved("UCdddddddddddddddddddddd", "shortlisted"),
+        // No row yet: a creator the search found and nobody has touched.
+        moved("UCeeeeeeeeeeeeeeeeeeeeee", "shortlisted"),
+      ],
+    });
+    expect(onShortlisted).toHaveBeenCalledExactlyOnceWith([
+      "UCaaaaaaaaaaaaaaaaaaaaaa",
+      "UCcccccccccccccccccccccc",
+      "UCeeeeeeeeeeeeeeeeeeeeee",
+    ]);
+    // Undoing a Confirm all (contact back to shortlisted) spends no quota.
+    const undo = withFinder(() => Promise.resolve(), { UCbbbbbbbbbbbbbbbbbbbbbb: "contact" });
+    await undo.mine["data:write"]({ writes: [moved("UCbbbbbbbbbbbbbbbbbbbbbb", "shortlisted")] });
+    expect(undo.onShortlisted).not.toHaveBeenCalled();
   });
 
   it("stays quiet for a batch with no shortlist, and after a write that failed", async () => {

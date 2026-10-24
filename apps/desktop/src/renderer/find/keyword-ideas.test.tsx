@@ -160,4 +160,10 @@ describe("keyword ideas", () => {
     expect(screen.queryByText(t.title)).toBeNull();
     await flush();
   });
+
+  it("sends focus back to the Suggest button on Close", async () => {
+    await open(ready);
+    await click(screen.getByRole("button", { name: t.close }));
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: t.suggest }));
+  });
 });

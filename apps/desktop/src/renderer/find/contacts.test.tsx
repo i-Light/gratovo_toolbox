@@ -1,9 +1,11 @@
 // @vitest-environment happy-dom
 import { formatCount } from "@gratovo/core/find";
+import type { Bridge } from "@gratovo/ipc/bridge";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { undo } from "../lib/actions";
+import { emailJobId } from "../lib/email-jobs";
 import { resetFindForTests } from "../lib/find";
 import { aiChannel, stubFindBridge } from "../lib/find-test-bridge";
 import { appStore, resetAppStoreForTests, selectRoute } from "../lib/store";
@@ -41,7 +43,6 @@ const lines = () =>
     .data.log.filter((l) => l.ref !== null);
 const toast = () => appStore().getState().ui.toasts.at(-1);
 const card = (name: string) => within(screen.getByRole("article", { name }));
-const confirmButton = () => screen.getByRole("button", { name: b.confirm });
 
 const short = { stage: "shortlisted" } as const;
 const sure = aiChannel("UC-sure", "Agent Lab", short);
@@ -134,14 +135,25 @@ describe("Find › Contacts", () => {
     stubFindBridge({ items: [none] });
     await show();
     expect(screen.getByText(b.none)).toBeTruthy();
-    const input = screen.getByLabelText(b.typeLabel);
+    const input = screen.getByLabelText(b.typeAnother);
     // No address found: the name field and the typed address are all there is.
-    const confirm = confirmButton() as HTMLButtonElement;
+    const confirm = screen.getByRole<HTMLButtonElement>("button", { name: b.typeConfirm });
     expect(confirm.disabled).toBe(true);
     await type(input, "not an address");
+    // Nothing is said while typing; leaving the field says it.
+    expect(screen.queryByRole("alert")).toBeNull();
+    await act(async () => {
+      fireEvent.blur(input);
+      await Promise.resolve();
+    });
     expect(screen.getByRole("alert").textContent).toBe(b.typeBad);
     expect(confirm.disabled).toBe(true);
     await type(input, `${"a".repeat(250)}@b.co`);
+    expect(screen.queryByRole("alert")).toBeNull();
+    await act(async () => {
+      fireEvent.keyDown(input, { key: "Enter" });
+      await Promise.resolve();
+    });
     expect(screen.getByRole("alert").textContent).toBe(b.typeLong(254));
     expect(confirm.disabled).toBe(true);
     await type(input, "  hello@quiet.ai ");
@@ -234,5 +246,108 @@ describe("Find › Contacts", () => {
     await click(screen.getByRole("button", { name: t.showMore }));
     expect(screen.getAllByRole("article")).toHaveLength(130);
     expect(screen.queryByRole("button", { name: t.showMore })).toBeNull();
+  });
+
+  it("Confirm all leaves an address a person already confirmed alone", async () => {
+    stubFindBridge({
+      items: [
+        aiChannel("UC-kept", "Kept Name", {
+          ...short,
+          email: "mine@kept.ai",
+          emailConfirmed: true,
+          contactName: "Kim",
+        }),
+        sure,
+      ],
+    });
+    await show();
+    await click(screen.getByRole("button", { name: t.confirmAll(1) }));
+    expect(creatorOf("UC-kept")).toBeUndefined();
+    expect(creatorOf("UC-sure")?.stage).toBe("contact");
+  });
+
+  it("puts channels with nothing found last, and says a lookup is on while it runs", async () => {
+    stubFindBridge({ items: [none, sure, unsure] });
+    appStore().ui((ui) => {
+      ui.jobs = [
+        { id: emailJobId, kind: "contacts", label: "x", progress: 0, total: 1, done: false },
+      ];
+    });
+    await show();
+    const names = screen.getAllByRole("article").map((a) => a.getAttribute("aria-label"));
+    expect(names[2]).toBe("Quiet Channel");
+    expect(card("Quiet Channel").getByText(b.looking)).toBeTruthy();
+    expect(card("Quiet Channel").queryByText(b.none)).toBeNull();
+    await act(async () => {
+      appStore().ui((ui) => {
+        ui.jobs = [];
+      });
+      await Promise.resolve();
+    });
+    expect(card("Quiet Channel").getByText(b.none)).toBeTruthy();
+  });
+
+  it("lists at most five addresses in the Confirm all tooltip", async () => {
+    const seven = Array.from({ length: 7 }, (_, i) =>
+      aiChannel(`UC-s${String(i)}`, `Sure ${String(i)}`, short),
+    );
+    stubFindBridge({ items: seven });
+    await show();
+    const tip = screen.getByRole("button", { name: t.confirmAll(7) }).getAttribute("data-tip");
+    expect(tip?.split(", ")).toHaveLength(6);
+    expect(tip?.endsWith(t.andMore(2))).toBe(true);
+  });
+
+  it("moves focus to the next card after Confirm", async () => {
+    stubFindBridge({ items: [sure, unsure] });
+    await show();
+    const [first, second] = screen.getAllByRole("article") as [HTMLElement, HTMLElement];
+    await click(within(first).getAllByRole("button", { name: b.confirm })[0] as HTMLElement);
+    expect(second.contains(document.activeElement)).toBe(true);
+  });
+
+  it("moves focus to the previous card when the last one is confirmed", async () => {
+    stubFindBridge({ items: [sure, unsure] });
+    await show();
+    const [first, second] = screen.getAllByRole("article") as [HTMLElement, HTMLElement];
+    await click(within(second).getAllByRole("button", { name: b.confirm })[0] as HTMLElement);
+    expect(first.contains(document.activeElement)).toBe(true);
+  });
+
+  it("focuses the header after Confirm all and the empty card when none is left", async () => {
+    stubFindBridge({ items: [sure, sure2] });
+    await show();
+    await click(screen.getByRole("button", { name: t.confirmAll(2) }));
+    expect(document.activeElement?.textContent).toContain(t.emptyTitle);
+  });
+
+  it("keeps the Confirm button after Change on a confirmed typed address", async () => {
+    stubFindBridge({
+      items: [
+        aiChannel("UC-ty", "Typed One", { ...short, email: "typed@one.ai", emailConfirmed: true }),
+      ],
+    });
+    await show();
+    await click(screen.getByRole("button", { name: b.change }));
+    expect(screen.getByRole("button", { name: b.confirm })).toBeTruthy();
+  });
+
+  it("shows a failed Show more as a retry", async () => {
+    const many = Array.from({ length: 130 }, (_, i) =>
+      aiChannel(`UC-m${String(i)}`, `Channel ${String(i)}`, short),
+    );
+    stubFindBridge({ items: many });
+    await show();
+    const bridge = (window as unknown as { gratovo: Bridge }).gratovo;
+    const real = bridge.invoke.bind(bridge);
+    (window as unknown as { gratovo: Bridge }).gratovo = {
+      ...bridge,
+      invoke: (c: string, i: unknown) =>
+        c === "find:query" && (i as { offset: number }).offset > 0
+          ? Promise.resolve({ ok: false, reason: "test" })
+          : real(c as never, i as never),
+    };
+    await click(screen.getByRole("button", { name: t.showMore }));
+    expect(screen.getByRole("button", { name: t.moreFailed })).toBeTruthy();
   });
 });

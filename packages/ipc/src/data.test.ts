@@ -394,6 +394,47 @@ describe("data:write request", () => {
   it("refuses anything beside writes", () => {
     expect(request.safeParse({ writes: [write], path: "C:/x" }).success).toBe(false);
   });
+
+  it("takes back an odd old address on undo, but never confirms one", () => {
+    // The old app stored any text as the email; undoing a confirm writes it back unconfirmed.
+    const contact = {
+      kind: "creator.contact",
+      id: "UC1",
+      email: "biz@promptlab.tv,press@promptlab.tv",
+      confirmed: false,
+      contactName: null,
+      source: null,
+      confidence: null,
+      handle: "@promptlab",
+      name: "Prompt Lab",
+    };
+    const stage = {
+      kind: "creator.stage",
+      id: "UC1",
+      stage: "shortlisted",
+      handle: "@promptlab",
+      name: "Prompt Lab",
+    };
+    expect(request.safeParse({ writes: [contact, stage] }).success).toBe(true);
+    expect(request.safeParse({ writes: [{ ...contact, email: "hello@promptlab" }] }).success).toBe(
+      true,
+    );
+    expect(request.safeParse({ writes: [{ ...contact, email: "x".repeat(1000) }] }).success).toBe(
+      true,
+    );
+    expect(request.safeParse({ writes: [{ ...contact, email: "x".repeat(1001) }] }).success).toBe(
+      false,
+    );
+    expect(request.safeParse({ writes: [{ ...contact, email: "" }] }).success).toBe(false);
+    expect(request.safeParse({ writes: [{ ...contact, email: null }] }).success).toBe(true);
+    expect(request.safeParse({ writes: [{ ...contact, confirmed: true }, stage] }).success).toBe(
+      false,
+    );
+    expect(
+      request.safeParse({ writes: [{ ...contact, confirmed: true, email: "hello@promptlab" }] })
+        .success,
+    ).toBe(false);
+  });
 });
 
 describe("the data channels through the dispatcher", () => {

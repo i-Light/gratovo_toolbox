@@ -180,7 +180,10 @@ describe("the next step", () => {
   it("shortlisted: Confirm an address opens the contact block, and confirming moves on", async () => {
     await show("UC-a", { items: { "UC-a": detail("UC-a", { stage: "shortlisted" }) } });
     expect(screen.getByText(t.next.confirmHint)).toBeTruthy();
-    await click(screen.getByRole("button", { name: t.next.confirmAddress }));
+    const toggle = screen.getByRole("button", { name: t.next.confirmAddress });
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    await click(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
     const block = strings.findContacts.block;
     expect(screen.getByRole("radiogroup", { name: block.listLabel })).toBeTruthy();
     fireEvent.change(screen.getByLabelText(block.nameLabel), { target: { value: "Sam" } });
@@ -193,6 +196,7 @@ describe("the next step", () => {
     expect(screen.getByText(t.next.contactConfirmed("biz@agentlab.ai"))).toBeTruthy();
     expect(screen.getByText(t.next.contactHint("Sam"))).toBeTruthy();
     expect(screen.queryByRole("radiogroup")).toBeNull();
+    expect(document.activeElement?.textContent).toBe(t.next.contactConfirmed("biz@agentlab.ai"));
   });
 
   it("contact: Change opens the list again", async () => {
