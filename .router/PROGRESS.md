@@ -1,4 +1,6 @@
-# Progress: step 3e-3b (mail and the remaining jobs)
+# Progress: step 3e-3b (mail and the remaining jobs): done
+
+**3e-3b is done** (PR #17, squash-merged 2026-10-24). **Next: 3f**, in a fresh session, from the migration plan's §5 and §3. Start a new `.router/PLAN.md` section and rewrite this file for it.
 
 Branch `feat/3e-3b-mail-and-refetch`, from `main` at f5a9e7a (3e-3a merged as #16 on 2026-10-23). The plan is `.router/PLAN.md`, section "3e-3b" at the end of §Tasks (detailed 2026-10-23 by the lead on Opus: decisions D14 to D21, the contracts, tasks C1 to C7 and L1).
 
@@ -19,7 +21,15 @@ Branch `feat/3e-3b-mail-and-refetch`, from `main` at f5a9e7a (3e-3a merged as #1
 | C5b | N | done | `jobs/gateways.py`, 13 tests; ends `aws` only when nothing deployed and every failure was an auth refusal; AWS ids checked before use in a URL; a half-built API is deleted best effort |
 | C6 | H | done | supervisor passes `result`/`reply`, `ended.result`; bad-line codes `wrong_result`, `extra_result`, `unexpected_reply`; result and reply text never logged, even on a bad line; `secretsOf` covers mail, AWS and destroy apiIds; quick lane logs `quick-<stamp>.log`; `pipeline-secrets.ts` (gateway changes queued per store; old list read strictly) and `jobs.ts` (`laneFor`, `runJob`); `index.ts` builds both lanes and shuts both on quit |
 | C7 | E | done | ADR 0015, the pipeline README, architecture, the plan's status row; read through; no commit |
-| L1 | lead | in progress | full checks green (1570 TS, 1294 Python). `router-reviewer` found one blocker, fixed: a send was retried after a timeout or 5xx, so one job could send twice; now a send is retried on 429 only and a 5xx keeps the key (`send_uncertain`). Also fixed: CR/LF refused in subject and sender name (both schemas, and `BadHeaderError` before any send); a failed deploy sends no result; a region deployed again keeps its old gateway; the reply sweep rotates by `checked_at`, watches a conversation again once the team writes back, and a send reopens a closed one; main drops a result the end doesn't allow; refetch always ends; `_API_ID` matches the protocol; net.py's wording. ADR 0015 amended. A re-review of the fixes found one more, fixed: an offline send (urllib's `URLError`, nothing went out) is retried and then frees its key (`MailUnreachableError`); a cut-off answer (`http.client.HTTPException`) counts as maybe sent. Nits fixed: every line boundary refused in header text, a full gateway list refuses rather than forget an id, an index for the sweep's last-reply lookup, ADR notes that a reply written in Gmail doesn't reopen the sweep. Checks green (1571 TS, 1300 Python). Next: push, PR, CI, merge |
+| L1 | lead | done | Full checks green, then `router-reviewer` twice. Fixed: one blocker (a send was retried after a timeout or 5xx, so one job could send twice; now only 429 is retried, a 5xx or lost answer keeps the key, a request that never went out frees it), line breaks in header text, no result on a failed deploy, a replaced gateway kept, the reply sweep rotating and re-watching after a write-back, main dropping a result the end doesn't allow, refetch always ending. CI then found two advisories (Electron 44.9.1, happy-dom 21.0.4) and one CodeQL result (the mailbox address flowed from `secrets.mail` to stdout): every connected mailbox is now listed in `settings.mail.mailboxes` and the address is read from there. PR #17 green and merged |
+
+## Lessons from 3e-3b
+
+- Python's `write_text` on Windows writes CRLF, and a heredoc or the editor can turn `\r`, `\n` and `\u2028` in a replacement into real characters. Patch with a script file that reads and writes bytes, then grep the result. A raw U+2028 ends a JavaScript regex literal.
+- CodeQL treats anything read out of a `secrets` object as secret, even a mailbox address. Keep values that go to stdout apart from the secrets at the protocol boundary. The CI step now prints each result's sources, `(1)` and so on, so a result can be traced from the log.
+- `gh` works with `GH_TOKEN` read from `git credential fill` inside the same command (never printed). The session's permission check allowed it on 2026-10-24.
+- Git Bash finds Node 24.19 first: put `~/.local/opt/node-v24.22.0-win-x64` first on `PATH` before `pnpm install`.
+- A send is not idempotent: never retry it after the request may have reached the server.
 
 ## Lessons carried from 3e-3a
 
@@ -27,6 +37,5 @@ Branch `feat/3e-3b-mail-and-refetch`, from `main` at f5a9e7a (3e-3a merged as #1
 - CodeQL fails CI on any result (py/log-injection hit the bridge): keep text from outside on one log line, never log a value from a request.
 - Agents running at once must not share files; the lead commits named paths once each lands.
 - The pre-commit hook (lint-staged) stashes unstaged changes while it runs: don't commit while an agent is editing the same tree.
-- `gh` isn't logged in on the owner's PC. The workflow doc's way (a token from `git credential fill`) was refused by the session's permission check on 2026-10-23, so pushing and the pull request may need the owner's go.
 
 Carried: the packaged build must ship `@supabase/realtime-js` with main, and Deno plus `yt-dlp-ejs` for subtitles (3h); the two known sync limits in ADR 0012. Code scanning isn't enabled for the repository (the owner's choice). The owner's files under `design/` aren't part of this step.
