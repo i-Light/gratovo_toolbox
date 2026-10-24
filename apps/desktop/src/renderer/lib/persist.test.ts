@@ -196,6 +196,52 @@ describe("diffData", () => {
     ]);
   });
 
+  it("writes the reason with a move to rejected, and none with any other move", () => {
+    const c0 = base.creators[0] as AppData["creators"][number];
+    const rejected = {
+      ...base,
+      creators: [
+        { ...c0, stage: "rejected", rejectReason: "views", rejectedAt: 5 } as typeof c0,
+        ...base.creators.slice(1),
+      ],
+    };
+    expect(diffData(base, rejected)).toEqual({
+      writes: [
+        {
+          kind: "creator.stage",
+          id: c0.id,
+          stage: "rejected",
+          handle: c0.handle,
+          name: c0.name,
+          reason: "views",
+        },
+      ],
+      unsupported: [],
+    });
+    expect(diffData(rejected, base).writes).toEqual([
+      { kind: "creator.stage", id: c0.id, stage: c0.stage, handle: c0.handle, name: c0.name },
+    ]);
+    const noReason = {
+      ...base,
+      creators: [{ ...c0, stage: "rejected" } as typeof c0, ...base.creators.slice(1)],
+    };
+    expect(diffData(base, noReason).writes).toEqual([
+      { kind: "creator.stage", id: c0.id, stage: "rejected", handle: c0.handle, name: c0.name },
+    ]);
+  });
+
+  it("writes nothing for a reject reason or time that changes with the same stage", () => {
+    const c0 = base.creators[0] as AppData["creators"][number];
+    const after = {
+      ...base,
+      creators: [
+        { ...c0, rejectReason: "ai", rejectedAt: 9 } as typeof c0,
+        ...base.creators.slice(1),
+      ],
+    };
+    expect(diffData(base, after)).toEqual({ writes: [], unsupported: [] });
+  });
+
   it("cannot write any other creator change, or a creator added or removed", () => {
     const c0 = base.creators[0] as AppData["creators"][number];
     const renamed = { ...base, creators: [{ ...c0, name: "Other" }, ...base.creators.slice(1)] };
@@ -555,6 +601,27 @@ describe("today's actions", () => {
 });
 
 describe("adoptServerData", () => {
+  it("writes nothing for a creator it adds", async () => {
+    install();
+    adoptServerData((draft) => {
+      draft.creators.push({
+        id: "UC-adopted",
+        name: "Adopted",
+        handle: "@adopted",
+        stage: "new",
+        email: null,
+        emailConfirmed: false,
+        rejectReason: null,
+        rejectedAt: null,
+        archiveDueAt: null,
+      });
+    });
+    await flush();
+    expect(data().creators.some((c) => c.id === "UC-adopted")).toBe(true);
+    expect(bridge.calls).toHaveLength(0);
+    expect(errors).not.toHaveBeenCalled();
+  });
+
   it("changes the data and the undo steps and writes nothing", async () => {
     install();
     adoptServerData((draft) => {

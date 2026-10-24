@@ -38,7 +38,37 @@ describe("logText", () => {
       expect(text).toContain("@ai_weekly");
       expect(text).not.toContain("{label}");
     }
-    expect(Object.keys(logPhrases)).toHaveLength(13);
+    expect(Object.keys(logPhrases)).toHaveLength(18);
+  });
+
+  it("reads this app's creator line by its text, the reason beside it", () => {
+    expect(
+      logText(
+        row({
+          action: "creator.reject",
+          entityLabel: "Prompt Lab",
+          detail: { text: "Rejected Prompt Lab: too few views", reason: "views" },
+        }),
+      ),
+    ).toBe("Rejected Prompt Lab: too few views");
+    // Without a text it reads as its action.
+    expect(
+      logText(row({ action: "creator.never", entityLabel: "Prompt Lab", detail: { reason: "x" } })),
+    ).toBe("Marked Prompt Lab as never contact");
+    expect(logText(row({ action: "creator.restore", entityLabel: null }))).toBe("Brought back");
+  });
+
+  it("still reads an older app line, before lines had a creator", () => {
+    expect(
+      logText(
+        row({
+          action: "note",
+          entityType: "app",
+          entityLabel: "Shortlisted Prompt Lab",
+          detail: { text: "Shortlisted Prompt Lab" },
+        }),
+      ),
+    ).toBe("Shortlisted Prompt Lab");
   });
 
   it("adds old to new when both are present", () => {

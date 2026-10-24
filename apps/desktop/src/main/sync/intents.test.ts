@@ -122,6 +122,53 @@ describe("recordIntent", () => {
     });
   });
 
+  it("a line about a creator queues a row with its action, entity and reason", async () => {
+    db.prepare(
+      "INSERT INTO channel_state (channel_id, handle, updated_at) VALUES ('UC1', '@aiweekly', 'x')",
+    ).run();
+    db.prepare("INSERT INTO channels (channel_id, name) VALUES ('UC1', 'AI Weekly')").run();
+    await source.write([
+      {
+        kind: "log.add",
+        id: line,
+        at: t0,
+        text: "Rejected AI Weekly: too few views",
+        ref: "UC1",
+        action: "creator.reject",
+        detail: "views",
+      },
+    ]);
+    expect(entries()[0]?.payload).toEqual({
+      row: {
+        id: line,
+        at: "2026-10-21T10:00:00.000Z",
+        actor_id: me,
+        actor_name: "Sam",
+        actor_role: "full",
+        action: "creator.reject",
+        entity_type: "channel",
+        entity_id: "UC1",
+        entity_label: "AI Weekly",
+        field: null,
+        old_value: null,
+        new_value: null,
+        detail: { text: "Rejected AI Weekly: too few views", reason: "views" },
+      },
+    });
+    // The local row is the same, and reads back the same.
+    expect((await source.frame()).log).toEqual([
+      {
+        id: line,
+        at: t0,
+        who: me,
+        text: "Rejected AI Weekly: too few views",
+        ref: "UC1",
+        action: "creator.reject",
+        detail: "views",
+      },
+    ]);
+  });
+
   it("rolls the local effect and the entry back together when a later write throws", async () => {
     await expect(
       source.write([
@@ -225,13 +272,167 @@ describe("recordIntent", () => {
       expect(entries()[0]?.payload).toMatchObject({ base: null, next: "emailed" });
     });
 
-    it("an edit to the same stage, or to an unknown creator, queues nothing", async () => {
+    it("an edit to the same stage queues nothing", async () => {
       seedCreator("emailed");
       await source.write([
         { kind: "creator.stage", id: ch, stage: "emailed", handle: "", name: "" },
-        { kind: "creator.stage", id: "nope", stage: "emailed", handle: "", name: "" },
       ]);
       expect(pendingCount(db)).toBe(0);
+    });
+
+    function tags(id = ch): unknown {
+      const row = db.prepare("SELECT channel_tags FROM channel_state WHERE channel_id = ?").get(id);
+      return row === undefined ? undefined : (JSON.parse(String(row["channel_tags"])) as unknown);
+    }
+
+    function edits(): { field: unknown; base: unknown; next: unknown; label: unknown }[] {
+      return entries().map((e) => {
+        const p = e.payload as Record<string, unknown>;
+        return { field: p["field"], base: p["base"], next: p["next"], label: p["label"] };
+      });
+    }
+
+    it("a stage on a creator with no row creates it and queues the edit with a null base", async () => {
+      await source.write([
+        {
+          kind: "creator.stage",
+          id: "UC_new",
+          stage: "shortlisted",
+          handle: "@agentlab",
+          name: "Agent Lab",
+        },
+      ]);
+      expect(
+        db.prepare("SELECT creator_stage FROM channel_state WHERE channel_id = 'UC_new'").get()?.[
+          "creator_stage"
+        ],
+      ).toBe("shortlisted");
+      expect(entries()).toEqual([
+        {
+          kind: "channel.edit",
+          payload: {
+            channelId: "UC_new",
+            field: "creator_stage",
+            base: null,
+            next: "shortlisted",
+            label: "@agentlab",
+          },
+          target: { table: "channel_state", key: "UC_new" },
+        },
+      ]);
+    });
+
+    it("a reject queues the stage, then the tags with the stored list as base", async () => {
+      seedCreator("shortlisted");
+      db.prepare("UPDATE channel_state SET channel_tags = ? WHERE channel_id = ?").run(
+        JSON.stringify(["qualified"]),
+        ch,
+      );
+      await source.write([
+        {
+          kind: "creator.stage",
+          id: ch,
+          stage: "rejected",
+          handle: "@aiweekly",
+          name: "AI Weekly",
+          reason: "posting",
+        },
+      ]);
+      expect(tags()).toEqual(["qualified", "inactive"]);
+      expect(edits()).toEqual([
+        { field: "creator_stage", base: "shortlisted", next: "rejected", label: "@aiweekly" },
+        {
+          field: "channel_tags",
+          base: ["qualified"],
+          next: ["qualified", "inactive"],
+          label: "@aiweekly",
+        },
+      ]);
+      expect(entries().every((e) => e.kind === "channel.edit")).toBe(true);
+    });
+
+    it("a reject of a channel with no row has a null stage base and an empty tags base", async () => {
+      await source.write([
+        {
+          kind: "creator.stage",
+          id: "UC_new",
+          stage: "rejected",
+          handle: "@agentlab",
+          name: "Agent Lab",
+          reason: "views",
+        },
+      ]);
+      expect(edits()).toEqual([
+        { field: "creator_stage", base: null, next: "rejected", label: "@agentlab" },
+        { field: "channel_tags", base: [], next: ["irrelevant"], label: "@agentlab" },
+      ]);
+    });
+
+    it("bringing back queues the tags only when they change; undo goes the same way", async () => {
+      seedCreator("new");
+      const reject = {
+        kind: "creator.stage",
+        id: ch,
+        stage: "rejected",
+        handle: "@aiweekly",
+        name: "AI Weekly",
+        reason: "ai",
+      } as const;
+      const back = {
+        kind: "creator.stage",
+        id: ch,
+        stage: "new",
+        handle: "@aiweekly",
+        name: "",
+      } as const;
+      await source.write([reject]);
+      await source.write([back]);
+      expect(edits().slice(2)).toEqual([
+        { field: "creator_stage", base: "rejected", next: "new", label: "@aiweekly" },
+        { field: "channel_tags", base: ["irrelevant"], next: [], label: "@aiweekly" },
+      ]);
+      // A rejected creator with no rejecting tag (the old app rejected it by vetting only) has
+      // nothing to take off: only the stage goes.
+      db.exec("DELETE FROM _outbox");
+      db.prepare(
+        "UPDATE channel_state SET creator_stage = NULL, vetting_status = 'rejected' WHERE channel_id = ?",
+      ).run(ch);
+      await source.write([back]);
+      expect(edits()).toEqual([
+        { field: "creator_stage", base: null, next: "new", label: "@aiweekly" },
+      ]);
+    });
+
+    it("a never contact queues the stage and no tags", async () => {
+      seedCreator("new");
+      await source.write([
+        { kind: "creator.stage", id: ch, stage: "never", handle: "@aiweekly", name: "" },
+      ]);
+      expect(edits().map((e) => e.field)).toEqual(["creator_stage"]);
+      expect(tags()).toEqual([]);
+    });
+
+    it("keeping your tags in a conflict puts them back here and sends them", async () => {
+      seedCreator("rejected");
+      db.prepare(
+        `INSERT INTO edit_conflicts (id, channel_id, channel_label, field, base_value, mine_value,
+           theirs_value, mine_actor_name, theirs_actor_name, detected_at, updated_at)
+         VALUES ('t1', ?, '@aiweekly', 'channel_tags', '[]', '["irrelevant"]', '["qualified"]',
+                 'Sam', 'Sara', 'x', 'x')`,
+      ).run(ch);
+      expect((await source.frame()).conflicts).toMatchObject([
+        { id: "t1", field: "channel_tags", mine: "irrelevant", theirs: "qualified" },
+      ]);
+      await source.write([{ kind: "conflict.resolve", id: "t1", choice: "mine" }]);
+      expect(tags()).toEqual(["irrelevant"]);
+      expect(
+        db.prepare("SELECT archive_due_at FROM channel_state WHERE channel_id = ?").get(ch)?.[
+          "archive_due_at"
+        ],
+      ).toBe(new Date(t0 + 7 * 24 * 60 * 60 * 1000).toISOString());
+      expect(entries().map((e) => e.payload)).toEqual([
+        { id: "t1", resolution: "mine", value: ["irrelevant"] },
+      ]);
     });
 
     it("brand.set writes locally and queues the four columns", async () => {

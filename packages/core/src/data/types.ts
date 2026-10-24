@@ -164,6 +164,29 @@ export interface Creator {
   readonly archiveDueAt: number | null;
 }
 
+/**
+ * One creator's stored state, every row and not only the frame's (plan step 5, D1): the Find
+ * catalog joins it to the pipeline's channels.
+ */
+export interface CreatorState {
+  readonly id: string;
+  readonly handle: string;
+  /** Null when no name is stored. */
+  readonly name: string | null;
+  readonly stage: CreatorStage;
+  readonly email: string | null;
+  readonly emailConfirmed: boolean;
+  readonly rejectReason: RejectReason | null;
+  readonly rejectedAt: number | null;
+  readonly archiveDueAt: number | null;
+  /** `manual_engagement_rate`, the only engagement figure there is. */
+  readonly engagement: number | null;
+  /** The old app's `pipeline_stage`, for "emailed before" (D12). */
+  readonly legacyPipelineStage: string;
+  /** The newest visible activity line about the creator: when, and the actor's name. */
+  readonly lastActivity: { readonly at: number; readonly who: string } | null;
+}
+
 /** A company that sponsors creators. */
 export interface Brand {
   readonly id: string;
@@ -292,6 +315,8 @@ export type DataWrite =
 /** Where the app's data lives: one read and one write, both async so the database can move. */
 export interface DataSource {
   frame(): Promise<Frame>;
+  /** Every creator's stored state, not capped as the frame's creators are (plan step 5, D1). */
+  creatorStates(): Promise<readonly CreatorState[]>;
   /** In order, in one transaction: all or none. */
   write(writes: readonly DataWrite[]): Promise<void>;
   /** A local setting (`local_settings`), parsed from its JSON; undefined when it is not set. */

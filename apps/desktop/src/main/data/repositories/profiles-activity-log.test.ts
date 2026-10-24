@@ -197,10 +197,97 @@ describe("activity log", () => {
         at: Date.UTC(2026, 9, 20, 11, 0, 0, 500),
         who: "Sara",
         text: "Changed the tags of Lina",
-        ref: null,
+        // The old app's channel lines name the creator too; their action is not one of ours.
+        ref: "c1",
         action: null,
         detail: null,
       },
+    ]);
+  });
+
+  it("files a creator line under the channel, named, with its action and reason", () => {
+    upsertProfile(db, { id: "u1", displayName: "Maya", role: "full" }, t0);
+    db.exec(
+      `INSERT INTO channel_state (channel_id, handle, updated_at) VALUES ('UC1', '@promptlab', 'x');
+       INSERT INTO channels (channel_id, name) VALUES ('UC1', 'Prompt Lab');
+       INSERT INTO channel_state (channel_id, handle, updated_at) VALUES ('UC2', '@agentweekly', 'x');`,
+    );
+    const line = {
+      at: t0,
+      who: "",
+      text: "Rejected Prompt Lab",
+      action: "creator.reject" as const,
+      detail: "views",
+    };
+    addLogEntry(db, "u1", { ...line, id: "l1", ref: "UC1" });
+    addLogEntry(db, "u1", { ...line, id: "l2", at: t0 + 1, ref: "UC2", detail: null });
+    addLogEntry(db, "u1", { ...line, id: "l3", at: t0 + 2, ref: "UC9", action: null });
+    const rows = db.prepare("SELECT * FROM activity_log ORDER BY at_ms").all();
+    expect(rows[0]).toMatchObject({
+      action: "creator.reject",
+      entity_type: "channel",
+      entity_id: "UC1",
+      entity_label: "Prompt Lab",
+      detail: '{"text":"Rejected Prompt Lab","reason":"views"}',
+    });
+    // No name: the handle; no row at all: the id. No action: a note.
+    expect(rows[1]).toMatchObject({
+      entity_label: "@agentweekly",
+      detail: '{"text":"Rejected Prompt Lab"}',
+    });
+    expect(rows[2]).toMatchObject({ action: "note", entity_type: "channel", entity_label: "UC9" });
+    expect(newestLog(db, { seesMoney: true })).toEqual([
+      {
+        id: "l3",
+        at: t0 + 2,
+        who: "u1",
+        text: "Rejected Prompt Lab",
+        ref: "UC9",
+        action: null,
+        detail: "views",
+      },
+      {
+        id: "l2",
+        at: t0 + 1,
+        who: "u1",
+        text: "Rejected Prompt Lab",
+        ref: "UC2",
+        action: "creator.reject",
+        detail: null,
+      },
+      {
+        id: "l1",
+        at: t0,
+        who: "u1",
+        text: "Rejected Prompt Lab",
+        ref: "UC1",
+        action: "creator.reject",
+        detail: "views",
+      },
+    ]);
+  });
+
+  it("reads back a pulled line: an unknown action is null, a reason that isn't text is none", () => {
+    db.exec(
+      `INSERT INTO activity_log (id, at, at_ms, actor_id, actor_name, actor_role, action, entity_type, entity_id, entity_label, detail)
+       VALUES ('p1', '2026-10-20T11:00:00+00:00', 1, 'u2', 'Sara', 'basic', 'creator.never', 'channel', 'UC1', 'Prompt Lab', '{"text":"Never contact Prompt Lab","reason":"spam"}'),
+              ('p2', '2026-10-20T11:00:01+00:00', 2, 'u2', 'Sara', 'basic', 'creator.zap', 'channel', 'UC1', 'Prompt Lab', '{"text":"Zapped","reason":4}'),
+              ('p3', '2026-10-20T11:00:02+00:00', 3, 'u2', 'Sara', 'basic', 'creator.reject', 'app', 'UC1', 'x', '{"text":"Odd"}'),
+              ('p4', '2026-10-20T11:00:03+00:00', 4, 'u2', 'Sara', 'basic', 'creator.reject', 'channel', '', 'x', json_object('text', 'Long', 'reason', printf('%.600c', 'r')))`,
+    );
+    expect(
+      newestLog(db, { seesMoney: true }).map(({ id, ref, action, detail }) => ({
+        id,
+        ref,
+        action,
+        detail,
+      })),
+    ).toEqual([
+      // An empty id is no ref; a long reason is cut to what the frame carries.
+      { id: "p4", ref: null, action: "creator.reject", detail: "r".repeat(500) },
+      { id: "p3", ref: null, action: "creator.reject", detail: null },
+      { id: "p2", ref: "UC1", action: null, detail: null },
+      { id: "p1", ref: "UC1", action: "creator.never", detail: "spam" },
     ]);
   });
 

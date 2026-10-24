@@ -73,6 +73,8 @@ class Search:
     source: Source
     pacer: Pacer
     events: Events
+    # Never-contact channel ids (the job's `skip`): a search leaves them exactly as they are.
+    skip: frozenset[str] = frozenset()
 
     def info(self, text: str) -> None:
         self.events.log("info", text)

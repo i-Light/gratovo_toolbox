@@ -29,6 +29,13 @@ export const logPhrases: Readonly<Record<string, string>> = {
   replyReceived: "Got a reply from {label}",
   searchStarted: "Started a search for {label}",
   videosPulled: "Pulled videos for {label}",
+  // This app's creator lines (`LogAction`) carry their text in `detail.text`; these words are for
+  // one that comes without it.
+  "creator.shortlist": "Shortlisted {label}",
+  "creator.reject": "Rejected {label}",
+  "creator.restore": "Brought back {label}",
+  "creator.never": "Marked {label} as never contact",
+  "creator.allow": "Allowed {label} again",
 };
 
 function clean(value: string | null): string {

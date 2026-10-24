@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { clock } from "../lib/format";
 import { strings } from "../strings";
+import { reviewResults } from "./triage";
 
 const text = strings.findSearch.live;
 
@@ -183,6 +184,17 @@ export function LiveRun({ state }: { readonly state: FindState }) {
             <span className="hint">{working ? text.pauseHint : text.startHint}</span>
           </>
         )}
+        <span className="sp"></span>
+        <Btn
+          size="sm"
+          kind="ghost"
+          icon="scan"
+          onClick={() => {
+            reviewResults(null);
+          }}
+        >
+          {text.review}
+        </Btn>
       </div>
       <p className="hint kw-note kw-bad" role="status">
         {problem}

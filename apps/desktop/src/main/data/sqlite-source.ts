@@ -35,6 +35,12 @@ import {
   setNotificationRead,
   setNotify,
 } from "./repositories";
+import {
+  creatorStates,
+  parseTags,
+  setCreatorTags,
+  writeCreatorStage,
+} from "./repositories/creators";
 
 /** What the database has no table for: presence, rail counts and a teammate's running search. */
 export interface FrameExtras {
@@ -133,13 +139,21 @@ export function createSqliteSource(db: DatabaseSync, options: SqliteSourceOption
         setDisplayName(db, me, write.name.trim().slice(0, nameMax), clock());
         return;
       case "log.add":
-        addLogEntry(db, me, { id: write.id, at: write.at, who: "", text: write.text });
+        addLogEntry(db, me, {
+          id: write.id,
+          at: write.at,
+          who: "",
+          text: write.text,
+          ref: write.ref,
+          action: write.action,
+          detail: write.detail,
+        });
         return;
       case "log.remove":
         removeLogEntry(db, write.id);
         return;
       case "creator.stage":
-        setCreatorStage(db, write.id, write.stage);
+        writeCreatorStage(db, write, clock());
         return;
       case "brand.set":
         setBrand(db, write, clock());
@@ -149,15 +163,19 @@ export function createSqliteSource(db: DatabaseSync, options: SqliteSourceOption
         return;
       case "conflict.resolve": {
         const settled = markResolved(db, write.id);
-        // Keeping yours puts your stage back; keeping theirs needs nothing (the server's value is here).
+        // Keeping yours puts your stage or your tags back; keeping theirs needs nothing (the
+        // server's value is here).
+        if (settled === null || write.choice !== "mine") {
+          return;
+        }
         if (
-          settled !== null &&
-          write.choice === "mine" &&
           settled.field === "creator_stage" &&
           typeof settled.mine === "string" &&
           (creatorStages as readonly string[]).includes(settled.mine)
         ) {
           setCreatorStage(db, settled.channelId, settled.mine as CreatorStage);
+        } else if (settled.field === "channel_tags" && Array.isArray(settled.mine)) {
+          setCreatorTags(db, settled.channelId, parseTags(JSON.stringify(settled.mine)), clock());
         }
         return;
       }
@@ -167,6 +185,7 @@ export function createSqliteSource(db: DatabaseSync, options: SqliteSourceOption
   return {
     // The database is synchronous; the promises keep callers ready for it to move elsewhere.
     frame: () => settle(readFrame),
+    creatorStates: () => settle(() => creatorStates(db)),
     write: (writes) =>
       settle(() => {
         inTransaction(db, () => {

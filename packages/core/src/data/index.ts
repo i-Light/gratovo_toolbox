@@ -27,6 +27,7 @@ export type {
   Brand,
   Creator,
   CreatorStage,
+  CreatorState,
   DataSource,
   DataWrite,
   Deal,

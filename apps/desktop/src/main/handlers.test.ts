@@ -70,6 +70,7 @@ const frame = exampleFrame(Date.UTC(2026, 9, 20));
 function sourceWith(overrides: Partial<DataSource> = {}): DataSource {
   return {
     frame: () => Promise.resolve(frame),
+    creatorStates: () => Promise.resolve([]),
     write: () => Promise.resolve(),
     close: () => undefined,
     readSetting: () => undefined,

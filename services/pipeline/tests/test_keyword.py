@@ -1,6 +1,7 @@
 """One keyword, end to end, over a YouTube in memory: what is fetched, what is skipped, what is
 saved, and what the app is told."""
 
+import dataclasses
 import io
 import json
 import sqlite3
@@ -255,3 +256,47 @@ def test_every_message_matches_the_protocol(
     }
     assert all("test-key" not in line for line in lines)
     assert json.loads(lines[0])["type"] == "log"
+
+
+def test_a_never_contact_channel_is_neither_stored_nor_read(conn: sqlite3.Connection) -> None:
+    source = source_with(MID, TINY)
+    search = make_search(conn, source)
+    search = dataclasses.replace(search, skip=frozenset({"UC_mid"}))
+
+    result = keyword.process_keyword(search, KW)
+
+    assert (result.found, result.kept) == (1, 0)  # TINY is swept by the gate; MID is untouched
+    assert "@ai-tools-weekly" not in source.read
+    assert store.get_channel_row(conn, "UC_mid") is None
+    assert (
+        conn.execute("SELECT COUNT(*) FROM channel_keywords WHERE channel_id='UC_mid'").fetchone()[
+            0
+        ]
+        == 0
+    )
+    assert "UC_mid" not in {c["channel_id"] for c in events_of(search).channels}
+    assert (
+        "info",
+        "Skipped 0 known, 0 archived and 1 never-contact channel(s); 1 new.",
+    ) in events_of(search).lines
+
+
+def test_a_never_contact_channel_we_already_hold_is_left_as_it_is(conn: sqlite3.Connection) -> None:
+    store.record_channel_discovery(conn, "@ai-tools-weekly", "UC_mid", "an older keyword")
+    before = store.get_channel_row(conn, "UC_mid")
+    search = dataclasses.replace(make_search(conn, source_with(MID)), skip=frozenset({"UC_mid"}))
+
+    result = keyword.process_keyword(search, KW)
+
+    assert result.found == 0
+    assert store.get_channel_row(conn, "UC_mid") == before
+
+
+def test_an_empty_skip_changes_nothing(conn: sqlite3.Connection) -> None:
+    search = make_search(conn, source_with(MID))
+    assert search.skip == frozenset()
+
+    result = keyword.process_keyword(search, KW)
+
+    assert (result.found, result.kept) == (1, 1)
+    assert not any("never-contact" in text for _, text in events_of(search).lines)

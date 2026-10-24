@@ -137,10 +137,11 @@ def run(start: Start, emitter: Emitter, *, source: Source | None = None) -> None
         "resultsType": cfg.results_type,
         "countries": sorted(cfg.country_filter or ()),
     }
+    skip = frozenset(start["job"].get("skip", ()))  # built once, shared by every worker
     failed: dict[int, str] = {}  # the keyword a failure happened in (not those stopped by it)
 
     def work(worker_conn: sqlite3.Connection, index: int, keyword: str) -> None:
-        search = Search(worker_conn, run_id, cfg, source, pacer, emitter)
+        search = Search(worker_conn, run_id, cfg, source, pacer, emitter, skip)
         store.mark_keyword_started(worker_conn, keyword, cfg.worker, settings)
         emitter.keyword(index=index, total=total, keyword=keyword, state="started")
         try:

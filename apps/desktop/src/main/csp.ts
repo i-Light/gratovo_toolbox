@@ -9,7 +9,9 @@ export function contentSecurityPolicy(dev: boolean): string {
     "default-src 'none'",
     `script-src 'self'${dev ? " 'unsafe-inline'" : ""}`,
     `style-src 'self'${dev ? " 'unsafe-inline'" : ""}`,
-    "img-src 'self' data:",
+    // In dev the page comes from the Vite server, so the app's own pictures (app://gratovo/img/…)
+    // are not 'self' there.
+    `img-src 'self' data:${dev ? " app://gratovo" : ""}`,
     "font-src 'self'",
     `connect-src 'self'${dev ? " ws://localhost:*" : ""}`,
     "object-src 'none'",

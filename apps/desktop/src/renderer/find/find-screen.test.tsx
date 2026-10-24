@@ -2,13 +2,17 @@
 import type { FindState } from "@gratovo/ipc";
 import type { Bridge } from "@gratovo/ipc/bridge";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { emptyFacets, fitOf } from "@gratovo/core/find";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { resetAccountViewForTests, setAccountView } from "../lib/account";
 import { resetFindForTests } from "../lib/find";
-import { appStore, resetAppStoreForTests, selectRoute } from "../lib/store";
+import { aiChannel } from "../lib/find-test-bridge";
+import { exampleData } from "../lib/example-data";
+import { appStore, initAppStore, resetAppStoreForTests, selectRoute } from "../lib/store";
 import { strings } from "../strings";
 import { FindScreen } from "./find-screen";
+import { resetReviewRunForTests } from "./triage";
 
 const t = strings.findSearch;
 
@@ -77,7 +81,10 @@ function install(invoke: Invoke): void {
   listener = null;
   (window as unknown as { gratovo: Bridge }).gratovo = {
     invoke: invoke as unknown as Bridge["invoke"],
-    on: ((_name: string, fn: (state: FindState) => void) => {
+    on: ((name: string, fn: (state: FindState) => void) => {
+      if (name !== "find:changed") {
+        return () => undefined;
+      }
       listener = fn;
       return () => {
         listener = null;
@@ -88,7 +95,12 @@ function install(invoke: Invoke): void {
 
 function setup(state: FindState, answer: Record<string, unknown> = {}): void {
   calls = [];
-  answers = { "find:state": { ok: true, value: state }, ...answer };
+  answers = {
+    "find:state": { ok: true, value: state },
+    "find:query": { ok: true, value: { version: 0, total: 0, items: [], facets: emptyFacets } },
+    "find:runs": { ok: true, value: { runs: [] } },
+    ...answer,
+  };
   install((channel, input) => {
     calls.push([channel, input]);
     return Promise.resolve(answers[channel] ?? { ok: true, value: { ok: true } });
@@ -390,54 +402,34 @@ describe("rules", () => {
   });
 });
 
-describe("the kept list", () => {
-  it("shows the empty text", async () => {
-    setup(makeState());
+describe("the tabs", () => {
+  const one = aiChannel("UC-1", "Agent Lab");
+  const onTriage = {
+    "find:query": {
+      ok: true,
+      value: { version: 1, total: 7, items: [{ ...one, fit: fitOf(one) }], facets: emptyFacets },
+    },
+  };
+  const names = (): string[] => screen.getAllByRole("tab").map((el) => el.textContent);
+
+  it("shows only Search and Review new on live data, with the count", async () => {
+    initAppStore({ ...exampleData(Date.now()), source: "live" }, { screen: "find", tab: "search" });
+    setup(makeState(), onTriage);
     await show();
-    expect(screen.getByText(t.kept.empty)).toBeTruthy();
+    expect(names()).toEqual([
+      strings.screens.find.tabs.search,
+      `${strings.screens.find.tabs.triage}7`,
+    ]);
+    expect(screen.getByText(strings.findTriage.liveSub)).toBeTruthy();
+    await click(screen.getByRole("tab", { name: new RegExp(strings.screens.find.tabs.triage) }));
+    expect(selectRoute(appStore().getState()).tab).toBe("triage");
   });
-  it("lists each channel with its numbers", async () => {
-    setup(
-      makeState({
-        kept: [
-          {
-            channelId: "UC1",
-            name: "Prompt Lab",
-            handle: "@promptlab",
-            subscribers: 123_000,
-            medianViews: 45_600,
-            country: "US",
-            keyword: "ai agents",
-          },
-          {
-            channelId: "UC2",
-            name: "Model Watch",
-            handle: null,
-            subscribers: null,
-            medianViews: null,
-            country: null,
-            keyword: "llm news",
-          },
-        ],
-      }),
-    );
+
+  it("shows all four tabs on example data", async () => {
+    setup(makeState(), onTriage);
     await show();
-    const items = within(screen.getByRole("list", { name: t.kept.listLabel })).getAllByRole(
-      "listitem",
-    );
-    expect(items).toHaveLength(2);
-    const first = items[0]?.textContent ?? "";
-    for (const part of [
-      "Prompt Lab",
-      "@promptlab",
-      "123K subscribers",
-      "45.6K median views",
-      "US",
-      "ai agents",
-    ]) {
-      expect(first).toContain(part);
-    }
-    expect(items[1]?.textContent).toContain("unknown subscribers");
+    expect(names()).toHaveLength(4);
+    expect(screen.getByText(strings.screens.find.sub as string)).toBeTruthy();
   });
 });
 
@@ -475,6 +467,44 @@ describe("loading and example data", () => {
 });
 
 describe("break-ui: worst case data", () => {
+  it("renders Review new for a channel with the worst data", async () => {
+    resetReviewRunForTests();
+    resetAppStoreForTests({ screen: "find", tab: "triage" });
+    const worst = aiChannel("UC-worst", "N".repeat(120), {
+      handle: `@${"h".repeat(119)}`,
+      subscribers: null,
+      medianViews: 0,
+      uploads30: 0,
+      country: null,
+      latestUploadAt: null,
+      keyword: "k".repeat(200),
+      videos: [],
+      sponsors: Array.from({ length: 25 }, (_, i) => `Sponsor ${"S".repeat(40)} ${String(i)}`),
+      foundEmails: 0,
+      emailedBefore: { at: null, who: null },
+    });
+    setup(makeState(), {
+      "find:query": {
+        ok: true,
+        value: {
+          version: 1,
+          total: 1,
+          items: [{ ...worst, fit: fitOf(worst) }],
+          facets: emptyFacets,
+        },
+      },
+    });
+    render(<FindScreen />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.getByRole("heading", { level: 2 }).textContent).toBe("N".repeat(120));
+    expect(screen.getByText(strings.findTriage.sponsorsMore(22))).toBeTruthy();
+    expect(screen.getByText(strings.findTriage.subscribersHidden, { exact: false })).toBeTruthy();
+    expect(screen.getByText(strings.findTriage.noVideos)).toBeTruthy();
+    expect(screen.getByText(strings.findTriage.emailedBefore(null, null))).toBeTruthy();
+    expect(screen.queryByText(strings.findTriage.goldTag)).toBeNull();
+  });
   it("renders 500 long keywords, a full log and long channel names", async () => {
     const queue = Array.from({ length: 500 }, (_, i) =>
       kw(
@@ -505,7 +535,7 @@ describe("break-ui: worst case data", () => {
       ),
     );
     await show();
-    expect(screen.getAllByRole("listitem").length).toBe(600);
+    expect(screen.getAllByRole("listitem").length).toBe(500);
     expect(screen.getByText("100/500")).toBeTruthy();
     expect(screen.getAllByText("1,000,000").length).toBe(3);
   });

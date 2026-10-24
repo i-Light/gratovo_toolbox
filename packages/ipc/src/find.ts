@@ -213,7 +213,7 @@ export const findItemDetailSchema: z.ZodType<
   videos: z.array(catalogVideoSchema).max(detailVideosMax),
 });
 
-export const findFilterSchema: z.ZodType<FindFilter> = z.strictObject({
+export const findFilterSchema: z.ZodType<FindFilter, FindFilter> = z.strictObject({
   stages: z.array(z.enum(creatorStages)).max(creatorStages.length),
   signals: z.array(z.enum(findSignals)).max(findSignals.length),
   countries: z.array(country).max(250),

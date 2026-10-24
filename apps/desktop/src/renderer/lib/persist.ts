@@ -81,10 +81,10 @@ function diffLog(before: AppData["log"], after: AppData["log"], writes: DataWrit
   return true;
 }
 
-/** True when every key of `a` and `b` other than `skip` holds the same value. */
-function sameBut<T extends object>(a: T, b: T, skip: keyof T): boolean {
+/** True when every key of `a` and `b` other than those in `skip` holds the same value. */
+function sameBut<T extends object>(a: T, b: T, ...skip: (keyof T)[]): boolean {
   for (const key of Object.keys(a) as (keyof T)[]) {
-    if (key !== skip && a[key] !== b[key]) {
+    if (!skip.includes(key) && a[key] !== b[key]) {
       return false;
     }
   }
@@ -152,16 +152,14 @@ export function diffData(
   if (before.myName !== after.myName) {
     writes.push({ kind: "me.name", name: after.myName ?? "" });
   }
-  if (before.log !== after.log && !diffLog(before.log, after.log, writes)) {
-    unsupported.push("log");
-  }
   if (
     before.creators !== after.creators &&
     !diffRecords(
       before.creators,
       after.creators,
       (was, now) => {
-        if (was === undefined || !sameBut(was, now, "stage")) {
+        // The reject reason and time move with the stage; on their own they write nothing.
+        if (was === undefined || !sameBut(was, now, "stage", "rejectReason", "rejectedAt")) {
           return null;
         }
         return was.stage === now.stage
@@ -173,6 +171,9 @@ export function diffData(
               stage: now.stage,
               handle: now.handle,
               name: now.name,
+              ...(now.stage === "rejected" && now.rejectReason !== null
+                ? { reason: now.rejectReason }
+                : {}),
             };
       },
       writes,
@@ -219,6 +220,11 @@ export function diffData(
     if (before[field] !== after[field]) {
       unsupported.push(field);
     }
+  }
+  // After the records: a line naming a creator is written once main holds that creator's row (D4),
+  // so its label is the channel's name, not its id.
+  if (before.log !== after.log && !diffLog(before.log, after.log, writes)) {
+    unsupported.push("log");
   }
   return { writes, unsupported };
 }
