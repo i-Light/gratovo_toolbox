@@ -1,7 +1,11 @@
 import { DEAL_FLOW } from "@gratovo/core";
 import {
   agencyRoles,
+  contactNameMax,
+  contactSources,
   creatorStages,
+  emailMax,
+  emailPattern,
   frameSources,
   logActions,
   nameMax,
@@ -45,6 +49,13 @@ const id = z.string().min(1).max(idMax);
 const text = z.string().max(textMax);
 const time = z.number();
 const count = z.number().int().nonnegative();
+
+/** An email address: at most 254 characters, in the basic shape (`emailPattern`). */
+export const emailAddressSchema = z.string().max(emailMax).regex(emailPattern);
+/** Who reads a creator's inbox (plan step 5, D31). */
+const contactName = z.string().max(contactNameMax);
+/** How sure the email finder is of an address, 0 to 1. */
+export const confidenceSchema = z.number().min(0).max(1);
 
 const roleSchema = z.enum(["unauthorized", "basic", "full"]);
 
@@ -112,13 +123,17 @@ export const logForResultSchema = z.strictObject({
   lines: z.array(logEntrySchema).max(logForMax),
 });
 
-export const creatorSchema: z.ZodType<Creator> = z.strictObject({
+export const creatorSchema: z.ZodType<Creator, Creator> = z.strictObject({
   id,
   name: text,
   handle: text,
   stage: z.enum(creatorStages),
+  // Loose here: a stored address from the old app is shown as it is, whatever its shape.
   email: text.nullable(),
   emailConfirmed: z.boolean(),
+  contactName: contactName.nullable(),
+  contactSource: z.enum(contactSources).nullable(),
+  contactConfidence: confidenceSchema.nullable(),
   rejectReason: z.enum(rejectReasons).nullable(),
   rejectedAt: time.nullable(),
   archiveDueAt: time.nullable(),
@@ -198,6 +213,17 @@ export const dataWriteSchema: z.ZodType<DataWrite> = z.discriminatedUnion("kind"
     id,
     base: z.string().max(notesMax),
     notes: z.string().max(notesMax),
+    handle: text,
+    name: text,
+  }),
+  z.strictObject({
+    kind: z.literal("creator.contact"),
+    id,
+    email: emailAddressSchema.nullable(),
+    confirmed: z.boolean(),
+    contactName: contactName.nullable(),
+    source: z.enum(contactSources).nullable(),
+    confidence: confidenceSchema.nullable(),
     handle: text,
     name: text,
   }),

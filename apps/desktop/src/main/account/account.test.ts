@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getMeta, pendingCount } from "../data/repositories";
 import { openDatabase } from "../db/open-database";
 import { createStubCatalog } from "../find/catalog-types";
+import { createStubIdeas } from "../find/ideas";
 import { createHandlers, type HandlerContext } from "../handlers";
 import { createNetwork } from "../net/network";
 import { createSecretStore, type Cipher } from "../secret-store";
@@ -1032,6 +1033,7 @@ describe("the sync", () => {
         account,
         find: noFind,
         catalog: createStubCatalog(),
+        ideas: createStubIdeas(),
         ...createStubServices(),
       }),
       () => {
@@ -1252,6 +1254,7 @@ describe("Realtime and presence", () => {
       account,
       find: noFind,
       catalog: createStubCatalog(),
+      ideas: createStubIdeas(),
       ...createStubServices(),
     });
 
@@ -1359,6 +1362,7 @@ describe("nothing secret leaves", () => {
         account,
         find: noFind,
         catalog: createStubCatalog(),
+        ideas: createStubIdeas(),
         ...createStubServices(),
       }),
       (channel, error) => {

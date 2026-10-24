@@ -3,6 +3,7 @@ export {
   emptyFindFilter,
   findSignals,
   findSorts,
+  foundEmailsMax,
   savedViewsMax,
   viewNameMax,
 } from "./types";
@@ -14,6 +15,7 @@ export type {
   FindSort,
   Fit,
   FitPart,
+  FoundEmail,
   SavedView,
   Signal,
 } from "./types";

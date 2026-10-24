@@ -157,6 +157,7 @@ export function creatorState(id: string, over: Partial<CreatorState> = {}): Crea
     stage: "new",
     email: null,
     emailConfirmed: false,
+    contactName: null,
     rejectReason: null,
     rejectedAt: null,
     archiveDueAt: null,

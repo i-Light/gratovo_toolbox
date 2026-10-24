@@ -573,6 +573,161 @@ describe("recordIntent", () => {
       ]);
     });
 
+    /** A confirm of `email` (null removes the primary address). */
+    function contact(
+      id: string,
+      email: string | null,
+      over: Partial<Extract<DataWrite, { kind: "creator.contact" }>> = {},
+    ): DataWrite {
+      return {
+        kind: "creator.contact",
+        id,
+        email,
+        confirmed: true,
+        contactName: "Maya",
+        source: "about",
+        confidence: 0.95,
+        handle: "",
+        name: "",
+        ...over,
+      };
+    }
+
+    function storedContacts(id = ch): unknown {
+      const row = db.prepare("SELECT contacts FROM channel_state WHERE channel_id = ?").get(id);
+      return row === undefined ? undefined : (JSON.parse(String(row["contacts"])) as unknown);
+    }
+
+    const confirmedEntry = {
+      method: "email",
+      value: "biz@aiweekly.tv",
+      label: "Maya",
+      primary: true,
+      confirmed: true,
+      source: "about",
+      confidence: 0.95,
+    };
+
+    it("creator.contact queues channel.edit of contacts with the stored list as base", async () => {
+      seedCreator("shortlisted");
+      const phone = { method: "phone", value: "+1 555 0100", primary: false };
+      const old = { method: "email", value: "old@aiweekly.tv", primary: true };
+      db.prepare("UPDATE channel_state SET contacts = ? WHERE channel_id = ?").run(
+        JSON.stringify([phone, old]),
+        ch,
+      );
+      await source.write([contact(ch, "biz@aiweekly.tv")]);
+      expect(storedContacts()).toEqual([phone, confirmedEntry]);
+      expect(entries()).toEqual([
+        {
+          kind: "channel.edit",
+          payload: {
+            channelId: ch,
+            field: "contacts",
+            base: [phone, old],
+            next: [phone, confirmedEntry],
+            label: "@aiweekly",
+          },
+          target: { table: "channel_state", key: ch },
+        },
+      ]);
+    });
+
+    it("the same contact again queues nothing, though the stored keys are in another order", async () => {
+      seedCreator("contact");
+      const reordered = Object.fromEntries(Object.entries(confirmedEntry).reverse());
+      db.prepare("UPDATE channel_state SET contacts = ? WHERE channel_id = ?").run(
+        JSON.stringify([reordered]),
+        ch,
+      );
+      await source.write([contact(ch, "biz@aiweekly.tv")]);
+      expect(pendingCount(db)).toBe(0);
+    });
+
+    it("confirm then undo queues the contact, then the old one back, each before its stage", async () => {
+      seedCreator("shortlisted");
+      const undoContact = contact(ch, null, {
+        confirmed: false,
+        contactName: null,
+        source: null,
+        confidence: null,
+      });
+      await source.write([
+        contact(ch, "biz@aiweekly.tv"),
+        { kind: "creator.stage", id: ch, stage: "contact", handle: "", name: "" },
+      ]);
+      await source.write([
+        undoContact,
+        { kind: "creator.stage", id: ch, stage: "shortlisted", handle: "", name: "" },
+      ]);
+      expect(storedContacts()).toEqual([]);
+      expect(edits()).toEqual([
+        { field: "contacts", base: [], next: [confirmedEntry], label: "@aiweekly" },
+        { field: "creator_stage", base: "shortlisted", next: "contact", label: "@aiweekly" },
+        { field: "contacts", base: [confirmedEntry], next: [], label: "@aiweekly" },
+        { field: "creator_stage", base: "contact", next: "shortlisted", label: "@aiweekly" },
+      ]);
+    });
+
+    it("a contact on a channel with no row creates it and queues the edit with an empty base", async () => {
+      await source.write([contact(freshId, "team@agentlab.ai", { handle: "@agentlab" })]);
+      expect(edits()).toEqual([
+        {
+          field: "contacts",
+          base: [],
+          next: [{ ...confirmedEntry, value: "team@agentlab.ai" }],
+          label: "@agentlab",
+        },
+      ]);
+    });
+
+    it("a contact on an unknown id that is not a channel id creates nothing and queues nothing", async () => {
+      for (const id of ["UC_new", "agent-lab"]) {
+        await source.write([contact(id, "team@agentlab.ai")]);
+        expect(storedContacts(id)).toBeUndefined();
+      }
+      expect(entries()).toEqual([]);
+    });
+
+    it("a contacts conflict shows the addresses, and keeping yours puts your contacts back", async () => {
+      seedCreator("contact");
+      const theirs = [{ method: "email", value: "sara@aiweekly.tv", primary: true }];
+      db.prepare("UPDATE channel_state SET contacts = ? WHERE channel_id = ?").run(
+        JSON.stringify(theirs),
+        ch,
+      );
+      db.prepare(
+        `INSERT INTO edit_conflicts (id, channel_id, channel_label, field, base_value, mine_value,
+           theirs_value, mine_actor_name, theirs_actor_name, detected_at, updated_at)
+         VALUES ('k1', ?, '@aiweekly', 'contacts', '[]', ?, ?, 'Sam', 'Sara', 'x', 'x')`,
+      ).run(ch, JSON.stringify([confirmedEntry]), JSON.stringify(theirs));
+      expect((await source.frame()).conflicts).toMatchObject([
+        { id: "k1", field: "contacts", mine: "biz@aiweekly.tv", theirs: "sara@aiweekly.tv" },
+      ]);
+      await source.write([{ kind: "conflict.resolve", id: "k1", choice: "mine" }]);
+      expect(storedContacts()).toEqual([confirmedEntry]);
+      expect((await source.frame()).creators.find((c) => c.id === ch)).toMatchObject({
+        email: "biz@aiweekly.tv",
+        emailConfirmed: true,
+        contactName: "Maya",
+      });
+      expect(entries().map((e) => e.payload)).toEqual([
+        { id: "k1", resolution: "mine", value: [confirmedEntry] },
+      ]);
+    });
+
+    it("an empty contacts side of a conflict reads as empty", async () => {
+      seedCreator("contact");
+      db.prepare(
+        `INSERT INTO edit_conflicts (id, channel_id, channel_label, field, base_value, mine_value,
+           theirs_value, mine_actor_name, theirs_actor_name, detected_at, updated_at)
+         VALUES ('k2', ?, '@aiweekly', 'contacts', '[]', '[]', ?, 'Sam', 'Sara', 'x', 'x')`,
+      ).run(ch, JSON.stringify([confirmedEntry]));
+      expect((await source.frame()).conflicts).toMatchObject([
+        { id: "k2", mine: "empty", theirs: "biz@aiweekly.tv" },
+      ]);
+    });
+
     it("brand.set writes locally and queues the four columns", async () => {
       await source.write([
         { kind: "brand.set", id: "b1", name: "Acme AI", sells: "GPUs", status: "active" },

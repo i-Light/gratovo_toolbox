@@ -261,9 +261,74 @@ describe("the catalog", () => {
     });
     const items = await all(catalog);
     const find = (id: string) => items.find((item) => item.id === id);
-    expect(find(a)).toMatchObject({ sponsors: ["Notion", "Cursor"], foundEmails: 1 });
-    expect(find(b)).toMatchObject({ sponsors: [], foundEmails: 0 });
-    expect(find(c)).toMatchObject({ sponsors: [], foundEmails: 0 });
+    expect(find(a)).toMatchObject({
+      sponsors: ["Notion", "Cursor"],
+      emails: [{ email: "x@y.co", source: "about", videos: 0, business: false, confidence: 0.9 }],
+    });
+    expect(find(b)).toMatchObject({ sponsors: [], emails: [] });
+    expect(find(c)).toMatchObject({ sponsors: [], emails: [] });
+  });
+
+  it("reads found addresses as About finds, drops what isn't an address, and keeps 10", async () => {
+    const many = Array.from({ length: 14 }, (_, n) => `team${String(n)}@agentlab.ai`);
+    const catalog = open({
+      channels: [
+        {
+          id: a,
+          emails: JSON.stringify([
+            " biz@promptlab.tv ",
+            "BIZ@promptlab.tv",
+            "not an address",
+            "logo@2x",
+            `${"a".repeat(250)}@ai.tv`,
+            7,
+            ...many,
+          ]),
+        },
+      ],
+    });
+    const [item] = await all(catalog);
+    expect(item?.emails).toHaveLength(10);
+    expect(item?.emails[0]).toEqual({
+      email: "biz@promptlab.tv",
+      source: "about",
+      videos: 0,
+      business: false,
+      confidence: 0.9,
+    });
+    expect(item?.emails.map((e) => e.email).slice(1, 3)).toEqual([
+      "team0@agentlab.ai",
+      "team1@agentlab.ai",
+    ]);
+  });
+
+  it("carries the confirmed contact's name from the creator state", async () => {
+    states = [
+      creatorState(a, {
+        stage: "contact",
+        email: "biz@promptlab.tv",
+        emailConfirmed: true,
+        contactName: "Maya",
+      }),
+      creatorState(b, {
+        stage: "contact",
+        email: "hi@bravo.ai",
+        emailConfirmed: true,
+        contactName: "Leo",
+      }),
+    ];
+    const items = await all(open({ channels: [{ id: a }, { id: c }] }));
+    expect(items.find((item) => item.id === a)).toMatchObject({
+      email: "biz@promptlab.tv",
+      emailConfirmed: true,
+      contactName: "Maya",
+    });
+    // A creator with no pipeline channel carries its name too; one with no state has none.
+    expect(items.find((item) => item.id === b)).toMatchObject({
+      contactName: "Leo",
+      hasNumbers: false,
+    });
+    expect(items.find((item) => item.id === c)?.contactName).toBeNull();
   });
 
   it("caps sponsors at 50", async () => {

@@ -18,6 +18,8 @@ import {
   findAddRequestSchema,
   findAddResultSchema,
   findEditResultSchema,
+  findIdeasRequestSchema,
+  findIdeasResultSchema,
   findIndexRequestSchema,
   findItemRequestSchema,
   findItemResultSchema,
@@ -170,6 +172,11 @@ export const channels = {
   "find:views-set": {
     request: findViewsSetRequestSchema,
     response: findViewsSetResultSchema,
+  },
+  /** Keyword ideas from Gemini for the queue (plan step 5, D33); `bridge_off` until it is on. */
+  "find:ideas": {
+    request: findIdeasRequestSchema,
+    response: findIdeasResultSchema,
   },
   /** One creator's activity lines, newest first (a record's Activity tab, D23). */
   "log:for": {

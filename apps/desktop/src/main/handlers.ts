@@ -3,6 +3,7 @@ import type { Handlers } from "@gratovo/ipc";
 
 import type { Account } from "./account/account";
 import type { FindCatalog } from "./find/catalog-types";
+import type { FindIdeas } from "./find/ideas";
 import type { FindService } from "./find/find-service";
 import { readViews, writeViews } from "./find/saved-views";
 import type { SecretStore } from "./secret-store";
@@ -19,9 +20,11 @@ export interface HandlerContext extends HandlerServices {
   find: FindService;
   /** The Find catalog: pages, one channel's detail and the run history. */
   catalog: FindCatalog;
+  /** Gemini's keyword ideas for the queue (plan step 5, D33). */
+  ideas: FindIdeas;
   /**
    * Called after a stored `data:write` batch that changes what the catalog shows: a creator's
-   * stage, a log line about a creator, or a settled conflict (plan D1). The catalog rebuilds on
+   * stage or contact, a log line about a creator, or a settled conflict (plan D1). The catalog rebuilds on
    * it.
    */
   onCreatorsWritten?: () => void;
@@ -39,13 +42,14 @@ export interface HandlerContext extends HandlerServices {
 }
 
 /**
- * Whether one write can change a catalog row: a stage, a log line on a creator (add) or any
- * removal, or a conflict settled (keeping yours puts your value back). Notes aren't in the rows:
+ * Whether one write can change a catalog row: a stage, a contact, a log line on a creator (add)
+ * or any removal, or a conflict settled (keeping yours puts your value back). Notes aren't in the rows:
  * the detail reads them fresh, and the notes box knows what it saved.
  */
 function changesCatalog(write: DataWrite): boolean {
   return (
     write.kind === "creator.stage" ||
+    write.kind === "creator.contact" ||
     write.kind === "conflict.resolve" ||
     (write.kind === "log.add" && write.ref !== null) ||
     write.kind === "log.remove"
@@ -54,7 +58,7 @@ function changesCatalog(write: DataWrite): boolean {
 
 /** The main process's answer to each channel in `channels`. */
 export function createHandlers(context: HandlerContext): Handlers {
-  const { version, secrets, account, find, catalog } = context;
+  const { version, secrets, account, find, catalog, ideas } = context;
   const { importer, connections, gemini, writingRules, mailConsent } = context;
 
   /** The account's open source. The page never asks for data while none is open. */
@@ -110,6 +114,7 @@ export function createHandlers(context: HandlerContext): Handlers {
     "find:runs": () => catalog.runs(),
     "find:views": () => ({ views: readViews(openSource()) }),
     "find:views-set": ({ views }) => writeViews(openSource(), views),
+    "find:ideas": ({ count }) => ideas.suggest(count),
     "log:for": async ({ ref, limit }) => ({ lines: [...(await openSource().logFor(ref, limit))] }),
     "rules:set": ({ rules }) => {
       find.setRules(rules);

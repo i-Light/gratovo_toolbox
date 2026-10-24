@@ -10,6 +10,7 @@ import {
 import { describe, expect, it, vi } from "vitest";
 
 import { createStubCatalog, type FindCatalog } from "./find/catalog-types";
+import { createStubIdeas, type FindIdeas } from "./find/ideas";
 import { createHandlers, type HandlerContext } from "./handlers";
 import type { SecretStore } from "./secret-store";
 import type { HandlerServices } from "./services";
@@ -117,6 +118,7 @@ function handlersWith(
     account,
     find,
     catalog,
+    ideas: createStubIdeas(),
     ...(onCreatorsWritten === undefined ? {} : { onCreatorsWritten }),
     ...createStubServices(),
     ...services,
@@ -299,6 +301,36 @@ describe("the find catalog handlers", () => {
   });
 });
 
+describe("keyword ideas", () => {
+  it("answer bridge_off from the stub, in the channel's shape", async () => {
+    const mine = handlersWith(accountWith());
+    const answer = await mine["find:ideas"]({ count: 8 });
+    expect(answer).toEqual({ ok: false, problem: "bridge_off" });
+    expect(channels["find:ideas"].response.safeParse(answer).success).toBe(true);
+  });
+
+  it("pass the count to the ideas service", async () => {
+    const suggest = vi.fn<FindIdeas["suggest"]>(() =>
+      Promise.resolve({ ok: true, keywords: ["claude code tutorial"], dropped: 0 }),
+    );
+    const mine = createHandlers({
+      version: "1.2.3",
+      secrets: storeWith([]),
+      account: accountWith(),
+      find: findWith(),
+      catalog: createStubCatalog(),
+      ideas: { suggest },
+      ...createStubServices(),
+    });
+    expect(await mine["find:ideas"]({ count: 3 })).toEqual({
+      ok: true,
+      keywords: ["claude code tutorial"],
+      dropped: 0,
+    });
+    expect(suggest).toHaveBeenCalledWith(3);
+  });
+});
+
 describe("data:write and the catalog", () => {
   const stage: DataWrite = {
     kind: "creator.stage",
@@ -328,6 +360,24 @@ describe("data:write and the catalog", () => {
     expect(await written([stage])).toBe(1);
     expect(await written([logLine("UCaaaaaaaaaaaaaaaaaaaaaa")])).toBe(1);
     expect(await written([{ kind: "log.remove", id: "l1" }])).toBe(1);
+  });
+
+  it("tells the catalog after a contact change", async () => {
+    expect(
+      await written([
+        {
+          kind: "creator.contact",
+          id: "UCaaaaaaaaaaaaaaaaaaaaaa",
+          email: "biz@agentlab.ai",
+          confirmed: true,
+          contactName: null,
+          source: "about",
+          confidence: 0.95,
+          handle: "@a",
+          name: "A",
+        },
+      ]),
+    ).toBe(1);
   });
 
   it("tells the catalog after a conflict is settled, keeping yours or theirs", async () => {

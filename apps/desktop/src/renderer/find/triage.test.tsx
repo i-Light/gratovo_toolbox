@@ -61,7 +61,7 @@ const third = aiChannel("UC-third", "Prompt Garage", {
   medianViews: 5_000,
   subscribers: 300_000,
   sponsors: [],
-  foundEmails: 0,
+  emails: [],
 });
 const heading = (): string => screen.getByRole("heading", { level: 2 }).textContent;
 const creatorOf = (id: string) =>
@@ -142,7 +142,7 @@ describe("Review new", () => {
     stubFindBridge({
       items: [
         aiChannel("UC-s", "Sponsor Magnet", {
-          foundEmails: 0,
+          emails: [],
           sponsors: ["A1", "B2", "C3", "D4", "E5"],
         }),
       ],

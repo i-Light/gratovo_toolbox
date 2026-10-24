@@ -29,7 +29,7 @@ export function hasSignal(item: CatalogItem, signal: Signal): boolean {
     case "sponsored":
       return item.sponsors.length > 0;
     case "email":
-      return item.email !== null || item.foundEmails > 0;
+      return item.email !== null || item.emails.length > 0;
     case "confirmed":
       return item.emailConfirmed;
     case "fresh":

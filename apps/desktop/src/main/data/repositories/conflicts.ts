@@ -1,5 +1,6 @@
 import type { DatabaseSync, SQLInputValue } from "node:sqlite";
 
+import { primaryEmail } from "@gratovo/core/data";
 import type { EditConflict } from "@gratovo/core/data";
 
 /** The most conflicts the frame carries (the IPC limit). */
@@ -74,8 +75,8 @@ export function listConflicts(db: DatabaseSync): EditConflict[] {
     creator: String(row["channel_id"]),
     label: String(row["channel_label"]),
     field: String(row["field"]),
-    mine: displayValue(row["mine_value"]),
-    theirs: displayValue(row["theirs_value"]),
+    mine: displayValue(row["mine_value"], String(row["field"])),
+    theirs: displayValue(row["theirs_value"], String(row["field"])),
     theirName:
       row["theirs_actor_name"] === null || String(row["theirs_actor_name"]) === ""
         ? "someone"
@@ -129,11 +130,16 @@ function parseValue(stored: unknown): unknown {
 const valueMax = 500;
 
 /**
- * A value as the person reads it: a stage key as it is, arrays joined, nothing as "empty", cut to
- * `valueMax` so a long note can't push the frame past its limits.
+ * A value as the person reads it: a stage key as it is, contacts as their primary address, arrays
+ * joined, nothing as "empty", cut to `valueMax` so a long note can't push the frame past its
+ * limits.
  */
-function displayValue(stored: unknown): string {
-  const shown = display(parseValue(stored));
+function displayValue(stored: unknown, field: string): string {
+  const value = parseValue(stored);
+  const shown =
+    field === "contacts" && Array.isArray(value)
+      ? (primaryEmail(JSON.stringify(value)) ?? "empty")
+      : display(value);
   return shown.length > valueMax ? `${shown.slice(0, valueMax - 1)}…` : shown;
 }
 

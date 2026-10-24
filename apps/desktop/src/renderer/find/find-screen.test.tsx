@@ -479,7 +479,7 @@ describe("break-ui: worst case data", () => {
       keyword: "k".repeat(200),
       videos: [],
       sponsors: Array.from({ length: 25 }, (_, i) => `Sponsor ${"S".repeat(40)} ${String(i)}`),
-      foundEmails: 0,
+      emails: [],
       emailedBefore: { at: null, who: null },
     });
     setup(makeState(), {

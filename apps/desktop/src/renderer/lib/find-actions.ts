@@ -32,6 +32,11 @@ export function ensureCreators(items: readonly CatalogItem[]): void {
         stage: item.stage,
         email: item.email,
         emailConfirmed: item.emailConfirmed,
+        contactName: item.contactName,
+        // The catalog carries no source or confidence: an adopted creator's contact has none
+        // until a confirm sets them.
+        contactSource: null,
+        contactConfidence: null,
         rejectReason: item.rejectReason,
         rejectedAt: null,
         archiveDueAt: item.archiveDueAt,

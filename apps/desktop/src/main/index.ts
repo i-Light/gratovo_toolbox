@@ -10,6 +10,7 @@ import { registerAppScheme, serveAppFiles } from "./app-protocol";
 import { createEventSender } from "./events";
 import { isGoogleConsentUrl } from "./external-links";
 import { createCatalog } from "./find/catalog";
+import { createStubIdeas } from "./find/ideas";
 import { createImageNetwork, createImageService } from "./find/images";
 import { createFindService } from "./find/find-service";
 import { createHandlers } from "./handlers";
@@ -437,6 +438,8 @@ function start(): void {
           account,
           find,
           catalog,
+          // Keyword ideas answer `bridge_off` until the bridge and the stand-in are wired (B10).
+          ideas: createStubIdeas(),
           onCreatorsWritten: invalidateCatalog,
           importer,
           connections,

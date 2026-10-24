@@ -28,12 +28,13 @@ function item(id: string, name: string, stage: CatalogItem["stage"] = "new"): Ca
     stage,
     emailConfirmed: false,
     email: null,
+    contactName: null,
     subscribers: 120_000,
     medianViews: 40_000,
     uploads30: 6,
     country: "US",
     sponsors: [],
-    foundEmails: 0,
+    emails: [],
     latestUploadAt: null,
     foundAt: null,
     run: 1,
@@ -87,7 +88,10 @@ afterEach(async () => {
 describe("ensureCreators", () => {
   it("adds a channel the frame lacks, from its stored state, and writes nothing", async () => {
     const before = data().creators.length;
-    ensureCreators([{ ...ada, email: "ada@example.com", emailConfirmed: true }, ada]);
+    ensureCreators([
+      { ...ada, email: "ada@example.com", emailConfirmed: true, contactName: "Ada" },
+      ada,
+    ]);
     expect(data().creators).toHaveLength(before + 1);
     expect(find("UC-ada")).toEqual({
       id: "UC-ada",
@@ -96,6 +100,9 @@ describe("ensureCreators", () => {
       stage: "new",
       email: "ada@example.com",
       emailConfirmed: true,
+      contactName: "Ada",
+      contactSource: null,
+      contactConfidence: null,
       rejectReason: null,
       rejectedAt: null,
       archiveDueAt: null,

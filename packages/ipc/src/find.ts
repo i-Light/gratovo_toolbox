@@ -1,7 +1,15 @@
-import { creatorStages, notesMax, rejectReasons } from "@gratovo/core/data";
+import {
+  contactNameMax,
+  creatorStages,
+  emailMax,
+  emailPattern,
+  notesMax,
+  rejectReasons,
+} from "@gratovo/core/data";
 import {
   findSignals,
   findSorts,
+  foundEmailsMax,
   savedViewsMax,
   viewNameMax,
   type CatalogItem,
@@ -10,6 +18,7 @@ import {
   type FindFilter,
   type Fit,
   type FitPart,
+  type FoundEmail,
   type SavedView,
 } from "@gratovo/core/find";
 import { z } from "zod";
@@ -159,6 +168,15 @@ export const catalogVideoSchema: z.ZodType<CatalogVideo> = z.strictObject({
   pic: catalogId.nullable(),
 });
 
+/** A found address (plan step 5, D27 to D29): the address, where it was, and how sure. */
+export const foundEmailSchema: z.ZodType<FoundEmail, FoundEmail> = z.strictObject({
+  email: z.string().max(emailMax).regex(emailPattern),
+  source: z.enum(["about", "video"]),
+  videos: count,
+  business: z.boolean(),
+  confidence: z.number().min(0).max(1),
+});
+
 const fitPartSchema: z.ZodType<FitPart> = z.strictObject({
   key: z.enum(["median", "posting", "audience", "engagement", "sponsored"]),
   points: amount,
@@ -180,12 +198,13 @@ const catalogItemShape = {
   stage: z.enum(creatorStages),
   emailConfirmed: z.boolean(),
   email: catalogText.nullable(),
+  contactName: z.string().max(contactNameMax).nullable(),
   subscribers: amount.nullable(),
   medianViews: amount,
   uploads30: count,
   country: country.nullable(),
   sponsors: z.array(catalogText).max(50),
-  foundEmails: count,
+  emails: z.array(foundEmailSchema).max(foundEmailsMax),
   latestUploadAt: time.nullable(),
   foundAt: time.nullable(),
   run: runId.nullable(),
@@ -311,6 +330,29 @@ export const findRunSchema = z.strictObject({
 export const findRunsResultSchema = z.strictObject({
   runs: z.array(findRunSchema).max(findRunsMax),
 });
+
+/** The most keyword ideas one `find:ideas` asks for (plan step 5, D33). */
+export const ideasCountMax = 20;
+/** The longest keyword idea: the queue's own limit on a keyword. */
+const ideaMax = 200;
+
+/** `find:ideas`: how many keyword ideas to ask Gemini for. */
+export const findIdeasRequestSchema = z.strictObject({
+  count: z.number().int().min(1).max(ideasCountMax),
+});
+
+/** Why no ideas came: the bridge or add-on is off, one request is already out, or it failed. */
+export const findIdeasProblems = ["bridge_off", "busy", "failed"] as const;
+
+export const findIdeasResultSchema = z.discriminatedUnion("ok", [
+  z.strictObject({
+    ok: z.literal(true),
+    keywords: z.array(z.string().min(1).max(ideaMax)).max(ideasCountMax),
+    /** How many ideas were dropped as repeats of the queue's keywords. */
+    dropped: z.number().int().min(0).max(1000),
+  }),
+  z.strictObject({ ok: z.literal(false), problem: z.enum(findIdeasProblems) }),
+]);
 
 /** `find:catalog`: the catalog was rebuilt; the page asks again. */
 export const findCatalogEventSchema = z.strictObject({ version: z.number().int().nonnegative() });

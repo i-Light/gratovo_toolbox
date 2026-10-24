@@ -167,9 +167,18 @@ interface SavedView { name: string; filter: FindFilter }          // name 1..60,
 **Contracts, 5c**
 ```ts
 // core: data/types.ts
-interface Creator { ...; contactName: string | null }
-| { kind: "creator.contact"; id; email: string | null; confirmed: boolean; contactName: string | null;
-    source: "about" | "video" | "typed" | null; confidence: number | null; handle: string; name: string }
+type ContactSource = "about" | "video" | "typed";
+interface Creator { ...;
+  contactName: string | null;            // primary email contact's label (≤ 80) when it is confirmed, else null
+  contactSource: ContactSource | null;   // primary email contact's stored source, null when absent
+  contactConfidence: number | null;      // its stored confidence 0..1, null when absent
+}
+interface CreatorState { ...; contactName: string | null }
+| { kind: "creator.contact"; id; email: string | null /* ≤ 254, basic shape */; confirmed: boolean;
+    contactName: string | null /* ≤ 80 */; source: ContactSource | null; confidence: number | null /* 0..1 */;
+    handle: string; name: string }
+// The persister writes creator.contact from the Creator's email, emailConfirmed, contactName,
+// contactSource and contactConfidence when any of them changes, before creator.stage.
 // core: find/types.ts
 interface FoundEmail { email: string; source: "about" | "video"; videos: number; business: boolean; confidence: number }
 interface CatalogItem { ...; emails: FoundEmail[] /* ≤10, most sure first */; contactName: string | null } // foundEmails removed
