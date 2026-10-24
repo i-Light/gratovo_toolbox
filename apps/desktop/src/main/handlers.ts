@@ -1,3 +1,5 @@
+import { join } from "node:path";
+
 import type { CreatorStage, DataSource, DataWrite } from "@gratovo/core/data";
 import type { Handlers } from "@gratovo/ipc";
 
@@ -6,6 +8,7 @@ import type { FindCatalog } from "./find/catalog-types";
 import type { FindIdeas } from "./find/ideas";
 import type { FindService } from "./find/find-service";
 import { readViews, writeViews } from "./find/saved-views";
+import { countArchived, readArchived, toolboxCounts, toolboxList } from "./find/toolbox";
 import type { SecretStore } from "./secret-store";
 import type { HandlerServices } from "./services";
 
@@ -75,6 +78,18 @@ export function createHandlers(context: HandlerContext): Handlers {
     return source;
   }
 
+  /** `pipeline.db` in the open data folder; null with none. */
+  function pipelineDb(): string | null {
+    const folder = find.folder();
+    return folder === null ? null : join(folder, "pipeline.db");
+  }
+
+  /** The app's name and stage for each creator, for the archived search and rows. */
+  async function archivedNames() {
+    const states = await openSource().creatorStates();
+    return new Map(states.map((s) => [s.id, { name: s.name, stage: s.stage }]));
+  }
+
   return {
     "app:ping": () => ({ ok: true, version }),
     "secrets:status": async ({ name }) => ({ set: await secrets.has(name) }),
@@ -138,14 +153,26 @@ export function createHandlers(context: HandlerContext): Handlers {
     "find:views-set": ({ views }) => writeViews(openSource(), views),
     "find:ideas": ({ count }) => ideas.suggest(count),
     "log:for": async ({ ref, limit }) => ({ lines: [...(await openSource().logFor(ref, limit))] }),
-    // Plan step 5d: stubs until the Toolbox reader (B14), the archive service (B15) and the
-    // log page (B16) are built.
-    "log:page": () => ({ lines: [], more: false, people: [] }),
-    "toolbox:list": () => ({ version: 0, total: 0, items: [] }),
-    "toolbox:archived": () => ({ total: 0, items: [] }),
+    "log:page": async (request) => {
+      const page = await openSource().logPage(request);
+      return { lines: [...page.lines], more: page.more, people: [...page.people] };
+    },
+    // Plan step 5d: stubs until the archive service (B15) is built.
+    "toolbox:list": async ({ list, offset, limit }) =>
+      toolboxList(await catalog.snapshot(), list, find.state().rules.archiveDays, offset, limit),
+    "toolbox:archived": async (request) =>
+      readArchived(pipelineDb(), request, await archivedNames()),
     "toolbox:restore": () => ({ ok: false as const, problem: "no_python" as const }),
     "toolbox:sweep": () => ({}),
-    "toolbox:counts": () => ({ archive: 0, never: 0, archived: 0, logToday: 0 }),
+    "toolbox:counts": async () => {
+      const midnight = new Date();
+      midnight.setHours(0, 0, 0, 0);
+      return toolboxCounts(
+        (await catalog.snapshot()).rows,
+        countArchived(pipelineDb()),
+        await openSource().logSince(midnight.getTime()),
+      );
+    },
     "rules:set": ({ rules }) => {
       find.setRules(rules);
       return {};

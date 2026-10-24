@@ -14,7 +14,7 @@ Started 2026-10-24. The plan is `.router/PLAN.md` (decisions D1 to D18, contract
 
 | id | tier | state | note |
 |---|---|---|---|
-| C4 | H | todo | |
+| C4 | H | done | c91f8e7. neverReason read in creators.ts (contract suite). Example data accepts the two archive jobs (D37). Results carry `data: {...}` as others. Restore handles must match `^@[A-Za-z0-9._-]{1,100}$` else null |
 | B13 | N | todo | |
 | B14 | N | todo | |
 | B15 | H | todo | |

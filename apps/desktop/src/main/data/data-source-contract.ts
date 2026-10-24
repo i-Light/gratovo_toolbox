@@ -1277,6 +1277,35 @@ export function describeDataSourceContract(
         expect((await source.logFor("c11", 10)).map((l) => l.id)).toEqual(["m1"]);
       });
 
+      it("pages the whole log, with its people and the lines since a time", async () => {
+        const source = start();
+        withDb(file, (db) => {
+          for (const [id, at] of [
+            ["p1", "2026-10-20T10:00:00Z"],
+            ["p2", "2026-10-20T10:01:00Z"],
+            ["p3", "2026-10-20T10:02:00Z"],
+          ] as const) {
+            insertLogRow(
+              db,
+              logRow(id, at, { actor_id: null, actor_name: "Sara", detail: { text: id } }),
+            );
+          }
+        });
+        const first = await source.logPage({ before: null, limit: 2, who: "Sara" });
+        expect(first.lines.map((l) => l.id)).toEqual(["p3", "p2"]);
+        expect(first.more).toBe(true);
+        expect(first.people).toContainEqual({ who: "Sara", name: "Sara", count: 3 });
+        const last = first.lines[1];
+        const rest = await source.logPage({
+          before: last === undefined ? null : { at: last.at, id: last.id },
+          limit: 2,
+          who: "Sara",
+        });
+        expect(rest.lines.map((l) => l.id)).toEqual(["p1"]);
+        expect(rest.more).toBe(false);
+        expect(await source.logSince(Date.parse("2026-10-20T10:01:00Z"))).toBeGreaterThanOrEqual(2);
+      });
+
       it("gives the catalog every creator's state with its fields", async () => {
         const source = start();
         withDb(file, (db) => {

@@ -1,5 +1,5 @@
 import type { DataSource } from "@gratovo/core/data";
-import { emptyFacets } from "@gratovo/core/find";
+import { emptyFacets, type CatalogItem } from "@gratovo/core/find";
 import type { ChannelInput, ChannelResponse } from "@gratovo/ipc";
 
 /**
@@ -11,6 +11,8 @@ export interface FindCatalog {
   query(request: ChannelInput<"find:query">): Promise<ChannelResponse<"find:query">>;
   item(id: string): Promise<ChannelResponse<"find:item">>;
   runs(): Promise<ChannelResponse<"find:runs">>;
+  /** Every row with the catalog's version, for the Toolbox lists (plan step 5d, D36 and D39). */
+  snapshot(): Promise<{ version: number; rows: readonly CatalogItem[] }>;
 }
 
 /** A catalog with nothing in it, until the read model (B2) is wired in. */
@@ -19,6 +21,7 @@ export function createStubCatalog(): FindCatalog {
     query: () => Promise.resolve({ version: 0, total: 0, items: [], facets: emptyFacets }),
     item: () => Promise.resolve({ item: null }),
     runs: () => Promise.resolve({ runs: [] }),
+    snapshot: () => Promise.resolve({ version: 0, rows: [] }),
   };
 }
 

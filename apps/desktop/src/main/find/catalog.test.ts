@@ -138,6 +138,30 @@ describe("the catalog", () => {
     });
   });
 
+  it("fills archivedAt from channel_archive, for a swept channel with no channels row too", async () => {
+    const swept = channelId("swept");
+    const odd = channelId("odd");
+    const catalog = open({
+      channels: [{ id: a }, { id: b }, { id: odd }],
+      archive: [
+        { id: a, at: "2026-10-02 00:00:00" },
+        { id: swept, at: "2026-10-03T12:00:00Z" },
+        { id: odd, at: "not a time" },
+      ],
+    });
+    states = [creatorState(swept, { stage: "rejected", name: "Swept AI" })];
+    const items = await all(catalog);
+    expect(items.find((item) => item.id === a)?.archivedAt).toBe(Date.UTC(2026, 9, 2));
+    expect(items.find((item) => item.id === b)?.archivedAt).toBeNull();
+    expect(items.find((item) => item.id === odd)?.archivedAt).toBeNull();
+    expect(items.find((item) => item.id === swept)).toMatchObject({
+      hasNumbers: false,
+      archivedAt: Date.UTC(2026, 9, 3, 12),
+    });
+    const snapshot = await catalog.snapshot();
+    expect(snapshot.rows).toHaveLength(items.length);
+  });
+
   it("makes picture keys only for good ids with a stored picture", async () => {
     const goodNoPicture = channelId("nopic");
     const catalog = open({

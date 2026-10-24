@@ -41,7 +41,9 @@ CREATE INDEX idx_videos_channel_published ON videos (channel_id, published_at DE
 CREATE TABLE channel_archive (
     channel_id TEXT PRIMARY KEY,
     handle TEXT,
-    archived_at TEXT
+    label TEXT,
+    archived_at TEXT,
+    subscribers TEXT
 );
 CREATE TABLE runs (
     run_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -87,7 +89,13 @@ export interface FixtureData {
   videos?: FixtureVideo[];
   keywords?: { channel: string; keyword: string; at: string }[];
   runs?: { start: string; end: string | null; status?: string; keywords?: number; kind?: string }[];
-  archive?: { id: string; at: string }[];
+  archive?: {
+    id: string;
+    at: string;
+    handle?: string | null;
+    label?: string | null;
+    subscribers?: string | null;
+  }[];
   /** Build the file as schema 2 had it, without `found_email_sources`. */
   schema2?: boolean;
 }
@@ -148,10 +156,16 @@ export function writePipelineDb(path: string, data: FixtureData = {}): void {
       run.run(r.start, r.end, r.status ?? "done", r.keywords ?? 0, r.kind ?? "search");
     }
     const archive = db.prepare(
-      "INSERT INTO channel_archive (channel_id, handle, archived_at) VALUES (?,?,?)",
+      "INSERT INTO channel_archive (channel_id, handle, label, archived_at, subscribers) VALUES (?,?,?,?,?)",
     );
     for (const a of data.archive ?? []) {
-      archive.run(a.id, `@${a.id}`, a.at);
+      archive.run(
+        a.id,
+        a.handle === undefined ? `@${a.id}` : a.handle,
+        a.label ?? null,
+        a.at,
+        a.subscribers ?? null,
+      );
     }
     db.exec("COMMIT");
   } finally {

@@ -411,6 +411,22 @@ export interface DataSource {
    * way the frame reads its log (plan step 5, D17 and D23).
    */
   logFor(ref: string, limit: number): Promise<readonly LogEntry[]>;
+  /**
+   * A page of the whole log for Toolbox › Activity log (plan step 5d, D40): the visible lines
+   * older than `before` (none: from the newest), at most `limit`, by one person when `who` is
+   * set; whether more follow; and each person with lines, most lines first.
+   */
+  logPage(o: {
+    before: { at: number; id: string } | null;
+    limit: number;
+    who: string | null;
+  }): Promise<{
+    lines: readonly LogEntry[];
+    more: boolean;
+    people: readonly { who: string; name: string; count: number }[];
+  }>;
+  /** How many visible lines are at or after `since` (ms): Toolbox's "Changes today". */
+  logSince(since: number): Promise<number>;
   /** In order, in one transaction: all or none. */
   write(writes: readonly DataWrite[]): Promise<void>;
   /** A local setting (`local_settings`), parsed from its JSON; undefined when it is not set. */
