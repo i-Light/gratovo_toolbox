@@ -542,6 +542,70 @@ describe("the find service", () => {
     });
   });
 
+  describe("a lane shared with the email finder (plan D30)", () => {
+    function withYield(yieldLane: () => Promise<void>): FindService {
+      return createFindService({
+        supervisor,
+        account: {
+          findContext: () => ({ mode: "example", workerId: "example" }),
+          teamKeys: { youtubeKey: () => key() },
+        },
+        secrets: { get: () => Promise.resolve(undefined) },
+        userData,
+        emit: (state) => emitted.push(state),
+        now: () => clock,
+        yieldLane,
+      });
+    }
+
+    it("asks a lookup on the lane to give way, then starts the search", async () => {
+      // The finder's refetch holds the lane; giving way ends it.
+      supervisor.running = true;
+      const yieldLane = vi.fn(() => {
+        supervisor.running = false;
+        return Promise.resolve();
+      });
+      service = withYield(yieldLane);
+      await started();
+      expect(yieldLane).toHaveBeenCalledOnce();
+      expect(supervisor.starts[0]?.job.kind).toBe("search");
+    });
+
+    it("doesn't ask when the lane is free", async () => {
+      const yieldLane = vi.fn(() => Promise.resolve());
+      service = withYield(yieldLane);
+      await started();
+      expect(yieldLane).not.toHaveBeenCalled();
+    });
+
+    it("still answers running when the lane stays busy (the import)", async () => {
+      supervisor.running = true;
+      service = withYield(() => Promise.resolve());
+      service.add(["ai agents"]);
+      expect(await service.start()).toEqual({ ok: false, problem: "running" });
+      expect(supervisor.starts).toEqual([]);
+    });
+
+    it("doesn't treat another job on the lane as its search: queue edits work, Pause stops nothing", () => {
+      service.add(["ai agents", "local llm"]);
+      supervisor.running = true;
+      expect(service.startAt(1)).toEqual({ ok: true });
+      expect(service.remove(0)).toEqual({ ok: true });
+      service.stop();
+      expect(supervisor.stops).toBe(0);
+      expect(service.state().run.state).toBe("ready");
+    });
+
+    it("guards its own search again after it ends", async () => {
+      await started();
+      supervisor.finish({ kind: "ended", end: endLine(), result: null });
+      expect(service.remove(0)).toEqual({ ok: true });
+      supervisor.running = true;
+      service.stop();
+      expect(supervisor.stops).toBe(0);
+    });
+  });
+
   describe("the throttle", () => {
     beforeEach(async () => {
       vi.useFakeTimers();

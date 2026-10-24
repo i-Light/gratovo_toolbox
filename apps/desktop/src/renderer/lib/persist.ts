@@ -92,14 +92,15 @@ function sameBut<T extends object>(a: T, b: T, ...skip: (keyof T)[]): boolean {
 }
 
 /**
- * Turns a change to a list of records into writes: `change` gives the write for a record that
- * differs (or is new), or null when the difference cannot be written. A removed record cannot be
- * written. Returns false (and adds nothing) when any difference cannot be written.
+ * Turns a change to a list of records into writes: `change` gives the write (or the writes, in
+ * order) for a record that differs (or is new), or null when the difference cannot be written. A
+ * removed record cannot be written. Returns false (and adds nothing) when any difference cannot
+ * be written.
  */
 function diffRecords<T extends { readonly id: string }>(
   before: readonly T[],
   after: readonly T[],
-  change: (was: T | undefined, now: T) => DataWrite | null | undefined,
+  change: (was: T | undefined, now: T) => DataWrite | readonly DataWrite[] | null | undefined,
   writes: DataWrite[],
 ): boolean {
   const old = new Map(before.map((r) => [r.id, r]));
@@ -115,8 +116,10 @@ function diffRecords<T extends { readonly id: string }>(
     if (write === null) {
       return false;
     }
-    if (write !== undefined) {
-      found.push(write);
+    if (Array.isArray(write)) {
+      found.push(...(write as readonly DataWrite[]));
+    } else if (write !== undefined) {
+      found.push(write as DataWrite);
     }
   }
   if (before.some((r) => !seen.has(r.id))) {
@@ -158,23 +161,61 @@ export function diffData(
       before.creators,
       after.creators,
       (was, now) => {
-        // The reject reason and time move with the stage; on their own they write nothing.
-        if (was === undefined || !sameBut(was, now, "stage", "rejectReason", "rejectedAt")) {
+        // The reject reason and time move with the stage, and the contact's source and
+        // confidence with its address; on their own they write nothing.
+        if (
+          was === undefined ||
+          !sameBut(
+            was,
+            now,
+            "stage",
+            "rejectReason",
+            "rejectedAt",
+            "email",
+            "emailConfirmed",
+            "contactName",
+            "contactSource",
+            "contactConfidence",
+          )
+        ) {
           return null;
         }
-        return was.stage === now.stage
-          ? undefined
-          : // The handle and the name let main create the row for a channel it has none for (D4).
-            {
-              kind: "creator.stage",
-              id: now.id,
-              stage: now.stage,
-              handle: now.handle,
-              name: now.name,
-              ...(now.stage === "rejected" && now.rejectReason !== null
-                ? { reason: now.rejectReason }
-                : {}),
-            };
+        // The contact first, then the stage (D31): confirming an address moves the creator on,
+        // and the server sees them in that order.
+        const out: DataWrite[] = [];
+        if (
+          was.email !== now.email ||
+          was.emailConfirmed !== now.emailConfirmed ||
+          was.contactName !== now.contactName ||
+          was.contactSource !== now.contactSource ||
+          was.contactConfidence !== now.contactConfidence
+        ) {
+          out.push({
+            kind: "creator.contact",
+            id: now.id,
+            email: now.email,
+            confirmed: now.emailConfirmed,
+            contactName: now.contactName,
+            source: now.contactSource,
+            confidence: now.contactConfidence,
+            handle: now.handle,
+            name: now.name,
+          });
+        }
+        if (was.stage !== now.stage) {
+          // The handle and the name let main create the row for a channel it has none for (D4).
+          out.push({
+            kind: "creator.stage",
+            id: now.id,
+            stage: now.stage,
+            handle: now.handle,
+            name: now.name,
+            ...(now.stage === "rejected" && now.rejectReason !== null
+              ? { reason: now.rejectReason }
+              : {}),
+          });
+        }
+        return out;
       },
       writes,
     )

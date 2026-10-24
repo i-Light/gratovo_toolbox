@@ -121,12 +121,21 @@ describe("the catalog channels", () => {
     stage: "new",
     emailConfirmed: false,
     email: null,
+    contactName: null,
     subscribers: null,
     medianViews: 52_000,
     uploads30: 8,
     country: "US",
     sponsors: ["Codewell"],
-    foundEmails: 1,
+    emails: [
+      {
+        email: "biz@promptlab.tv",
+        source: "about",
+        videos: 0,
+        business: true,
+        confidence: 0.95,
+      },
+    ],
     latestUploadAt: 2,
     foundAt: 3,
     run: 4,
@@ -258,6 +267,61 @@ describe("the catalog channels", () => {
     expect(response.safeParse({ ok: false, problem: "too_many" }).success).toBe(true);
     expect(response.safeParse({ ok: false, problem: "full" }).success).toBe(false);
     expect(response.safeParse({ ok: true, problem: "too_many" }).success).toBe(false);
+  });
+
+  it("an item carries at most 10 found addresses, each bounded and in an address's shape", () => {
+    const response = channels["find:query"].response;
+    const page = (over: Record<string, unknown>) => ({
+      version: 1,
+      total: 1,
+      items: [{ ...item, fit, ...over }],
+      facets: emptyFacets,
+    });
+    const found = item.emails[0];
+    expect(response.safeParse(page({ emails: Array(10).fill(found) })).success).toBe(true);
+    expect(response.safeParse(page({ emails: Array(11).fill(found) })).success).toBe(false);
+    const bad = [
+      { ...found, email: "not an address" },
+      { ...found, email: "biz@promptlab" },
+      { ...found, email: `${"a".repeat(250)}@x.tv` },
+      { ...found, source: "typed" },
+      { ...found, videos: -1 },
+      { ...found, confidence: 1.2 },
+      { ...found, confidence: -0.1 },
+      { ...found, extra: true },
+    ];
+    for (const email of bad) {
+      expect(response.safeParse(page({ emails: [email] })).success).toBe(false);
+    }
+    expect(response.safeParse(page({ contactName: "Maya" })).success).toBe(true);
+    expect(response.safeParse(page({ contactName: "x".repeat(80) })).success).toBe(true);
+    expect(response.safeParse(page({ contactName: "x".repeat(81) })).success).toBe(false);
+    // The old count is gone.
+    expect(response.safeParse(page({ foundEmails: 1 })).success).toBe(false);
+  });
+
+  it("find:ideas takes a count of 1..20 and answers keywords or a problem", () => {
+    expect(parseRequest("find:ideas", { count: 1 }).ok).toBe(true);
+    expect(parseRequest("find:ideas", { count: 20 }).ok).toBe(true);
+    for (const count of [0, 21, 2.5, "8"]) {
+      expect(parseRequest("find:ideas", { count }).ok).toBe(false);
+    }
+    expect(parseRequest("find:ideas", { count: 8, topic: "AI" }).ok).toBe(false);
+    const response = channels["find:ideas"].response;
+    const ok = {
+      ok: true,
+      keywords: ["claude code tutorial", "ai agents for beginners"],
+      dropped: 1,
+    };
+    expect(response.safeParse(ok).success).toBe(true);
+    expect(response.safeParse({ ...ok, keywords: Array(21).fill("ai news") }).success).toBe(false);
+    expect(response.safeParse({ ...ok, keywords: [""] }).success).toBe(false);
+    expect(response.safeParse({ ...ok, keywords: ["x".repeat(201)] }).success).toBe(false);
+    for (const problem of ["bridge_off", "busy", "failed"]) {
+      expect(response.safeParse({ ok: false, problem }).success).toBe(true);
+    }
+    expect(response.safeParse({ ok: false, problem: "quota" }).success).toBe(false);
+    expect(response.safeParse({ ok: true, problem: "busy" }).success).toBe(false);
   });
 
   it("find:catalog carries the catalog's version and nothing else", () => {

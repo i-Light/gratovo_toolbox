@@ -42,6 +42,7 @@ import {
   readNotes,
   setCreatorTags,
   storedNotes,
+  writeCreatorContact,
   writeCreatorNotes,
   writeCreatorStage,
 } from "./repositories/creators";
@@ -162,6 +163,9 @@ export function createSqliteSource(db: DatabaseSync, options: SqliteSourceOption
       case "creator.notes":
         writeCreatorNotes(db, write, clock());
         return;
+      case "creator.contact":
+        writeCreatorContact(db, write, clock());
+        return;
       case "brand.set":
         setBrand(db, write, clock());
         return;
@@ -170,8 +174,8 @@ export function createSqliteSource(db: DatabaseSync, options: SqliteSourceOption
         return;
       case "conflict.resolve": {
         const settled = markResolved(db, write.id);
-        // Keeping yours puts your stage, your tags or your notes back; keeping theirs needs
-        // nothing (the server's value is here).
+        // Keeping yours puts your stage, your tags, your notes or your contacts back; keeping
+        // theirs needs nothing (the server's value is here).
         if (settled === null || write.choice !== "mine") {
           return;
         }
@@ -189,6 +193,11 @@ export function createSqliteSource(db: DatabaseSync, options: SqliteSourceOption
         ) {
           db.prepare("UPDATE channel_state SET notes = ? WHERE channel_id = ?").run(
             settled.mine === null ? null : storedNotes(settled.mine),
+            settled.channelId,
+          );
+        } else if (settled.field === "contacts" && Array.isArray(settled.mine)) {
+          db.prepare("UPDATE channel_state SET contacts = ? WHERE channel_id = ?").run(
+            JSON.stringify(settled.mine),
             settled.channelId,
           );
         }

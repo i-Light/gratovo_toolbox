@@ -11,7 +11,7 @@ import {
   logRowFor,
 } from "../data/repositories";
 import type { ActivityRow } from "../data/repositories";
-import { readTags, storedNotes } from "../data/repositories/creators";
+import { readContacts, readTags, storedNotes } from "../data/repositories/creators";
 
 // D11: what each write also puts in the outbox. Runs inside the batch's transaction, so a local
 // effect and its entry commit together or not at all.
@@ -53,6 +53,22 @@ function parseValue(stored: unknown): unknown {
 function sameTags(a: readonly string[], b: readonly string[]): boolean {
   const sorted = (tags: readonly string[]): string => JSON.stringify([...tags].sort());
   return sorted(a) === sorted(b);
+}
+
+/**
+ * A JSON value with every object's keys sorted, so two values compare as the server's `jsonb`
+ * compares them: key order is no change, list order is.
+ */
+function canonical(value: unknown): string {
+  return JSON.stringify(value, (_key, item: unknown) =>
+    typeof item === "object" && item !== null && !Array.isArray(item)
+      ? Object.fromEntries(
+          Object.entries(item as Record<string, unknown>).sort(([a], [b]) =>
+            a < b ? -1 : a > b ? 1 : 0,
+          ),
+        )
+      : item,
+  );
 }
 
 /** The line with this id: its text, whether an undo hides it, and its newest marker's time. */
@@ -247,6 +263,25 @@ export function recordIntent(
       // to send.
       if (label !== null && base !== next) {
         queueEdit(write.id, label, "notes", base, next);
+      }
+      return;
+    }
+    case "creator.contact": {
+      // The base is the stored list before the write: what the server holds as far as this copy
+      // knows. A missing row is created here (D4) and by the server, both with no contacts.
+      const before = readContacts(db, write.id);
+      const base = before === undefined ? [] : parseValue(before);
+      applyLocal();
+      const label = handleOf(write.id);
+      const after = readContacts(db, write.id);
+      if (label === null || after === undefined) {
+        return;
+      }
+      const next = parseValue(after);
+      // The server keeps `contacts` as it is (its `canonical_edit_value`), so the same list is no
+      // change: nothing to send.
+      if (canonical(base) !== canonical(next)) {
+        queueEdit(write.id, label, "contacts", base, next);
       }
       return;
     }

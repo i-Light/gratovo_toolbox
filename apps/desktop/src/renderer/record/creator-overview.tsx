@@ -117,7 +117,7 @@ export function CreatorOverview({ item }: { readonly item: CreatorDetail }) {
       </div>
       <div className="row small muted">
         <Icon name="mail" />
-        <span>{text.addresses(item.foundEmails)}</span>
+        <span>{text.addresses(item.emails.length)}</span>
       </div>
       <section className="col tight">
         <h4>{text.description}</h4>

@@ -261,9 +261,154 @@ describe("the catalog", () => {
     });
     const items = await all(catalog);
     const find = (id: string) => items.find((item) => item.id === id);
-    expect(find(a)).toMatchObject({ sponsors: ["Notion", "Cursor"], foundEmails: 1 });
-    expect(find(b)).toMatchObject({ sponsors: [], foundEmails: 0 });
-    expect(find(c)).toMatchObject({ sponsors: [], foundEmails: 0 });
+    expect(find(a)).toMatchObject({
+      sponsors: ["Notion", "Cursor"],
+      emails: [{ email: "x@y.co", source: "about", videos: 0, business: false, confidence: 0.9 }],
+    });
+    expect(find(b)).toMatchObject({ sponsors: [], emails: [] });
+    expect(find(c)).toMatchObject({ sponsors: [], emails: [] });
+  });
+
+  it("reads found addresses as About finds, drops what isn't an address, and keeps 10", async () => {
+    const many = Array.from({ length: 14 }, (_, n) => `team${String(n)}@agentlab.ai`);
+    const catalog = open({
+      channels: [
+        {
+          id: a,
+          emails: JSON.stringify([
+            " biz@promptlab.tv ",
+            "BIZ@promptlab.tv",
+            "not an address",
+            "logo@2x",
+            `${"a".repeat(250)}@ai.tv`,
+            7,
+            ...many,
+          ]),
+        },
+      ],
+    });
+    const [item] = await all(catalog);
+    expect(item?.emails).toHaveLength(10);
+    expect(item?.emails[0]).toEqual({
+      email: "biz@promptlab.tv",
+      source: "about",
+      videos: 0,
+      business: false,
+      confidence: 0.9,
+    });
+    expect(item?.emails.map((e) => e.email).slice(1, 3)).toEqual([
+      "team0@agentlab.ai",
+      "team10@agentlab.ai",
+    ]);
+  });
+
+  it("reads the sources, scores each address and sorts the most sure first", async () => {
+    const catalog = open({
+      channels: [
+        {
+          id: a,
+          emails: JSON.stringify(["old@promptlab.tv", "vid@promptlab.tv", "biz@promptlab.tv"]),
+          sources: JSON.stringify([
+            { email: "vid@promptlab.tv", source: "video", videos: 4, business: false },
+            // Also in two video descriptions: the count stays with the About address.
+            { email: "biz@promptlab.tv", source: "about", videos: 2, business: true },
+            { email: "few@promptlab.tv", source: "video", videos: 1, business: false },
+            { email: "free@gmail.com", source: "about", videos: 0, business: false },
+            { email: "bad", source: "about", videos: 0, business: false },
+            { email: "odd@promptlab.tv", source: "sky", videos: 0, business: false },
+            "junk",
+            null,
+          ]),
+        },
+      ],
+    });
+    const [item] = await all(catalog);
+    expect(item?.emails.map((e) => [e.email, e.source, e.videos, e.confidence])).toEqual([
+      ["biz@promptlab.tv", "about", 2, 0.95],
+      ["old@promptlab.tv", "about", 0, 0.9],
+      ["free@gmail.com", "about", 0, 0.85],
+      ["vid@promptlab.tv", "video", 4, 0.8],
+      ["few@promptlab.tv", "video", 1, 0.6],
+    ]);
+    expect(item?.emails[0]?.business).toBe(true);
+  });
+
+  it("falls back to found_emails when the file has no sources column", async () => {
+    const catalog = open({
+      schema2: true,
+      channels: [{ id: a, emails: '["old@promptlab.tv", "me@gmail.com"]' }],
+    });
+    const [item] = await all(catalog);
+    expect(item?.emails.map((e) => [e.email, e.source, e.confidence])).toEqual([
+      ["old@promptlab.tv", "about", 0.9],
+      ["me@gmail.com", "about", 0.85],
+    ]);
+  });
+
+  it("ignores bad sources JSON and keeps found_emails", async () => {
+    const catalog = open({
+      channels: [
+        { id: a, emails: '["x@y.co"]', sources: "{not json" },
+        { id: b, emails: '["x@y.co"]', sources: '{"a":1}' },
+      ],
+    });
+    for (const item of await all(catalog)) {
+      expect(item.emails).toEqual([
+        { email: "x@y.co", source: "about", videos: 0, business: false, confidence: 0.9 },
+      ]);
+    }
+  });
+
+  it("keeps the 10 most sure, not the first 10 listed", async () => {
+    const weak = Array.from({ length: 12 }, (_, n) => ({
+      email: `v${String(n).padStart(2, "0")}@agentlab.ai`,
+      source: "video",
+      videos: 1,
+      business: false,
+    }));
+    const catalog = open({
+      channels: [
+        {
+          id: a,
+          sources: JSON.stringify([
+            ...weak,
+            { email: "best@agentlab.ai", source: "about", videos: 0, business: true },
+          ]),
+        },
+      ],
+    });
+    const [item] = await all(catalog);
+    expect(item?.emails).toHaveLength(10);
+    expect(item?.emails[0]?.email).toBe("best@agentlab.ai");
+  });
+
+  it("carries the confirmed contact's name from the creator state", async () => {
+    states = [
+      creatorState(a, {
+        stage: "contact",
+        email: "biz@promptlab.tv",
+        emailConfirmed: true,
+        contactName: "Maya",
+      }),
+      creatorState(b, {
+        stage: "contact",
+        email: "hi@bravo.ai",
+        emailConfirmed: true,
+        contactName: "Leo",
+      }),
+    ];
+    const items = await all(open({ channels: [{ id: a }, { id: c }] }));
+    expect(items.find((item) => item.id === a)).toMatchObject({
+      email: "biz@promptlab.tv",
+      emailConfirmed: true,
+      contactName: "Maya",
+    });
+    // A creator with no pipeline channel carries its name too; one with no state has none.
+    expect(items.find((item) => item.id === b)).toMatchObject({
+      contactName: "Leo",
+      hasNumbers: false,
+    });
+    expect(items.find((item) => item.id === c)?.contactName).toBeNull();
   });
 
   it("caps sponsors at 50", async () => {

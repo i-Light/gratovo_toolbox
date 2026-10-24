@@ -84,6 +84,7 @@ function setup(overrides: Partial<Handlers> = {}) {
     "find:runs": vi.fn(() => ({ runs: [] })),
     "find:views": vi.fn(() => ({ views: [] })),
     "find:views-set": vi.fn(() => ({ ok: true as const })),
+    "find:ideas": vi.fn(() => ({ ok: false as const, problem: "bridge_off" as const })),
     "log:for": vi.fn(() => ({ lines: [] })),
     "rules:set": vi.fn(() => ({})),
     "import:candidates": vi.fn(() => ({ candidates: [] })),

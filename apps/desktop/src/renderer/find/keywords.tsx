@@ -1,9 +1,10 @@
 import type { FindState } from "@gratovo/ipc";
 import { Btn, Icon, cx } from "@gratovo/ui";
-import { memo, useCallback, useState } from "react";
+import { memo, useCallback, useRef, useState } from "react";
 
 import { addMax, keywordMax, parseKeywords } from "../lib/find";
 import { strings } from "../strings";
+import { KeywordIdeas, useIdeas } from "./keyword-ideas";
 
 const text = strings.findSearch.keywords;
 
@@ -101,6 +102,9 @@ export function Keywords({ state }: { readonly state: FindState }) {
   const [draft, setDraft] = useState("");
   const [note, setNote] = useState<{ readonly text: string; readonly bad: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [ideasOpen, setIdeasOpen] = useState(false);
+  const ideas = useIdeas();
+  const suggest = useRef<HTMLButtonElement>(null);
   const { queue, at } = state;
   const active = state.run.state === "running" || state.run.state === "stopping";
   const done = queue.filter((k) => k.state === "done").length;
@@ -161,6 +165,34 @@ export function Keywords({ state }: { readonly state: FindState }) {
     }
   };
 
+  // Closing the picker (Esc or Close) sends focus back to the button that opened it.
+  const closeIdeas = (): void => {
+    setIdeasOpen(false);
+    suggest.current?.focus();
+  };
+  const toggleIdeas = (): void => {
+    if (ideasOpen) {
+      setIdeasOpen(false);
+      return;
+    }
+    setIdeasOpen(true);
+    // Every opening asks afresh (the queue changed, or the bridge was started); one at a time.
+    ideas.ask();
+  };
+  const addIdeas = async (keywords: readonly string[]): Promise<boolean> => {
+    try {
+      const result = await window.gratovo.invoke("find:add", { keywords: [...keywords] });
+      if (!result.ok) {
+        return false;
+      }
+      setNote({ text: text.added(result.value.added, result.value.skipped), bad: false });
+      setIdeasOpen(false);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   return (
     <section className="card" aria-labelledby="find-kw-h">
       <div className="card-h">
@@ -170,7 +202,26 @@ export function Keywords({ state }: { readonly state: FindState }) {
             {text.count(queue.length, done)}
           </span>
         </h3>
+        <Btn
+          ref={suggest}
+          size="sm"
+          icon="sparkle"
+          {...(ideasOpen ? { kind: "pri" } : {})}
+          expanded={ideasOpen}
+          onClick={toggleIdeas}
+        >
+          {strings.findSearch.ideas.suggest}
+        </Btn>
       </div>
+      {ideasOpen ? (
+        <KeywordIdeas
+          state={ideas.state}
+          have={queue.map((k) => k.keyword)}
+          onAsk={ideas.ask}
+          onClose={closeIdeas}
+          onAdd={addIdeas}
+        />
+      ) : null}
       {queue.length === 0 ? (
         <p className="hint">{text.empty}</p>
       ) : (

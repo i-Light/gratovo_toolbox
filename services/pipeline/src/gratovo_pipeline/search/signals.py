@@ -11,7 +11,7 @@ from collections.abc import Callable, Iterable
 from typing import Final
 
 from gratovo_pipeline import store
-from gratovo_pipeline.found_emails import find_emails
+from gratovo_pipeline.found_emails import find_emails_with_sources
 
 # Phrases a sponsorship disclosure reliably uses. Plain substring checks on the lowercased
 # description: a disclosure worded some other way is missed, and that's fine; the point is never
@@ -78,7 +78,8 @@ def compute_sponsorship(conn: sqlite3.Connection, channel_ids: Iterable[str]) ->
 
 
 def compute_found_emails(conn: sqlite3.Connection, channel_ids: Iterable[str]) -> None:
-    """`found_emails` from the About text first, then the stored descriptions. Commits."""
+    """`found_emails` and `found_email_sources` from the About text first, then the stored
+    descriptions. Commits."""
     ids = list(dict.fromkeys(channel_ids))
     if not ids:
         return
@@ -86,8 +87,9 @@ def compute_found_emails(conn: sqlite3.Connection, channel_ids: Iterable[str]) -
     descriptions = store.get_channel_video_descriptions(conn, ids)
     for channel_id in ids:
         if channel_id in about:
-            emails = find_emails(about[channel_id], *descriptions.get(channel_id, []))
-            store.update_channel_found_emails(conn, channel_id, emails)
+            sources = find_emails_with_sources(about[channel_id], descriptions.get(channel_id, []))
+            emails = [source["email"] for source in sources]
+            store.update_channel_found_emails(conn, channel_id, emails, sources)
     conn.commit()
 
 

@@ -242,6 +242,105 @@ describe("diffData", () => {
     expect(diffData(base, after)).toEqual({ writes: [], unsupported: [] });
   });
 
+  describe("a creator's contact (plan step 5, D31)", () => {
+    type Creator = AppData["creators"][number];
+    const c0: Creator = { ...(base.creators[0] as Creator), stage: "shortlisted" };
+    const before = { ...base, creators: [c0, ...base.creators.slice(1)] };
+    const confirmed: Creator = {
+      ...c0,
+      email: "biz@promptlab.tv",
+      emailConfirmed: true,
+      contactName: "Maya",
+      contactSource: "about",
+      contactConfidence: 0.95,
+    };
+    const contactWrite = (c: Creator): DataWrite => ({
+      kind: "creator.contact",
+      id: c.id,
+      email: c.email,
+      confirmed: c.emailConfirmed,
+      contactName: c.contactName,
+      source: c.contactSource,
+      confidence: c.contactConfidence,
+      handle: c.handle,
+      name: c.name,
+    });
+    const stageWrite = (c: Creator): DataWrite => ({
+      kind: "creator.stage",
+      id: c.id,
+      stage: c.stage,
+      handle: c.handle,
+      name: c.name,
+    });
+    const withCreator = (c: Creator) => ({ ...base, creators: [c, ...base.creators.slice(1)] });
+
+    it("confirming with the stage writes the contact first, then the stage", () => {
+      const after = withCreator({ ...confirmed, stage: "contact" });
+      expect(diffData(before, after)).toEqual({
+        writes: [
+          contactWrite({ ...confirmed, stage: "contact" }),
+          stageWrite({ ...confirmed, stage: "contact" }),
+        ],
+        unsupported: [],
+      });
+    });
+
+    it("undo writes the old contact back, then the old stage", () => {
+      const after = withCreator({ ...confirmed, stage: "contact" });
+      expect(diffData(after, before).writes).toEqual([contactWrite(c0), stageWrite(c0)]);
+      // The example creator had an unconfirmed address: it goes back as it was, not confirmed.
+      expect(diffData(after, before).writes[0]).toMatchObject({
+        email: c0.email,
+        confirmed: false,
+        contactName: null,
+        source: null,
+        confidence: null,
+      });
+      const none = withCreator({ ...c0, email: null });
+      expect(diffData(withCreator({ ...confirmed, stage: "contact" }), none).writes[0]).toEqual({
+        ...contactWrite(c0),
+        email: null,
+      });
+    });
+
+    it("a contact change alone writes the contact and no stage", () => {
+      expect(diffData(before, withCreator(confirmed))).toEqual({
+        writes: [contactWrite(confirmed)],
+        unsupported: [],
+      });
+    });
+
+    it("each contact field on its own writes the whole contact", () => {
+      const changes: Partial<Creator>[] = [
+        { email: "team@promptlab.tv" },
+        { emailConfirmed: true },
+        { contactName: "Maya" },
+        { contactSource: "typed" },
+        { contactConfidence: 0.6 },
+      ];
+      for (const change of changes) {
+        const now = { ...c0, ...change };
+        expect(diffData(before, withCreator(now))).toEqual({
+          writes: [contactWrite(now)],
+          unsupported: [],
+        });
+      }
+    });
+
+    it("a stage change alone writes no contact", () => {
+      expect(diffData(before, withCreator({ ...c0, stage: "contact" })).writes).toEqual([
+        stageWrite({ ...c0, stage: "contact" }),
+      ]);
+    });
+
+    it("a contact change with another field it cannot write writes nothing", () => {
+      expect(diffData(before, withCreator({ ...confirmed, name: "Other" }))).toEqual({
+        writes: [],
+        unsupported: ["creators"],
+      });
+    });
+  });
+
   it("cannot write any other creator change, or a creator added or removed", () => {
     const c0 = base.creators[0] as AppData["creators"][number];
     const renamed = { ...base, creators: [{ ...c0, name: "Other" }, ...base.creators.slice(1)] };
@@ -379,6 +478,62 @@ describe("installPersistence", () => {
         { kind: "notify.set", notify: {} },
         { kind: "log.remove", id: line?.id },
       ],
+    ]);
+  });
+
+  it("confirming an address writes the contact then the stage; undo and redo write them again", async () => {
+    install();
+    const c0 = data().creators[0];
+    const id = c0?.id ?? "";
+    appStore().bg((d) => {
+      const c = d.creators.find((x) => x.id === id);
+      if (c !== undefined) {
+        c.stage = "shortlisted";
+        c.email = null;
+      }
+    });
+    await flush();
+    act(
+      "Confirmed an address",
+      (d) => {
+        const c = d.creators.find((x) => x.id === id);
+        if (c !== undefined) {
+          c.email = "biz@promptlab.tv";
+          c.emailConfirmed = true;
+          c.contactName = "Maya";
+          c.contactSource = "about";
+          c.contactConfidence = 0.95;
+          c.stage = "contact";
+        }
+      },
+      { log: false },
+    );
+    undo();
+    redo();
+    await flush();
+    const who = { id, handle: c0?.handle, name: c0?.name };
+    const confirm = {
+      kind: "creator.contact",
+      ...who,
+      email: "biz@promptlab.tv",
+      confirmed: true,
+      contactName: "Maya",
+      source: "about",
+      confidence: 0.95,
+    };
+    const back = {
+      kind: "creator.contact",
+      ...who,
+      email: null,
+      confirmed: false,
+      contactName: null,
+      source: null,
+      confidence: null,
+    };
+    expect(sent(bridge.calls).slice(1)).toEqual([
+      [confirm, { kind: "creator.stage", ...who, stage: "contact" }],
+      [back, { kind: "creator.stage", ...who, stage: "shortlisted" }],
+      [confirm, { kind: "creator.stage", ...who, stage: "contact" }],
     ]);
   });
 
@@ -611,6 +766,9 @@ describe("adoptServerData", () => {
         stage: "new",
         email: null,
         emailConfirmed: false,
+        contactName: null,
+        contactSource: null,
+        contactConfidence: null,
         rejectReason: null,
         rejectedAt: null,
         archiveDueAt: null,

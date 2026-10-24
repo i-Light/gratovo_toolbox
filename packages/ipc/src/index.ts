@@ -45,8 +45,10 @@ export type {
 } from "./channels";
 export {
   brandSchema,
+  confidenceSchema,
   creatorSchema,
   dataWriteSchema,
+  emailAddressSchema,
   dealSchema,
   frameNotificationSchema,
   frameSchema,
@@ -69,8 +71,13 @@ export {
   detailVideosMax,
   facetsSchema,
   findCatalogEventSchema,
+  findEmailsEventSchema,
+  findEmailsStates,
   findErrors,
   findFilterSchema,
+  findIdeasProblems,
+  findIdeasRequestSchema,
+  findIdeasResultSchema,
   findItemDetailSchema,
   findKeywordStates,
   findPageMax,
@@ -84,12 +91,14 @@ export {
   findViewsSetRequestSchema,
   findViewsSetResultSchema,
   fitSchema,
+  foundEmailSchema,
+  ideasCountMax,
   itemVideosMax,
   savedViewSchema,
   savedViewsSchema,
   viewsSetMax,
 } from "./find";
-export type { FindState } from "./find";
+export type { FindEmailsEvent, FindState } from "./find";
 export {
   browserId,
   geminiAddonStates,

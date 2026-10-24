@@ -265,6 +265,9 @@ describe("example records", () => {
       stage: "signed",
       email: "hello@promptlab.tv",
       emailConfirmed: false,
+      contactName: null,
+      contactSource: null,
+      contactConfidence: null,
       rejectReason: null,
       rejectedAt: null,
       archiveDueAt: null,
@@ -395,7 +398,7 @@ describe("the live gate", () => {
     live();
     go("reach");
     expect(route()).toEqual({ screen: "find", tab: "search" });
-    go("find", "contacts");
+    go("close");
     expect(route()).toEqual({ screen: "find", tab: "search" });
     go("settings", "day");
     expect(route()).toEqual({ screen: "find", tab: "search" });

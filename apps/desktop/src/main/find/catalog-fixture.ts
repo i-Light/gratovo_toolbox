@@ -21,7 +21,8 @@ CREATE TABLE channels (
     latest_upload_at TEXT,
     sponsored_ratio REAL,
     seen_brands TEXT,
-    found_emails TEXT
+    found_emails TEXT,
+    found_email_sources TEXT
 );
 CREATE TABLE channel_keywords (
     channel_id TEXT NOT NULL REFERENCES channels(channel_id),
@@ -52,6 +53,9 @@ CREATE TABLE runs (
 );
 `;
 
+/** The tables as schema 2 had them: no `found_email_sources` column. */
+const ddlSchema2 = ddl.replace(",\n    found_email_sources TEXT", "");
+
 export interface FixtureChannel {
   id: string;
   handle?: string;
@@ -66,6 +70,8 @@ export interface FixtureChannel {
   latestUpload?: string | null;
   brands?: string | null;
   emails?: string | null;
+  /** The JSON in `found_email_sources` (D27). */
+  sources?: string | null;
 }
 
 export interface FixtureVideo {
@@ -82,18 +88,22 @@ export interface FixtureData {
   keywords?: { channel: string; keyword: string; at: string }[];
   runs?: { start: string; end: string | null; status?: string; keywords?: number; kind?: string }[];
   archive?: { id: string; at: string }[];
+  /** Build the file as schema 2 had it, without `found_email_sources`. */
+  schema2?: boolean;
 }
 
 /** Makes the file at `path` with the Python tables and `data` in them. */
 export function writePipelineDb(path: string, data: FixtureData = {}): void {
   const db = new DatabaseSync(path);
   try {
-    db.exec(ddl);
+    const old = data.schema2 === true;
+    db.exec(old ? ddlSchema2 : ddl);
     db.exec("BEGIN");
     const channel = db.prepare(
       `INSERT INTO channels (channel_id, handle, name, description, subscribers, profile_picture,
          country, first_seen_at, videos_last_30, median_views_last_30, latest_upload_at,
-         seen_brands, found_emails) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+         seen_brands, found_emails${old ? "" : ", found_email_sources"})
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?${old ? "" : ",?"})`,
     );
     for (const c of data.channels ?? []) {
       channel.run(
@@ -110,6 +120,7 @@ export function writePipelineDb(path: string, data: FixtureData = {}): void {
         c.latestUpload ?? null,
         c.brands ?? null,
         c.emails ?? null,
+        ...(old ? [] : [c.sources ?? null]),
       );
     }
     const video = db.prepare(
@@ -157,6 +168,7 @@ export function creatorState(id: string, over: Partial<CreatorState> = {}): Crea
     stage: "new",
     email: null,
     emailConfirmed: false,
+    contactName: null,
     rejectReason: null,
     rejectedAt: null,
     archiveDueAt: null,

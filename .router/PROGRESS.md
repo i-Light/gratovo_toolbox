@@ -2,9 +2,25 @@
 
 Started 2026-10-24. The plan is `.router/PLAN.md` (decisions D1 to D18, contracts, tasks), the recon `.router/CONTEXT.md`, the agent rules `.router/specs/rules.md`. Step 5 is four pull requests: 5a, 5b, 5c, 5d.
 
-**5a done:** PR #20, merged 2026-10-24 as 835a404.
+**5a done:** PR #20, merged 2026-10-24 as 835a404. **5b done:** PR #21, merged 2026-10-24 as 19ad4d3.
 
-**Now: 5b** (the gallery and the creator record) on branch `feat/5b-find-gallery-record` from `main` at 835a404. Plan: PLAN.md "5b" (D19 to D26).
+**Step 5 is now five pull requests** (lead, after 5b): 5c contacts and keyword ideas, 5d Toolbox, 5e the flow suite and ADR 0017 (PLAN.md "The rest of step 5").
+
+**Now: 5c** (contacts, the email finder, keyword ideas) on branch `feat/5c-find-contacts` from `main` at 19ad4d3, in its pull request (L3). Plan: PLAN.md "5c" (D27 to D33). After it merges: detail 5d in PLAN.md (its outline is there) in a fresh session.
+
+## Tasks, 5c
+
+| id | tier | state | note |
+|---|---|---|---|
+| C3 | H | done | Creator `contactName/Source/Confidence`, `FoundEmail`, `creator.contact` (base = stored list), persister writes contact then stage, ideas stub |
+| B8 | N | done | `find_emails_with_sources`, schema 3 `found_email_sources`, signals writes both |
+| B9 | N | done | `emailConfidence`, `sortFoundEmails`; catalog reads sources with a schema-2 fallback; lead: About keeps its video count |
+| B10 | H | done | `email-finder.ts` (live only, 2 s debounce, 50 a job, yields the lane to a search), `ideas.ts` (bridge, `avoid`, 60 s gap, `newChat`), event `find:emails` (renderer doesn't listen yet) |
+| B11 | N | done | Contacts tab, `ContactBlock`, `confirmAddress`, `confirmMany`; record's Confirm wired. Paging grows `limit` past 120: W3 fixes |
+| B12 | N | done | `KeywordIdeas` picker; `kind=""` workaround on the closed button: tidy |
+| W3 | N | done | live `find` gains `contacts` (tab with its count, palette action, subtitles), Contacts pages through `useGalleryPages` (120 a page), `installEmailJobs` shows `find:emails` in the tray (a finished row carries its note), the B12 `kind` tidy; `e2e/find-contacts.spec.ts` green. Lead: the gallery test's "today's search" run started an hour back, so it failed just after midnight |
+| R3 | H | done | review: 0 blockers, 7 important, 14 minor. Fixed as R3a (main, ipc, Python: odd old address on undo, other contacts kept, v3 migration safe to re-run, no lookup on an undone confirm, finder can't wedge) and R3b (renderer: Confirm all skips confirmed channels, looked-up last, focus after a card leaves, failed tray icon, e2e wait, a11y). Lead: Contacts cards one across with the peek open; D31/D33 notes |
+| L3 | lead | running | checks green (lint, typecheck, 2,331 + 1,488 unit tests, 67 Electron tests), looked at in dark at 1440 px; `Btn` gained `expanded` and `ref` (lead, R3b); PR |
 
 ## Tasks, 5b
 
@@ -16,7 +32,7 @@ Started 2026-10-24. The plan is `.router/PLAN.md` (decisions D1 to D18, contract
 | G2 | N | done | cards (stretched Open button, `content-visibility`), table, `useFindSelection(order, ready)`, bulk bar, compare; fit popup clipped in cards → W2 moves it to `Floating` |
 | W2 | N | done | live `find: search, triage, gallery`; older runs → gallery filtered; fit list through `Floating`; `e2e/find-gallery.spec.ts`; 20 Electron tests green; screenshots looked at by the lead |
 | R2 | H | done | review: 1 blocker (notes lost on Esc/Alt+↓), 6 important, 14 minor, all fixed (R2a main, R2b record, R2c gallery). Lead: notes carry the text the edit started from, so a teammate's newer note makes a conflict; unused strings dropped; the heavy-owner timing bounds tripled for parallel runs |
-| L2 | lead | in progress | lint, typecheck, 2,206 Vitest, 1,476 pytest and the full Electron suite (66) green locally; gallery, compare and peek looked at in dark at 1440; PR, CI, merge |
+| L2 | lead | done | PR #21, CI green after an e2e cleanup fix (Windows held Chromium's DIPS file), merged |
 
 
 
@@ -38,6 +54,8 @@ Started 2026-10-24. The plan is `.router/PLAN.md` (decisions D1 to D18, contract
 | L1 | lead | done | PR #20, CI green, merged |
 
 ## Notes for 5c and later
+
+- For docs/workflow.md lessons (5e): never park files in `git stash` around a commit. When the pre-commit hook fails, lint-staged leaves its own backup stash, and a later pop takes the wrong entry.
 
 - `record/use-creator-item.ts` duplicates a little of `lib/find-catalog.ts`'s `useCatalogItem` to tell a failed load from a missing channel: fold them together.
 - The shortlisted creator's next step says "Confirm an address" disabled; 5c wires it.

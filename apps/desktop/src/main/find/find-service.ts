@@ -52,6 +52,12 @@ export interface FindServiceDeps {
   onPipelineChanged?: () => void;
   /** The least time between two emits while a run streams. Default 250. */
   throttleMs?: number;
+  /**
+   * Asks a store-lane job that gives way to a search (the email finder's refetch, plan D30) to
+   * stop, and resolves once it has gone; at once when there is none. A start that finds the lane
+   * busy calls it first, so a lookup in the background never makes Start answer `running`.
+   */
+  yieldLane?: () => Promise<void>;
 }
 
 export type StartProblem = "no_keywords" | "running" | "no_youtube_key" | "no_python";
@@ -79,7 +85,7 @@ const skipMax = 20_000;
 const channelIdShape = /^UC[A-Za-z0-9_-]{22}$/;
 
 /** The settings a search starts with: everything but the mail settings. */
-function searchSettings(settings: Start["settings"] | undefined): Start["settings"] {
+export function searchSettings(settings: Start["settings"] | undefined): Start["settings"] {
   const kept = { ...settings };
   delete kept.mail;
   return kept;
@@ -118,12 +124,27 @@ async function urlList(secrets: Pick<SecretStore, "get">, name: string): Promise
   }
 }
 
+/**
+ * The proxies and gateways a search sends YouTube's requests through. The email finder's refetch
+ * (D30) reads them the same way, so both jobs take the same route.
+ */
+export async function searchRouting(
+  secrets: Pick<SecretStore, "get">,
+): Promise<{ proxyUrls: string[]; gatewayUrls: string[] }> {
+  const proxyUrls = await urlList(secrets, "pipeline.proxies");
+  const gatewayUrls = await gatewayUrlsForSearch(secrets);
+  return { proxyUrls, gatewayUrls };
+}
+
 export function createFindService(deps: FindServiceDeps): FindService {
   const { supervisor, account, secrets } = deps;
   const throttleMs = deps.throttleMs ?? 250;
 
   let session: Session | null = null;
   let starting = false;
+  // True while this service's own search holds the lane. The lane can also be running another
+  // store job (the email finder's refetch, the import): those are not a search to pause or guard.
+  let searching = false;
   let stopRequested = false;
   // Bumped by shutdown (sign-out, quit): a start still awaiting its key gives up when it changed.
   let generation = 0;
@@ -137,6 +158,11 @@ export function createFindService(deps: FindServiceDeps): FindService {
   /** Read through a function so a check made before an await is not assumed to still hold. */
   function isRunning(): boolean {
     return supervisor.running;
+  }
+
+  /** Whether this service's own search is starting or running. */
+  function busy(): boolean {
+    return starting || searching;
   }
 
   /** Where a mode's queue and `pipeline.db` live. */
@@ -290,6 +316,7 @@ export function createFindService(deps: FindServiceDeps): FindService {
   }
 
   function exit(s: Session, how: PipelineExit): void {
+    searching = false;
     if (how.kind === "ended") {
       const end = how.end;
       s.at = Math.min(end.at, s.queue.length);
@@ -352,7 +379,7 @@ export function createFindService(deps: FindServiceDeps): FindService {
 
     remove(index) {
       const { session: s } = open();
-      if (starting || supervisor.running) {
+      if (busy()) {
         return { ok: false, problem: "running" };
       }
       if (index < s.queue.length) {
@@ -369,7 +396,7 @@ export function createFindService(deps: FindServiceDeps): FindService {
     setRules(rules) {
       const { session: s } = open();
       s.rules = rules;
-      if (!(starting || supervisor.running)) {
+      if (!busy()) {
         // The kept list is read with the rules: read it again with the new ones.
         s.kept = null;
       }
@@ -379,7 +406,7 @@ export function createFindService(deps: FindServiceDeps): FindService {
 
     startAt(index) {
       const { session: s } = open();
-      if (starting || supervisor.running) {
+      if (busy()) {
         return { ok: false, problem: "running" };
       }
       s.at = Math.min(index, s.queue.length);
@@ -389,7 +416,7 @@ export function createFindService(deps: FindServiceDeps): FindService {
     },
 
     async start() {
-      if (starting || supervisor.running) {
+      if (busy()) {
         return { ok: false, problem: "running" };
       }
       const { session: s, mode, workerId } = open();
@@ -410,13 +437,10 @@ export function createFindService(deps: FindServiceDeps): FindService {
             return { ok: false, problem: "no_youtube_key" };
           }
         }
-        const proxyUrls = await urlList(secrets, "pipeline.proxies");
-        const gatewayUrls = await gatewayUrlsForSearch(secrets);
-        // The lookups above took time: another start may have got in, or the account signed out
-        // or changed (a live search must never start for someone no longer signed in).
-        if (isRunning()) {
-          return { ok: false, problem: "running" };
-        }
+        const { proxyUrls, gatewayUrls } = await searchRouting(secrets);
+        // The lookups above took time: the account may have signed out or changed (a live search
+        // must never start for someone no longer signed in). Another job on the lane is checked
+        // last, just before the start.
         const now = account.findContext();
         if (
           generation !== startedIn ||
@@ -431,12 +455,20 @@ export function createFindService(deps: FindServiceDeps): FindService {
           return { ok: false, problem: "no_keywords" };
         }
         const skip = await skipList();
+        // A lookup in the background gives way (plan D30): it stops between two channels and
+        // comes back after the search. Nothing is awaited between this and the start below, so
+        // it can't take the lane back first. Any other job (the import) still answers `running`.
+        if (isRunning() && deps.yieldLane !== undefined) {
+          await deps.yieldLane();
+        }
         if (isRunning() || generation !== startedIn || session !== s) {
           return { ok: false, problem: "running" };
         }
         stopRequested = false;
         runStart = s.at;
         jobSecrets = secretsOf({ secrets: { youtubeKey, proxyUrls, gatewayUrls } });
+        // Set before the start, so an exit that came at once would still clear it.
+        searching = true;
         const started = supervisor.start(
           {
             type: "start",
@@ -464,6 +496,7 @@ export function createFindService(deps: FindServiceDeps): FindService {
           },
         );
         if (!started.ok) {
+          searching = false;
           return started;
         }
         s.run = { state: "running", found: 0, kept: 0, swept: 0, error: null };
@@ -477,7 +510,7 @@ export function createFindService(deps: FindServiceDeps): FindService {
     },
 
     stop() {
-      if (!supervisor.running || session === null) {
+      if (!searching || session === null) {
         return;
       }
       stopRequested = true;

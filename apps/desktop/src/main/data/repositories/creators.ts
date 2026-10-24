@@ -1,13 +1,22 @@
 import type { DatabaseSync, SQLOutputValue } from "node:sqlite";
 
 import {
+  contactNameMax,
+  contactSources,
   creatorStageFrom,
   creatorStages,
   legacyCreatorFields,
   primaryEmail,
   rejectReasons,
 } from "@gratovo/core/data";
-import type { Creator, CreatorStage, CreatorState, RejectReason } from "@gratovo/core/data";
+import type {
+  ContactSource,
+  Creator,
+  CreatorStage,
+  CreatorState,
+  DataWrite,
+  RejectReason,
+} from "@gratovo/core/data";
 
 /**
  * Adds a creator or updates the one with the same id: the name goes to `channels`, the rest to
@@ -245,6 +254,33 @@ export function writeCreatorNotes(
   );
 }
 
+/** A `creator.contact` write (plan step 5, D31). */
+type ContactWrite = Omit<Extract<DataWrite, { kind: "creator.contact" }>, "kind">;
+
+/**
+ * A creator's primary email contact write (plan step 5, D31): the address becomes the primary
+ * entry `{method: "email", value, label, primary: true, confirmed, source, confidence}`, the old
+ * primary and every other contact kept (`contactsWithPrimary`); a null email removes the primary.
+ * A creator with no row gets one as a stage write makes it (D4), with no stage of its own; any
+ * other unknown id does nothing. `now` is in ms.
+ */
+export function writeCreatorContact(db: DatabaseSync, write: ContactWrite, now: number): void {
+  const row = db.prepare("SELECT contacts FROM channel_state WHERE channel_id = ?").get(write.id);
+  if (row === undefined && !createCreatorRow(db, write, null, now)) {
+    return;
+  }
+  db.prepare("UPDATE channel_state SET contacts = ? WHERE channel_id = ?").run(
+    contactsWithPrimary(row === undefined ? "[]" : String(row["contacts"]), write),
+    write.id,
+  );
+}
+
+/** A creator's stored contacts JSON text, or undefined when the creator has no row. */
+export function readContacts(db: DatabaseSync, id: string): string | undefined {
+  const row = db.prepare("SELECT contacts FROM channel_state WHERE channel_id = ?").get(id);
+  return row === undefined ? undefined : String(row["contacts"]);
+}
+
 /** The most creators a frame carries (the IPC list limit, `listMax` in the ipc package). */
 export const listMax = 5000;
 
@@ -287,6 +323,7 @@ export function listCreators(db: DatabaseSync, o: { limit?: number } = {}): Crea
       name: row["name"] === null ? handle : String(row["name"]),
       handle,
       ...storedFields(row),
+      ...contactFacts(String(row["contacts"])),
     };
   });
 }
@@ -370,9 +407,18 @@ function storedFields(
   row: Readonly<Record<string, SQLOutputValue>>,
 ): Pick<
   Creator,
-  "stage" | "email" | "emailConfirmed" | "rejectReason" | "rejectedAt" | "archiveDueAt"
+  | "stage"
+  | "email"
+  | "emailConfirmed"
+  | "contactName"
+  | "rejectReason"
+  | "rejectedAt"
+  | "archiveDueAt"
 > {
   const contacts = String(row["contacts"]);
+  const primary = primaryEntry(contacts);
+  const confirmed = primary?.["confirmed"] === true;
+  const label = primary?.["label"];
   const action = row["reject_action"];
   const due = row["archive_due_at"] === null ? NaN : Date.parse(String(row["archive_due_at"]));
   const stage = creatorStageFrom({
@@ -385,7 +431,12 @@ function storedFields(
   return {
     stage,
     email: primaryEmail(contacts),
-    emailConfirmed: primaryConfirmed(contacts),
+    emailConfirmed: confirmed,
+    // A name on an address nobody confirmed is only a guess: it is not shown.
+    contactName:
+      confirmed && typeof label === "string" && label.trim() !== ""
+        ? label.trim().slice(0, contactNameMax)
+        : null,
     // A never line has no reason: only a reject line gives one.
     rejectReason: rejected && action === "creator.reject" ? reasonFrom(row["reject_detail"]) : null,
     rejectedAt:
@@ -428,17 +479,20 @@ function reasonFrom(detail: unknown): RejectReason | null {
   return rejectReasons.find((known) => known === reason) ?? null;
 }
 
-/** Whether the contact `primaryEmail` picks is marked `confirmed: true`. Bad JSON reads as false. */
-function primaryConfirmed(contactsJson: string): boolean {
+/**
+ * The contact `primaryEmail` picks, as stored: the email entry with its value, the primary one
+ * first. Null when there is none, or for a bare string (it has no fields). Bad JSON reads as none.
+ */
+function primaryEntry(contactsJson: string): Readonly<Record<string, unknown>> | null {
   const email = primaryEmail(contactsJson);
   if (email === null) {
-    return false;
+    return null;
   }
   let parsed: unknown;
   try {
     parsed = JSON.parse(contactsJson);
   } catch {
-    return false;
+    return null;
   }
   const contacts = Array.isArray(parsed) ? (parsed as readonly unknown[]) : [];
   const entry = contacts
@@ -452,7 +506,98 @@ function primaryConfirmed(contactsJson: string): boolean {
     )
     // The primary one first, as `primaryEmail` chooses it.
     .sort((a, b) => Number(b["primary"] === true) - Number(a["primary"] === true))[0];
-  return entry?.["confirmed"] === true;
+  return entry ?? null;
+}
+
+/**
+ * Where the primary address came from and how sure the finder was, as stored on it (D31); null
+ * for anything that isn't one of the sources or a number from 0 to 1.
+ */
+function contactFacts(contactsJson: string): Pick<Creator, "contactSource" | "contactConfidence"> {
+  const primary = primaryEntry(contactsJson);
+  const source = primary?.["source"];
+  const confidence = primary?.["confidence"];
+  return {
+    contactSource: contactSources.find((known): known is ContactSource => known === source) ?? null,
+    contactConfidence:
+      typeof confidence === "number" && confidence >= 0 && confidence <= 1 ? confidence : null,
+  };
+}
+
+/** Stored contacts as a list; bad JSON or anything but a list reads as none. */
+function contactList(json: string): unknown[] {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(json);
+  } catch {
+    return [];
+  }
+  return Array.isArray(parsed) ? (parsed as unknown[]) : [];
+}
+
+/** The address an email entry holds, trimmed (a bare string with an "@" is one); null otherwise. */
+function emailValue(item: unknown): string | null {
+  if (typeof item === "string") {
+    return item.includes("@") ? item.trim() : null;
+  }
+  if (typeof item !== "object" || item === null) {
+    return null;
+  }
+  const contact = item as Readonly<Record<string, unknown>>;
+  return contact["method"] === "email" && typeof contact["value"] === "string"
+    ? contact["value"].trim()
+    : null;
+}
+
+/**
+ * The contacts with `write`'s address as the primary email (D31). Nothing else is lost: the old
+ * primary stays where it was with `primary: false` (a bare string becomes an email entry), and
+ * every other contact is kept as it is. Entries with the same address become the one new entry, at
+ * the place of the first of them (or last), keeping its label when the write names nobody. So undo
+ * can swap two addresses back, and writing the same contact again gives the same text: the sync
+ * sees no change. A null email only removes the primary entry.
+ */
+function contactsWithPrimary(existingJson: string, write: ContactWrite): string {
+  const oldPrimary = primaryEmail(existingJson);
+  const email = write.email;
+  if (email === null) {
+    return JSON.stringify(
+      contactList(existingJson).filter((item) => !isPrimaryEmailEntry(item, oldPrimary)),
+    );
+  }
+  const next: unknown[] = [];
+  let at: number | null = null;
+  let label: string | null = null;
+  for (const item of contactList(existingJson)) {
+    if (emailValue(item) === email) {
+      if (at === null) {
+        at = next.length;
+        // A bare string has no label; emailValue said anything else is an object.
+        const stored = typeof item === "string" ? null : (item as Record<string, unknown>)["label"];
+        label = typeof stored === "string" ? stored : null;
+      }
+      continue;
+    }
+    if (isPrimaryEmailEntry(item, oldPrimary)) {
+      next.push(
+        typeof item === "string"
+          ? { method: "email", value: item.trim(), primary: false }
+          : { ...(item as Readonly<Record<string, unknown>>), primary: false },
+      );
+      continue;
+    }
+    next.push(item);
+  }
+  next.splice(at ?? next.length, 0, {
+    method: "email",
+    value: email,
+    label: write.contactName ?? label,
+    primary: true,
+    confirmed: write.confirmed,
+    source: write.source,
+    confidence: write.confidence,
+  });
+  return JSON.stringify(next);
 }
 
 function contactsWithEmail(existingJson: string, email: string | null): string {

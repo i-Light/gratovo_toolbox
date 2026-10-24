@@ -1,4 +1,9 @@
-import { exampleFrame, type DataSource, type DataWrite } from "@gratovo/core/data";
+import {
+  exampleFrame,
+  type CreatorStage,
+  type DataSource,
+  type DataWrite,
+} from "@gratovo/core/data";
 import { emptyFacets, emptyFindFilter } from "@gratovo/core/find";
 import {
   channels,
@@ -10,6 +15,7 @@ import {
 import { describe, expect, it, vi } from "vitest";
 
 import { createStubCatalog, type FindCatalog } from "./find/catalog-types";
+import { createStubIdeas, type FindIdeas } from "./find/ideas";
 import { createHandlers, type HandlerContext } from "./handlers";
 import type { SecretStore } from "./secret-store";
 import type { HandlerServices } from "./services";
@@ -117,6 +123,7 @@ function handlersWith(
     account,
     find,
     catalog,
+    ideas: createStubIdeas(),
     ...(onCreatorsWritten === undefined ? {} : { onCreatorsWritten }),
     ...createStubServices(),
     ...services,
@@ -299,6 +306,36 @@ describe("the find catalog handlers", () => {
   });
 });
 
+describe("keyword ideas", () => {
+  it("answer bridge_off from the stub, in the channel's shape", async () => {
+    const mine = handlersWith(accountWith());
+    const answer = await mine["find:ideas"]({ count: 8 });
+    expect(answer).toEqual({ ok: false, problem: "bridge_off" });
+    expect(channels["find:ideas"].response.safeParse(answer).success).toBe(true);
+  });
+
+  it("pass the count to the ideas service", async () => {
+    const suggest = vi.fn<FindIdeas["suggest"]>(() =>
+      Promise.resolve({ ok: true, keywords: ["claude code tutorial"], dropped: 0 }),
+    );
+    const mine = createHandlers({
+      version: "1.2.3",
+      secrets: storeWith([]),
+      account: accountWith(),
+      find: findWith(),
+      catalog: createStubCatalog(),
+      ideas: { suggest },
+      ...createStubServices(),
+    });
+    expect(await mine["find:ideas"]({ count: 3 })).toEqual({
+      ok: true,
+      keywords: ["claude code tutorial"],
+      dropped: 0,
+    });
+    expect(suggest).toHaveBeenCalledWith(3);
+  });
+});
+
 describe("data:write and the catalog", () => {
   const stage: DataWrite = {
     kind: "creator.stage",
@@ -330,6 +367,24 @@ describe("data:write and the catalog", () => {
     expect(await written([{ kind: "log.remove", id: "l1" }])).toBe(1);
   });
 
+  it("tells the catalog after a contact change", async () => {
+    expect(
+      await written([
+        {
+          kind: "creator.contact",
+          id: "UCaaaaaaaaaaaaaaaaaaaaaa",
+          email: "biz@agentlab.ai",
+          confirmed: true,
+          contactName: null,
+          source: "about",
+          confidence: 0.95,
+          handle: "@a",
+          name: "A",
+        },
+      ]),
+    ).toBe(1);
+  });
+
   it("tells the catalog after a conflict is settled, keeping yours or theirs", async () => {
     expect(await written([{ kind: "conflict.resolve", id: "k1", choice: "mine" }])).toBe(1);
     expect(await written([{ kind: "conflict.resolve", id: "k1", choice: "theirs" }])).toBe(1);
@@ -353,6 +408,108 @@ describe("data:write and the catalog", () => {
   it("stays quiet for writes the catalog does not show", async () => {
     expect(await written([logLine(null)])).toBe(0);
     expect(await written([{ kind: "me.name", name: "Sam" }])).toBe(0);
+  });
+});
+
+describe("data:write and the email finder (plan D30)", () => {
+  const moved = (id: string, to: "shortlisted" | "rejected" | "new"): DataWrite => ({
+    kind: "creator.stage",
+    id,
+    stage: to,
+    handle: `@${id}`,
+    name: id,
+  });
+
+  function withFinder(
+    write: DataSource["write"] = () => Promise.resolve(),
+    stages: Readonly<Record<string, CreatorStage>> = {},
+  ) {
+    const onShortlisted = vi.fn<(ids: readonly string[]) => void>();
+    const creatorStates = () =>
+      Promise.resolve(
+        Object.entries(stages).map(([id, stage]) => ({
+          id,
+          handle: `@${id}`,
+          name: id,
+          stage,
+          email: null,
+          emailConfirmed: false,
+          contactName: null,
+          rejectReason: null,
+          rejectedAt: null,
+          archiveDueAt: null,
+          engagement: null,
+          legacyPipelineStage: "",
+          hasAppStage: true,
+          lastActivity: null,
+        })),
+      );
+    const mine = createHandlers({
+      version: "1.2.3",
+      secrets: storeWith([]),
+      account: accountWith({}, sourceWith({ write, creatorStates })),
+      find: findWith(),
+      catalog: createStubCatalog(),
+      ideas: createStubIdeas(),
+      onShortlisted,
+      ...createStubServices(),
+    });
+    return { mine, onShortlisted };
+  }
+
+  it("hands over the creators a stored batch moved to shortlisted, and only those", async () => {
+    const { mine, onShortlisted } = withFinder();
+    await mine["data:write"]({
+      writes: [
+        moved("UCaaaaaaaaaaaaaaaaaaaaaa", "shortlisted"),
+        moved("UCbbbbbbbbbbbbbbbbbbbbbb", "rejected"),
+        { kind: "me.name", name: "Sam" },
+        moved("UCcccccccccccccccccccccc", "shortlisted"),
+      ],
+    });
+    expect(onShortlisted).toHaveBeenCalledExactlyOnceWith([
+      "UCaaaaaaaaaaaaaaaaaaaaaa",
+      "UCcccccccccccccccccccccc",
+    ]);
+  });
+
+  it("looks up only creators coming from new or rejected, not an undone confirm", async () => {
+    const { mine, onShortlisted } = withFinder(() => Promise.resolve(), {
+      UCaaaaaaaaaaaaaaaaaaaaaa: "new",
+      UCbbbbbbbbbbbbbbbbbbbbbb: "contact",
+      UCcccccccccccccccccccccc: "rejected",
+      UCdddddddddddddddddddddd: "shortlisted",
+    });
+    await mine["data:write"]({
+      writes: [
+        moved("UCaaaaaaaaaaaaaaaaaaaaaa", "shortlisted"),
+        moved("UCbbbbbbbbbbbbbbbbbbbbbb", "shortlisted"),
+        moved("UCcccccccccccccccccccccc", "shortlisted"),
+        moved("UCdddddddddddddddddddddd", "shortlisted"),
+        // No row yet: a creator the search found and nobody has touched.
+        moved("UCeeeeeeeeeeeeeeeeeeeeee", "shortlisted"),
+      ],
+    });
+    expect(onShortlisted).toHaveBeenCalledExactlyOnceWith([
+      "UCaaaaaaaaaaaaaaaaaaaaaa",
+      "UCcccccccccccccccccccccc",
+      "UCeeeeeeeeeeeeeeeeeeeeee",
+    ]);
+    // Undoing a Confirm all (contact back to shortlisted) spends no quota.
+    const undo = withFinder(() => Promise.resolve(), { UCbbbbbbbbbbbbbbbbbbbbbb: "contact" });
+    await undo.mine["data:write"]({ writes: [moved("UCbbbbbbbbbbbbbbbbbbbbbb", "shortlisted")] });
+    expect(undo.onShortlisted).not.toHaveBeenCalled();
+  });
+
+  it("stays quiet for a batch with no shortlist, and after a write that failed", async () => {
+    const { mine, onShortlisted } = withFinder();
+    await mine["data:write"]({ writes: [moved("UCaaaaaaaaaaaaaaaaaaaaaa", "new")] });
+    expect(onShortlisted).not.toHaveBeenCalled();
+    const failing = withFinder(() => Promise.reject(new Error("disk full")));
+    await expect(
+      failing.mine["data:write"]({ writes: [moved("UCaaaaaaaaaaaaaaaaaaaaaa", "shortlisted")] }),
+    ).rejects.toThrow("disk full");
+    expect(failing.onShortlisted).not.toHaveBeenCalled();
   });
 });
 

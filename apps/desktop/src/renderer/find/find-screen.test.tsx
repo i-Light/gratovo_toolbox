@@ -411,7 +411,7 @@ describe("the tabs", () => {
   };
   const names = (): string[] => screen.getAllByRole("tab").map((el) => el.textContent);
 
-  it("shows Search, Review new and Gallery on live data, with the count", async () => {
+  it("shows the four tabs on live data, with the counts", async () => {
     initAppStore({ ...exampleData(Date.now()), source: "live" }, { screen: "find", tab: "search" });
     setup(makeState(), onTriage);
     await show();
@@ -419,6 +419,7 @@ describe("the tabs", () => {
       strings.screens.find.tabs.search,
       `${strings.screens.find.tabs.triage}7`,
       strings.screens.find.tabs.gallery,
+      `${strings.screens.find.tabs.contacts}6`,
     ]);
     expect(screen.getByText(strings.findTriage.liveSub)).toBeTruthy();
     await click(screen.getByRole("tab", { name: new RegExp(strings.screens.find.tabs.triage) }));
@@ -479,7 +480,7 @@ describe("break-ui: worst case data", () => {
       keyword: "k".repeat(200),
       videos: [],
       sponsors: Array.from({ length: 25 }, (_, i) => `Sponsor ${"S".repeat(40)} ${String(i)}`),
-      foundEmails: 0,
+      emails: [],
       emailedBefore: { at: null, who: null },
     });
     setup(makeState(), {

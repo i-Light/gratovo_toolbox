@@ -22,13 +22,23 @@ function JobRow({ job }: { readonly job: Job }) {
   const max = job.total || 3;
   const pct = Math.max(0, Math.min(100, (100 * value) / max));
   const sub = job.done
-    ? trays.jobFinished
+    ? (job.note ?? trays.jobFinished)
     : job.kind === "search"
       ? trays.jobKeyword(job.progress + 1, job.total)
       : trays.jobChecking;
   return (
     <div className="tray-i">
-      <Icon name={job.done ? "checkc" : job.kind === "search" ? "scan" : "at"} />
+      <Icon
+        name={
+          job.failed === true
+            ? "alert"
+            : job.done
+              ? "checkc"
+              : job.kind === "search"
+                ? "scan"
+                : "at"
+        }
+      />
       <div className="tx">
         {job.label}
         <small>{sub}</small>

@@ -182,7 +182,7 @@ export const GalleryCard = memo(function GalleryCard({
               <Tag tone="good" icon="at">
                 {text.confirmed}
               </Tag>
-            ) : item.email !== null || item.foundEmails > 0 ? (
+            ) : item.email !== null || item.emails.length > 0 ? (
               <Tag tone="warn" icon="at">
                 {text.emailFound}
               </Tag>

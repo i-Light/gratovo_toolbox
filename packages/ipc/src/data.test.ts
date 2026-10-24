@@ -107,6 +107,30 @@ describe("frameSchema", () => {
     expect(with_({ ...first, emailConfirmed: undefined })).toBe(false);
   });
 
+  it("needs a creator's contact name, source and confidence, each bounded", () => {
+    const [first, ...rest] = frame.creators;
+    const with_ = (creator: unknown) =>
+      frameSchema.safeParse({ ...frame, creators: [creator, ...rest] }).success;
+    const confirmed = {
+      ...first,
+      emailConfirmed: true,
+      contactName: "Maya",
+      contactSource: "about",
+      contactConfidence: 0.95,
+    };
+    expect(with_(confirmed)).toBe(true);
+    for (const source of ["about", "video", "typed", null]) {
+      expect(with_({ ...confirmed, contactSource: source })).toBe(true);
+    }
+    expect(with_({ ...confirmed, contactSource: "guess" })).toBe(false);
+    expect(with_({ ...confirmed, contactName: "x".repeat(80) })).toBe(true);
+    expect(with_({ ...confirmed, contactName: "x".repeat(81) })).toBe(false);
+    expect(with_({ ...confirmed, contactConfidence: 0 })).toBe(true);
+    expect(with_({ ...confirmed, contactConfidence: 1.01 })).toBe(false);
+    expect(with_({ ...confirmed, contactConfidence: -0.5 })).toBe(false);
+    expect(with_({ ...first, contactName: undefined })).toBe(false);
+  });
+
   it("refuses more than 50 log lines", () => {
     const line = { id: "l", at: 0, who: "a", text: "t" };
     expect(frameSchema.safeParse({ ...frame, log: Array(51).fill(line) }).success).toBe(false);
@@ -144,6 +168,17 @@ describe("dataWriteSchema", () => {
       name: "Quill AI",
       sells: "AI writing assistant",
       status: "pitched",
+    },
+    {
+      kind: "creator.contact",
+      id: "UC1",
+      email: "biz@promptlab.tv",
+      confirmed: true,
+      contactName: "Maya",
+      source: "about",
+      confidence: 0.95,
+      handle: "@promptlab",
+      name: "Prompt Lab",
     },
     { kind: "deal.step", id: "d1", step: 0 },
     { kind: "conflict.resolve", id: "x1", choice: "mine" },
@@ -221,6 +256,47 @@ describe("the new write kinds", () => {
       false,
     );
     expect(ok({ ...base, stage: "new" })).toBe(false);
+  });
+
+  it("creator.contact takes an address in its shape or none, a name to 80, a source and a confidence", () => {
+    const base = {
+      kind: "creator.contact",
+      id: "UC1",
+      email: "biz@promptlab.tv",
+      confirmed: true,
+      contactName: "Maya",
+      source: "about",
+      confidence: 0.95,
+      handle: "@promptlab",
+      name: "Prompt Lab",
+    };
+    expect(ok(base)).toBe(true);
+    // Undo of a first confirm: no address, nothing confirmed, nothing known about it.
+    expect(
+      ok({
+        ...base,
+        email: null,
+        confirmed: false,
+        contactName: null,
+        source: null,
+        confidence: null,
+      }),
+    ).toBe(true);
+    expect(ok({ ...base, source: "typed", confidence: null })).toBe(true);
+    expect(ok({ ...base, source: "video", confidence: 0.6 })).toBe(true);
+    for (const email of ["", "promptlab.tv", "biz@promptlab", "biz @promptlab.tv", "a@b@c.tv"]) {
+      expect(ok({ ...base, email })).toBe(false);
+    }
+    expect(ok({ ...base, email: `${"a".repeat(245)}@ai.tools` })).toBe(true);
+    expect(ok({ ...base, email: `${"a".repeat(246)}@ai.tools` })).toBe(false);
+    expect(ok({ ...base, contactName: "x".repeat(80) })).toBe(true);
+    expect(ok({ ...base, contactName: "x".repeat(81) })).toBe(false);
+    expect(ok({ ...base, source: "guess" })).toBe(false);
+    expect(ok({ ...base, confidence: 1.5 })).toBe(false);
+    expect(ok({ ...base, confidence: -0.1 })).toBe(false);
+    expect(ok({ ...base, id: "" })).toBe(false);
+    expect(ok({ ...base, stage: "contact" })).toBe(false);
+    expect(ok({ ...base, handle: undefined })).toBe(false);
   });
 
   it("brand.set bounds the name, what it sells and the status", () => {
@@ -318,6 +394,47 @@ describe("data:write request", () => {
   it("refuses anything beside writes", () => {
     expect(request.safeParse({ writes: [write], path: "C:/x" }).success).toBe(false);
   });
+
+  it("takes back an odd old address on undo, but never confirms one", () => {
+    // The old app stored any text as the email; undoing a confirm writes it back unconfirmed.
+    const contact = {
+      kind: "creator.contact",
+      id: "UC1",
+      email: "biz@promptlab.tv,press@promptlab.tv",
+      confirmed: false,
+      contactName: null,
+      source: null,
+      confidence: null,
+      handle: "@promptlab",
+      name: "Prompt Lab",
+    };
+    const stage = {
+      kind: "creator.stage",
+      id: "UC1",
+      stage: "shortlisted",
+      handle: "@promptlab",
+      name: "Prompt Lab",
+    };
+    expect(request.safeParse({ writes: [contact, stage] }).success).toBe(true);
+    expect(request.safeParse({ writes: [{ ...contact, email: "hello@promptlab" }] }).success).toBe(
+      true,
+    );
+    expect(request.safeParse({ writes: [{ ...contact, email: "x".repeat(1000) }] }).success).toBe(
+      true,
+    );
+    expect(request.safeParse({ writes: [{ ...contact, email: "x".repeat(1001) }] }).success).toBe(
+      false,
+    );
+    expect(request.safeParse({ writes: [{ ...contact, email: "" }] }).success).toBe(false);
+    expect(request.safeParse({ writes: [{ ...contact, email: null }] }).success).toBe(true);
+    expect(request.safeParse({ writes: [{ ...contact, confirmed: true }, stage] }).success).toBe(
+      false,
+    );
+    expect(
+      request.safeParse({ writes: [{ ...contact, confirmed: true, email: "hello@promptlab" }] })
+        .success,
+    ).toBe(false);
+  });
 });
 
 describe("the data channels through the dispatcher", () => {
@@ -368,6 +485,7 @@ describe("the data channels through the dispatcher", () => {
       "find:runs": () => ({ runs: [] }),
       "find:views": () => ({ views: [] }),
       "find:views-set": () => ({ ok: true as const }),
+      "find:ideas": () => ({ ok: false as const, problem: "bridge_off" as const }),
       "log:for": () => ({ lines: [] }),
       "rules:set": () => ({}),
       "import:candidates": () => ({ candidates: [] }),

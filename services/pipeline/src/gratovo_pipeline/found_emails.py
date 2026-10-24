@@ -21,7 +21,8 @@ top-level domain at the end), retina image names (`logo@2x.png`), and
 from __future__ import annotations
 
 import re
-from typing import Final
+from collections.abc import Iterable
+from typing import Final, Literal, TypedDict
 
 # Full-width signs, as typed on CJK keyboards or pasted to dodge scrapers.
 _FULL_WIDTH: Final = str.maketrans({chr(0xFF20): "@", chr(0xFF0E): "."})
@@ -72,6 +73,21 @@ _NOT_MAILBOXES: Final = frozenset(
     "localdomain localhost local internal lan invalid".split()
 )
 
+# A business word this close before the address marks it as the one to write to.
+_BUSINESS_REACH: Final = 40
+_BUSINESS_WORD = re.compile(
+    r"business|inquiries|enquiries|collab|collaboration|sponsor|sponsorship|partnership"
+    r"|brand\s+deals",
+    re.IGNORECASE,
+)
+
+
+class Source(TypedDict):
+    email: str
+    source: Literal["about", "video"]
+    videos: int
+    business: bool
+
 
 def _unspell_words(text: str) -> str:
     def replace(match: re.Match[str]) -> str:
@@ -120,6 +136,21 @@ def _valid(local: str, domain: str) -> bool:
     return all(labels) and not any(label.startswith("-") or label.endswith("-") for label in labels)
 
 
+def _addresses(text: str) -> list[tuple[str, bool]]:
+    """Each valid address in [text] with whether a business word sits just before it. Repeats
+    are kept: the caller decides what a second sighting means."""
+    normal = _normalise(text)
+    out: list[tuple[str, bool]] = []
+    for match in _ADDRESS.finditer(normal):
+        local = match.group(1).lower()
+        domain = _unglue(re.sub(r"\s+", "", match.group(2))).lower()
+        if not _valid(local, domain):
+            continue
+        before = normal[max(0, match.start() - _BUSINESS_REACH) : match.start()]
+        out.append((f"{local}@{domain}", _BUSINESS_WORD.search(before) is not None))
+    return out
+
+
 def find_emails(*texts: str | None) -> list[str]:
     """Every address in [texts], lower-cased, first seen first, no repeats.
     `None` and empty texts are skipped, so a channel's About text and its
@@ -128,12 +159,40 @@ def find_emails(*texts: str | None) -> list[str]:
     for text in texts:
         if not text:
             continue
-        for match in _ADDRESS.finditer(_normalise(text)):
-            local = match.group(1).lower()
-            domain = _unglue(re.sub(r"\s+", "", match.group(2))).lower()
-            if not _valid(local, domain):
-                continue
-            address = f"{local}@{domain}"
+        for address, _ in _addresses(text):
             if address not in found:
                 found.append(address)
     return found
+
+
+def find_emails_with_sources(about: str | None, descriptions: Iterable[str | None]) -> list[Source]:
+    """Every address with where it came from: `source` is "about" when the About text has it, else
+    "video"; `videos` counts the descriptions that have it (also when About does); `business` is
+    true when a business word sits within 40 characters before it, in the About text if it is
+    there, else in a description. About addresses come first in their order, then video ones,
+    most videos first."""
+    in_about: dict[str, bool] = {}
+    for address, business in _addresses(about) if about else []:
+        in_about[address] = in_about.get(address, False) or business
+    counts: dict[str, int] = {}
+    video_business: dict[str, bool] = {}
+    for description in descriptions:
+        if not description:
+            continue
+        seen: set[str] = set()
+        for address, business in _addresses(description):
+            video_business[address] = video_business.get(address, False) or business
+            if address not in seen:
+                seen.add(address)
+                counts[address] = counts.get(address, 0) + 1
+    result: list[Source] = [
+        {"email": a, "source": "about", "videos": counts.get(a, 0), "business": b}
+        for a, b in in_about.items()
+    ]
+    only_video = [a for a in counts if a not in in_about]
+    only_video.sort(key=lambda a: -counts[a])  # stable: ties keep first-seen order
+    result.extend(
+        {"email": a, "source": "video", "videos": counts[a], "business": video_business[a]}
+        for a in only_video
+    )
+    return result

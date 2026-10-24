@@ -85,7 +85,7 @@ const Row = memo(function Row({ item, selected, now, onOpen, onPick }: RowProps)
       <td>
         {item.emailConfirmed ? (
           <Tag tone="good">{text.emailConfirmed}</Tag>
-        ) : item.email !== null || item.foundEmails > 0 ? (
+        ) : item.email !== null || item.emails.length > 0 ? (
           <Tag tone="warn">{text.emailFound}</Tag>
         ) : (
           <span className="muted">{text.emailNone}</span>

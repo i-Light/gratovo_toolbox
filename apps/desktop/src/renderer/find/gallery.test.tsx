@@ -35,7 +35,8 @@ const now = Date.now();
 const runs: TestRun[] = [
   {
     id: 2,
-    startedAt: now - 3_600_000,
+    // An hour ago, but never before midnight: it is "Today's search".
+    startedAt: Math.max(now - 3_600_000, new Date(now).setHours(0, 0, 0, 0)),
     finishedAt: now,
     status: "done",
     keywords: 5,

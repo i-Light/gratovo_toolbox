@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { cleanup, render, screen } from "@testing-library/react";
+import { createRef } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Avatar, Btn, Empty, Icon, IconBtn, Kbd, PageHead, Seg, Switch, Tag } from "./index";
@@ -105,6 +106,24 @@ describe("Btn", () => {
     expect(button.querySelector(".kbd")?.textContent).toBe("S");
     expect(button.hasAttribute("data-kbd")).toBe(false);
     expect(button.disabled).toBe(true);
+  });
+
+  it("says whether what it opens is open, and hands over its element", () => {
+    const ref = createRef<HTMLButtonElement>();
+    const { rerender } = render(
+      <Btn ref={ref} onClick={vi.fn()}>
+        Ideas
+      </Btn>,
+    );
+    const button = screen.getByRole("button");
+    expect(button.hasAttribute("aria-expanded")).toBe(false);
+    expect(ref.current).toBe(button);
+    rerender(
+      <Btn expanded onClick={vi.fn()}>
+        Ideas
+      </Btn>,
+    );
+    expect(button.getAttribute("aria-expanded")).toBe("true");
   });
 });
 

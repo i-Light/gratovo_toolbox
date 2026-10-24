@@ -126,6 +126,8 @@ def test_real_run_copies_and_the_old_file_is_untouched(run: Run) -> None:
     assert conn.execute("SELECT COUNT(*) FROM videos").fetchone()[0] == 3
     assert conn.execute("SELECT COUNT(*) FROM video_transcripts").fetchone()[0] == 1
     assert conn.execute("PRAGMA user_version").fetchone()[0] == store.SCHEMA_VERSION
+    # A legacy file has no sources column: an imported row has it empty.
+    assert conn.execute("SELECT found_email_sources FROM channels").fetchall() == [(None,), (None,)]
     found = conn.execute(
         "SELECT found_emails FROM channels WHERE channel_id = 'UCai0001'"
     ).fetchone()[0]

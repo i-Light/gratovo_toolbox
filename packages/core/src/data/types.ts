@@ -91,6 +91,26 @@ export const nameMax = 80;
 // Room for the old app's longest notes; a longer pulled note shows read-only (`notesCut`).
 export const notesMax = 50_000;
 
+/** The longest email address (RFC 5321's path limit). */
+export const emailMax = 254;
+
+/**
+ * The basic shape of an address: something, one "@", a domain with a dot, and no spaces. Enough
+ * to catch a slip in a typed address; the mailbox itself decides the rest.
+ */
+export const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** The longest name of the person who reads a creator's inbox (plan step 5, D31). */
+export const contactNameMax = 80;
+
+/**
+ * Where a confirmed address came from (plan step 5, D27 and D31): the channel's About text, its
+ * video descriptions, or typed by hand.
+ */
+export const contactSources = ["about", "video", "typed"] as const;
+
+export type ContactSource = (typeof contactSources)[number];
+
 /** A person on the team. */
 export interface TeamMember {
   readonly id: string;
@@ -160,6 +180,15 @@ export interface Creator {
   readonly email: string | null;
   /** Whether the primary contact has been confirmed by a person. */
   readonly emailConfirmed: boolean;
+  /**
+   * Who reads the inbox (the primary email contact's `label`), at most `contactNameMax`; null
+   * unless that contact is confirmed (D31).
+   */
+  readonly contactName: string | null;
+  /** The primary email contact's stored `source`; null when it has none. */
+  readonly contactSource: ContactSource | null;
+  /** The primary email contact's stored `confidence`, 0 to 1; null when it has none. */
+  readonly contactConfidence: number | null;
   /** From the newest `creator.reject` line; null otherwise. */
   readonly rejectReason: RejectReason | null;
   /** In ms: the time of the newest reject or never line; null when there is none. */
@@ -180,6 +209,8 @@ export interface CreatorState {
   readonly stage: CreatorStage;
   readonly email: string | null;
   readonly emailConfirmed: boolean;
+  /** As `Creator.contactName`. */
+  readonly contactName: string | null;
   readonly rejectReason: RejectReason | null;
   readonly rejectedAt: number | null;
   readonly archiveDueAt: number | null;
@@ -320,6 +351,25 @@ export type DataWrite =
       readonly id: string;
       readonly base: string;
       readonly notes: string;
+      readonly handle: string;
+      readonly name: string;
+    }
+  /**
+   * A creator's primary email contact (plan step 5, D31): it becomes
+   * `{method: "email", value: email, label: contactName, primary: true, confirmed, source,
+   * confidence}` and every other contact is kept; a null `email` removes the primary email. Like
+   * a stage, it carries the handle and the name so main can create the row (D4). Undo sends the
+   * contact the creator had before the same way.
+   */
+  | {
+      readonly kind: "creator.contact";
+      readonly id: string;
+      readonly email: string | null;
+      readonly confirmed: boolean;
+      readonly contactName: string | null;
+      readonly source: ContactSource | null;
+      /** 0 to 1; null for a typed address. */
+      readonly confidence: number | null;
       readonly handle: string;
       readonly name: string;
     }

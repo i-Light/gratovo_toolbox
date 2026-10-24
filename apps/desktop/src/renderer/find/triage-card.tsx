@@ -152,7 +152,9 @@ export function TriageCard({
           ) : null}
         </div>
         <div className="tr-foot small muted">
-          <span>{item.foundEmails > 0 ? text.emailsFound(item.foundEmails) : text.emailsNone}</span>
+          <span>
+            {item.emails.length > 0 ? text.emailsFound(item.emails.length) : text.emailsNone}
+          </span>
           {item.keyword === null ? null : <span>{text.foundBy(item.keyword)}</span>}
         </div>
       </article>

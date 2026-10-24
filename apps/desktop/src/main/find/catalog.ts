@@ -1,8 +1,23 @@
 import { existsSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 
-import { notesMax, type CreatorStage, type CreatorState } from "@gratovo/core/data";
-import { fitOf, queryCatalog, type CatalogItem, type CatalogVideo } from "@gratovo/core/find";
+import {
+  emailMax,
+  emailPattern,
+  notesMax,
+  type CreatorStage,
+  type CreatorState,
+} from "@gratovo/core/data";
+import {
+  emailConfidence,
+  fitOf,
+  foundEmailsMax,
+  queryCatalog,
+  sortFoundEmails,
+  type CatalogItem,
+  type CatalogVideo,
+  type FoundEmail,
+} from "@gratovo/core/find";
 
 import type { Catalog, CatalogDeps } from "./catalog-types";
 import { parseTime, readRunWindows, readRuns, runAt, type RunWindow } from "./runs";
@@ -58,6 +73,8 @@ interface ChannelRow {
   latest_upload_at: string | null;
   seen_brands: string | null;
   found_emails: string | null;
+  /** Null when the file is older than schema 3 and has no such column. */
+  found_email_sources: string | null;
 }
 
 interface VideoRow {
@@ -107,6 +124,48 @@ function sponsorsOf(text: string | null): string[] {
   return [...seen];
 }
 
+/**
+ * The finder's addresses (D27, D29). `sources` says where each was seen; an address only in
+ * `found_emails` (an old row, or a database before schema 3) reads as found in the About text.
+ * Entries not in an address's shape are dropped, repeats too; the list is sorted, then cut to
+ * `foundEmailsMax`.
+ */
+function emailsOf(found: string | null, sources: string | null): FoundEmail[] {
+  const seen = new Set<string>();
+  const emails: FoundEmail[] = [];
+  const add = (address: unknown, source: "about" | "video", videos: number, business: boolean) => {
+    const email = typeof address === "string" ? address.trim() : "";
+    if (email.length > emailMax || !emailPattern.test(email) || seen.has(email.toLowerCase())) {
+      return;
+    }
+    seen.add(email.toLowerCase());
+    emails.push({
+      email,
+      source,
+      videos,
+      business,
+      confidence: emailConfidence({ email, source, videos, business }),
+    });
+  };
+  for (const entry of jsonList(sources)) {
+    if (typeof entry !== "object" || entry === null) {
+      continue;
+    }
+    const { email, source, videos, business } = entry as Record<string, unknown>;
+    if (source !== "about" && source !== "video") {
+      continue;
+    }
+    const n =
+      typeof videos === "number" && Number.isFinite(videos) ? Math.max(0, Math.floor(videos)) : 0;
+    // An About address keeps its video count too, so the card can say it is also in N videos.
+    add(email, source, n, business === true);
+  }
+  for (const entry of jsonList(found)) {
+    add(entry, "about", 0, false);
+  }
+  return sortFoundEmails(emails).slice(0, foundEmailsMax);
+}
+
 function videoOf(row: VideoRow): CatalogVideo {
   return {
     id: row.video_id,
@@ -145,11 +204,16 @@ function build(dbPath: string | null, states: readonly CreatorState[], now: numb
   if (dbPath !== null && existsSync(dbPath)) {
     const db = new DatabaseSync(dbPath, { readOnly: true });
     try {
+      // Schema 3 added `found_email_sources`; an older file has no such column.
+      const hasSources = (
+        db.prepare("PRAGMA table_info(channels)").all() as unknown as { name: string }[]
+      ).some((column) => column.name === "found_email_sources");
       channels.push(
         ...(db
           .prepare(
             `SELECT channel_id, handle, name, subscribers, profile_picture, country, first_seen_at,
-               videos_last_30, median_views_last_30, latest_upload_at, seen_brands, found_emails
+               videos_last_30, median_views_last_30, latest_upload_at, seen_brands, found_emails,
+               ${hasSources ? "found_email_sources" : "NULL AS found_email_sources"}
              FROM channels`,
           )
           .all() as unknown as ChannelRow[]),
@@ -208,12 +272,13 @@ function build(dbPath: string | null, states: readonly CreatorState[], now: numb
       stage: state?.stage ?? "new",
       emailConfirmed: state?.emailConfirmed ?? false,
       email: state?.email ?? null,
+      contactName: state?.contactName ?? null,
       subscribers: count(channel.subscribers),
       medianViews: channel.median_views_last_30 ?? 0,
       uploads30: channel.videos_last_30 ?? 0,
       country: countryOf(channel.country),
       sponsors: sponsorsOf(channel.seen_brands),
-      foundEmails: jsonList(channel.found_emails).length,
+      emails: emailsOf(channel.found_emails, channel.found_email_sources),
       latestUploadAt: parseTime(channel.latest_upload_at),
       foundAt,
       run: runAt(windows, foundAt, now),
@@ -239,12 +304,13 @@ function build(dbPath: string | null, states: readonly CreatorState[], now: numb
       stage: state.stage,
       emailConfirmed: state.emailConfirmed,
       email: state.email,
+      contactName: state.contactName,
       subscribers: null,
       medianViews: 0,
       uploads30: 0,
       country: null,
       sponsors: [],
-      foundEmails: 0,
+      emails: [],
       latestUploadAt: null,
       foundAt: null,
       run: null,

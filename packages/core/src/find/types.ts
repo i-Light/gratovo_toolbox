@@ -18,6 +18,23 @@ export interface CatalogVideo {
   readonly pic: string | null;
 }
 
+/**
+ * An address the email finder found on a channel (plan step 5, D27 and D28): where it was (the
+ * About text, or how many video descriptions), whether a business word sat just before it, and how
+ * sure the finder is, 0 to 1. A suggestion until a person confirms it.
+ */
+export interface FoundEmail {
+  readonly email: string;
+  readonly source: "about" | "video";
+  /** In how many video descriptions it was found; 0 for the About text alone. */
+  readonly videos: number;
+  readonly business: boolean;
+  readonly confidence: number;
+}
+
+/** The most found addresses a catalog item carries (D29). */
+export const foundEmailsMax = 10;
+
 /** One channel in the catalog: the pipeline's numbers joined to the team's creator state. */
 export interface CatalogItem {
   readonly id: string;
@@ -28,6 +45,8 @@ export interface CatalogItem {
   readonly stage: CreatorStage;
   readonly emailConfirmed: boolean;
   readonly email: string | null;
+  /** Who reads the inbox, from the creator's confirmed contact (D31); null otherwise. */
+  readonly contactName: string | null;
   /** Null when the channel hides its count. */
   readonly subscribers: number | null;
   readonly medianViews: number;
@@ -36,8 +55,8 @@ export interface CatalogItem {
   /** ISO-2, the channel's own country. */
   readonly country: string | null;
   readonly sponsors: readonly string[];
-  /** How many addresses the email finder found. */
-  readonly foundEmails: number;
+  /** The addresses the email finder found, most sure first, at most `foundEmailsMax` (D29). */
+  readonly emails: readonly FoundEmail[];
   /** In ms. */
   readonly latestUploadAt: number | null;
   /** In ms: when a search first found it. */

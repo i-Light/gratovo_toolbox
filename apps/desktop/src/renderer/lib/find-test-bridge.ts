@@ -15,20 +15,25 @@ export interface TestRun {
 
 /** A catalog item about an AI channel, with sensible numbers; `over` changes any field. */
 export function aiChannel(id: string, name: string, over: Partial<CatalogItem> = {}): CatalogItem {
+  const slug = name.toLowerCase().replace(/[^a-z0-9]/g, "");
   return {
     id,
     name,
-    handle: `@${name.toLowerCase().replace(/[^a-z0-9]/g, "")}`,
+    handle: `@${slug}`,
     pic: null,
     stage: "new",
     emailConfirmed: false,
     email: null,
+    contactName: null,
     subscribers: 120_000,
     medianViews: 41_000,
     uploads30: 6,
     country: "US",
     sponsors: ["Notion AI", "Descript"],
-    foundEmails: 2,
+    emails: [
+      { email: `biz@${slug}.ai`, source: "about", videos: 0, business: true, confidence: 0.95 },
+      { email: `${slug}@gmail.com`, source: "video", videos: 3, business: false, confidence: 0.75 },
+    ],
     latestUploadAt: Date.now() - 2 * 86_400_000,
     foundAt: Date.now() - 86_400_000,
     run: 2,
@@ -74,8 +79,8 @@ export interface FindBridgeFixture {
 /**
  * For tests that open Find without caring about it: a bridge whose `find:state` fails, whose
  * catalog channels answer empty (or with the fixture's items and runs, filtered and sorted as main
- * does), whose saved views and creator lines are none (a save is accepted), and that has no
- * events. Returns the calls made, in order.
+ * does), whose saved views and creator lines are none (a save is accepted), whose keyword ideas
+ * answer `bridge_off`, and that has no events. Returns the calls made, in order.
  */
 export function stubFindBridge(fixture: FindBridgeFixture = {}): [string, unknown][] {
   const calls: [string, unknown][] = [];
@@ -109,6 +114,9 @@ export function stubFindBridge(fixture: FindBridgeFixture = {}): [string, unknow
         return Promise.resolve({ ok: true, value: { ok: true } });
       case "log:for":
         return Promise.resolve({ ok: true, value: { lines: [] } });
+      case "find:ideas":
+        // As main's stub answers until the bridge is wired (B10).
+        return Promise.resolve({ ok: true, value: { ok: false, problem: "bridge_off" } });
       default:
         return Promise.resolve({ ok: false, reason: "test" });
     }

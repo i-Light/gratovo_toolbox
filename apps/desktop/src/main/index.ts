@@ -10,8 +10,10 @@ import { registerAppScheme, serveAppFiles } from "./app-protocol";
 import { createEventSender } from "./events";
 import { isGoogleConsentUrl } from "./external-links";
 import { createCatalog } from "./find/catalog";
+import { catalogChannels, createEmailFinder } from "./find/email-finder";
+import { createIdeas } from "./find/ideas";
 import { createImageNetwork, createImageService } from "./find/images";
-import { createFindService } from "./find/find-service";
+import { createFindService, searchRouting } from "./find/find-service";
 import { createHandlers } from "./handlers";
 import {
   createGeminiControl,
@@ -215,8 +217,9 @@ function start(): void {
       const supervisor = pipelineLane("pipeline");
       // Nothing runs on it yet: mail (steps 6 to 9), video stats and the gateways card will.
       const quickLane = pipelineLane("quick");
-      // The Gemini bridge (step 3e-3). Nothing starts it yet: keyword ideas (step 5) and drafts
-      // (step 6) will. It is created here so quitting always stops it.
+      // The Gemini bridge (step 3e-3). Only the owner starts it, from Settings › Connections (ADR
+      // 0016 D7); keyword ideas (step 5c) ask it when it is listening, drafts (step 6) will. It is
+      // created here so quitting always stops it.
       const gemini = createGeminiService({
         spawn: (command, args, options) =>
           spawn(command, [...args], { ...options, stdio: "pipe", windowsHide: true }),
@@ -272,6 +275,8 @@ function start(): void {
           console.error("The Gemini bridge couldn't be stopped after a data switch:", error);
         });
       };
+      // Set once the email finder exists (it needs the catalog, made after the find service).
+      let yieldLane: () => Promise<void> = () => Promise.resolve();
       const find = createFindService({
         supervisor,
         account,
@@ -288,6 +293,8 @@ function start(): void {
         onPipelineChanged: () => {
           invalidateCatalog();
         },
+        // A lookup of emails in the background gives way to a search (plan D30).
+        yieldLane: () => yieldLane(),
       });
       // The Find read model (plan D1): pipeline.db joined with the open source's creator states.
       const catalog = createCatalog({
@@ -318,6 +325,34 @@ function start(): void {
           ? { dataDir, worker: context.workerId }
           : null;
       };
+      // After a shortlist, live only: refetch the creators with no confirmed address (plan D30).
+      // The key and the route come as a search gets them; the tray hears of it in `find:emails`.
+      const emailFinder = createEmailFinder({
+        supervisor,
+        liveContext: liveJobContext,
+        youtubeKey: () => account.teamKeys.youtubeKey(),
+        routing: () => searchRouting(secrets),
+        settings: () => startSettings(account.source(), { mail: false }),
+        channels: catalogChannels(catalog),
+        onPipelineChanged: () => {
+          invalidateCatalog();
+        },
+        emit: (event) => {
+          emit("find:emails", event);
+        },
+      });
+      yieldLane = () => emailFinder.yieldLane();
+      // Keyword ideas (plan D33): the bridge when the owner has it running, a stand-in on the
+      // example data. Nothing here starts the bridge.
+      const ideas = createIdeas({
+        mode: () => account.findContext()?.mode ?? null,
+        queue: () => find.state().queue,
+        bridgeReady: async () => {
+          const status = await geminiControl.status();
+          return status.state === "listening" && status.addon.state === "connected";
+        },
+        generate: (params) => gemini.call("action.generate_keywords", params),
+      });
       const importer = createImporter({
         userDataDir: userData,
         localAppData: process.env["LOCALAPPDATA"] ?? null,
@@ -422,6 +457,7 @@ function start(): void {
       });
       app.on("will-quit", () => {
         geminiControl.dispose();
+        emailFinder.dispose();
         catalog.close();
         account.close();
       });
@@ -437,7 +473,11 @@ function start(): void {
           account,
           find,
           catalog,
+          ideas,
           onCreatorsWritten: invalidateCatalog,
+          onShortlisted: (ids) => {
+            emailFinder.shortlisted(ids);
+          },
           importer,
           connections,
           gemini: geminiControl,

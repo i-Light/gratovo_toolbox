@@ -12,7 +12,11 @@ export {
 export type { LegacyCreatorFields } from "./legacy-mapping";
 export {
   agencyRoles,
+  contactNameMax,
+  contactSources,
   creatorStages,
+  emailMax,
+  emailPattern,
   frameSources,
   logActions,
   nameMax,
@@ -26,6 +30,7 @@ export type {
   AgencyRole,
   AppRole,
   Brand,
+  ContactSource,
   Creator,
   CreatorStage,
   CreatorState,

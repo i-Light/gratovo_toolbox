@@ -645,6 +645,9 @@ export function describeDataSourceContract(
           stage: "shortlisted",
           email: null,
           emailConfirmed: false,
+          contactName: null,
+          contactSource: null,
+          contactConfidence: null,
           rejectReason: null,
           rejectedAt: null,
           archiveDueAt: null,
@@ -897,6 +900,272 @@ export function describeDataSourceContract(
         expect(await source.creatorStates()).toEqual(before);
       });
 
+      function contact(
+        id: string,
+        email: string | null,
+        over: Partial<Extract<DataWrite, { kind: "creator.contact" }>> = {},
+      ): DataWrite {
+        return {
+          kind: "creator.contact",
+          id,
+          email,
+          confirmed: true,
+          contactName: "Maya",
+          source: "about",
+          confidence: 0.95,
+          handle: "",
+          name: "",
+          ...over,
+        };
+      }
+
+      function storedContacts(id: string): unknown {
+        let out: unknown;
+        withDb(file, (db) => {
+          const row = db.prepare("SELECT contacts FROM channel_state WHERE channel_id = ?").get(id);
+          out = row === undefined ? undefined : (JSON.parse(String(row["contacts"])) as unknown);
+        });
+        return out;
+      }
+
+      function readStoredText(id: string): string | undefined {
+        let out: string | undefined;
+        withDb(file, (db) => {
+          const row = db.prepare("SELECT contacts FROM channel_state WHERE channel_id = ?").get(id);
+          out = row === undefined ? undefined : String(row["contacts"]);
+        });
+        return out;
+      }
+
+      function setContacts(id: string, contacts: unknown): void {
+        withDb(file, (db) => {
+          db.prepare("UPDATE channel_state SET contacts = ? WHERE channel_id = ?").run(
+            JSON.stringify(contacts),
+            id,
+          );
+        });
+      }
+
+      const primary = {
+        method: "email",
+        value: "biz@modelmatters.ai",
+        label: "Maya",
+        primary: true,
+        confirmed: true,
+        source: "about",
+        confidence: 0.95,
+      };
+
+      it("confirms an address as the primary contact, keeping the other contacts", async () => {
+        const source = start();
+        const phone = { method: "phone", value: "+1 555 0100", primary: false };
+        const other = { method: "email", value: "press@modelmatters.ai", primary: false };
+        setContacts("c11", [
+          phone,
+          { method: "email", value: "modelmatters.yt@gmail.com", primary: true },
+          other,
+        ]);
+        const frame = await writeAll(source, contact("c11", "biz@modelmatters.ai"));
+        // The old primary stays where it was, no longer primary; the new address goes last.
+        const kept = [
+          phone,
+          { method: "email", value: "modelmatters.yt@gmail.com", primary: false },
+          other,
+          primary,
+        ];
+        expect(storedContacts("c11")).toEqual(kept);
+        expect(frame.creators.find((c) => c.id === "c11")).toMatchObject({
+          stage: "new",
+          email: "biz@modelmatters.ai",
+          emailConfirmed: true,
+          contactName: "Maya",
+          contactSource: "about",
+          contactConfidence: 0.95,
+        });
+        expect((await source.creatorStates()).find((c) => c.id === "c11")).toMatchObject({
+          email: "biz@modelmatters.ai",
+          emailConfirmed: true,
+          contactName: "Maya",
+        });
+        // The same contact again gives the same list.
+        await source.write([contact("c11", "biz@modelmatters.ai")]);
+        expect(storedContacts("c11")).toEqual(kept);
+      });
+
+      it("confirming another address keeps the old one and its label, and undo swaps them back", async () => {
+        const source = start();
+        const a = {
+          method: "email",
+          value: "team@modelmatters.ai",
+          primary: true,
+          label: "manager",
+        };
+        const b = { method: "email", value: "press@modelmatters.ai", label: "press" };
+        setContacts("c11", [a, b]);
+        await source.write([contact("c11", "press@modelmatters.ai", { contactName: null })]);
+        const confirmed = [
+          { ...a, primary: false },
+          {
+            method: "email",
+            value: "press@modelmatters.ai",
+            label: "press",
+            primary: true,
+            confirmed: true,
+            source: "about",
+            confidence: 0.95,
+          },
+        ];
+        expect(storedContacts("c11")).toEqual(confirmed);
+        // The label of a confirmed address is its contact name.
+        expect((await source.frame()).creators.find((c) => c.id === "c11")).toMatchObject({
+          email: "press@modelmatters.ai",
+          emailConfirmed: true,
+          contactName: "press",
+        });
+        // The same write again changes nothing, down to the text.
+        const text = readStoredText("c11");
+        await source.write([contact("c11", "press@modelmatters.ai", { contactName: null })]);
+        expect(readStoredText("c11")).toBe(text);
+        // Undo writes the old address back unconfirmed.
+        await source.write([
+          contact("c11", "team@modelmatters.ai", {
+            confirmed: false,
+            contactName: null,
+            source: null,
+            confidence: null,
+          }),
+        ]);
+        expect(storedContacts("c11")).toEqual([
+          {
+            method: "email",
+            value: "team@modelmatters.ai",
+            label: "manager",
+            primary: true,
+            confirmed: false,
+            source: null,
+            confidence: null,
+          },
+          { ...confirmed[1], primary: false },
+        ]);
+        expect((await source.frame()).creators.find((c) => c.id === "c11")).toMatchObject({
+          email: "team@modelmatters.ai",
+          emailConfirmed: false,
+          contactName: null,
+        });
+      });
+
+      it("a bare-string old primary stays, as an email entry that is not primary", async () => {
+        const source = start();
+        const phone = { method: "phone", value: "+1 555 0100" };
+        setContacts("c11", ["team@modelmatters.ai", phone]);
+        await source.write([contact("c11", "biz@modelmatters.ai")]);
+        expect(storedContacts("c11")).toEqual([
+          { method: "email", value: "team@modelmatters.ai", primary: false },
+          phone,
+          primary,
+        ]);
+        expect((await source.frame()).creators.find((c) => c.id === "c11")?.email).toBe(
+          "biz@modelmatters.ai",
+        );
+      });
+
+      it("undo puts the old address back unconfirmed, and a null address removes the primary", async () => {
+        const source = start();
+        await source.write([contact("c12", "hi@promptdaily.ai", { contactName: null })]);
+        await source.write([
+          contact("c12", null, {
+            confirmed: false,
+            contactName: null,
+            source: null,
+            confidence: null,
+          }),
+        ]);
+        expect(storedContacts("c12")).toEqual([]);
+        expect((await source.frame()).creators.find((c) => c.id === "c12")).toMatchObject({
+          email: null,
+          emailConfirmed: false,
+          contactName: null,
+          contactSource: null,
+          contactConfidence: null,
+        });
+        await source.write([
+          contact("c11", "modelmatters.yt@gmail.com", {
+            confirmed: false,
+            contactName: null,
+            source: null,
+            confidence: null,
+          }),
+        ]);
+        const c11 = (await source.frame()).creators.find((c) => c.id === "c11");
+        expect(c11).toMatchObject({
+          email: "modelmatters.yt@gmail.com",
+          emailConfirmed: false,
+          contactName: null,
+        });
+      });
+
+      it("a typed address keeps its source and no confidence; a repeat of it is not listed twice", async () => {
+        const source = start();
+        setContacts("c11", [
+          { method: "email", value: "modelmatters.yt@gmail.com", primary: true },
+          "hello@modelmatters.ai",
+        ]);
+        await source.write([
+          contact("c11", "hello@modelmatters.ai", { source: "typed", confidence: null }),
+        ]);
+        expect(storedContacts("c11")).toEqual([
+          { method: "email", value: "modelmatters.yt@gmail.com", primary: false },
+          {
+            ...primary,
+            value: "hello@modelmatters.ai",
+            source: "typed",
+            confidence: null,
+          },
+        ]);
+        expect((await source.frame()).creators.find((c) => c.id === "c11")).toMatchObject({
+          contactSource: "typed",
+          contactConfidence: null,
+        });
+      });
+
+      it("reads a name only from a confirmed contact, and odd stored fields as none", async () => {
+        const source = start();
+        setContacts("c11", [{ ...primary, confirmed: false }]);
+        expect((await source.frame()).creators.find((c) => c.id === "c11")).toMatchObject({
+          emailConfirmed: false,
+          contactName: null,
+          contactSource: "about",
+          contactConfidence: 0.95,
+        });
+        setContacts("c11", [
+          { ...primary, label: `  ${"N".repeat(120)} `, source: "guess", confidence: 7 },
+        ]);
+        const read = (await source.frame()).creators.find((c) => c.id === "c11");
+        expect(read?.contactName).toBe("N".repeat(80));
+        expect(read).toMatchObject({ contactSource: null, contactConfidence: null });
+        expect(frameSchema.safeParse(await source.frame()).success).toBe(true);
+        setContacts("c11", [{ ...primary, label: "   " }]);
+        expect((await source.frame()).creators.find((c) => c.id === "c11")?.contactName).toBeNull();
+      });
+
+      it("a contact on a channel with no row creates it as a stage write does, with no stage", async () => {
+        const source = start();
+        await source.write([
+          contact(agentLab, "team@agentlab.ai", { handle: "@agentlab", name: "Agent Lab" }),
+        ]);
+        expect(storedRow(agentLab)).toMatchObject({
+          creator_stage: null,
+          vetting_status: "newlyFound",
+          handle: "@agentlab",
+          name: "Agent Lab",
+        });
+        expect(storedContacts(agentLab)).toEqual([{ ...primary, value: "team@agentlab.ai" }]);
+        for (const id of ["UC_agent_lab", "c999"]) {
+          await source.write([contact(id, "team@agentlab.ai")]);
+          expect(storedContacts(id)).toBeUndefined();
+        }
+      });
+
       it("reads one creator's lines, newest first, hidden and mapped as the frame does", async () => {
         const source = start();
         const idC = "00000000-0000-4000-8000-00000000000c";
@@ -1037,6 +1306,7 @@ export function describeDataSourceContract(
           stage: "rejected",
           email: c11?.email,
           emailConfirmed: false,
+          contactName: null,
           rejectReason: "ai",
           rejectedAt: contractNow - 500,
           archiveDueAt: contractNow + 7 * day,

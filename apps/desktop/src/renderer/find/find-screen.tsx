@@ -9,6 +9,7 @@ import { go, selectRoute, useApp } from "../lib/store";
 import { shownTabs } from "../lib/wired";
 import { strings } from "../strings";
 import { Keywords } from "./keywords";
+import { Contacts, useContactsCount } from "./contacts";
 import { Gallery } from "./gallery";
 import { LiveRun } from "./live-run";
 import { Rules } from "./rules";
@@ -17,7 +18,7 @@ import { reviewTabCount, Triage, useReview, useReviewCount } from "./triage";
 
 const text = strings.findSearch;
 
-/** The page's subtitle: on live data only Search, Review new and Gallery are built, so it names just those. */
+/** The page's subtitle: on live data it names what is built. */
 function useSub(): string | undefined {
   const source = useApp((s) => s.data.source);
   const sub = source === "example" ? screens.find.sub : strings.findTriage.liveSub;
@@ -34,6 +35,7 @@ const tabId = (key: string): string => `find-tab-${key}`;
  * Tab order.
  */
 function FindTabs({ reviewCount }: { readonly reviewCount: number | null }) {
+  const contactsCount = useContactsCount();
   const source = useApp((s) => s.data.source);
   const tab = useApp((s) => selectRoute(s).tab);
   const tabs = shownTabs("find", source);
@@ -88,6 +90,9 @@ function FindTabs({ reviewCount }: { readonly reviewCount: number | null }) {
           {t.name}
           {t.key === "triage" && reviewCount !== null && reviewCount > 0 ? (
             <span className="cnt">{reviewCount}</span>
+          ) : null}
+          {t.key === "contacts" && contactsCount !== null && contactsCount > 0 ? (
+            <span className="cnt">{contactsCount}</span>
           ) : null}
         </button>
       ))}
@@ -186,7 +191,21 @@ function GalleryTab() {
   );
 }
 
-/** The Find screen: Search, Review new and Gallery are built; Contacts waits for its step. */
+function ContactsTab() {
+  const info = screens.find;
+  const sub = useSub();
+  return (
+    <div className="page">
+      <PageHead title={info.name} {...(sub === undefined ? {} : { sub })} />
+      <SearchTabs />
+      <Panel>
+        <Contacts />
+      </Panel>
+    </div>
+  );
+}
+
+/** The Find screen: Search, Review new, Gallery and Contacts. */
 export function FindScreen() {
   const tab = useApp((s) => selectRoute(s).tab);
   if (tab === "search") {
@@ -194,6 +213,9 @@ export function FindScreen() {
   }
   if (tab === "gallery") {
     return <GalleryTab />;
+  }
+  if (tab === "contacts") {
+    return <ContactsTab />;
   }
   return tab === "triage" ? <TriageTab /> : <PlaceholderScreen screen="find" />;
 }
