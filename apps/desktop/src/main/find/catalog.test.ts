@@ -332,6 +332,34 @@ describe("the catalog", () => {
     expect(item).toMatchObject({ id: a, description: "", videos: [], hasNumbers: false });
   });
 
+  it("gives item() the creator's notes, cut to the limit and flagged, and query items none", async () => {
+    states = [
+      creatorState(a, { notes: "Wants a demo of the coding agent first." }),
+      creatorState(b, { stage: "contact", notes: "y".repeat(50_001) }),
+    ];
+    const catalog = open({ channels: [{ id: a }, { id: c }] });
+    expect((await catalog.item(a)).item?.notes).toBe("Wants a demo of the coding agent first.");
+    // A state-only creator has notes too; a long one pulled from the server shows its start.
+    expect((await catalog.item(b)).item?.notes).toHaveLength(50_000);
+    expect((await catalog.item(b)).item?.notesCut).toBe(true);
+    expect((await catalog.item(a)).item?.notesCut).toBe(false);
+    expect((await catalog.item(c)).item?.notes).toBe("");
+    for (const listed of await all(catalog)) {
+      expect(listed).not.toHaveProperty("notes");
+    }
+  });
+
+  it("gives item() the new notes after an invalidation", async () => {
+    vi.useFakeTimers();
+    const catalog = open({ channels: [{ id: a }] });
+    expect((await catalog.item(a)).item?.notes).toBe("");
+    states = [creatorState(a, { notes: "Covers Claude Code weekly." })];
+    catalog.invalidate();
+    const pending = catalog.item(a);
+    await vi.advanceTimersByTimeAsync(600);
+    expect((await pending).item?.notes).toBe("Covers Claude Code weekly.");
+  });
+
   describe("keeping up", () => {
     it("coalesces many invalidations into one build, then bumps the version and tells listeners", async () => {
       vi.useFakeTimers();

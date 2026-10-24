@@ -4,6 +4,7 @@ import type { Handlers } from "@gratovo/ipc";
 import type { Account } from "./account/account";
 import type { FindCatalog } from "./find/catalog-types";
 import type { FindService } from "./find/find-service";
+import { readViews, writeViews } from "./find/saved-views";
 import type { SecretStore } from "./secret-store";
 import type { HandlerServices } from "./services";
 
@@ -20,7 +21,8 @@ export interface HandlerContext extends HandlerServices {
   catalog: FindCatalog;
   /**
    * Called after a stored `data:write` batch that changes what the catalog shows: a creator's
-   * stage, a log line about a creator, or a settled conflict (plan D1). The catalog rebuilds on it.
+   * stage or notes, a log line about a creator, or a settled conflict (plan D1). The catalog
+   * rebuilds on it.
    */
   onCreatorsWritten?: () => void;
   account: Pick<
@@ -37,12 +39,14 @@ export interface HandlerContext extends HandlerServices {
 }
 
 /**
- * Whether one write can change a catalog row: a stage, a log line on a creator (add) or any
- * removal, or a conflict settled (keeping yours puts your stage back).
+ * Whether one write can change a catalog row or detail: a stage, notes (the detail carries them),
+ * a log line on a creator (add) or any removal, or a conflict settled (keeping yours puts your
+ * value back).
  */
 function changesCatalog(write: DataWrite): boolean {
   return (
     write.kind === "creator.stage" ||
+    write.kind === "creator.notes" ||
     write.kind === "conflict.resolve" ||
     (write.kind === "log.add" && write.ref !== null) ||
     write.kind === "log.remove"
@@ -105,6 +109,9 @@ export function createHandlers(context: HandlerContext): Handlers {
     "find:query": (request) => catalog.query(request),
     "find:item": ({ id }) => catalog.item(id),
     "find:runs": () => catalog.runs(),
+    "find:views": () => ({ views: readViews(openSource()) }),
+    "find:views-set": ({ views }) => writeViews(openSource(), views),
+    "log:for": async ({ ref, limit }) => ({ lines: [...(await openSource().logFor(ref, limit))] }),
     "rules:set": ({ rules }) => {
       find.setRules(rules);
       return {};

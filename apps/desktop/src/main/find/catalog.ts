@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 
-import type { CreatorStage, CreatorState } from "@gratovo/core/data";
+import { notesMax, type CreatorStage, type CreatorState } from "@gratovo/core/data";
 import { fitOf, queryCatalog, type CatalogItem, type CatalogVideo } from "@gratovo/core/find";
 
 import type { Catalog, CatalogDeps } from "./catalog-types";
@@ -122,6 +122,8 @@ const videoColumns = "video_id, channel_id, title, view_count, published_at";
 interface Built {
   readonly rows: readonly CatalogItem[];
   readonly pictures: ReadonlyMap<string, string>;
+  /** Each creator's notes, by id, for the detail only (D24): the query items don't carry them. */
+  readonly notes: ReadonlyMap<string, string>;
 }
 
 function emailedBefore(state: CreatorState | undefined): CatalogItem["emailedBefore"] {
@@ -257,7 +259,10 @@ function build(dbPath: string | null, states: readonly CreatorState[], now: numb
       hasNumbers: false,
     });
   }
-  return { rows, pictures };
+  const notes = new Map(
+    states.filter((state) => state.notes !== "").map((state) => [state.id, state.notes]),
+  );
+  return { rows, pictures, notes };
 }
 
 export function createCatalog(deps: CatalogDeps): Catalog {
@@ -280,7 +285,7 @@ export function createCatalog(deps: CatalogDeps): Catalog {
     } catch {
       // Keep the last good rows; the next change tries again.
       console.error("Find: the catalog could not be built.");
-      built ??= { rows: [], pictures: new Map() };
+      built ??= { rows: [], pictures: new Map(), notes: new Map() };
     }
   }
 
@@ -343,7 +348,7 @@ export function createCatalog(deps: CatalogDeps): Catalog {
       return { version, total: page.total, items: [...page.items], facets: page.facets };
     },
     async item(id: string) {
-      const { rows } = await ready();
+      const { rows, notes } = await ready();
       const row = rows.find((candidate) => candidate.id === id);
       if (row === undefined) {
         return { item: null };
@@ -372,7 +377,19 @@ export function createCatalog(deps: CatalogDeps): Catalog {
           db.close();
         }
       }
-      return { item: { ...row, fit: fitOf(row), description, videos: [...videos] } };
+      // A note pulled from the server may be longer than the app writes; the detail shows the start
+      // and says so, and the page shows it read-only.
+      const full = notes.get(id) ?? "";
+      return {
+        item: {
+          ...row,
+          fit: fitOf(row),
+          description,
+          videos: [...videos],
+          notes: full.slice(0, notesMax),
+          notesCut: full.length > notesMax,
+        },
+      };
     },
     async runs() {
       const { rows } = await ready();

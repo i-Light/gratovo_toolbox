@@ -125,9 +125,16 @@ function parseValue(stored: unknown): unknown {
   }
 }
 
-/** A value as the person reads it: a stage key as it is, arrays joined, nothing as "empty". */
+/** The longest value a conflict carries (`textMax` in the ipc package): notes can be longer. */
+const valueMax = 500;
+
+/**
+ * A value as the person reads it: a stage key as it is, arrays joined, nothing as "empty", cut to
+ * `valueMax` so a long note can't push the frame past its limits.
+ */
 function displayValue(stored: unknown): string {
-  return display(parseValue(stored));
+  const shown = display(parseValue(stored));
+  return shown.length > valueMax ? `${shown.slice(0, valueMax - 1)}…` : shown;
 }
 
 function display(value: unknown): string {

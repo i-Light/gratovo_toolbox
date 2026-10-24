@@ -45,6 +45,23 @@ function conflict(id: string, extra: Record<string, string | null> = {}) {
 }
 
 describe("syncConflictNotices", () => {
+  it("names a notes conflict, and cuts a long note to fit the notice", () => {
+    const long = "Wants a demo of the coding agent first. ".repeat(125).trim();
+    replaceOpenConflicts(db, [
+      conflict(k1, {
+        field: "notes",
+        base_value: null,
+        mine_value: JSON.stringify(long),
+        theirs_value: JSON.stringify("Rate card asked"),
+      }),
+    ]);
+    syncConflictNotices(db);
+    const sub = listNotifications(db)[0]?.sub ?? "";
+    expect(sub.startsWith("Notes: yours Wants a demo of the coding agent first.")).toBe(true);
+    expect(sub.endsWith("…, theirs Rate card asked")).toBe(true);
+    expect(sub.length).toBeLessThanOrEqual(500);
+  });
+
   it("makes one notification for a new conflict, once", () => {
     replaceOpenConflicts(db, [conflict(k1)]);
     expect(syncConflictNotices(db)).toBe(true);

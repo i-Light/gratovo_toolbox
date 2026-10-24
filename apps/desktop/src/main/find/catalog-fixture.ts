@@ -164,6 +164,7 @@ export function creatorState(id: string, over: Partial<CreatorState> = {}): Crea
     legacyPipelineStage: "new",
     hasAppStage: false,
     lastActivity: null,
+    notes: "",
     ...over,
   };
 }

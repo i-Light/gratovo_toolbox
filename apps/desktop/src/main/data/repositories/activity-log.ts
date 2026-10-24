@@ -151,6 +151,9 @@ function lineFields(
 const refMax = 100;
 const detailMax = 500;
 
+/** The most lines `linesFor` returns (`logForMax` in the ipc package). */
+export const linesForCap = 100;
+
 /**
  * The newest lines first, by time (`at_ms`, then id), at most `limit` (never more than `logCap`).
  * Undo and redo markers are hidden, and so is every line whose newest marker is an undo. A member
@@ -158,12 +161,40 @@ const detailMax = 500;
  * dropped, not edited. `who` is the member id; rows from the old app without one give the name.
  */
 export function newestLog(db: DatabaseSync, o: { seesMoney: boolean; limit?: number }): LogEntry[] {
-  const count = Math.max(0, Math.min(Math.floor(o.limit ?? logCap), logCap));
+  return readLines(db, { seesMoney: o.seesMoney, count: capped(o.limit ?? logCap, logCap) });
+}
+
+/**
+ * The lines about one creator (`entity_type 'channel'`, `entity_id = ref`), newest first, at most
+ * `limit` (never more than `linesForCap`), hidden and mapped as `newestLog` does them: a record's
+ * Activity tab (plan step 5, D23). One query, on `idx_activity_log_entity`.
+ */
+export function linesFor(
+  db: DatabaseSync,
+  ref: string,
+  o: { seesMoney: boolean; limit: number },
+): LogEntry[] {
+  return readLines(db, { seesMoney: o.seesMoney, count: capped(o.limit, linesForCap), ref });
+}
+
+function capped(limit: number, cap: number): number {
+  return Math.max(0, Math.min(Math.floor(limit), cap));
+}
+
+function readLines(
+  db: DatabaseSync,
+  o: { seesMoney: boolean; count: number; ref?: string },
+): LogEntry[] {
+  const { count } = o;
+  if (count === 0) {
+    return [];
+  }
   const statement = db.prepare(
     `SELECT a.id, a.at, a.at_ms, a.actor_id, a.actor_name, a.action, a.entity_type, a.entity_id,
             a.entity_label, a.field, a.old_value, a.new_value, a.detail
      FROM activity_log a
-     WHERE NOT (a.entity_type = 'activity_log' AND a.action IN ('undo', 'redo'))
+     WHERE ${o.ref === undefined ? "" : "a.entity_type = 'channel' AND a.entity_id = ? AND"}
+       NOT (a.entity_type = 'activity_log' AND a.action IN ('undo', 'redo'))
        AND COALESCE((SELECT m.action FROM activity_log m
                      WHERE m.entity_type = 'activity_log' AND m.entity_id = a.id
                        AND m.action IN ('undo', 'redo')
@@ -175,7 +206,10 @@ export function newestLog(db: DatabaseSync, o: { seesMoney: boolean; limit?: num
   const lines: LogEntry[] = [];
   // Without money, some rows are dropped after the query, so read on until `count` lines are kept.
   for (let offset = 0; lines.length < count; offset += pageSize) {
-    const params: (string | number)[] = o.seesMoney ? [] : [...moneyFields];
+    const params: (string | number)[] = [
+      ...(o.ref === undefined ? [] : [o.ref]),
+      ...(o.seesMoney ? [] : moneyFields),
+    ];
     const page = statement.all(...params, o.seesMoney ? count : pageSize, offset);
     for (const row of page) {
       const detail = parseDetail(row["detail"]);

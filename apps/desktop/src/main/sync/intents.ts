@@ -11,7 +11,7 @@ import {
   logRowFor,
 } from "../data/repositories";
 import type { ActivityRow } from "../data/repositories";
-import { readTags } from "../data/repositories/creators";
+import { readNotes, readTags, storedNotes } from "../data/repositories/creators";
 
 // D11: what each write also puts in the outbox. Runs inside the batch's transaction, so a local
 // effect and its entry commit together or not at all.
@@ -124,6 +124,25 @@ export function recordIntent(
     queueLine(row);
   }
 
+  /** The handle a creator's row is labelled with on the server; null when it has no row. */
+  function handleOf(id: string): string | null {
+    const handle = db.prepare("SELECT handle FROM channel_state WHERE channel_id = ?").get(id)?.[
+      "handle"
+    ];
+    return handle === undefined ? null : String(handle);
+  }
+
+  /** Queues one compare-and-set edit of a creator's column (`apply_channel_edit`). */
+  function queueEdit(id: string, label: string, field: string, base: unknown, next: unknown): void {
+    enqueue(db, {
+      userId,
+      kind: "channel.edit",
+      payload: { channelId: id, field, base, next, label },
+      target: { table: "channel_state", key: id },
+      now,
+    });
+  }
+
   switch (write.kind) {
     case "me.name": {
       const exists = getProfile(db, userId) !== null;
@@ -197,20 +216,12 @@ export function recordIntent(
       // A new row starts with no tags, here and on the server.
       const tagsBefore = readTags(db, write.id) ?? [];
       applyLocal();
-      const label = db
-        .prepare("SELECT handle FROM channel_state WHERE channel_id = ?")
-        .get(write.id)?.["handle"];
-      if (label === undefined) {
+      const label = handleOf(write.id);
+      if (label === null) {
         return;
       }
       const edit = (field: string, before: unknown, next: unknown): void => {
-        enqueue(db, {
-          userId,
-          kind: "channel.edit",
-          payload: { channelId: write.id, field, base: before, next, label: String(label) },
-          target: { table: "channel_state", key: write.id },
-          now,
-        });
+        queueEdit(write.id, label, field, before, next);
       };
       // The stage first, then the tags it moved (D5): the server sees them in that order.
       if (base !== write.stage) {
@@ -219,6 +230,20 @@ export function recordIntent(
       const tagsAfter = readTags(db, write.id) ?? [];
       if (!sameTags(tagsBefore, tagsAfter)) {
         edit("channel_tags", tagsBefore, tagsAfter);
+      }
+      return;
+    }
+    case "creator.notes": {
+      // The base is the stored notes, read before the write, as the server compares them: empty
+      // text and no notes are both null (its `canonical_edit_value`). No row reads as null too:
+      // main creates it (D24, as D4 does), and so does the server.
+      const base = readNotes(db, write.id) ?? null;
+      applyLocal();
+      const label = handleOf(write.id);
+      const next = storedNotes(write.notes);
+      // No row (an id that isn't a channel's), or the same text: nothing to send.
+      if (label !== null && base !== next) {
+        queueEdit(write.id, label, "notes", base, next);
       }
       return;
     }

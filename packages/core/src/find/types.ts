@@ -105,6 +105,18 @@ export const emptyFindFilter: FindFilter = {
   q: "",
 };
 
+/** A filter the person saved under a name, per data source (D16, D20). */
+export interface SavedView {
+  /** Trimmed, 1 to `viewNameMax` characters. */
+  readonly name: string;
+  readonly filter: FindFilter;
+}
+
+/** The most saved views a data source keeps. */
+export const savedViewsMax = 20;
+/** The longest saved view name. */
+export const viewNameMax = 60;
+
 /** The orders the catalog can be sorted in. `triage` is gold mines first, then fit. */
 export const findSorts = ["fit", "median", "subs", "found", "latest", "triage"] as const;
 

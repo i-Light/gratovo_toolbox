@@ -2,7 +2,23 @@
 
 Started 2026-10-24. The plan is `.router/PLAN.md` (decisions D1 to D18, contracts, tasks), the recon `.router/CONTEXT.md`, the agent rules `.router/specs/rules.md`. Step 5 is four pull requests: 5a, 5b, 5c, 5d.
 
-**Now: 5a** (the catalog, fit, the write path, Review new, run history) on branch `feat/5a-find-catalog-triage` from `main` at b3b5397.
+**5a done:** PR #20, merged 2026-10-24 as 835a404.
+
+**Now: 5b** (the gallery and the creator record) on branch `feat/5b-find-gallery-record` from `main` at 835a404. Plan: PLAN.md "5b" (D19 to D26).
+
+## Tasks, 5b
+
+| id | tier | state | note |
+|---|---|---|---|
+| C2 | H | done | views in `find.views`, `logFor`/`linesFor`, notes write + outbox (`''` is null, as the server), conflict values cut; lead: notes up to 50,000 with `notesCut` |
+| G1 | N | running | gallery shell, facets, chips, saved views |
+| P1 | N | running | creator peek and record |
+| G2 | N | todo | cards, table, selection, bulk bar, compare |
+| W2 | N | todo | wiring, live gate, smoke test |
+| R2 | H | todo | review |
+| L2 | lead | todo | checks, PR, merge |
+
+
 
 ## Tasks, 5a
 
@@ -19,7 +35,7 @@ Started 2026-10-24. The plan is `.router/PLAN.md` (decisions D1 to D18, contract
 | W1 | N | done | catalog, pictures, skip wired; `find.folder()`, `onPipelineChanged`, `onCreatorsWritten`; rail `subLive` |
 | T1 | N | done | `e2e/find-triage.spec.ts`; `find-search.spec.ts` moved onto the runs table |
 | R1 | H | done | review: 1 blocker, 4 important, 11 minor, all fixed (R1a main/core, R1b renderer). Lead: a paused search is recorded `stopped` and shows as a pause; CodeQL file race in the picture cache; old e2e specs on the new write shape |
-| L1 | lead | in progress | full checks and 16 Electron specs green locally; Review new looked at in dark at 1440; PR, CI, merge |
+| L1 | lead | done | PR #20, CI green, merged |
 
 ## Notes for 5b and later
 

@@ -10,9 +10,16 @@ const prefix = "conflict:";
 /** The words a notice is built from (the default is the app's own). */
 export type ConflictWords = typeof strings.conflict;
 
-/** A value as a person reads it: a stage key becomes its name, anything else stays as it is. */
+/** The longest value a notice shows: notes can run to 5,000 characters, a notice line can't. */
+const shownMax = 120;
+
+/**
+ * A value as a person reads it: a stage key becomes its name, anything else stays as it is, cut
+ * to `shownMax` so the notice keeps inside its limits.
+ */
 function show(field: string, value: string, words: ConflictWords): string {
-  return field === "creator_stage" ? (words.stages[value] ?? value) : value;
+  const shown = field === "creator_stage" ? (words.stages[value] ?? value) : value;
+  return shown.length > shownMax ? `${shown.slice(0, shownMax - 1)}…` : shown;
 }
 
 /**
