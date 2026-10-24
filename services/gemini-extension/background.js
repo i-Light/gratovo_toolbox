@@ -459,7 +459,9 @@ function contentDeadlineMs(method, params) {
   const base = Object.prototype.hasOwnProperty.call(LONG_CONTENT_METHODS, method) ? LONG_CONTENT_METHODS[method] : null;
   if (base == null) return 15000;
   const asked = params && Number(params.timeoutMs);
-  return Math.min(Number.isFinite(asked) && asked > 0 ? asked : base, MAX_CONTENT_TIMEOUT_MS) + 15000;
+  // Outside 1 ms to the cap (or not a number), the method's own wait applies.
+  const wait = asked > 0 && asked <= MAX_CONTENT_TIMEOUT_MS ? asked : base;
+  return wait + 15000;
 }
 function withDeadline(promise, ms, message) {
   let timer;
@@ -701,12 +703,14 @@ function validateOverrides(overrides) {
   return out;
 }
 
+// Looked up in a Map, so a name like "constructor" or "__proto__" can never dispatch.
+const BACKGROUND_METHOD_TABLE = new Map(Object.entries(BACKGROUND_METHODS));
+
 async function handleRequest(method, params) {
   if (typeof method !== 'string') throw gbError('BAD_PARAMS', 'method must be a string');
   log('debug', 'handleRequest', { method });
-  // Only the table's own entries: a name like "constructor" or "__proto__" must not dispatch.
-  const fn = Object.prototype.hasOwnProperty.call(BACKGROUND_METHODS, method) ? BACKGROUND_METHODS[method] : null;
-  if (typeof fn === 'function') return fn(params);
+  const fn = BACKGROUND_METHOD_TABLE.get(method);
+  if (fn !== undefined) return fn(params);
   if (!CONTENT_METHODS.has(method)) throw gbError('BAD_PARAMS', 'Unknown method "' + method + '"');
   const tab = await getTargetTab(params);
   return callContent(tab.id, method, params);
