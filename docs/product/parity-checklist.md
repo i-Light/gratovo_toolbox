@@ -474,13 +474,13 @@ Things the Flutter app does that the 127 tasks don't name. Each is ported, repla
 | Activity log | `features/logs` | Port: Toolbox › Activity log (in the prototype) | ☐ |
 | Notification history | `features/notifications` | Port: the bell plus Toolbox › Notifications (in the prototype) | ☐ |
 | Presence: who is online, what each person is viewing | `core/presence` | Port: in the prototype's top bar and records | ☐ |
-| In-app updater | `core/update` | Port in step 3h (unsigned builds from the private release location, §9 Q12) | ☐ |
+| In-app updater | `core/update` | Port in step T5, was 3h (unsigned builds from the private release location, §9 Q12) | ☐ |
 | Windows notifications for due follow-ups | `core/notifications` | Port | ☐ |
 | Dhikr reminder overlay | `core/toast/dhikr_reminder_overlay.dart` | Decide (the owner's personal feature) | ☐ |
 | Time zone setting and one date formatter | `core/time` | Port: Settings › Your day plus one formatter | ☐ |
 | AWS API gateways for search routing | `core/aws`, settings, `pipeline/gratovo/scrapetube` | Port with the pipeline; keys per [decisions/0003](../decisions/0003-secrets.md) | ☐ |
 | Python environment setting | settings | Replace: the bundled runtime | ☐ |
-| GitHub token setting (updater) | `core/github` | Replace: the release design in step 3h | ☐ |
+| GitHub token setting (updater) | `core/github` | Replace: the release design in step T5 (was 3h) | ☐ |
 | AI providers (Anthropic API, template fill) | `core/ai` | Decide: Gemini bridge only, or also an API provider | ☐ |
 | Channel avatar cache | `core/images` | Port | ☐ |
 | Crash log | `core/logging/crash_log.dart` | Port: structured logs plus a crash report the owner can send | ☐ |

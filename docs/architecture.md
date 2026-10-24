@@ -24,7 +24,7 @@ The target design of the new app. Step 3 builds it. Anything marked *(to decide)
 - **Preload:** bridges that API into the renderer with `contextBridge`. It adds nothing else.
 - **Renderer (React, TypeScript):** the UI only. Sandboxed, with no Node and no network except through IPC. It holds UI state and caches query results.
 - **Python pipeline:** the work that is better in Python, kept from the old app. It covers YouTube search and enrichment, R2 storage, Gmail, and the comms engine (playbook, drafting checks). Each run is a child process the main process supervises. The comms engine (`comms/`) checks each drafted message against the playbook; a person runs its quality tools by hand.
-- **Gemini bridge:** a Python daemon plus a browser extension that drives the signed-in Gemini web app. Main starts one bridge process at most, on 127.0.0.1. Prompts live in the pipeline, never in the UI. Decisions in [ADR 0014](decisions/0014-gemini-bridge-and-comms.md). The extension comes in step 6.
+- **Gemini bridge:** a Python daemon plus a browser extension that drives the signed-in Gemini web app. Main starts one bridge process at most, on 127.0.0.1. Prompts live in the pipeline, never in the UI. Decisions in [ADR 0014](decisions/0014-gemini-bridge-and-comms.md). The extension comes in step 4.
 - **Supabase:** shared, typed-in data (creators' notes and stages, brands, deals, outreach, team), auth and realtime presence. Row-level security on every table.
 - **Cloudflare R2:** scraped channel data, one object per channel plus a catalog. It is reached only through short-lived access the server grants (owner's answer: §9 Q11).
 

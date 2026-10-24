@@ -36,7 +36,7 @@ Good to know:
 - Git ignores this file. Never commit it, and never paste its content into a chat.
 - **Never put the secret key here.** A key starting with `sb_secret_`, or a long key made of three parts joined by dots (the old `service_role` and `anon` keys look like this), makes the app run without Supabase: it writes one line in the terminal that started it (for example "Supabase is not configured: the key is a secret key.") and shows the example data, with no sign-in. It shows no message on screen. This is on purpose.
 - Without the file the app still runs, with the example data and no sign-in. That is how the tests run too.
-- Release builds come with step 3h. They will take the same two values from GitHub Actions *variables* (not secrets).
+- Release builds come with step T5 (was 3h). They will take the same two values from GitHub Actions *variables* (not secrets).
 
 ## 2. Add a team member
 

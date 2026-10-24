@@ -19,7 +19,8 @@ Replace the Flutter app (old repository `gratovo_code`) with a new desktop app t
 | 2026-10-14 to 10-18 | The communications workflow (course-mined playbook, comms engine, checks) and the decisions build: the owner's answers to the workflow map, built into the old app and reviewed. All of it was committed in the old repo as `43596b8`. |
 | 2026-10-18 | The workflow map: every framework task scored against the old app, 12 decisions and 34 house choices answered by the owner. A copy is in [product/workflow-map.html](product/workflow-map.html). |
 | 2026-10-19 | The UX plan, made visual: the Workbench prototype (Today, Find, Reach, Close, Deliver, Insights, Toolbox, Team, Settings, prototype mode, comment tool, the Plan page). An independent review found 27 issues; all were fixed and covered by regression tests. Published at https://claude.ai/artifact/96e8HtK58oyRqVcYdUcZNn (version 3). The source is in [design/workbench-prototype/](../design/workbench-prototype/README.md). |
-| 2026-10-21 | **Change of plan (owner): solo first.** Everything that exists only for the team waits until the app is fully functional for one person. It moves into one new step, [T](#step-t-team-work-after-the-app-works-for-one-person), which runs after step 9 and before the 100% check. The app keeps what 3d-2 already built (sign-in, roles, sync, presence); no more is built on it until T. |
+| 2026-10-21 | **Change of plan (owner): solo first.** Everything that exists only for the team waits until the app is fully functional for one person. It moves into one new step, [T](#step-t-team-work-and-packaging-after-the-app-works-for-one-person), which runs after step 9 and before the 100% check. The app keeps what 3d-2 already built (sign-in, roles, sync, presence); no more is built on it until T. |
+| 2026-10-24 | **Change of plan (owner): pipeline-first.** After 3e-3b the rest of the plan is reordered along the real business pipeline, so the app is usable for real solo outreach as early as possible: live data and connections (step 4), Find (5), Reach up to reading replies (6), then Today with prototype mode and the CI gate (7), Signing and Close (8), Deliver and Insights (9). Work from the old step 9 (the data import, the Settings that run the pipeline, the Toolbox parts Find needs) moves to the stage that needs it. 3e-2 and 3h move to step T; 3f and 3g move to step 7. Nothing is dropped. Ground rules 9 and 10 are added. |
 | 2026-10-19 | The old repo committed (`43596b8`, not pushed) and a full physical copy made at `E:\IMA work\Code\gratovo_code backup 2026-10-19`. This repository was created empty and filled with the plan, the prototype, the product record, the project skills and a read-only `legacy/` copy of the old source (secrets excluded). |
 
 ## 3. Ground rules for the whole migration
@@ -31,9 +32,11 @@ Replace the Flutter app (old repository `gratovo_code`) with a new desktop app t
 3. **The parity checklist is the definition of done.** Step 10 walks it row by row, and nothing is waved through.
 4. **`legacy/` is read-only.** Read it, port from it, never build or edit it. It is deleted in step 11.
 5. **Security first.** No secret in git, ever. The Electron hardening in [SECURITY.md](../SECURITY.md) is part of the foundation, not a later polish.
-6. **Small, verified steps.** Each step lands as one or more pull requests with green CI, and the owner checks the result in prototype mode before the next step starts.
+6. **Small, verified steps.** Each step lands as one or more pull requests with green CI, and the owner checks the result in the real app before the next step starts (in prototype mode, once step 7 builds it, for screens not wired yet).
 7. **Cleanup is last.** Nothing is deleted from `legacy/` or merged in the docs before step 10 passes. This is the owner's explicit wish.
-8. **Solo first** (owner, 2026-10-21). The app is made fully functional for one person before any work that exists only for the team. Team work is everything about sharing with or coordinating other people: sharing results through R2, a teammate's run and overlap warnings, hand-offs, the Team screen and rebalancing, the team view of Today, "see the app as a teammate", new-VA onboarding, and updates for other members' machines. All of it is in [step T](#step-t-team-work-after-the-app-works-for-one-person). Data fields that carry an owner or a role stay (they cost nothing and the owner is the only person for now), and what 3d-2 built is kept as it is. When a step's work turns out to be team work, move it to T and say so here.
+8. **Solo first** (owner, 2026-10-21). The app is made fully functional for one person before any work that exists only for the team. Team work is everything about sharing with or coordinating other people: sharing results through R2, a teammate's run and overlap warnings, hand-offs, the Team screen and rebalancing, the team view of Today, "see the app as a teammate", new-VA onboarding, and updates for other members' machines. All of it is in [step T](#step-t-team-work-and-packaging-after-the-app-works-for-one-person). Data fields that carry an owner or a role stay (they cost nothing and the owner is the only person for now), and what 3d-2 built is kept as it is. When a step's work turns out to be team work, move it to T and say so here.
+9. **Pipeline-first order, and no dead screens in live mode** (owner, 2026-10-24). The steps follow the business pipeline: live data, then Find, then Reach, then Today, then Close and Deliver. Each step pulls in what its stage needs from later steps (settings, Toolbox parts, the import) instead of waiting for them. In live mode, the rail, the top bar, the command palette (Ctrl K) and the tabs inside a screen show only what is fully wired to real data and real handlers. A screen or tab that a later step builds is hidden in live mode, so the owner never clicks a dead or mock element during real work. Today stays hidden until Find and Reach feed it (step 7). Once prototype mode exists (step 7), turning it on switches to `example.db` and shows the whole Workbench, unwired stages included, for review and comments.
+10. **Two-tier testing** (owner, 2026-10-24). While a sub-step is built, its pull request needs the fast checks (`pnpm lint`, `pnpm typecheck`, `pnpm test`: Vitest and pytest) plus **at most one** light Electron smoke test that proves the new screen renders and completes its main IPC round trip. The full Playwright flow suite for a stage (the keyboard matrix, undo edge cases, full parity flows) runs as one batch at the end of the major step, not across every sub-PR. Tests that already exist keep running in CI on every pull request.
 
 ## 4. Owner actions
 
@@ -53,14 +56,14 @@ Replace the Flutter app (old repository `gratovo_code`) with a new desktop app t
 | 0 | Fresh repository | Done 2026-10-19 |
 | 1 | Agree the design | Prototype approved for building. The open questions in §9 were answered 2026-10-19 |
 | 2 | Choose the stack and record the decisions | Done as ADRs 0001 to 0006; the owner confirmed the stack (§9 Q8) |
-| 3 | Foundation | **In progress.** 3a (toolchain and skeleton) and 3b (security baseline) done 2026-10-19. 3c done 2026-10-20, in three parts: 3c-1 (the frame), 3c-2 (the overlays), 3c-3 (settings and checks; the app made dark only). 3d-1 (the local data layer) done 2026-10-20. 3d-2a (sign-in, roles, the network allowlist, team keys) done 2026-10-20, rolled out to production with the owner's go. 3d-2b (the sync) done 2026-10-21 (#12), its three migrations rolled out with the owner's go. 3e-1 (the pipeline's search, end to end on this computer) done 2026-10-21 (#14): ADR 0013. **3e-3 done** (the rest of the pipeline), two pull requests: **3e-3a** (the Gemini bridge and the comms engine) done 2026-10-23: ADR 0014. **3e-3b** (mail, video stats, refetch, backfill and the AWS gateways) done 2026-10-24: ADR 0015. **Next: 3f**, in a fresh session, from `.router/PROGRESS.md`. Then 3g, 3h. **3e-2 (sharing results through R2) moved to step T** on 2026-10-21 (solo first, ground rule 8). Branch protection on `main` (3g) isn't set yet. A1 (key rotation) is deferred by the owner: use the existing keys, never in the repository |
-| 4 | Today | Not started |
-| 5 | Find | Not started |
-| 6 | Reach | Not started |
-| 7 | Close | Not started |
-| 8 | Deliver | Not started |
-| 9 | Insights, Toolbox, Team, Settings, and the data import | Not started |
-| T | Team work (3e-2 R2 sharing, a teammate's run, hand-offs, the Team screen, new-VA onboarding, updates for other machines) | **Waits** until step 9 is done (owner, 2026-10-21) |
+| 3 | Foundation | **Done for the solo foundation** (2026-10-24): 3a, 3b, 3c, 3d-1, 3d-2a, 3d-2b, 3e-1, 3e-3a and 3e-3b. 3e-2 (R2 sharing) and 3h (installer, bundled Python, updater) moved to step T; 3f (prototype mode and the comment tool) and 3g (branch protection) moved to step 7 (owner, 2026-10-24). History: 3a (toolchain and skeleton) and 3b (security baseline) done 2026-10-19. 3c done 2026-10-20, in three parts: 3c-1 (the frame), 3c-2 (the overlays), 3c-3 (settings and checks; the app made dark only). 3d-1 (the local data layer) done 2026-10-20. 3d-2a (sign-in, roles, the network allowlist, team keys) done 2026-10-20, rolled out to production with the owner's go. 3d-2b (the sync) done 2026-10-21 (#12), its three migrations rolled out with the owner's go. 3e-1 (the pipeline's search, end to end on this computer) done 2026-10-21 (#14): ADR 0013. **3e-3 done** (the rest of the pipeline), two pull requests: **3e-3a** (the Gemini bridge and the comms engine) done 2026-10-23: ADR 0014. **3e-3b** (mail, video stats, refetch, backfill and the AWS gateways) done 2026-10-24: ADR 0015. A1 (key rotation) is deferred by the owner: use the existing keys, never in the repository |
+| 4 | Live data import and operational connections | **Next**, from `.router/PROGRESS.md` |
+| 5 | Find (search, triage, gallery, contacts; Toolbox › Archive, Never-contact, Activity log) | Not started |
+| 6 | Reach, up to reading replies and their intent | Not started |
+| 7 | Today, prototype mode (was 3f), branch protection (was 3g) | Not started |
+| 8 | Creator signing and Close | Not started |
+| 9 | Deliver and Insights | Not started |
+| T | Team work and packaging (3e-2 R2 sharing, a teammate's run, hand-offs, the Team screen, new-VA onboarding, 3h installer and updater) | **Waits** until step 9 is done (owner, 2026-10-21 and 2026-10-24) |
 | 10 | Check it 100% | Not started. Runs after T |
 | 11 | Cutover, then clean up | Not started |
 
@@ -84,9 +87,9 @@ A clean history: no secrets and no build output. It holds docs, the design refer
 **Done:** ADRs for the fresh repo, the stack, secrets, prototype mode, the legacy folder, and local-first data. See [decisions/](decisions/).
 **Confirmed** by the owner on 2026-10-19 (A4, §9 Q8).
 
-### Step 3. Foundation
+### Step 3. Foundation (done for the solo foundation)
 
-The longest step. It builds everything the screens stand on, so every later step is mostly UI and domain logic. It splits into sub-steps, each its own pull request.
+The longest step. It builds everything the screens stand on, so every later step is mostly UI and domain logic. It splits into sub-steps, each its own pull request. Done on 2026-10-24 for one person. Of its original sub-steps, 3e-2 and 3h moved to [step T](#step-t-team-work-and-packaging-after-the-app-works-for-one-person) and 3f and 3g to [step 7](#step-7-today-prototype-mode-and-the-ci-gate) (owner, 2026-10-24).
 
 **3a. Toolchain and repository skeleton**
 - A pnpm workspace with the layout from [architecture.md](architecture.md#repository-layout): `apps/desktop`, `packages/core`, `packages/ui`, `services/pipeline`, `services/gemini-extension`, `supabase/`.
@@ -127,7 +130,7 @@ The longest step. It builds everything the screens stand on, so every later step
 
 **3e. Python pipeline, ported and cleaned**
 - Copy `legacy/pipeline/` into `services/pipeline/` piece by piece, keeping only what the new app calls:
-  - `search.py` and the `gratovo` package (store, pipeline, feeds, gmail and mailbox, vendored scrapetube). `r2.py` and `sync.py` (sharing results through R2) move to [step T](#step-t-team-work-after-the-app-works-for-one-person) (solo first, ground rule 8);
+  - `search.py` and the `gratovo` package (store, pipeline, feeds, gmail and mailbox, vendored scrapetube). `r2.py` and `sync.py` (sharing results through R2) move to [step T](#step-t-team-work-and-packaging-after-the-app-works-for-one-person) (solo first, ground rule 8);
   - the tools still in use;
   - `comms/` (the comms engine, playbook, checks);
   - `gemini_bridge/`;
@@ -140,83 +143,95 @@ The longest step. It builds everything the screens stand on, so every later step
 - *Owner answers (2026-10-21) for 3e-3:* two pull requests, **3e-3a** (the Gemini bridge, the comms engine with its course data and the transcripts) and **3e-3b** (Gmail and the mailbox, video stats, refetch and backfill, the AWS gateway tool). The comms quality tools (coach, graduate bar, pairwise, scenarios, call mining, quote review, Whisper check) are ported as tools a session runs by hand. The course text for the copy check comes from a folder path in Settings on this computer; without it, that one check is skipped and the draft says so. News and the Email library wait for their parity §6 decision (step 9). The plan is in `.router/PLAN.md` while 3e-3 runs.
 - *Acceptance:* all ported pytest suites pass; the app starts a search, streams progress and shows results, using the example data source in tests and the live one by hand.
 
-**3f. Prototype mode and the comment tool**
-- Built as in the prototype (`proto.js`, `comments.js`): an owner-only switch in Settings, off by default, and invisible when off.
-  - When on, the live data is set aside and an example copy is used.
-  - Scenarios: a normal Monday, the first day, a week later, something broke.
-  - ~~See the app as a teammate~~ (moved to step T).
-  - The comment tool: press C, click anything, write. Pins anchor to stable `data-ui` ids that components carry.
-- In this mode the outbound adapters are stand-ins: Gmail send, Gemini, YouTube and R2 writes do nothing real.
-- Comments are kept in a `comments` table in the local database and exported to `docs/feedback/comments.json` on demand, so any session can read and act on them (the owner's answer, §9 Q9).
-- *Acceptance:* the prototype's `proto_flow.py` and `review_fixes.py` checks, rewritten as Playwright tests against the real app, all pass. With the mode off there is no trace (an automated check).
+**3f, 3g and 3h** were the last three sub-steps. On 2026-10-24 the owner moved them: prototype mode and the comment tool (3f) and branch protection (3g) to [step 7](#step-7-today-prototype-mode-and-the-ci-gate), and packaging (3h) to [step T](#step-t-team-work-and-packaging-after-the-app-works-for-one-person) as T5. Their full text is there. CI itself has run on every pull request since 3b.
 
-**3g. Continuous integration**
-- GitHub Actions: lint, typecheck, unit tests, Electron end-to-end tests and pytest on Windows (the only system the app supports); gitleaks, the audit and CodeQL on Linux runners, since they only read files. All of these run from 3b. The SQL tests run from 3d-1 in a Linux job with Docker (GitHub's Windows runners have no Linux containers); that tests the database, not the app on Linux.
-- Branch protection on `main`: pull requests only, CI green.
-- *Acceptance:* a pull request with a failing test cannot merge.
+### Step 4. Live data import and operational connections
 
-**3h. Packaging spike**
-- electron-builder NSIS installer for Windows; the Python runtime bundled with python-build-standalone via uv. The target machines have no Python.
-- ~~Auto-update with electron-updater from a private location (default: a private R2 bucket, URLs handed out by the server function). Builds are unsigned by the owner's choice (§9 Q12); the updater is configured to accept them.~~ Moved to step T: it exists to reach other members' machines.
-- No code signing (§9 Q12): the app is for the owner and a few trusted members. Document the first-run Windows warning for them.
-- *Acceptance:* an installer built in CI installs on a clean Windows machine and runs a search on example data. (Updating itself to a newer test build is checked in T.)
+Pulled from the old step 9 (the import, the Settings that run the pipeline) and the old step 6 (the browser add-on), owner 2026-10-24.
 
-### Step 4. Today
+**Goal:** the owner's real data is in the new app, and every connection and setting that Find and Reach need works.
+**Work:**
+1. **The data import.** On first run, or from Settings, the app imports the owner's old local databases (`gratovo.db`, plus the pipeline's `pipeline.db` and `mailbox.db` where they exist) into its own data folder. It makes a backup first and shows a dry-run report of what moves before anything is written. The old files are never modified (ground rule 1).
+2. **Settings that run the pipeline**, with real saving and real effect:
+   - **Connections:** the mailboxes (connecting a Gmail mailbox, its health), the course folder for the comms copy check, the YouTube key, proxies and the AWS gateways, and the Gemini bridge's status;
+   - **Search rules:** default countries, minimum median views, upload filters, the 7-day archive rule;
+   - **Writing rules:** the house rules passed to drafts.
+3. **The Gemini browser add-on.** Port `legacy/pipeline/gemini_extension/` into `services/gemini-extension/` and check that it connects to the 3e-3a bridge on `127.0.0.1` with the per-launch token.
+4. **The live rail** (ground rule 9). In live mode, hide the screens no step has wired yet (Today, Close, Deliver, Insights, Team) everywhere they can be reached: the rail, the palette, keys and links. Show Settings, then Find and Toolbox as they come online.
 
-**Goal:** a full day of outreach worked from Today alone.
-**Work:** port the next-action engine (`items()` in the prototype's `engine.js`) into `packages/core` with unit tests: buckets, money first, owners, snoozes, quick wins, roles. Then build the queue, the day band (budget, mailboxes, done today), the work panel for each item kind, focus mode, wrap-up, the first-day screen and snooze. The engine keeps owners and roles as inputs, so T adds no rework. Hand-off and the team view of Today wait for step T.
-**Legacy:** `legacy/lib/features/my_day/` (the old aggregator) for the data each item needs.
-**Acceptance:** parity checklist rows for the *daily* step plus every Today row in §2 and §3; the prototype's Today flows pass as Playwright tests.
+**Legacy:** `legacy/lib/core/db/` and the old app's data folder for `gratovo.db`; `legacy/pipeline/gratovo/store.py` and `mailbox.py` for `pipeline.db` and `mailbox.db`; `legacy/data/settings.json` and `keywords.json`; `legacy/lib/features/settings/`; `legacy/pipeline/gemini_extension/`.
+**Acceptance:** a dry run and a real import tested against a copy of a real `gratovo.db`, with a written report; the Settings sections persist and configure the pipeline and the bridge; the add-on connects to the bridge; in live mode only wired screens can be reached.
 
 ### Step 5. Find
 
-**Goal:** from a keyword to a confirmed contact without leaving Find.
+**Goal:** from keywords to shortlisted creators with confirmed addresses, using real pipeline runs, without leaving Find.
 **Work:**
-- the search console (keywords, rules, live panel, runs; a teammate's run and the overlap warning wait for step T);
-- triage (S, R and 1–4 keys);
-- the gallery (facets, saved views, compare, bulk actions);
-- contacts (the email finder in the background, sources and confidence, confirm).
+1. **The search console:** paste and manage keywords, Gemini keyword ideas inline, the search rules inline, the live run panel with Start, Pause and Resume (the `search` job), the progress ring, and the run history with "Review what it found". A teammate's run and the overlap warning wait for step T.
+2. **Triage:** one channel at a time (S shortlist, R reject with the 1–4 reasons), the 7-day archive toast with Undo.
+3. **The gallery and the creator record:** facets with counts, saved views, the fit score with its reasons (`packages/core`), sponsor tags, multi-select bulk actions, and the peek panel and record (videos, numbers, contacts, fit reasons, notes, activity). Compare comes along if it is cheap, or later in this step. **Find › Talent Managers waits for step 8.**
+4. **Contacts and the archive** (from the old step 9's Toolbox): the email finder in the background (`enrich`, `found_emails`), sources and confidence, an explicit **Confirm address** with the contact's name, plus **Toolbox › Archive** (countdown, Bring back), **Toolbox › Never-contact** and **Toolbox › Activity log**.
+
 **Legacy:** `legacy/lib/features/search/`, `influencers/`, `archive/`; `legacy/pipeline/gratovo/pipeline.py`, `tools/enrich.py`, `found_emails.py`.
-**Acceptance:** the *search*, *qualify* and *contacts* rows of the parity checklist; `find_flow.py` as Playwright tests.
+**Acceptance:** Find and Toolbox (Archive, Never-contact, Activity log) show in the live rail; the owner can run a real search, triage, confirm contacts and bring a channel back from the archive; the *search*, *qualify* and *contacts* rows of the parity checklist; one consolidated Playwright pass for Find (`find_flow.py` as Playwright tests).
 
-### Step 6. Reach
+### Step 6. Reach, up to reading replies
 
-**Goal:** every send, follow-up and reply from one card.
+**Goal:** draft, check, approve, send, follow up, and read and classify creators' replies from one place. This is the finish line for real outreach work.
 **Work:**
-- the draft card (gates, rewrite, send later, mailbox picker);
-- mailboxes (limits, warm-up, health);
-- sequences;
-- the replies inbox, where the app reads replies by default and a small, quiet paste box covers failures (the owner's choice);
-- the Gemini bridge and the comms engine wired to drafts.
-Nothing is sent without approval.
-**Legacy:** `legacy/lib/features/outreach/`, `legacy/pipeline/comms/`, `gemini_bridge/`, `gemini_extension/`, `tools/email_send.py`, `gratovo/mailbox.py`.
-**Acceptance:** the *cold*, *followups*, *replies*, *mediakit* and *mail* rows; the tests prove no automatic send.
+1. **The board and the draft card,** wired to the Gemini bridge and the comms engine (3e-3a) and `mail.send` (3e-3b): "Why this email" with the house-rule checks, the gates inline (unconfirmed address, mailbox cap, never-contact), the rewrite chips (Shorter, Warmer, More direct, New angle), the From picker with live capacity, Send later (**Toolbox › Scheduled**), and a 10-second Undo send. Nothing is sent without approval.
+2. **Mailboxes:** live capacity, warm-up tags, the cap stepper, bounces and health (`mail.status`).
+3. **Sequences:** the 3-touch follow-up timeline, follow-ups due, park and snooze until a date.
+4. **Replies and their intent:** the app reads replies in the background (`mail.replies`), with a small, quiet "Paste a reply" box for failures (the owner's choice); the thread right above the draft; Gemini's reading of the reply and the 47-situation reclassifier; one click to save rate and audience facts to the creator; the stage moves on by itself. **The creator loop stops here:** the media kit attachment, the audience check and marking a creator signed are step 8.
 
-### Step 7. Close
+**Legacy:** `legacy/lib/features/outreach/`, `legacy/pipeline/comms/`, `gemini_bridge/`, `tools/email_send.py`, `gratovo/mailbox.py`.
+**Acceptance:** Reach shows in the live rail; the whole loop from a confirmed contact to a drafted cold email, an approved send, the sequence and a reply read and classified works end to end; the *cold*, *followups*, *replies* and *mail* rows; tests prove no automatic send; one consolidated Playwright pass for Reach.
 
-**Goal:** a creator signed and pitched with no side spreadsheets.
-**Work:** the audience check, the roster, the brands board (qualify), match, the pitch picker, the negotiation ladder, and contracts (creator signs first).
+### Step 7. Today, prototype mode and the CI gate
+
+**Goal:** a full day of outreach worked from Today alone, and prototype mode so the screens not built yet can be looked at safely.
+**Work:**
+1. **Today** (was step 4). Port the next-action engine (`items()` in the prototype's `engine.js`) into `packages/core` with unit tests: buckets, money first, owners, snoozes, quick wins, roles. Then the queue, the day band (the 4-hour budget, mailboxes, done today), the work panel for each item kind, focus mode, wrap-up, the first-day screen and snooze, and **Settings › Your day**. In live mode Today shows only the buckets that have real work behind them (answer replies, approve emails, follow-ups due, confirm contacts, review new finds); the brand, deal and money buckets turn on in steps 8 and 9. The engine keeps owners and roles as inputs, so T adds no rework. Hand-off and the team view of Today wait for step T.
+2. **Prototype mode and the comment tool** (was 3f). Built as in the prototype (`proto.js`, `comments.js`): an owner-only switch in Settings, off by default, and invisible when off.
+   - When on, the live data is set aside and `example.db` is used, and **every screen shows**, including those no step has wired yet (Close, Deliver, Insights, Team, Find › Talent Managers).
+   - Scenarios: a normal Monday, the first day, a week later, something broke.
+   - ~~See the app as a teammate~~ (step T).
+   - The comment tool: press C, click anything, write. Pins anchor to stable `data-ui` ids that components carry.
+   - The outbound adapters are stand-ins: Gmail send, Gemini, YouTube and R2 writes do nothing real.
+   - Comments are kept in a `comments` table in the local database and exported to `docs/feedback/comments.json` on demand, so any session can read and act on them (§9 Q9).
+   - When off, no trace: only wired screens, no buttons, keys, pins, bars or network calls (an automated check).
+3. **Branch protection** (was 3g): pull requests only and CI green on `main`; a pull request with a failing test cannot merge.
+
+**Legacy:** `legacy/lib/features/my_day/` (the old aggregator) for the data each item needs.
+**Acceptance:** Today shows in the live rail; the parity rows for the *daily* step plus every Today row in §2 and §3; prototype mode switches cleanly between the focused live app and the full prototype; the prototype's Today flows, `proto_flow.py` and `review_fixes.py` pass as Playwright tests against the real app.
+
+### Step 8. Creator signing and Close
+
+**Goal:** creators signed to the roster, brands qualified, and deals pitched, negotiated and contracted with no side spreadsheets.
+**Work:**
+1. **Signing and talent managers:** the media kit attachment, the audience check (US, UK, CA or AU in the top 3, buying age, 3%+ engagement, an agreed rate), the **Sign creator** stage and the roster, and **Find › Talent Managers**.
+2. **Brands and pitching:** sponsors found automatically into Found brands, the brands board and qualifying, the pitch picker (1–2 creators ranked by fit, with clash warnings), the price gate, brand follow-up nudges.
+3. **Negotiation and contracts:** the negotiation ladder beside the reply, offer and counter history, the exclusivity and usage checklist, contracts (the creator signs before the agency; an e-signature link, §9 Q6), plus **Toolbox › Calculator** and **Settings › Agency facts**.
+4. Close shows in the live rail, and Today's brand and signing buckets turn on.
+
 **Legacy:** `legacy/lib/features/brands/`, `deals/` (terms, contracts).
-**Acceptance:** the *audience*, *sign*, *brands*, *pitch*, *negotiate* and *contracts* rows.
+**Acceptance:** the *mediakit*, *audience*, *sign*, *brands*, *pitch*, *negotiate* and *contracts* rows.
 
-### Step 8. Deliver
+### Step 9. Deliver and Insights
 
-**Goal:** a deal from contract to the next pitch inside the app.
-**Work:** the deal board and the 10-step checklists; the brief and draft review; pre-live checks; the go-live email; invoices (Net 30) with aging; payouts locked until the brand pays; the 30-day report; the next deal.
-**Legacy:** `legacy/lib/features/deals/` (30-day report, video stats), `legacy/pipeline/tools/video_stats.py`.
-**Acceptance:** the *brief*, *prelive*, *golive*, *invoice*, *report*, *payout* and *nextdeal* rows.
-
-### Step 9. Insights, Toolbox, Team, Settings, and the data import
-
+**Goal:** a deal from the brief to a Net-30 invoice, the creator's payout, the 30-day report and the next deal inside the app, and the agency's numbers in one place.
 **Work:**
-- Insights with drill-downs; Toolbox (calculator, archive, never-contact, scheduled, log); every Settings section with real effect, except the ones about other people (members, roles, "the whole team"), which wait for step T. The Team screen (load, roles, hand-offs, rebalance) is in T too.
-- The old app's capabilities outside the framework (parity checklist §6): decide each one with the owner, then port it or drop it.
-- **Data import:** on first run the new app imports the old local database (`gratovo.db`) after a backup. A dry run reports what moves.
-**Acceptance:** the solo rows of the *teamops* group and §6 of the parity checklist (the team rows are step T's); an import rehearsal on a copy of a real `gratovo.db` with a written report.
+1. **Deliver** (was step 8): the deal board and the 10-step checklists; the brief and draft review; pre-live checks; the go-live email; invoices (Net 30) with aging; payouts locked until the brand pays; the 30-day report (`video_stats`); the next deal.
+2. **Insights** (from the old step 9): the charts with drill-downs, the reverse-funnel planner, the 50-send ghosting diagnosis, channel numbers.
+3. The rest of Settings that has a solo effect (**Team and money** for one person); the sections about other people (members, roles, "the whole team") wait for step T.
+4. The old app's capabilities outside the framework (parity checklist §6): decide each one with the owner, then port it or drop it. News and the Email library are decided here.
+5. Deliver and Insights show in the live rail, and Today's deal and money buckets turn on.
 
-### Step T. Team work, after the app works for one person
+**Legacy:** `legacy/lib/features/deals/` (30-day report, video stats), `legacy/pipeline/tools/video_stats.py`.
+**Acceptance:** the *brief*, *prelive*, *golive*, *invoice*, *report*, *payout* and *nextdeal* rows; the solo rows of the *teamops* group and §6 of the parity checklist (the team rows are step T's).
 
-Added 2026-10-21 (owner: "all steps and plans for team work should be pushed back until the app is fully functional"). It starts only when step 9 is done and the owner says go. Each part is its own pull request, with its own plan in `.router/` when it starts.
+### Step T. Team work and packaging, after the app works for one person
+
+Added 2026-10-21 (owner: "all steps and plans for team work should be pushed back until the app is fully functional"). Packaging (was 3h) joined it on 2026-10-24: the owner runs the app from the repository on Windows for now, and an installer and updates are only needed to reach other machines. It starts only when step 9 is done and the owner says go. Each part is its own pull request, with its own plan in `.router/` when it starts.
 
 **Goal:** a few trusted members work in the same app, see the same truth, and don't collide.
 **Parts** (the order is a first guess; the plan at T's start decides):
@@ -224,10 +239,16 @@ Added 2026-10-21 (owner: "all steps and plans for team work should be pushed bac
 - **T2. In Find:** a teammate's live run, the warning before searching a keyword a teammate is running, and handing keywords to a teammate (parity rows 7 and the Find overlap row).
 - **T3. In Today and Team:** hand-off with a note, owner reassignment in bulk, the team view of Today, the Team screen (load, roles, rebalance, the activity log), the Settings sections about members and roles, and presence shown on records.
 - **T4. New members:** the first-week checklist and practice mode, the setup-health check for a new machine, and "see the app as a teammate" in prototype mode.
-- **T5. Reaching other machines:** auto-update with electron-updater from the private R2 bucket (URLs from the server function; builds unsigned, §9 Q12), checked by updating a clean machine to a newer test build.
+- **T5. Packaging and updates** (was 3h):
+  - an electron-builder NSIS installer for Windows, with the Python runtime bundled through python-build-standalone via uv (the target machines have no Python), and Deno plus `yt-dlp-ejs` for subtitles (ADR 0014);
+  - the packager applies the fuses, including `EnableEmbeddedAsarIntegrityValidation`, and ships `@supabase/realtime-js` with main (ADR 0012);
+  - a release build refuses to build without the two Supabase values (ADR 0011);
+  - no code signing (§9 Q12): document the first-run Windows warning for members;
+  - auto-update with electron-updater from the private R2 bucket (URLs from the server function; builds unsigned, §9 Q12).
+  - *Acceptance:* an installer built in CI installs on a clean Windows machine and runs a search on example data; a clean machine updates itself to a newer test build.
 
-**Legacy:** `legacy/pipeline/gratovo/sync.py`, `r2.py`, `legacy/lib/core/sync/` for behaviour; the rest comes from the prototype.
-**Acceptance:** the team rows of the parity checklist (§1 rows 7, 18, 119 and 122, and the Team, Today team view, Find overlap, Settings scope and Prototype rows in §2 and §3), each ticked in the real app with two accounts; two machines share results through R2; an update reaches a second machine.
+**Legacy:** `legacy/pipeline/gratovo/sync.py`, `r2.py`, `legacy/lib/core/sync/` for behaviour; `legacy/scripts/` for the versioning rule; the rest comes from the prototype.
+**Acceptance:** the team rows of the parity checklist (§1 rows 7, 18, 119 and 122, and the Team, Today team view, Find overlap, Settings scope and Prototype rows in §2 and §3), each ticked in the real app with two accounts; two machines share results through R2; T5's checks above.
 
 ### Step 10. Check it 100%
 
@@ -258,17 +279,17 @@ Added 2026-10-21 (owner: "all steps and plans for team work should be pushed bac
 | `lib/` (Flutter app) | Reference only. Behaviour is ported screen by screen, never the code. | 3c to 9 |
 | `test/` | Reference for behaviour and edge cases worth keeping. | 3 to 9 |
 | `pipeline/` | Ported into `services/pipeline/`, cleaned (pyproject, src layout, typed). `gratovo/sync.py` and `r2.py` wait for step T. | 3e, T |
-| `pipeline/gemini_extension/` | Ported into `services/gemini-extension/`, later moved to TypeScript. | 6 |
+| `pipeline/gemini_extension/` | Ported into `services/gemini-extension/`, later moved to TypeScript. | 4 |
 | `backend/schema.sql`, `backend/tests/` | A baseline migration and the SQL tests in `supabase/`. | 3d |
 | `backend/SETUP.md` | Rewritten as `docs/setup.md` for the new stack. | 3d |
 | `backend/migrate_v2.sql` | Not carried over (one-off, already applied). | – |
 | `data/comms/` (playbook, skill, tests) | Moved with the pipeline. | 3e |
-| `data/settings.json`, `keywords.json`, `all_keywords.txt`, `run_config.json`, `reset_manifest.json` | Pipeline config, reviewed and moved. | 3e |
+| `data/settings.json`, `keywords.json`, `all_keywords.txt`, `run_config.json`, `reset_manifest.json` | Pipeline config, reviewed and moved; the owner's real values are imported. | 3e, 4 |
 | `data/gemini skills/` | Moved if the keyword and classifier prompts still need them. | 3e |
 | `data/.env` | **Never.** Rotate its keys (A1). | – |
 | `assets/` (fonts, logo) | Logo and icons into `apps/desktop/resources`. Fonts are already chosen in the prototype. | 3c |
-| `scripts/` (build, version, installer) | Replaced by electron-builder and release workflows. The versioning rule is reused. | 3h |
-| `.github/workflows/` | Replaced by new CI. | 3g |
+| `scripts/` (build, version, installer) | Replaced by electron-builder and release workflows. The versioning rule is reused. | T5 |
+| `.github/workflows/` | Replaced by new CI. | 3b, 7 |
 | `docs/plans/*` | Reference. Their decisions are in `product/` and this plan. | – |
 | `android/`, `ios/`, `web/`, `windows/` | Not copied (generated Flutter runners). | – |
 
@@ -292,18 +313,18 @@ All twelve were answered by the owner on 2026-10-19. The consequences are writte
 
 | # | Question | Answer | Step |
 |---|---|---|---|
-| 1 | Should VAs see money (invoices, payouts, margins)? | **No.** As in the prototype: money screens and amounts are hidden for VAs, and brand work that needs prices routes to the owner. | 4 |
-| 2 | One 4-hour budget for everyone, or per person? | **Per person.** Each team member has their own daily hours. Default 4, set by the owner in Settings. | 4 |
+| 1 | Should VAs see money (invoices, payouts, margins)? | **No.** As in the prototype: money screens and amounts are hidden for VAs, and brand work that needs prices routes to the owner. | 7 |
+| 2 | One 4-hour budget for everyone, or per person? | **Per person.** Each team member has their own daily hours. Default 4, set by the owner in Settings. | 7 |
 | 3 | Which emails need a second pair of eyes? | **Nothing is sent without approval.** Approve-all stays the rule for every email, so no price or new-VA threshold is needed. | 6 |
 | 4 | When do Instagram and TikTok come in? | **Not in this migration.** Email only. Social channels become a separate project after cutover. | 5 |
-| 5 | Invoices: sent from the app, or tracked only? | **Made in an accounting tool and only tracked here.** The app records status and amounts and links to the invoice. It does not generate PDFs. | 8 |
-| 6 | Contracts: files in the app, or an e-signature service? | **A link to an e-signature service.** The app tracks status and links to the signed document. | 7 |
+| 5 | Invoices: sent from the app, or tracked only? | **Made in an accounting tool and only tracked here.** The app records status and amounts and links to the invoice. It does not generate PDFs. | 9 |
+| 6 | Contracts: files in the app, or an e-signature service? | **A link to an e-signature service.** The app tracks status and links to the signed document. | 8 |
 | 7 | Reply reading: which mailboxes, how long kept? | **Connected mailboxes only; keep everything.** No retention purge. The rule "never read the connected mailbox" for sessions still holds ([owner-rules.md](product/owner-rules.md)). | 6 |
 | 8 | Confirm the stack | **Accepted** (A4): Electron, React and TypeScript. | 3 |
-| 9 | Prototype comments: file or team database? | **A file in the repository** (`docs/feedback/comments.json`, exported on demand) so any session can read it. | 3f |
-| 10 | Prototype mode: owner only, or also VA training? | **Owner only.** | 3f |
+| 9 | Prototype comments: file or team database? | **A file in the repository** (`docs/feedback/comments.json`, exported on demand) so any session can read it. | 7 |
+| 10 | Prototype mode: owner only, or also VA training? | **Owner only.** | 7 |
 | 11 | Team keys (YouTube, R2) | **Served after sign-in from a server function.** Never in the installer or the repository. | 3d |
-| 12 | Releases and code signing | **No code signing.** The app is for the owner and a few trusted members, so no certificate is bought. Windows will warn on first install, and members click through it. Updates still work unsigned. Where installers live was not chosen: the default is a private R2 bucket, handed out through the same server function as the team keys (builder's call, change it if you prefer). | 3h |
+| 12 | Releases and code signing | **No code signing.** The app is for the owner and a few trusted members, so no certificate is bought. Windows will warn on first install, and members click through it. Updates still work unsigned. Where installers live was not chosen: the default is a private R2 bucket, handed out through the same server function as the team keys (builder's call, change it if you prefer). | T5 |
 
 
 ## 10. Model use
