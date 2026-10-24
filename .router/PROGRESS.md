@@ -19,7 +19,7 @@ Started 2026-10-24. The plan is `.router/PLAN.md` (decisions D1 to D18, contract
 | B14 | N | done | 8531b81. `catalog.snapshot()`, `find/toolbox.ts` (`toolboxList`, `toolboxCounts`, `countArchived`, `readArchived`). Lead: `log:page` and `logSince` added to the DataSource (contract test), context hook dropped |
 | B15 | H | done | `archive-service.ts`: first sweep 30 s after start, then hourly; search told apart by `find.state().run.state`; a waiting restore goes before its own next job; a running restore isn't stopped by Start; a failed restore job throws (generic failure on the page: review) |
 | B16 | N | done | e51c1a9. `logPage`, `peopleInLog`, `linesSince`; counts skip the money-text filter (money-field rule kept) |
-| B17 | N | todo | |
+| B17 | N | done | Toolbox screen, list, Archive tool, `lib/toolbox.ts` (`restoreForGood`), `useCatalogTick`; reject sub lives in `findActions.rejectSub`; looked at in dark at 1440 (empty states). Bring back from for-good gave two toasts: B18 fixes |
 | B18 | N | todo | |
 | W4 | N | todo | |
 | R4 | H | todo | |

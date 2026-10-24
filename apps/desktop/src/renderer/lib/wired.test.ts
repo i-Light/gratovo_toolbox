@@ -15,15 +15,7 @@ import {
   startRoute,
 } from "./wired";
 
-const hidden: readonly ScreenKey[] = [
-  "today",
-  "reach",
-  "close",
-  "deliver",
-  "insights",
-  "toolbox",
-  "team",
-];
+const hidden: readonly ScreenKey[] = ["today", "reach", "close", "deliver", "insights", "team"];
 
 describe("on example data", () => {
   it("shows every screen, tab and section", () => {
@@ -47,12 +39,12 @@ describe("on example data", () => {
 });
 
 describe("on live data", () => {
-  it("shows only Find, Settings and the record page", () => {
+  it("shows only Find, Toolbox, Settings and the record page", () => {
     for (const key of hidden) {
       expect(isScreenShown(key, "live")).toBe(false);
       expect(isTabShown(key, null, "live")).toBe(false);
     }
-    for (const key of ["find", "settings", "record"] as const) {
+    for (const key of ["find", "toolbox", "settings", "record"] as const) {
       expect(isScreenShown(key, "live")).toBe(true);
     }
   });
@@ -64,6 +56,8 @@ describe("on live data", () => {
       "gallery",
       "contacts",
     ]);
+    expect(shownTabs("toolbox", "live").map((t) => t.key)).toEqual(["archive", "never", "log"]);
+    expect(firstShownTab("toolbox", "live")).toBe("archive");
     expect(isTabShown("find", "triage", "live")).toBe(true);
     expect(isTabShown("find", "gallery", "live")).toBe(true);
     expect(isTabShown("find", "contacts", "live")).toBe(true);

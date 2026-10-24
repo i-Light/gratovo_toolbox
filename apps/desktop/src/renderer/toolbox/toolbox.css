@@ -1,0 +1,91 @@
+/* The Toolbox screen, ported from the prototype (js/more.js l.56-62 and l.744-802). */
+
+.tb {
+  display: grid;
+  grid-template-columns: minmax(250px, 320px) minmax(0, 1fr);
+  gap: var(--gap);
+  align-items: start;
+}
+.tb-list {
+  position: sticky;
+  top: 0;
+  padding: 6px;
+  gap: 0;
+}
+.tb-list .li {
+  align-items: flex-start;
+  padding: 8px;
+}
+.tb-list .lt small {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  line-height: 1.35;
+}
+.tb-list .li[aria-current="page"] {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+}
+.tb-list .li[aria-current="page"] .tb-ic {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.tb-pane {
+  min-height: 420px;
+}
+.tb-ic-lg {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+}
+.tb-long {
+  max-width: 64ch;
+}
+
+/* the Archive tool */
+.tb-row {
+  gap: 6px;
+}
+.tb-row > .li {
+  flex: 1 1 280px;
+}
+.tb-when {
+  align-items: flex-end;
+  flex: none;
+}
+.tb-when .meter {
+  width: 90px;
+}
+.tb-sec {
+  margin-top: 8px;
+}
+.tb-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-m);
+  padding: 0 10px;
+  background: var(--panel);
+  width: min(320px, 100%);
+  color: var(--muted);
+}
+.tb-search input {
+  border: 0;
+  background: none;
+  outline: none;
+  flex: 1;
+  min-width: 0;
+  color: var(--ink);
+  height: 100%;
+}
+.tb-search:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.tb-gone {
+  padding: 8px 10px;
+  min-height: var(--row-h);
+  border-top: 1px solid var(--line);
+}

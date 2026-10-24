@@ -217,7 +217,7 @@ describe("reject", () => {
     const toast = toasts().at(-1);
     expect(toast?.msg).toBe("Ada AI Tools rejected");
     expect(toast?.sub).toBe(
-      "Audience outside US, UK, CA or AU. It leaves Review new; Undo brings it back.",
+      "Audience outside US, UK, CA or AU. Bring it back from Toolbox › Archive before it is archived for good.",
     );
     await settle();
     expect(writes.flat().find((w) => w.kind === "creator.stage")).toEqual({

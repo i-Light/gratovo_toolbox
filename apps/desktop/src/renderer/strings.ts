@@ -1337,7 +1337,11 @@ export const strings = {
       tabs: { board: "Deal board", money: "Money" },
     },
     insights: { name: "Insights", sub: "Analytics, keywords, funnel", tabs: {} },
-    toolbox: { name: "Toolbox", sub: "Calculator, archive, logs, setup", tabs: {} },
+    toolbox: {
+      name: "Toolbox",
+      sub: "Archive, never contact, log",
+      tabs: { archive: "Archive", never: "Never contact", log: "Activity log" },
+    },
     team: { name: "Team", sub: "People, load, mailboxes", tabs: {} },
     settings: {
       name: "Settings",
@@ -1376,7 +1380,8 @@ export const strings = {
     shortlistSub: "Shortlisted channels wait for a confirmed address before any email.",
     rejected: (name: string): string => `${name} rejected`,
     rejectedMany: (n: number): string => `${String(n)} rejected`,
-    rejectSub: (reason: string): string => `${reason}. It leaves Review new; Undo brings it back.`,
+    rejectSub: (reason: string): string =>
+      `${reason}. Bring it back from Toolbox › Archive before it is archived for good.`,
     reasons: {
       ai: "Not about AI tools",
       views: "Too few views",
@@ -1388,6 +1393,64 @@ export const strings = {
     neverSub: "Searches skip this channel.",
     allowed: (name: string): string => `${name} can be emailed again`,
     allowedSub: "Back in Review new; searches no longer skip it.",
+  },
+  /** Toolbox (plan step 5d, D34 to D41). */
+  toolbox: {
+    navLabel: "Tools",
+    groups: { tools: "Tools", history: "History" },
+    tools: {
+      archive: {
+        sub: "Rejected channels you can still bring back",
+        long: "Rejected channels wait here before they are archived for good. Bring one back and it returns to Review new.",
+      },
+      never: {
+        sub: "Channels that must not be emailed again",
+        long: "Searches skip these channels and any draft to them is deleted. Add one here or from any draft.",
+      },
+      log: {
+        sub: "Who did what, newest first",
+        long: "Every change anyone made, so a surprise on a record can be traced.",
+      },
+    },
+    countTips: { log: "Changes today" },
+    soon: "This tool comes next.",
+    loadFailed: "Couldn’t load this list.",
+    showMore: "Show more",
+    moreFailed: "Couldn’t load more. Try again",
+    archive: {
+      hint: (days: number): string =>
+        `Rejected channels are archived for good after ${String(days)} ${days === 1 ? "day" : "days"}. Bring one back before then and it returns to Review new.`,
+      emptyTitle: "Nothing in the archive",
+      emptyHint: (days: number): string =>
+        `Rejected channels wait here for ${String(days)} ${days === 1 ? "day" : "days"} before they are archived for good.`,
+      reasonUnknown: "Rejected",
+      inDays: (n: number): string =>
+        `archived for good in ${String(n)} ${n === 1 ? "day" : "days"}`,
+      today: "archived today",
+      noDate: "No archive date",
+      meterLabel: "Days left",
+      bringBack: "Bring back",
+      bringBackLabel: (name: string): string => `Bring back ${name}`,
+      forGoodTitle: "Archived for good",
+      forGoodHint: "Searches skip these channels. Bring one back and its numbers are read again.",
+      searchLabel: "Search archived channels",
+      searchPlaceholder: "Search by handle or name",
+      forGoodEmpty: "Nothing archived for good yet.",
+      noMatch: "No archived channel matches that.",
+      rejectedLabel: "Rejected",
+      subscribers: (n: string): string => `${n} subscribers`,
+      hiddenSubscribers: "Hidden subscribers",
+      unknownName: "Unknown channel",
+      archivedOn: (when: string): string => `archived ${when}`,
+    },
+    restore: {
+      comingBack: (name: string): string => `${name} is coming back`,
+      comingBackSub: "Its numbers are read again, then it shows in Review new.",
+      returnsLater: "It returns to Review new when a search finds it again.",
+      busy: "A search is running. Bring it back when it pauses or ends.",
+      failed: "Couldn’t bring it back. Try again.",
+      fallbackName: "The channel",
+    },
   },
   /** Find › Contacts and the contact block the record shares (plan D31, D32). */
   findContacts: {

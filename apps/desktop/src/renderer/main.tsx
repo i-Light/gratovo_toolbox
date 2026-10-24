@@ -11,6 +11,7 @@ import "./find/find.css";
 import "./overlays/overlays.css";
 import "./record/record.css";
 import "./settings/settings.css";
+import "./toolbox/toolbox.css";
 
 import { createRoot } from "react-dom/client";
 
