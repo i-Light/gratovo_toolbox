@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { clientSecretText, done, tokenText, useConnections } from "./connections-harness";
 import { maxMailboxes, startSettings } from "./connections-service";
@@ -61,8 +61,99 @@ describe("the connections service's mailboxes", () => {
     expect(await h.service.addMailbox("one-more@ai-weekly.example", tokenText)).toEqual({
       ok: false,
       reason: "too_many",
+      known: false,
     });
     expect(await h.service.addMailbox("box3@ai-weekly.example", tokenText)).toEqual({ ok: true });
+  });
+
+  describe("a save that fails", () => {
+    const secretName = "mail.mailboxes";
+    const failRowWrite = (): void => {
+      const source = h.source;
+      if (source === null) {
+        throw new Error("no source");
+      }
+      vi.spyOn(source, "writeSetting").mockImplementation(() => {
+        throw new Error("disk full");
+      });
+    };
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it("says a stored address is known, and keeps its old token", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => undefined);
+      await h.service.addMailbox("sam@ai-weekly.example", tokenText);
+      const before = h.store.values.get(secretName);
+      vi.spyOn(h.store, "set").mockRejectedValue(new Error("locked"));
+      expect(await h.service.addMailbox("Sam@AI-Weekly.example", "second-token")).toEqual({
+        ok: false,
+        reason: "failed",
+        known: true,
+      });
+      expect(h.store.values.get(secretName)).toBe(before);
+    });
+
+    it("puts the token secret back when the row can't be written", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => undefined);
+      await h.service.addMailbox("sam@ai-weekly.example", tokenText);
+      const before = h.store.values.get(secretName);
+      failRowWrite();
+      expect(await h.service.addMailbox("lee@ai-weekly.example", "lee-token")).toEqual({
+        ok: false,
+        reason: "failed",
+        known: false,
+      });
+      // No dead token is left taking a place.
+      expect(h.store.values.get(secretName)).toBe(before);
+      expect(await h.service.mailboxCount()).toBe(1);
+    });
+
+    it("removes the token secret again when there was none before", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => undefined);
+      failRowWrite();
+      expect(await h.service.addMailbox("lee@ai-weekly.example", "lee-token")).toEqual({
+        ok: false,
+        reason: "failed",
+        known: false,
+      });
+      expect(h.store.values.has(secretName)).toBe(false);
+      expect(await h.service.mailboxCount()).toBe(0);
+    });
+
+    it("says known for a token with no row, and puts its old token back", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => undefined);
+      const before = JSON.stringify([
+        { address: "sam@ai-weekly.example", refreshToken: tokenText },
+      ]);
+      h.store.values.set(secretName, before);
+      failRowWrite();
+      expect(await h.service.addMailbox("sam@ai-weekly.example", "second-token")).toEqual({
+        ok: false,
+        reason: "failed",
+        known: true,
+      });
+      expect(h.store.values.get(secretName)).toBe(before);
+    });
+
+    it("says known when the new token can't be taken back out (it stays stored)", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => undefined);
+      failRowWrite();
+      vi.spyOn(h.store, "delete").mockRejectedValue(new Error("locked"));
+      expect(await h.service.addMailbox("lee@ai-weekly.example", "lee-token")).toEqual({
+        ok: false,
+        reason: "failed",
+        known: true,
+      });
+    });
+
+    it("is still a save when the status can't be sent afterwards", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => undefined);
+      vi.spyOn(h.emitted, "push").mockImplementation(() => {
+        throw new Error("window gone");
+      });
+      expect(await h.service.addMailbox("lee@ai-weekly.example", tokenText)).toEqual({ ok: true });
+    });
   });
 
   describe("mailboxCount", () => {
@@ -109,6 +200,7 @@ describe("the connections service's mailboxes", () => {
       expect(await h.service.addMailbox("new@ai-weekly.example", tokenText)).toEqual({
         ok: false,
         reason: "too_many",
+        known: false,
       });
     });
 

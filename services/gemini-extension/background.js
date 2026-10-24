@@ -453,11 +453,13 @@ const LONG_CONTENT_METHODS = {
   gem_read: 60000, gem_create: 120000, gem_update: 120000,
   skills_list: 30000, skill_read: 180000, skill_upload_open: 30000, skill_upload_finish: 180000, skill_set_active: 40000, skill_delete: 40000
 };
+// A caller may ask for a longer wait, but never past this: the longest method allows 3 minutes.
+const MAX_CONTENT_TIMEOUT_MS = 600000;
 function contentDeadlineMs(method, params) {
-  const base = LONG_CONTENT_METHODS[method];
+  const base = Object.prototype.hasOwnProperty.call(LONG_CONTENT_METHODS, method) ? LONG_CONTENT_METHODS[method] : null;
   if (base == null) return 15000;
   const asked = params && Number(params.timeoutMs);
-  return (Number.isFinite(asked) && asked > 0 ? asked : base) + 15000;
+  return Math.min(Number.isFinite(asked) && asked > 0 ? asked : base, MAX_CONTENT_TIMEOUT_MS) + 15000;
 }
 function withDeadline(promise, ms, message) {
   let timer;
@@ -702,8 +704,9 @@ function validateOverrides(overrides) {
 async function handleRequest(method, params) {
   if (typeof method !== 'string') throw gbError('BAD_PARAMS', 'method must be a string');
   log('debug', 'handleRequest', { method });
-  const fn = BACKGROUND_METHODS[method];
-  if (fn) return fn(params);
+  // Only the table's own entries: a name like "constructor" or "__proto__" must not dispatch.
+  const fn = Object.prototype.hasOwnProperty.call(BACKGROUND_METHODS, method) ? BACKGROUND_METHODS[method] : null;
+  if (typeof fn === 'function') return fn(params);
   if (!CONTENT_METHODS.has(method)) throw gbError('BAD_PARAMS', 'Unknown method "' + method + '"');
   const tab = await getTargetTab(params);
   return callContent(tab.id, method, params);

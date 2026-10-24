@@ -18,7 +18,8 @@ import { strings } from "../strings";
  * listener on 127.0.0.1 with a port the system picks, PKCE (S256), a random `state`, Google's
  * consent page in the system browser, five minutes to finish, one code accepted. Main exchanges
  * the code at Google's token endpoint and stores the refresh token through `saveMailbox`; a token
- * that can't be stored is revoked at once, so no live grant is left behind.
+ * that can't be stored is revoked at once, so no live grant is left behind. The one exception is
+ * an address whose older token is still stored: a revoke ends the whole grant and would kill it.
  *
  * Only Google's redirect, with our `state`, can end a connect (or the timeout). A request with a
  * missing or wrong `state` gets a bare 404 and changes nothing: a web page in the person's browser
@@ -37,7 +38,13 @@ export interface MailClient {
   readonly secret: string;
 }
 
-export type SaveMailboxResult = { ok: true } | { ok: false; reason: MailConnectFailure };
+/**
+ * `known` on a failure: a token for this address is still stored (a reconnect of a mailbox that
+ * was already connected, say). Its new token is then not revoked, because revoking at Google ends
+ * the account's whole grant and would kill the stored, working token too.
+ */
+export type SaveMailboxResult =
+  { ok: true } | { ok: false; reason: MailConnectFailure; known: boolean };
 
 export interface MailConsentDeps {
   /** The stored `mail.client`, or null when none is stored (or it is unreadable). */
@@ -315,7 +322,11 @@ export function createMailConsent(deps: MailConsentDeps): MailConsentService {
       throw error;
     }
     if (!saved.ok) {
-      await revoke(refreshToken);
+      if (saved.known) {
+        log("Mail consent: not revoked, this mailbox's stored token still uses the grant.");
+      } else {
+        await revoke(refreshToken);
+      }
       return fail(saved.reason);
     }
     return { ok: true, address };

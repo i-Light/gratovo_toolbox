@@ -351,7 +351,7 @@ function start(): void {
         canAddMailbox: async () => (await connections.mailboxCount()) < maxMailboxes,
         saveMailbox: async (address, token) => {
           const saved = await connections.addMailbox(address, token);
-          return saved.ok ? saved : { ok: false, reason: saved.reason };
+          return saved.ok ? saved : { ok: false, reason: saved.reason, known: saved.known };
         },
         // Step names and reasons only; the consent code never logs a secret.
         log: (line) => {

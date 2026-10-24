@@ -31,6 +31,7 @@ Branch `feat/4-live-data-and-connections`, from `docs/plan-pipeline-first` at 8e
 | R1 | H | done | review fixes: import path realpath + `data_dir.parent`, runs dedupe on (started_at, kind) and `running`→`interrupted`, import state written before best-effort steps, UNC refusal, `protocolVersion`, keyword.py `finally` |
 | R2 | H | done | review fixes: consent ignores wrong state (404, no settle), `email_verified` must be true, revoke the token when saving fails, cheap `mailboxCount()`, no `mail` in search starts, Gemini stop tied to source open/close, split `connections-service.ts` |
 | R3 | N | done | review fix: one component per file under `renderer/settings/connections/` and `search-rules-section.tsx` |
+| R4 | H | done | second review: signal bounds judged on any run-ending error (original error kept); revoke only for a new address, `add` all-or-nothing; warning wording; hard links to the app's own databases refused (dev+ino); account.ts comments. Lead: three CodeQL results in the ported add-on fixed (backslash in a CSS selector escape, a capped content timeout, own-property method lookup) |
 | L1 | lead | done | full checks green; rehearsal; review (0 blockers, 3 important, 9 minor: all fixed); import warnings shown in the dialog; the Connections callout says what isn't set up instead of "everything works"; looked at in dark at 1440 px (Connections, import dialog, Search rules view and edit, Writing rules, Find) |
 
 ## Rehearsal (lead, 2026-10-24)

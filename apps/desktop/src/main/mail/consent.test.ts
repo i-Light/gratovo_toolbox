@@ -443,7 +443,7 @@ describe("createMailConsent", () => {
   });
 
   it("passes on saveMailbox's failure, and revokes the token it couldn't keep", async () => {
-    const context = setup({ saveMailbox: { ok: false, reason: "too_many" } });
+    const context = setup({ saveMailbox: { ok: false, reason: "too_many", known: false } });
     expect(await context.consent.connect()).toEqual({ ok: false, reason: "too_many" });
     expect(context.saveMailbox).toHaveBeenCalledOnce();
     expect(context.revokeFetch).toHaveBeenCalledOnce();
@@ -466,6 +466,25 @@ describe("createMailConsent", () => {
     expectNoSecretsLogged(context);
   });
 
+  it("revokes nothing when a reconnect of a stored mailbox fails to save", async () => {
+    // Revoking ends the account's whole grant at Google: the stored token would die with it.
+    const context = setup({ saveMailbox: { ok: false, reason: "failed", known: true } });
+    expect(await context.consent.connect()).toEqual({ ok: false, reason: "failed" });
+    expect(context.saveMailbox).toHaveBeenCalledOnce();
+    expect(context.revokeFetch).not.toHaveBeenCalled();
+    expect(context.log).toHaveBeenCalledWith(
+      "Mail consent: not revoked, this mailbox's stored token still uses the grant.",
+    );
+    await expectClosed(context);
+    expectNoSecretsLogged(context);
+  });
+
+  it("still revokes a new mailbox's token when its save fails", async () => {
+    const context = setup({ saveMailbox: { ok: false, reason: "failed", known: false } });
+    expect(await context.consent.connect()).toEqual({ ok: false, reason: "failed" });
+    expect(context.revokeFetch).toHaveBeenCalledOnce();
+  });
+
   it("revokes nothing when the mailbox is saved", async () => {
     const context = setup();
     expect((await context.consent.connect()).ok).toBe(true);
@@ -481,7 +500,7 @@ describe("createMailConsent", () => {
       },
     ],
   ])("keeps saveMailbox's reason when the revoke is %s", async (_name, revoke) => {
-    const context = setup({ saveMailbox: { ok: false, reason: "too_many" }, revoke });
+    const context = setup({ saveMailbox: { ok: false, reason: "too_many", known: false }, revoke });
     expect(await context.consent.connect()).toEqual({ ok: false, reason: "too_many" });
     expect(context.revokeFetch).toHaveBeenCalledOnce();
     expect(context.log.mock.calls.flat().join("\n")).not.toContain("invalid_token");

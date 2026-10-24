@@ -1,4 +1,5 @@
 import {
+  linkSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -162,6 +163,40 @@ describe("the importer", () => {
       reason: "own_data",
     });
     expect(starts).toHaveLength(0);
+  });
+
+  it("refuses a hard link to one of its own databases, without a job", async (ctx) => {
+    // The live pipeline folder is outside userData here, so only the file check can catch it.
+    const liveDir = join(root, "live pipeline");
+    mkdirSync(liveDir);
+    const targets = {
+      "gratovo.db": join(userData, "gratovo.db"),
+      "example.db": join(userData, "example.db"),
+      "pipeline.db": join(liveDir, "pipeline.db"),
+    };
+    const links = join(root, "links");
+    mkdirSync(links);
+    for (const [name, target] of Object.entries(targets)) {
+      writeFileSync(target, "x");
+      try {
+        linkSync(target, join(links, name));
+      } catch {
+        ctx.skip("this machine doesn't allow creating a hard link here");
+      }
+    }
+    const importer = make({ pipelineDataDir: () => liveDir });
+    for (const name of Object.keys(targets)) {
+      expect(await importer.dryRun(join(links, name))).toEqual({ ok: false, reason: "own_data" });
+      expect(await importer.run(join(links, name), false)).toEqual({
+        ok: false,
+        reason: "own_data",
+      });
+    }
+    expect(starts).toHaveLength(0);
+    // A file that only has the same contents is a different file: it goes through.
+    writeFileSync(join(links, "copy.db"), "x");
+    await importer.dryRun(join(links, "copy.db"));
+    expect(starts).toHaveLength(1);
   });
 
   it("refuses \\\\?\\ and \\\\.\\ paths without a job", async () => {
@@ -355,6 +390,22 @@ describe("the importer", () => {
         expect(readFindFile(dataDir).rules.perKeyword).toBe(77);
         // The log names the kind of error, never its message (it can carry a path).
         expect(JSON.stringify(vi.mocked(console.warn).mock.calls)).not.toContain("somewhere");
+      });
+
+      it("the find.json copy without the old rules asked: only the copy is named", async () => {
+        const fs = {
+          ...realImportFs,
+          copyFile: () => {
+            throw new Error("EBUSY");
+          },
+        };
+        const result = await make({ fs }).run(oldDb, false);
+        expect(result).toEqual({
+          ok: true,
+          report: report(backup(), false),
+          warnings: ["find_backup"],
+        });
+        expect(readFindFile(dataDir).rules.perKeyword).toBe(77);
       });
 
       it("the channel names: a warning, and the rest still happens", async () => {

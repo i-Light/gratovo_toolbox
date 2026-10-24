@@ -716,7 +716,7 @@
   function suggestionFor(name, cand) {
     const tag = cand.tag;
     const climb = tag === 'button' || tag === 'a' ? undefined : 'button, a';
-    if (cand.testId) return { name: 'heal:testid', type: 'css', value: '[data-test-id="' + cand.testId.replace(/"/g, '\\"') + '"]' };
+    if (cand.testId) return { name: 'heal:testid', type: 'css', value: '[data-test-id="' + cand.testId.replace(/["\\]/g, '\\$&') + '"]' };
     if (cand.aria) return { name: 'heal:aria', type: 'attr', attr: 'aria-label', match: '^' + escapeRegex(cand.aria) + '$', tags: [tag] };
     if (cand.icon && !/^(arrow_drop_down|expand_more)$/i.test(cand.icon)) return { name: 'heal:icon', type: 'icon', match: '^' + escapeRegex(cand.icon) + '$', climb: 'button, a' };
     const cls = tokens(cand.classes).length ? cand.classes.split(' ').filter((c) => !/\d/.test(c) && !/^(ng|mat|mdc|cdk|gb)[-_]/.test(c) && c.length > 1) : [];

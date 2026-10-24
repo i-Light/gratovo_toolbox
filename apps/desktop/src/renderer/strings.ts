@@ -803,8 +803,7 @@ export const strings = {
       noBackup: "There was nothing to copy first, so no backup was made.",
       warningsTitle: "Your data is in. A few small steps after it didn't finish:",
       warnings: {
-        find_backup:
-          "Your search settings weren't copied to the backup folder, so your old search rules weren't applied either.",
+        find_backup: "Your search settings weren't copied to the backup folder.",
         channel_names: "Some creator names didn't come across. They fill in as you search again.",
         old_rules: "Your old search rules weren't applied. Set them in Settings › Search rules.",
         import_state:

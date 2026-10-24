@@ -64,6 +64,7 @@ describe("the connections service", () => {
     expect(await h.service.addMailbox("a@ai-weekly.example", tokenText)).toEqual({
       ok: false,
       reason: "no_data",
+      known: false,
     });
   });
 

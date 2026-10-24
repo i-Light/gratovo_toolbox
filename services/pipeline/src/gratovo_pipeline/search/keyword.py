@@ -16,7 +16,7 @@ from collections.abc import Mapping, Sequence
 from gratovo_pipeline import store
 from gratovo_pipeline.protocol import Outcome
 from gratovo_pipeline.search import auto_clean, backfill
-from gratovo_pipeline.search.context import Search, SearchBlockedError
+from gratovo_pipeline.search.context import Search
 from gratovo_pipeline.search.uploads import UploadCollector
 from gratovo_pipeline.youtube import BATCH_SIZE, ChannelInfo
 
@@ -161,12 +161,13 @@ def _read_uploads(
                 collector.finish()
             finally:
                 sweep.close()
-    except KeyboardInterrupt, SearchBlockedError:
-        # A stop or a block mid-sweep still judges what was stamped, so a resume (which finds
-        # those channels as known) doesn't let them skip the bounds. If judging fails, the stop
-        # is still what the run hears. Any other error judges nothing: archiving while a fetch
-        # or database error is in flight would act on a half-finished keyword.
-        with contextlib.suppress(BaseException):
+    except BaseException:
+        # Any end mid-sweep (a stop, a block, a quota or key error that ends the run, a database
+        # error) still judges what was stamped: a resume finds those channels as known, so this
+        # is their only chance at the bounds. Judging can never replace the original error: a
+        # failure while judging (`Exception` only, so a second stop still goes up) is dropped and
+        # the run hears what ended the sweep, as the same object.
+        with contextlib.suppress(Exception):
             _judge(search, keyword, collector.stamped)
         raise
     return _judge(search, keyword, collector.stamped)

@@ -1,6 +1,7 @@
 """`rules.minMedianViews` and `rules.minUploads30`: a kept channel below a bound is archived once
-its videos are read, with the rule's label; on the bound it stays; both off changes nothing. A stop
-or a block mid-sweep still judges the stamped channels; any other error judges nothing."""
+its videos are read, with the rule's label; on the bound it stays; both off changes nothing. Any
+error mid-sweep (a stop, a block, a quota error, anything else) still judges the stamped channels
+and then goes up as the same object, even if judging fails."""
 
 import sqlite3
 
@@ -11,6 +12,7 @@ from test_keyword import KW, MID, source_with
 from gratovo_pipeline import run_control, store
 from gratovo_pipeline.search import auto_clean, keyword
 from gratovo_pipeline.search.context import Search, SearchBlockedError
+from gratovo_pipeline.youtube import YouTubeError
 
 
 def run(
@@ -94,26 +96,23 @@ def archived_count(conn: sqlite3.Connection) -> int:
     return conn.execute("SELECT COUNT(*) FROM channel_archive").fetchone()[0]
 
 
-def test_a_fetch_error_mid_sweep_archives_nothing_and_propagates(
-    conn: sqlite3.Connection,
-) -> None:
-    source = three_creators()
-    fail_at_third(source, RuntimeError("the uploads page didn't load"))
-
-    with pytest.raises(RuntimeError, match="uploads page"):
-        run(conn, source, minMedianViews=1_000_000, autoClean__enabled=False)
-
-    # Two channels were stamped, but nothing is judged while an unexpected error is in flight.
-    stamped = conn.execute("SELECT COUNT(*) FROM channels WHERE videos_fetched_at IS NOT NULL")
-    assert stamped.fetchone()[0] == 2
-    assert archived_count(conn) == 0
+def stamped_count(conn: sqlite3.Connection) -> int:
+    rows = conn.execute("SELECT COUNT(*) FROM channels WHERE videos_fetched_at IS NOT NULL")
+    return rows.fetchone()[0]
 
 
-@pytest.mark.parametrize(
-    "error",
-    [run_control.RunAborted("the run was stopped"), SearchBlockedError("YouTube stopped")],
-)
-def test_a_stop_or_block_still_judges_the_stamped_channels(
+def every_kind_of_error() -> list[BaseException]:
+    return [
+        run_control.RunAborted("the run was stopped"),
+        SearchBlockedError("YouTube stopped"),
+        YouTubeError("quota", "The YouTube API quota for today is spent."),
+        YouTubeError("no_youtube_key", "The YouTube API key was refused."),
+        RuntimeError("the uploads page didn't load"),
+    ]
+
+
+@pytest.mark.parametrize("error", every_kind_of_error(), ids=repr)
+def test_any_error_mid_sweep_judges_the_stamped_channels_and_re_raises_it(
     conn: sqlite3.Connection, error: BaseException
 ) -> None:
     source = three_creators()
@@ -121,9 +120,13 @@ def test_a_stop_or_block_still_judges_the_stamped_channels(
     changes = {"job__rules__minMedianViews": 1_000_000, "job__rules__autoClean__enabled": False}
     search = make_search(conn, source, **changes)
 
-    with pytest.raises(type(error)):
+    with pytest.raises(type(error)) as raised:
         keyword.process_keyword(search, KW)
 
+    # The same object goes up, so the run reports what really ended it.
+    assert raised.value is error
+    # The two channels stamped before the error are judged now: a resume finds them as known
+    # and would never judge them again.
     assert store.is_archived(conn, "UC_0")
     assert store.is_archived(conn, "UC_1")
     assert archived_count(conn) == 2
@@ -131,21 +134,23 @@ def test_a_stop_or_block_still_judges_the_stamped_channels(
     assert search.events.outcomes() == {"@ai-creator-0": "swept", "@ai-creator-1": "swept"}
 
 
-def test_a_failed_judgement_during_a_stop_re_raises_the_stop(
-    conn: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize("error", every_kind_of_error(), ids=repr)
+def test_a_failed_judgement_during_an_error_re_raises_the_original_error(
+    conn: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch, error: BaseException
 ) -> None:
     source = three_creators()
-    stop = run_control.RunAborted("the run was stopped")
-    fail_at_third(source, stop)
+    fail_at_third(source, error)
 
     def broken(*_args: object, **_kwargs: object) -> list[auto_clean.SignalSwept]:
         raise sqlite3.OperationalError("database is locked")
 
     monkeypatch.setattr(auto_clean, "sweep_by_signals", broken)
 
-    with pytest.raises(run_control.RunAborted) as raised:
+    with pytest.raises(type(error)) as raised:
         run(conn, source, minMedianViews=1_000_000)
-    assert raised.value is stop
+    assert raised.value is error
+    assert stamped_count(conn) == 2
+    assert archived_count(conn) == 0
 
 
 def test_a_failed_judgement_after_a_clean_sweep_propagates(

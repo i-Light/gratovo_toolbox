@@ -48,8 +48,13 @@ export interface ConnectionsDeps {
   now?: () => number;
 }
 
+/**
+ * `known` on a failure: a token for this address is still in the store (it was there before, or
+ * the new one couldn't be taken back out). The consent then must not revoke the new token:
+ * revoking at Google ends the account's whole grant, which kills the stored token too.
+ */
 export type AddMailboxResult =
-  { ok: true } | { ok: false; reason: "no_data" | "too_many" | "failed" };
+  { ok: true } | { ok: false; reason: "no_data" | "too_many" | "failed"; known: boolean };
 
 export interface ConnectionsServiceFull extends ConnectionsService {
   /** Stores a consented mailbox's token and gives it default settings. Not an IPC channel. */

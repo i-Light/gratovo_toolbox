@@ -645,6 +645,32 @@ describe("the import dialog", () => {
     expect(within(dialog).getByText(imp.warnings.channel_names)).toBeTruthy();
   });
 
+  it("says a failed settings copy and unapplied old rules once each", async () => {
+    install({
+      "connections:status": status(),
+      "import:candidates": {
+        candidates: [
+          { path: "C:\\old\\gratovo.db", modifiedAt: "2026-10-20T08:00:00.000Z", size: 10 },
+        ],
+      },
+      "import:dry-run": { ok: true, report: report({ unsent: { outbox: 0, activity: 0 } }) },
+      "import:run": {
+        ok: true,
+        report: report({ dryRun: false, backup: "C:\\data\\backup.db" }),
+        warnings: ["find_backup", "old_rules"],
+      },
+    });
+    resetAppStoreForTests({ screen: "settings", tab: "connections" });
+    await chooseAndCheck();
+    const dialog = screen.getByRole("dialog", { name: imp.title, hidden: true });
+    await click(within(dialog).getByRole("button", { name: imp.run }));
+    expect(within(dialog).getByText(imp.warnings.find_backup)).toBeTruthy();
+    expect(within(dialog).getByText(imp.warnings.old_rules)).toBeTruthy();
+    // Only the old_rules line talks about the rules, so the dialog doesn't say it twice.
+    expect(imp.warnings.find_backup).not.toMatch(/rules/i);
+    expect(within(dialog).getAllByText(/old search rules/i)).toHaveLength(1);
+  });
+
   it("shows live progress from import:progress while it runs", async () => {
     install({
       "connections:status": status(),

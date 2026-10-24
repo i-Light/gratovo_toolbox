@@ -65,6 +65,11 @@ export interface ImportFs {
   readJson(path: string): unknown;
   /** The real path (links, junctions and 8.3 short names resolved); null when it can't be. */
   realpath(path: string): string | null;
+  /**
+   * The file's volume and file index (`stat` with bigint), which a hard link shares with its
+   * target though the paths differ; null when it can't be read or the file system gives none.
+   */
+  fileId(path: string): { dev: bigint; ino: bigint } | null;
 }
 
 export const realImportFs: ImportFs = {
@@ -86,6 +91,15 @@ export const realImportFs: ImportFs = {
   realpath(path) {
     try {
       return realpathSync.native(path);
+    } catch {
+      return null;
+    }
+  },
+  fileId(path) {
+    try {
+      const stat = statSync(path, { bigint: true });
+      // Some file systems (FAT, some network drives) give no file index: nothing to compare.
+      return stat.ino === 0n ? null : { dev: stat.dev, ino: stat.ino };
     } catch {
       return null;
     }
@@ -220,7 +234,30 @@ export function createImporter(deps: ImporterDeps): ImporterService {
     if (sameOrInside(fs.realpath(deps.userDataDir) ?? deps.userDataDir, source)) {
       return { ok: false, result: fail("own_data") };
     }
+    if (isOwnDatabase(source, dataDir)) {
+      return { ok: false, result: fail("own_data") }; // a hard link to one of the app's files
+    }
     return { ok: true, dataDir, source };
+  }
+
+  /**
+   * A hard link has its own path, so the path checks above miss it: compare the file itself
+   * (volume and file index) with the app's databases that exist.
+   */
+  function isOwnDatabase(source: string, dataDir: string): boolean {
+    const chosen = fs.fileId(source);
+    if (chosen === null) {
+      return false;
+    }
+    const own = [
+      join(deps.userDataDir, "gratovo.db"),
+      join(deps.userDataDir, "example.db"),
+      join(dataDir, "pipeline.db"),
+    ];
+    return own.some((file) => {
+      const id = fs.fileId(file);
+      return id !== null && id.dev === chosen.dev && id.ino === chosen.ino;
+    });
   }
 
   function startOf(
@@ -382,6 +419,9 @@ export function createImporter(deps: ImporterDeps): ImporterService {
         step("channel_names", () => {
           deps.seedChannelNames((deps.readPipelineChannels ?? readPipelineChannels)(dataDir));
         });
+        // `old_rules` means "your old search rules weren't applied": it is pushed whenever the
+        // owner asked for them and they weren't, whatever the reason. `find_backup` says only
+        // that the copy failed, so the dialog never says the same thing twice.
         if (useOldRules) {
           if (findSaved) {
             step("old_rules", () => {

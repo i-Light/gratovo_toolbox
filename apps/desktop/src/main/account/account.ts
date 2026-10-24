@@ -289,7 +289,11 @@ export function createAccount(deps: AccountDeps): Account {
     engineRest = null;
   }
 
-  /** Stops the sync, then closes the live copy. */
+  /**
+   * Stops the sync, then closes the live copy. A source change made outside `signIn`, `recheck`
+   * and `signOut` must still reach the source watch (`main/settings/source-switch.ts`) or a window
+   * reload, or the Gemini bridge keeps running after the switch.
+   */
   function closeLive(): void {
     stopEngine();
     live?.source.close();
@@ -325,7 +329,12 @@ export function createAccount(deps: AccountDeps): Account {
     }
   }
 
-  /** The live database for `userId`: the open one, or the file, emptied first if it was someone else's. */
+  /**
+   * The live database for `userId`: the open one, or the file, emptied first if it was someone
+   * else's. As with `closeLive`: a source change outside `signIn`, `recheck` and `signOut` must
+   * still reach the source watch (`main/settings/source-switch.ts`) or a window reload, so the
+   * Gemini bridge stops on a switch.
+   */
   function holdLive(userId: string): DatabaseSync {
     if (live !== null && live.userId === userId && live.db.isOpen) {
       return live.db;

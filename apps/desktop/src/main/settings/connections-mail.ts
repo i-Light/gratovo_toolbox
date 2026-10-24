@@ -99,24 +99,39 @@ export function createMailboxes(
     return { ok: true, mailboxes: fresh.mailboxes };
   }
 
+  /** Whether a token for this address is stored. Unreadable counts as stored (see `known`). */
+  async function tokenStored(address: string): Promise<boolean> {
+    try {
+      return (await readTokens(secrets)).some((t) => sameAddress(t.address, address));
+    } catch {
+      return true;
+    }
+  }
+
+  /**
+   * Stores the token, then the settings row. All or nothing: if the row can't be written, the
+   * token secret is put back as it was, so a failed add leaves no dead token taking a place.
+   */
   async function add(address: string, refreshToken: string): Promise<AddMailboxResult> {
+    const wanted = address.trim().toLowerCase();
+    const known = await tokenStored(wanted);
     const source = deps.source();
     if (source === null) {
-      return { ok: false, reason: "no_data" };
+      return { ok: false, reason: "no_data", known };
     }
-    const entry = mailSecretShape.mailboxes.element.safeParse({
-      address: address.trim().toLowerCase(),
-      refreshToken,
-    });
+    const entry = mailSecretShape.mailboxes.element.safeParse({ address: wanted, refreshToken });
     if (!entry.success) {
-      return { ok: false, reason: "failed" };
+      return { ok: false, reason: "failed", known };
     }
+    let previous: string | undefined;
+    let tokenWritten = false;
     try {
+      previous = await secrets.get(pipelineSecretNames.mailboxes);
       const tokens = await readTokens(secrets);
       const mail = readMailRows(source);
-      const known = addressesOf(tokens, mail.mailboxes);
-      if (!known.has(entry.data.address) && known.size >= maxMailboxes) {
-        return { ok: false, reason: "too_many" };
+      const all = addressesOf(tokens, mail.mailboxes);
+      if (!all.has(entry.data.address) && all.size >= maxMailboxes) {
+        return { ok: false, reason: "too_many", known };
       }
       await secrets.set(
         pipelineSecretNames.mailboxes,
@@ -125,6 +140,7 @@ export function createMailboxes(
           entry.data,
         ]),
       );
+      tokenWritten = true;
       if (!mail.mailboxes.some((m) => sameAddress(m.address, entry.data.address))) {
         source.writeSetting("mail.settings", {
           ...mail,
@@ -140,9 +156,29 @@ export function createMailboxes(
       }
     } catch {
       console.error("Connections: the mailbox couldn't be saved.");
-      return { ok: false, reason: "failed" };
+      if (!tokenWritten) {
+        return { ok: false, reason: "failed", known };
+      }
+      try {
+        if (previous === undefined) {
+          await secrets.delete(pipelineSecretNames.mailboxes);
+        } else {
+          await secrets.set(pipelineSecretNames.mailboxes, previous);
+        }
+      } catch {
+        // The new token stays stored and working: it must not be revoked.
+        console.error("Connections: the mailbox token couldn't be taken back out.");
+        return { ok: false, reason: "failed", known: true };
+      }
+      return { ok: false, reason: "failed", known };
     }
-    await publish();
+    // Saved: a failure to tell the page must not read as a failed save (the consent would revoke
+    // a token that is stored).
+    try {
+      await publish();
+    } catch {
+      console.error("Connections: the status couldn't be sent after adding a mailbox.");
+    }
     return { ok: true };
   }
 
