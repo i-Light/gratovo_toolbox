@@ -117,6 +117,7 @@ describe("conflicts", () => {
     );
     replaceOpenConflicts(db, [conflict(k1), conflict(k2, { channel_id: "UC1" })]);
     const source = createSqliteSource(db, {
+      source: "live",
       me: "u1",
       extras: {
         presence: () => ({ status: "away", doing: "" }),

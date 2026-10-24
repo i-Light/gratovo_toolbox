@@ -1,9 +1,17 @@
 import { exampleFrame, type DataSource, type DataWrite } from "@gratovo/core/data";
-import type { AuthStatus, FindState, SyncStatus } from "@gratovo/ipc";
+import {
+  channels,
+  type AuthStatus,
+  type FindState,
+  type ImportReport,
+  type SyncStatus,
+} from "@gratovo/ipc";
 import { describe, expect, it, vi } from "vitest";
 
 import { createHandlers, type HandlerContext } from "./handlers";
 import type { SecretStore } from "./secret-store";
+import type { HandlerServices } from "./services";
+import { createStubServices, emptyConnectionsStatus } from "./stub-services";
 
 function storeWith(names: string[]): SecretStore {
   const fail = () => Promise.reject(new Error("Not used by the handlers"));
@@ -22,6 +30,7 @@ function findWith(overrides: Partial<HandlerContext["find"]> = {}): HandlerConte
     add: () => ({ added: 0, skipped: 0 }),
     remove: () => ({ ok: true }),
     startAt: () => ({ ok: true }),
+    setRules: () => undefined,
     start: () => Promise.resolve({ ok: true }),
     stop: () => undefined,
     shutdown: () => Promise.resolve(),
@@ -45,6 +54,9 @@ const findState: FindState = {
       aboveMax: "delay",
       label: "inactive",
     },
+    minMedianViews: null,
+    minUploads30: null,
+    archiveDays: 7,
   },
   run: { state: "ready", found: 0, kept: 0, swept: 0, error: null },
   log: [],
@@ -58,6 +70,9 @@ function sourceWith(overrides: Partial<DataSource> = {}): DataSource {
     frame: () => Promise.resolve(frame),
     write: () => Promise.resolve(),
     close: () => undefined,
+    readSetting: () => undefined,
+    writeSetting: () => undefined,
+    seedChannelNames: () => 0,
     ...overrides,
   };
 }
@@ -86,8 +101,16 @@ function handlersWith(
   account: HandlerContext["account"],
   names: string[] = [],
   find: HandlerContext["find"] = findWith(),
+  services: Partial<HandlerServices> = {},
 ) {
-  return createHandlers({ version: "1.2.3", secrets: storeWith(names), account, find });
+  return createHandlers({
+    version: "1.2.3",
+    secrets: storeWith(names),
+    account,
+    find,
+    ...createStubServices(),
+    ...services,
+  });
 }
 
 describe("createHandlers", () => {
@@ -232,5 +255,146 @@ describe("the find handlers", () => {
     );
     await mine["auth:sign-out"]({});
     expect(order).toEqual(["shutdown", "sign-out"]);
+  });
+});
+
+describe("the step 4 handlers", () => {
+  const report: ImportReport = {
+    source: "C:/old/gratovo.db",
+    tables: [{ name: "channels", inOld: 10, toAdd: 4, already: 6 }],
+    skipped: [{ name: "creators", rows: 3, why: "synced" }],
+    unsent: { outbox: 0, activity: 1 },
+    settingsFiles: [{ name: "run_config.json", found: true }],
+    dryRun: true,
+    backup: null,
+  };
+
+  it("pass the import channels to the importer", async () => {
+    const dryRun = vi.fn<HandlerServices["importer"]["dryRun"]>(() =>
+      Promise.resolve({ ok: true, report }),
+    );
+    const run = vi.fn<HandlerServices["importer"]["run"]>(() =>
+      Promise.resolve({ ok: false, reason: "running" }),
+    );
+    const importer = { ...createStubServices().importer, dryRun, run };
+    const mine = handlersWith(accountWith(), [], findWith(), { importer });
+
+    expect(await mine["import:candidates"]({})).toEqual({ candidates: [] });
+    expect(await mine["import:pick"]({})).toEqual({ path: null });
+    expect(await mine["import:dry-run"]({ path: "C:/old/gratovo.db" })).toEqual({
+      ok: true,
+      report,
+    });
+    expect(dryRun).toHaveBeenCalledWith("C:/old/gratovo.db");
+    expect(await mine["import:run"]({ path: "C:/old/gratovo.db", useOldRules: true })).toEqual({
+      ok: false,
+      reason: "running",
+    });
+    expect(run).toHaveBeenCalledWith("C:/old/gratovo.db", true);
+  });
+
+  it("pass rules:set to the find service", async () => {
+    const setRules = vi.fn<HandlerContext["find"]["setRules"]>();
+    const mine = handlersWith(accountWith(), [], findWith({ setRules }));
+    const rules = { ...findState.rules, minMedianViews: 5000, archiveDays: 30 };
+    expect(await mine["rules:set"]({ rules })).toEqual({});
+    expect(setRules).toHaveBeenCalledWith(rules);
+  });
+
+  it("pass the connections channels to the connections service", async () => {
+    const stub = createStubServices().connections;
+    const connections = {
+      status: vi.fn(() => stub.status()),
+      set: vi.fn<HandlerServices["connections"]["set"]>(() => Promise.resolve({ ok: true })),
+      pickFolder: vi.fn<HandlerServices["connections"]["pickFolder"]>(() =>
+        Promise.resolve({ path: "D:/course" }),
+      ),
+      checkMailboxes: vi.fn(() => stub.checkMailboxes()),
+      deployGateways: vi.fn<HandlerServices["connections"]["deployGateways"]>((regions) =>
+        stub.deployGateways(regions),
+      ),
+      removeGateways: vi.fn<HandlerServices["connections"]["removeGateways"]>((region) =>
+        stub.removeGateways(region),
+      ),
+    };
+    const mine = handlersWith(accountWith(), [], findWith(), { connections });
+
+    expect(await mine["connections:status"]({})).toEqual(emptyConnectionsStatus());
+    const change = { kind: "course" as const, courseDir: "D:/course", videoDir: null };
+    expect(await mine["connections:set"](change)).toEqual({ ok: true });
+    expect(connections.set).toHaveBeenCalledWith(change);
+    expect(await mine["connections:pick-folder"]({ purpose: "videos" })).toEqual({
+      path: "D:/course",
+    });
+    expect(connections.pickFolder).toHaveBeenCalledWith("videos");
+    expect(await mine["mail:check"]({})).toEqual({ ok: false, reason: "not_built" });
+    expect(connections.checkMailboxes).toHaveBeenCalledOnce();
+    await mine["gateways:deploy"]({ regions: ["us-east-1", "eu-west-2"] });
+    expect(connections.deployGateways).toHaveBeenCalledWith(["us-east-1", "eu-west-2"]);
+    await mine["gateways:remove"]({ region: "us-east-1" });
+    expect(connections.removeGateways).toHaveBeenCalledWith("us-east-1");
+  });
+
+  it("pass the Gemini, writing-rules and mail-consent channels to their services", async () => {
+    const stubs = createStubServices();
+    const gemini = {
+      ...stubs.gemini,
+      start: vi.fn(() => stubs.gemini.start()),
+      stop: vi.fn(() => stubs.gemini.stop()),
+      openWindow: vi.fn<HandlerServices["gemini"]["openWindow"]>((browser) =>
+        stubs.gemini.openWindow(browser),
+      ),
+    };
+    const writingRules = { list: vi.fn(() => stubs.writingRules.list()) };
+    const mailConsent = {
+      connect: vi.fn<HandlerServices["mailConsent"]["connect"]>(() =>
+        Promise.resolve({ ok: true, address: "sam@example.com" }),
+      ),
+    };
+    const mine = handlersWith(accountWith(), [], findWith(), {
+      gemini,
+      writingRules,
+      mailConsent,
+    });
+
+    expect((await mine["gemini:start"]({})).state).toBe("stopped");
+    expect(gemini.start).toHaveBeenCalledOnce();
+    await mine["gemini:stop"]({});
+    expect(gemini.stop).toHaveBeenCalledOnce();
+    await mine["gemini:open-window"]({ browser: "firefox" });
+    expect(gemini.openWindow).toHaveBeenCalledWith("firefox");
+    expect(await mine["writing:rules"]({})).toEqual({ found: false, rules: [] });
+    expect(writingRules.list).toHaveBeenCalledOnce();
+    expect(await mine["mail:connect"]({})).toEqual({ ok: true, address: "sam@example.com" });
+    expect(mailConsent.connect).toHaveBeenCalledOnce();
+  });
+});
+
+describe("the stub services", () => {
+  it("answer every step 4 channel with a value its contract accepts", async () => {
+    const mine = handlersWith(accountWith());
+    const calls = {
+      "import:candidates": {},
+      "import:pick": {},
+      "import:dry-run": { path: "C:/old/gratovo.db" },
+      "import:run": { path: "C:/old/gratovo.db", useOldRules: false },
+      "writing:rules": {},
+      "connections:status": {},
+      "connections:set": { kind: "gateways.enabled", enabled: true },
+      "connections:pick-folder": { purpose: "course" },
+      "mail:connect": {},
+      "mail:check": {},
+      "gateways:deploy": { regions: ["us-east-1"] },
+      "gateways:remove": { region: "us-east-1" },
+      "gemini:start": {},
+      "gemini:stop": {},
+      "gemini:open-window": { browser: null },
+    } as const;
+    for (const [name, input] of Object.entries(calls) as [keyof typeof calls, unknown][]) {
+      // Each handler takes its own channel's parsed request; the loop can't name that type.
+      const handler = mine[name] as (request: unknown) => unknown;
+      const answer = await handler(channels[name].request.parse(input));
+      expect(channels[name].response.safeParse(answer).success, name).toBe(true);
+    }
   });
 });

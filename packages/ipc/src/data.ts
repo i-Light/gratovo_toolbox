@@ -2,6 +2,7 @@ import { DEAL_FLOW } from "@gratovo/core";
 import {
   agencyRoles,
   creatorStages,
+  frameSources,
   nameMax,
   notificationIcons,
   type Brand,
@@ -131,6 +132,7 @@ export const conflictsMax = 100;
 
 /** What `frame:load` answers: everything the frame, palette, peek and record page show. */
 export const frameSchema: z.ZodType<Frame> = z.strictObject({
+  source: z.enum(frameSources),
   me: id,
   myName: z.string().max(nameMax).nullable(),
   team: z.array(teamMemberSchema).max(listMax),

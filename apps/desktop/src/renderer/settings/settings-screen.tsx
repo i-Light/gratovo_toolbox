@@ -14,6 +14,9 @@ import {
   ProfileSection,
   ShellSection,
 } from "./sections";
+import { ConnectionsSection } from "./connections-section";
+import { SearchRulesSection } from "./search-rules-section";
+import { WritingRulesSection } from "./writing-rules-section";
 
 const text = strings.settings;
 const { tabs } = strings.screens.settings;
@@ -30,6 +33,12 @@ function SectionView({ section }: { readonly section: SettingsSection }) {
       return <KeyboardSection />;
     case "notifications":
       return <NotificationsSection />;
+    case "search":
+      return <SearchRulesSection />;
+    case "connections":
+      return <ConnectionsSection />;
+    case "writing":
+      return <WritingRulesSection />;
     default:
       return <ShellSection section={section} />;
   }
@@ -71,7 +80,8 @@ function useSettingTarget(sectionKey: string, searching: boolean, clearSearch: (
 export function SettingsScreen() {
   const tab = useApp((s) => selectRoute(s).tab);
   const owner = useApp((s) => meIsOwner(s.data));
-  const available = sectionsFor(owner);
+  const source = useApp((s) => s.data.source);
+  const available = sectionsFor(owner, source);
   // A section you may not open (an old link, a typed address) lands on Profile.
   const section = available.find((s) => s.key === tab) ?? available[0];
   const [query, setQuery] = useState("");

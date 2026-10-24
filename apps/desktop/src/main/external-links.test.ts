@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isAllowedExternalLink } from "./external-links";
+import { isAllowedExternalLink, isGoogleConsentUrl } from "./external-links";
 
 describe("isAllowedExternalLink", () => {
   it.each([
@@ -59,5 +59,41 @@ describe("isAllowedExternalLink", () => {
   it("rejects text that is not a URL", () => {
     expect(isAllowedExternalLink("")).toBe(false);
     expect(isAllowedExternalLink("youtube.com")).toBe(false);
+  });
+});
+
+describe("isGoogleConsentUrl", () => {
+  const consent =
+    "https://accounts.google.com/o/oauth2/v2/auth?client_id=abc.apps.googleusercontent.com&response_type=code&state=xyz";
+
+  it("allows Google's consent page", () => {
+    expect(isGoogleConsentUrl(consent)).toBe(true);
+    expect(isGoogleConsentUrl(consent.replace("accounts.google.com", "ACCOUNTS.google.com"))).toBe(
+      true,
+    );
+  });
+
+  it("is not something the page may open", () => {
+    expect(isAllowedExternalLink(consent)).toBe(false);
+  });
+
+  it.each([
+    ["plain http", consent.replace("https:", "http:")],
+    ["another host", consent.replace("accounts.google.com", "accounts.google.com.evil.example")],
+    ["a lookalike host", consent.replace("accounts.google.com", "accounts-google.com")],
+    ["a Google subdomain", consent.replace("accounts.google.com", "mail.google.com")],
+    ["a user name", consent.replace("https://", "https://user@")],
+    ["a user and password", consent.replace("https://", "https://user:pass@")],
+    ["a port", consent.replace("accounts.google.com", "accounts.google.com:8443")],
+    ["the old path", consent.replace("/o/oauth2/v2/auth", "/o/oauth2/auth")],
+    ["another path", consent.replace("/o/oauth2/v2/auth", "/signin/v2/identifier")],
+    ["a longer path", consent.replace("/o/oauth2/v2/auth", "/o/oauth2/v2/auth/extra")],
+    ["no query", "https://accounts.google.com/o/oauth2/v2/auth"],
+    ["an empty query", "https://accounts.google.com/o/oauth2/v2/auth?"],
+    ["a fragment", `${consent}#x`],
+    ["another scheme", consent.replace("https:", "javascript:")],
+    ["text that is not a URL", "accounts.google.com/o/oauth2/v2/auth?x=1"],
+  ])("rejects %s", (_name, url) => {
+    expect(isGoogleConsentUrl(url)).toBe(false);
   });
 });

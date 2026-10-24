@@ -2,6 +2,7 @@ packages:
   - apps/*
   - packages/*
   - tooling/*
+  - services/gemini-extension
 
 # pnpm 12 reads its settings from this file. It ignores them in .npmrc.
 saveExact: true

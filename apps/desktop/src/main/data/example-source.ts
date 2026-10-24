@@ -47,6 +47,7 @@ export function openExampleSource(path: string, now: () => number = Date.now): D
     }
     const fixtures = exampleSeed(now());
     return createSqliteSource(db, {
+      source: "example",
       me: fixtures.me,
       now,
       extras: {

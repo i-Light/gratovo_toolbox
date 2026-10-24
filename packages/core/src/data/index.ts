@@ -13,6 +13,7 @@ export type { LegacyCreatorFields } from "./legacy-mapping";
 export {
   agencyRoles,
   creatorStages,
+  frameSources,
   nameMax,
   notificationIcons,
   notifyKind,
@@ -30,6 +31,7 @@ export type {
   EditConflict,
   Frame,
   FrameNotification,
+  FrameSource,
   LogEntry,
   MateRun,
   NotificationIcon,

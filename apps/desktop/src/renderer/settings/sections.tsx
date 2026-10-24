@@ -9,6 +9,7 @@ import { flashSetting, setMyName, setNotify } from "../lib/actions";
 import { setPref, usePref } from "../lib/prefs";
 import type { NotifyKind, SettingsSection } from "../lib/settings";
 import { go, useApp } from "../lib/store";
+import { isScreenShown } from "../lib/wired";
 import { strings } from "../strings";
 import { Row } from "./row";
 
@@ -30,6 +31,7 @@ export function ProfileSection() {
   const memberName = me?.name ?? "";
   const role = me?.role ?? "";
   const owner = me?.owner ?? false;
+  const source = useApp((s) => s.data.source);
   const shown = myName ?? memberName;
   const save = (): void => {
     const value = draftRef.current;
@@ -90,16 +92,18 @@ export function ProfileSection() {
       <Row id="role" label={rows.role.label} desc={owner ? rows.role.descOwner : rows.role.desc}>
         <div className="row wrap">
           <Tag icon="shield">{role}</Tag>
-          <Btn
-            size="sm"
-            kind="ghost"
-            icon="users"
-            onClick={() => {
-              go("team");
-            }}
-          >
-            {text.profile.rolesInTeam}
-          </Btn>
+          {isScreenShown("team", source) ? (
+            <Btn
+              size="sm"
+              kind="ghost"
+              icon="users"
+              onClick={() => {
+                go("team");
+              }}
+            >
+              {text.profile.rolesInTeam}
+            </Btn>
+          ) : null}
         </div>
       </Row>
       {account.signedIn && account.email !== null ? (

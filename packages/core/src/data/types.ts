@@ -179,8 +179,16 @@ export interface MateRun {
   readonly total: number;
 }
 
+/**
+ * Which data the frame comes from: the example fixtures, or the signed-in account's live copy.
+ * The page uses it to decide what live mode may show (plan step 4, D1).
+ */
+export const frameSources = ["example", "live"] as const;
+export type FrameSource = (typeof frameSources)[number];
+
 /** Everything the frame, the palette, the peek and the record page show: one read. */
 export interface Frame {
+  readonly source: FrameSource;
   /** A member id. */
   readonly me: string;
   /** Null until set in Settings > Profile. */
@@ -235,5 +243,14 @@ export interface DataSource {
   frame(): Promise<Frame>;
   /** In order, in one transaction: all or none. */
   write(writes: readonly DataWrite[]): Promise<void>;
+  /** A local setting (`local_settings`), parsed from its JSON; undefined when it is not set. */
+  readSetting(key: string): unknown;
+  /** Stores a local setting as JSON. */
+  writeSetting(key: string, value: unknown): void;
+  /**
+   * Gives each channel a name where it has none yet (never replaces one) and returns how many
+   * rows it changed. One transaction.
+   */
+  seedChannelNames(rows: readonly { readonly channelId: string; readonly name: string }[]): number;
   close(): void;
 }

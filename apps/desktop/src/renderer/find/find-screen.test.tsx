@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { resetAccountViewForTests, setAccountView } from "../lib/account";
 import { resetFindForTests } from "../lib/find";
-import { resetAppStoreForTests } from "../lib/store";
+import { appStore, resetAppStoreForTests, selectRoute } from "../lib/store";
 import { strings } from "../strings";
 import { FindScreen } from "./find-screen";
 
@@ -25,6 +25,9 @@ const rules: FindState["rules"] = {
     aboveMax: "delay",
     label: "inactive",
   },
+  minMedianViews: null,
+  minUploads30: null,
+  archiveDays: 7,
 };
 
 type Queue = FindState["queue"];
@@ -359,6 +362,26 @@ describe("rules", () => {
     expect(card.textContent).toContain("200 channels per keyword");
     expect(card.textContent).toContain("Archive under 50K subscribers");
     expect(card.textContent).toContain("Leave over 2M for later");
+  });
+  it("shows the median, uploads and archive days", async () => {
+    setup(makeState({ rules: { ...rules, minMedianViews: 50_000, minUploads30: 4 } }));
+    await show();
+    const card = screen.getByRole("region", { name: t.rules.title });
+    expect(card.textContent).toContain("Keep: 50K+ median views");
+    expect(card.textContent).toContain("Keep: 4+ uploads in 30 days");
+    expect(card.textContent).toContain("Rejects archived after 7 days");
+  });
+  it("shows the two minimums as any when they are off", async () => {
+    setup(makeState());
+    await show();
+    expect(screen.getByText(t.rules.medianAny)).toBeTruthy();
+    expect(screen.getByText(t.rules.uploadsAny)).toBeTruthy();
+  });
+  it("opens Settings › Search rules from Edit rules", async () => {
+    setup(makeState());
+    await show();
+    await click(screen.getByRole("button", { name: t.rules.editRules }));
+    expect(selectRoute(appStore().getState())).toEqual({ screen: "settings", tab: "search" });
   });
   it("says auto-clean is off", async () => {
     setup(makeState({ rules: { ...rules, autoClean: { ...rules.autoClean, enabled: false } } }));

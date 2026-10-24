@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "../app/app";
+import { stubFindBridge } from "../lib/find-test-bridge";
 import { initPrefs } from "../lib/prefs";
 import { settingsSections } from "../lib/settings";
 import { appStore, resetAppStoreForTests, selectRoute } from "../lib/store";
@@ -15,6 +16,7 @@ const { tabs } = strings.screens.settings;
 beforeEach(() => {
   localStorage.clear();
   initPrefs();
+  stubFindBridge();
   resetAppStoreForTests({ screen: "settings", tab: "profile" });
 });
 
@@ -103,12 +105,9 @@ describe("the settings screen", () => {
   });
 
   it.each([
-    ["day", 4],
-    ["search", 5],
-    ["writing", 6],
-    ["facts", 7],
+    ["day", 7],
+    ["facts", 8],
     ["team", 9],
-    ["connections", 9],
   ] as const)("says the %s section arrives with step %i", async (key, step) => {
     render(<App />);
     await userEvent.click(navButton(tabs[key]));

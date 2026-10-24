@@ -32,6 +32,10 @@ def run(start: Start, emitter: Emitter) -> None:
         from gratovo_pipeline.jobs import backfill
 
         backfill.run(start, emitter)
+    elif kind == "import.legacy":
+        from gratovo_pipeline.jobs import import_legacy
+
+        import_legacy.run(start, emitter)
     else:  # gateways.deploy, gateways.destroy, gateways.test
         from gratovo_pipeline.jobs import gateways
 

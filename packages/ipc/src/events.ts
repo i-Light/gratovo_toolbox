@@ -1,6 +1,9 @@
 import { z } from "zod";
 
+import { connectionsStatusSchema } from "./connections";
 import { findStateSchema } from "./find";
+import { geminiStatusSchema } from "./gemini";
+import { importProgressSchema } from "./import";
 import { presenceMembersSchema } from "./presence";
 import { syncStatusSchema } from "./sync";
 
@@ -28,6 +31,9 @@ export const appEvents = {
   "sync:status": syncStatusSchema,
   "presence:changed": presenceMembersSchema,
   "find:changed": findStateSchema,
+  "import:progress": importProgressSchema,
+  "gemini:state": geminiStatusSchema,
+  "connections:changed": connectionsStatusSchema,
 } as const;
 
 export type AppEventName = keyof typeof appEvents;

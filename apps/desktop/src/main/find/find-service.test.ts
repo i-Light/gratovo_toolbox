@@ -110,6 +110,7 @@ describe("the find service", () => {
   let clock: number;
   let emitted: FindState[];
   let service: FindService;
+  let settings: (() => Start["settings"]) | undefined;
 
   function make(throttleMs?: number): FindService {
     return createFindService({
@@ -121,6 +122,7 @@ describe("the find service", () => {
       },
       secrets: { get: (name) => Promise.resolve(secretValues[name]) },
       userData,
+      ...(settings === undefined ? {} : { settings }),
       emit: (state) => emitted.push(state),
       now: () => clock,
       ...(throttleMs === undefined ? {} : { throttleMs }),
@@ -134,6 +136,7 @@ describe("the find service", () => {
     key = () => Promise.resolve(exampleKey);
     secretValues = {};
     clock = 1_000_000;
+    settings = undefined;
     emitted = [];
     service = make();
   });
@@ -291,6 +294,21 @@ describe("the find service", () => {
         secrets: { youtubeKey: null, proxyUrls: [], gatewayUrls: [] },
       });
       expect((supervisor.starts[0]?.job as SearchJob | undefined)?.rules.perKeyword).toBe(200);
+    });
+
+    it("fills the start message's settings from the injected function", async () => {
+      settings = () => ({
+        pacing: "fast",
+        parallel: { enabled: true, maxWorkers: 4 },
+        proxies: { enabled: false, includeDirect: true },
+      });
+      service = make();
+      await started();
+      expect(supervisor.starts[0]?.settings).toEqual({
+        pacing: "fast",
+        parallel: { enabled: true, maxWorkers: 4 },
+        proxies: { enabled: false, includeDirect: true },
+      });
     });
 
     it("sends the live key, the user id, and the proxies and gateways from the secret store", async () => {

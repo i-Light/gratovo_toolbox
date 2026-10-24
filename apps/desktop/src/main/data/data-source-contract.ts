@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { exampleFrame, mentionsMoney, nameMax, notifyKind } from "@gratovo/core/data";
 import { frameSchema } from "@gratovo/ipc";
-import type { DataSource, DataWrite, Frame } from "@gratovo/core/data";
+import type { DataSource, DataWrite, Frame, FrameSource } from "@gratovo/core/data";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { openDatabase } from "../db/open-database";
@@ -80,7 +80,12 @@ function isMoney(n: Frame["notifications"][number]): boolean {
 }
 
 /** The tests every `DataSource` over the local database must pass. */
-export function describeDataSourceContract(name: string, make: MakeSource): void {
+/** `kind` is what the source's frames must say they are: "example" or "live". */
+export function describeDataSourceContract(
+  name: string,
+  kind: FrameSource,
+  make: MakeSource,
+): void {
   describe(`${name}: the data source contract`, () => {
     let folder: string;
     let file: string;
@@ -114,6 +119,7 @@ export function describeDataSourceContract(name: string, make: MakeSource): void
     it("round-trips the seeded fixtures", async () => {
       const frame = await start().frame();
       const expected = exampleFrame(contractNow);
+      expect(frame.source).toBe(kind);
       expect(frame.me).toBe("u1");
       expect(frame.myName).toBeNull();
       expect(frame.creators).toEqual(expected.creators);
@@ -323,6 +329,51 @@ export function describeDataSourceContract(name: string, make: MakeSource): void
       first.close();
       const second = start();
       expect(await second.frame()).toEqual(before);
+    });
+
+    it("reads and writes local settings as JSON", () => {
+      const source = start();
+      expect(source.readSetting("import")).toBeUndefined();
+      source.writeSetting("import", { at: "2026-10-24T09:00:00.000Z", n: [1, 2] });
+      expect(source.readSetting("import")).toEqual({ at: "2026-10-24T09:00:00.000Z", n: [1, 2] });
+      source.writeSetting("import", null);
+      expect(source.readSetting("import")).toBeNull();
+      expect(() => {
+        source.writeSetting("import", undefined);
+      }).toThrow();
+    });
+
+    it("keeps local settings across a close and reopen", () => {
+      const first = start();
+      first.writeSetting("mail.settings", { label: "Outreach" });
+      first.close();
+      expect(start().readSetting("mail.settings")).toEqual({ label: "Outreach" });
+    });
+
+    it("seeds channel names only where there is none, and counts the rows changed", () => {
+      const source = start();
+      expect(source.seedChannelNames([])).toBe(0);
+      expect(
+        source.seedChannelNames([
+          { channelId: "UC_seed_one", name: "Prompt Lab" },
+          { channelId: "UC_seed_two", name: "Agent Weekly" },
+        ]),
+      ).toBe(2);
+      // A name already there stays; a new channel is added.
+      expect(
+        source.seedChannelNames([
+          { channelId: "UC_seed_one", name: "Other Name" },
+          { channelId: "UC_seed_three", name: "Model News" },
+        ]),
+      ).toBe(1);
+      const names: Record<string, string> = {};
+      withDb(file, (db) => {
+        for (const row of db.prepare("SELECT channel_id, name FROM channels").all()) {
+          names[String(row["channel_id"])] = String(row["name"]);
+        }
+      });
+      expect(names["UC_seed_one"]).toBe("Prompt Lab");
+      expect(names["UC_seed_three"]).toBe("Model News");
     });
 
     it("keeps a big pulled table inside the frame limits, deal creators first", async () => {

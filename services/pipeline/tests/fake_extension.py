@@ -21,6 +21,7 @@ from typing import Any
 
 from websockets.asyncio.client import ClientConnection, connect
 from websockets.exceptions import ConnectionClosed
+from websockets.typing import Origin
 
 from gratovo_pipeline.gemini.client import Gemini
 
@@ -57,6 +58,8 @@ class FakeExtension:
         version: str = "0.0-test",
         connect_for: float = 5.0,
         browser: str | None = None,
+        extra_hello: dict[str, Any] | None = None,
+        origin: str | None = None,
     ) -> None:
         FakeExtension._counter += 1
         self.fake_id = FakeExtension._counter
@@ -65,6 +68,10 @@ class FakeExtension:
         self._version = version
         self._connect_for = connect_for
         self._browser = browser
+        #: More fields for the `hello` (the per-launch `token`, plan D13).
+        self._extra_hello = dict(extra_hello or {})
+        #: The handshake's Origin, as a browser add-on sends one; None like a plain program.
+        self._origin = origin
         self.handlers: dict[str, Scripted] = dict(handlers or {})
         #: every `(method, params)` received, in order
         self.requests: list[tuple[str, dict[str, Any]]] = []
@@ -123,7 +130,11 @@ class FakeExtension:
         deadline = time.monotonic() + self._connect_for
         while True:
             try:
-                return await connect(f"ws://127.0.0.1:{self._port}", open_timeout=2)
+                return await connect(
+                    f"ws://127.0.0.1:{self._port}",
+                    open_timeout=2,
+                    origin=None if self._origin is None else Origin(self._origin),
+                )
             except OSError:
                 if time.monotonic() >= deadline:
                     raise
@@ -146,6 +157,7 @@ class FakeExtension:
                 }
                 if self._browser:
                     data["browser"] = self._browser
+                data.update(self._extra_hello)
                 await ws.send(json.dumps({"type": "event", "event": "hello", "data": data}))
             self.connected.set()
             reader = asyncio.create_task(self._read(ws))

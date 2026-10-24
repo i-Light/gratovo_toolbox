@@ -23,6 +23,9 @@ const open: FindState["rules"] = {
     aboveMax: "delay",
     label: "inactive",
   },
+  minMedianViews: null,
+  minUploads30: null,
+  archiveDays: 7,
 };
 
 describe("readKept", () => {

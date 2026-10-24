@@ -4,11 +4,11 @@ import { findErrors, type FindState } from "@gratovo/ipc";
 
 import { redact, secretsOf } from "../pipeline/logs";
 import { gatewayUrlsForSearch } from "../pipeline/pipeline-secrets";
-import type { PipelineMessage } from "../pipeline/protocol";
+import type { PipelineMessage, Start } from "../pipeline/protocol";
 import type { PipelineExit, PipelineSupervisor } from "../pipeline/supervisor";
 import type { SecretStore } from "../secret-store";
 
-import { readFindFile, writeFindFile, type FindFile } from "./find-store";
+import { pipelineRules, readFindFile, writeFindFile, type FindFile } from "./find-store";
 import { readKept } from "./results";
 
 /**
@@ -31,6 +31,8 @@ export interface FindServiceDeps {
   };
   secrets: Pick<SecretStore, "get">;
   userData: string;
+  /** The start message's `settings` (pacing, parallel, proxies); `{}` when not given. */
+  settings?: () => Start["settings"];
   emit: (state: FindState) => void;
   now: () => number;
   /** The least time between two emits while a run streams. Default 250. */
@@ -44,6 +46,11 @@ export interface FindService {
   add(keywords: readonly string[]): { added: number; skipped: number };
   remove(index: number): { ok: true } | { ok: false; problem: "running" };
   startAt(index: number): { ok: true } | { ok: false; problem: "running" };
+  /**
+   * Replaces the rules (Settings › Search rules). A search already running keeps the rules it
+   * started with; the next one uses these.
+   */
+  setRules(rules: FindFile["rules"]): void;
   start(): Promise<{ ok: true } | { ok: false; problem: StartProblem }>;
   stop(): void;
   /** Stops a running search and resolves once it is gone. For sign-out and quit. */
@@ -304,6 +311,17 @@ export function createFindService(deps: FindServiceDeps): FindService {
       return { ok: true };
     },
 
+    setRules(rules) {
+      const { session: s } = open();
+      s.rules = rules;
+      if (!(starting || supervisor.running)) {
+        // The kept list is read with the rules: read it again with the new ones.
+        s.kept = null;
+      }
+      save(s);
+      emitNow();
+    },
+
     startAt(index) {
       const { session: s } = open();
       if (starting || supervisor.running) {
@@ -371,9 +389,9 @@ export function createFindService(deps: FindServiceDeps): FindService {
               kind: "search",
               keywords: s.queue.map((entry) => entry.keyword),
               startAt: s.at,
-              rules: s.rules,
+              rules: pipelineRules(s.rules),
             },
-            settings: {},
+            settings: deps.settings?.() ?? {},
             secrets: { youtubeKey, proxyUrls, gatewayUrls },
           },
           {

@@ -11,12 +11,14 @@ import {
   findRecord,
   forward,
   go,
+  initAppStore,
   installHashSync,
   memo,
   recordName,
   resetAppStoreForTests,
   selectProblems,
   selectRoute,
+  setImportState,
   setRailOpen,
   useApp,
 } from "./store";
@@ -377,5 +379,55 @@ describe("go with overlays", () => {
     expect(route()).toEqual({ screen: "record", tab: null, record: ref, from: "find" });
     go("record", null, { record: { kind: "creator", id: "c2" }, from: "find" });
     expect(appStore().getState().ui.history.entries).toHaveLength(3);
+  });
+});
+
+describe("the live gate", () => {
+  const live = () => {
+    initAppStore({ ...exampleData(now), source: "live" }, { screen: "find", tab: "search" });
+  };
+
+  it("sends a hidden screen or tab to the default route", () => {
+    live();
+    go("reach");
+    expect(route()).toEqual({ screen: "find", tab: "search" });
+    go("find", "triage");
+    expect(route()).toEqual({ screen: "find", tab: "search" });
+    go("settings", "day");
+    expect(route()).toEqual({ screen: "find", tab: "search" });
+    go("settings", "writing");
+    expect(route()).toEqual({ screen: "settings", tab: "writing" });
+  });
+
+  it("uses Connections as the default while the import has never happened", () => {
+    live();
+    setImportState("never");
+    go("today");
+    expect(route()).toEqual({ screen: "settings", tab: "connections" });
+  });
+
+  it("steps over hidden history entries", () => {
+    live();
+    appStore().ui((ui) => {
+      ui.history = {
+        entries: [
+          { screen: "find", tab: "search" },
+          { screen: "reach", tab: "board" },
+          { screen: "settings", tab: "profile" },
+        ],
+        index: 2,
+      } as never;
+    });
+    back();
+    expect(route()).toEqual({ screen: "find", tab: "search" });
+    forward();
+    expect(route()).toEqual({ screen: "settings", tab: "profile" });
+  });
+
+  it("changes nothing on example data", () => {
+    go("reach");
+    expect(route().screen).toBe("reach");
+    go("find", "triage");
+    expect(route()).toEqual({ screen: "find", tab: "triage" });
   });
 });

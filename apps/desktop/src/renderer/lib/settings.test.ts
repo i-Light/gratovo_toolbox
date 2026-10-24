@@ -71,14 +71,14 @@ describe("settingsSections", () => {
     expect(arrives).toEqual({
       profile: null,
       appearance: null,
-      day: 4,
+      day: 7,
       keyboard: null,
       notifications: null,
-      search: 5,
-      writing: 6,
-      facts: 7,
+      search: null,
+      writing: null,
+      facts: 8,
       team: 9,
-      connections: 9,
+      connections: null,
     });
   });
 
@@ -102,6 +102,25 @@ describe("settingsRows", () => {
       "appearance/rail",
       "keyboard/letters",
       "notifications/notify",
+      "search/rulesCountries",
+      "search/rulesMedian",
+      "search/rulesUploads",
+      "search/rulesPerKeyword",
+      "search/rulesArchive",
+      "search/rulesBand",
+      "writing/writingRules",
+      "connections/connOld",
+      "connections/connMailApp",
+      "connections/connMailboxes",
+      "connections/connMailSettings",
+      "connections/connGemini",
+      "connections/connCourse",
+      "connections/connYoutube",
+      "connections/connPython",
+      "connections/connProxies",
+      "connections/connPacing",
+      "connections/connAws",
+      "connections/connSync",
     ]);
   });
 });
@@ -171,6 +190,27 @@ describe("owner-only sections", () => {
     expect(keys(false)).not.toEqual(expect.arrayContaining(["connections"]));
     expect(keys(false).some((k) => ["facts", "team", "connections"].includes(k))).toBe(false);
     expect(searchSettings("gmail", false).sections).toEqual([]);
-    expect(rowsFor(false).length).toBe(rowsFor(true).length);
+    // The owner sees the Connections rows too; nobody else does.
+    expect(rowsFor(false).some((r) => r.section === "connections")).toBe(false);
+    expect(rowsFor(true).filter((r) => r.section !== "connections")).toEqual(rowsFor(false));
+  });
+});
+
+describe("the live gate", () => {
+  it("hides the sections and rows that are not wired", () => {
+    const keys = sectionsFor(true, "live").map((s) => s.key);
+    expect(keys).toEqual([
+      "profile",
+      "appearance",
+      "keyboard",
+      "notifications",
+      "search",
+      "writing",
+      "connections",
+    ]);
+    expect(sectionsFor(true, "example")).toHaveLength(10);
+    expect(rowsFor(true, "live")).toEqual(rowsFor(true, "example"));
+    expect(searchSettings("day", true, "live").sections.map((s) => s.key)).not.toContain("day");
+    expect(searchSettings("day", true, "example").sections.map((s) => s.key)).toContain("day");
   });
 });

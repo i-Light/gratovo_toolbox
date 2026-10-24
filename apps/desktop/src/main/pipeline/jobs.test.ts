@@ -55,6 +55,8 @@ describe("laneFor", () => {
     ["search", "store"],
     ["refetch", "store"],
     ["backfill", "store"],
+    // It writes pipeline.db, so never beside a search (the plan's "main lane").
+    ["import.legacy", "store"],
     ["mail.status", "quick"],
     ["mail.send", "quick"],
     ["mail.replies", "quick"],

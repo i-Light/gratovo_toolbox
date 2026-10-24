@@ -8,8 +8,9 @@ defaults below are the owner's committed `legacy/data/settings.json` (2026-10-21
 from __future__ import annotations
 
 import dataclasses
+from collections.abc import Mapping
 from pathlib import Path
-from typing import Final, Literal
+from typing import Any, Final, Literal
 from urllib.parse import urlsplit
 
 from gratovo_pipeline import parallel
@@ -75,13 +76,25 @@ _LABELS: Final[tuple[AutoCleanLabel, ...]] = ("haramStuff", "irrelevant", "inact
 @dataclasses.dataclass(frozen=True)
 class AutoCleanRule:
     """The standing "Auto-clean results" rule's subscriber band, applied during the run so a
-    channel the rule would throw away never costs a video scrape. Its views and uploads bounds
-    need data this point doesn't have; they stay with the app's sweep after the run."""
+    channel the rule would throw away never costs a video scrape. Its views and uploads
+    bounds need data this point doesn't have; they are `SignalBounds`, checked once a kept channel's
+    videos are read."""
 
     min_subscribers: int
     max_subscribers: int
     below_min: AutoCleanAction
     above_max: AutoCleanAction
+    label: AutoCleanLabel
+
+
+@dataclasses.dataclass(frozen=True)
+class SignalBounds:
+    """`rules.minMedianViews` and `rules.minUploads30`: a kept channel below either is archived
+    with `label` once its videos are read. None is off. They apply whether or not the subscriber
+    band is on; setting a value turns its own check on."""
+
+    min_median_views: int | None
+    min_uploads_30: int | None
     label: AutoCleanLabel
 
 
@@ -105,6 +118,13 @@ def _auto_clean(clean: AutoClean | None) -> AutoCleanRule | None:
     )
 
 
+def _signal_bounds(rules: Mapping[str, Any]) -> SignalBounds | None:
+    median, uploads = rules.get("minMedianViews"), rules.get("minUploads30")
+    if median is None and uploads is None:
+        return None
+    return SignalBounds(median, uploads, _label(rules["autoClean"]["label"]))
+
+
 @dataclasses.dataclass(frozen=True)
 class _SearchFields:
     """What only a search sets; the defaults are what every other job gets."""
@@ -116,6 +136,7 @@ class _SearchFields:
     results_type: Literal["video", "channel"] = RESULTS_TYPE
     country_filter: frozenset[str] | None = None
     auto_clean: AutoCleanRule | None = None
+    signal_bounds: SignalBounds | None = None
 
 
 def _usable(urls: list[str]) -> tuple[str, ...]:
@@ -143,6 +164,7 @@ class Config:
     parallel_workers: int
     pacing: Pacing
     backfill_batch_size: int = BACKFILL_BATCH_SIZE
+    signal_bounds: SignalBounds | None = None
 
     @classmethod
     def from_start(cls, start: Start) -> Config:
@@ -180,6 +202,7 @@ class Config:
                 results_type=rules["resultsType"],
                 country_filter=frozenset(rules["countries"]) or None,
                 auto_clean=_auto_clean(rules["autoClean"]),
+                signal_bounds=_signal_bounds(rules),
             )
         else:
             clean = job["autoClean"] if job["kind"] == "refetch" else None
@@ -195,6 +218,7 @@ class Config:
             results_type=search.results_type,
             country_filter=search.country_filter,
             auto_clean=search.auto_clean,
+            signal_bounds=search.signal_bounds,
             youtube_key=secrets["youtubeKey"],
             proxies_enabled=proxies["enabled"],
             include_direct=proxies["includeDirect"],

@@ -4,7 +4,7 @@ import { icons } from "@gratovo/ui";
 import { describe, expect, it } from "vitest";
 
 import { strings } from "../strings";
-import { roleLabel, toAppData } from "./frame";
+import { roleLabel, routeOf, toAppData } from "./frame";
 import { appStore, initAppStore, resetAppStoreForTests } from "./store";
 
 const now = new Date(2026, 9, 19, 10, 0).getTime();
@@ -119,5 +119,27 @@ describe("initAppStore", () => {
     const state = appStore().getState();
     expect(state.data.myName).toBe("Ada");
     expect(state.ui.lastTab).toEqual({ find: "search" });
+  });
+});
+
+describe("routeOf", () => {
+  it("keeps a wired route on live data and sends a hidden one to the default", () => {
+    expect(routeOf({ screen: "find", tab: "search" }, "live")).toEqual({
+      screen: "find",
+      tab: "search",
+    });
+    expect(routeOf({ screen: "reach", tab: "board" }, "live")).toEqual({
+      screen: "find",
+      tab: "search",
+    });
+    expect(routeOf({ screen: "nope", tab: null }, "live")).toEqual({
+      screen: "find",
+      tab: "search",
+    });
+  });
+
+  it("is unchanged on example data", () => {
+    expect(routeOf({ screen: "reach", tab: "board" })).toEqual({ screen: "reach", tab: "board" });
+    expect(routeOf({ screen: "nope", tab: null })).toEqual({ screen: "today", tab: null });
   });
 });

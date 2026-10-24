@@ -78,6 +78,7 @@ export function exampleFrame(now: number): Frame {
   // You are the Owner in the example, so you see money: nothing is hidden.
   const mine = team.find((member) => member.id === me);
   return {
+    source: "example",
     me,
     // Your display name is `""` in the fixtures: unset.
     myName: null,

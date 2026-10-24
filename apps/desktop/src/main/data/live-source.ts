@@ -15,5 +15,10 @@ const emptyExtras: FrameExtras = {
 /** Opens the live database at `path` for member `me`. It starts empty; the sync fills it. */
 export function openLiveSource(path: string, me: string, now?: () => number): DataSource {
   const db = openDatabase(path);
-  return createSqliteSource(db, { me, extras: emptyExtras, ...(now ? { now } : {}) });
+  return createSqliteSource(db, {
+    source: "live",
+    me,
+    extras: emptyExtras,
+    ...(now ? { now } : {}),
+  });
 }

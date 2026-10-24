@@ -29,10 +29,11 @@ import json
 import logging
 import os
 import queue
+import re
 import sys
 import threading
 import traceback
-from collections.abc import Callable
+from collections.abc import Callable, MutableMapping
 from pathlib import Path
 from typing import Any, TextIO
 
@@ -54,7 +55,32 @@ FORWARDED_EVENTS = ("hello", "job", "status", "log")
 MAX_ID_LENGTH = 100
 MAX_MESSAGE_LENGTH = 4000
 
+#: The variable main passes this launch's bridge token in (plan D13); never argv, never logged.
+TOKEN_ENV = "GRATOVO_BRIDGE_TOKEN"  # noqa: S105 - the variable's name, not a token
+_TOKEN_RE = re.compile(r"^[0-9a-f]{64}$")
+
 log = logging.getLogger(__name__)
+
+
+class BadBridgeTokenError(ValueError):
+    """`GRATOVO_BRIDGE_TOKEN` is set but is not 64 lowercase hex characters."""
+
+
+def read_bridge_token(environ: MutableMapping[str, str] | None = None) -> str | None:
+    """This launch's token from the environment, removed from it at once (plan D13).
+
+    Removed so nothing this process starts (Firefox, Edge, yt-dlp) inherits it. Absent or empty is
+    no token, as before main sent one. Anything else that is not 64 lowercase hex characters is
+    refused: a bridge that quietly ran without the token main thinks it set would let any Firefox
+    extension in. The message never holds the value.
+    """
+    env = os.environ if environ is None else environ
+    value = env.pop(TOKEN_ENV, None)
+    if not value:
+        return None
+    if not _TOKEN_RE.fullmatch(value):
+        raise BadBridgeTokenError(f"{TOKEN_ENV} must be 64 lowercase hex characters")
+    return value
 
 
 def _request_id(value: object) -> str | None:
@@ -156,6 +182,8 @@ class Daemon:
             data_dir=data_dir,
             logger=logging.getLogger("gratovo_pipeline.gemini"),
         )
+        # The token the Firefox add-on must show (plan D13); the browser manager builds it in.
+        self.gemini.server.set_token(paths.token)
         self.stop_requested = threading.Event()
 
     # --- wiring ------------------------------------------------------------
@@ -465,12 +493,26 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     _configure_streams()
+    # First, before anything can start a child process that would inherit it.
+    try:
+        token = read_bridge_token()
+        token_error: BadBridgeTokenError | None = None
+    except BadBridgeTokenError as error:
+        token, token_error = None, error
     args = build_parser().parse_args(argv)
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.INFO,
         stream=sys.stderr,
         format="%(asctime)s %(name)s %(levelname)s: %(message)s",
     )
+    if token_error is not None:
+        log.error("refusing to start: %s", token_error)
+        Out(sys.stdout).event(
+            "daemon", {"state": "failed", "reason": "bad_token", "message": str(token_error)}
+        )
+        return 2
     configure_course(args.course_dir, args.video_dir)
-    paths = BrowserPaths(profile_dir=args.profile_dir, extension_dir=args.extension_dir)
+    paths = BrowserPaths(
+        profile_dir=args.profile_dir, extension_dir=args.extension_dir, token=token
+    )
     return serve(paths=paths, port=args.port, data_dir=args.data_dir)

@@ -1,17 +1,39 @@
 import { z } from "zod";
 
 import { authStatusSchema, signInRequestSchema, signInResultSchema } from "./auth";
+import {
+  connectionsChangeSchema,
+  connectionsSetResultSchema,
+  connectionsStatusSchema,
+  gatewaysDeployRequestSchema,
+  gatewaysDeployResultSchema,
+  gatewaysRemoveRequestSchema,
+  gatewaysRemoveResultSchema,
+  mailCheckResultSchema,
+  mailConnectResultSchema,
+  pickFolderRequestSchema,
+} from "./connections";
 import { dataWriteSchema, frameSchema } from "./data";
 import {
   findAddRequestSchema,
   findAddResultSchema,
   findEditResultSchema,
   findIndexRequestSchema,
+  findRulesSchema,
   findStartResultSchema,
   findStateSchema,
 } from "./find";
+import { geminiOpenWindowRequestSchema, geminiStatusSchema } from "./gemini";
+import {
+  importCandidatesSchema,
+  importDryRunRequestSchema,
+  importResultSchema,
+  importRunRequestSchema,
+  pickedPathSchema,
+} from "./import";
 import { presenceSetSchema } from "./presence";
 import { syncStatusSchema } from "./sync";
+import { writingRulesSchema } from "./writing";
 
 /**
  * A secret's name: lowercase words joined by dots or hyphens, such as "gemini.api-key" or
@@ -115,6 +137,86 @@ export const channels = {
   "find:stop": {
     request: z.strictObject({}),
     response: z.strictObject({}),
+  },
+  /** Replaces the search rules (Settings › Search rules); `find:changed` follows. */
+  "rules:set": {
+    request: z.strictObject({ rules: findRulesSchema }),
+    response: z.strictObject({}),
+  },
+  /** The old app's databases main found on this computer. */
+  "import:candidates": {
+    request: z.strictObject({}),
+    response: importCandidatesSchema,
+  },
+  /** Main's file dialog for an old database the owner picks. */
+  "import:pick": {
+    request: z.strictObject({}),
+    response: pickedPathSchema,
+  },
+  /** Counts what an import would copy, and writes nothing. */
+  "import:dry-run": {
+    request: importDryRunRequestSchema,
+    response: importResultSchema,
+  },
+  /** Backs up, then imports the old file. The old file is only ever read. */
+  "import:run": {
+    request: importRunRequestSchema,
+    response: importResultSchema,
+  },
+  /** The course's playbook rules, for Settings › Writing rules. */
+  "writing:rules": {
+    request: z.strictObject({}),
+    response: writingRulesSchema,
+  },
+  /** Everything Settings › Connections shows. Never a secret's value. */
+  "connections:status": {
+    request: z.strictObject({}),
+    response: connectionsStatusSchema,
+  },
+  /** Saves one connection setting or secret. Secrets go in and never come back. */
+  "connections:set": {
+    request: connectionsChangeSchema,
+    response: connectionsSetResultSchema,
+  },
+  /** Main's folder dialog for the course folder or its videos. */
+  "connections:pick-folder": {
+    request: pickFolderRequestSchema,
+    response: pickedPathSchema,
+  },
+  /** Connects a Gmail mailbox through Google's consent page. Consent only: nothing is sent or read. */
+  "mail:connect": {
+    request: z.strictObject({}),
+    response: mailConnectResultSchema,
+  },
+  /** Checks each connected mailbox's sign-in (`mail.status`). */
+  "mail:check": {
+    request: z.strictObject({}),
+    response: mailCheckResultSchema,
+  },
+  /** Deploys AWS gateways in these regions. */
+  "gateways:deploy": {
+    request: gatewaysDeployRequestSchema,
+    response: gatewaysDeployResultSchema,
+  },
+  /** Removes the gateways in one region. */
+  "gateways:remove": {
+    request: gatewaysRemoveRequestSchema,
+    response: gatewaysRemoveResultSchema,
+  },
+  /** Starts the Gemini bridge. Sends no prompt. */
+  "gemini:start": {
+    request: z.strictObject({}),
+    response: geminiStatusSchema,
+  },
+  /** Stops the Gemini bridge. */
+  "gemini:stop": {
+    request: z.strictObject({}),
+    response: geminiStatusSchema,
+  },
+  /** Starts the bridge if needed and opens the Gemini window in a browser. */
+  "gemini:open-window": {
+    request: geminiOpenWindowRequestSchema,
+    response: geminiStatusSchema,
   },
 } as const;
 

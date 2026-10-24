@@ -1,9 +1,10 @@
 import { notifyKind } from "@gratovo/core/data";
-import type { NotifyKind } from "@gratovo/core/data";
+import type { FrameSource, NotifyKind } from "@gratovo/core/data";
 import type { IconName } from "@gratovo/ui";
 
 import { strings } from "../strings";
 import type { AppData, Notification } from "./store";
+import { isSettingsSectionShown } from "./wired";
 
 /** The sections of the Settings screen, in the order the prototype lists them. */
 export type SectionKey =
@@ -33,18 +34,45 @@ export interface SettingsSection {
 export const settingsSections: readonly SettingsSection[] = [
   { key: "profile", group: "you", icon: "user", owner: false, arrives: null },
   { key: "appearance", group: "you", icon: "moon", owner: false, arrives: null },
-  { key: "day", group: "you", icon: "sun", owner: false, arrives: 4 },
+  { key: "day", group: "you", icon: "sun", owner: false, arrives: 7 },
   { key: "keyboard", group: "you", icon: "keyboard", owner: false, arrives: null },
   { key: "notifications", group: "you", icon: "bell", owner: false, arrives: null },
-  { key: "search", group: "agency", icon: "scan", owner: false, arrives: 5 },
-  { key: "facts", group: "agency", icon: "sliders", owner: true, arrives: 7 },
-  { key: "writing", group: "agency", icon: "pen", owner: false, arrives: 6 },
+  { key: "search", group: "agency", icon: "scan", owner: false, arrives: null },
+  { key: "facts", group: "agency", icon: "sliders", owner: true, arrives: 8 },
+  { key: "writing", group: "agency", icon: "pen", owner: false, arrives: null },
   { key: "team", group: "agency", icon: "users", owner: true, arrives: 9 },
-  { key: "connections", group: "agency", icon: "gauge", owner: true, arrives: 9 },
+  { key: "connections", group: "agency", icon: "gauge", owner: true, arrives: null },
 ];
 
 /** A setting that exists today. */
-export type RowId = "name" | "role" | "density" | "size" | "motion" | "rail" | "letters" | "notify";
+export type RowId =
+  | "name"
+  | "role"
+  | "density"
+  | "size"
+  | "motion"
+  | "rail"
+  | "letters"
+  | "notify"
+  | "rulesCountries"
+  | "rulesMedian"
+  | "rulesUploads"
+  | "rulesPerKeyword"
+  | "rulesArchive"
+  | "rulesBand"
+  | "writingRules"
+  | "connOld"
+  | "connMailApp"
+  | "connMailboxes"
+  | "connMailSettings"
+  | "connGemini"
+  | "connCourse"
+  | "connYoutube"
+  | "connPython"
+  | "connProxies"
+  | "connPacing"
+  | "connAws"
+  | "connSync";
 
 /** A row that can be searched and reached from the palette. */
 export interface SettingsRow {
@@ -62,6 +90,25 @@ export const settingsRows: readonly SettingsRow[] = [
   { section: "appearance", id: "rail" },
   { section: "keyboard", id: "letters" },
   { section: "notifications", id: "notify" },
+  { section: "search", id: "rulesCountries" },
+  { section: "search", id: "rulesMedian" },
+  { section: "search", id: "rulesUploads" },
+  { section: "search", id: "rulesPerKeyword" },
+  { section: "search", id: "rulesArchive" },
+  { section: "search", id: "rulesBand" },
+  { section: "writing", id: "writingRules" },
+  { section: "connections", id: "connOld" },
+  { section: "connections", id: "connMailApp" },
+  { section: "connections", id: "connMailboxes" },
+  { section: "connections", id: "connMailSettings" },
+  { section: "connections", id: "connGemini" },
+  { section: "connections", id: "connCourse" },
+  { section: "connections", id: "connYoutube" },
+  { section: "connections", id: "connPython" },
+  { section: "connections", id: "connProxies" },
+  { section: "connections", id: "connPacing" },
+  { section: "connections", id: "connAws" },
+  { section: "connections", id: "connSync" },
 ];
 
 export type { NotifyKind };
@@ -72,14 +119,19 @@ export function meIsOwner(data: AppData): boolean {
   return data.team.find((m) => m.id === data.me)?.owner ?? false;
 }
 
-/** The sections you may open: the owner-only ones are for the owner. */
-export function sectionsFor(owner: boolean): readonly SettingsSection[] {
-  return settingsSections.filter((s) => owner || !s.owner);
+/** The sections you may open: the owner-only ones are for the owner; live data hides unwired ones. */
+export function sectionsFor(
+  owner: boolean,
+  source: FrameSource = "example",
+): readonly SettingsSection[] {
+  return settingsSections.filter(
+    (s) => (owner || !s.owner) && isSettingsSectionShown(s.key, source),
+  );
 }
 
 /** The setting rows you may reach: those in a section you may open. */
-export function rowsFor(owner: boolean): readonly SettingsRow[] {
-  const keys = new Set(sectionsFor(owner).map((s) => s.key));
+export function rowsFor(owner: boolean, source: FrameSource = "example"): readonly SettingsRow[] {
+  const keys = new Set(sectionsFor(owner, source).map((s) => s.key));
   return settingsRows.filter((row) => keys.has(row.section));
 }
 
@@ -96,6 +148,7 @@ export function notifShown(data: AppData, n: Notification): boolean {
 export function searchSettings(
   query: string,
   owner: boolean,
+  source: FrameSource = "example",
 ): {
   readonly rows: readonly SettingsRow[];
   readonly sections: readonly SettingsSection[];
@@ -103,11 +156,11 @@ export function searchSettings(
   const q = query.trim().toLowerCase();
   const tabs = strings.screens.settings.tabs;
   const text = strings.settings;
-  const rows = rowsFor(owner).filter((row) => {
+  const rows = rowsFor(owner, source).filter((row) => {
     const r = text.rows[row.id];
     return `${r.label} ${r.words} ${tabs[row.section]}`.toLowerCase().includes(q);
   });
-  const sections = sectionsFor(owner).filter((s) => {
+  const sections = sectionsFor(owner, source).filter((s) => {
     const t = text.sections[s.key];
     return `${tabs[s.key]} ${t.sub} ${t.words}`.toLowerCase().includes(q);
   });

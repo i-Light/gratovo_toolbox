@@ -433,6 +433,7 @@ export function createAccount(deps: AccountDeps): Account {
     email = mail;
     if (live?.db !== db) {
       const source = createSqliteSource(db, {
+        source: "live",
         me: userId,
         extras: {
           ...emptyExtras,

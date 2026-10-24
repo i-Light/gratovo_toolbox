@@ -233,6 +233,19 @@ GOOD_JOBS: list[dict[str, Any]] = [
     {"kind": "gateways.deploy", "regions": ["eu-west-1", "us-east-2", "ap-southeast-1"]},
     {"kind": "gateways.destroy", "gateways": [{"region": "eu-west-1", "apiId": "a1b2c3d4e5"}]},
     {"kind": "gateways.test"},
+    {
+        "kind": "import.legacy",
+        "source": "D:\\old\\gratovo_code\\data\\database\\gratovo.db",
+        "dryRun": False,
+        "backupDir": "C:\\Users\\a\\AppData\\Roaming\\Gratovo Toolbox\\backups",
+    },
+    # A dry run needs no backup folder; a POSIX path is what tmp_path gives on Linux.
+    {
+        "kind": "import.legacy",
+        "source": "/home/runner/old/gratovo.db",
+        "dryRun": True,
+        "backupDir": None,
+    },
 ]
 
 # Two jobs of a kind (all fields, and the required ones only) get told apart by their place.
@@ -309,6 +322,20 @@ BAD_JOBS: list[dict[str, Any]] = [
     {"kind": "gateways.destroy", "gateways": [{"region": "eu-west-1", "apiId": "A1/B2"}]},
     {"kind": "gateways.destroy", "gateways": [{"region": "eu-west-1"}]},
     {"kind": "gateways.test", "regions": ["eu-west-1"]},
+    {"kind": "import.legacy", "source": "gratovo.db", "dryRun": True, "backupDir": None},
+    {"kind": "import.legacy", "source": "", "dryRun": True, "backupDir": None},
+    {"kind": "import.legacy", "source": "C:\\" + "x" * 1022, "dryRun": True, "backupDir": None},
+    {"kind": "import.legacy", "source": "C:\\old\\a\x00.db", "dryRun": True, "backupDir": None},
+    {"kind": "import.legacy", "source": "C:\\old\\gratovo.db", "dryRun": True},
+    {"kind": "import.legacy", "source": "C:\\old\\gratovo.db", "dryRun": "no", "backupDir": None},
+    {"kind": "import.legacy", "source": "C:\\old\\gratovo.db", "dryRun": False, "backupDir": "bk"},
+    {
+        "kind": "import.legacy",
+        "source": "C:\\old\\gratovo.db",
+        "dryRun": True,
+        "backupDir": None,
+        "tables": ["channels"],
+    },
 ]
 
 
@@ -336,10 +363,77 @@ def test_a_job_that_breaks_a_refinement_is_refused(job: dict[str, Any]) -> None:
         parse_start(json.dumps(live(job)))
 
 
+def test_a_real_import_without_a_backup_folder_is_refused() -> None:
+    """A refinement in zod: a real import backs up pipeline.db first (plan D5)."""
+    job = {"kind": "import.legacy", "source": "C:\\old\\gratovo.db", "dryRun": False}
+    with pytest.raises(BadStartError, match="backupDir"):
+        parse_start(json.dumps(live({**job, "backupDir": None})))
+
+
 @pytest.mark.parametrize("job", GOOD_JOBS, ids=GOOD_IDS)
 def test_only_a_search_runs_on_example_data(job: dict[str, Any]) -> None:
     with pytest.raises(BadStartError, match="example data"):
         parse_start(json.dumps(changed("job", job)))
+
+
+def test_the_import_says_why_it_is_refused_on_example_data() -> None:
+    job = {"kind": "import.legacy", "source": "C:\\old\\gratovo.db", "dryRun": True}
+    with pytest.raises(BadStartError, match="the import is for live data"):
+        parse_start(json.dumps(changed("job", {**job, "backupDir": None})))
+
+
+# --- the median-views and uploads bounds (plan D8) ---
+
+
+def test_a_start_from_before_step_4_has_no_bounds() -> None:
+    """Both are optional: absent, they stay absent, and `.get` reads None (no bound)."""
+    rules = parse_start(json.dumps(START))["job"]
+    assert rules["kind"] == "search"
+    assert rules["rules"].get("minMedianViews") is None
+    assert rules["rules"].get("minUploads30") is None
+    assert "minMedianViews" not in rules["rules"]
+
+
+@pytest.mark.parametrize(
+    ("median", "uploads"), [(None, None), (0, 0), (5_000, 4), (100_000_000, 10_000)]
+)
+def test_the_bounds_parse_to_themselves(
+    median: int | None, uploads: int | None, protocol_schema: dict[str, Any]
+) -> None:
+    message = changed(
+        "job.rules.minUploads30", uploads, changed("job.rules.minMedianViews", median)
+    )
+    assert schema_errors(protocol_schema["toPipeline"], message) == []
+    assert parse_start(json.dumps(message)) == message
+
+
+@pytest.mark.parametrize(
+    ("path", "value"),
+    [
+        ("job.rules.minMedianViews", -1),
+        ("job.rules.minMedianViews", 1.5),
+        ("job.rules.minMedianViews", "5000"),
+        ("job.rules.minMedianViews", True),
+        ("job.rules.minMedianViews", 100_000_001),
+        ("job.rules.minUploads30", -1),
+        ("job.rules.minUploads30", 10_001),
+        ("job.rules.minUploads30", False),
+    ],
+)
+def test_a_bound_that_breaks_the_schema_is_refused(
+    path: str, value: object, protocol_schema: dict[str, Any]
+) -> None:
+    bad = changed(path, value)
+    assert schema_errors(protocol_schema["toPipeline"], bad) != []
+    with pytest.raises(BadStartError):
+        parse_start(json.dumps(bad))
+
+
+def test_the_bounds_archive_with_the_old_app_s_labels() -> None:
+    """The old rule archived every bound with its one label (auto_clean_controller.dart)."""
+    assert protocol.AUTO_CLEAN_LABELS == ("haramStuff", "irrelevant", "inactive")
+    assert protocol.AUTO_CLEAN_DEFAULT_LABEL in protocol.AUTO_CLEAN_LABELS
+    assert START["job"]["rules"]["autoClean"]["label"] in protocol.AUTO_CLEAN_LABELS
 
 
 MAIL_SETTINGS: dict[str, Any] = {
@@ -576,6 +670,28 @@ RESULTS: list[tuple[protocol.ResultKind, dict[str, Any]]] = [
             ]
         },
     ),
+    (
+        "import.legacy",
+        {
+            "source": "D:\\old\\gratovo_code\\data\\database\\gratovo.db",
+            "tables": [
+                {"name": "channels", "inOld": 1840, "toAdd": 1812, "already": 28},
+                {"name": "videos", "inOld": 0, "toAdd": 0, "already": 0},
+            ],
+            "skipped": [
+                {"name": "influencers", "rows": 1790, "why": "synced"},
+                {"name": "sync_state", "rows": 3, "why": "bookkeeping"},
+                {"name": "news_items", "rows": 120, "why": "not-ported"},
+            ],
+            "unsent": {"outbox": 2, "activity": 0},
+            "settingsFiles": [
+                {"name": "run_config.json", "found": True},
+                {"name": "settings.json", "found": False},
+            ],
+            "dryRun": False,
+            "backup": "C:\\Users\\a\\backups\\pipeline-20261024T090000Z.db",
+        },
+    ),
 ]
 
 
@@ -621,6 +737,35 @@ def test_a_result_is_cut_to_fit_the_schema(check_from_pipeline: Check) -> None:
     assert len(refetch["data"]["failed"]) == protocol.MAX_FAILED_HANDLES
     assert refetch["data"]["failedCount"] == 300
     assert sent["data"]["rfcMessageId"] is None
+
+
+def test_an_import_report_is_cut_to_its_bounds(check_from_pipeline: Check) -> None:
+    out = io.StringIO()
+    report = cast("protocol.ImportReport", copy.deepcopy(RESULTS[-1][1]))
+    report["tables"] = [
+        {"name": f"t{i}" + "x" * 100, "inOld": i, "toAdd": 0, "already": i} for i in range(50)
+    ]
+    report["skipped"] = [{"name": f"s{i}", "rows": 1, "why": "not-ported"} for i in range(70)]
+    report["settingsFiles"] = [{"name": f"f{i}.json", "found": False} for i in range(30)]
+    Emitter(out).result("import.legacy", report)
+    data = check_from_pipeline(out.getvalue())["data"]
+    assert len(data["tables"]) == protocol.IMPORT_MAX_TABLES
+    assert len(data["skipped"]) == protocol.IMPORT_MAX_SKIPPED
+    assert len(data["settingsFiles"]) == protocol.IMPORT_MAX_SETTINGS_FILES
+    assert {len(t["name"]) for t in data["tables"]} == {protocol.IMPORT_MAX_NAME}
+    assert data["tables"][0]["inOld"] == 0
+    assert report["tables"][0]["name"].startswith("t0x")  # the caller's report is left alone
+    assert len(report["tables"][0]["name"]) > protocol.IMPORT_MAX_NAME
+
+
+def test_a_progress_line_matches_the_schema(check_from_pipeline: Check) -> None:
+    out = io.StringIO()
+    emit = Emitter(out)
+    emit.progress(table="channels", done=2, total=7)
+    emit.progress(table="x" * 100, done=7, total=7)
+    first, second = (check_from_pipeline(line) for line in out.getvalue().splitlines(True))
+    assert first == {"type": "progress", "table": "channels", "done": 2, "total": 7}
+    assert len(second["table"]) == protocol.IMPORT_MAX_NAME
 
 
 def write_reply(out: io.StringIO, **changes: Any) -> None:
@@ -719,6 +864,7 @@ JOB_MODULES: dict[str, str] = {
     "gateways.deploy": "gateways",
     "gateways.destroy": "gateways",
     "gateways.test": "gateways",
+    "import.legacy": "import_legacy",
 }
 
 

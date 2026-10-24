@@ -57,6 +57,7 @@ select = [
 "tests/**" = ["S101"] # pytest asserts
 # The store builds SQL from ? placeholders and fixed clauses only; every value is a parameter.
 "src/gratovo_pipeline/store.py" = ["S608"]
+"src/gratovo_pipeline/jobs/import_legacy.py" = ["S608"]  # identifiers are quoted; names come from fixed lists and PRAGMA
 # Its word lists read best as space-separated words.
 "src/gratovo_pipeline/found_emails.py" = ["SIM905"]
 # The wire names of the old bridge (PROTOCOL.md, DAEMON.md), kept so the ported code and tests read the same.

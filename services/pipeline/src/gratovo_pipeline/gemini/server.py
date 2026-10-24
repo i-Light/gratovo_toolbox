@@ -45,6 +45,18 @@ is. Any other browser's extension is closed with code 4003
 (`WRONG_BROWSER_CODE`) -- so an extension still loaded in, say, Edge cannot
 take the bridge away from the Firefox the app manages, and the two do not
 keep replacing each other.
+
+The per-launch token (plan D13)
+-------------------------------
+Main makes a fresh random token for every bridge start and hands it over in the environment
+(`daemon.read_bridge_token`). The bridge writes it into the Firefox copy of the add-on it builds
+(`bridge-token.js`), and the add-on sends it back in its `hello`. With a token set, a Firefox
+extension -- one whose `hello` says `firefox`, or whose handshake comes from a `moz-extension://`
+origin -- is admitted only when its `hello` carries exactly that token (compared in constant
+time); a wrong or missing one is closed with code 4001 (`WRONG_TOKEN_CODE`). Chrome and Edge load
+the add-on's source folder unpacked, which cannot carry a per-launch value, so for them the
+origin check (`_refuse_web_pages`) and the browser admission above stay the guard. The token is
+dropped from the stored and forwarded `hello`, so it never reaches main, a log or a status.
 """
 
 from __future__ import annotations
@@ -52,6 +64,7 @@ from __future__ import annotations
 import asyncio
 import concurrent.futures
 import contextlib
+import hmac
 import json
 import logging
 import queue
@@ -73,6 +86,8 @@ from .errors import BridgeTimeout, ExtensionNotConnected, error_from_payload
 DEFAULT_PORT = 8765
 #: Close code for an extension running in a browser other than the selected one.
 WRONG_BROWSER_CODE = 4003
+#: Close code for a Firefox extension whose `hello` lacks this launch's token (plan D13).
+WRONG_TOKEN_CODE = 4001
 #: How long a newcomer has to say `hello` when a browser is required.
 ADMIT_TIMEOUT_S = 10.0
 DEFAULT_HOST = "127.0.0.1"
@@ -148,6 +163,8 @@ class BridgeServer:
         self.hello: dict[str, Any] | None = None
         # The only browser whose extension is accepted; None accepts any.
         self._browser: str | None = None
+        # This launch's token (plan D13), or None when main gave none. Never logged.
+        self._token: str | None = None
 
     # --- lifecycle -----------------------------------------------------------
 
@@ -462,9 +479,33 @@ class BridgeServer:
                 loop,
             )
 
+    def set_token(self, token: str | None) -> None:
+        """Require `token` in a Firefox extension's `hello` from now on (None: no token)."""
+        self._token = token or None
+
+    @property
+    def requires_token(self) -> bool:
+        """True when a Firefox extension must show this launch's token."""
+        return self._token is not None
+
+    def _needs_token(self, ws: ServerConnection, browser: str | None) -> bool:
+        """Whether this newcomer is the bridge-built Firefox copy, which must carry the token.
+
+        Chrome and Edge load the source folder unpacked, which cannot hold a per-launch value, so
+        they are not asked for it (plan D13): the origin check and the browser admission guard
+        them. A `moz-extension://` origin is Firefox whatever its `hello` claims.
+        """
+        if self._token is None:
+            return False
+        if browser == "firefox":
+            return True
+        request = ws.request
+        origin = request.headers.get("Origin") if request is not None else None
+        return origin is not None and origin.partition("://")[0].lower() == "moz-extension"
+
     async def _admit(self, ws: ServerConnection) -> str | bytes | None:
         """Waits for the newcomer's `hello`; returns that frame when its browser is the required
-        one, else None."""
+        one (and, for Firefox with a token set, it carries the token), else None."""
         wanted = self._browser
         deadline = time.monotonic() + ADMIT_TIMEOUT_S
         try:
@@ -485,26 +526,36 @@ class BridgeServer:
                     await ws.send('{"type": "pong"}')
                     continue
                 if message.get("type") == "event" and message.get("event") == "hello":
-                    got = _hello_browser(message.get("data"))
-                    if wanted is None or got == wanted:
-                        return raw
-                    self._log.info(
-                        "refusing the %s extension (%s): only %s is accepted",
-                        got or "unknown",
-                        _describe_peer(ws),
-                        wanted,
-                    )
-                    await self._close_quietly(
-                        ws, WRONG_BROWSER_CODE, f"only the {wanted} extension is accepted"
-                    )
-                    return None
+                    data: object = message.get("data")
+                    got = _hello_browser(data)
+                    if wanted is not None and got != wanted:
+                        self._log.info(
+                            "refusing the %s extension (%s): only %s is accepted",
+                            got or "unknown",
+                            _describe_peer(ws),
+                            wanted,
+                        )
+                        await self._close_quietly(
+                            ws, WRONG_BROWSER_CODE, f"only the {wanted} extension is accepted"
+                        )
+                        return None
+                    if self._needs_token(ws, got) and not _token_matches(data, self._token):
+                        # Never the token itself, nor what was sent in its place.
+                        self._log.info(
+                            "refusing the %s extension (%s): wrong token",
+                            got or "unknown",
+                            _describe_peer(ws),
+                        )
+                        await self._close_quietly(ws, WRONG_TOKEN_CODE, "wrong token")
+                        return None
+                    return raw
         except ConnectionClosed, TimeoutError:
             await self._close_quietly(ws, WRONG_BROWSER_CODE, "no hello")
             return None
 
     async def _handler(self, ws: ServerConnection) -> None:
         first_frame: str | bytes | None = None
-        if self._browser is not None:
+        if self._browser is not None or self._token is not None:
             first_frame = await self._admit(ws)
             if first_frame is None:
                 return
@@ -599,6 +650,9 @@ class BridgeServer:
             cast("dict[str, Any]", raw_data) if isinstance(raw_data, dict) else {"value": raw_data}
         )
         if event == "hello":
+            # The token has done its job in `_admit`; it is kept out of everything from here on
+            # (the stored hello, `bridge.status`, the forwarded event, main's log).
+            data = {key: value for key, value in data.items() if key != "token"}
             self.hello = data
             self._log.info(
                 "extension hello: version %s, port %s",
@@ -661,6 +715,16 @@ def _hello_browser(hello: object) -> str | None:
         return None
     browser: object = hello.get("browser")  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
     return browser.strip().lower() if isinstance(browser, str) and browser.strip() else None
+
+
+def _token_matches(hello: object, token: str | None) -> bool:
+    """Whether a `hello`'s `token` is exactly `token`, compared in constant time."""
+    if token is None or not isinstance(hello, dict):
+        return False
+    given: object = hello.get("token")  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
+    if not isinstance(given, str):
+        return False
+    return hmac.compare_digest(given.encode("utf-8"), token.encode("utf-8"))
 
 
 def _describe_peer(ws: ServerConnection) -> str:

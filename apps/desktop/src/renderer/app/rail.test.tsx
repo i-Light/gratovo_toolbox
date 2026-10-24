@@ -6,7 +6,8 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { initPrefs, setPref } from "../lib/prefs";
 import { stubFindBridge } from "../lib/find-test-bridge";
-import { appStore, go, resetAppStoreForTests } from "../lib/store";
+import { exampleData } from "../lib/example-data";
+import { appStore, go, initAppStore, resetAppStoreForTests } from "../lib/store";
 import { strings } from "../strings";
 import { App } from "./app";
 import { Rail } from "./rail";
@@ -145,5 +146,16 @@ describe("the rail's slices", () => {
       go("find");
     });
     expect(renders).toBeGreaterThan(first);
+  });
+});
+
+describe("the live gate", () => {
+  it("lists only Find and Settings access on live data", () => {
+    initAppStore({ ...exampleData(Date.now()), source: "live" }, { screen: "find", tab: "search" });
+    render(<Rail />);
+    expect(within(rail()).getByRole("button", { name: /^Find/ })).toBeTruthy();
+    for (const name of ["Today", "Reach", "Close", "Deliver", "Insights", "Toolbox", "Team"]) {
+      expect(within(rail()).queryByRole("button", { name: new RegExp(`^${name}`) })).toBeNull();
+    }
   });
 });

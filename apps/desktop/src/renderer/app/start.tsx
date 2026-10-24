@@ -9,8 +9,8 @@ import { toAppData } from "../lib/frame";
 import { installLiveUpdates } from "../lib/live";
 import { installPersistence } from "../lib/persist";
 import { installPresenceReporting } from "../lib/presence";
-import { routeFromHash } from "../lib/routes";
 import { initAppStore, installHashSync } from "../lib/store";
+import { startRoute } from "../lib/wired";
 import { strings } from "../strings";
 import { App } from "./app";
 import { SignIn, type SignInAnswer } from "./sign-in";
@@ -40,7 +40,10 @@ export async function startApp(root: Root, invoke: Bridge["invoke"]): Promise<vo
       failed();
       return;
     }
-    initAppStore(toAppData(loaded.value), routeFromHash(location.hash));
+    initAppStore(
+      toAppData(loaded.value),
+      startRoute(location.hash, loaded.value.source, "unknown"),
+    );
     if (!installed) {
       installed = true;
       // From here on every change to the data is written back; what was just loaded counts as saved.

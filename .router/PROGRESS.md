@@ -1,7 +1,38 @@
 # Progress: step 4 (live data import and operational connections)
 
-**Plan realigned** (owner, 2026-10-24): pipeline-first order and ground rules 9 and 10 are written into the migration plan (§2, §3, §5, §6) and `docs/workflow.md`. 3e-3b is done (PR #17). Its lessons moved to `docs/workflow.md`.
+**Plan realigned** (owner, 2026-10-24): pipeline-first order and ground rules 9 and 10 are in the migration plan and `docs/workflow.md` (PR #18). 3e-3's lessons moved to `docs/workflow.md`.
 
-**Next: step 4**, from the migration plan's §6. Recon of `legacy/` (the `gratovo.db`, `pipeline.db` and `mailbox.db` schemas, `data/settings.json`, `data/keywords.json`, `pipeline/gemini_extension/`), then a new `.router/CONTEXT.md` and `.router/PLAN.md` with the contracts (Opus) and the build tasks (Sonnet). The `.router/PLAN.md` and `.router/CONTEXT.md` still on disk are 3e-3's and are replaced when step 4's plan is written.
+Branch `feat/4-live-data-and-connections`, from `docs/plan-pipeline-first` at 8e2614f; `main` (#18, 59e9482) merged in. The plan is `.router/PLAN.md` (decisions D1 to D15, contracts, tasks). Recon in `.router/CONTEXT.md`.
 
-**Testing for step 4** (ground rule 10): lint, typecheck, Vitest and pytest, plus at most one new Electron smoke test.
+**Rules for this step:** never send email or read the mailbox (fakes only); no Gemini prompt is sent (the bridge is only started and the add-on connected); the old `gratovo.db` is opened read-only and never written; no secret is printed, logged or copied (Gmail token files and `.env` are never read). Testing per ground rule 10: lint, typecheck, Vitest, pytest, plus one Electron smoke test.
+
+## Tasks
+
+| id | tier | state | note |
+|---|---|---|---|
+| C1a | H | done | IPC contracts (`packages/ipc/src/{import,connections,gemini,writing}.ts`), frame `source`, `main/services.ts` + `stub-services.ts`; failures are values; `rules:set` on the find service; `archiveDays` stays in main (`pipelineRules()`) |
+| C1b | H | done | `import.legacy` in the `store` lane (there is no "main" lane); example data refused with `bad_start`; end codes `source_unreadable`, `not_sqlite`, `no_channels_table`, `source_in_data_dir`, `store_too_new`; `progress` line counts tables |
+| B1 | N | done | `lib/wired.ts` (`startRoute`, `defaultRoute`, `isRouteShown`…); `ui.importState` + `setImportState` for B10 ("unknown" at start → Find › Search until B10 feeds it); Profile's "Roles in Team" hidden in live; `routeFromHash` wrapped by `startRoute` (circular import) |
+| B2 | N | done | 18 tests; read-only proven (bytes + mtime); FK guard drops orphans; dry run never creates the destination. **Follow-up (lead):** open with `immutable=1` and refuse when a non-empty `-wal` sits beside the old file (`old_app_open`), so nothing is ever created beside it |
+| B3 | N | done | `SignalBounds` in config, `signals_verdict`/`sweep_by_signals` in auto_clean, label = `autoClean.label`; on a bound = kept; no videos = 0; failed fetch untouched. Stale docstrings to fix in L1: `config.py` `AutoCleanRule`, `protocol.py` "B3 decides" |
+| B4 | N | done | `createImporter`; ipc reasons `own_data`, `example_data`, `no_data`, `not_found`, `no_channels`; `runStoreJob(start, onProgress)` + `storeOutcomeOf`; `rulesFromOldFiles` in find-store; a stopped import reports `failed` |
+| B5 | N | done | `DataSource.readSetting/writeSetting/seedChannelNames` (in `packages/core`); `createConnectionsService` + `addMailbox`, `startSettings`; `playbookRulesDir`, `createWritingRulesService`; method `removeGateways`. **W1 checks:** B5 reads `import` as `{at, backup}`, B4 writes `{at, source, counts, backup}` (must parse); `handlers.test.ts` `sourceWith()` needs the three new methods |
+| B6 | H | done | `mail/consent.ts`, `listenOnLoopback` in `net/network.ts`, `isGoogleConsentUrl`; ipc reasons `bad_state`, `bad_response`, `exchange_failed`, `no_refresh_token`. **W1:** move the browser page words (`pageText`) to `main/strings.ts`; check the 20-mailbox cap before opening the browser; own `createNetwork` for `oauth2.googleapis.com` |
+| B7 | H | done | token in env, removed from env on read, stripped from the hello before storing; `moz-extension://` origins always need it (an add-on can't claim "edge" to skip it); first `ensure_window` of a run reinstalls the add-on (stale token); `createGeminiControl`, `findExtensionDir`, `geminiLaunchOptions`; daemon `reason: bad_token`. **D1:** ADR 0014's "needs no secrets" no longer holds |
+| B8 | N | done | copied tree, 0.4.0, token in hello and `bridge-token.js`; 45 pytest + 96 node tests (`pnpm test` runs them, ~1 min) |
+| B9 | N | done | both sections real; Find's rules card has "Edit rules"; no Undo on save (`rules:set` is IPC, not `act`) |
+| B10 | N | done | `connections-section.tsx` + `connections/` (12 rows), import dialog, `app/first-run.ts`; set-only secret inputs; inline confirms. Tidy later: `routing-rows.tsx` (493 lines) and `gmail-rows.tsx` (381) are over the ~300 guide |
+| W1 | N | done | real services in `index.ts`; Gemini log blanks the token; `canAddMailbox` pre-check; consent page words in `main/strings.ts`; Gemini stops on every source switch via `reloadWindow`; `stub-services.ts` kept for tests only |
+| F1 | N | – | **after W1 and B10:** the old file opened `mode=ro&immutable=1`; a non-empty `-wal` beside it → end code `old_app_open` (Python, protocol both sides, ipc reason, B4 mapping, B10 words). Found by the rehearsal: `mode=ro` created `-shm`/`-wal` beside the copy |
+| T1 | N | – | the one smoke test |
+| D1 | E | – | docs |
+| L1 | lead | – | checks, rehearsal, review, PR |
+
+## Rehearsal (lead, 2026-10-24)
+
+On a copy (in the session scratchpad, deleted afterwards) of the owner's newest old database, `E:\IMA work\Code\Ze OLD CODE\gratovo_code\data\database\gratovo.db` (1.21 GB, 2026-10-19), with its four non-secret settings files beside it. The job was run directly (`import_legacy.run`), as its tests do.
+
+- Dry run, 0.1 s: keywords 1,487, channels 2,373, channel_keywords 7,584, videos 35,448, channel_archive 104,341, runs 234, video_transcripts 1, all "to add"; destination not created. Skipped: 30 tables (channel_state 15,606, activity_log 365 and the rest "synced"; news 79 rows "not-ported"; R2 and sync bookkeeping). Unsent old work: 1 outbox row, 1 activity row. Settings files: all four found.
+- Real import, 3.1 s: the same counts added. No backup (the destination was new).
+- Second real import, 1.8 s: backup made (`pipeline-<stamp>.db`), 0 added, everything "already here".
+- The source file's SHA-256 and mtime were unchanged. **But `gratovo.db-shm` and `gratovo.db-wal` appeared beside the copy** (the old file is in WAL mode and `mode=ro` still creates them): task F1.

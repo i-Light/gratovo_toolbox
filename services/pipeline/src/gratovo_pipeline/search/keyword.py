@@ -85,7 +85,7 @@ def process_keyword(search: Search, keyword: str) -> KeywordResult:
     for handle in gate.delayed:
         needing.pop(handle, None)
     reading = {h: cid for h, cid in needing.items() if _in_countries(search, info.get(h), cid)}
-    kept = _read_uploads(search, keyword, reading)
+    kept, signal_swept = _read_uploads(search, keyword, reading)
 
     store.mark_keyword_done(conn, keyword, channels_found=found)
     outside = len(needing) - len(reading)
@@ -94,7 +94,10 @@ def process_keyword(search: Search, keyword: str) -> KeywordResult:
         + (f", {outside} outside the countries." if outside else ".")
     )
     return KeywordResult(
-        found=found, kept=len(kept), swept=len(gate.swept), delayed=len(gate.delayed)
+        found=found,
+        kept=len(kept),
+        swept=len(gate.swept) + len(signal_swept),
+        delayed=len(gate.delayed),
     )
 
 
@@ -132,11 +135,16 @@ def _in_countries(search: Search, details: ChannelInfo | None, channel_id: str) 
     return (country or "").upper() in countries
 
 
-def _read_uploads(search: Search, keyword: str, reading: Mapping[str, str]) -> list[str]:
+def _read_uploads(
+    search: Search, keyword: str, reading: Mapping[str, str]
+) -> tuple[list[str], list[auto_clean.SignalSwept]]:
     """Reads each channel's recent uploads on one session, with breaks in a long sweep. Returns
-    the channels read in full, announced as kept."""
+    the channels read in full and kept (announced as kept), and those archived for falling below
+    the median-views or uploads bound (announced as swept, and not counted as kept)."""
     if not reading:
-        return []
+        return [], []
+    swept: list[auto_clean.SignalSwept] = []
+    kept: list[str] = []
     search.info(f"Reading recent uploads from {len(reading)} channel(s).")
     every = search.pacer.every()
     collector = UploadCollector(search)
@@ -153,9 +161,31 @@ def _read_uploads(search: Search, keyword: str, reading: Mapping[str, str]) -> l
             collector.finish()
         finally:
             sweep.close()
-            for channel_id in collector.stamped:
+            # The bounds apply whether or not the subscriber band is on. Judged here, with the
+            # signals just derived, so a stop mid-sweep still judges what was stamped.
+            swept = auto_clean.sweep_by_signals(
+                search.conn,
+                search.cfg.signal_bounds,
+                collector.stamped,
+                keyword=keyword,
+                handles_limit=search.cfg.handles_limit,
+            )
+            gone = {s.channel_id for s in swept}
+            for s in swept:
+                search.events.channel(
+                    keyword=keyword,
+                    channel_id=s.channel_id,
+                    handle=s.handle,
+                    name=s.name,
+                    subscribers=s.subscribers,
+                    median_views=s.median_views,
+                    country=s.country,
+                    outcome="swept",
+                )
+            kept = [cid for cid in collector.stamped if cid not in gone]
+            for channel_id in kept:
                 _announce(search, keyword, channel_id, "kept")
-    return collector.stamped
+    return kept, swept
 
 
 def _announce(search: Search, keyword: str, channel_id: str, outcome: Outcome) -> None:

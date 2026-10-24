@@ -135,6 +135,30 @@
                           "label"
                         ],
                         "additionalProperties": false
+                      },
+                      "minMedianViews": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 100000000
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "minUploads30": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 10000
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
                       }
                     },
                     "required": [
@@ -548,6 +572,44 @@
                 },
                 "required": [
                   "kind"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "import.legacy"
+                  },
+                  "source": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1024,
+                    "pattern": "^(?:[A-Za-z]:[\\\\/]|[\\\\/])[^\\x00]*$"
+                  },
+                  "dryRun": {
+                    "type": "boolean"
+                  },
+                  "backupDir": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 1024,
+                        "pattern": "^(?:[A-Za-z]:[\\\\/]|[\\\\/])[^\\x00]*$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "kind",
+                  "source",
+                  "dryRun",
+                  "backupDir"
                 ],
                 "additionalProperties": false
               }
@@ -1007,6 +1069,37 @@
           "medianViews",
           "country",
           "outcome"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "progress"
+          },
+          "table": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "done": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          }
+        },
+        "required": [
+          "type",
+          "table",
+          "done",
+          "total"
         ],
         "additionalProperties": false
       },
@@ -2082,6 +2175,171 @@
               "data"
             ],
             "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "result"
+              },
+              "kind": {
+                "type": "string",
+                "const": "import.legacy"
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "source": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1024
+                  },
+                  "tables": {
+                    "maxItems": 40,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 64
+                        },
+                        "inOld": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 100000000
+                        },
+                        "toAdd": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 100000000
+                        },
+                        "already": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 100000000
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "inOld",
+                        "toAdd",
+                        "already"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "skipped": {
+                    "maxItems": 60,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 64
+                        },
+                        "rows": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 100000000
+                        },
+                        "why": {
+                          "type": "string",
+                          "enum": [
+                            "synced",
+                            "bookkeeping",
+                            "not-ported"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "rows",
+                        "why"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "unsent": {
+                    "type": "object",
+                    "properties": {
+                      "outbox": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 100000000
+                      },
+                      "activity": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 100000000
+                      }
+                    },
+                    "required": [
+                      "outbox",
+                      "activity"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "settingsFiles": {
+                    "maxItems": 20,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 64
+                        },
+                        "found": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "found"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "dryRun": {
+                    "type": "boolean"
+                  },
+                  "backup": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 1024
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "source",
+                  "tables",
+                  "skipped",
+                  "unsent",
+                  "settingsFiles",
+                  "dryRun",
+                  "backup"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "type",
+              "kind",
+              "data"
+            ],
+            "additionalProperties": false
           }
         ]
       },
@@ -2135,7 +2393,12 @@
                   "not_a_video",
                   "not_found",
                   "no_aws_keys",
-                  "aws"
+                  "aws",
+                  "source_unreadable",
+                  "not_sqlite",
+                  "no_channels_table",
+                  "source_in_data_dir",
+                  "store_too_new"
                 ]
               },
               "message": {

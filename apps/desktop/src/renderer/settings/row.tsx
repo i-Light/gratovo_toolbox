@@ -13,6 +13,8 @@ export interface RowProps {
   readonly scope?: keyof typeof strings.settings.scopes;
   /** What it says under the label. */
   readonly desc?: string;
+  /** A stable name for tests and tours, written as `data-ui` (such as `settings.search.median`). */
+  readonly ui?: string;
   /** The control. */
   readonly children: ReactNode;
 }
@@ -22,10 +24,10 @@ export interface RowProps {
  * Shows "Saved" beside the name while the setting has just been saved. Its `id` (`set-<id>`) is
  * what the search and the palette scroll to.
  */
-export function Row({ id, label, scope, desc, children }: RowProps) {
+export function Row({ id, label, scope, desc, ui, children }: RowProps) {
   const saved = useApp((s) => s.ui.settingFlash?.id === id);
   return (
-    <div className="set-row" id={`set-${id}`}>
+    <div className="set-row" id={`set-${id}`} {...(ui === undefined ? {} : { "data-ui": ui })}>
       <div className="set-t">
         <div className="row wrap" style={{ gap: "8px" }}>
           <b>{label}</b>
