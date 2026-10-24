@@ -890,7 +890,10 @@
 }
 
 /* Find › Contacts and the contact block (prototype W.ContactBlock, records.js l.124-145). */
-.ct-grid {
+/* Two cards across on a wide page; one when the peek takes the room, so names and addresses
+   don't break mid-word. */
+.grid2.ct-grid {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 440px), 1fr));
   align-items: start;
 }
 .ct-card {
