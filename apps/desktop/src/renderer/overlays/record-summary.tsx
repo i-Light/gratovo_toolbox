@@ -4,6 +4,7 @@ import type { CSSProperties } from "react";
 import type { RecordRef } from "../lib/routes";
 import { dealName, findRecord, useApp } from "../lib/store";
 import { CreatorRecord } from "../record/creator-record";
+import { isChannelId } from "../record/detail";
 import { strings } from "../strings";
 import { brandSub, creatorSub, dealSub } from "./record-text";
 
@@ -83,8 +84,9 @@ export function RecordBody({
 }) {
   const held = useApp((s) => s.data.creators.some((c) => c.id === record.id));
   const example = useApp((s) => s.data.source === "example");
-  // Example creators (c1, c2 ...) are not in the catalog: asking would only flash a skeleton.
-  if (record.kind !== "creator" || (example && held)) {
+  // Example creators (c1, c2 ...) are not in the catalog: asking would only flash a skeleton. The
+  // id decides, not whether the page holds it: an adopted channel keeps its full record.
+  if (record.kind !== "creator" || (example && !isChannelId(record.id))) {
     return <RecordSummary record={record} />;
   }
   return (

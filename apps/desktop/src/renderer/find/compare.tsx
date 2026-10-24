@@ -155,7 +155,7 @@ export function Compare({ items, onShortlist, onOpen, onClose }: CompareProps) {
                     size="sm"
                     kind="pri"
                     icon="check"
-                    label={`${text.shortlist} ${i.name}`}
+                    label={text.shortlistName(i.name)}
                     onClick={() => {
                       onShortlist(i);
                     }}
@@ -167,7 +167,7 @@ export function Compare({ items, onShortlist, onOpen, onClose }: CompareProps) {
                   size="sm"
                   kind="ghost"
                   icon="eye"
-                  label={`${text.open} ${i.name}`}
+                  label={text.openName(i.name)}
                   onClick={() => {
                     onOpen(i);
                   }}

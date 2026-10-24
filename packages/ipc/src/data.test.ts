@@ -130,7 +130,14 @@ describe("dataWriteSchema", () => {
     },
     { kind: "log.remove", id: "l1" },
     { kind: "creator.stage", id: "c1", stage: "emailed", handle: "", name: "" },
-    { kind: "creator.notes", id: "c1", notes: "Wants a demo first", handle: "", name: "" },
+    {
+      kind: "creator.notes",
+      id: "c1",
+      base: "",
+      notes: "Wants a demo first",
+      handle: "",
+      name: "",
+    },
     {
       kind: "brand.set",
       id: "b1",
@@ -194,13 +201,25 @@ describe("the new write kinds", () => {
     expect(ok(base)).toBe(false);
   });
 
-  it("creator.notes carries up to 50,000 characters with the handle and the name", () => {
-    const base = { kind: "creator.notes", id: "UC1", notes: "", handle: "@a", name: "A" };
+  it("creator.notes carries up to 50,000 characters, the text it started from, the handle and the name", () => {
+    const base = {
+      kind: "creator.notes",
+      id: "UC1",
+      base: "",
+      notes: "",
+      handle: "@a",
+      name: "A",
+    };
     expect(ok(base)).toBe(true);
     expect(ok({ ...base, notes: "x".repeat(50_000) })).toBe(true);
     expect(ok({ ...base, notes: "x".repeat(50_001) })).toBe(false);
+    expect(ok({ ...base, base: "x".repeat(50_000) })).toBe(true);
+    expect(ok({ ...base, base: "x".repeat(50_001) })).toBe(false);
     expect(ok({ ...base, id: "" })).toBe(false);
     expect(ok({ kind: "creator.notes", id: "UC1", notes: "Hi" })).toBe(false);
+    expect(ok({ kind: "creator.notes", id: "UC1", notes: "", handle: "@a", name: "A" })).toBe(
+      false,
+    );
     expect(ok({ ...base, stage: "new" })).toBe(false);
   });
 

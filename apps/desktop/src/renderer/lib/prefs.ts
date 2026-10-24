@@ -1,5 +1,5 @@
-import { creatorStages } from "@gratovo/core/data";
-import { emptyFindFilter, findSignals, type FindFilter } from "@gratovo/core/find";
+import { emptyFindFilter, type FindFilter } from "@gratovo/core/find";
+import { findFilterSchema } from "@gratovo/ipc";
 import { useSyncExternalStore } from "react";
 import { z } from "zod";
 
@@ -48,16 +48,8 @@ const fields = {
   motion: z.enum(["", "reduce"]),
   letters: z.enum(["", "off"]),
   rail: z.enum(["", "min"]),
-  findFilter: z.object({
-    stages: z.array(z.enum(creatorStages)),
-    signals: z.array(z.enum(findSignals)),
-    countries: z.array(z.string()),
-    minMedian: z.number().nonnegative(),
-    maxMedian: z.number().nonnegative().nullable(),
-    minUploads: z.number().nonnegative(),
-    runs: z.array(z.number().int().nonnegative()),
-    q: z.string(),
-  }),
+  // The same bounds main checks the filter with, so a stored filter main would refuse reads as the default.
+  findFilter: findFilterSchema,
   findSort: z.enum(["fit", "median", "subs", "found", "latest"]),
   findView: z.enum(["gallery", "table"]),
   findSize: z.enum(["s", "m", "l"]),

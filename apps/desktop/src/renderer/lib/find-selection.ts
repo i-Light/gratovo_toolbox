@@ -1,6 +1,7 @@
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { isTyping, useKeys } from "./keys";
+import { appStore } from "./store";
 
 interface Held {
   readonly ids: ReadonlySet<string>;
@@ -29,6 +30,16 @@ export interface FindSelection {
   readonly clear: () => void;
   readonly openCompare: () => void;
   readonly closeCompare: () => void;
+}
+
+/** True while the creator peek is open: its keys and text are not the gallery's. */
+function peekOpen(): boolean {
+  return appStore().getState().ui.peek !== null;
+}
+
+/** True when the key press came from inside the peek panel. */
+function inPeek(target: EventTarget | null): boolean {
+  return target instanceof Element && target.closest(".peek") !== null;
 }
 
 /** Compare takes 2 to 4 channels. */
@@ -60,6 +71,13 @@ export function useFindSelection(order: readonly string[], ready = true): FindSe
       };
       setHeld(current);
     }
+  }
+
+  // Compare shows only while 2 to 4 are selected: once the selection leaves that range it closes
+  // (and stays closed if the selection comes back).
+  if (current.compare && (current.ids.size < compareMin || current.ids.size > compareMax)) {
+    current = { ...current, compare: false };
+    setHeld(current);
   }
 
   const pick = useCallback((id: string, input: PickInput): void => {
@@ -99,14 +117,15 @@ export function useFindSelection(order: readonly string[], ready = true): FindSe
   const count = current.ids.size;
   useKeys({
     escape: (event) => {
-      if (isTyping(event.target) || (count === 0 && !current.compare)) {
+      // An open peek has its own Esc: it closes first, and the selection waits for the next press.
+      if (isTyping(event.target) || peekOpen() || (count === 0 && !current.compare)) {
         return false;
       }
       clear();
       return true;
     },
     "mod+a": (event) => {
-      if (isTyping(event.target)) {
+      if (isTyping(event.target) || peekOpen() || inPeek(event.target)) {
         return false;
       }
       event.preventDefault();

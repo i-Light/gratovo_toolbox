@@ -1,5 +1,6 @@
 import { formatCount, type FindFilter } from "@gratovo/core/find";
 import { Btn, Icon } from "@gratovo/ui";
+import { useMemo } from "react";
 
 import {
   clearFilter,
@@ -7,7 +8,7 @@ import {
   patchGalleryFilter,
   setGalleryFilter,
   toggleIn,
-  useRunLabels,
+  runLabels,
 } from "../lib/find-gallery-state";
 import { strings } from "../strings";
 import { SavedViews } from "./saved-views";
@@ -102,9 +103,15 @@ export function activeChips(
 }
 
 /** The active filters as chips you can remove, "Clear all", and the saved views. */
-export function GalleryChips({ filter }: { readonly filter: FindFilter }) {
-  const runLabels = useRunLabels();
-  const chips = activeChips(filter, runLabels);
+export function GalleryChips({
+  filter,
+  runs,
+}: {
+  readonly filter: FindFilter;
+  readonly runs: readonly { readonly id: number; readonly startedAt: number }[];
+}) {
+  const labels = useMemo(() => runLabels(runs), [runs]);
+  const chips = activeChips(filter, labels);
   const active = filterIsActive(filter);
   return (
     <div className="row wrap gal-chips" role="group" aria-label={text.chips.group}>

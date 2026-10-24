@@ -3,13 +3,12 @@ import { Icon, Tag } from "@gratovo/ui";
 import { memo, useMemo, useState } from "react";
 
 import { setGallerySort, type GallerySort } from "../lib/find-gallery-state";
-import { shortDate } from "../lib/format";
+import { ago, shortDate } from "../lib/format";
 import { strings } from "../strings";
 import { FitChip } from "./fit-chip";
 import { ThumbAvatar } from "./thumb";
 
 const text = strings.findGallery.table;
-const dayMs = 86_400_000;
 
 interface RowProps {
   readonly item: CatalogItem;
@@ -21,10 +20,7 @@ interface RowProps {
 
 const Row = memo(function Row({ item, selected, now, onOpen, onPick }: RowProps) {
   const fit = useMemo(() => fitOf(item), [item]);
-  const latest =
-    item.latestUploadAt === null
-      ? text.none
-      : text.daysShort(Math.max(0, Math.floor((now - item.latestUploadAt) / dayMs)));
+  const latest = item.latestUploadAt === null ? text.none : ago(item.latestUploadAt, now);
   return (
     <tr
       className="click"

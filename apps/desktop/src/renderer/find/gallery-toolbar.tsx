@@ -18,6 +18,9 @@ import { strings } from "../strings";
 
 const text = strings.findGallery.toolbar;
 
+/** The search box takes at most this many characters (main refuses a longer filter). */
+const searchMax = 200;
+
 /** How long typing rests before the search is applied. */
 export const searchDebounceMs = 200;
 
@@ -62,6 +65,7 @@ function Search({ q }: { readonly q: string }) {
         placeholder={text.searchPlaceholder}
         aria-label={text.search}
         value={draft}
+        maxLength={searchMax}
         onChange={(e) => {
           const value = e.target.value;
           setDraft(value);

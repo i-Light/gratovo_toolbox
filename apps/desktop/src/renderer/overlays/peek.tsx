@@ -1,4 +1,5 @@
 import { Btn, IconBtn } from "@gratovo/ui";
+import { useRef } from "react";
 
 import { closePeek, openRecord, stepPeek } from "../lib/actions";
 import { useReturnFocus } from "../lib/focus";
@@ -15,13 +16,30 @@ import { RecordBody } from "./record-summary";
  */
 export function Peek() {
   const peek = useApp((s) => s.ui.peek);
+  const side = useRef<HTMLElement>(null);
+  // Leaving a text box inside the peek by key would unmount it without a blur; this lets it save.
+  const leaveField = (): void => {
+    const here = document.activeElement;
+    if (
+      here instanceof HTMLElement &&
+      here.matches("textarea, input") &&
+      side.current?.contains(here)
+    ) {
+      here.blur();
+    }
+  };
   useKeys(
     {
-      escape: closePeek,
+      escape: () => {
+        leaveField();
+        closePeek();
+      },
       "alt+arrowdown": () => {
+        leaveField();
         stepPeek(1);
       },
       "alt+arrowup": () => {
+        leaveField();
         stepPeek(-1);
       },
     },
@@ -35,7 +53,7 @@ export function Peek() {
   const i = list.indexOf(peek.record.id);
   const text = strings.peek;
   return (
-    <aside className="peek" aria-label={text.label}>
+    <aside className="peek" aria-label={text.label} ref={side}>
       <div className="peek-h">
         {list.length > 1 ? (
           <>

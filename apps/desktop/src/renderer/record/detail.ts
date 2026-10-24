@@ -6,6 +6,11 @@ export type CreatorDetail = NonNullable<ChannelResponse<"find:item">["item"]>;
 const channelIdPattern = /^UC[A-Za-z0-9_-]{22}$/;
 const videoIdPattern = /^[A-Za-z0-9_-]{11}$/;
 
+/** True for a real YouTube channel id, the only kind the server keeps notes and links for. */
+export function isChannelId(id: string): boolean {
+  return channelIdPattern.test(id);
+}
+
 /** The channel's page on YouTube, or null when the id is not a real channel id (D25). */
 export function channelUrl(id: string): string | null {
   return channelIdPattern.test(id) ? `https://www.youtube.com/channel/${id}` : null;

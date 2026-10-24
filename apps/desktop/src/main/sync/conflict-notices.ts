@@ -10,7 +10,7 @@ const prefix = "conflict:";
 /** The words a notice is built from (the default is the app's own). */
 export type ConflictWords = typeof strings.conflict;
 
-/** The longest value a notice shows: notes can run to 5,000 characters, a notice line can't. */
+/** The longest value a notice shows: notes can run to 50,000 characters, a notice line can't. */
 const shownMax = 120;
 
 /**

@@ -23,10 +23,15 @@ describe("the catalog", () => {
   let folder: string;
   let path: string;
   let states: CreatorState[];
+  /** Each creator's stored notes, read one at a time by `item()`. */
+  let notes: Map<string, string>;
   let closeables: { close(): void }[];
 
   const source = (): DataSource =>
-    ({ creatorStates: () => Promise.resolve(states) }) as unknown as DataSource;
+    ({
+      creatorStates: () => Promise.resolve(states),
+      creatorNotes: (id: string) => Promise.resolve(notes.get(id) ?? null),
+    }) as unknown as DataSource;
 
   function open(data: FixtureData, debounceMs = 500) {
     writePipelineDb(path, data);
@@ -68,6 +73,7 @@ describe("the catalog", () => {
     folder = mkdtempSync(join(tmpdir(), "gratovo-catalog-"));
     path = join(folder, "pipeline.db");
     states = [];
+    notes = new Map();
     closeables = [];
   });
   afterEach(() => {
@@ -333,10 +339,11 @@ describe("the catalog", () => {
   });
 
   it("gives item() the creator's notes, cut to the limit and flagged, and query items none", async () => {
-    states = [
-      creatorState(a, { notes: "Wants a demo of the coding agent first." }),
-      creatorState(b, { stage: "contact", notes: "y".repeat(50_001) }),
-    ];
+    states = [creatorState(a), creatorState(b, { stage: "contact" })];
+    notes = new Map([
+      [a, "Wants a demo of the coding agent first."],
+      [b, "y".repeat(50_001)],
+    ]);
     const catalog = open({ channels: [{ id: a }, { id: c }] });
     expect((await catalog.item(a)).item?.notes).toBe("Wants a demo of the coding agent first.");
     // A state-only creator has notes too; a long one pulled from the server shows its start.
@@ -349,15 +356,23 @@ describe("the catalog", () => {
     }
   });
 
-  it("gives item() the new notes after an invalidation", async () => {
-    vi.useFakeTimers();
-    const catalog = open({ channels: [{ id: a }] });
+  it("reads one creator's notes on each item(), with no rebuild", async () => {
+    const read = vi.fn(() => Promise.resolve(states));
+    const one = vi.fn((id: string) => Promise.resolve(notes.get(id) ?? null));
+    writePipelineDb(path, { channels: [{ id: a }, { id: b }] });
+    const catalog = createCatalog({
+      pipelineDbPath: () => path,
+      source: () => ({ creatorStates: read, creatorNotes: one }) as unknown as DataSource,
+    });
+    closeables.push(catalog);
     expect((await catalog.item(a)).item?.notes).toBe("");
-    states = [creatorState(a, { notes: "Covers Claude Code weekly." })];
-    catalog.invalidate();
-    const pending = catalog.item(a);
-    await vi.advanceTimersByTimeAsync(600);
-    expect((await pending).item?.notes).toBe("Covers Claude Code weekly.");
+    notes.set(a, "Covers Claude Code weekly.");
+    expect((await catalog.item(a)).item?.notes).toBe("Covers Claude Code weekly.");
+    expect(read).toHaveBeenCalledTimes(1);
+    expect(one.mock.calls).toEqual([[a], [a]]);
+    // An unknown creator answers no item and reads nothing.
+    expect(await catalog.item("UCmissing")).toEqual({ item: null });
+    expect(one).toHaveBeenCalledTimes(2);
   });
 
   describe("keeping up", () => {
@@ -497,9 +512,12 @@ describe("the catalog", () => {
 
     expect(page.items).toHaveLength(120);
     expect(page.total).toBeGreaterThan(3000);
+    // The targets are a 1.5 s build and a 50 ms query on an idle machine. The whole suite runs in
+    // parallel, so the bounds here are three times that: they still catch a slowdown of an order of
+    // magnitude without failing on a busy machine.
     if (!process.env.CI) {
-      expect(build).toBeLessThan(1500);
-      expect(query).toBeLessThan(50);
+      expect(build).toBeLessThan(4500);
+      expect(query).toBeLessThan(150);
     }
   });
 });

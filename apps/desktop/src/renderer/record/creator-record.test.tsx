@@ -5,6 +5,7 @@ import type { Bridge } from "@gratovo/ipc/bridge";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { RecordBody } from "../overlays/record-summary";
 import { RecordPage } from "../app/record-page";
 import { useGlobalKeys, useKeyListener } from "../app/global-keys";
 import { aiChannel } from "../lib/find-test-bridge";
@@ -19,6 +20,9 @@ import { channelUrl, videoUrl } from "./detail";
 
 const t = strings.creatorRecord;
 const channelId = "UCabcdefghijklmnopqrstuv";
+const noteId = "UCnnnnnnnnnnnnnnnnnnnnnn";
+const chA = "UCaaaaaaaaaaaaaaaaaaaaaa";
+const chB = "UCbbbbbbbbbbbbbbbbbbbbbb";
 const fit: Fit = {
   score: 72,
   parts: [
@@ -45,6 +49,7 @@ interface Fixture {
   items?: Record<string, CreatorDetail | null>;
   lines?: LogEntry[];
   writeOk?: boolean;
+  itemFails?: boolean;
 }
 type Call = [string, unknown];
 let handlers: ((event: string) => void)[] = [];
@@ -57,6 +62,7 @@ function bridge(fixture: Fixture): void {
     calls.push([channel, input]);
     switch (channel) {
       case "find:item": {
+        if (fixture.itemFails === true) return Promise.resolve({ ok: false, reason: "test" });
         const found = fixture.items?.[(input as { id: string }).id] ?? null;
         return Promise.resolve({ ok: true, value: { item: found } });
       }
@@ -143,6 +149,15 @@ describe("the header", () => {
   it("says so when the channel is not in the data", async () => {
     await show("UC-gone", { items: {} });
     expect(screen.getByText(t.notFound)).toBeTruthy();
+  });
+
+  it("a failed load is not 'not found': it offers Try again", async () => {
+    await show("UC-a", { items: { "UC-a": detail("UC-a") }, itemFails: true });
+    expect(screen.getByText(t.loadFailed)).toBeTruthy();
+    expect(screen.queryByText(t.notFound)).toBeNull();
+    bridge({ items: { "UC-a": detail("UC-a") } });
+    await click(screen.getByRole("button", { name: t.retry }));
+    expect(screen.getByRole("heading", { level: 2 }).textContent).toBe("Agent Lab");
   });
 });
 
@@ -290,7 +305,7 @@ describe("Notes", () => {
   const writes = (): Call[] => calls.filter(([c]) => c === "data:write");
 
   it("saves on blur when changed, then flags Saved", async () => {
-    await show("UC-a", { items: { "UC-a": detail("UC-a", { notes: "first" }) } });
+    await show(noteId, { items: { [noteId]: detail(noteId, { notes: "first" }) } });
     await click(tab(t.tabs.notes));
     fireEvent.change(notesBox(), { target: { value: "first, then more" } });
     expect(writes()).toHaveLength(0);
@@ -303,8 +318,9 @@ describe("Notes", () => {
           writes: [
             {
               kind: "creator.notes",
-              id: "UC-a",
+              id: noteId,
               notes: "first, then more",
+              base: "first",
               handle: "@agentlab",
               name: "Agent Lab",
             },
@@ -316,7 +332,7 @@ describe("Notes", () => {
   });
 
   it("does not save when nothing changed", async () => {
-    await show("UC-a", { items: { "UC-a": detail("UC-a", { notes: "same" }) } });
+    await show(noteId, { items: { [noteId]: detail(noteId, { notes: "same" }) } });
     await click(tab(t.tabs.notes));
     fireEvent.blur(notesBox());
     await settle();
@@ -324,7 +340,7 @@ describe("Notes", () => {
   });
 
   it("toasts when the save fails and keeps the text", async () => {
-    await show("UC-a", { items: { "UC-a": detail("UC-a") }, writeOk: false });
+    await show(noteId, { items: { [noteId]: detail(noteId) }, writeOk: false });
     await click(tab(t.tabs.notes));
     fireEvent.change(notesBox(), { target: { value: "lost?" } });
     fireEvent.blur(notesBox());
@@ -338,8 +354,8 @@ describe("Notes", () => {
   });
 
   it("is read-only when the stored note was cut", async () => {
-    await show("UC-a", {
-      items: { "UC-a": detail("UC-a", { notes: "long note", notesCut: true }) },
+    await show(noteId, {
+      items: { [noteId]: detail(noteId, { notes: "long note", notesCut: true }) },
     });
     await click(tab(t.tabs.notes));
     expect(notesBox().readOnly).toBe(true);
@@ -349,8 +365,80 @@ describe("Notes", () => {
     expect(writes()).toHaveLength(0);
   });
 
-  it("counts characters left near the limit", async () => {
+  it("is read-only for an id that is not a channel id", async () => {
     await show("UC-a", { items: { "UC-a": detail("UC-a") } });
+    await click(tab(t.tabs.notes));
+    expect(notesBox().readOnly).toBe(true);
+    expect(screen.getByText(t.notesChannelOnly)).toBeTruthy();
+  });
+
+  it("saves on Esc through the peek, with the text it started from", async () => {
+    bridge({ items: { [chA]: detail(chA, { notes: "old" }) } });
+    render(
+      <>
+        <Keys />
+        <Peek />
+      </>,
+    );
+    act(() => {
+      peek({ kind: "creator", id: chA }, [chA, chB]);
+    });
+    await settle();
+    await click(tab(t.tabs.notes));
+    notesBox().focus();
+    fireEvent.change(notesBox(), { target: { value: "old and new" } });
+    fireEvent.keyDown(document, { key: "Escape" });
+    await settle();
+    expect(screen.queryByRole("complementary")).toBeNull();
+    expect(writes()).toHaveLength(1);
+    expect(writes()[0]?.[1]).toMatchObject({
+      writes: [{ kind: "creator.notes", id: chA, notes: "old and new", base: "old" }],
+    });
+  });
+
+  it("saves on Alt+Down for the creator it was typed on", async () => {
+    bridge({ items: { [chA]: detail(chA), [chB]: detail(chB, { name: "Prompt Garage" }) } });
+    render(
+      <>
+        <Keys />
+        <Peek />
+      </>,
+    );
+    act(() => {
+      peek({ kind: "creator", id: chA }, [chA, chB]);
+    });
+    await settle();
+    await click(tab(t.tabs.notes));
+    fireEvent.change(notesBox(), { target: { value: "for the first" } });
+    fireEvent.keyDown(document, { key: "ArrowDown", altKey: true });
+    await settle();
+    expect(writes()).toHaveLength(1);
+    expect(writes()[0]?.[1]).toMatchObject({
+      writes: [{ id: chA, notes: "for the first", base: "" }],
+    });
+  });
+
+  it("keeps an unsaved draft when the stored note changes, and says so", async () => {
+    const items: Record<string, CreatorDetail | null> = {
+      [noteId]: detail(noteId, { notes: "one" }),
+    };
+    await show(noteId, { items });
+    await click(tab(t.tabs.notes));
+    fireEvent.change(notesBox(), { target: { value: "mine" } });
+    items[noteId] = detail(noteId, { notes: "theirs" });
+    act(() => {
+      for (const h of handlers) h("find:catalog");
+    });
+    await settle();
+    expect(notesBox().value).toBe("mine");
+    expect(screen.getByText(t.notesChanged)).toBeTruthy();
+    fireEvent.blur(notesBox());
+    await settle();
+    expect(writes()[0]?.[1]).toMatchObject({ writes: [{ notes: "mine", base: "one" }] });
+  });
+
+  it("counts characters left near the limit", async () => {
+    await show(noteId, { items: { [noteId]: detail(noteId) } });
     await click(tab(t.tabs.notes));
     expect(screen.queryByText(/characters left/)).toBeNull();
     fireEvent.change(notesBox(), { target: { value: "x".repeat(49_500) } });
@@ -395,8 +483,32 @@ describe("Activity", () => {
     expect(screen.getAllByText(new RegExp(`^${name ?? "?"} · `)).length).toBe(3);
   });
 
-  it("says so when there are no changes, and asks again on find:catalog", async () => {
+  it("shows an old-app name as it is, and Someone only for a stray id", async () => {
+    const at = Date.now();
+    const old = (id: string, who: string): LogEntry => ({ ...line(id, "x", at), who });
+    await show("UC-a", {
+      items: { "UC-a": detail("UC-a") },
+      lines: [old("1", "Sara"), old("2", "0b9d3f52-6c1e-4a7e-9a55-3f1c2d4e5f60")],
+    });
+    await click(tab(t.tabs.activity));
+    expect(screen.getByText(new RegExp(`^Sara · `))).toBeTruthy();
+    expect(screen.getByText(new RegExp(`^${t.someone} · `))).toBeTruthy();
+  });
+
+  it("keeps the panel for the tab, and asks only while Activity is shown", async () => {
     await show("UC-a", { items: { "UC-a": detail("UC-a") } });
+    const panel = document.getElementById(tab(t.tabs.activity).getAttribute("aria-controls") ?? "");
+    expect(panel).not.toBeNull();
+    expect(calls.filter(([c]) => c === "log:for")).toHaveLength(0);
+    act(() => {
+      for (const h of handlers) h("find:catalog");
+    });
+    await settle();
+    expect(calls.filter(([c]) => c === "log:for")).toHaveLength(0);
+  });
+
+  it("says so when there are no changes, and asks again on find:catalog", async () => {
+    await show(chA, { items: { [chA]: detail(chA) } });
     await click(tab(t.tabs.activity));
     expect(screen.getByText(t.activityNone)).toBeTruthy();
     const before = calls.filter(([c]) => c === "log:for").length;
@@ -418,8 +530,8 @@ describe("in the peek and on the record page", () => {
   it("the peek opens a creator, and Alt+Down steps to the next", async () => {
     bridge({
       items: {
-        "UC-a": detail("UC-a"),
-        "UC-b": detail("UC-b", { name: "Prompt Garage" }),
+        [chA]: detail(chA),
+        [chB]: detail(chB, { name: "Prompt Garage" }),
       },
     });
     render(
@@ -429,7 +541,7 @@ describe("in the peek and on the record page", () => {
       </>,
     );
     act(() => {
-      peek({ kind: "creator", id: "UC-a" }, ["UC-a", "UC-b"]);
+      peek({ kind: "creator", id: chA }, [chA, chB]);
     });
     await settle();
     const side = screen.getByRole("complementary", { name: strings.peek.label });
@@ -440,10 +552,30 @@ describe("in the peek and on the record page", () => {
   });
 
   it("the record page shows the creator with the page layout and a Back button", async () => {
-    bridge({ items: { "UC-a": detail("UC-a") } });
-    render(<RecordPage record={{ kind: "creator", id: "UC-a" }} />);
+    bridge({ items: { [chA]: detail(chA) } });
+    render(<RecordPage record={{ kind: "creator", id: chA }} />);
     await settle();
     expect(screen.getByRole("button", { name: strings.record.back })).toBeTruthy();
     expect(document.querySelector(".cr")?.getAttribute("data-layout")).toBe("page");
+  });
+});
+
+describe("example data", () => {
+  it("keeps the full record for a channel id after an action adopts it", async () => {
+    bridge({ items: { [chA]: detail(chA) } });
+    render(<RecordBody record={{ kind: "creator", id: chA }} layout="peek" />);
+    await settle();
+    await click(screen.getByRole("button", { name: t.shortlist }));
+    expect(creatorOf(chA)?.stage).toBe("shortlisted");
+    expect(screen.getByRole("tablist")).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 2 }).textContent).toBe("Agent Lab");
+  });
+
+  it("shows the summary for an example creator id", async () => {
+    bridge({ items: {} });
+    render(<RecordBody record={{ kind: "creator", id: "c1" }} layout="peek" />);
+    await settle();
+    expect(screen.queryByRole("tablist")).toBeNull();
+    expect(calls.filter(([c]) => c === "find:item")).toHaveLength(0);
   });
 });

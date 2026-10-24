@@ -1,15 +1,15 @@
-import { Tag } from "@gratovo/ui";
+import { Btn, Tag } from "@gratovo/ui";
 import { useId, useState, type KeyboardEvent, type ReactNode } from "react";
 
 import { FitChip } from "../find/fit-chip";
 import { ThumbAvatar } from "../find/thumb";
-import { useCatalogItem } from "../lib/find-catalog";
 import { strings } from "../strings";
 import { CreatorActivity } from "./creator-activity";
 import { CreatorNext } from "./creator-next";
 import { CreatorNotes } from "./creator-notes";
 import { CreatorOverview } from "./creator-overview";
 import { channelUrl } from "./detail";
+import { useCreatorItem } from "./use-creator-item";
 
 const text = strings.creatorRecord;
 
@@ -50,11 +50,23 @@ export function CreatorRecord({
   readonly layout: "peek" | "page";
   readonly fallback?: ReactNode;
 }) {
-  const { status, item } = useCatalogItem(id);
+  const { status, item, retry } = useCreatorItem(id);
   const [tab, setTab] = useState<TabKey>("overview");
   const base = useId();
   if (status === "loading") {
     return <Skeleton />;
+  }
+  if (status === "failed") {
+    return (
+      <div className="col">
+        <p className="hint">{text.loadFailed}</p>
+        <div className="row">
+          <Btn size="sm" onClick={retry}>
+            {text.retry}
+          </Btn>
+        </div>
+      </div>
+    );
   }
   if (item === null) {
     return fallback !== undefined ? <>{fallback}</> : <p className="hint">{text.notFound}</p>;
@@ -142,16 +154,16 @@ export function CreatorRecord({
       >
         <CreatorNotes item={item} />
       </div>
-      {tab === "activity" ? (
-        <div
-          id={panelId("activity")}
-          role="tabpanel"
-          aria-labelledby={tabId("activity")}
-          className="cr-panel"
-        >
-          <CreatorActivity id={item.id} />
-        </div>
-      ) : null}
+      {/* The panel stays so aria-controls resolves; the list inside loads only while shown. */}
+      <div
+        id={panelId("activity")}
+        role="tabpanel"
+        aria-labelledby={tabId("activity")}
+        className="cr-panel"
+        hidden={tab !== "activity"}
+      >
+        {tab === "activity" ? <CreatorActivity id={item.id} /> : null}
+      </div>
     </div>
   );
 }

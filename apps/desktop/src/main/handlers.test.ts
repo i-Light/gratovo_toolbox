@@ -72,6 +72,7 @@ function sourceWith(overrides: Partial<DataSource> = {}): DataSource {
   return {
     frame: () => Promise.resolve(frame),
     creatorStates: () => Promise.resolve([]),
+    creatorNotes: () => Promise.resolve(null),
     logFor: () => Promise.resolve([]),
     write: () => Promise.resolve(),
     close: () => undefined,
@@ -334,18 +335,19 @@ describe("data:write and the catalog", () => {
     expect(await written([{ kind: "conflict.resolve", id: "k1", choice: "theirs" }])).toBe(1);
   });
 
-  it("tells the catalog after a creator's notes change: the detail carries them", async () => {
+  it("leaves the catalog alone after a creator's notes change: the detail reads them fresh", async () => {
     expect(
       await written([
         {
           kind: "creator.notes",
           id: "UCaaaaaaaaaaaaaaaaaaaaaa",
+          base: "",
           notes: "Hi",
           handle: "",
           name: "",
         },
       ]),
-    ).toBe(1);
+    ).toBe(0);
   });
 
   it("stays quiet for writes the catalog does not show", async () => {
@@ -392,19 +394,34 @@ describe("saved views and a creator's lines", () => {
     expect(await mine["find:views-set"]({ views: many.slice(0, 20) })).toEqual({ ok: true });
   });
 
-  it("read a stored value that isn't a list of views as none, and leave it until the next save", async () => {
-    for (const bad of [
-      "Gold mines",
-      { views: [view] },
-      [{ name: "", filter: emptyFindFilter }],
-      [{ name: "AI news", filter: { stages: ["won"] } }],
-      Array(21).fill(view),
-    ]) {
+  it("read a stored value that isn't a list as none, and leave it until the next save", async () => {
+    for (const bad of ["Gold mines", { views: [view] }, null, 12]) {
       const { handlers: mine, writeSetting, settings } = settingsSource({ "find.views": bad });
       expect(await mine["find:views"]({})).toEqual({ views: [] });
       expect(writeSetting).not.toHaveBeenCalled();
       expect(settings.get("find.views")).toEqual(bad);
     }
+  });
+
+  it("keep the good views in a stored list and drop only the ones that fail", async () => {
+    const news = { name: "AI news weekly", filter: emptyFindFilter };
+    const stored = [
+      view,
+      { name: "", filter: emptyFindFilter },
+      { name: "AI news", filter: { stages: ["won"] } },
+      "Gold mines",
+      news,
+    ];
+    const { handlers: mine, writeSetting, settings } = settingsSource({ "find.views": stored });
+    expect(await mine["find:views"]({})).toEqual({ views: [view, news] });
+    expect(writeSetting).not.toHaveBeenCalled();
+    expect(settings.get("find.views")).toEqual(stored);
+    // More than the answer holds keeps the first 20.
+    const many = Array.from({ length: 21 }, (_, i) => ({ ...view, name: `View ${String(i)}` }));
+    const { handlers: full } = settingsSource({ "find.views": many });
+    const answer = await full["find:views"]({});
+    expect(answer).toEqual({ views: many.slice(0, 20) });
+    expect(channels["find:views"].response.safeParse(answer).success).toBe(true);
   });
 
   it("pass log:for to the open source and answer its lines", async () => {

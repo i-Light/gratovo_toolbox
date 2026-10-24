@@ -15,8 +15,8 @@ Started 2026-10-24. The plan is `.router/PLAN.md` (decisions D1 to D18, contract
 | P1 | N | done | `renderer/record/creator-*`, `RecordBody` in record-summary; `record: []` already shows the record in live; falls back to the summary when the catalog lacks a creator |
 | G2 | N | done | cards (stretched Open button, `content-visibility`), table, `useFindSelection(order, ready)`, bulk bar, compare; fit popup clipped in cards → W2 moves it to `Floating` |
 | W2 | N | done | live `find: search, triage, gallery`; older runs → gallery filtered; fit list through `Floating`; `e2e/find-gallery.spec.ts`; 20 Electron tests green; screenshots looked at by the lead |
-| R2 | H | running | review |
-| L2 | lead | todo | checks, PR, merge |
+| R2 | H | done | review: 1 blocker (notes lost on Esc/Alt+↓), 6 important, 14 minor, all fixed (R2a main, R2b record, R2c gallery). Lead: notes carry the text the edit started from, so a teammate's newer note makes a conflict; unused strings dropped; the heavy-owner timing bounds tripled for parallel runs |
+| L2 | lead | in progress | lint, typecheck, 2,206 Vitest, 1,476 pytest and the full Electron suite (66) green locally; gallery, compare and peek looked at in dark at 1440; PR, CI, merge |
 
 
 
@@ -37,7 +37,10 @@ Started 2026-10-24. The plan is `.router/PLAN.md` (decisions D1 to D18, contract
 | R1 | H | done | review: 1 blocker, 4 important, 11 minor, all fixed (R1a main/core, R1b renderer). Lead: a paused search is recorded `stopped` and shows as a pause; CodeQL file race in the picture cache; old e2e specs on the new write shape |
 | L1 | lead | done | PR #20, CI green, merged |
 
-## Notes for 5b and later
+## Notes for 5c and later
+
+- `record/use-creator-item.ts` duplicates a little of `lib/find-catalog.ts`'s `useCatalogItem` to tell a failed load from a missing channel: fold them together.
+- The shortlisted creator's next step says "Confirm an address" disabled; 5c wires it.
 
 - The run filter for "Review results" on an older run is a module store in `renderer/find/triage.tsx` (no route option); 5b sends older runs to the gallery and can move it to the route.
 - Reject toast says "It leaves Review new; Undo brings it back." 5c changes it to the archive wording when Toolbox › Archive arrives.

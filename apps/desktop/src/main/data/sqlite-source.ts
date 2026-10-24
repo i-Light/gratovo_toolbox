@@ -39,6 +39,7 @@ import { linesFor } from "./repositories/activity-log";
 import {
   creatorStates,
   parseTags,
+  readNotes,
   setCreatorTags,
   storedNotes,
   writeCreatorNotes,
@@ -200,6 +201,7 @@ export function createSqliteSource(db: DatabaseSync, options: SqliteSourceOption
     // The database is synchronous; the promises keep callers ready for it to move elsewhere.
     frame: () => settle(readFrame),
     creatorStates: () => settle(() => creatorStates(db)),
+    creatorNotes: (id) => settle(() => readNotes(db, id) ?? null),
     // Money is hidden as the frame hides it: a member without it gets no money line.
     logFor: (ref, limit) =>
       settle(() =>

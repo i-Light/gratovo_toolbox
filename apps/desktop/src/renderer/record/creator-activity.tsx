@@ -18,6 +18,8 @@ type Load =
   | { readonly status: "failed" }
   | { readonly status: "ready"; readonly lines: readonly Line[]; readonly now: number };
 
+const idLike = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const dayKey = (at: number): string => {
   const d = new Date(at);
   return `${String(d.getFullYear())}-${String(d.getMonth())}-${String(d.getDate())}`;
@@ -81,7 +83,9 @@ export function CreatorActivity({ id }: { readonly id: string }) {
       days.push({ key, at: line.at, lines: [line] });
     }
   }
-  const nameOf = (who: string): string => team.find((m) => m.id === who)?.name ?? text.someone;
+  // Old-app lines carry a name, not an id: show it. Only a stray id reads as "Someone".
+  const nameOf = (who: string): string =>
+    team.find((m) => m.id === who)?.name ?? (idLike.test(who) ? text.someone : who);
   return (
     <div className="col" aria-label={text.activityLabel}>
       {days.map((day) => (

@@ -2,6 +2,7 @@ import { fitOf, formatCount, isGold, type CatalogItem } from "@gratovo/core/find
 import { cx, Icon, Tag } from "@gratovo/ui";
 import { memo, useMemo, useRef, useState, type MouseEvent } from "react";
 
+import { ago } from "../lib/format";
 import { strings } from "../strings";
 import { FitChip } from "./fit-chip";
 import { Thumb, ThumbAvatar } from "./thumb";
@@ -10,7 +11,6 @@ const text = strings.findGallery.card;
 
 /** How many sponsor tags show before "+n". */
 const sponsorTags = 2;
-const dayMs = 86_400_000;
 
 export interface GalleryCardProps {
   readonly item: CatalogItem;
@@ -25,13 +25,9 @@ export interface GalleryCardProps {
   readonly onPick: (id: string, shiftKey: boolean) => void;
 }
 
-/** The video line: when it was published, in days. */
+/** The video line: when it was published, in the app's one "ago" words. */
 function videoAge(at: number | null, now: number): string | null {
-  if (at === null) {
-    return null;
-  }
-  const days = Math.max(0, Math.floor((now - at) / dayMs));
-  return days === 0 ? text.today : text.daysAgo(days);
+  return at === null ? null : ago(at, now);
 }
 
 /**
@@ -176,8 +172,8 @@ export const GalleryCard = memo(function GalleryCard({
                 {text.gold}
               </Tag>
             ) : null}
-            {sponsors.slice(0, sponsorTags).map((s) => (
-              <Tag key={s}>{s}</Tag>
+            {sponsors.slice(0, sponsorTags).map((s, i) => (
+              <Tag key={`${s}:${String(i)}`}>{s}</Tag>
             ))}
             {sponsors.length > sponsorTags ? (
               <Tag>{text.sponsorsMore(sponsors.length - sponsorTags)}</Tag>

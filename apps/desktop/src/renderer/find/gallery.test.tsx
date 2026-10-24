@@ -444,6 +444,58 @@ describe("saved views", () => {
   });
 });
 
+describe("failures and the runs", () => {
+  it("rolls an Undo back with a toast when main will not store it", async () => {
+    const goldUs: SavedView = {
+      name: "US gold mines",
+      filter: { ...emptyFindFilter, signals: ["gold"], countries: ["US"] },
+    };
+    stored = [goldUs];
+    await show();
+    await click(screen.getByRole("button", { name: t.views.remove("US gold mines") }));
+    const toast = toasts().at(-1);
+    setAnswer = "too_many";
+    await act(async () => {
+      toast?.actions[0]?.run();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(screen.queryByRole("button", { name: "US gold mines" })).toBeNull();
+    expect(toasts().at(-1)?.msg).toBe(t.views.saveFailed);
+  });
+
+  it("asks for the runs once for the whole screen", async () => {
+    const calls = await show({ items, runs });
+    expect(calls.filter(([channel]) => channel === "find:runs")).toHaveLength(1);
+  });
+
+  it("offers Clear filters when the channels fail to load under a filter", async () => {
+    patchGalleryFilter({ stages: ["new"] });
+    stubFindBridge({ items });
+    const bridge = (window as unknown as { gratovo: Bridge }).gratovo;
+    (window as unknown as { gratovo: Bridge }).gratovo = {
+      ...bridge,
+      invoke: ((channel: string) =>
+        channel === "find:query"
+          ? Promise.resolve({ ok: false, reason: "test" })
+          : Promise.resolve({
+              ok: true,
+              value: { runs: [], views: [] },
+            })) as unknown as Bridge["invoke"],
+    };
+    render(<Gallery />);
+    await settle();
+    expect(screen.getByRole("alert").textContent).toBe(t.loadFailed);
+    await click(screen.getByRole("button", { name: t.clearFilters }));
+    expect(getPrefs().findFilter).toEqual(emptyFindFilter);
+  });
+
+  it("limits the search box to 200 characters", async () => {
+    await show();
+    expect(screen.getByLabelText(t.toolbar.search).getAttribute("maxlength")).toBe("200");
+  });
+});
+
 describe("worst case", () => {
   it("renders a 60-character view name, 40 countries and 50 runs without overflow", async () => {
     const longName = "A".repeat(60);

@@ -194,8 +194,6 @@ export interface CreatorState {
   readonly hasAppStage: boolean;
   /** The newest visible activity line about the creator: when, and the actor's name. */
   readonly lastActivity: { readonly at: number; readonly who: string } | null;
-  /** `channel_state.notes`; `""` when there are none (D24). */
-  readonly notes: string;
 }
 
 /** A company that sponsors creators. */
@@ -313,11 +311,14 @@ export type DataWrite =
   /**
    * A creator's notes, at most `notesMax` (D24). Not undoable and not in the frame: the page sends
    * it straight through. Like a stage, it carries the handle and the name so main can create the
-   * row for a channel only the pipeline knows; `""` clears the notes.
+   * row for a channel only the pipeline knows; `""` clears the notes. `base` is the text the
+   * person started editing from (`""` for none): the server compares it with what it holds, so a
+   * teammate's note that came in meanwhile is a conflict, not overwritten.
    */
   | {
       readonly kind: "creator.notes";
       readonly id: string;
+      readonly base: string;
       readonly notes: string;
       readonly handle: string;
       readonly name: string;
@@ -340,6 +341,11 @@ export interface DataSource {
   frame(): Promise<Frame>;
   /** Every creator's stored state, not capped as the frame's creators are (plan step 5, D1). */
   creatorStates(): Promise<readonly CreatorState[]>;
+  /**
+   * One creator's stored notes, read on their own (D24): null when there are none or no row. The
+   * catalog asks for them per detail, so a notes save needs no rebuild.
+   */
+  creatorNotes(id: string): Promise<string | null>;
   /**
    * The newest visible lines about one creator (`ref`), newest first, at most `limit`, read the
    * way the frame reads its log (plan step 5, D17 and D23).

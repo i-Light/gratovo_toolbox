@@ -131,7 +131,7 @@ Branch `feat/5b-find-gallery-record` from `main` after #20 merges.
 interface SavedView { name: string; filter: FindFilter }          // name 1..60, at most 20 views
 // find:item detail gains: notes: string (≤ 50000), notesCut: boolean
 // DataWrite gains:
-| { kind: "creator.notes"; id: string; notes: string; handle: string; name: string }
+| { kind: "creator.notes"; id: string; base: string; notes: string; handle: string; name: string }   // base: the text the edit started from ("" = none), ≤ 50000
 // packages/ipc channels
 "find:views":     {} -> { views: SavedView[] }
 "find:views-set": { views: SavedView[] } -> { ok: true } | { ok: false; problem: "too_many" }

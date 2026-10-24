@@ -209,7 +209,10 @@ export function storedNotes(notes: string): string | null {
   return notes === "" ? null : notes;
 }
 
-/** A creator's stored notes, or undefined when the creator has no row. */
+/**
+ * A creator's stored notes, or undefined when the creator has no row. One lookup by the primary
+ * key; the Find detail reads them this way (D24).
+ */
 export function readNotes(db: DatabaseSync, id: string): string | null | undefined {
   const row = db.prepare("SELECT notes FROM channel_state WHERE channel_id = ?").get(id);
   if (row === undefined) {
@@ -292,14 +295,14 @@ export function listCreators(db: DatabaseSync, o: { limit?: number } = {}): Crea
  * Every creator's stored state, for the Find catalog to join to the pipeline's channels (plan
  * step 5, D1): every `channel_state` row, not capped as the frame is, in the order added. `name`
  * is null when `channels` has none. `lastActivity` is the newest visible line about the creator.
- * `notes` is `""` when there are none.
+ * Notes are left out: the detail reads one creator's with `readNotes`.
  */
 export function creatorStates(db: DatabaseSync): CreatorState[] {
   const rows = db
     .prepare(
       `WITH ${hiddenLines}, ${rejectLines}, ${latestLines}
        SELECT s.channel_id, s.handle, s.vetting_status, s.pipeline_stage, s.creator_stage,
-              s.contacts, s.archive_due_at, s.manual_engagement_rate, s.notes, c.name,
+              s.contacts, s.archive_due_at, s.manual_engagement_rate, c.name,
               r.action AS reject_action, r.detail AS reject_detail, r.at_ms AS reject_at_ms,
               r.at AS reject_at, l.at_ms AS last_at_ms, l.at AS last_at, l.actor_name AS last_who
        FROM channel_state s
@@ -311,7 +314,6 @@ export function creatorStates(db: DatabaseSync): CreatorState[] {
     .all();
   return rows.map((row) => {
     const engagement = row["manual_engagement_rate"];
-    const notes = row["notes"];
     return {
       id: String(row["channel_id"]),
       handle: String(row["handle"]),
@@ -324,7 +326,6 @@ export function creatorStates(db: DatabaseSync): CreatorState[] {
         row["last_who"] === null
           ? null
           : { at: lineMs(row["last_at_ms"], row["last_at"]), who: String(row["last_who"]) },
-      notes: typeof notes === "string" ? notes : "",
     };
   });
 }

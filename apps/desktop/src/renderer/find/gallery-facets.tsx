@@ -1,9 +1,9 @@
 import type { CreatorStage } from "@gratovo/core/data";
+import type { ChannelResponse } from "@gratovo/ipc";
 import { findSignals, type Facets, type FindFilter } from "@gratovo/core/find";
 import { Icon } from "@gratovo/ui";
 import type { ReactNode } from "react";
 
-import { useRuns } from "../lib/find-catalog";
 import { patchGalleryFilter, runLabel, toggleIn } from "../lib/find-gallery-state";
 import { strings } from "../strings";
 
@@ -84,11 +84,12 @@ export function countryOptions(
 export function GalleryFacets({
   filter,
   facets,
+  runs,
 }: {
   readonly filter: FindFilter;
   readonly facets: Facets;
+  readonly runs: ChannelResponse<"find:runs">["runs"];
 }) {
-  const { runs } = useRuns();
   const now = new Date();
   // Only runs that kept something, newest first; a run already chosen stays so it can be unchosen.
   const shownRuns = runs

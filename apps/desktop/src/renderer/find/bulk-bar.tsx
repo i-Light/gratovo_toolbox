@@ -79,7 +79,7 @@ export function BulkBar({ items, onShortlist, onReject, onCompare, onClear }: Bu
       >
         {text.compare}
       </Btn>
-      <Btn size="sm" kind="ghost" tip={text.clearTip} kbd="Esc" onClick={onClear}>
+      <Btn size="sm" kind="ghost" tip={text.clearTip} kbd={strings.keys.esc} onClick={onClear}>
         {text.clear}
       </Btn>
     </div>

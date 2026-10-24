@@ -27,6 +27,8 @@ export interface GalleryResultsProps {
   readonly loadMore: () => void;
   readonly total: number;
   readonly selection: FindSelection;
+  /** The last "Show more" failed; the button then offers a retry. */
+  readonly moreFailed: boolean;
 }
 
 /**
@@ -43,6 +45,7 @@ export function GalleryResults({
   loadMore,
   total,
   selection,
+  moreFailed,
 }: GalleryResultsProps) {
   const sentinel = useRef<HTMLDivElement>(null);
   const count = items.length;
@@ -120,7 +123,7 @@ export function GalleryResults({
         <div className="row" style={{ justifyContent: "center" }}>
           <span className="small muted">{text.loadedOf(count, total)}</span>
           <Btn size="sm" onClick={loadMore}>
-            {text.showMore}
+            {moreFailed ? text.moreFailed : text.showMore}
           </Btn>
         </div>
       ) : null}

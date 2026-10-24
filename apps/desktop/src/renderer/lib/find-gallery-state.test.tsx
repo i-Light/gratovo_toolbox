@@ -1,5 +1,12 @@
 // @vitest-environment happy-dom
-import { emptyFacets, emptyFindFilter, type FindFilter, type FindSort } from "@gratovo/core/find";
+import {
+  emptyFacets,
+  emptyFindFilter,
+  queryCatalog,
+  type CatalogItem,
+  type FindFilter,
+  type FindSort,
+} from "@gratovo/core/find";
 import type { Bridge } from "@gratovo/ipc/bridge";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -136,6 +143,17 @@ describe("the gallery device prefs", () => {
     expect(result.current.view).toBe("gallery");
   });
 
+  it("reads a stored filter main would refuse (a 201-character search) as the default", () => {
+    localStorage.setItem(
+      prefsKey,
+      JSON.stringify({ findFilter: { ...emptyFindFilter, q: "x".repeat(201) }, findSort: "subs" }),
+    );
+    initPrefs();
+    const { result } = renderHook(usePrefsView);
+    expect(result.current.filter).toEqual(emptyFindFilter);
+    expect(result.current.sort).toBe("subs");
+  });
+
   it("toggleIn adds and takes out", () => {
     expect(toggleIn(["a"], "b")).toEqual(["a", "b"]);
     expect(toggleIn(["a", "b"], "a")).toEqual(["b"]);
@@ -205,10 +223,12 @@ describe("useGalleryPages", () => {
     });
 
     rerender({ filter: { ...emptyFindFilter, countries: ["GB"] }, sort: "fit" });
-    expect(result.current.items).toHaveLength(0);
-    expect(result.current.status).toBe("loading");
+    // The last items stay (busy) until the new filter answers; no loading flash.
+    expect(result.current.items).toHaveLength(130);
+    expect(result.current.busy).toBe(true);
+    expect(result.current.status).toBe("ready");
     await waitFor(() => {
-      expect(result.current.status).toBe("ready");
+      expect(result.current.busy).toBe(false);
     });
     expect(result.current.items).toHaveLength(65);
     expect(result.current.hasMore).toBe(false);
@@ -231,5 +251,124 @@ describe("useGalleryPages", () => {
       result.current.loadMore();
     });
     expect(queries(calls)).toHaveLength(1);
+  });
+});
+
+/** A bridge whose catalog the test controls: the items now, the version, and what fails. */
+function liveCatalog(initial: readonly CatalogItem[]) {
+  const state = { items: initial, version: 1, failOffset: null as number | null };
+  const listeners: (() => void)[] = [];
+  const asked: Asked[] = [];
+  (window as unknown as { gratovo: Bridge }).gratovo = {
+    invoke: ((channel: string, input: unknown) => {
+      if (channel === "find:query") {
+        const q = input as Asked & { filter: FindFilter; sort: FindSort };
+        asked.push(q);
+        if (state.failOffset === q.offset) {
+          return Promise.resolve({ ok: false, reason: "test" });
+        }
+        const page = queryCatalog(state.items, q.filter, q.sort, q.offset, q.limit);
+        return Promise.resolve({
+          ok: true,
+          value: {
+            version: state.version,
+            ...page,
+            facets: q.facets === false ? emptyFacets : page.facets,
+          },
+        });
+      }
+      return Promise.resolve({ ok: false, reason: "test" });
+    }) as unknown as Bridge["invoke"],
+    on: ((name: string, handler: () => void) => {
+      if (name === "find:catalog") listeners.push(handler);
+      return () => undefined;
+    }) as unknown as Bridge["on"],
+  };
+  return {
+    state,
+    asked,
+    rebuild(items: readonly CatalogItem[]) {
+      state.items = items;
+      state.version += 1;
+      act(() => {
+        listeners.forEach((l) => {
+          l();
+        });
+      });
+    },
+  };
+}
+
+describe("useGalleryPages after a rebuild and on a failure", () => {
+  it("asks for every loaded page again in order, with nothing lost or doubled", async () => {
+    const catalog = liveCatalog(channels);
+    const { result } = renderHook(() => useGalleryPages(emptyFindFilter, "fit"));
+    await waitFor(() => {
+      expect(result.current.status).toBe("ready");
+    });
+    act(() => {
+      result.current.loadMore();
+    });
+    await waitFor(() => {
+      expect(result.current.items).toHaveLength(130);
+    });
+    // The rebuild moves ten channels from the end to the front, across the page edge, and flips
+    // every channel's country so the facets change.
+    const moved = [...channels.slice(120), ...channels.slice(0, 120)].map((c) => ({
+      ...c,
+      country: "CA",
+    }));
+    catalog.asked.length = 0;
+    catalog.rebuild(moved);
+    await waitFor(() => {
+      expect(result.current.facets.countries).toEqual({ CA: 130 });
+    });
+    expect(result.current.items).toHaveLength(130);
+    expect(new Set(result.current.items.map((i) => i.id)).size).toBe(130);
+    expect(result.current.items.map((i) => i.id)).toEqual(
+      queryCatalog(moved, emptyFindFilter, "fit", 0, 130).items.map((i) => i.id),
+    );
+    const offsets = catalog.asked.map((q) => [q.offset, q.limit]);
+    expect(offsets.slice(-2)).toEqual([
+      [0, 120],
+      [120, 120],
+    ]);
+  });
+
+  it("shows Couldn't load more on a failed later page, and retries", async () => {
+    const catalog = liveCatalog(channels);
+    const { result } = renderHook(() => useGalleryPages(emptyFindFilter, "fit"));
+    await waitFor(() => {
+      expect(result.current.status).toBe("ready");
+    });
+    catalog.state.failOffset = 120;
+    act(() => {
+      result.current.loadMore();
+    });
+    await waitFor(() => {
+      expect(result.current.moreFailed).toBe(true);
+    });
+    expect(result.current.items).toHaveLength(120);
+    expect(result.current.status).toBe("ready");
+    catalog.state.failOffset = null;
+    act(() => {
+      result.current.loadMore();
+    });
+    await waitFor(() => {
+      expect(result.current.items).toHaveLength(130);
+    });
+    expect(result.current.moreFailed).toBe(false);
+  });
+
+  it("keeps its output and an item's object while nothing changed", async () => {
+    liveCatalog(channels.slice(0, 5));
+    const { result, rerender } = renderHook(() => useGalleryPages(emptyFindFilter, "fit"));
+    await waitFor(() => {
+      expect(result.current.status).toBe("ready");
+    });
+    const before = result.current;
+    rerender();
+    expect(result.current).toBe(before);
+    expect(result.current.items).toBe(before.items);
   });
 });

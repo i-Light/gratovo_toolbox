@@ -111,10 +111,16 @@ export function SavedViews({
         {
           label: text.undo,
           run: () => {
-            const restored = [...latest.current];
+            const without = latest.current;
+            const restored = [...without];
             restored.splice(Math.min(index, restored.length), 0, gone);
             show(restored);
-            void storeViews(restored);
+            void storeViews(restored).then((again) => {
+              if (again !== "saved") {
+                show(without);
+                toast({ msg: text.saveFailed, icon: "alert" });
+              }
+            });
           },
         },
       ],

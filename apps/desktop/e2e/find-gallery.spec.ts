@@ -52,10 +52,10 @@ test.describe("Find › Gallery", () => {
     await page.getByRole("button", { name: findGallery.chips.clearAll }).click();
     await expect.poll(() => channelCount(page)).toBe(all);
 
-    // Ctrl-click two cards, then Compare.
+    // Ctrl-click the first card, Shift-click the second (the range path), then Compare.
     const open = page.getByRole("button", { name: /^Open / });
     await open.nth(0).click({ modifiers: ["Control"] });
-    await open.nth(1).click({ modifiers: ["Control"] });
+    await open.nth(1).click({ modifiers: ["Shift"] });
     const bar = page.getByRole("toolbar", { name: findGallery.bulk.label });
     await expect(bar.getByText(findGallery.bulk.selected(2))).toBeVisible();
     await bar.getByRole("button", { name: findGallery.bulk.compare }).click();

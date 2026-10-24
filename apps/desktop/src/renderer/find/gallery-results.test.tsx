@@ -228,6 +228,19 @@ describe("selection keys", () => {
     expect(picked()).toEqual([]);
   });
 
+  it("never reaches through an open peek", async () => {
+    await show();
+    await click(selectBtn("Agent Lab"));
+    await click(
+      within(card("Model Weekly")).getByRole("button", { name: t.card.open("Model Weekly") }),
+    );
+    expect(peeked()).not.toBeNull();
+    press("a", { ctrlKey: true });
+    expect(picked()).toEqual(["Agent Lab"]);
+    press("escape");
+    expect(picked()).toEqual(["Agent Lab"]);
+  });
+
   it("ignores both while typing", async () => {
     await show();
     const field = screen.getByLabelText(t.toolbar.search);
@@ -385,6 +398,14 @@ describe("compare", () => {
     await click(within(region).getByRole("button", { name: `${t.compare.open} Prompt Garage` }));
     expect(peeked()?.record.id).toBe(idOf("Prompt Garage"));
     await click(within(region).getByRole("button", { name: t.compare.close }));
+    expect(screen.queryByRole("region")).toBeNull();
+  });
+
+  it("closes when the selection leaves 2 to 4", async () => {
+    await open("Agent Lab", "Model Weekly");
+    await click(selectBtn("Agent Lab"));
+    expect(screen.queryByRole("region")).toBeNull();
+    await click(selectBtn("Agent Lab"));
     expect(screen.queryByRole("region")).toBeNull();
   });
 

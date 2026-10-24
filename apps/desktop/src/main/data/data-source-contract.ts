@@ -819,7 +819,7 @@ export function describeDataSourceContract(
       });
 
       function notesWrite(id: string, notes: string, handle = "", name = ""): DataWrite {
-        return { kind: "creator.notes", id, notes, handle, name };
+        return { kind: "creator.notes", id, base: "", notes, handle, name };
       }
 
       function storedRow(id: string): Record<string, unknown> | undefined {
@@ -840,16 +840,22 @@ export function describeDataSourceContract(
         const source = start();
         const before = await source.frame();
         await source.write([notesWrite("c11", "Wants a demo of the agent before a quote.")]);
-        expect((await source.creatorStates()).find((c) => c.id === "c11")?.notes).toBe(
-          "Wants a demo of the agent before a quote.",
-        );
-        // Notes aren't in the frame, and the stage is untouched.
+        expect(await source.creatorNotes("c11")).toBe("Wants a demo of the agent before a quote.");
+        // Notes aren't in the frame or the catalog's states, and the stage is untouched.
         expect(await source.frame()).toEqual(before);
+        expect((await source.creatorStates()).find((c) => c.id === "c11")).not.toHaveProperty(
+          "notes",
+        );
         await source.write([notesWrite("c11", "")]);
         expect(storedRow("c11")?.["notes"]).toBeNull();
-        expect((await source.creatorStates()).find((c) => c.id === "c11")?.notes).toBe("");
-        // A creator with no notes reads as empty text.
-        expect((await source.creatorStates()).find((c) => c.id === "c12")?.notes).toBe("");
+        expect(await source.creatorNotes("c11")).toBeNull();
+        // A creator with no notes, an unknown id and a stored empty text all read as none.
+        expect(await source.creatorNotes("c12")).toBeNull();
+        expect(await source.creatorNotes("c999")).toBeNull();
+        withDb(file, (db) => {
+          db.prepare("UPDATE channel_state SET notes = '' WHERE channel_id = 'c12'").run();
+        });
+        expect(await source.creatorNotes("c12")).toBeNull();
       });
 
       it("notes on a channel with no row create it as a stage write does, with no stage", async () => {
@@ -868,8 +874,8 @@ export function describeDataSourceContract(
         expect((await source.creatorStates()).find((c) => c.id === agentLab)).toMatchObject({
           stage: "new",
           hasAppStage: false,
-          notes: "Covers coding agents weekly.",
         });
+        expect(await source.creatorNotes(agentLab)).toBe("Covers coding agents weekly.");
         // No handle: the row is named by its id, as the server names it.
         await source.write([notesWrite(fresh, "AI news daily.")]);
         expect(storedRow(fresh)).toMatchObject({ handle: fresh, name: null });
@@ -1038,7 +1044,6 @@ export function describeDataSourceContract(
           legacyPipelineStage: "new",
           hasAppStage: true,
           lastActivity: { at: contractNow - 500, who: "Ada" },
-          notes: "",
         });
         // A creator with no line of its own has no activity; the old app's lines count.
         const c12 = states.find((c) => c.id === "c12");

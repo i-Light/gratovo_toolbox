@@ -11,7 +11,7 @@ import {
   logRowFor,
 } from "../data/repositories";
 import type { ActivityRow } from "../data/repositories";
-import { readNotes, readTags, storedNotes } from "../data/repositories/creators";
+import { readTags, storedNotes } from "../data/repositories/creators";
 
 // D11: what each write also puts in the outbox. Runs inside the batch's transaction, so a local
 // effect and its entry commit together or not at all.
@@ -234,14 +234,17 @@ export function recordIntent(
       return;
     }
     case "creator.notes": {
-      // The base is the stored notes, read before the write, as the server compares them: empty
-      // text and no notes are both null (its `canonical_edit_value`). No row reads as null too:
-      // main creates it (D24, as D4 does), and so does the server.
-      const base = readNotes(db, write.id) ?? null;
+      // The base is the text the person started editing from, not the stored text: a teammate's
+      // note pulled in between then differs from it on the server, which files a conflict rather
+      // than letting this save overwrite it. Both are compared as the server compares them: empty
+      // text and no notes are both null (its `canonical_edit_value`). A missing row is created
+      // here (D24, as D4 does), and by the server too.
+      const base = storedNotes(write.base);
       applyLocal();
       const label = handleOf(write.id);
       const next = storedNotes(write.notes);
-      // No row (an id that isn't a channel's), or the same text: nothing to send.
+      // No row (an id that isn't a channel's), or no change from where the edit started: nothing
+      // to send.
       if (label !== null && base !== next) {
         queueEdit(write.id, label, "notes", base, next);
       }
