@@ -75,8 +75,8 @@ export const toolboxRestoreRequestSchema = z.strictObject({
     .refine((ids) => new Set(ids).size === ids.length, "each channel once"),
 });
 
-/** Why nothing came back: a search holds the lane, or Python can't be run. */
-export const toolboxRestoreProblems = ["busy", "no_python"] as const;
+/** Why nothing came back: a search holds the lane, Python can't be run, or the job ended without a result. */
+export const toolboxRestoreProblems = ["busy", "no_python", "failed"] as const;
 
 export const toolboxRestoreResultSchema = z.discriminatedUnion("ok", [
   z.strictObject({
