@@ -196,6 +196,25 @@ const jobCases: { good: Job; bad: Record<string, unknown>[] }[] = [
     good: { kind: "gateways.test" },
     bad: [{ kind: "gateways.test", regions: ["eu-west-1"] }],
   },
+  {
+    good: {
+      kind: "import.legacy",
+      source: "D:\\old\\gratovo_code\\data\\database\\gratovo.db",
+      dryRun: false,
+      backupDir: "C:\\Users\\a\\AppData\\Roaming\\Gratovo Toolbox\\backups",
+    },
+    bad: [
+      { kind: "import.legacy", source: "gratovo.db", dryRun: true, backupDir: null },
+      { kind: "import.legacy", source: "\u0000", dryRun: true, backupDir: null },
+      { kind: "import.legacy", source: `C:\\${"x".repeat(1022)}`, dryRun: true, backupDir: null },
+      { kind: "import.legacy", source: "C:\\old\\a\u0000.db", dryRun: true, backupDir: null },
+      { kind: "import.legacy", source: "C:\\old\\gratovo.db", dryRun: true },
+      { kind: "import.legacy", source: "C:\\old\\gratovo.db", dryRun: "no", backupDir: null },
+      // A real import backs up first, so it needs somewhere to put the copy.
+      { kind: "import.legacy", source: "C:\\old\\gratovo.db", dryRun: false, backupDir: null },
+      { kind: "import.legacy", source: "C:\\old\\gratovo.db", dryRun: false, backupDir: "bk" },
+    ],
+  },
 ];
 
 describe("the jobs other than search", () => {
@@ -211,6 +230,42 @@ describe("the jobs other than search", () => {
   it("runs only a search on example data", () => {
     expect(startSchema.safeParse({ ...start, job: { kind: "mail.status" } }).success).toBe(false);
     expect(startSchema.safeParse({ ...start, source: "live" }).success).toBe(true);
+  });
+
+  it("takes a dry run with no backup folder, and refuses an import on example data", () => {
+    const dryRun = {
+      kind: "import.legacy",
+      source: "/home/runner/old/gratovo.db",
+      dryRun: true,
+      backupDir: null,
+    };
+    expect(startSchema.safeParse(liveStart(dryRun)).success).toBe(true);
+    expect(startSchema.safeParse({ ...start, job: dryRun }).success).toBe(false);
+  });
+
+  it("takes the median-views and uploads bounds, absent, null or a whole number", () => {
+    const withRules = (extra: Record<string, unknown>) => ({
+      ...start,
+      job: { ...search, rules: { ...search.rules, ...extra } },
+    });
+    for (const good of [
+      {},
+      { minMedianViews: null, minUploads30: null },
+      { minMedianViews: 0, minUploads30: 0 },
+      { minMedianViews: 5_000, minUploads30: 4 },
+    ]) {
+      expect(startSchema.safeParse(withRules(good)).success).toBe(true);
+    }
+    for (const bad of [
+      { minMedianViews: -1 },
+      { minMedianViews: 1.5 },
+      { minMedianViews: "5000" },
+      { minUploads30: -1 },
+      { minUploads30: 10_001 },
+      { minUploads30: true },
+    ]) {
+      expect(startSchema.safeParse(withRules(bad)).success).toBe(false);
+    }
   });
 
   it("refuses an unknown kind", () => {
@@ -322,9 +377,49 @@ const sendResult = {
   },
 };
 
+const importReport = {
+  source: "D:\\old\\gratovo_code\\data\\database\\gratovo.db",
+  tables: [
+    { name: "channels", inOld: 1_840, toAdd: 1_812, already: 28 },
+    { name: "videos", inOld: 0, toAdd: 0, already: 0 },
+  ],
+  skipped: [
+    { name: "influencers", rows: 1_790, why: "synced" },
+    { name: "sync_state", rows: 3, why: "bookkeeping" },
+    { name: "news_items", rows: 120, why: "not-ported" },
+  ],
+  unsent: { outbox: 2, activity: 0 },
+  settingsFiles: [
+    { name: "run_config.json", found: true },
+    { name: "settings.json", found: false },
+  ],
+  dryRun: false,
+  backup: "C:\\Users\\a\\AppData\\Roaming\\Gratovo Toolbox\\backups\\pipeline-20261024T090000Z.db",
+};
+const importResult = { type: "result", kind: "import.legacy", data: importReport };
+
 describe("parseLine", () => {
   it("reads each kind of message the pipeline writes", () => {
     const lines = [
+      { type: "progress", table: "channels", done: 2, total: 7 },
+      importResult,
+      { ...importResult, data: { ...importReport, dryRun: true, backup: null, tables: [] } },
+      {
+        type: "end",
+        state: "failed",
+        at: 0,
+        found: 0,
+        kept: 0,
+        error: { code: "store_too_new", message: "pipeline.db is newer than this app." },
+      },
+      {
+        type: "end",
+        state: "failed",
+        at: 0,
+        found: 0,
+        kept: 0,
+        error: { code: "old_app_open", message: "The old app seems to be open." },
+      },
       { type: "ready", protocol: 1, version: "0.1.0" },
       { type: "run", state: "running", total: 2, startAt: 0 },
       { type: "keyword", index: 0, total: 2, keyword: "ai", state: "started" },
@@ -393,6 +488,31 @@ describe("parseLine", () => {
       { type: "result", kind: "search", data: {} },
       { type: "result", kind: "mail.ack", data: { acknowledged: -1 } },
       { type: "result", kind: "video_stats", data: { videoId: "short", views: 1, fetchedAt: "" } },
+      { type: "progress", table: "", done: 0, total: 7 },
+      { type: "progress", table: "x".repeat(65), done: 0, total: 7 },
+      { type: "progress", table: "channels", done: -1, total: 7 },
+      { type: "progress", table: "channels", done: 1 },
+      { ...importResult, data: { ...importReport, extra: 1 } },
+      { ...importResult, data: { ...importReport, unsent: { outbox: 2 } } },
+      {
+        ...importResult,
+        data: { ...importReport, tables: Array(41).fill(importReport.tables[0]) },
+      },
+      {
+        ...importResult,
+        data: { ...importReport, skipped: Array(61).fill(importReport.skipped[0]) },
+      },
+      {
+        ...importResult,
+        data: { ...importReport, skipped: [{ name: "news_items", rows: 1, why: "old" }] },
+      },
+      {
+        ...importResult,
+        data: {
+          ...importReport,
+          tables: [{ name: "x".repeat(65), inOld: 0, toAdd: 0, already: 0 }],
+        },
+      },
       [1, 2],
       null,
     ]) {

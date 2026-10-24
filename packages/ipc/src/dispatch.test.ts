@@ -3,6 +3,29 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createDispatcher, type Handlers } from "./dispatch";
 
+const gemini = {
+  state: "stopped" as const,
+  addon: { state: "missing" as const, version: null },
+  browser: null,
+  problem: null,
+};
+
+const connectionsStatus = {
+  python: { state: "ready" as const },
+  youtube: { state: "available" as const },
+  gemini,
+  mailApp: { set: false },
+  mailboxes: [],
+  mail: { label: "Gratovo", senderName: null },
+  proxies: { count: 0, enabled: false, includeDirect: true },
+  pacing: "normal" as const,
+  parallel: { enabled: false, maxWorkers: 1 },
+  aws: { keys: false, enabled: false, regions: [] },
+  course: { courseDir: null, videoDir: null, courseFound: false },
+  sync: { state: "off" as const },
+  import: { state: "never" as const, at: null, backup: null },
+};
+
 function setup(overrides: Partial<Handlers> = {}) {
   const handlers: Handlers = {
     "app:ping": vi.fn(() => ({ ok: true as const, version: "1.2.3" })),
@@ -42,6 +65,9 @@ function setup(overrides: Partial<Handlers> = {}) {
           aboveMax: "delay" as const,
           label: "inactive",
         },
+        minMedianViews: null,
+        minUploads30: null,
+        archiveDays: 7,
       },
       run: { state: "ready" as const, found: 0, kept: 0, swept: 0, error: null },
       log: [],
@@ -52,6 +78,22 @@ function setup(overrides: Partial<Handlers> = {}) {
     "find:start-at": vi.fn(() => ({ ok: true as const })),
     "find:start": vi.fn(() => ({ ok: true as const })),
     "find:stop": vi.fn(() => ({})),
+    "rules:set": vi.fn(() => ({})),
+    "import:candidates": vi.fn(() => ({ candidates: [] })),
+    "import:pick": vi.fn(() => ({ path: null })),
+    "import:dry-run": vi.fn(() => ({ ok: false as const, reason: "not_built" as const })),
+    "import:run": vi.fn(() => ({ ok: false as const, reason: "not_built" as const })),
+    "writing:rules": vi.fn(() => ({ found: false, rules: [] })),
+    "connections:status": vi.fn(() => connectionsStatus),
+    "connections:set": vi.fn(() => ({ ok: true as const })),
+    "connections:pick-folder": vi.fn(() => ({ path: null })),
+    "mail:connect": vi.fn(() => ({ ok: false as const, reason: "not_built" as const })),
+    "mail:check": vi.fn(() => ({ ok: false as const, reason: "not_built" as const })),
+    "gateways:deploy": vi.fn(() => ({ ok: false as const, reason: "not_built" as const })),
+    "gateways:remove": vi.fn(() => ({ ok: false as const, reason: "not_built" as const })),
+    "gemini:start": vi.fn(() => gemini),
+    "gemini:stop": vi.fn(() => gemini),
+    "gemini:open-window": vi.fn(() => gemini),
     ...overrides,
   };
   const onError = vi.fn();
@@ -127,6 +169,24 @@ describe("createDispatcher", () => {
     expect(result).toEqual({ ok: false, reason: "The call failed" });
     expect(JSON.stringify(result)).not.toContain("sk-test-000");
     expect(onError).toHaveBeenCalledWith("secrets:status", expect.any(Error));
+  });
+
+  it("refuses a connections status that carries a secret", async () => {
+    const leaky = () => ({ ...connectionsStatus, mailApp: { set: true, secret: "gocspx-000" } });
+    const { dispatch, onError } = setup({ "connections:status": leaky });
+    const result = await dispatch("connections:status", {});
+    expect(result).toEqual({ ok: false, reason: "The call failed" });
+    expect(JSON.stringify(result)).not.toContain("gocspx-000");
+    expect(onError).toHaveBeenCalledWith("connections:status", expect.any(Error));
+  });
+
+  it("passes a parsed connections change to its handler, and refuses an unknown kind", async () => {
+    const { dispatch, handlers } = setup();
+    const change = { kind: "gateways.enabled", enabled: true };
+    expect(await dispatch("connections:set", change)).toEqual({ ok: true, value: { ok: true } });
+    expect(handlers["connections:set"]).toHaveBeenCalledWith(change);
+    expect((await dispatch("connections:set", { kind: "youtube.key", key: "x" })).ok).toBe(false);
+    expect(handlers["connections:set"]).toHaveBeenCalledOnce();
   });
 
   it("refuses a response of the wrong shape", async () => {

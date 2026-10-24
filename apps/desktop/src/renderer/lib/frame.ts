@@ -6,20 +6,26 @@ import type { IconName } from "@gratovo/ui";
 import { strings } from "../strings";
 import type { AppData, Member, Notification } from "./store";
 import { screens } from "./routes";
+import { defaultRoute, isRouteShown } from "./wired";
 import type { Route, ScreenKey } from "./routes";
+import type { FrameSource } from "@gratovo/core/data";
 
 const todayRoute: Route = { screen: "today", tab: null };
 
-/** A route from the frame's screen and tab; anything the renderer does not know goes to Today. */
-function routeOf(go: FrameNotification["go"]): Route {
+/**
+ * A route from the frame's screen and tab; anything the renderer does not know goes to Today. On
+ * live data a screen or tab that is not wired goes to the default route instead.
+ */
+export function routeOf(go: FrameNotification["go"], source: FrameSource = "example"): Route {
   if (!Object.hasOwn(screens, go.screen) || go.screen === "record") {
-    return todayRoute;
+    return source === "example" ? todayRoute : defaultRoute(source, "unknown");
   }
   const screen = go.screen as ScreenKey;
-  if (go.tab === null || !screens[screen].tabs.some((t) => t.key === go.tab)) {
-    return { screen, tab: null };
-  }
-  return { screen, tab: go.tab };
+  const route: Route =
+    go.tab === null || !screens[screen].tabs.some((t) => t.key === go.tab)
+      ? { screen, tab: null }
+      : { screen, tab: go.tab };
+  return isRouteShown(route, source) ? route : defaultRoute(source, "unknown");
 }
 
 function iconOf(icon: string): IconName {
@@ -48,14 +54,14 @@ function memberOf(member: TeamMember, me: string): Member {
   };
 }
 
-function notificationOf(n: FrameNotification): Notification {
+function notificationOf(n: FrameNotification, source: FrameSource): Notification {
   return {
     id: n.id,
     at: n.at,
     icon: iconOf(n.icon),
     text: n.text,
     sub: n.sub,
-    go: routeOf(n.go),
+    go: routeOf(n.go, source),
     read: n.read,
   };
 }
@@ -63,12 +69,13 @@ function notificationOf(n: FrameNotification): Notification {
 /** The renderer's data from what the main process sends: role labels, routes and icons checked. */
 export function toAppData(frame: Frame): AppData {
   return {
+    source: frame.source,
     me: frame.me,
     myName: frame.myName,
     seesMoney: frame.seesMoney,
     team: frame.team.map((m) => memberOf(m, frame.me)),
     counts: frame.counts,
-    notifications: frame.notifications.map(notificationOf),
+    notifications: frame.notifications.map((n) => notificationOf(n, frame.source)),
     log: frame.log,
     creators: frame.creators,
     brands: frame.brands,

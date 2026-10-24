@@ -37,7 +37,7 @@ import subprocess
 import sys
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from types import ModuleType
 from typing import TYPE_CHECKING, Any, cast
@@ -87,6 +87,9 @@ class BrowserPaths:
     #: Where a Mozilla-signed build would be. None until step 6 decides; the old app looked in
     #: a folder of its repository.
     signed_xpi_dir: Path | None = None
+    #: This launch's bridge token (plan D13), from the daemon's environment, or None. Written into
+    #: the Firefox build only (`bridge-token.js`); kept out of `repr` so no log line can show it.
+    token: str | None = field(default=None, repr=False)
 
     @property
     def build_dir(self) -> Path:
@@ -96,7 +99,9 @@ class BrowserPaths:
 
     @property
     def has_extension(self) -> bool:
-        return self.extension_dir.is_dir()
+        """The add-on itself is there: its `manifest.json`, not just a folder (the folder held
+        only a README before the add-on was ported)."""
+        return (self.extension_dir / "manifest.json").is_file()
 
 
 # --- small helpers ---------------------------------------------------------------------
@@ -156,11 +161,29 @@ def _load_build_addon(paths: BrowserPaths) -> ModuleType:
     return module
 
 
+#: The managed profiles whose Firefox got the add-on from this process, so with this launch's token.
+#: A Firefox left running by an earlier bridge holds an add-on with that launch's token, which this
+#: bridge refuses (plan D13), so it is installed again rather than waited for.
+_installed_this_launch: set[Path] = set()
+
+
+def _installed_now(paths: BrowserPaths) -> bool:
+    return paths.token is None or paths.profile_dir in _installed_this_launch
+
+
+def _token_kwargs(paths: BrowserPaths) -> dict[str, str]:
+    """`token=` for the packer only when there is one, so a run without a token builds as before."""
+    return {} if paths.token is None else {"token": paths.token}
+
+
 def build_firefox_addon(paths: BrowserPaths) -> Path:
-    """Builds the Firefox flavour of the extension into the app's folder; returns that folder."""
+    """Builds the Firefox flavour of the extension into the app's folder; returns that folder.
+
+    With a token (plan D13) the build carries it in `bridge-token.js`, first of the background
+    scripts, so the add-on can show it in its `hello`."""
     out = paths.build_dir
     try:
-        _load_build_addon(paths).build_firefox(paths.extension_dir, out)
+        _load_build_addon(paths).build_firefox(paths.extension_dir, out, **_token_kwargs(paths))
     except GeminiError:
         raise
     except Exception as error:  # reported as an install failure with the reason
@@ -415,6 +438,7 @@ def _install_temporary(
             f"Firefox did not take the add-on: {error}",
             {"method": "rdp_temporary", "reason": str(error)},
         ) from error
+    _installed_this_launch.add(paths.profile_dir)
     version = shipped_version(paths) or "?"
     firefox_session.record_addon(paths.profile_dir, session, version)
     return version
@@ -471,7 +495,9 @@ def install_addon(
         source = xpi
         if source is None:
             source = paths.build_dir.with_suffix(".xpi")
-            _load_build_addon(paths).build_xpi(paths.extension_dir, source)
+            # Carries this launch's token like the temporary build does (plan D13): it is only
+            # admitted while this bridge runs, and the next launch installs a fresh copy.
+            _load_build_addon(paths).build_xpi(paths.extension_dir, source, **_token_kwargs(paths))
         firefox_profile.sideload_xpi(paths.profile_dir, source, GEMINI_ADDON_ID)
         return {
             "state": "installed",
@@ -483,7 +509,12 @@ def install_addon(
         }
     session = _start_firefox(params, paths, emit, url=str(params.get("url") or GEMINI_URL))
     current = shipped_version(paths)
-    if session.addon_version and session.addon_version == current and not params.get("force"):
+    if (
+        session.addon_version
+        and session.addon_version == current
+        and _installed_now(paths)
+        and not params.get("force")
+    ):
         return {
             "state": "temporary",
             "version": current,
@@ -651,7 +682,11 @@ def ensure_window(
                 "launch_browser", lambda: _start_firefox(params, paths, emit, url=url)
             )
             result["launched"] = session.launched
-            if session.launched or session.addon_version != shipped_version(paths):
+            if (
+                session.launched
+                or session.addon_version != shipped_version(paths)
+                or not _installed_now(paths)
+            ):
                 steps.run("install_addon", lambda: _install_temporary(paths, session, emit))
             connected = steps.run(
                 "extension_connect", lambda: gemini.server.wait_for_extension(remaining(20.0))

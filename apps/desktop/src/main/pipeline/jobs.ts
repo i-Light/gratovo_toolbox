@@ -3,8 +3,9 @@ import type { PipelineExit, PipelineSupervisor } from "./supervisor";
 
 /**
  * Main runs the pipeline's jobs in two lanes, each its own supervisor (plan D14). The store lane
- * runs the jobs that write `pipeline.db`, never two at once; the quick lane runs the rest one at a
- * time, so `mailbox.db` has one writer and a Send never waits hours behind a search.
+ * (step 4's plan calls it the main lane) runs the jobs that write `pipeline.db`, the import
+ * included, never two at once; the quick lane runs the rest one at a time, so `mailbox.db` has one
+ * writer and a Send never waits hours behind a search.
  */
 
 export type Lane = "store" | "quick";
@@ -14,6 +15,7 @@ export function laneFor(kind: JobKind): Lane {
     case "search":
     case "refetch":
     case "backfill":
+    case "import.legacy":
       return "store";
     case "mail.status":
     case "mail.send":

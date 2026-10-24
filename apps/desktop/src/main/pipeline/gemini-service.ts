@@ -1,3 +1,5 @@
+import { randomBytes } from "node:crypto";
+
 import {
   geminiPort,
   geminiRequestLine,
@@ -20,10 +22,23 @@ import { quitGraceMs, type ChildLike, type SpawnPipeline } from "./supervisor";
  * `python -I -u -m gratovo_pipeline.gemini` that the browser extension connects to, and that main
  * asks things with JSON lines. Unlike a job, it answers many requests, in any order, by `id`.
  *
- * At most one runs (the owner's rule: port 8765). It needs no secrets. Every line it writes is
- * checked against `gemini-protocol.ts`; one that fails is logged and ignored, and three in a row
- * end it, as for the jobs. Closing stdin stops it; on quit it is killed 5 s later if still there.
+ * At most one runs (the owner's rule: port 8765). Every line it writes is checked against
+ * `gemini-protocol.ts`; one that fails is logged and ignored, and three in a row end it, as for the
+ * jobs. Closing stdin stops it; on quit it is killed 5 s later if still there.
+ *
+ * Each start makes a fresh per-launch token (plan D13): 32 random bytes as hex, handed over ONLY
+ * in the child's environment as `GRATOVO_BRIDGE_TOKEN` (never argv, never a log line: it is also
+ * given to the log as a secret, so a stray echo is redacted). The bridge builds it into the Firefox
+ * add-on and admits a Firefox extension only when its `hello` carries it.
  */
+
+/** The variable the bridge reads its per-launch token from (`gemini/daemon.py`). */
+export const bridgeTokenEnv = "GRATOVO_BRIDGE_TOKEN";
+
+/** A fresh per-launch token: 32 random bytes, 64 lowercase hex characters. */
+export function newBridgeToken(): string {
+  return randomBytes(32).toString("hex");
+}
 
 export interface GeminiStartOptions {
   /** The port, 8765 unless a test names a free one: never two bridges on one port. */
@@ -69,6 +84,8 @@ export interface GeminiService {
   ): Promise<GeminiCall<M>>;
   /** Every event the bridge sends (daemon state, progress, the extension's). Returns an unsubscribe. */
   onEvent(listener: (event: GeminiEvent) => void): () => void;
+  /** Called each time a started bridge's process ends, asked to or not. Returns an unsubscribe. */
+  onExit(listener: () => void): () => void;
   /** Stops the bridge and resolves once it is gone (killed after `quitGraceMs`). */
   shutdown(): Promise<void>;
 }
@@ -168,9 +185,14 @@ export function createGeminiService(o: {
   spawn: SpawnPipeline;
   python: () => PythonCommand | null;
   env: Record<string, string>;
-  openLog: () => PipelineLog;
+  /** Opens this run's log; `secrets` (the token) are redacted from every line. */
+  openLog: (secrets: readonly string[]) => PipelineLog;
+  /** Makes each start's token; `newBridgeToken` unless a test names one. */
+  token?: () => string;
 }): GeminiService {
+  const makeToken = o.token ?? newBridgeToken;
   const listeners = new Set<(event: GeminiEvent) => void>();
+  const exitListeners = new Set<() => void>();
   let state: GeminiState = "stopped";
   let bridge: {
     child: ChildLike;
@@ -198,10 +220,12 @@ export function createGeminiService(o: {
       if (command === null) {
         return Promise.resolve({ ok: false, problem: "no_python" });
       }
-      const log = o.openLog();
+      const token = makeToken();
+      const log = o.openLog([token]);
+      // The bare environment plus the token, and nothing else; never in the arguments.
       const child = o.spawn(command.python, bridgeArgs(options), {
         cwd: command.cwd,
-        env: o.env,
+        env: { ...o.env, [bridgeTokenEnv]: token },
       });
       state = "starting";
 
@@ -354,6 +378,9 @@ export function createGeminiService(o: {
         bridge = null;
         state = "stopped";
         markExited();
+        for (const listener of exitListeners) {
+          listener();
+        }
       }
 
       child.on("spawn", () => {
@@ -418,6 +445,13 @@ export function createGeminiService(o: {
       listeners.add(listener);
       return () => {
         listeners.delete(listener);
+      };
+    },
+
+    onExit(listener) {
+      exitListeners.add(listener);
+      return () => {
+        exitListeners.delete(listener);
       };
     },
 

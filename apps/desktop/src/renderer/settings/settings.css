@@ -146,3 +146,24 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+.set-err {
+  color: var(--crit);
+}
+.set-num {
+  width: 160px;
+}
+.set-rule {
+  padding: 6px 2px;
+  gap: 12px;
+}
+.set-rule-id {
+  flex: none;
+  min-width: 118px;
+  justify-content: center;
+}
+.set-rule-level {
+  flex: none;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}

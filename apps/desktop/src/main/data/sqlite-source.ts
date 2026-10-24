@@ -6,6 +6,7 @@ import type {
   DataSource,
   DataWrite,
   Frame,
+  FrameSource,
   MateRun,
   RailCounts,
   TeamMember,
@@ -15,6 +16,8 @@ import {
   addLogEntry,
   getNotify,
   getProfile,
+  getSetting,
+  setSetting,
   listBrands,
   listConflicts,
   markResolved,
@@ -41,6 +44,8 @@ export interface FrameExtras {
 }
 
 export interface SqliteSourceOptions {
+  /** Which data this is: the frame carries it so the page knows what live mode may show. */
+  readonly source: FrameSource;
   /** The signed-in member's id. */
   readonly me: string;
   readonly extras: FrameExtras;
@@ -97,6 +102,7 @@ export function createSqliteSource(db: DatabaseSync, options: SqliteSourceOption
     const deals = listDeals(db);
     const notifications = listNotifications(db, { seesMoney: money });
     return {
+      source: options.source,
       me,
       myName: myName === "" ? null : myName,
       team,
@@ -175,6 +181,22 @@ export function createSqliteSource(db: DatabaseSync, options: SqliteSourceOption
           }
         });
       }),
+    readSetting: (key) => getSetting(db, key),
+    writeSetting: (key, value) => {
+      setSetting(db, key, value);
+    },
+    seedChannelNames(rows) {
+      let changed = 0;
+      inTransaction(db, () => {
+        const insert = db.prepare(
+          "INSERT INTO channels (channel_id, name) VALUES (?, ?) ON CONFLICT (channel_id) DO UPDATE SET name = excluded.name WHERE channels.name = ''",
+        );
+        for (const row of rows) {
+          changed += Number(insert.run(row.channelId, row.name).changes);
+        }
+      });
+      return changed;
+    },
     // A second close is a no-op, so a failed start and `will-quit` can both close safely.
     close: () => {
       if (db.isOpen) {

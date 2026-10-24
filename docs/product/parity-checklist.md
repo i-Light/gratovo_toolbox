@@ -478,7 +478,7 @@ Things the Flutter app does that the 127 tasks don't name. Each is ported, repla
 | Windows notifications for due follow-ups | `core/notifications` | Port | ☐ |
 | Dhikr reminder overlay | `core/toast/dhikr_reminder_overlay.dart` | Decide (the owner's personal feature) | ☐ |
 | Time zone setting and one date formatter | `core/time` | Port: Settings › Your day plus one formatter | ☐ |
-| AWS API gateways for search routing | `core/aws`, settings, `pipeline/gratovo/scrapetube` | Port with the pipeline; keys per [decisions/0003](../decisions/0003-secrets.md) | ☐ |
+| AWS API gateways for search routing | `core/aws`, settings, `pipeline/gratovo/scrapetube` | Port with the pipeline; keys per [decisions/0003](../decisions/0003-secrets.md). Jobs built in 3e-3b; settings built in step 4 (ADR 0016) | ☐ |
 | Python environment setting | settings | Replace: the bundled runtime | ☐ |
 | GitHub token setting (updater) | `core/github` | Replace: the release design in step T5 (was 3h) | ☐ |
 | AI providers (Anthropic API, template fill) | `core/ai` | Decide: Gemini bridge only, or also an API provider | ☐ |

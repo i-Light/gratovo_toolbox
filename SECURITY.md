@@ -25,10 +25,12 @@ This app holds creators' and brands' contact details, deal terms, money, and the
 - The pipeline runs with a bare environment (`SystemRoot`, `PATH`, `TEMP`, `TMP`) and `-I`, so nothing from the user's shell reaches it.
 - The pipeline makes requests only to HTTPS hosts on its allow list (YouTube, Google's API, AWS gateway hosts, and the configured proxies). The YouTube key goes in a header, never a URL.
 - Logs are blanked of the job's secrets in main, before they reach the page or a file. The pipeline logs a status or an error's kind, never a URL.
-- The Gemini bridge (step 3e-3a) listens on 127.0.0.1 only, refuses any connection from a web page (only the browser add-on and programs on this computer get in), and needs no secrets: it runs with the same bare environment and gets no key, proxy or token on its command line or in its environment.
+- The Gemini bridge (step 3e-3a) listens on 127.0.0.1 only, refuses any connection from a web page (only the browser add-on and programs on this computer get in), and gets no key, proxy or password. It runs with the same bare environment plus one variable: a random per-launch token (step 4, [ADR 0016](docs/decisions/0016-live-data-and-connections.md)), which main passes in its environment and blanks from its logs. The Firefox build of the add-on must show that token; Chrome and Edge load the add-on unpacked and cannot carry it, so for them the guard is the origin check and browser admission.
+- Connecting a Gmail mailbox (step 4) uses a one-shot listener on 127.0.0.1, PKCE and a random `state`. A request without our `state` gets an empty 404 and can't end the connect, so a web page can't cancel it. Main exchanges the code only with `oauth2.googleapis.com`, accepts only an address Google marks as verified, revokes a refresh token it couldn't store, and logs no code, token or address.
+- The import of the old `gratovo.db` (step 4) opens the old file read-only and immutable, and never writes it.
 - The one exception to the host rule: subtitles run yt-dlp, which makes its own requests, so `net.check_url` can't check them. yt-dlp runs only as a module of the pipeline's Python, with no config, plugins or cache, only on a watch URL built from a checked 11-character video id, and it is stopped after 120 s.
 
-Why: [ADR 0013](docs/decisions/0013-pipeline.md) and [ADR 0014](docs/decisions/0014-gemini-bridge-and-comms.md).
+Why: [ADR 0013](docs/decisions/0013-pipeline.md), [ADR 0014](docs/decisions/0014-gemini-bridge-and-comms.md) and [ADR 0016](docs/decisions/0016-live-data-and-connections.md).
 
 ## Known exposure in the old repository (action for the owner)
 
@@ -48,7 +50,7 @@ Earlier commits also held the Supabase service-role key and an AWS IAM key pair 
 - One typed IPC bridge in the preload script. Every message, and every answer, is validated with a schema in the main process. Nothing outside the allowlist gets through, and only the app's own page may call.
 - External links open in the browser through an allowlist. The app denies permission requests (camera, location and others) by default.
 - Electron fuses are set for release builds: `RunAsNode` off, `NODE_OPTIONS` off, `--inspect` off, cookie encryption on, the app loaded only from its archive and that archive's integrity checked, and no extra privileges for `file://`.
-- Local services (the Gemini bridge daemon) bind to `127.0.0.1` only and require a per-launch token.
+- Local services (the Gemini bridge daemon) bind to `127.0.0.1` only, refuse web pages, and require a per-launch token from the Firefox add-on (Chrome and Edge are guarded by the origin check and browser admission instead).
 - Releases are not code-signed: the owner's choice, since the app is for the owner and a few trusted members (migration plan §9 Q12). To make up for it, installers and updates come only from the private release location through the server function, over https, and the updater checks each download against the hash published with the release.
 - Dependencies are pinned through the lockfile, checked in CI by OSV-Scanner (on every pull request and weekly), updated through Dependabot, and reviewed before an upgrade. CodeQL checks the code itself.
 

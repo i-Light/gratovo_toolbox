@@ -8,6 +8,29 @@ import { createDispatcher, type Handlers } from "./dispatch";
 
 const frame = exampleFrame(Date.UTC(2026, 9, 20));
 
+const gemini = {
+  state: "stopped" as const,
+  addon: { state: "missing" as const, version: null },
+  browser: null,
+  problem: null,
+};
+
+const connectionsStatus = {
+  python: { state: "ready" as const },
+  youtube: { state: "available" as const },
+  gemini,
+  mailApp: { set: false },
+  mailboxes: [],
+  mail: { label: "Gratovo", senderName: null },
+  proxies: { count: 0, enabled: false, includeDirect: true },
+  pacing: "normal" as const,
+  parallel: { enabled: false, maxWorkers: 1 },
+  aws: { keys: false, enabled: false, regions: [] },
+  course: { courseDir: null, videoDir: null, courseFound: false },
+  sync: { state: "off" as const },
+  import: { state: "never" as const, at: null, backup: null },
+};
+
 describe("frameSchema", () => {
   it("accepts the example frame", () => {
     expect(frameSchema.safeParse(frame).success).toBe(true);
@@ -19,6 +42,15 @@ describe("frameSchema", () => {
     const [first, ...rest] = frame.team;
     const team = [{ ...first, token: "x" }, ...rest];
     expect(frameSchema.safeParse({ ...frame, team }).success).toBe(false);
+  });
+
+  it("says which data it is: example or live, nothing else", () => {
+    expect(frame.source).toBe("example");
+    expect(frameSchema.safeParse({ ...frame, source: "live" }).success).toBe(true);
+    expect(frameSchema.safeParse({ ...frame, source: "prototype" }).success).toBe(false);
+    const unsaid: Record<string, unknown> = { ...frame };
+    delete unsaid["source"];
+    expect(frameSchema.safeParse(unsaid).success).toBe(false);
   });
 
   it("refuses a name that is too long", () => {
@@ -219,6 +251,9 @@ describe("the data channels through the dispatcher", () => {
             aboveMax: "delay" as const,
             label: "inactive",
           },
+          minMedianViews: null,
+          minUploads30: null,
+          archiveDays: 7,
         },
         run: { state: "ready" as const, found: 0, kept: 0, swept: 0, error: null },
         log: [],
@@ -229,6 +264,22 @@ describe("the data channels through the dispatcher", () => {
       "find:start-at": () => ({ ok: true as const }),
       "find:start": () => ({ ok: true as const }),
       "find:stop": () => ({}),
+      "rules:set": () => ({}),
+      "import:candidates": () => ({ candidates: [] }),
+      "import:pick": () => ({ path: null }),
+      "import:dry-run": () => ({ ok: false as const, reason: "not_built" as const }),
+      "import:run": () => ({ ok: false as const, reason: "not_built" as const }),
+      "writing:rules": () => ({ found: false, rules: [] }),
+      "connections:status": () => connectionsStatus,
+      "connections:set": () => ({ ok: true as const }),
+      "connections:pick-folder": () => ({ path: null }),
+      "mail:connect": () => ({ ok: false as const, reason: "not_built" as const }),
+      "mail:check": () => ({ ok: false as const, reason: "not_built" as const }),
+      "gateways:deploy": () => ({ ok: false as const, reason: "not_built" as const }),
+      "gateways:remove": () => ({ ok: false as const, reason: "not_built" as const }),
+      "gemini:start": () => gemini,
+      "gemini:stop": () => gemini,
+      "gemini:open-window": () => gemini,
       ...overrides,
     };
     const onError = vi.fn();

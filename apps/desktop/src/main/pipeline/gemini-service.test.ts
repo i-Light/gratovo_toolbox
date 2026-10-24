@@ -12,9 +12,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { GeminiEvent } from "./gemini-protocol";
 import {
   bridgeArgs,
+  bridgeTokenEnv,
   callTimeoutMs,
   createGeminiService,
   listenTimeoutMs,
+  newBridgeToken,
   type GeminiService,
   type GeminiStartOptions,
 } from "./gemini-service";
@@ -104,7 +106,12 @@ const listening = {
 describe("the Gemini bridge service", () => {
   let folder: string;
   let child: FakeChild;
-  let spawned: { command: string; args: readonly string[]; cwd: string; env: object }[];
+  let spawned: {
+    command: string;
+    args: readonly string[];
+    cwd: string;
+    env: Record<string, string>;
+  }[];
 
   const spawnFake: SpawnPipeline = (command, args, o) => {
     spawned.push({ command, args, cwd: o.cwd, env: o.env });
@@ -112,17 +119,17 @@ describe("the Gemini bridge service", () => {
     return child;
   };
 
-  function service(python = true): GeminiService {
+  function service(python = true, token?: () => string): GeminiService {
     return createGeminiService({
       spawn: spawnFake,
       python: () => (python ? { python: "C:\\repo\\py.exe", cwd: "C:\\repo\\pipeline" } : null),
       env: { SystemRoot: "C:\\Windows" },
-      openLog: () => openPipelineLog({ folder, now: () => 0, secrets: [], kind: "gemini" }),
+      openLog: (secrets) => openPipelineLog({ folder, now: () => 0, secrets, kind: "gemini" }),
+      ...(token === undefined ? {} : { token }),
     });
   }
 
-  async function started(): Promise<GeminiService> {
-    const bridge = service();
+  async function started(bridge = service()): Promise<GeminiService> {
     const start = bridge.start(options);
     await settle();
     child.send(listening);
@@ -146,19 +153,66 @@ describe("the Gemini bridge service", () => {
   });
 
   it("starts the bridge module with its folders as arguments and the bare environment", async () => {
-    const bridge = await started();
+    const bridge = await started(service(true, () => "ab".repeat(32)));
     expect(bridge.state).toBe("listening");
     expect(spawned).toEqual([
       {
         command: "C:\\repo\\py.exe",
         args: bridgeArgs(options),
         cwd: "C:\\repo\\pipeline",
-        env: { SystemRoot: "C:\\Windows" },
+        // The bare environment gains just the per-launch token (plan D13).
+        env: { SystemRoot: "C:\\Windows", [bridgeTokenEnv]: "ab".repeat(32) },
       },
     ]);
     expect(spawned[0]?.args.slice(0, 4)).toEqual(["-I", "-u", "-m", "gratovo_pipeline.gemini"]);
     expect(spawned[0]?.args).toContain("8765");
     expect(spawned[0]?.args).not.toContain("--course-dir");
+  });
+
+  it("gives each start a fresh token, in the environment only, and never logs it", async () => {
+    const first = await started();
+    child.stderr.write(`echo ${spawned[0]?.env[bridgeTokenEnv] ?? ""}\n`);
+    await settle();
+    const gone = first.shutdown();
+    child.exit(0);
+    await gone;
+    await started();
+    const tokens = spawned.map((s) => s.env[bridgeTokenEnv] ?? "");
+    expect(tokens).toHaveLength(2);
+    for (const token of tokens) {
+      expect(token).toMatch(/^[0-9a-f]{64}$/);
+    }
+    expect(tokens[0]).not.toBe(tokens[1]);
+    const logged = (
+      await Promise.all((await readdir(folder)).map((file) => readFile(join(folder, file), "utf8")))
+    ).join("");
+    expect(logged).toContain("echo ");
+    for (const [i, token] of tokens.entries()) {
+      expect(spawned[i]?.args.join(" ")).not.toContain(token);
+      expect(logged).not.toContain(token);
+    }
+  });
+
+  it("tells its exit listeners each time the bridge ends, until they unsubscribe", async () => {
+    const bridge = await started();
+    let exits = 0;
+    const off = bridge.onExit(() => {
+      exits += 1;
+    });
+    child.exit(1);
+    await settle();
+    expect(exits).toBe(1);
+    off();
+    await started(bridge);
+    child.exit(0);
+    await settle();
+    expect(exits).toBe(1);
+  });
+
+  it("makes tokens of 32 random bytes", () => {
+    const token = newBridgeToken();
+    expect(token).toMatch(/^[0-9a-f]{64}$/);
+    expect(newBridgeToken()).not.toBe(token);
   });
 
   it("passes the course folders only when this computer has them", () => {

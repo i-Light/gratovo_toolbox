@@ -53,7 +53,7 @@ function seedLiveFile(file: string, now: number): void {
   }
 }
 
-describeDataSourceContract("live source", (file, now) => {
+describeDataSourceContract("live source", "live", (file, now) => {
   seedLiveFile(file, now());
   return openLiveSource(file, "u1", now);
 });
@@ -80,6 +80,7 @@ describe("live source", () => {
     open.push(source);
     const frame = await source.frame();
     expect(frame).toEqual({
+      source: "live",
       me: "u1",
       myName: null,
       team: [],

@@ -10,8 +10,9 @@ const size = z.number().int().min(0).max(1_000_000_000_000);
 const autoCleanAction = z.enum(["sweep", "delay", "off"]);
 
 /**
- * What a search keeps: the same shape as main's `rulesSchema` (apps/desktop/src/main/pipeline/
- * protocol.ts), which is the one the pipeline checks. A test in main keeps the two equal.
+ * What a search keeps. Without `archiveDays` it is the same shape as main's `rulesSchema`
+ * (apps/desktop/src/main/pipeline/protocol.ts), which is the one the pipeline checks. A test in
+ * main keeps the two equal.
  */
 export const findRulesSchema = z.strictObject({
   countries: z.array(z.string().regex(/^[A-Z]{2}$/)).max(250),
@@ -26,6 +27,15 @@ export const findRulesSchema = z.strictObject({
     aboveMax: autoCleanAction,
     label: z.string().min(1).max(40),
   }),
+  /** A kept channel whose median views fall below this is archived after its videos are read. */
+  minMedianViews: ruleCount.nullable(),
+  /** The same for its uploads in the last 30 days. */
+  minUploads30: z.number().int().min(0).max(10_000).nullable(),
+  /**
+   * Days a rejected channel stays archived (step 5's reject reads it). Main's own: it is not
+   * sent to the pipeline, so `pipelineRules` drops it from the search job.
+   */
+  archiveDays: z.number().int().min(1).max(90),
 });
 
 export const findKeywordStates = ["queued", "running", "done", "failed"] as const;

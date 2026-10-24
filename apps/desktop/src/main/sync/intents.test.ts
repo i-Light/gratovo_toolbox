@@ -39,6 +39,7 @@ beforeEach(() => {
   n = 0;
   clock = t0;
   source = createSqliteSource(db, {
+    source: "live",
     me,
     now: () => clock,
     extras: {

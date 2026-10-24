@@ -14,7 +14,7 @@
     "lint": "eslint . && prettier --check . && uv run --directory services/pipeline ruff check . && uv run --directory services/pipeline ruff format --check .",
     "format": "prettier --write . && uv run --directory services/pipeline ruff format .",
     "typecheck": "tsc -b && uv run --directory services/pipeline pyright",
-    "test": "vitest run && uv run --directory services/pipeline pytest",
+    "test": "vitest run && pnpm --filter @gratovo/gemini-extension test && uv run --directory services/pipeline pytest",
     "test:sql": "node supabase/tests/run.ts",
     "test:server": "vitest run --config vitest.server.config.ts",
     "test:e2e": "pnpm --filter @gratovo/desktop test:e2e",

@@ -126,6 +126,7 @@ describe("exampleFrame", () => {
 
   it("is the seed as a fresh example source serves it", () => {
     expect(frame).toEqual({
+      source: "example",
       me: "u1",
       myName: null,
       team: [

@@ -4,6 +4,8 @@ import { openSetting, peek, setShortcuts, undo } from "../lib/actions";
 import { getPrefs, setPref } from "../lib/prefs";
 import { firstTab, goLetters, screenOrder, screens } from "../lib/routes";
 import type { RecordRef } from "../lib/routes";
+import { isRouteShown, isScreenShown } from "../lib/wired";
+import type { FrameSource } from "@gratovo/core/data";
 import { meIsOwner, rowsFor, settingsSections } from "../lib/settings";
 import { dealName, findRecord, go, recordName } from "../lib/store";
 import type { AppData } from "../lib/store";
@@ -36,7 +38,7 @@ const maxRecentShown = 5;
 const maxActionsShown = 5;
 
 /** The things you can do from the palette, in the order it lists them. */
-export function actionCommands(): readonly Command[] {
+export function actionCommands(source: FrameSource = "example"): readonly Command[] {
   const { actions } = strings.palette;
   const a = (icon: IconName, label: string, run: () => void, hint?: string): Command => ({
     group: groups.actions,
@@ -45,13 +47,23 @@ export function actionCommands(): readonly Command[] {
     run,
     ...(hint === undefined ? {} : { hint }),
   });
+  const finds: Command[] = [];
+  if (isRouteShown({ screen: "find", tab: "triage" }, source)) {
+    finds.push(
+      a("scan", actions.reviewFinds, () => {
+        go("find", "triage");
+      }),
+    );
+  }
+  if (isRouteShown({ screen: "find", tab: "contacts" }, source)) {
+    finds.push(
+      a("at", actions.confirmContacts, () => {
+        go("find", "contacts");
+      }),
+    );
+  }
   return [
-    a("scan", actions.reviewFinds, () => {
-      go("find", "triage");
-    }),
-    a("at", actions.confirmContacts, () => {
-      go("find", "contacts");
-    }),
+    ...finds,
     a("undo", actions.undo, undo, strings.actions.undoKbd),
     a(
       "keyboard",
@@ -76,26 +88,31 @@ export function actionCommands(): readonly Command[] {
 }
 
 /** "Go to" rows: every screen in the rail's order, on its first tab, as "G then a letter" opens it. */
-export function goCommands(): readonly Command[] {
+export function goCommands(source: FrameSource = "example"): readonly Command[] {
   const letterOf = new Map(Object.entries(goLetters).map(([letter, key]) => [key, letter]));
-  return screenOrder.map((key) => {
-    const letter = letterOf.get(key);
-    return {
-      group: groups.goTo,
-      icon: screens[key].icon,
-      label: screens[key].name,
-      ...(letter === undefined ? {} : { hint: strings.palette.goHint(letter) }),
-      run: () => {
-        go(key, firstTab(key));
-      },
-    };
-  });
+  return screenOrder
+    .filter((key) => isScreenShown(key, source))
+    .map((key) => {
+      const letter = letterOf.get(key);
+      return {
+        group: groups.goTo,
+        icon: screens[key].icon,
+        label: screens[key].name,
+        ...(letter === undefined ? {} : { hint: strings.palette.goHint(letter) }),
+        run: () => {
+          go(key, firstTab(key));
+        },
+      };
+    });
 }
 
 /** One row for every setting that exists now: the section's icon, the row's name, the section's name beside it. */
-export function settingCommands(owner: boolean): readonly Command[] {
+export function settingCommands(
+  owner: boolean,
+  source: FrameSource = "example",
+): readonly Command[] {
   const tabs = strings.screens.settings.tabs;
-  return rowsFor(owner).map((row): Command => {
+  return rowsFor(owner, source).map((row): Command => {
     const section = settingsSections.find((s) => s.key === row.section);
     const r = strings.settings.rows[row.id];
     return {
@@ -178,13 +195,18 @@ export function buildCommands(
   recent: readonly RecordRef[],
   query: string,
 ): readonly Command[] {
-  const actions = actionCommands();
-  const goTo = goCommands();
+  const actions = actionCommands(data.source);
+  const goTo = goCommands(data.source);
   const needle = query.trim().toLowerCase();
   if (needle === "") {
     return [...recentCommands(data, recent), ...actions.slice(0, maxActionsShown), ...goTo];
   }
-  return [...actions, ...goTo, ...settingCommands(meIsOwner(data)), ...recordCommands(data)]
+  return [
+    ...actions,
+    ...goTo,
+    ...settingCommands(meIsOwner(data), data.source),
+    ...recordCommands(data),
+  ]
     .filter((c) => `${c.label} ${c.sub ?? ""} ${c.words ?? ""}`.toLowerCase().includes(needle))
     .slice(0, maxResults);
 }

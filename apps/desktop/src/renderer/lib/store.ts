@@ -13,6 +13,7 @@ import type {
   CreatorStage,
   Deal,
   EditConflict,
+  FrameSource,
   LogEntry,
   MateRun,
   NotifySettings,
@@ -24,9 +25,11 @@ import { useSyncExternalStore } from "react";
 
 import { strings } from "../strings";
 import { exampleData } from "./example-data";
-import { firstTab, routeFromHash, routeToHash, sameRoute, screens } from "./routes";
+import { routeFromHash, routeToHash, sameRoute, screens } from "./routes";
 import type { RecordRef, Route, ScreenKey } from "./routes";
 import type { RowId } from "./settings";
+import { defaultRoute, firstShownTab, isRouteShown, isScreenShown, isTabShown } from "./wired";
+import type { ImportState } from "./wired";
 
 /** A person on the team; `role` is the label shown (their agency roles, else the plain access). */
 export interface Member {
@@ -53,6 +56,8 @@ export interface Notification {
 
 /** The business data: changes to it can be undone. */
 export interface AppData {
+  /** Where the data comes from; live data shows only what is wired (see `lib/wired.ts`). */
+  readonly source: FrameSource;
   /** A member id. */
   readonly me: string;
   /** Null until set in Settings > Profile. */
@@ -176,6 +181,8 @@ export interface AppUi {
   readonly settingFlash: { readonly id: RowId; readonly at: number } | null;
   /** The setting to scroll to, highlight and focus once its section shows. */
   readonly settingTarget: RowId | null;
+  /** Whether the first-run import has happened; "unknown" until the Connections status loads. */
+  readonly importState: ImportState;
 }
 
 /** The whole state the app store holds. */
@@ -185,6 +192,7 @@ export type { Brand, Creator, CreatorStage, Deal, EditConflict, LogEntry, MateRu
 
 /** No data at all: what the store holds until `initAppStore` brings the frame. */
 const emptyData: AppData = {
+  source: "example",
   me: "",
   myName: null,
   seesMoney: false,
@@ -226,6 +234,7 @@ export function createAppStore(
       jobs: [],
       settingFlash: null,
       settingTarget: null,
+      importState: "unknown",
     },
   });
 }
@@ -367,9 +376,19 @@ export interface GoOptions {
 export function go(screen: ScreenKey, tab?: string | null, options: GoOptions = {}): void {
   const store = current;
   const ui = store.getState().ui;
-  const tabs = screens[screen].tabs;
+  const source = store.getState().data.source;
+  // A screen or tab that live data does not wire goes to the default route (ground rule 9).
+  if (!isScreenShown(screen, source) || (tab != null && !isTabShown(screen, tab, source))) {
+    const fallback = defaultRoute(source, ui.importState);
+    if (screen !== fallback.screen || tab !== fallback.tab) {
+      go(fallback.screen, fallback.tab, options.keepPeek === true ? { keepPeek: true } : {});
+    }
+    return;
+  }
+  const tabs = screens[screen].tabs.filter((t) => isTabShown(screen, t.key, source));
   const wanted = tab === undefined ? ui.lastTab[screen] : tab;
-  const chosen = wanted != null && tabs.some((t) => t.key === wanted) ? wanted : firstTab(screen);
+  const chosen =
+    wanted != null && tabs.some((t) => t.key === wanted) ? wanted : firstShownTab(screen, source);
   const route: Route = {
     screen,
     tab: chosen,
@@ -395,7 +414,16 @@ export function go(screen: ScreenKey, tab?: string | null, options: GoOptions = 
 function stepHistory(step: typeof stepBack): void {
   const store = current;
   const before = store.getState().ui.history;
-  const history = step(before);
+  const source = store.getState().data.source;
+  // Entries the live gate hides (from an earlier source or a link) are stepped over.
+  let history = step(before);
+  while (history !== before && !isRouteShown(currentRoute(history), source)) {
+    const next = step(history);
+    if (next === history) {
+      return;
+    }
+    history = next;
+  }
   if (history === before) {
     return;
   }
@@ -414,6 +442,13 @@ export function back(): void {
 /** One step forward in the app's own history (nothing at the end). Closes the peek. */
 export function forward(): void {
   stepHistory(stepForward);
+}
+
+/** Tells the live gate whether the first-run import has happened (the Connections status feeds it). */
+export function setImportState(state: ImportState): void {
+  current.ui((draft) => {
+    draft.importState = state;
+  });
 }
 
 /** Opens or closes the narrow-width drawer. */

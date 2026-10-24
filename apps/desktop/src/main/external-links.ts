@@ -39,3 +39,26 @@ export function isAllowedExternalLink(url: string): boolean {
     isGmailThreadLink(link)
   );
 }
+
+/**
+ * True only for Google's consent page, which connecting a Gmail mailbox opens (plan D10): exactly
+ * `https://accounts.google.com/o/oauth2/v2/auth?…`, no credentials, no port, no fragment. It is a
+ * separate check that only the mailbox consent's opener uses, so `isAllowedExternalLink` (what
+ * the page may open) stays as narrow as it was.
+ */
+export function isGoogleConsentUrl(url: string): boolean {
+  if (!URL.canParse(url)) {
+    return false;
+  }
+  const link = new URL(url);
+  return (
+    link.protocol === "https:" &&
+    link.username === "" &&
+    link.password === "" &&
+    link.port === "" &&
+    link.hostname === "accounts.google.com" &&
+    link.pathname === "/o/oauth2/v2/auth" &&
+    link.search.length > 1 &&
+    link.hash === ""
+  );
+}

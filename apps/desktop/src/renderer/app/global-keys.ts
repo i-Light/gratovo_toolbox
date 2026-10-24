@@ -5,6 +5,7 @@ import { redo, setPalette, setShortcuts, undo } from "../lib/actions";
 import { isTyping, keyStack, quietAnimations, useKeys } from "../lib/keys";
 import { getPrefs, setPref } from "../lib/prefs";
 import { firstTab, goLetters, type ScreenKey } from "../lib/routes";
+import { isScreenShown } from "../lib/wired";
 import { appStore, back, forward, go, selectRoute } from "../lib/store";
 
 const goPrefix = createGoPrefix();
@@ -77,7 +78,8 @@ export function useKeyListener(): void {
       if (!typing && !lettersOff && !keyStack.hasBarrier()) {
         const letter = goPrefix.take(event, Date.now());
         const screen = letter === undefined ? undefined : goScreen(letter);
-        if (screen !== undefined) {
+        // A screen live data does not wire has a dead letter.
+        if (screen !== undefined && isScreenShown(screen, appStore().getState().data.source)) {
           event.preventDefault();
           quietAnimations();
           go(screen, firstTab(screen));

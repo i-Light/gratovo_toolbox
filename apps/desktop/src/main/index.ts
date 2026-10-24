@@ -2,20 +2,31 @@ import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
-import { BrowserWindow, Menu, app, dialog, session } from "electron";
+import { BrowserWindow, Menu, app, dialog, session, shell } from "electron";
 
 import { createAccount } from "./account/account";
 import { builtPageUrl } from "./app-page";
 import { registerAppScheme, serveAppFiles } from "./app-protocol";
 import { createEventSender } from "./events";
+import { isGoogleConsentUrl } from "./external-links";
 import { createFindService } from "./find/find-service";
 import { createHandlers } from "./handlers";
+import {
+  createGeminiControl,
+  findExtensionDir,
+  geminiLaunchOptions,
+} from "./gemini/gemini-control";
+import { createImporter, storeOutcomeOf } from "./import/import-service";
 import { registerBridge } from "./ipc-bridge";
+import { createMailConsent, type MailClient } from "./mail/consent";
 import { createNetwork } from "./net/network";
 import { createGeminiService } from "./pipeline/gemini-service";
+import { runJob } from "./pipeline/jobs";
 import { openPipelineLog } from "./pipeline/logs";
+import { startSchema } from "./pipeline/protocol";
 import { findPython, pipelineEnv } from "./pipeline/python-path";
 import { createPipelineSupervisor } from "./pipeline/supervisor";
+import type { SecretStore } from "./secret-store";
 import { openSecretStore } from "./secrets";
 import {
   blockForeignRequests,
@@ -24,6 +35,13 @@ import {
   refuseDownloads,
 } from "./security";
 import { strings } from "./strings";
+import {
+  createConnectionsService,
+  maxMailboxes,
+  startSettings,
+} from "./settings/connections-service";
+import { createSourceWatch, withSourceChecks } from "./settings/source-switch";
+import { createWritingRulesService, playbookRulesDir } from "./settings/writing-rules";
 import { describeConfigProblem, readSupabaseConfig, type SupabaseConfig } from "./supabase/config";
 import { appPageUrl, createMainWindow, rendererRoot } from "./window";
 
@@ -59,6 +77,33 @@ function supabaseConfig(): SupabaseConfig | null {
   return result.config;
 }
 
+const mailClientShape = startSchema.shape.secrets.shape.mail.unwrap().shape.client;
+
+/** The stored Gmail app (`mail.client`: `{id, secret}`); null when missing or not that shape. */
+async function readMailClient(secrets: SecretStore): Promise<MailClient | null> {
+  try {
+    const raw = await secrets.get("mail.client");
+    if (raw === undefined) {
+      return null;
+    }
+    const parsed = mailClientShape.safeParse(JSON.parse(raw));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+
+/** A file or folder dialog on the main window; null when cancelled. */
+function pickPath(options: Electron.OpenDialogOptions): Promise<string | null> {
+  const window = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
+  const shown =
+    window === undefined ? dialog.showOpenDialog(options) : dialog.showOpenDialog(window, options);
+  return shown.then((result) => {
+    const [path] = result.filePaths;
+    return result.canceled || path === undefined ? null : path;
+  });
+}
+
 /** Reloads the page after the IPC answer in progress has gone out; it starts over from auth:status. */
 function reloadWindows(): void {
   setTimeout(() => {
@@ -88,6 +133,9 @@ function start(): void {
     }
   });
 
+  // Set once the Gemini control exists: every switch of data source stops the bridge (plan D12).
+  let onSourceChanged: () => void = () => undefined;
+
   app
     .whenReady()
     .then(async () => {
@@ -108,17 +156,30 @@ function start(): void {
           console.error(line);
         },
       });
-      const account = createAccount({
+      const opened = createAccount({
         config,
         userData: app.getPath("userData"),
         secrets,
         // Every request the main process sends goes through this, to the project's host only.
         network: createNetwork({ allowedOrigins: config === null ? [] : [config.origin] }),
         now: Date.now,
-        reloadWindow: reloadWindows,
+        reloadWindow: () => {
+          reloadWindows();
+          sourceWatch.check();
+        },
         // Main-to-page events go to the app's own page only, after a check of each payload.
         emit,
       });
+      // The account has no "source changed" callback: the watch checks after each call that can
+      // open or close a source (sign-in, recheck, sign-out) and before each reload. Every user of
+      // the account goes through `account`, so none of those calls skips the check.
+      const sourceWatch = createSourceWatch(
+        () => opened.source(),
+        () => {
+          onSourceChanged();
+        },
+      );
+      const account = withSourceChecks(opened, sourceWatch.check);
       const userData = app.getPath("userData");
       // Two lanes (plan D14, `laneFor`): the store lane runs the jobs that write `pipeline.db`,
       // the quick lane mail, video stats and gateways, so a Send never waits behind a search.
@@ -148,23 +209,154 @@ function start(): void {
         python: () =>
           findPython({ packaged: app.isPackaged, appPath: app.getAppPath(), exists: existsSync }),
         env: pipelineEnv(process.env),
-        openLog: () =>
+        // The per-start bridge token is blanked out of every line.
+        openLog: (logSecrets) =>
           openPipelineLog({
             folder: join(userData, "logs"),
             now: Date.now,
-            secrets: [],
+            secrets: logSecrets,
             kind: "gemini",
           }),
       });
+      const python = () =>
+        findPython({ packaged: app.isPackaged, appPath: app.getAppPath(), exists: existsSync });
+      /** The pipeline folder of the open data source; null when none is open. */
+      const pipelineFolder = (): string | null => {
+        const context = account.findContext();
+        return context === null
+          ? null
+          : join(userData, context.mode === "example" ? "example-pipeline" : "pipeline");
+      };
+      const geminiControl = createGeminiControl({
+        service: gemini,
+        startOptions: () => {
+          const source = account.source();
+          const dataDir = pipelineFolder();
+          if (source === null || dataDir === null) {
+            return null;
+          }
+          const course = source.readSetting("course");
+          return geminiLaunchOptions({
+            dataDir,
+            userData,
+            extensionDir: findExtensionDir({
+              packaged: app.isPackaged,
+              appPath: app.getAppPath(),
+              exists: existsSync,
+            }),
+            course: typeof course === "object" && course !== null ? course : null,
+          });
+        },
+        pythonPath: python,
+        emit: (status) => {
+          emit("gemini:state", status);
+        },
+      });
+      onSourceChanged = () => {
+        geminiControl.sourceChanged().catch((error: unknown) => {
+          console.error("The Gemini bridge couldn't be stopped after a data switch:", error);
+        });
+      };
       const find = createFindService({
         supervisor,
         account,
         secrets,
         userData,
+        // A search needs no mailbox: its start message carries no address.
+        settings: () => startSettings(account.source(), { mail: false }),
         emit: (state) => {
           emit("find:changed", state);
         },
         now: Date.now,
+      });
+      const liveJobContext = (): { dataDir: string; worker: string } | null => {
+        const context = account.findContext();
+        const dataDir = pipelineFolder();
+        return context?.mode === "live" && dataDir !== null
+          ? { dataDir, worker: context.workerId }
+          : null;
+      };
+      const importer = createImporter({
+        userDataDir: userData,
+        localAppData: process.env["LOCALAPPDATA"] ?? null,
+        isLive: () => account.findContext()?.mode === "live" && account.source() !== null,
+        pipelineDataDir: () => liveJobContext()?.dataDir ?? null,
+        worker: () => account.findContext()?.workerId ?? "",
+        pickFile: () =>
+          pickPath({
+            properties: ["openFile"],
+            filters: [
+              { name: "SQLite database", extensions: ["db", "sqlite"] },
+              { name: "All files", extensions: ["*"] },
+            ],
+          }),
+        seedChannelNames: (rows) => account.source()?.seedChannelNames(rows) ?? 0,
+        writeSetting: (key, value) => {
+          account.source()?.writeSetting(key, value);
+        },
+        runStoreJob: async (start, onProgress) =>
+          storeOutcomeOf(
+            await runJob(supervisor, start, {
+              onMessage: (message) => {
+                if (message.type === "progress") {
+                  onProgress(message);
+                }
+              },
+            }),
+          ),
+        emitProgress: (event) => {
+          emit("import:progress", event);
+        },
+        now: () => new Date(),
+      });
+      const connections = createConnectionsService({
+        secrets,
+        source: () => account.source(),
+        gemini: geminiControl,
+        pythonPath: () => python()?.python ?? null,
+        youtubeKeyAvailable: async () => {
+          if (account.status().state !== "signed-in") {
+            return false;
+          }
+          try {
+            return (await account.teamKeys.youtubeKey()) !== null;
+          } catch {
+            return false;
+          }
+        },
+        syncState: () => account.syncStatus().state,
+        jobContext: liveJobContext,
+        runQuickJob: (start) => runJob(quickLane, start),
+        pickFolder: () => pickPath({ properties: ["openDirectory"] }),
+        pathExists: (path) => Promise.resolve(existsSync(path)),
+        emit: (status) => {
+          emit("connections:changed", status);
+        },
+        now: Date.now,
+      });
+      const writingRules = createWritingRulesService({
+        rulesDir: playbookRulesDir({
+          packaged: app.isPackaged,
+          appPath: app.getAppPath(),
+          exists: existsSync,
+        }),
+      });
+      const mailConsent = createMailConsent({
+        readClient: () => readMailClient(secrets),
+        openExternal: (url) =>
+          isGoogleConsentUrl(url) ? shell.openExternal(url) : Promise.reject(new Error("Refused.")),
+        // Its own instance: only Google's token endpoint, never the Supabase host.
+        network: createNetwork({ allowedOrigins: ["https://oauth2.googleapis.com"] }),
+        // Counted as addMailbox counts; no status build and no network before the browser opens.
+        canAddMailbox: async () => (await connections.mailboxCount()) < maxMailboxes,
+        saveMailbox: async (address, token) => {
+          const saved = await connections.addMailbox(address, token);
+          return saved.ok ? saved : { ok: false, reason: saved.reason, known: saved.known };
+        },
+        // Step names and reasons only; the consent code never logs a secret.
+        log: (line) => {
+          console.info(line);
+        },
       });
       // A job in either lane or a Gemini bridge running at quit is asked to stop first (and
       // killed after 5 s); then the app quits again. The flag keeps that second quit from looping.
@@ -187,13 +379,27 @@ function start(): void {
         });
       });
       app.on("will-quit", () => {
+        geminiControl.dispose();
         account.close();
       });
       // The data opens before the page can ask for it, as the example source did. With a stored
       // session this reads the local copy and checks with the server in the background. A database
       // that won't open lands in the start-up error dialog below.
       await account.start();
-      registerBridge(createHandlers({ version: app.getVersion(), secrets, account, find }));
+      sourceWatch.prime();
+      registerBridge(
+        createHandlers({
+          version: app.getVersion(),
+          secrets,
+          account,
+          find,
+          importer,
+          connections,
+          gemini: geminiControl,
+          writingRules,
+          mailConsent,
+        }),
+      );
       // The app draws its whole frame. Electron's default menu (File, Edit, View…) would sit above
       // it on Windows and bring shortcuts the app doesn't want, such as reload and zoom. Copy,
       // paste and undo in text fields work without it on Windows.

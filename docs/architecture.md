@@ -15,7 +15,7 @@ The target design of the new app. Step 3 builds it. Anything marked *(to decide)
                  │   │                                                 search, enrich,   │
                  │   │                                                 comms engine,     │
                  │   │                                                 Gmail             │
-                 │   └── Gemini bridge daemon (Python, 127.0.0.1 + token) ◄── browser    │
+                 │   └── Gemini bridge daemon (Python, 127.0.0.1) ◄── browser    │
                  │                                                      extension ──────┼──► Gemini web
                  └───────────────────────────────────────────────────────────────────────┘
 ```
@@ -24,7 +24,7 @@ The target design of the new app. Step 3 builds it. Anything marked *(to decide)
 - **Preload:** bridges that API into the renderer with `contextBridge`. It adds nothing else.
 - **Renderer (React, TypeScript):** the UI only. Sandboxed, with no Node and no network except through IPC. It holds UI state and caches query results.
 - **Python pipeline:** the work that is better in Python, kept from the old app. It covers YouTube search and enrichment, R2 storage, Gmail, and the comms engine (playbook, drafting checks). Each run is a child process the main process supervises. The comms engine (`comms/`) checks each drafted message against the playbook; a person runs its quality tools by hand.
-- **Gemini bridge:** a Python daemon plus a browser extension that drives the signed-in Gemini web app. Main starts one bridge process at most, on 127.0.0.1. Prompts live in the pipeline, never in the UI. Decisions in [ADR 0014](decisions/0014-gemini-bridge-and-comms.md). The extension comes in step 4.
+- **Gemini bridge:** a Python daemon plus a browser extension that drives the signed-in Gemini web app. Main starts one bridge process at most, on 127.0.0.1. Prompts live in the pipeline, never in the UI. Decisions in [ADR 0014](decisions/0014-gemini-bridge-and-comms.md). The browser add-on lives in `services/gemini-extension` (step 4). Each bridge start makes a random token, which the Firefox build of the add-on carries and the bridge checks. Chrome and Edge load the folder unpacked and have no token: the origin check and browser admission guard them. Decisions in [ADR 0016](decisions/0016-live-data-and-connections.md).
 - **Supabase:** shared, typed-in data (creators' notes and stages, brands, deals, outreach, team), auth and realtime presence. Row-level security on every table.
 - **Cloudflare R2:** scraped channel data, one object per channel plus a catalog. It is reached only through short-lived access the server grants (owner's answer: §9 Q11).
 
@@ -102,7 +102,7 @@ gratovo_toolbox/
 └── .github/workflows/        CI and releases
 ```
 
-Step 3a created the workspace, the three packages, the desktop app (a blank, hardened window), the pipeline project, placeholders for `services/gemini-extension/` and `supabase/`, the hooks and CI. Step 3b added `src/preload/` (the IPC bridge) and `apps/desktop/scripts/` (the release fuses). `resources/` comes with the frame in 3c, and the migrations in 3d.
+Step 3a created the workspace, the three packages, the desktop app (a blank, hardened window), the pipeline project, placeholders for `services/gemini-extension/` (filled in step 4) and `supabase/`, the hooks and CI. Step 3b added `src/preload/` (the IPC bridge) and `apps/desktop/scripts/` (the release fuses). `resources/` comes with the frame in 3c, and the migrations in 3d.
 
 TypeScript projects use references: the root `tsconfig.json` lists every project, and `pnpm typecheck` runs TypeScript 7's `tsc -b`. The linter runs on TypeScript 6 from `tooling/eslint-config`, because typescript-eslint doesn't support 7 yet ([decisions/0007](decisions/0007-toolchain-pins.md)). Packages export their TypeScript source and have no build step; electron-vite and Vitest compile them. `packages/core` is type-checked without Node or DOM types, so code that does I/O there fails the typecheck.
 
@@ -113,7 +113,7 @@ The policy is [SECURITY.md](../SECURITY.md). In code:
 1. **Renderer isolation:** `contextIsolation`, `sandbox`, no Node integration, a strict CSP (meta tag and header), the page served from `app://gratovo/`, no remote content, blocked navigation (`will-navigate`, `will-frame-navigate`, `will-redirect`) and `window.open`, links opened in the browser only through an allowlist, and a deny-all permission handler.
 2. **IPC:** every channel is declared in `packages/ipc` with a zod schema for input and output. The page has one function, `window.gratovo.invoke`, over one Electron channel. The main process accepts calls only from the app page's top frame, validates the request and the handler's response, and rejects anything else. No channel accepts a file path or URL without checking it against an allowlist.
 3. **Secrets:** a main-process `secrets` module over `safeStorage`. The renderer can ask whether a secret is set; it can never read one. Python processes get the secrets they need through their stdin at launch, never through the command line or environment of a long-lived shell.
-4. **Local services:** the Gemini bridge daemon binds `127.0.0.1` and requires a random per-launch token from the extension.
+4. **Local services:** the Gemini bridge daemon binds `127.0.0.1` and refuses any web page. The Firefox build of the add-on must also show a random per-launch token; Chrome and Edge, which load the add-on unpacked, cannot carry one, so the origin check and browser admission guard them ([ADR 0016](decisions/0016-live-data-and-connections.md)).
 5. **Supabase:** row-level security on every table. Access (`profiles.role`: unauthorized, basic, full) is enforced in policies; `basic` and `full` are identical in the database today. Agency roles (Owner, Scout, Outreach, Deal lead, Delivery) and "sees money" live in `member_access`, which only an Owner can change, through a function. Money is hidden in the new app only (the main process sends no price to a member who may not see it); the database locks it when the old app retires (steps 10 and 11). The main process talks only to the project's Supabase host. The service-role key never ships, and the app refuses a secret key. See [decisions/0011-accounts-roles-team-keys.md](decisions/0011-accounts-roles-team-keys.md). The sync sends only the signed-in member's own outbox rows. Live updates use private channels that only authorized members can join (policies on `realtime.messages`), with public access off; they carry no row data, only "something changed" and presence.
 6. **Supply chain:** the lockfile is committed; Dependabot, OSV-Scanner, CodeQL and gitleaks run in CI; release builds are fused (`apps/desktop/scripts/release-fuses.ts`) but not code-signed, by the owner's choice (§9 Q12).
 

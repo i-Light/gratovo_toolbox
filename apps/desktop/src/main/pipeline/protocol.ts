@@ -42,6 +42,16 @@ const conversationKey = z.string().min(1).max(200);
 const channelId = z.string().regex(/^[A-Za-z0-9_-]{1,64}$/);
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const secretUrl = z.string().min(1).max(2000);
+/**
+ * A full path: a drive (`C:\`), a share (`\\server`) or a POSIX root (`/`, the tests' temporary
+ * folders on Linux). Never a NUL, which no file name can hold.
+ */
+const absolutePath = z
+  .string()
+  .min(1)
+  .max(1024)
+  // eslint-disable-next-line no-control-regex -- the NUL is the point: no path holds one
+  .regex(/^(?:[A-Za-z]:[\\/]|[\\/])[^\x00]*$/);
 
 /** True when no two values are the same once lowercased. */
 function unique(values: readonly string[]): boolean {
@@ -73,6 +83,13 @@ export const rulesSchema = z.strictObject({
   sortBy: z.enum(["relevance", "upload_date", "view_count", "rating"]),
   resultsType: z.enum(["video", "channel"]),
   autoClean: autoCleanSchema,
+  /**
+   * Plan D8: a kept channel whose median views fall below this, once its videos are read, is
+   * archived as an auto-clean sweep would. Null or absent: no bound.
+   */
+  minMedianViews: count.nullable().optional(),
+  /** The same for a channel with fewer uploads than this in the last 30 days. */
+  minUploads30: index.nullable().optional(),
 });
 
 const searchJob = z
@@ -175,6 +192,23 @@ const gatewaysDestroyJob = z.strictObject({
 
 const gatewaysTestJob = z.strictObject({ kind: z.literal("gateways.test") });
 
+/**
+ * Step 4 (plan D3 to D5): copy the old app's `gratovo.db` into this app's `pipeline.db`. The old
+ * file is opened read-only. A dry run writes nothing; a real import first backs up an existing
+ * `pipeline.db` into `backupDir`. It sends a `progress` line per table and an `ImportReport`.
+ */
+const importLegacyJob = z
+  .strictObject({
+    kind: z.literal("import.legacy"),
+    source: absolutePath,
+    dryRun: z.boolean(),
+    backupDir: absolutePath.nullable(),
+  })
+  .refine((job) => job.dryRun || job.backupDir !== null, {
+    message: "a real import needs backupDir",
+    path: ["backupDir"],
+  });
+
 export const jobSchema = z.discriminatedUnion("kind", [
   searchJob,
   mailStatusJob,
@@ -188,6 +222,7 @@ export const jobSchema = z.discriminatedUnion("kind", [
   gatewaysDeployJob,
   gatewaysDestroyJob,
   gatewaysTestJob,
+  importLegacyJob,
 ]);
 
 export const startSchema = z
@@ -248,6 +283,7 @@ export const startSchema = z
     }),
   })
   // Example data fakes the other jobs on main's side (steps 5 to 9): only a search runs on it.
+  // The import is refused there too: it writes the live pipeline.db (plan D3).
   .refine((start) => start.source === "live" || start.job.kind === "search", {
     message: "only a search runs on example data",
     path: ["source"],
@@ -273,6 +309,7 @@ export type Rules = z.infer<typeof rulesSchema>;
 export type Job = z.infer<typeof jobSchema>;
 export type JobKind = Job["kind"];
 export type SearchJob = Extract<Job, { kind: "search" }>;
+export type ImportLegacyJob = Extract<Job, { kind: "import.legacy" }>;
 export type Start = z.infer<typeof startSchema>;
 export type Stop = z.infer<typeof stopSchema>;
 
@@ -315,6 +352,17 @@ const channelSchema = z.strictObject({
     .regex(/^[A-Z]{2}$/)
     .nullable(),
   outcome: z.enum(["kept", "swept", "delayed"]),
+});
+
+/**
+ * How far `import.legacy` has got: one line after each table is copied (or counted, on a dry
+ * run). `table` names it; `done` of `total` tables are finished, this one included.
+ */
+const progressSchema = z.strictObject({
+  type: z.literal("progress"),
+  table: z.string().min(1).max(64),
+  done: index,
+  total: index,
 });
 
 const logSchema = z.strictObject({
@@ -499,6 +547,46 @@ const gatewaysTestResult = z.strictObject({
   }),
 });
 
+/** A table's name in the old file, as the import reports it. The pipeline cuts a longer one. */
+const tableName = z.string().min(1).max(64);
+
+/**
+ * What the import found (a dry run) or did (a real import), plan D4. The same field names as
+ * `ImportReport` in `packages/ipc`.
+ */
+export const importReportSchema = z.strictObject({
+  source: z.string().min(1).max(1024),
+  /** Each table copied: its rows in the old file, the rows to add (or added), the rows here already. */
+  tables: z
+    .array(z.strictObject({ name: tableName, inOld: count, toAdd: count, already: count }))
+    .max(40),
+  /** The tables left behind, and why: the sync brings them, old bookkeeping, or never ported. */
+  skipped: z
+    .array(
+      z.strictObject({
+        name: tableName,
+        rows: count,
+        why: z.enum(["synced", "bookkeeping", "not-ported"]),
+      }),
+    )
+    .max(60),
+  /** Old work never sent to Supabase (`_outbox` rows, `activity_log` rows with `synced = 0`). */
+  unsent: z.strictObject({ outbox: count, activity: count }),
+  /** The old settings files looked for beside the database. */
+  settingsFiles: z
+    .array(z.strictObject({ name: z.string().min(1).max(64), found: z.boolean() }))
+    .max(20),
+  dryRun: z.boolean(),
+  /** The copy of `pipeline.db` made before a real import; null on a dry run or a first import. */
+  backup: z.string().min(1).max(1024).nullable(),
+});
+
+const importLegacyResult = z.strictObject({
+  type: z.literal("result"),
+  kind: z.literal("import.legacy"),
+  data: importReportSchema,
+});
+
 const resultSchema = z.discriminatedUnion("kind", [
   mailStatusResult,
   mailSendResult,
@@ -511,6 +599,7 @@ const resultSchema = z.discriminatedUnion("kind", [
   gatewaysDeployResult,
   gatewaysDestroyResult,
   gatewaysTestResult,
+  importLegacyResult,
 ]);
 
 export const endErrorCodes = [
@@ -529,6 +618,15 @@ export const endErrorCodes = [
   "not_found",
   "no_aws_keys",
   "aws",
+  // import.legacy: the old file is missing or can't be read, isn't SQLite, has no `channels`
+  // table, or lies inside this app's data folder, or has an unfinished `-wal` beside
+  // it (the old app is open); or pipeline.db is newer than this pipeline.
+  "source_unreadable",
+  "not_sqlite",
+  "no_channels_table",
+  "source_in_data_dir",
+  "old_app_open",
+  "store_too_new",
 ] as const;
 
 /** For a job other than `search`, `at`, `found` and `kept` are 0: its answer is its `result`. */
@@ -546,6 +644,7 @@ export const fromPipelineSchema = z.discriminatedUnion("type", [
   runSchema,
   keywordSchema,
   channelSchema,
+  progressSchema,
   logSchema,
   replySchema,
   resultSchema,
@@ -555,6 +654,8 @@ export const fromPipelineSchema = z.discriminatedUnion("type", [
 export type PipelineMessage = z.infer<typeof fromPipelineSchema>;
 export type EndErrorCode = (typeof endErrorCodes)[number];
 export type ReplyMessage = z.infer<typeof replySchema>;
+export type ProgressMessage = z.infer<typeof progressSchema>;
+export type ImportReport = z.infer<typeof importReportSchema>;
 export type ResultMessage = z.infer<typeof resultSchema>;
 export type ResultKind = ResultMessage["kind"];
 /** The `data` a job of this kind answers with. */

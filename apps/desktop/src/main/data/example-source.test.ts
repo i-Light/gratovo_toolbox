@@ -12,7 +12,9 @@ import { contractNow, describeDataSourceContract } from "./data-source-contract"
 import { openExampleSource } from "./example-source";
 import { getMeta, setMeta } from "./repositories";
 
-describeDataSourceContract("example source", (file, now) => openExampleSource(file, now));
+describeDataSourceContract("example source", "example", (file, now) =>
+  openExampleSource(file, now),
+);
 
 describe("example source", () => {
   let folder: string;

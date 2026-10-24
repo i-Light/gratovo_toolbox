@@ -12,6 +12,7 @@ import { openDatabase } from "../db/open-database";
 import { createHandlers, type HandlerContext } from "../handlers";
 import { createNetwork } from "../net/network";
 import { createSecretStore, type Cipher } from "../secret-store";
+import { createStubServices } from "../stub-services";
 import type { SupabaseConfig } from "../supabase/config";
 import { sessionSecretName, type Timers } from "../supabase/session";
 import type { Live, LiveDeps, PresenceState } from "../sync/live";
@@ -996,7 +997,7 @@ describe("the sync", () => {
     expect(account.status().state).toBe("signed-out");
     expect(existsSync(livePath())).toBe(true);
     const dispatch = createDispatcher(
-      createHandlers({ version: "1.0.0", secrets, account, find: noFind }),
+      createHandlers({ version: "1.0.0", secrets, account, find: noFind, ...createStubServices() }),
       () => {
         throw new Error("no handler should fail");
       },
@@ -1201,7 +1202,13 @@ describe("Realtime and presence", () => {
     server.addUser("sam@example.com", "full", ["owner"], true);
     const { account, events, lives, secrets } = makeAccount(server);
     await account.start();
-    const handlers = createHandlers({ version: "1.0.0", secrets, account, find: noFind });
+    const handlers = createHandlers({
+      version: "1.0.0",
+      secrets,
+      account,
+      find: noFind,
+      ...createStubServices(),
+    });
 
     expect(await handlers["presence:set"]({ screen: "reach", idle: false })).toEqual({});
     expect(events).toEqual([]);
@@ -1301,7 +1308,7 @@ describe("nothing secret leaves", () => {
     const { account, logs, secrets, events } = makeAccount(server);
     await account.start();
     const dispatch = createDispatcher(
-      createHandlers({ version: "1.0.0", secrets, account, find: noFind }),
+      createHandlers({ version: "1.0.0", secrets, account, find: noFind, ...createStubServices() }),
       (channel, error) => {
         logs.push(`${channel}: ${String(error)}`);
       },

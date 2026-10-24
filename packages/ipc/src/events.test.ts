@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import { appEventNames } from "./bridge";
+import { channels } from "./channels";
 import { appEvents, frameParts } from "./events";
 import { presenceMembersSchema, presenceSetSchema } from "./presence";
 
@@ -58,6 +59,22 @@ describe("presence schemas", () => {
     expect(presenceSetSchema.safeParse({ screen: "reach", idle: false }).success).toBe(true);
     expect(presenceSetSchema.safeParse({ screen: "billing", idle: false }).success).toBe(false);
     expect(presenceSetSchema.safeParse({ screen: "reach" }).success).toBe(false);
+  });
+});
+
+describe("the step 4 events", () => {
+  it("import:progress counts tables, and refuses an empty table name or a negative count", () => {
+    const schema = appEvents["import:progress"];
+    expect(schema.safeParse({ table: "channels", done: 1, total: 7 }).success).toBe(true);
+    expect(schema.safeParse({ table: "", done: 1, total: 7 }).success).toBe(false);
+    expect(schema.safeParse({ table: "x".repeat(65), done: 1, total: 7 }).success).toBe(false);
+    expect(schema.safeParse({ table: "channels", done: -1, total: 7 }).success).toBe(false);
+    expect(schema.safeParse({ table: "channels", done: 1 }).success).toBe(false);
+  });
+
+  it("gemini:state and connections:changed carry what their channels answer", () => {
+    expect(appEvents["gemini:state"]).toBe(channels["gemini:start"].response);
+    expect(appEvents["connections:changed"]).toBe(channels["connections:status"].response);
   });
 });
 

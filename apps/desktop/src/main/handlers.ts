@@ -4,9 +4,14 @@ import type { Handlers } from "@gratovo/ipc";
 import type { Account } from "./account/account";
 import type { FindService } from "./find/find-service";
 import type { SecretStore } from "./secret-store";
+import type { HandlerServices } from "./services";
 
-/** What the handlers need from the rest of the main process. */
-export interface HandlerContext {
+/**
+ * What the handlers need from the rest of the main process. The step 4 services (`importer`,
+ * `connections`, `gemini`, `writingRules`, `mailConsent`) are typed in `services.ts`; their
+ * handlers only delegate.
+ */
+export interface HandlerContext extends HandlerServices {
   version: string;
   secrets: SecretStore;
   find: FindService;
@@ -24,7 +29,10 @@ export interface HandlerContext {
 }
 
 /** The main process's answer to each channel in `channels`. */
-export function createHandlers({ version, secrets, account, find }: HandlerContext): Handlers {
+export function createHandlers(context: HandlerContext): Handlers {
+  const { version, secrets, account, find } = context;
+  const { importer, connections, gemini, writingRules, mailConsent } = context;
+
   /** The account's open source. The page never asks for data while none is open. */
   function openSource(): DataSource {
     const source = account.source();
@@ -70,5 +78,25 @@ export function createHandlers({ version, secrets, account, find }: HandlerConte
       find.stop();
       return {};
     },
+    "rules:set": ({ rules }) => {
+      find.setRules(rules);
+      return {};
+    },
+    "import:candidates": () => importer.candidates(),
+    "import:pick": () => importer.pick(),
+    "import:dry-run": ({ path }) => importer.dryRun(path),
+    "import:run": ({ path, useOldRules }) => importer.run(path, useOldRules),
+    "writing:rules": () => writingRules.list(),
+    "connections:status": () => connections.status(),
+    // The change may carry a secret: it goes to the service and is neither kept nor logged here.
+    "connections:set": (change) => connections.set(change),
+    "connections:pick-folder": ({ purpose }) => connections.pickFolder(purpose),
+    "mail:connect": () => mailConsent.connect(),
+    "mail:check": () => connections.checkMailboxes(),
+    "gateways:deploy": ({ regions }) => connections.deployGateways(regions),
+    "gateways:remove": ({ region }) => connections.removeGateways(region),
+    "gemini:start": () => gemini.start(),
+    "gemini:stop": () => gemini.stop(),
+    "gemini:open-window": ({ browser }) => gemini.openWindow(browser),
   };
 }

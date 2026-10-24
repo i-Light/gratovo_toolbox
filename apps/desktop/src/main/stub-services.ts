@@ -1,0 +1,71 @@
+import type { ConnectionsStatus, GeminiStatus } from "@gratovo/ipc";
+
+import type { HandlerServices } from "./services";
+
+/**
+ * Stand-ins for the step 4 services until each is built (plan step 4, task W1 replaces them).
+ * They touch nothing: no file, no secret, no dialog, no network, no child process. Each answers
+ * the safe "not built yet" value its channel allows, so the page can be built against the real
+ * contract in the meantime.
+ */
+
+const notBuilt = { ok: false, reason: "not_built" } as const;
+
+function stoppedGemini(): GeminiStatus {
+  return {
+    state: "stopped",
+    addon: { state: "missing", version: null },
+    browser: null,
+    problem: "not_built",
+  };
+}
+
+/** What Connections shows before anything is set: nothing found, nothing connected. */
+export function emptyConnectionsStatus(): ConnectionsStatus {
+  return {
+    python: { state: "missing" },
+    youtube: { state: "unavailable" },
+    gemini: stoppedGemini(),
+    mailApp: { set: false },
+    mailboxes: [],
+    mail: { label: "Gratovo Outreach", senderName: null },
+    proxies: { count: 0, enabled: false, includeDirect: true },
+    pacing: "normal",
+    parallel: { enabled: false, maxWorkers: 4 },
+    aws: { keys: false, enabled: false, regions: [] },
+    course: { courseDir: null, videoDir: null, courseFound: false },
+    sync: { state: "off" },
+    import: { state: "never", at: null, backup: null },
+  };
+}
+
+export function createStubServices(): HandlerServices {
+  return {
+    importer: {
+      candidates: () => Promise.resolve({ candidates: [] }),
+      pick: () => Promise.resolve({ path: null }),
+      dryRun: () => Promise.resolve(notBuilt),
+      run: () => Promise.resolve(notBuilt),
+    },
+    connections: {
+      status: () => Promise.resolve(emptyConnectionsStatus()),
+      set: () => Promise.resolve(notBuilt),
+      pickFolder: () => Promise.resolve({ path: null }),
+      checkMailboxes: () => Promise.resolve(notBuilt),
+      deployGateways: () => Promise.resolve(notBuilt),
+      removeGateways: () => Promise.resolve(notBuilt),
+    },
+    gemini: {
+      status: stoppedGemini,
+      start: () => Promise.resolve(stoppedGemini()),
+      stop: () => Promise.resolve(stoppedGemini()),
+      openWindow: () => Promise.resolve(stoppedGemini()),
+    },
+    writingRules: {
+      list: () => Promise.resolve({ found: false, rules: [] }),
+    },
+    mailConsent: {
+      connect: () => Promise.resolve(notBuilt),
+    },
+  };
+}

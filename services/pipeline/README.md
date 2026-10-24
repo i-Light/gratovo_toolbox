@@ -25,6 +25,7 @@ All code is in `src/gratovo_pipeline/`.
 | `jobs/video_stats.py` | The video stats job: one video's view count. |
 | `jobs/refetch.py` | The refetch job: a list of handles, read again and swept (the old manual refetch). |
 | `jobs/backfill.py` | The backfill job: channels, videos, the backfill and `backlog` (the catch-up). |
+| `jobs/import_legacy.py` | The `import.legacy` job (store lane): copies the old app's `gratovo.db` into `pipeline.db`, read-only on the old file, with a dry run and a backup (ADR 0016). |
 | `jobs/gateways.py` | The gateways jobs: `gateways.deploy`, `gateways.destroy` and `gateways.test` on API Gateway v2. |
 | `mail/` | Gmail over `urllib` (`gmail.py`) and `mailbox.db` (`mailbox.py`), the same tables as the old file. |
 | `aws_sign.py` | AWS Signature Version 4 for the gateway calls. No boto3. |
@@ -91,3 +92,4 @@ Decisions: [ADR 0014](../../docs/decisions/0014-gemini-bridge-and-comms.md).
 - `src/` layout; pyright in strict mode; pytest with no network.
 - Never read `.env` files. Configuration and secrets arrive from the app at launch, on stdin, never in argv, the environment or a file.
 - Every request goes through `net.check_url`.
+- Search rules (ADR 0016): `rules.minMedianViews` and `rules.minUploads30` archive a kept channel below either bound, with the auto-clean label, after its videos are read. On a bound is kept; no videos counts as 0 only after a successful fetch.

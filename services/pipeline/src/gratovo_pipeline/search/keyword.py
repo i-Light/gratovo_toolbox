@@ -9,8 +9,9 @@ finds those channels as known.
 
 from __future__ import annotations
 
+import contextlib
 import dataclasses
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 
 from gratovo_pipeline import store
 from gratovo_pipeline.protocol import Outcome
@@ -85,7 +86,7 @@ def process_keyword(search: Search, keyword: str) -> KeywordResult:
     for handle in gate.delayed:
         needing.pop(handle, None)
     reading = {h: cid for h, cid in needing.items() if _in_countries(search, info.get(h), cid)}
-    kept = _read_uploads(search, keyword, reading)
+    kept, signal_swept = _read_uploads(search, keyword, reading)
 
     store.mark_keyword_done(conn, keyword, channels_found=found)
     outside = len(needing) - len(reading)
@@ -94,7 +95,10 @@ def process_keyword(search: Search, keyword: str) -> KeywordResult:
         + (f", {outside} outside the countries." if outside else ".")
     )
     return KeywordResult(
-        found=found, kept=len(kept), swept=len(gate.swept), delayed=len(gate.delayed)
+        found=found,
+        kept=len(kept),
+        swept=len(gate.swept) + len(signal_swept),
+        delayed=len(gate.delayed),
     )
 
 
@@ -132,30 +136,71 @@ def _in_countries(search: Search, details: ChannelInfo | None, channel_id: str) 
     return (country or "").upper() in countries
 
 
-def _read_uploads(search: Search, keyword: str, reading: Mapping[str, str]) -> list[str]:
+def _read_uploads(
+    search: Search, keyword: str, reading: Mapping[str, str]
+) -> tuple[list[str], list[auto_clean.SignalSwept]]:
     """Reads each channel's recent uploads on one session, with breaks in a long sweep. Returns
-    the channels read in full, announced as kept."""
+    the channels read in full and kept (announced as kept), and those archived for falling below
+    the median-views or uploads bound (announced as swept, and not counted as kept)."""
     if not reading:
-        return []
+        return [], []
     search.info(f"Reading recent uploads from {len(reading)} channel(s).")
     every = search.pacer.every()
     collector = UploadCollector(search)
     sweep = search.source.sweep()
     try:
-        for position, (handle, channel_id) in enumerate(reading.items(), 1):
-            if every and position > 1 and (position - 1) % every == 0:
-                search.pacer.sweep_break(position - 1)
-            video_ids = sweep.recent_video_ids(handle)
-            search.pacer.pause("recent_videos_delay")
-            collector.add(channel_id, video_ids)
-    finally:
         try:
-            collector.finish()
+            for position, (handle, channel_id) in enumerate(reading.items(), 1):
+                if every and position > 1 and (position - 1) % every == 0:
+                    search.pacer.sweep_break(position - 1)
+                video_ids = sweep.recent_video_ids(handle)
+                search.pacer.pause("recent_videos_delay")
+                collector.add(channel_id, video_ids)
         finally:
-            sweep.close()
-            for channel_id in collector.stamped:
-                _announce(search, keyword, channel_id, "kept")
-    return collector.stamped
+            try:
+                collector.finish()
+            finally:
+                sweep.close()
+    except BaseException:
+        # Any end mid-sweep (a stop, a block, a quota or key error that ends the run, a database
+        # error) still judges what was stamped: a resume finds those channels as known, so this
+        # is their only chance at the bounds. Judging can never replace the original error: a
+        # failure while judging (`Exception` only, so a second stop still goes up) is dropped and
+        # the run hears what ended the sweep, as the same object.
+        with contextlib.suppress(Exception):
+            _judge(search, keyword, collector.stamped)
+        raise
+    return _judge(search, keyword, collector.stamped)
+
+
+def _judge(
+    search: Search, keyword: str, stamped: Sequence[str]
+) -> tuple[list[str], list[auto_clean.SignalSwept]]:
+    """Applies the median-views and uploads bounds to the stamped channels (whether or not the
+    subscriber band is on), announces each as swept or kept, and returns (kept, swept)."""
+    swept = auto_clean.sweep_by_signals(
+        search.conn,
+        search.cfg.signal_bounds,
+        list(stamped),
+        keyword=keyword,
+        handles_limit=search.cfg.handles_limit,
+    )
+    gone = {s.channel_id for s in swept}
+    for s in swept:
+        search.events.channel(
+            keyword=keyword,
+            channel_id=s.channel_id,
+            handle=s.handle,
+            name=s.name,
+            subscribers=s.subscribers,
+            median_views=s.median_views,
+            country=s.country,
+            outcome="swept",
+        )
+    kept = [cid for cid in stamped if cid not in gone]
+    for channel_id in kept:
+        _announce(search, keyword, channel_id, "kept")
+    return kept, swept
 
 
 def _announce(search: Search, keyword: str, channel_id: str, outcome: Outcome) -> None:

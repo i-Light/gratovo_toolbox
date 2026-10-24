@@ -9,6 +9,7 @@ import { setPref, usePref } from "../lib/prefs";
 import { screens, type ScreenKey } from "../lib/routes";
 import { openMenu, openSetting, setShortcuts } from "../lib/actions";
 import { go, selectRoute, useApp } from "../lib/store";
+import { isScreenShown, isSettingsSectionShown } from "../lib/wired";
 import { strings } from "../strings";
 
 interface NavItemProps {
@@ -84,6 +85,7 @@ export const Rail = memo(function Rail() {
   });
   const settingsOpen = useApp((s) => selectRoute(s).screen === "settings");
   const accountMenuOpen = useApp((s) => s.ui.menu?.label === strings.menu.account);
+  const source = useApp((s) => s.data.source);
   const counts = useApp((s) => s.data.counts);
   const myName = useApp((s) => s.data.myName);
   const me = useApp((s) => s.data.team.find((m) => m.id === s.data.me));
@@ -98,16 +100,18 @@ export const Rail = memo(function Rail() {
   const memberName = me?.name ?? "";
   const shownName = myName ?? rail.addName;
   const role = me?.role ?? "";
-  const nav = (key: ScreenKey, count?: number, hot?: boolean, sub?: string | null) => (
-    <NavItem
-      screen={key}
-      current={screen === key}
-      collapsed={collapsed}
-      sub={sub === undefined ? screens[key].sub : sub}
-      count={count}
-      hot={hot}
-    />
-  );
+  const shown = (key: ScreenKey): boolean => isScreenShown(key, source);
+  const nav = (key: ScreenKey, count?: number, hot?: boolean, sub?: string | null) =>
+    !shown(key) ? null : (
+      <NavItem
+        screen={key}
+        current={screen === key}
+        collapsed={collapsed}
+        sub={sub === undefined ? screens[key].sub : sub}
+        count={count}
+        hot={hot}
+      />
+    );
 
   return (
     // At narrow widths the closed drawer is only moved off screen, so it is made inert: Tab
@@ -126,12 +130,16 @@ export const Rail = memo(function Rail() {
         true,
         counts.today > 0 ? rail.planned(duration(counts.plannedMinutes)) : rail.allClear,
       )}
-      <div className="nav-h">{rail.pipeline}</div>
+      {(["find", "reach", "close", "deliver"] as const).some(shown) ? (
+        <div className="nav-h">{rail.pipeline}</div>
+      ) : null}
       {nav("find", counts.find)}
       {nav("reach", counts.reach)}
       {nav("close", counts.close)}
       {nav("deliver", counts.deliver)}
-      <div className="nav-h">{rail.workbench}</div>
+      {(["insights", "toolbox", "team"] as const).some(shown) ? (
+        <div className="nav-h">{rail.workbench}</div>
+      ) : null}
       {nav("insights")}
       {nav("toolbox")}
       {nav("team")}
@@ -165,14 +173,18 @@ export const Rail = memo(function Rail() {
                     go("settings", "profile");
                   },
                 },
-                {
-                  kind: "item",
-                  label: strings.menu.appearance,
-                  icon: "moon",
-                  run: () => {
-                    go("settings", "appearance");
-                  },
-                },
+                ...(isSettingsSectionShown("appearance", source)
+                  ? [
+                      {
+                        kind: "item" as const,
+                        label: strings.menu.appearance,
+                        icon: "moon" as const,
+                        run: () => {
+                          go("settings", "appearance");
+                        },
+                      },
+                    ]
+                  : []),
                 {
                   kind: "item",
                   label: strings.menu.shortcuts,
@@ -191,7 +203,7 @@ export const Rail = memo(function Rail() {
                     go("settings", "notifications");
                   },
                 },
-                ...(owner
+                ...(owner && isSettingsSectionShown("connections", source)
                   ? [
                       {
                         kind: "item" as const,

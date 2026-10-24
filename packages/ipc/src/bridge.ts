@@ -16,6 +16,9 @@ export const appEventNames = [
   "sync:status",
   "presence:changed",
   "find:changed",
+  "import:progress",
+  "gemini:state",
+  "connections:changed",
 ] as const;
 
 /** The name the preload script gives the bridge on the page's `window`. */

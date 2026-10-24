@@ -6,7 +6,8 @@ written here against it. The names below are the wire's, camelCase included.
 
 Main writes one `start` line, then perhaps a `stop`. The pipeline answers with `ready`, then the
 job's messages, and always ends with one `end`. A job other than `search` gives its answer in one
-`result` line before that `end`; `mail.replies` also sends a `reply` line for each reply it finds.
+`result` line before that `end`; `mail.replies` also sends a `reply` line for each reply it finds,
+and `import.legacy` a `progress` line for each table.
 """
 
 from __future__ import annotations
@@ -36,6 +37,26 @@ REFETCH_KEYWORD: Final = "__manual_refetch__"
 BACKFILL_MONTHS: Final = 2
 BACKFILL_MAX_API_CALLS: Final = 100  # 0 means no ceiling
 
+# The import's report is bounded (plan D4): the Emitter keeps the first of each list and cuts a
+# longer name, so an odd old file never makes a line main refuses.
+IMPORT_MAX_TABLES: Final = 40
+IMPORT_MAX_SKIPPED: Final = 60
+IMPORT_MAX_SETTINGS_FILES: Final = 20
+IMPORT_MAX_NAME: Final = 64
+
+# The labels a channel below `rules.minMedianViews` or `rules.minUploads30` is archived with
+# (plan D8). The old app had no label of its own for these bounds: in
+# legacy/lib/features/search/application/auto_clean_controller.dart, `AutoCleanRule._requests`
+# archives every bound of the rule (the subscriber band, the median-views band and the
+# videos-in-30-days floor) with the rule's one `label`, which `rejectingLabel` clamps to the three
+# rejecting tags below and which falls back to "irrelevant". So these bounds use
+# `rules.autoClean.label` too. (The old sweep read a missing median or upload count as 0, and kept
+# a channel sitting exactly on a bound; it ran only while the rule was enabled. The new gate,
+# `signals_verdict` in search/auto_clean.py, reads a missing value as 0, keeps a channel exactly on
+# a bound, and runs whether or not the subscriber band is on.)
+AUTO_CLEAN_LABELS: Final = ("haramStuff", "irrelevant", "inactive")
+AUTO_CLEAN_DEFAULT_LABEL: Final = "irrelevant"
+
 AutoCleanAction = Literal["sweep", "delay", "off"]
 LogLevel = Literal["info", "warn", "error"]
 KeywordState = Literal["started", "done", "failed"]
@@ -57,6 +78,15 @@ EndErrorCode = Literal[
     "not_found",
     "no_aws_keys",
     "aws",
+    # import.legacy: the old file is missing or can't be read, isn't SQLite, has no `channels`
+    # table, or lies inside this app's data folder, or has an unfinished `-wal` beside
+    # it (the old app is open); or pipeline.db is newer than this pipeline.
+    "source_unreadable",
+    "not_sqlite",
+    "no_channels_table",
+    "source_in_data_dir",
+    "old_app_open",
+    "store_too_new",
 ]
 ResultKind = Literal[
     "mail.status",
@@ -70,9 +100,11 @@ ResultKind = Literal[
     "gateways.deploy",
     "gateways.destroy",
     "gateways.test",
+    "import.legacy",
 ]
 JobKind = Literal["search"] | ResultKind
 BackfillPart = Literal["channels", "videos", "backfill", "backlog"]
+SkipReason = Literal["synced", "bookkeeping", "not-ported"]
 # Every kind but search, which answers with its `keyword` and `channel` lines instead.
 RESULT_KINDS: Final[tuple[ResultKind, ...]] = (
     "mail.status",
@@ -86,6 +118,7 @@ RESULT_KINDS: Final[tuple[ResultKind, ...]] = (
     "gateways.deploy",
     "gateways.destroy",
     "gateways.test",
+    "import.legacy",
 )
 
 
@@ -104,6 +137,11 @@ class Rules(TypedDict):
     sortBy: Literal["relevance", "upload_date", "view_count", "rating"]
     resultsType: Literal["video", "channel"]
     autoClean: AutoClean
+    # Plan D8: a kept channel below either bound, once its videos are read, is archived as an
+    # auto-clean sweep would (with AUTO_CLEAN_LABELS' label). Absent means None: no bound. Read
+    # them with `.get(...)`, so a start line from before step 4 still runs.
+    minMedianViews: NotRequired[int | None]
+    minUploads30: NotRequired[int | None]
 
 
 # --- the jobs ---
@@ -196,6 +234,15 @@ class GatewaysTestJob(TypedDict):
     kind: Literal["gateways.test"]
 
 
+class ImportLegacyJob(TypedDict):
+    """Copy the old app's gratovo.db (opened read-only) into pipeline.db (plan D3 to D5)."""
+
+    kind: Literal["import.legacy"]
+    source: str  # a full path
+    dryRun: bool  # write nothing: count what a real import would do
+    backupDir: str | None  # a full path; needed unless dryRun
+
+
 type Job = (
     SearchJob
     | MailStatusJob
@@ -209,6 +256,7 @@ type Job = (
     | GatewaysDeployJob
     | GatewaysDestroyJob
     | GatewaysTestJob
+    | ImportLegacyJob
 )
 
 
@@ -436,6 +484,41 @@ class GatewaysTestData(TypedDict):
     results: list[GatewayTest]
 
 
+class ImportTable(TypedDict):
+    name: str
+    inOld: int  # rows in the old file
+    toAdd: int  # rows a real import adds (or added)
+    already: int  # rows this app holds already: they win
+
+
+class ImportSkipped(TypedDict):
+    name: str
+    rows: int
+    why: SkipReason  # the sync brings it, old bookkeeping, or never ported
+
+
+class ImportUnsent(TypedDict):
+    outbox: int  # `_outbox` rows
+    activity: int  # `activity_log` rows with synced = 0
+
+
+class ImportSettingsFile(TypedDict):
+    name: str
+    found: bool
+
+
+class ImportReport(TypedDict):
+    """The import's result, plan D4. The same field names as `ImportReport` in packages/ipc."""
+
+    source: str
+    tables: list[ImportTable]  # at most IMPORT_MAX_TABLES
+    skipped: list[ImportSkipped]  # at most IMPORT_MAX_SKIPPED
+    unsent: ImportUnsent
+    settingsFiles: list[ImportSettingsFile]  # at most IMPORT_MAX_SETTINGS_FILES
+    dryRun: bool
+    backup: str | None  # the copy of pipeline.db made first; None on a dry run or a first import
+
+
 class BadStartError(ValueError):
     """The start line was unusable. The message names the field, never its value."""
 
@@ -453,6 +536,9 @@ _CHANNEL_ID = re.compile(r"[A-Za-z0-9_-]{1,64}")
 _DAY = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
 _SEND_KEY = re.compile(r"[A-Za-z0-9_:.-]+")
 _AWS_KEY_ID = re.compile(r"[A-Z0-9]{16,128}")
+# A full path: a drive (`C:\`), a share (`\\server`) or a POSIX root (the tests' tmp_path on
+# Linux). Never a NUL.
+_ABSOLUTE_PATH = re.compile(r"(?:[A-Za-z]:[\\/]|[\\/])[^\x00]*")
 _INDEX_MAX = 10_000
 _COUNT_MAX = 100_000_000
 _JOB_KINDS: Final[tuple[JobKind, ...]] = ("search", *RESULT_KINDS)
@@ -571,13 +657,18 @@ def _auto_clean(value: object, where: str) -> AutoClean:
 
 
 def _rules(value: object) -> Rules:
-    raw = _object(value, "rules", {"countries", "perKeyword", "sortBy", "resultsType", "autoClean"})
+    raw = _object(
+        value,
+        "rules",
+        {"countries", "perKeyword", "sortBy", "resultsType", "autoClean"},
+        frozenset({"minMedianViews", "minUploads30"}),
+    )
     countries: list[str] = []
     for item in _list(raw["countries"], "rules.countries", 250):
         if not isinstance(item, str) or not _COUNTRY.fullmatch(item):
             raise BadStartError("rules.countries must be two-letter country codes")
         countries.append(item)
-    return {
+    rules: Rules = {
         "countries": countries,
         "perKeyword": _integer(raw["perKeyword"], "rules.perKeyword", 1, 1000),
         "sortBy": _choice(
@@ -586,6 +677,18 @@ def _rules(value: object) -> Rules:
         "resultsType": _choice(raw["resultsType"], "rules.resultsType", ("video", "channel")),
         "autoClean": _auto_clean(raw["autoClean"], "rules.autoClean"),
     }
+    # Optional, as on the wire: a start line from before step 4 has neither (None: no bound).
+    if "minMedianViews" in raw:
+        median = raw["minMedianViews"]
+        rules["minMedianViews"] = (
+            None if median is None else _integer(median, "rules.minMedianViews", 0, _COUNT_MAX)
+        )
+    if "minUploads30" in raw:
+        uploads = raw["minUploads30"]
+        rules["minUploads30"] = (
+            None if uploads is None else _integer(uploads, "rules.minUploads30", 0, _INDEX_MAX)
+        )
+    return rules
 
 
 def _search_job(value: object) -> SearchJob:
@@ -679,6 +782,24 @@ def _backfill_job(raw: dict[str, object]) -> BackfillJob:
     return job
 
 
+def _path(value: object, where: str) -> str:
+    return _matching(_string(value, where, 1, 1024), where, _ABSOLUTE_PATH, "a full path")
+
+
+def _import_legacy_job(raw: dict[str, object]) -> ImportLegacyJob:
+    backup = raw["backupDir"]
+    job: ImportLegacyJob = {
+        "kind": "import.legacy",
+        "source": _path(raw["source"], "job.source"),
+        "dryRun": _boolean(raw["dryRun"], "job.dryRun"),
+        "backupDir": None if backup is None else _path(backup, "job.backupDir"),
+    }
+    # A real import backs up pipeline.db first (plan D5), so it needs somewhere to put the copy.
+    if not job["dryRun"] and job["backupDir"] is None:
+        raise BadStartError("job.backupDir is needed for a real import")
+    return job
+
+
 def _gateway_ref(value: object) -> GatewayRef:
     raw = _object(value, "job.gateways", {"region", "apiId"})
     return {
@@ -749,6 +870,8 @@ def _job(job: object) -> Job:
         raw = _object(value, "job", {"kind", "gateways"})
         gateways = _list(raw["gateways"], "job.gateways", 50, low=1)
         return {"kind": "gateways.destroy", "gateways": [_gateway_ref(g) for g in gateways]}
+    if kind == "import.legacy":
+        return _import_legacy_job(_object(value, "job", {"kind", "source", "dryRun", "backupDir"}))
     _object(value, "job", {"kind"})
     return {"kind": "gateways.test"}
 
@@ -873,6 +996,9 @@ def parse_start(line: str) -> Start:
     worker = _string(raw["worker"], "worker", 1, 64)
     job = _job(raw["job"])
     # Example data fakes the other jobs on main's side (steps 5 to 9): only a search runs on it.
+    if source == "example" and job["kind"] == "import.legacy":
+        # It writes the live pipeline.db (plan D3): example data never takes an import.
+        raise BadStartError("only a search runs on example data: the import is for live data")
     if source == "example" and job["kind"] != "search":
         raise BadStartError("only a search runs on example data")
     settings = _settings(raw["settings"])
@@ -950,6 +1076,21 @@ def _fit_messages(value: object) -> object:
     return value
 
 
+def _fit_import_report(report: dict[str, object]) -> None:
+    """Keeps the report inside the schema's bounds, in place: the first entries of each list,
+    and each name cut to IMPORT_MAX_NAME characters."""
+    for key, limit in (
+        ("tables", IMPORT_MAX_TABLES),
+        ("skipped", IMPORT_MAX_SKIPPED),
+        ("settingsFiles", IMPORT_MAX_SETTINGS_FILES),
+    ):
+        entries = cast("list[dict[str, object]]", report[key])[:limit]
+        report[key] = [
+            {**entry, "name": _cut(cast("str", entry["name"]), IMPORT_MAX_NAME) or "?"}
+            for entry in entries
+        ]
+
+
 class Emitter:
     """Writes messages to stdout, one line each. Safe to share between threads."""
 
@@ -1025,6 +1166,18 @@ class Emitter:
             }
         )
 
+    def progress(self, *, table: str, done: int, total: int) -> None:
+        """How far the import has got: after each table is copied (or counted, on a dry run),
+        `done` of `total` tables are finished, `table` included."""
+        self._send(
+            {
+                "type": "progress",
+                "table": _cut(table, IMPORT_MAX_NAME) or "?",
+                "done": done,
+                "total": total,
+            }
+        )
+
     def log(self, level: LogLevel, text: str) -> None:
         self._send({"type": "log", "level": level, "text": _cut(text)})
 
@@ -1095,6 +1248,8 @@ class Emitter:
     def result(self, kind: Literal["gateways.destroy"], data: GatewaysDestroyData) -> None: ...
     @overload
     def result(self, kind: Literal["gateways.test"], data: GatewaysTestData) -> None: ...
+    @overload
+    def result(self, kind: Literal["import.legacy"], data: ImportReport) -> None: ...
     def result(self, kind: ResultKind, data: Mapping[str, object]) -> None:
         """The job's answer: at most once, before `end`; on `done` (and on `stopped` for refetch
         and backfill), never on `failed`. Messages are cut to fit, as in `end`."""
@@ -1106,6 +1261,8 @@ class Emitter:
             # Half an id is no id: one too long to send is left out.
             if isinstance(rfc_id, str) and len(rfc_id) > 998:
                 fitted["rfcMessageId"] = None
+        if kind == "import.legacy":
+            _fit_import_report(fitted)
         self._send({"type": "result", "kind": kind, "data": fitted})
 
     def end(

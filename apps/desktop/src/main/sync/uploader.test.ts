@@ -231,7 +231,8 @@ describe("createUploader", () => {
     expect(pendingCount(db)).toBe(0);
   });
 
-  it("sends 450 log rows as 200, 200 and 50", async () => {
+  // 450 rows on disk: a busy Windows runner once took longer than the default 5 s.
+  it("sends 450 log rows as 200, 200 and 50", { timeout: 20_000 }, async () => {
     for (let i = 0; i < 450; i += 1) {
       addLog(`l${String(i)}`);
     }

@@ -12,3 +12,5 @@ docs/
 # Generated, or formatted by their own tools.
 pnpm-lock.yaml
 services/pipeline/
+# The ported Gemini add-on, kept in its legacy style; moved to TypeScript later (migration plan §7).
+services/gemini-extension/

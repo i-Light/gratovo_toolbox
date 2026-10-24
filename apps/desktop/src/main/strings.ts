@@ -1,5 +1,12 @@
 /** Every user-facing string the main process shows, in one place so other languages can follow. */
 export const strings = {
+  /** The page the browser shows after Google's consent. It reflects nothing from the request. */
+  mailConsent: {
+    title: "Gratovo",
+    done: "You can close this tab and go back to Gratovo.",
+    failed:
+      "Gratovo couldn't connect this mailbox. You can close this tab and try again in Gratovo.",
+  },
   startupFailed: {
     title: "Gratovo Toolbox couldn't start",
     body: "Something went wrong while the app was starting, so it will close. Try opening it again. If it keeps happening, tell the owner.",

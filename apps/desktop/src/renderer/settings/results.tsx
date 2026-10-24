@@ -19,7 +19,8 @@ export function Results({
   readonly onPick: () => void;
 }) {
   const owner = useApp((s) => meIsOwner(s.data));
-  const { rows, sections } = searchSettings(query, owner);
+  const source = useApp((s) => s.data.source);
+  const { rows, sections } = searchSettings(query, owner, source);
   if (rows.length === 0 && sections.length === 0) {
     return (
       <div className="card">

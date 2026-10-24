@@ -5,6 +5,7 @@ import { useKeys } from "../lib/keys";
 import { useNarrow } from "../lib/media";
 import { usePref } from "../lib/prefs";
 import { selectProblems, selectRoute, setRailOpen, useApp } from "../lib/store";
+import { useFirstRun } from "./first-run";
 import { useGlobalKeys, useKeyListener } from "./global-keys";
 import { MenuLayer } from "../overlays/menu-layer";
 import { Palette } from "../overlays/palette";
@@ -113,6 +114,7 @@ function useDrawerFocus(open: boolean): void {
 export function App() {
   useGlobalKeys();
   useKeyListener();
+  useFirstRun();
   const railMin = usePref("rail") === "min";
   const railOpen = useApp((s) => s.ui.railOpen);
   const narrow = useNarrow();
