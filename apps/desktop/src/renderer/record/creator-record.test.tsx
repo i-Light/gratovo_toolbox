@@ -177,11 +177,39 @@ describe("the next step", () => {
     expect(creatorOf("UC-a")).toMatchObject({ stage: "rejected", rejectReason: "views" });
   });
 
-  it("shortlisted: the address step is off, with a hint", async () => {
+  it("shortlisted: Confirm an address opens the contact block, and confirming moves on", async () => {
     await show("UC-a", { items: { "UC-a": detail("UC-a", { stage: "shortlisted" }) } });
-    const button = screen.getByRole<HTMLButtonElement>("button", { name: t.next.confirmAddress });
-    expect(button.disabled).toBe(true);
     expect(screen.getByText(t.next.confirmHint)).toBeTruthy();
+    await click(screen.getByRole("button", { name: t.next.confirmAddress }));
+    const block = strings.findContacts.block;
+    expect(screen.getByRole("radiogroup", { name: block.listLabel })).toBeTruthy();
+    fireEvent.change(screen.getByLabelText(block.nameLabel), { target: { value: "Sam" } });
+    await click(screen.getAllByRole("button", { name: block.confirm })[0] as HTMLElement);
+    expect(creatorOf("UC-a")).toMatchObject({
+      stage: "contact",
+      email: "biz@agentlab.ai",
+      contactName: "Sam",
+    });
+    expect(screen.getByText(t.next.contactConfirmed("biz@agentlab.ai"))).toBeTruthy();
+    expect(screen.getByText(t.next.contactHint("Sam"))).toBeTruthy();
+    expect(screen.queryByRole("radiogroup")).toBeNull();
+  });
+
+  it("contact: Change opens the list again", async () => {
+    await show("UC-a", {
+      items: {
+        "UC-a": detail("UC-a", {
+          stage: "contact",
+          email: "biz@agentlab.ai",
+          emailConfirmed: true,
+          contactName: null,
+        }),
+      },
+    });
+    expect(screen.getByText(t.next.contactConfirmed("biz@agentlab.ai"))).toBeTruthy();
+    expect(screen.getByText(t.next.contactHint(null))).toBeTruthy();
+    await click(screen.getByRole("button", { name: strings.findContacts.block.change }));
+    expect(screen.getAllByRole("radio")).toHaveLength(2);
   });
 
   it("rejected: shows the reason and Bring back", async () => {

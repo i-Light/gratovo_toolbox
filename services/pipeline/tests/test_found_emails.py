@@ -13,6 +13,7 @@ import pytest
 
 from gratovo_pipeline import store
 from gratovo_pipeline.found_emails import find_emails as find
+from gratovo_pipeline.found_emails import find_emails_with_sources as sources_of
 from gratovo_pipeline.search import signals
 
 
@@ -184,3 +185,72 @@ def test_the_backfill_covers_every_channel(conn: sqlite3.Connection) -> None:
     assert found(conn, "UC_1")[0] == ["a@one.io"]
     assert found(conn, "UC_2")[0] == ["b@two.io"]
     assert lines == ["Signals: 1 of 2 channel(s)", "Signals: 2 of 2 channel(s)"]
+
+
+# --- where each address came from ---
+
+
+def test_in_about_and_two_descriptions_is_about_with_two_videos() -> None:
+    assert sources_of(
+        "Mail: hello@cutsceneai.example",
+        ["x hello@cutsceneai.example", "hello@cutsceneai.example y", "none"],
+    ) == [{"email": "hello@cutsceneai.example", "source": "about", "videos": 2, "business": False}]
+
+
+def test_only_in_three_descriptions_is_video_with_three() -> None:
+    found_in = ["ask team@promptlab.example"] * 3 + ["nothing here"]
+    assert sources_of("About AI tools", found_in) == [
+        {"email": "team@promptlab.example", "source": "video", "videos": 3, "business": False}
+    ]
+
+
+def test_a_repeat_inside_one_description_counts_once() -> None:
+    assert sources_of(None, ["a@x.ai and again a@x.ai"])[0]["videos"] == 1
+
+
+def test_a_business_word_just_before_marks_business() -> None:
+    result = sources_of("For business inquiries: hello@cutsceneai.example", [])
+    assert result[0]["business"] is True
+
+
+def test_a_business_word_too_far_before_does_not() -> None:
+    about = "business" + " " * 60 + "hello@cutsceneai.example"
+    assert sources_of(about, [])[0]["business"] is False
+
+
+def test_business_in_a_description_counts_for_a_video_address() -> None:
+    result = sources_of("About", ["Sponsorship: deals@agentforge.example"])
+    assert result[0]["source"] == "video"
+    assert result[0]["business"] is True
+
+
+def test_awkward_forms_are_read_with_their_source() -> None:
+    result = sources_of("collab: biz (at) ai [dot] studio", ["biz at ai dot studio"])
+    assert result == [{"email": "biz@ai.studio", "source": "about", "videos": 1, "business": True}]
+
+
+def test_order_is_about_first_then_videos_by_count() -> None:
+    result = sources_of("b@x.ai and a@x.ai", ["c@x.ai d@x.ai", "d@x.ai", "e@x.ai d@x.ai"])
+    assert [r["email"] for r in result] == ["b@x.ai", "a@x.ai", "d@x.ai", "c@x.ai", "e@x.ai"]
+    assert [r["source"] for r in result] == ["about", "about", "video", "video", "video"]
+
+
+def test_no_text_gives_no_sources() -> None:
+    assert sources_of(None, [None, ""]) == []
+
+
+def test_derive_writes_both_columns(conn: sqlite3.Connection) -> None:
+    add_channel(conn, "UC_s", "For business: biz@ai.studio")
+    add_video(conn, "v1", "UC_s", "Questions? biz@ai.studio or team@ai.studio")
+    conn.commit()
+
+    signals.derive(conn, ["UC_s"])
+
+    row = conn.execute(
+        "SELECT found_emails, found_email_sources FROM channels WHERE channel_id='UC_s'"
+    ).fetchone()
+    assert json.loads(row["found_emails"]) == ["biz@ai.studio", "team@ai.studio"]
+    assert json.loads(row["found_email_sources"]) == [
+        {"email": "biz@ai.studio", "source": "about", "videos": 1, "business": True},
+        {"email": "team@ai.studio", "source": "video", "videos": 1, "business": False},
+    ]

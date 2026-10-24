@@ -12,13 +12,13 @@ Started 2026-10-24. The plan is `.router/PLAN.md` (decisions D1 to D18, contract
 
 | id | tier | state | note |
 |---|---|---|---|
-| C3 | H | running | contracts, persister rule, `creator.contact` in main, `find:ideas` stub |
-| B8 | N | todo | Python: address sources, schema 3 |
-| B9 | N | todo | core confidence; catalog reads the sources |
-| B10 | H | todo | main: the finder after a shortlist, keyword ideas |
-| B11 | N | todo | Contacts tab, contact block, Confirm, Confirm all 90%+ |
-| B12 | N | todo | keyword ideas in the Keywords card |
-| W3 | N | todo | wiring, live gate, smoke test |
+| C3 | H | done | Creator `contactName/Source/Confidence`, `FoundEmail`, `creator.contact` (base = stored list), persister writes contact then stage, ideas stub |
+| B8 | N | done | `find_emails_with_sources`, schema 3 `found_email_sources`, signals writes both |
+| B9 | N | done | `emailConfidence`, `sortFoundEmails`; catalog reads sources with a schema-2 fallback; lead: About keeps its video count |
+| B10 | H | done | `email-finder.ts` (live only, 2 s debounce, 50 a job, yields the lane to a search), `ideas.ts` (bridge, `avoid`, 60 s gap, `newChat`), event `find:emails` (renderer doesn't listen yet) |
+| B11 | N | done | Contacts tab, `ContactBlock`, `confirmAddress`, `confirmMany`; record's Confirm wired. Paging grows `limit` past 120: W3 fixes |
+| B12 | N | done | `KeywordIdeas` picker; `kind=""` workaround on the closed button: tidy |
+| W3 | N | running |
 | R3 | H | todo | review |
 | L3 | lead | todo | checks, PR, merge |
 

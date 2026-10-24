@@ -1,6 +1,12 @@
 import type { CatalogItem } from "@gratovo/core/find";
-import { creatorStages } from "@gratovo/core/data";
-import type { Creator, CreatorStage, LogAction, RejectReason } from "@gratovo/core/data";
+import { contactNameMax, creatorStages, emailMax, emailPattern } from "@gratovo/core/data";
+import type {
+  ContactSource,
+  Creator,
+  CreatorStage,
+  LogAction,
+  RejectReason,
+} from "@gratovo/core/data";
 
 import { strings } from "../strings";
 import { act } from "./actions";
@@ -9,6 +15,7 @@ import type { DataDraft } from "./persist";
 import { appStore } from "./store";
 
 const t = strings.findActions;
+const contacts = strings.findContacts;
 
 /**
  * Adds every catalog item the frame doesn't hold yet to `data.creators`, in the current data and
@@ -194,4 +201,91 @@ export function allowAgain(item: CatalogItem): boolean {
 
 function creatorStagesExcept(stage: CreatorStage): CreatorStage[] {
   return creatorStages.filter((s) => s !== stage);
+}
+
+/** An address to confirm for one channel: where it came from and how sure, or typed by hand. */
+export interface AddressChoice {
+  readonly email: string;
+  /** Who reads the inbox; empty for none. */
+  readonly contactName: string;
+  readonly source: ContactSource;
+  /** 0 to 1; null for an address typed by hand. */
+  readonly confidence: number | null;
+}
+
+/** True for something that can be confirmed as an address (D31): the basic shape, at most 254. */
+export function isAddress(email: string): boolean {
+  return email.length <= emailMax && emailPattern.test(email);
+}
+
+/** The reader's name as stored: trimmed, at most 80, empty is none. */
+function cleanName(name: string): string | null {
+  const cut = name.trim().slice(0, contactNameMax).trim();
+  return cut === "" ? null : cut;
+}
+
+/**
+ * Confirms an address for every channel in the list: one act (one Undo), one activity line each.
+ * The channel's email, name, source and sureness are set, and a shortlisted one moves on to
+ * Contact; any other stage keeps its own. An address that is not one is left alone (false).
+ */
+function confirmList(
+  list: readonly { readonly item: CatalogItem; readonly choice: AddressChoice }[],
+): boolean {
+  const entries = list
+    .map((e) => ({ ...e, email: e.choice.email.trim() }))
+    .filter((e) => isAddress(e.email));
+  const first = entries[0];
+  if (first === undefined || entries.length !== list.length) {
+    return false;
+  }
+  ensureCreators(entries.map((e) => e.item));
+  const byId = new Map(entries.map((e) => [e.item.id, e]));
+  const label =
+    entries.length === 1
+      ? contacts.confirmed(first.item.name)
+      : contacts.confirmedMany(entries.length);
+  const now = Date.now();
+  const done = act(
+    label,
+    (data) => {
+      for (const creator of data.creators) {
+        const entry = byId.get(creator.id);
+        if (entry === undefined) {
+          continue;
+        }
+        creator.email = entry.email;
+        creator.emailConfirmed = true;
+        creator.contactName = cleanName(entry.choice.contactName);
+        creator.contactSource = entry.choice.source;
+        creator.contactConfidence = entry.choice.confidence;
+        if (creator.stage === "shortlisted") {
+          creator.stage = "contact";
+        }
+        data.log.unshift({
+          id: crypto.randomUUID(),
+          at: now,
+          who: data.me,
+          text: contacts.logLine(creator.name),
+          ref: creator.id,
+          action: null,
+          detail: null,
+        });
+      }
+    },
+    { log: false, toast: { sub: contacts.confirmedSub } },
+  );
+  return done !== false;
+}
+
+/** Confirms the address for one channel, with the name of whoever reads that inbox (may be empty). */
+export function confirmAddress(item: CatalogItem, choice: AddressChoice): boolean {
+  return confirmList([{ item, choice }]);
+}
+
+/** Confirms one address each, names left empty, in one act (Confirm all 90%+). */
+export function confirmMany(
+  list: readonly { readonly item: CatalogItem; readonly choice: AddressChoice }[],
+): boolean {
+  return confirmList(list.map((e) => ({ ...e, choice: { ...e.choice, contactName: "" } })));
 }

@@ -71,6 +71,8 @@ export {
   detailVideosMax,
   facetsSchema,
   findCatalogEventSchema,
+  findEmailsEventSchema,
+  findEmailsStates,
   findErrors,
   findFilterSchema,
   findIdeasProblems,
@@ -96,7 +98,7 @@ export {
   savedViewsSchema,
   viewsSetMax,
 } from "./find";
-export type { FindState } from "./find";
+export type { FindEmailsEvent, FindState } from "./find";
 export {
   browserId,
   geminiAddonStates,

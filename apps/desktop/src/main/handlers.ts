@@ -28,6 +28,11 @@ export interface HandlerContext extends HandlerServices {
    * it.
    */
   onCreatorsWritten?: () => void;
+  /**
+   * Called after a stored `data:write` batch with the creators it moved to shortlisted, so the
+   * email finder can look for their addresses (plan step 5c, D30).
+   */
+  onShortlisted?: (ids: readonly string[]) => void;
   account: Pick<
     Account,
     | "status"
@@ -79,6 +84,12 @@ export function createHandlers(context: HandlerContext): Handlers {
       await openSource().write(writes);
       if (writes.some(changesCatalog)) {
         context.onCreatorsWritten?.();
+      }
+      const shortlisted = writes.flatMap((write) =>
+        write.kind === "creator.stage" && write.stage === "shortlisted" ? [write.id] : [],
+      );
+      if (shortlisted.length > 0) {
+        context.onShortlisted?.(shortlisted);
       }
       return {};
     },

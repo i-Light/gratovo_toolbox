@@ -406,6 +406,58 @@ describe("data:write and the catalog", () => {
   });
 });
 
+describe("data:write and the email finder (plan D30)", () => {
+  const moved = (id: string, to: "shortlisted" | "rejected" | "new"): DataWrite => ({
+    kind: "creator.stage",
+    id,
+    stage: to,
+    handle: `@${id}`,
+    name: id,
+  });
+
+  function withFinder(write: DataSource["write"] = () => Promise.resolve()) {
+    const onShortlisted = vi.fn<(ids: readonly string[]) => void>();
+    const mine = createHandlers({
+      version: "1.2.3",
+      secrets: storeWith([]),
+      account: accountWith({}, sourceWith({ write })),
+      find: findWith(),
+      catalog: createStubCatalog(),
+      ideas: createStubIdeas(),
+      onShortlisted,
+      ...createStubServices(),
+    });
+    return { mine, onShortlisted };
+  }
+
+  it("hands over the creators a stored batch moved to shortlisted, and only those", async () => {
+    const { mine, onShortlisted } = withFinder();
+    await mine["data:write"]({
+      writes: [
+        moved("UCaaaaaaaaaaaaaaaaaaaaaa", "shortlisted"),
+        moved("UCbbbbbbbbbbbbbbbbbbbbbb", "rejected"),
+        { kind: "me.name", name: "Sam" },
+        moved("UCcccccccccccccccccccccc", "shortlisted"),
+      ],
+    });
+    expect(onShortlisted).toHaveBeenCalledExactlyOnceWith([
+      "UCaaaaaaaaaaaaaaaaaaaaaa",
+      "UCcccccccccccccccccccccc",
+    ]);
+  });
+
+  it("stays quiet for a batch with no shortlist, and after a write that failed", async () => {
+    const { mine, onShortlisted } = withFinder();
+    await mine["data:write"]({ writes: [moved("UCaaaaaaaaaaaaaaaaaaaaaa", "new")] });
+    expect(onShortlisted).not.toHaveBeenCalled();
+    const failing = withFinder(() => Promise.reject(new Error("disk full")));
+    await expect(
+      failing.mine["data:write"]({ writes: [moved("UCaaaaaaaaaaaaaaaaaaaaaa", "shortlisted")] }),
+    ).rejects.toThrow("disk full");
+    expect(failing.onShortlisted).not.toHaveBeenCalled();
+  });
+});
+
 describe("saved views and a creator's lines", () => {
   const view = { name: "Gold mines in the US", filter: { ...emptyFindFilter, countries: ["US"] } };
 

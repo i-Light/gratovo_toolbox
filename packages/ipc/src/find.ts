@@ -356,3 +356,22 @@ export const findIdeasResultSchema = z.discriminatedUnion("ok", [
 
 /** `find:catalog`: the catalog was rebuilt; the page asks again. */
 export const findCatalogEventSchema = z.strictObject({ version: z.number().int().nonnegative() });
+
+/** The email finder's states in `find:emails` (plan step 5c, D30). */
+export const findEmailsStates = ["running", "done", "failed"] as const;
+
+/**
+ * `find:emails`: the email finder after a shortlist (D30), for the jobs tray. Main words the line
+ * (`label`), so the tray shows it as it comes; `detail` says why a lookup failed. Live data only:
+ * the example data never looks anything up, so it never sends this.
+ */
+export const findEmailsEventSchema = z.strictObject({
+  state: z.enum(findEmailsStates),
+  /** The channels this lookup covers, those still waiting behind a search included. */
+  channels: z.number().int().nonnegative(),
+  /** Addresses that weren't on those channels before the lookup. */
+  found: z.number().int().nonnegative(),
+  label: z.string().min(1).max(200),
+  detail: z.string().min(1).max(300).nullable(),
+});
+export type FindEmailsEvent = z.output<typeof findEmailsEventSchema>;

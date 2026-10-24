@@ -876,3 +876,102 @@
   color: var(--good);
   font-weight: 600;
 }
+
+/* The Gemini keyword picker under the Keywords header (prototype .ai-read). */
+.ai-read {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  margin-bottom: 10px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--r-s);
+  background: var(--panel);
+}
+
+/* Find › Contacts and the contact block (prototype W.ContactBlock, records.js l.124-145). */
+.ct-grid {
+  align-items: start;
+}
+.ct-card {
+  min-width: 0;
+  gap: 12px;
+}
+.ct-name,
+.ct-meta {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.ct-name {
+  font-weight: 600;
+}
+.ct-blk {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.ct-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ct-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-s);
+  background: var(--panel);
+  cursor: pointer;
+  min-width: 0;
+  transition: border-color 0.12s;
+}
+.ct-row.on {
+  border-color: var(--accent);
+}
+.ct-row:focus-within {
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.ct-t {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+.ct-t .mono {
+  overflow-wrap: anywhere;
+}
+.ct-t small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.ct-sure {
+  white-space: nowrap;
+}
+.ct-type {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+.ct-bad {
+  color: var(--crit);
+  margin: 0;
+}
+.ct-done {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+.ct-done .mono {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.ct-done svg {
+  color: var(--good);
+  flex: none;
+}

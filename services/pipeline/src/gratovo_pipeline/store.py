@@ -25,7 +25,7 @@ type Discovered = dict[str, str]  # {handle: channel_id}
 type Row = dict[str, Any]
 type RunKind = Literal["search", "catch-up", "re-enrich"]
 
-SCHEMA_VERSION: Final = 2
+SCHEMA_VERSION: Final = 3
 
 SCHEMA: Final = """
 CREATE TABLE IF NOT EXISTS keywords (
@@ -181,9 +181,15 @@ CREATE TABLE IF NOT EXISTS video_transcripts (
 );
 """
 
+# Version 3. Where each found address came from (found_emails.Source, as a JSON list), next to the
+# plain list in `found_emails`. NULL on a row not yet derived, or imported from an older file.
+FOUND_EMAIL_SOURCES: Final = """
+ALTER TABLE channels ADD COLUMN found_email_sources TEXT;
+"""
+
 # What each version adds to the one before it, run in order on a file older than it. Version 1 is
 # SCHEMA itself; a new file runs SCHEMA and then every step.
-MIGRATIONS: Final = {2: VIDEO_TRANSCRIPTS}
+MIGRATIONS: Final = {2: VIDEO_TRANSCRIPTS, 3: FOUND_EMAIL_SOURCES}
 
 # A second writer waits this long instead of failing at once with "database is locked". Far
 # longer than any statement here takes; short enough to surface a real deadlock.
@@ -736,12 +742,20 @@ def get_channel_about_texts(
 
 
 def update_channel_found_emails(
-    conn: sqlite3.Connection, channel_id: str, emails: Iterable[str]
+    conn: sqlite3.Connection,
+    channel_id: str,
+    emails: Iterable[str],
+    sources: Iterable[Mapping[str, object]] | None = None,
 ) -> None:
-    """Doesn't commit: callers hold a transaction they are about to commit."""
+    """Writes the plain list and where each address came from. Doesn't commit: callers hold a
+    transaction they are about to commit."""
     conn.execute(
-        "UPDATE channels SET found_emails=? WHERE channel_id=?",
-        (json.dumps(list(emails)), channel_id),
+        "UPDATE channels SET found_emails=?, found_email_sources=? WHERE channel_id=?",
+        (
+            json.dumps(list(emails)),
+            None if sources is None else json.dumps(list(sources)),
+            channel_id,
+        ),
     )
 
 

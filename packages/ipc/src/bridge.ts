@@ -17,6 +17,7 @@ export const appEventNames = [
   "presence:changed",
   "find:changed",
   "find:catalog",
+  "find:emails",
   "import:progress",
   "gemini:state",
   "connections:changed",

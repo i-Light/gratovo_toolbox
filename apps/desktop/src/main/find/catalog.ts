@@ -9,9 +9,11 @@ import {
   type CreatorState,
 } from "@gratovo/core/data";
 import {
+  emailConfidence,
   fitOf,
   foundEmailsMax,
   queryCatalog,
+  sortFoundEmails,
   type CatalogItem,
   type CatalogVideo,
   type FoundEmail,
@@ -71,6 +73,8 @@ interface ChannelRow {
   latest_upload_at: string | null;
   seen_brands: string | null;
   found_emails: string | null;
+  /** Null when the file is older than schema 3 and has no such column. */
+  found_email_sources: string | null;
 }
 
 interface VideoRow {
@@ -121,25 +125,45 @@ function sponsorsOf(text: string | null): string[] {
 }
 
 /**
- * The finder's addresses (D29), from `found_emails` for now: each reads as found in the About text
- * with the About confidence, until the stored sources (task B9) say where each one was. Anything
- * not in an address's shape is dropped, repeats too, and at most `foundEmailsMax` are kept.
+ * The finder's addresses (D27, D29). `sources` says where each was seen; an address only in
+ * `found_emails` (an old row, or a database before schema 3) reads as found in the About text.
+ * Entries not in an address's shape are dropped, repeats too; the list is sorted, then cut to
+ * `foundEmailsMax`.
  */
-function emailsOf(text: string | null): FoundEmail[] {
+function emailsOf(found: string | null, sources: string | null): FoundEmail[] {
   const seen = new Set<string>();
   const emails: FoundEmail[] = [];
-  for (const entry of jsonList(text)) {
-    if (emails.length >= foundEmailsMax) {
-      break;
-    }
-    const email = typeof entry === "string" ? entry.trim() : "";
+  const add = (address: unknown, source: "about" | "video", videos: number, business: boolean) => {
+    const email = typeof address === "string" ? address.trim() : "";
     if (email.length > emailMax || !emailPattern.test(email) || seen.has(email.toLowerCase())) {
-      continue;
+      return;
     }
     seen.add(email.toLowerCase());
-    emails.push({ email, source: "about", videos: 0, business: false, confidence: 0.9 });
+    emails.push({
+      email,
+      source,
+      videos,
+      business,
+      confidence: emailConfidence({ email, source, videos, business }),
+    });
+  };
+  for (const entry of jsonList(sources)) {
+    if (typeof entry !== "object" || entry === null) {
+      continue;
+    }
+    const { email, source, videos, business } = entry as Record<string, unknown>;
+    if (source !== "about" && source !== "video") {
+      continue;
+    }
+    const n =
+      typeof videos === "number" && Number.isFinite(videos) ? Math.max(0, Math.floor(videos)) : 0;
+    // An About address keeps its video count too, so the card can say it is also in N videos.
+    add(email, source, n, business === true);
   }
-  return emails;
+  for (const entry of jsonList(found)) {
+    add(entry, "about", 0, false);
+  }
+  return sortFoundEmails(emails).slice(0, foundEmailsMax);
 }
 
 function videoOf(row: VideoRow): CatalogVideo {
@@ -180,11 +204,16 @@ function build(dbPath: string | null, states: readonly CreatorState[], now: numb
   if (dbPath !== null && existsSync(dbPath)) {
     const db = new DatabaseSync(dbPath, { readOnly: true });
     try {
+      // Schema 3 added `found_email_sources`; an older file has no such column.
+      const hasSources = (
+        db.prepare("PRAGMA table_info(channels)").all() as unknown as { name: string }[]
+      ).some((column) => column.name === "found_email_sources");
       channels.push(
         ...(db
           .prepare(
             `SELECT channel_id, handle, name, subscribers, profile_picture, country, first_seen_at,
-               videos_last_30, median_views_last_30, latest_upload_at, seen_brands, found_emails
+               videos_last_30, median_views_last_30, latest_upload_at, seen_brands, found_emails,
+               ${hasSources ? "found_email_sources" : "NULL AS found_email_sources"}
              FROM channels`,
           )
           .all() as unknown as ChannelRow[]),
@@ -249,7 +278,7 @@ function build(dbPath: string | null, states: readonly CreatorState[], now: numb
       uploads30: channel.videos_last_30 ?? 0,
       country: countryOf(channel.country),
       sponsors: sponsorsOf(channel.seen_brands),
-      emails: emailsOf(channel.found_emails),
+      emails: emailsOf(channel.found_emails, channel.found_email_sources),
       latestUploadAt: parseTime(channel.latest_upload_at),
       foundAt,
       run: runAt(windows, foundAt, now),

@@ -4,6 +4,7 @@ import { memo, useCallback, useState } from "react";
 
 import { addMax, keywordMax, parseKeywords } from "../lib/find";
 import { strings } from "../strings";
+import { KeywordIdeas, useIdeas } from "./keyword-ideas";
 
 const text = strings.findSearch.keywords;
 
@@ -101,6 +102,8 @@ export function Keywords({ state }: { readonly state: FindState }) {
   const [draft, setDraft] = useState("");
   const [note, setNote] = useState<{ readonly text: string; readonly bad: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [ideasOpen, setIdeasOpen] = useState(false);
+  const ideas = useIdeas();
   const { queue, at } = state;
   const active = state.run.state === "running" || state.run.state === "stopping";
   const done = queue.filter((k) => k.state === "done").length;
@@ -161,6 +164,29 @@ export function Keywords({ state }: { readonly state: FindState }) {
     }
   };
 
+  const toggleIdeas = (): void => {
+    if (ideasOpen) {
+      setIdeasOpen(false);
+      return;
+    }
+    setIdeasOpen(true);
+    // Every opening asks afresh (the queue changed, or the bridge was started); one at a time.
+    ideas.ask();
+  };
+  const addIdeas = async (keywords: readonly string[]): Promise<boolean> => {
+    try {
+      const result = await window.gratovo.invoke("find:add", { keywords: [...keywords] });
+      if (!result.ok) {
+        return false;
+      }
+      setNote({ text: text.added(result.value.added, result.value.skipped), bad: false });
+      setIdeasOpen(false);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   return (
     <section className="card" aria-labelledby="find-kw-h">
       <div className="card-h">
@@ -170,7 +196,21 @@ export function Keywords({ state }: { readonly state: FindState }) {
             {text.count(queue.length, done)}
           </span>
         </h3>
+        <Btn size="sm" icon="sparkle" kind={ideasOpen ? "pri" : ""} onClick={toggleIdeas}>
+          {strings.findSearch.ideas.suggest}
+        </Btn>
       </div>
+      {ideasOpen ? (
+        <KeywordIdeas
+          state={ideas.state}
+          have={queue.map((k) => k.keyword)}
+          onAsk={ideas.ask}
+          onClose={() => {
+            setIdeasOpen(false);
+          }}
+          onAdd={addIdeas}
+        />
+      ) : null}
       {queue.length === 0 ? (
         <p className="hint">{text.empty}</p>
       ) : (

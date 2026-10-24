@@ -46,6 +46,23 @@ export const strings = {
       creator_gender: "Gender",
     } as Readonly<Record<string, string>>,
   },
+  /** The jobs tray's line for the email finder after a shortlist (plan step 5c, D30). */
+  emailFinder: {
+    running: (n: number): string =>
+      n === 1 ? "Finding emails for 1 channel" : `Finding emails for ${String(n)} channels`,
+    found: (k: number): string => (k === 1 ? "1 email found" : `${String(k)} emails found`),
+    failed: "Couldn’t look up emails",
+    /** Why, by the job's end code (the search's words for the same codes). */
+    problems: {
+      no_youtube_key:
+        "The team’s YouTube key is missing or was refused. The owner can set it again.",
+      quota: "YouTube’s daily limit is used up. It resets at midnight Pacific time.",
+      blocked: "YouTube stopped answering this computer. Wait a few hours, then try again.",
+      network: "Couldn’t reach YouTube. Check the connection, then try again.",
+      no_python: "The search engine isn’t set up on this computer yet.",
+      crash: "The lookup stopped on an error. The details are in the log file.",
+    } as Readonly<Record<string, string>>,
+  },
   presence: {
     idle: "Idle",
     record: "Looking at a record",

@@ -1,8 +1,10 @@
 import { Btn, Icon } from "@gratovo/ui";
 import { useState, type CSSProperties, type ReactNode } from "react";
 
+import { ContactBlock } from "../find/contact-block";
 import { rejectReasons } from "../find/triage-card";
 import { allowAgain, bringBack, reject, shortlist } from "../lib/find-actions";
+import { useApp } from "../lib/store";
 import { strings } from "../strings";
 import type { CreatorDetail } from "./detail";
 
@@ -10,13 +12,18 @@ const text = strings.creatorRecord;
 
 /**
  * The one next step for a channel, by its stage (D23): what is next in a line and one button. New:
- * Shortlist, with a quieter Reject and its reason picker. Shortlisted: the address step waits for
- * contacts (5c). Rejected: Bring back. Never: Allow again, after a yes. Later stages: the stage
+ * Shortlist, with a quieter Reject and its reason picker. Shortlisted: Confirm an address opens the contact block here (5c). Contact: the confirmed address and
+ * its reader, with Change. Rejected: Bring back. Never: Allow again, after a yes. Later stages: the stage
  * name only, because Reach is a later step.
  */
 export function CreatorNext({ item }: { readonly item: CreatorDetail }) {
   const [picking, setPicking] = useState(false);
   const [asking, setAsking] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  // The page's own creator holds the address once it is confirmed (it leads main's catalog).
+  const creator = useApp((s) => s.data.creators.find((c) => c.id === item.id));
+  const email = creator?.email ?? item.email;
+  const readerName = creator === undefined ? item.contactName : creator.contactName;
   const stage = item.stage;
   let line: string;
   let hint: string | null = null;
@@ -51,8 +58,29 @@ export function CreatorNext({ item }: { readonly item: CreatorDetail }) {
     line = text.next.shortlistedLine;
     hint = text.next.confirmHint;
     actions = (
-      <Btn kind="pri" size="sm" icon="mail" disabled onClick={() => undefined}>
+      <Btn
+        kind="pri"
+        size="sm"
+        icon="mail"
+        onClick={() => {
+          setConfirming(!confirming);
+        }}
+      >
         {text.next.confirmAddress}
+      </Btn>
+    );
+  } else if (stage === "contact" && email !== null) {
+    line = text.next.contactConfirmed(email);
+    hint = text.next.contactHint(readerName);
+    actions = (
+      <Btn
+        size="sm"
+        kind="ghost"
+        onClick={() => {
+          setConfirming(!confirming);
+        }}
+      >
+        {strings.findContacts.block.change}
       </Btn>
     );
   } else if (stage === "rejected") {
@@ -119,6 +147,17 @@ export function CreatorNext({ item }: { readonly item: CreatorDetail }) {
         {hint === null ? null : <small>{hint}</small>}
       </span>
       {actions === null ? null : <span className="nx">{actions}</span>}
+      {confirming && (stage === "shortlisted" || stage === "contact") ? (
+        <div style={{ flexBasis: "100%" }}>
+          <ContactBlock
+            item={item}
+            startOpen={stage === "contact"}
+            onDone={() => {
+              setConfirming(false);
+            }}
+          />
+        </div>
+      ) : null}
       {picking && stage === "new" ? (
         <span className="nx" role="group" aria-label={text.rejectWhy} style={{ flexBasis: "100%" }}>
           <span className="small muted">{text.rejectWhy}</span>

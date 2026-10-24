@@ -8,6 +8,8 @@ import { setNotify, undo } from "./actions";
 import {
   allowAgain,
   bringBack,
+  confirmAddress,
+  confirmMany,
   ensureCreators,
   neverContact,
   reject,
@@ -279,5 +281,92 @@ describe("neverContact and allowAgain", () => {
     expect(toasts().at(-1)?.sub).toBe("Back in Review new; searches no longer skip it.");
     undo();
     expect(find("UC-ada")?.stage).toBe("never");
+  });
+});
+
+describe("confirmAddress and confirmMany", () => {
+  const shortlisted = (it: CatalogItem): CatalogItem => ({ ...it, stage: "shortlisted" });
+  const sure = { email: "biz@ada.ai", source: "about", confidence: 0.95 } as const;
+  const c = strings.findContacts;
+
+  it("confirms one address: fields, stage, one line, a toast with Undo, and the writes", async () => {
+    expect(confirmAddress(shortlisted(ada), { ...sure, contactName: "  Sam  " })).toBe(true);
+    expect(find("UC-ada")).toMatchObject({
+      email: "biz@ada.ai",
+      emailConfirmed: true,
+      contactName: "Sam",
+      contactSource: "about",
+      contactConfidence: 0.95,
+      stage: "contact",
+    });
+    expect(lines()).toHaveLength(1);
+    expect(lines()[0]).toMatchObject({
+      ref: "UC-ada",
+      action: null,
+      text: c.logLine("Ada AI Tools"),
+    });
+    const toast = toasts().at(-1);
+    expect(toast?.msg).toBe("Confirmed Ada AI Tools’s address");
+    expect(toast?.sub).toBe("Ready for the first email.");
+    expect(toast?.actions.map((a) => a.label)).toEqual([strings.actions.undo]);
+    await settle();
+    expect(writes.flat().map((w) => w.kind)).toEqual([
+      "creator.contact",
+      "creator.stage",
+      "log.add",
+    ]);
+  });
+
+  it("an empty name is none, and a long one is cut at 80", () => {
+    confirmAddress(shortlisted(ada), { ...sure, contactName: "   " });
+    expect(find("UC-ada")?.contactName).toBeNull();
+    confirmAddress(shortlisted(bo), { ...sure, contactName: "x".repeat(200) });
+    expect(find("UC-bo")?.contactName).toHaveLength(80);
+  });
+
+  it("keeps the stage of a channel that is not shortlisted", () => {
+    const signed = item("UC-sig", "Sia Signed", "signed");
+    confirmAddress(signed, { ...sure, contactName: "" });
+    expect(find("UC-sig")).toMatchObject({ stage: "signed", emailConfirmed: true });
+  });
+
+  it("a typed address has source typed and no confidence; a bad one changes nothing", () => {
+    const typed = { source: "typed", confidence: null, contactName: "" } as const;
+    expect(confirmAddress(shortlisted(ada), { ...typed, email: "not an address" })).toBe(false);
+    expect(confirmAddress(shortlisted(ada), { ...typed, email: `${"a".repeat(250)}@b.co` })).toBe(
+      false,
+    );
+    expect(find("UC-ada")).toBeUndefined();
+    expect(confirmAddress(shortlisted(ada), { ...typed, email: "me@ada.ai" })).toBe(true);
+    expect(find("UC-ada")).toMatchObject({ contactSource: "typed", contactConfidence: null });
+  });
+
+  it("Undo puts every field, the stage and the line back", () => {
+    confirmAddress(shortlisted(ada), { ...sure, contactName: "Sam" });
+    undo();
+    expect(find("UC-ada")).toMatchObject({
+      email: null,
+      emailConfirmed: false,
+      contactName: null,
+      contactSource: null,
+      contactConfidence: null,
+      stage: "shortlisted",
+    });
+    expect(lines()).toHaveLength(0);
+  });
+
+  it("confirmMany acts once for all: one toast, one undo, names empty", () => {
+    expect(
+      confirmMany([
+        { item: shortlisted(ada), choice: { ...sure, contactName: "Sam" } },
+        { item: shortlisted(bo), choice: { ...sure, email: "biz@bo.ai", contactName: "" } },
+      ]),
+    ).toBe(true);
+    expect(find("UC-ada")).toMatchObject({ stage: "contact", contactName: null });
+    expect(lines()).toHaveLength(2);
+    expect(toasts().at(-1)?.msg).toBe("Confirmed 2 addresses");
+    undo();
+    expect(find("UC-bo")?.stage).toBe("shortlisted");
+    expect(lines()).toHaveLength(0);
   });
 });
