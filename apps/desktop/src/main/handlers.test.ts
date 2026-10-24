@@ -29,6 +29,7 @@ function storeWith(names: string[]): SecretStore {
 function findWith(overrides: Partial<HandlerContext["find"]> = {}): HandlerContext["find"] {
   return {
     state: () => findState,
+    folder: () => null,
     add: () => ({ added: 0, skipped: 0 }),
     remove: () => ({ ok: true }),
     startAt: () => ({ ok: true }),
@@ -106,6 +107,7 @@ function handlersWith(
   find: HandlerContext["find"] = findWith(),
   services: Partial<HandlerServices> = {},
   catalog: FindCatalog = createStubCatalog(),
+  onCreatorsWritten?: () => void,
 ) {
   return createHandlers({
     version: "1.2.3",
@@ -113,6 +115,7 @@ function handlersWith(
     account,
     find,
     catalog,
+    ...(onCreatorsWritten === undefined ? {} : { onCreatorsWritten }),
     ...createStubServices(),
     ...services,
   });
@@ -288,6 +291,43 @@ describe("the find catalog handlers", () => {
     expect(query).toHaveBeenCalledWith(request);
     await mine["find:item"]({ id: "UCbbbbbbbbbbbbbbbbbbbbbb" });
     expect(item).toHaveBeenCalledWith("UCbbbbbbbbbbbbbbbbbbbbbb");
+  });
+});
+
+describe("data:write and the catalog", () => {
+  const stage: DataWrite = {
+    kind: "creator.stage",
+    id: "UCaaaaaaaaaaaaaaaaaaaaaa",
+    stage: "shortlisted",
+    handle: "@a",
+    name: "A",
+  };
+  const logLine = (ref: string | null): DataWrite => ({
+    kind: "log.add",
+    id: "l1",
+    at: 1,
+    text: "x",
+    ref,
+    action: null,
+    detail: null,
+  });
+
+  async function written(writes: DataWrite[]): Promise<number> {
+    const changed = vi.fn();
+    const mine = handlersWith(accountWith(), [], findWith(), {}, createStubCatalog(), changed);
+    await mine["data:write"]({ writes });
+    return changed.mock.calls.length;
+  }
+
+  it("tells the catalog after a stage change or a log line with a ref", async () => {
+    expect(await written([stage])).toBe(1);
+    expect(await written([logLine("UCaaaaaaaaaaaaaaaaaaaaaa")])).toBe(1);
+    expect(await written([{ kind: "log.remove", id: "l1" }])).toBe(1);
+  });
+
+  it("stays quiet for writes the catalog does not show", async () => {
+    expect(await written([logLine(null)])).toBe(0);
+    expect(await written([{ kind: "me.name", name: "Sam" }])).toBe(0);
   });
 });
 

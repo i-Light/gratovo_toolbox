@@ -3,7 +3,7 @@ import type { Page } from "@playwright/test";
 import { strings } from "../src/renderer/strings";
 import { expect, test } from "./fixtures";
 
-const { screens, findSearch } = strings;
+const { screens, findSearch, findRuns } = strings;
 
 const keywords = ["ai video editor review", "claude code tutorial", "ai agents explained"];
 const foundText = /^\d+ found · \d+ kept$/;
@@ -21,8 +21,11 @@ const openSearch = async (page: Page): Promise<void> => {
 
 const rows = (page: Page) =>
   page.getByRole("list", { name: findSearch.keywords.listLabel }).getByRole("listitem");
-const kept = (page: Page) =>
-  page.getByRole("list", { name: findSearch.kept.listLabel }).getByRole("listitem");
+// The first body row of the Runs table; its cells are When, Keywords, Found, Kept, Gold mines.
+const runRow = (page: Page) =>
+  page.getByRole("table", { name: findRuns.listLabel }).getByRole("row").nth(1);
+const runCount = async (page: Page, cell: number): Promise<number> =>
+  Number((await runRow(page).getByRole("cell").nth(cell).textContent()) ?? "0");
 const headline = (page: Page) =>
   page.getByRole("heading", { level: 3, name: /Searching|Paused|Finished/ });
 
@@ -57,7 +60,6 @@ test.describe("Find › Search", () => {
       run,
     );
     await expect(rows(page).nth(0).getByText(foundText)).toBeVisible(run);
-    await expect(kept(page).first()).toBeVisible(run);
 
     // 3. Pause while the second keyword runs.
     await expect(rows(page).nth(1)).toContainText(findSearch.keywords.searching, run);
@@ -77,8 +79,14 @@ test.describe("Find › Search", () => {
     await expect(page.getByRole("button", { name: findSearch.live.pause })).toHaveCount(0);
 
     const before = await rows(page).allTextContents();
-    const keptBefore = await kept(page).allTextContents();
-    expect(keptBefore.length).toBeGreaterThan(0);
+    // The Runs table shows the run with what it found and kept (the catalog reads it from the run
+    // history a moment after the end).
+    await expect(runRow(page)).toBeVisible(run);
+    // Its "running" tag goes once the end has been read.
+    await expect(runRow(page)).not.toContainText(findRuns.status.running, run);
+    await expect.poll(() => runCount(page, 2), run).toBeGreaterThan(0);
+    await expect.poll(() => runCount(page, 3), run).toBeGreaterThan(0);
+    const runBefore = await runRow(page).allTextContents();
 
     // 5. Restart on the same data folder.
     const again = await relaunch();
@@ -88,7 +96,8 @@ test.describe("Find › Search", () => {
     // The run itself starts fresh after a restart; the screen reads how far it got from the queue.
     await expect(headline(again)).toHaveText(findSearch.live.done);
     await expect.poll(() => rows(again).allTextContents()).toEqual(before);
-    await expect.poll(() => kept(again).allTextContents()).toEqual(keptBefore);
+    await expect(runRow(again)).toBeVisible(run);
+    await expect.poll(() => runRow(again).allTextContents()).toEqual(runBefore);
 
     expect(errors).toEqual([]);
   });

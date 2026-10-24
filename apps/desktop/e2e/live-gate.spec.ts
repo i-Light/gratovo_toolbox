@@ -27,12 +27,12 @@ test.describe("the live gate, against a fake Supabase", () => {
     await page.getByRole("button", { name: strings.auth.signIn.submit, exact: true }).click();
     await expect(rail(page)).toBeVisible({ timeout: 15_000 });
 
-    // The rail offers what is wired to real data, and nothing else.
-    for (const key of ["find"] as const) {
-      await expect(
-        rail(page).getByRole("button", { name: railName(screens[key].name, screens[key].sub) }),
-      ).toBeVisible();
-    }
+    // The rail offers what is wired to real data, and nothing else: Find, named for what is wired.
+    await expect(
+      rail(page).getByRole("button", {
+        name: railName(screens.find.name, screens.find.subLive),
+      }),
+    ).toBeVisible();
     for (const key of [
       "today",
       "reach",

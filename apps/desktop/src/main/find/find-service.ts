@@ -1,5 +1,6 @@
 import { join } from "node:path";
 
+import type { CreatorState } from "@gratovo/core/data";
 import { findErrors, type FindState } from "@gratovo/ipc";
 
 import { redact, secretsOf } from "../pipeline/logs";
@@ -38,6 +39,16 @@ export interface FindServiceDeps {
   settings?: () => Start["settings"];
   emit: (state: FindState) => void;
   now: () => number;
+  /**
+   * Every creator's stored state, for the search's `skip` list (never-contact creators, D7).
+   * Not given or failing means no skip list.
+   */
+  creatorStates?: () => Promise<readonly CreatorState[]>;
+  /**
+   * Called when `pipeline.db` has changed: a keyword finished or failed, a channel line came, or
+   * the job ended. The catalog rebuilds on it.
+   */
+  onPipelineChanged?: () => void;
   /** The least time between two emits while a run streams. Default 250. */
   throttleMs?: number;
 }
@@ -46,6 +57,8 @@ export type StartProblem = "no_keywords" | "running" | "no_youtube_key" | "no_py
 
 export interface FindService {
   state(): FindState;
+  /** The open find folder (where `pipeline.db` is); null when no source is open. */
+  folder(): string | null;
   add(keywords: readonly string[]): { added: number; skipped: number };
   remove(index: number): { ok: true } | { ok: false; problem: "running" };
   startAt(index: number): { ok: true } | { ok: false; problem: "running" };
@@ -61,6 +74,8 @@ export interface FindService {
 }
 
 const queueMax = 500;
+const skipMax = 20_000;
+const channelIdShape = /^UC[A-Za-z0-9_-]{22}$/;
 
 /** The settings a search starts with: everything but the mail settings. */
 function searchSettings(settings: Start["settings"] | undefined): Start["settings"] {
@@ -188,6 +203,23 @@ export function createFindService(deps: FindServiceDeps): FindService {
     }, wait);
   }
 
+  /** Never-contact channels the search treats as known; a failed read means none. */
+  async function skipList(): Promise<string[]> {
+    if (deps.creatorStates === undefined) {
+      return [];
+    }
+    try {
+      const states = await deps.creatorStates();
+      return states
+        .filter((state) => state.stage === "never" && channelIdShape.test(state.id))
+        .map((state) => state.id)
+        .slice(0, skipMax);
+    } catch {
+      console.error("Find: the never-contact list could not be read.");
+      return [];
+    }
+  }
+
   /** The first keyword from the run's start that isn't done. With parallel workers keywords can
    * finish out of order, so "one after the last done" could skip one still unfinished. */
   function firstUndone(s: Session): number {
@@ -218,9 +250,13 @@ export function createFindService(deps: FindServiceDeps): FindService {
         } else {
           entry.state = "failed";
         }
+        if (m.state !== "started") {
+          deps.onPipelineChanged?.();
+        }
         break;
       }
       case "channel":
+        deps.onPipelineChanged?.();
         if (m.outcome === "kept") {
           s.run.kept += 1;
           const channel: Kept = {
@@ -280,11 +316,16 @@ export function createFindService(deps: FindServiceDeps): FindService {
     s.kept = null;
     save(s);
     emitNow();
+    deps.onPipelineChanged?.();
   }
 
   return {
     state() {
       return build(open().session);
+    },
+
+    folder() {
+      return account.findContext() === null ? null : open().session.folder;
     },
 
     add(keywords) {
@@ -385,6 +426,10 @@ export function createFindService(deps: FindServiceDeps): FindService {
         if (s.at >= s.queue.length) {
           return { ok: false, problem: "no_keywords" };
         }
+        const skip = await skipList();
+        if (isRunning() || generation !== startedIn || session !== s) {
+          return { ok: false, problem: "running" };
+        }
         stopRequested = false;
         runStart = s.at;
         jobSecrets = secretsOf({ secrets: { youtubeKey, proxyUrls, gatewayUrls } });
@@ -400,6 +445,7 @@ export function createFindService(deps: FindServiceDeps): FindService {
               keywords: s.queue.map((entry) => entry.keyword),
               startAt: s.at,
               rules: pipelineRules(s.rules),
+              ...(skip.length === 0 ? {} : { skip }),
             },
             settings: searchSettings(deps.settings?.()),
             secrets: { youtubeKey, proxyUrls, gatewayUrls },

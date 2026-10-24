@@ -1113,6 +1113,8 @@ export const strings = {
     find: {
       name: "Find",
       sub: "Search, triage, contacts",
+      // The rail's line on live data, where only Search and Review new are wired.
+      subLive: "Search and review",
       tabs: { search: "Search", triage: "Review new", gallery: "Gallery", contacts: "Contacts" },
     },
     reach: {

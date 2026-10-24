@@ -1,4 +1,4 @@
-import type { DataSource } from "@gratovo/core/data";
+import type { DataSource, DataWrite } from "@gratovo/core/data";
 import type { Handlers } from "@gratovo/ipc";
 
 import type { Account } from "./account/account";
@@ -18,6 +18,11 @@ export interface HandlerContext extends HandlerServices {
   find: FindService;
   /** The Find catalog: pages, one channel's detail and the run history. */
   catalog: FindCatalog;
+  /**
+   * Called after a stored `data:write` batch that changes what the catalog shows: a creator's
+   * stage, or a log line about a creator (plan D1). The catalog rebuilds on it.
+   */
+  onCreatorsWritten?: () => void;
   account: Pick<
     Account,
     | "status"
@@ -29,6 +34,15 @@ export interface HandlerContext extends HandlerServices {
     | "syncNow"
     | "setPresence"
   >;
+}
+
+/** Whether one write can change a catalog row: a stage, or a log line on a creator (add) or any removal. */
+function changesCatalog(write: DataWrite): boolean {
+  return (
+    write.kind === "creator.stage" ||
+    (write.kind === "log.add" && write.ref !== null) ||
+    write.kind === "log.remove"
+  );
 }
 
 /** The main process's answer to each channel in `channels`. */
@@ -52,6 +66,9 @@ export function createHandlers(context: HandlerContext): Handlers {
     // A rejection goes up to the dispatcher, which logs it; the page learns only that it failed.
     "data:write": async ({ writes }) => {
       await openSource().write(writes);
+      if (writes.some(changesCatalog)) {
+        context.onCreatorsWritten?.();
+      }
       return {};
     },
     "auth:status": () => account.status(),
