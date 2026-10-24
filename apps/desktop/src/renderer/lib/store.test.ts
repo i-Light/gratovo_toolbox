@@ -264,6 +264,10 @@ describe("example records", () => {
       handle: "@promptlab",
       stage: "signed",
       email: "hello@promptlab.tv",
+      emailConfirmed: false,
+      rejectReason: null,
+      rejectedAt: null,
+      archiveDueAt: null,
     });
     expect(data.creators.find((c) => c.id === "c12")?.email).toBeNull();
     expect(data.brands.map((b) => b.name)).toEqual([

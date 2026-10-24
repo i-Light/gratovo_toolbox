@@ -9,6 +9,7 @@ import { builtPageUrl } from "./app-page";
 import { registerAppScheme, serveAppFiles } from "./app-protocol";
 import { createEventSender } from "./events";
 import { isGoogleConsentUrl } from "./external-links";
+import { createStubCatalog } from "./find/catalog-types";
 import { createFindService } from "./find/find-service";
 import { createHandlers } from "./handlers";
 import {
@@ -393,6 +394,8 @@ function start(): void {
           secrets,
           account,
           find,
+          // The read model arrives in step 5's W1; until then the catalog answers empty.
+          catalog: createStubCatalog(),
           importer,
           connections,
           gemini: geminiControl,

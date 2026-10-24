@@ -35,6 +35,10 @@ describe("creatorSub and brandSub", () => {
       handle: "@promptdaily",
       stage: "new",
       email: null,
+      emailConfirmed: false,
+      rejectReason: null,
+      rejectedAt: null,
+      archiveDueAt: null,
     } as const;
     expect(creatorSub(creator)).toBe(`@promptdaily · ${strings.record.stages.new}`);
     expect(creatorSub({ ...creator, email: "hi@promptdaily.ai" })).toBe(

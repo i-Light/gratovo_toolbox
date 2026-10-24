@@ -23,12 +23,18 @@ export interface ActivityRow {
   detail: Record<string, unknown> | null;
 }
 
+/** What a written line needs: the read-back fields (`ref`, `action`, `detail`) may be left out. */
+export type LogLine = Pick<LogEntry, "id" | "at" | "who" | "text"> &
+  Partial<Pick<LogEntry, "ref" | "action" | "detail">>;
+
 /**
  * The row for a line this app writes: `action = 'note'`, `entity_type = 'app'`, the text as the
  * label and in `detail.text`. The actor is the profile `me` (a missing profile logs an empty
- * name and the `unauthorized` role). `entry.at` is in ms; the row holds ISO text.
+ * name and the `unauthorized` role). `entry.at` is in ms; the row holds ISO text. A line's `ref`,
+ * `action` and `detail` are not stored yet: they change the row's action and entity, which plan
+ * step 5 (B3) maps with the text that `logText` reads back.
  */
-export function logRowFor(db: DatabaseSync, me: string, entry: LogEntry): ActivityRow {
+export function logRowFor(db: DatabaseSync, me: string, entry: LogLine): ActivityRow {
   const actor = db.prepare("SELECT display_name, role FROM profiles WHERE id = ?").get(me);
   return {
     id: entry.id,
@@ -74,7 +80,7 @@ export function insertLogRow(db: DatabaseSync, row: ActivityRow): void {
 }
 
 /** Adds a line to the log, in the app's own shape. */
-export function addLogEntry(db: DatabaseSync, me: string, entry: LogEntry): void {
+export function addLogEntry(db: DatabaseSync, me: string, entry: LogLine): void {
   insertLogRow(db, logRowFor(db, me, entry));
 }
 
@@ -147,6 +153,9 @@ export function newestLog(db: DatabaseSync, o: { seesMoney: boolean; limit?: num
         at: Number.isNaN(atMs) ? 0 : atMs,
         who: String(row["actor_id"] ?? row["actor_name"]),
         text,
+        ref: null,
+        action: null,
+        detail: null,
       });
       if (lines.length >= count) {
         break;

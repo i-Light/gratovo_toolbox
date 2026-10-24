@@ -2,6 +2,7 @@ import type { DataSource } from "@gratovo/core/data";
 import type { Handlers } from "@gratovo/ipc";
 
 import type { Account } from "./account/account";
+import type { FindCatalog } from "./find/catalog-types";
 import type { FindService } from "./find/find-service";
 import type { SecretStore } from "./secret-store";
 import type { HandlerServices } from "./services";
@@ -15,6 +16,8 @@ export interface HandlerContext extends HandlerServices {
   version: string;
   secrets: SecretStore;
   find: FindService;
+  /** The Find catalog: pages, one channel's detail and the run history. */
+  catalog: FindCatalog;
   account: Pick<
     Account,
     | "status"
@@ -30,7 +33,7 @@ export interface HandlerContext extends HandlerServices {
 
 /** The main process's answer to each channel in `channels`. */
 export function createHandlers(context: HandlerContext): Handlers {
-  const { version, secrets, account, find } = context;
+  const { version, secrets, account, find, catalog } = context;
   const { importer, connections, gemini, writingRules, mailConsent } = context;
 
   /** The account's open source. The page never asks for data while none is open. */
@@ -78,6 +81,9 @@ export function createHandlers(context: HandlerContext): Handlers {
       find.stop();
       return {};
     },
+    "find:query": (request) => catalog.query(request),
+    "find:item": ({ id }) => catalog.item(id),
+    "find:runs": () => catalog.runs(),
     "rules:set": ({ rules }) => {
       find.setRules(rules);
       return {};

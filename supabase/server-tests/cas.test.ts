@@ -155,7 +155,7 @@ function newId(): string {
 function stageWrite(db: DatabaseSync, id: string, stage: "shortlisted" | "emailed" | "replied") {
   recordIntent(db, {
     userId: a.id,
-    write: { kind: "creator.stage", id, stage },
+    write: { kind: "creator.stage", id, stage, handle: "", name: "" },
     applyLocal: () => {
       setCreatorStage(db, id, stage);
     },

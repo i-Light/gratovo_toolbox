@@ -122,7 +122,15 @@ describe("activity log", () => {
   it("adds with the actor from me's profile and reads back", () => {
     addLogEntry(db, "u1", { id: "l1", at: t0, who: "ignored", text: "Marked Lina's deal paid" });
     expect(newestLog(db, { seesMoney: true })).toEqual([
-      { id: "l1", at: t0, who: "u1", text: "Marked Lina's deal paid" },
+      {
+        id: "l1",
+        at: t0,
+        who: "u1",
+        text: "Marked Lina's deal paid",
+        ref: null,
+        action: null,
+        detail: null,
+      },
     ]);
     const row = db.prepare("SELECT * FROM activity_log").get();
     expect(row).toMatchObject({
@@ -189,6 +197,9 @@ describe("activity log", () => {
         at: Date.UTC(2026, 9, 20, 11, 0, 0, 500),
         who: "Sara",
         text: "Changed the tags of Lina",
+        ref: null,
+        action: null,
+        detail: null,
       },
     ]);
   });

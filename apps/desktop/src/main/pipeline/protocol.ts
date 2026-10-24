@@ -98,6 +98,14 @@ const searchJob = z
     keywords: z.array(keyword).min(1).max(500),
     startAt: index,
     rules: rulesSchema,
+    /**
+     * Plan step 5, D7: channels the search treats as already known, so it never keeps them again
+     * (never-contact creators). A YouTube channel id each.
+     */
+    skip: z
+      .array(z.string().regex(/^UC[A-Za-z0-9_-]{22}$/))
+      .max(20_000)
+      .optional(),
   })
   .refine((job) => job.startAt < job.keywords.length, "startAt must name a keyword")
   .refine((job) => unique(job.keywords), "keywords must be unique");

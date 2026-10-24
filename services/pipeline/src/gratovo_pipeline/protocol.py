@@ -152,6 +152,8 @@ class SearchJob(TypedDict):
     keywords: list[str]
     startAt: int
     rules: Rules
+    # Plan step 5, D7: channel ids the search treats as already known (never-contact creators).
+    skip: NotRequired[list[str]]
 
 
 class MailStatusJob(TypedDict):
@@ -533,6 +535,8 @@ _REGION = re.compile(r"[a-z]{2}(-[a-z]+)+-[0-9]")
 _API_ID = re.compile(r"[a-z0-9]{1,32}")
 _GMAIL_ID = re.compile(r"[A-Za-z0-9_-]{1,64}")
 _CHANNEL_ID = re.compile(r"[A-Za-z0-9_-]{1,64}")
+_YOUTUBE_CHANNEL_ID = re.compile(r"UC[A-Za-z0-9_-]{22}")
+_SKIP_MAX = 20_000
 _DAY = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
 _SEND_KEY = re.compile(r"[A-Za-z0-9_:.-]+")
 _AWS_KEY_ID = re.compile(r"[A-Z0-9]{16,128}")
@@ -692,7 +696,7 @@ def _rules(value: object) -> Rules:
 
 
 def _search_job(value: object) -> SearchJob:
-    raw = _object(value, "job", {"kind", "keywords", "startAt", "rules"})
+    raw = _object(value, "job", {"kind", "keywords", "startAt", "rules"}, frozenset({"skip"}))
     keywords = [
         _keyword(item, "job.keywords")
         for item in _list(raw["keywords"], "job.keywords", 500, low=1)
@@ -701,12 +705,19 @@ def _search_job(value: object) -> SearchJob:
     start_at = _integer(raw["startAt"], "job.startAt", 0, _INDEX_MAX)
     if start_at >= len(keywords):
         raise BadStartError("job.startAt must name a keyword")
-    return {
+    job: SearchJob = {
         "kind": "search",
         "keywords": keywords,
         "startAt": start_at,
         "rules": _rules(raw["rules"]),
     }
+    # Optional, as on the wire: a start line from before step 5 has none.
+    if "skip" in raw:
+        job["skip"] = [
+            _matching(item, "job.skip", _YOUTUBE_CHANNEL_ID, "YouTube channel ids")
+            for item in _list(raw["skip"], "job.skip", _SKIP_MAX)
+        ]
+    return job
 
 
 def _outgoing_mail(value: object) -> OutgoingMail:

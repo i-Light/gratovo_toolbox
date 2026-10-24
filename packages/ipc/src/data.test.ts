@@ -1,5 +1,6 @@
 import { DEAL_FLOW } from "@gratovo/core";
 import { creatorStages, exampleFrame, nameMax, type DataWrite } from "@gratovo/core/data";
+import { emptyFacets } from "@gratovo/core/find";
 import { describe, expect, it, vi } from "vitest";
 
 import { channels } from "./channels";
@@ -97,6 +98,15 @@ describe("frameSchema", () => {
     expect(frameSchema.safeParse({ ...frame, seesMoney: "yes" }).success).toBe(false);
   });
 
+  it("needs a creator's confirmed flag, reject reason and dates", () => {
+    const [first, ...rest] = frame.creators;
+    const with_ = (creator: unknown) =>
+      frameSchema.safeParse({ ...frame, creators: [creator, ...rest] }).success;
+    expect(with_({ ...first, rejectReason: "ai", rejectedAt: 1, archiveDueAt: 2 })).toBe(true);
+    expect(with_({ ...first, rejectReason: "spam" })).toBe(false);
+    expect(with_({ ...first, emailConfirmed: undefined })).toBe(false);
+  });
+
   it("refuses more than 50 log lines", () => {
     const line = { id: "l", at: 0, who: "a", text: "t" };
     expect(frameSchema.safeParse({ ...frame, log: Array(51).fill(line) }).success).toBe(false);
@@ -109,9 +119,17 @@ describe("dataWriteSchema", () => {
     { kind: "notify.set", notify: { reply: false, money: true } },
     { kind: "me.name", name: "Sam" },
     { kind: "me.name", name: "" },
-    { kind: "log.add", id: "5f1c0f3e-0000-4000-8000-000000000000", at: 1, text: "Did a thing" },
+    {
+      kind: "log.add",
+      id: "5f1c0f3e-0000-4000-8000-000000000000",
+      at: 1,
+      text: "Did a thing",
+      ref: null,
+      action: null,
+      detail: null,
+    },
     { kind: "log.remove", id: "l1" },
-    { kind: "creator.stage", id: "c1", stage: "emailed" },
+    { kind: "creator.stage", id: "c1", stage: "emailed", handle: "", name: "" },
     {
       kind: "brand.set",
       id: "b1",
@@ -151,10 +169,28 @@ describe("the new write kinds", () => {
 
   it("creator.stage takes every stage and nothing else", () => {
     for (const stage of creatorStages) {
-      expect(ok({ kind: "creator.stage", id: "c1", stage })).toBe(true);
+      expect(ok({ kind: "creator.stage", id: "c1", stage, handle: "", name: "" })).toBe(true);
     }
-    expect(ok({ kind: "creator.stage", id: "c1", stage: "won" })).toBe(false);
-    expect(ok({ kind: "creator.stage", id: "", stage: "new" })).toBe(false);
+    expect(ok({ kind: "creator.stage", id: "c1", stage: "won", handle: "", name: "" })).toBe(false);
+    expect(ok({ kind: "creator.stage", id: "", stage: "new", handle: "", name: "" })).toBe(false);
+  });
+
+  it("creator.stage carries the handle and name, and a reject reason from the four", () => {
+    const base = { kind: "creator.stage", id: "c1", stage: "rejected", handle: "@a", name: "A" };
+    expect(ok({ ...base, reason: "posting" })).toBe(true);
+    expect(ok({ ...base, reason: "boring" })).toBe(false);
+    expect(ok({ ...base, reason: undefined })).toBe(false);
+    expect(ok({ kind: "creator.stage", id: "c1", stage: "rejected" })).toBe(false);
+    expect(ok({ ...base, handle: "x".repeat(501) })).toBe(false);
+  });
+
+  it("log.add carries what the line did to which creator, bounded", () => {
+    const base = { kind: "log.add", id: "l1", at: 1, text: "Rejected Prompt Lab" };
+    const line = { ...base, ref: "UC1", action: "creator.reject", detail: "views" };
+    expect(ok(line)).toBe(true);
+    expect(ok({ ...line, action: "creator.delete" })).toBe(false);
+    expect(ok({ ...line, detail: "x".repeat(501) })).toBe(false);
+    expect(ok(base)).toBe(false);
   });
 
   it("brand.set bounds the name, what it sells and the status", () => {
@@ -264,6 +300,9 @@ describe("the data channels through the dispatcher", () => {
       "find:start-at": () => ({ ok: true as const }),
       "find:start": () => ({ ok: true as const }),
       "find:stop": () => ({}),
+      "find:query": () => ({ version: 0, total: 0, items: [], facets: emptyFacets }),
+      "find:item": () => ({ item: null }),
+      "find:runs": () => ({ runs: [] }),
       "rules:set": () => ({}),
       "import:candidates": () => ({ candidates: [] }),
       "import:pick": () => ({ path: null }),

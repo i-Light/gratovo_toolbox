@@ -231,12 +231,44 @@ export function describeDataSourceContract(
       await writeAll(source, { kind: "me.name", name: "Ada" });
       let frame = await writeAll(
         source,
-        { kind: "log.add", id: idA, at: contractNow - 2000, text: "Marked all read" },
-        { kind: "log.add", id: idB, at: contractNow - 1000, text: "Changed a switch" },
+        {
+          kind: "log.add",
+          id: idA,
+          at: contractNow - 2000,
+          text: "Marked all read",
+          ref: null,
+          action: null,
+          detail: null,
+        },
+        {
+          kind: "log.add",
+          id: idB,
+          at: contractNow - 1000,
+          text: "Changed a switch",
+          ref: null,
+          action: null,
+          detail: null,
+        },
       );
       expect(frame.log).toEqual([
-        { id: idB, at: contractNow - 1000, who: "u1", text: "Changed a switch" },
-        { id: idA, at: contractNow - 2000, who: "u1", text: "Marked all read" },
+        {
+          id: idB,
+          at: contractNow - 1000,
+          who: "u1",
+          text: "Changed a switch",
+          ref: null,
+          action: null,
+          detail: null,
+        },
+        {
+          id: idA,
+          at: contractNow - 2000,
+          who: "u1",
+          text: "Marked all read",
+          ref: null,
+          action: null,
+          detail: null,
+        },
       ]);
       frame = await writeAll(source, { kind: "log.remove", id: idB });
       expect(frame.log.map((line) => line.id)).toEqual([idA]);
@@ -247,7 +279,15 @@ export function describeDataSourceContract(
       const writes: DataWrite[] = [];
       for (let i = 0; i < 55; i += 1) {
         const id = `00000000-0000-4000-8000-${String(i).padStart(12, "0")}`;
-        writes.push({ kind: "log.add", id, at: contractNow + i, text: `Line ${String(i)}` });
+        writes.push({
+          kind: "log.add",
+          id,
+          at: contractNow + i,
+          text: `Line ${String(i)}`,
+          ref: null,
+          action: null,
+          detail: null,
+        });
       }
       const frame = await writeAll(source, ...writes);
       expect(frame.log).toHaveLength(50);
@@ -270,8 +310,8 @@ export function describeDataSourceContract(
       const source = start();
       const frame = await writeAll(
         source,
-        { kind: "creator.stage", id: "c1", stage: "emailed" },
-        { kind: "creator.stage", id: "nope", stage: "emailed" },
+        { kind: "creator.stage", id: "c1", stage: "emailed", handle: "", name: "" },
+        { kind: "creator.stage", id: "nope", stage: "emailed", handle: "", name: "" },
         {
           kind: "brand.set",
           id: "b1",
@@ -299,15 +339,39 @@ export function describeDataSourceContract(
 
     it("applies nothing when a batch fails part way", async () => {
       const source = start();
-      await writeAll(source, { kind: "log.add", id: idA, at: contractNow, text: "First" });
+      await writeAll(source, {
+        kind: "log.add",
+        id: idA,
+        at: contractNow,
+        text: "First",
+        ref: null,
+        action: null,
+        detail: null,
+      });
       const before = await source.frame();
       await expect(
         source.write([
           { kind: "notification.read", id: "n1", read: true },
           { kind: "notify.set", notify: { money: false } },
           { kind: "me.name", name: "Ada" },
-          { kind: "log.add", id: idB, at: contractNow + 1, text: "Second" },
-          { kind: "log.add", id: idA, at: contractNow + 2, text: "Duplicate" },
+          {
+            kind: "log.add",
+            id: idB,
+            at: contractNow + 1,
+            text: "Second",
+            ref: null,
+            action: null,
+            detail: null,
+          },
+          {
+            kind: "log.add",
+            id: idA,
+            at: contractNow + 2,
+            text: "Duplicate",
+            ref: null,
+            action: null,
+            detail: null,
+          },
         ]),
       ).rejects.toThrow();
       expect(await source.frame()).toEqual(before);
@@ -322,7 +386,15 @@ export function describeDataSourceContract(
         { kind: "notification.read", id: "n1", read: true },
         { kind: "notify.set", notify: { search: false } },
         { kind: "me.name", name: "Ada" },
-        { kind: "log.add", id: idA, at: contractNow, text: "Marked all read" },
+        {
+          kind: "log.add",
+          id: idA,
+          at: contractNow,
+          text: "Marked all read",
+          ref: null,
+          action: null,
+          detail: null,
+        },
       ]);
       const before = await first.frame();
       first.close();

@@ -19,7 +19,12 @@ import {
   findAddResultSchema,
   findEditResultSchema,
   findIndexRequestSchema,
+  findItemRequestSchema,
+  findItemResultSchema,
+  findQueryRequestSchema,
+  findQueryResultSchema,
   findRulesSchema,
+  findRunsResultSchema,
   findStartResultSchema,
   findStateSchema,
 } from "./find";
@@ -137,6 +142,21 @@ export const channels = {
   "find:stop": {
     request: z.strictObject({}),
     response: z.strictObject({}),
+  },
+  /** One page of the catalog with its total and facet counts (plan step 5, D2). */
+  "find:query": {
+    request: findQueryRequestSchema,
+    response: findQueryResultSchema,
+  },
+  /** One channel's detail: its fit, description and up to 15 videos; null when unknown. */
+  "find:item": {
+    request: findItemRequestSchema,
+    response: findItemResultSchema,
+  },
+  /** The newest search runs, with what each found and kept (D10). */
+  "find:runs": {
+    request: z.strictObject({}),
+    response: findRunsResultSchema,
   },
   /** Replaces the search rules (Settings › Search rules); `find:changed` follows. */
   "rules:set": {

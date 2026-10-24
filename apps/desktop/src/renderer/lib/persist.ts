@@ -56,7 +56,15 @@ function diffLog(before: AppData["log"], after: AppData["log"], writes: DataWrit
   for (const line of after) {
     const was = old.get(line.id);
     if (was === undefined) {
-      added.push({ kind: "log.add", id: line.id, at: line.at, text: line.text });
+      added.push({
+        kind: "log.add",
+        id: line.id,
+        at: line.at,
+        text: line.text,
+        ref: line.ref,
+        action: line.action,
+        detail: line.detail,
+      });
     } else if (was !== line) {
       return false;
     } else {
@@ -158,7 +166,14 @@ export function diffData(
         }
         return was.stage === now.stage
           ? undefined
-          : { kind: "creator.stage", id: now.id, stage: now.stage };
+          : // The handle and the name let main create the row for a channel it has none for (D4).
+            {
+              kind: "creator.stage",
+              id: now.id,
+              stage: now.stage,
+              handle: now.handle,
+              name: now.name,
+            };
       },
       writes,
     )

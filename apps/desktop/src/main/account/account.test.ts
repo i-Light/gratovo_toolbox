@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { getMeta, pendingCount } from "../data/repositories";
 import { openDatabase } from "../db/open-database";
+import { createStubCatalog } from "../find/catalog-types";
 import { createHandlers, type HandlerContext } from "../handlers";
 import { createNetwork } from "../net/network";
 import { createSecretStore, type Cipher } from "../secret-store";
@@ -561,7 +562,17 @@ describe("signing in", () => {
     const { account } = makeAccount(server);
     await account.start();
     await account.signIn("sam@example.com", password);
-    await account.source()?.write([{ kind: "log.add", id: randomUUID(), at: 1, text: "Sam's" }]);
+    await account.source()?.write([
+      {
+        kind: "log.add",
+        id: randomUUID(),
+        at: 1,
+        text: "Sam's",
+        ref: null,
+        action: null,
+        detail: null,
+      },
+    ]);
     expect((await frameOf(account)).log).toHaveLength(1);
 
     expect(await account.signIn("omar@example.com", password)).toEqual({
@@ -582,7 +593,17 @@ describe("an access that drops to waiting", () => {
     const { account, secrets } = makeAccount(server);
     await account.start();
     await account.signIn("omar@example.com", password);
-    await account.source()?.write([{ kind: "log.add", id: randomUUID(), at: 1, text: "Omar's" }]);
+    await account.source()?.write([
+      {
+        kind: "log.add",
+        id: randomUUID(),
+        at: 1,
+        text: "Omar's",
+        ref: null,
+        action: null,
+        detail: null,
+      },
+    ]);
     expect(existsSync(livePath())).toBe(true);
 
     server.setRole(omar, "unauthorized");
@@ -930,9 +951,17 @@ describe("the sync", () => {
     expect(manual.delays()).not.toContain(1_000);
 
     const id = randomUUID();
-    await account
-      .source()
-      ?.write([{ kind: "log.add", id, at: Date.now(), text: "Emailed @ai_daily" }]);
+    await account.source()?.write([
+      {
+        kind: "log.add",
+        id,
+        at: Date.now(),
+        text: "Emailed @ai_daily",
+        ref: null,
+        action: null,
+        detail: null,
+      },
+    ]);
     expect(account.syncStatus().pending).toBe(1);
     await vi.waitFor(() => {
       expect(manual.delays()).toContain(1_000);
@@ -997,7 +1026,14 @@ describe("the sync", () => {
     expect(account.status().state).toBe("signed-out");
     expect(existsSync(livePath())).toBe(true);
     const dispatch = createDispatcher(
-      createHandlers({ version: "1.0.0", secrets, account, find: noFind, ...createStubServices() }),
+      createHandlers({
+        version: "1.0.0",
+        secrets,
+        account,
+        find: noFind,
+        catalog: createStubCatalog(),
+        ...createStubServices(),
+      }),
       () => {
         throw new Error("no handler should fail");
       },
@@ -1142,9 +1178,17 @@ describe("Realtime and presence", () => {
     await account.syncNow();
     expect(lives.made[0]?.announced).toEqual([]);
 
-    await account
-      .source()
-      ?.write([{ kind: "log.add", id: randomUUID(), at: Date.now(), text: "Emailed @ai_daily" }]);
+    await account.source()?.write([
+      {
+        kind: "log.add",
+        id: randomUUID(),
+        at: Date.now(),
+        text: "Emailed @ai_daily",
+        ref: null,
+        action: null,
+        detail: null,
+      },
+    ]);
     await account.syncNow();
     expect(lives.made[0]?.announced).toEqual([["activity_log"]]);
   });
@@ -1207,6 +1251,7 @@ describe("Realtime and presence", () => {
       secrets,
       account,
       find: noFind,
+      catalog: createStubCatalog(),
       ...createStubServices(),
     });
 
@@ -1308,7 +1353,14 @@ describe("nothing secret leaves", () => {
     const { account, logs, secrets, events } = makeAccount(server);
     await account.start();
     const dispatch = createDispatcher(
-      createHandlers({ version: "1.0.0", secrets, account, find: noFind, ...createStubServices() }),
+      createHandlers({
+        version: "1.0.0",
+        secrets,
+        account,
+        find: noFind,
+        catalog: createStubCatalog(),
+        ...createStubServices(),
+      }),
       (channel, error) => {
         logs.push(`${channel}: ${String(error)}`);
       },

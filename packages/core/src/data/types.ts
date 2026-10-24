@@ -34,6 +34,14 @@ export const creatorStages = [
 /** Where a creator is on the way to signing. */
 export type CreatorStage = (typeof creatorStages)[number];
 
+/**
+ * Why a creator was turned down, in the order the reason row shows them (keys 1 to 4): not about
+ * AI tools, too few views, not posting enough, an audience outside the US, UK, CA or AU.
+ */
+export const rejectReasons = ["ai", "views", "posting", "audience"] as const;
+
+export type RejectReason = (typeof rejectReasons)[number];
+
 /** The kinds of notification a person can turn off. */
 export const notifyKinds = ["reply", "money", "handoff", "search"] as const;
 
@@ -113,6 +121,17 @@ export interface RailCounts {
   readonly deliver: number;
 }
 
+/** What a log line did to a creator, so its reason and time can be read back. */
+export const logActions = [
+  "creator.shortlist",
+  "creator.reject",
+  "creator.restore",
+  "creator.never",
+  "creator.allow",
+] as const;
+
+export type LogAction = (typeof logActions)[number];
+
 /** One line in the activity log. */
 export interface LogEntry {
   readonly id: string;
@@ -120,6 +139,11 @@ export interface LogEntry {
   /** The member id of whoever made the change. */
   readonly who: string;
   readonly text: string;
+  /** The creator id the line is about; null for a line about nothing in particular. */
+  readonly ref: string | null;
+  readonly action: LogAction | null;
+  /** The action's detail, such as a reject reason; null when it has none. */
+  readonly detail: string | null;
 }
 
 /** A YouTube creator the agency finds and signs. */
@@ -128,7 +152,16 @@ export interface Creator {
   readonly name: string;
   readonly handle: string;
   readonly stage: CreatorStage;
+  /** The primary address, or null. */
   readonly email: string | null;
+  /** Whether the primary contact has been confirmed by a person. */
+  readonly emailConfirmed: boolean;
+  /** From the newest `creator.reject` line; null otherwise. */
+  readonly rejectReason: RejectReason | null;
+  /** In ms: the time of the newest reject or never line; null when there is none. */
+  readonly rejectedAt: number | null;
+  /** In ms: the local `channel_state.archive_due_at` (the server's 7-day value). */
+  readonly archiveDueAt: number | null;
 }
 
 /** A company that sponsors creators. */
@@ -220,11 +253,29 @@ export type DataWrite =
   /** Trimmed, at most `nameMax`; `""` means unset. No profile row for `me`: a no-op. */
   | { readonly kind: "me.name"; readonly name: string }
   /** `id` is a UUID; the actor is always `me`. */
-  | { readonly kind: "log.add"; readonly id: string; readonly at: number; readonly text: string }
+  | {
+      readonly kind: "log.add";
+      readonly id: string;
+      readonly at: number;
+      readonly text: string;
+      readonly ref: string | null;
+      readonly action: LogAction | null;
+      readonly detail: string | null;
+    }
   /** An unknown id is a no-op. */
   | { readonly kind: "log.remove"; readonly id: string }
-  /** A creator's stage; an unknown id is a no-op. */
-  | { readonly kind: "creator.stage"; readonly id: string; readonly stage: CreatorStage }
+  /**
+   * A creator's stage. It carries the handle and the name so main can create the row when the
+   * creator has none yet (a channel only the pipeline knows). `reason` comes with a reject.
+   */
+  | {
+      readonly kind: "creator.stage";
+      readonly id: string;
+      readonly stage: CreatorStage;
+      readonly handle: string;
+      readonly name: string;
+      readonly reason?: RejectReason;
+    }
   /** Inserts a new brand or updates the three fields of an existing one. */
   | {
       readonly kind: "brand.set";

@@ -93,7 +93,17 @@ describe("recordIntent", () => {
   });
 
   it("log.add writes the line and queues the same row", async () => {
-    await source.write([{ kind: "log.add", id: line, at: t0, text: "Called Acme" }]);
+    await source.write([
+      {
+        kind: "log.add",
+        id: line,
+        at: t0,
+        text: "Called Acme",
+        ref: null,
+        action: null,
+        detail: null,
+      },
+    ]);
     expect(lineCount()).toBe(1);
     const [entry] = entries();
     expect(entry?.kind).toBe("activity.add");
@@ -116,8 +126,8 @@ describe("recordIntent", () => {
     await expect(
       source.write([
         { kind: "me.name", name: "Zed" },
-        { kind: "log.add", id: line, at: t0, text: "a" },
-        { kind: "log.add", id: line, at: t0, text: "a" },
+        { kind: "log.add", id: line, at: t0, text: "a", ref: null, action: null, detail: null },
+        { kind: "log.add", id: line, at: t0, text: "a", ref: null, action: null, detail: null },
       ]),
     ).rejects.toThrow();
     expect(pendingCount(db)).toBe(0);
@@ -126,14 +136,18 @@ describe("recordIntent", () => {
   });
 
   it("undo of an unsent line deletes the line and its entry", async () => {
-    await source.write([{ kind: "log.add", id: line, at: t0, text: "a" }]);
+    await source.write([
+      { kind: "log.add", id: line, at: t0, text: "a", ref: null, action: null, detail: null },
+    ]);
     await source.write([{ kind: "log.remove", id: line }]);
     expect(lineCount()).toBe(0);
     expect(pendingCount(db)).toBe(0);
   });
 
   it("undo of a sent line queues one undo marker; redo queues a redo marker", async () => {
-    await source.write([{ kind: "log.add", id: line, at: t0, text: "a" }]);
+    await source.write([
+      { kind: "log.add", id: line, at: t0, text: "a", ref: null, action: null, detail: null },
+    ]);
     db.exec("DELETE FROM _outbox"); // as if sent
     clock += 1000;
     await source.write([{ kind: "log.remove", id: line }]);
@@ -150,7 +164,9 @@ describe("recordIntent", () => {
       },
     });
     // The same instant: the redo still sorts after the undo.
-    await source.write([{ kind: "log.add", id: line, at: t0, text: "a" }]);
+    await source.write([
+      { kind: "log.add", id: line, at: t0, text: "a", ref: null, action: null, detail: null },
+    ]);
     expect(lineCount()).toBe(3);
     expect(entries()).toHaveLength(2);
     expect(entries()[1]?.payload).toMatchObject({ row: { action: "redo", entity_id: line } });
@@ -182,7 +198,9 @@ describe("recordIntent", () => {
 
     it("creator.stage queues channel.edit with the column as base, taken before the write", async () => {
       seedCreator("emailed");
-      await source.write([{ kind: "creator.stage", id: ch, stage: "replied" }]);
+      await source.write([
+        { kind: "creator.stage", id: ch, stage: "replied", handle: "", name: "" },
+      ]);
       expect(stored()).toBe("replied");
       expect(entries()).toEqual([
         {
@@ -201,15 +219,17 @@ describe("recordIntent", () => {
 
     it("a first stage edit has a null base", async () => {
       seedCreator(null);
-      await source.write([{ kind: "creator.stage", id: ch, stage: "emailed" }]);
+      await source.write([
+        { kind: "creator.stage", id: ch, stage: "emailed", handle: "", name: "" },
+      ]);
       expect(entries()[0]?.payload).toMatchObject({ base: null, next: "emailed" });
     });
 
     it("an edit to the same stage, or to an unknown creator, queues nothing", async () => {
       seedCreator("emailed");
       await source.write([
-        { kind: "creator.stage", id: ch, stage: "emailed" },
-        { kind: "creator.stage", id: "nope", stage: "emailed" },
+        { kind: "creator.stage", id: ch, stage: "emailed", handle: "", name: "" },
+        { kind: "creator.stage", id: "nope", stage: "emailed", handle: "", name: "" },
       ]);
       expect(pendingCount(db)).toBe(0);
     });

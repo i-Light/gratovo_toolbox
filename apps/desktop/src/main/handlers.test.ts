@@ -1,4 +1,5 @@
 import { exampleFrame, type DataSource, type DataWrite } from "@gratovo/core/data";
+import { emptyFacets, emptyFindFilter } from "@gratovo/core/find";
 import {
   channels,
   type AuthStatus,
@@ -8,6 +9,7 @@ import {
 } from "@gratovo/ipc";
 import { describe, expect, it, vi } from "vitest";
 
+import { createStubCatalog, type FindCatalog } from "./find/catalog-types";
 import { createHandlers, type HandlerContext } from "./handlers";
 import type { SecretStore } from "./secret-store";
 import type { HandlerServices } from "./services";
@@ -102,12 +104,14 @@ function handlersWith(
   names: string[] = [],
   find: HandlerContext["find"] = findWith(),
   services: Partial<HandlerServices> = {},
+  catalog: FindCatalog = createStubCatalog(),
 ) {
   return createHandlers({
     version: "1.2.3",
     secrets: storeWith(names),
     account,
     find,
+    catalog,
     ...createStubServices(),
     ...services,
   });
@@ -255,6 +259,34 @@ describe("the find handlers", () => {
     );
     await mine["auth:sign-out"]({});
     expect(order).toEqual(["shutdown", "sign-out"]);
+  });
+});
+
+describe("the find catalog handlers", () => {
+  it("answer empty from the stub catalog, and each answer fits its channel", async () => {
+    const mine = handlersWith(accountWith());
+    const query = await mine["find:query"]({
+      filter: emptyFindFilter,
+      sort: "triage",
+      offset: 0,
+      limit: 120,
+    });
+    expect(query).toEqual({ version: 0, total: 0, items: [], facets: emptyFacets });
+    expect(channels["find:query"].response.safeParse(query).success).toBe(true);
+    expect(await mine["find:item"]({ id: "UCaaaaaaaaaaaaaaaaaaaaaa" })).toEqual({ item: null });
+    expect(await mine["find:runs"]({})).toEqual({ runs: [] });
+  });
+
+  it("pass the request to the catalog", async () => {
+    const stub = createStubCatalog();
+    const query = vi.fn<FindCatalog["query"]>((r) => stub.query(r));
+    const item = vi.fn<FindCatalog["item"]>((id) => stub.item(id));
+    const mine = handlersWith(accountWith(), [], findWith(), {}, { ...stub, query, item });
+    const request = { filter: emptyFindFilter, sort: "fit" as const, offset: 120, limit: 60 };
+    await mine["find:query"](request);
+    expect(query).toHaveBeenCalledWith(request);
+    await mine["find:item"]({ id: "UCbbbbbbbbbbbbbbbbbbbbbb" });
+    expect(item).toHaveBeenCalledWith("UCbbbbbbbbbbbbbbbbbbbbbb");
   });
 });
 
