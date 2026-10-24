@@ -196,7 +196,7 @@ def test_a_stop_mid_run_ends_stopped_at_the_keyword_in_progress(tmp_path: Path, 
     conn = store.get_connection(tmp_path / "example-pipeline" / "pipeline.db")
     try:
         row = conn.execute("SELECT status FROM runs").fetchone()
-        assert row["status"] == "interrupted"
+        assert row["status"] == "stopped"
     finally:
         conn.close()
 
@@ -416,3 +416,15 @@ def test_a_start_line_longer_than_a_message_line_is_read_whole(
     job = seen[0]["job"]
     assert job["kind"] == "search"
     assert len(job["keywords"]) == 500
+
+
+def test_the_example_source_honours_skip(tmp_path: Path, run: Run) -> None:
+    go(run, start_for(tmp_path / "first"))
+    skipped = sorted({c["channelId"] for c in run.of("channel")})[0]
+    again = Run(run.check)
+
+    go(again, start_for(tmp_path / "second", job__skip=[skipped]))
+
+    ids = {c["channelId"] for c in again.of("channel")}
+    assert skipped not in ids
+    assert ids  # the others are still searched

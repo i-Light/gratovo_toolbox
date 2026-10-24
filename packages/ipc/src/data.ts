@@ -3,8 +3,10 @@ import {
   agencyRoles,
   creatorStages,
   frameSources,
+  logActions,
   nameMax,
   notificationIcons,
+  rejectReasons,
   type Brand,
   type Creator,
   type DataWrite,
@@ -35,6 +37,8 @@ export const textMax = 500;
 export const listMax = 5000;
 /** The most log lines in a frame: the newest. */
 export const logMax = 50;
+/** The longest detail on a log line (a reject reason today). */
+export const detailMax = 500;
 
 const id = z.string().min(1).max(idMax);
 const text = z.string().max(textMax);
@@ -79,11 +83,18 @@ export const railCountsSchema: z.ZodType<RailCounts> = z.strictObject({
   deliver: count,
 });
 
+const logRef = {
+  ref: id.nullable(),
+  action: z.enum(logActions).nullable(),
+  detail: z.string().max(detailMax).nullable(),
+};
+
 export const logEntrySchema: z.ZodType<LogEntry> = z.strictObject({
   id,
   at: time,
   who: text,
   text,
+  ...logRef,
 });
 
 export const creatorSchema: z.ZodType<Creator> = z.strictObject({
@@ -92,6 +103,10 @@ export const creatorSchema: z.ZodType<Creator> = z.strictObject({
   handle: text,
   stage: z.enum(creatorStages),
   email: text.nullable(),
+  emailConfirmed: z.boolean(),
+  rejectReason: z.enum(rejectReasons).nullable(),
+  rejectedAt: time.nullable(),
+  archiveDueAt: time.nullable(),
 });
 
 export const brandSchema: z.ZodType<Brand> = z.strictObject({
@@ -153,9 +168,16 @@ export const dataWriteSchema: z.ZodType<DataWrite> = z.discriminatedUnion("kind"
   z.strictObject({ kind: z.literal("notification.read"), id, read: z.boolean() }),
   z.strictObject({ kind: z.literal("notify.set"), notify: notifySettingsSchema }),
   z.strictObject({ kind: z.literal("me.name"), name: z.string().max(nameMax) }),
-  z.strictObject({ kind: z.literal("log.add"), id, at: time, text }),
+  z.strictObject({ kind: z.literal("log.add"), id, at: time, text, ...logRef }),
   z.strictObject({ kind: z.literal("log.remove"), id }),
-  z.strictObject({ kind: z.literal("creator.stage"), id, stage: z.enum(creatorStages) }),
+  z.strictObject({
+    kind: z.literal("creator.stage"),
+    id,
+    stage: z.enum(creatorStages),
+    handle: text,
+    name: text,
+    reason: z.exactOptional(z.enum(rejectReasons)),
+  }),
   z.strictObject({
     kind: z.literal("brand.set"),
     id,

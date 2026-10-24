@@ -44,6 +44,8 @@ SCHEMA_BREAKS: list[tuple[str, object]] = [
     ("job.rules.sortBy", "newest"),
     ("job.rules.autoClean.belowMin", "keep"),
     ("job.rules.autoClean.extra", 1),
+    ("job.skip", ["UCtooShort"]),
+    ("job.skip", ["@aitoolsdaily"]),
     ("settings.pacing", "slow"),
     ("settings.parallel", {"enabled": True, "maxWorkers": 0}),
     ("secrets.youtubeKey", ""),
@@ -61,6 +63,15 @@ def test_a_start_that_breaks_the_schema_is_refused(
     assert schema_errors(protocol_schema["toPipeline"], bad) != []
     with pytest.raises(BadStartError):
         parse_start(json.dumps(bad))
+
+
+def test_a_search_may_carry_channels_to_skip(protocol_schema: dict[str, Any]) -> None:
+    skip = ["UC" + "a" * 22, "UC" + "B_-1" * 5 + "xy"]
+    start = changed("job.skip", skip)
+    assert schema_errors(protocol_schema["toPipeline"], start) == []
+    job = parse_start(json.dumps(start))["job"]
+    assert job["kind"] == "search"
+    assert job.get("skip") == skip
 
 
 # The checks JSON Schema can't express, which zod makes with refinements.

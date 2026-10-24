@@ -2,12 +2,29 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { exampleFrame, mentionsMoney, nameMax, notifyKind } from "@gratovo/core/data";
+import {
+  creatorStages,
+  exampleFrame,
+  mentionsMoney,
+  nameMax,
+  notifyKind,
+} from "@gratovo/core/data";
+import { emptyFindFilter } from "@gratovo/core/find";
 import { frameSchema } from "@gratovo/ipc";
-import type { DataSource, DataWrite, Frame, FrameSource } from "@gratovo/core/data";
+import type {
+  CreatorStage,
+  DataSource,
+  DataWrite,
+  Frame,
+  FrameSource,
+  LogAction,
+  RejectReason,
+} from "@gratovo/core/data";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { openDatabase } from "../db/open-database";
+import { createCatalog } from "../find/catalog";
+import { writePipelineDb } from "../find/catalog-fixture";
 
 import {
   insertLogRow,
@@ -231,12 +248,44 @@ export function describeDataSourceContract(
       await writeAll(source, { kind: "me.name", name: "Ada" });
       let frame = await writeAll(
         source,
-        { kind: "log.add", id: idA, at: contractNow - 2000, text: "Marked all read" },
-        { kind: "log.add", id: idB, at: contractNow - 1000, text: "Changed a switch" },
+        {
+          kind: "log.add",
+          id: idA,
+          at: contractNow - 2000,
+          text: "Marked all read",
+          ref: null,
+          action: null,
+          detail: null,
+        },
+        {
+          kind: "log.add",
+          id: idB,
+          at: contractNow - 1000,
+          text: "Changed a switch",
+          ref: null,
+          action: null,
+          detail: null,
+        },
       );
       expect(frame.log).toEqual([
-        { id: idB, at: contractNow - 1000, who: "u1", text: "Changed a switch" },
-        { id: idA, at: contractNow - 2000, who: "u1", text: "Marked all read" },
+        {
+          id: idB,
+          at: contractNow - 1000,
+          who: "u1",
+          text: "Changed a switch",
+          ref: null,
+          action: null,
+          detail: null,
+        },
+        {
+          id: idA,
+          at: contractNow - 2000,
+          who: "u1",
+          text: "Marked all read",
+          ref: null,
+          action: null,
+          detail: null,
+        },
       ]);
       frame = await writeAll(source, { kind: "log.remove", id: idB });
       expect(frame.log.map((line) => line.id)).toEqual([idA]);
@@ -247,7 +296,15 @@ export function describeDataSourceContract(
       const writes: DataWrite[] = [];
       for (let i = 0; i < 55; i += 1) {
         const id = `00000000-0000-4000-8000-${String(i).padStart(12, "0")}`;
-        writes.push({ kind: "log.add", id, at: contractNow + i, text: `Line ${String(i)}` });
+        writes.push({
+          kind: "log.add",
+          id,
+          at: contractNow + i,
+          text: `Line ${String(i)}`,
+          ref: null,
+          action: null,
+          detail: null,
+        });
       }
       const frame = await writeAll(source, ...writes);
       expect(frame.log).toHaveLength(50);
@@ -270,8 +327,7 @@ export function describeDataSourceContract(
       const source = start();
       const frame = await writeAll(
         source,
-        { kind: "creator.stage", id: "c1", stage: "emailed" },
-        { kind: "creator.stage", id: "nope", stage: "emailed" },
+        { kind: "creator.stage", id: "c1", stage: "emailed", handle: "", name: "" },
         {
           kind: "brand.set",
           id: "b1",
@@ -299,15 +355,39 @@ export function describeDataSourceContract(
 
     it("applies nothing when a batch fails part way", async () => {
       const source = start();
-      await writeAll(source, { kind: "log.add", id: idA, at: contractNow, text: "First" });
+      await writeAll(source, {
+        kind: "log.add",
+        id: idA,
+        at: contractNow,
+        text: "First",
+        ref: null,
+        action: null,
+        detail: null,
+      });
       const before = await source.frame();
       await expect(
         source.write([
           { kind: "notification.read", id: "n1", read: true },
           { kind: "notify.set", notify: { money: false } },
           { kind: "me.name", name: "Ada" },
-          { kind: "log.add", id: idB, at: contractNow + 1, text: "Second" },
-          { kind: "log.add", id: idA, at: contractNow + 2, text: "Duplicate" },
+          {
+            kind: "log.add",
+            id: idB,
+            at: contractNow + 1,
+            text: "Second",
+            ref: null,
+            action: null,
+            detail: null,
+          },
+          {
+            kind: "log.add",
+            id: idA,
+            at: contractNow + 2,
+            text: "Duplicate",
+            ref: null,
+            action: null,
+            detail: null,
+          },
         ]),
       ).rejects.toThrow();
       expect(await source.frame()).toEqual(before);
@@ -322,7 +402,15 @@ export function describeDataSourceContract(
         { kind: "notification.read", id: "n1", read: true },
         { kind: "notify.set", notify: { search: false } },
         { kind: "me.name", name: "Ada" },
-        { kind: "log.add", id: idA, at: contractNow, text: "Marked all read" },
+        {
+          kind: "log.add",
+          id: idA,
+          at: contractNow,
+          text: "Marked all read",
+          ref: null,
+          action: null,
+          detail: null,
+        },
       ]);
       const before = await first.frame();
       first.close();
@@ -410,6 +498,10 @@ export function describeDataSourceContract(
       });
       const frame = await source.frame();
       expect(frame.creators.length).toBeLessThanOrEqual(5000);
+      // The catalog's read is not capped: every row, the example ones too.
+      const states = await source.creatorStates();
+      expect(states.length).toBe(20_000 + exampleFrame(contractNow).creators.length);
+      expect(states.find((c) => c.id === "bulk-19999")?.name).toBe("Bulk 19999");
       const ids = new Set(frame.creators.map((c) => c.id));
       for (let i = 0; i < 50; i += 1) {
         expect(ids.has(`bulk-${String(i)}`)).toBe(true);
@@ -486,6 +578,307 @@ export function describeDataSourceContract(
         );
       });
       expect((await source.frame()).log.map((l) => l.id)).toEqual(["l2", "l1"]);
+    });
+
+    describe("creator writes (plan step 5, D4 and D5)", () => {
+      const day = 24 * 60 * 60 * 1000;
+
+      function stored(id: string): { tags: unknown; due: unknown; vetting: unknown } {
+        let out: { tags: unknown; due: unknown; vetting: unknown } = {
+          tags: undefined,
+          due: undefined,
+          vetting: undefined,
+        };
+        withDb(file, (db) => {
+          const row = db
+            .prepare(
+              "SELECT channel_tags, archive_due_at, vetting_status FROM channel_state WHERE channel_id = ?",
+            )
+            .get(id);
+          out = {
+            tags:
+              row === undefined ? undefined : (JSON.parse(String(row["channel_tags"])) as unknown),
+            due: row?.["archive_due_at"],
+            vetting: row?.["vetting_status"],
+          };
+        });
+        return out;
+      }
+
+      function stage(id: string, to: CreatorStage, reason?: RejectReason): DataWrite {
+        return {
+          kind: "creator.stage",
+          id,
+          stage: to,
+          handle: "",
+          name: "",
+          ...(reason === undefined ? {} : { reason }),
+        };
+      }
+
+      function line(
+        id: string,
+        at: number,
+        ref: string,
+        action: LogAction,
+        detail: string | null,
+      ): DataWrite {
+        return { kind: "log.add", id, at, text: `Line ${id}`, ref, action, detail };
+      }
+
+      const agentLab = "UCagentLabAiTools000001x";
+      const fresh = "UCfreshAiNewsChannel0001";
+
+      it("creates the row and the name for a channel it has none for", async () => {
+        const source = start();
+        const frame = await writeAll(source, {
+          kind: "creator.stage",
+          id: agentLab,
+          stage: "shortlisted",
+          handle: "@agentlab",
+          name: "Agent Lab",
+        });
+        expect(frame.creators.find((c) => c.id === agentLab)).toEqual({
+          id: agentLab,
+          name: "Agent Lab",
+          handle: "@agentlab",
+          stage: "shortlisted",
+          email: null,
+          emailConfirmed: false,
+          rejectReason: null,
+          rejectedAt: null,
+          archiveDueAt: null,
+        });
+        expect(frame.creators).toHaveLength(exampleFrame(contractNow).creators.length + 1);
+        // The legacy fields keep the old app's defaults, as the server writes a new row (D4).
+        expect(stored(agentLab)).toEqual({ tags: [], due: null, vetting: "newlyFound" });
+        // A second write finds the row: nothing is added twice.
+        const again = await writeAll(source, stage(agentLab, "contact"));
+        expect(again.creators.filter((c) => c.id === agentLab)).toHaveLength(1);
+        expect(again.creators.find((c) => c.id === agentLab)?.name).toBe("Agent Lab");
+      });
+
+      it("creates no row for an id that is not a channel id", async () => {
+        const source = start();
+        const before = await source.frame();
+        for (const id of ["UC_agent_lab", "c999", `UC${"a".repeat(21)}`, `UC${"a".repeat(23)}`]) {
+          await source.write([
+            { kind: "creator.stage", id, stage: "rejected", handle: "@x", name: "X", reason: "ai" },
+          ]);
+          expect(stored(id)).toEqual({ tags: undefined, due: undefined, vetting: undefined });
+        }
+        expect(await source.frame()).toEqual(before);
+      });
+
+      it("never then allow on a channel with no row is not emailed before", async () => {
+        const source = start();
+        await source.write([stage(fresh, "never")]);
+        await source.write([stage(fresh, "new")]);
+        expect((await source.creatorStates()).find((c) => c.id === fresh)).toMatchObject({
+          stage: "new",
+          legacyPipelineStage: "new",
+          hasAppStage: true,
+        });
+        const pipelineDb = join(folder, "pipeline.db");
+        writePipelineDb(pipelineDb, { channels: [{ id: fresh, name: "Fresh AI News" }] });
+        const catalog = createCatalog({ pipelineDbPath: () => pipelineDb, source: () => source });
+        try {
+          const page = await catalog.query({
+            filter: { ...emptyFindFilter, stages: [...creatorStages] },
+            sort: "found",
+            offset: 0,
+            limit: 10,
+          });
+          expect(page.items.find((item) => item.id === fresh)?.emailedBefore).toBeNull();
+        } finally {
+          catalog.close();
+        }
+      });
+
+      it("rejects with the tag the reason calls for, and the due date 7 days on", async () => {
+        const source = start();
+        const frame = await writeAll(
+          source,
+          stage("c11", "rejected", "posting"),
+          stage("c12", "rejected", "views"),
+          // Rejecting again adds nothing twice and keeps the date.
+          stage("c11", "rejected", "posting"),
+        );
+        expect(stored("c11").tags).toEqual(["inactive"]);
+        expect(stored("c12").tags).toEqual(["irrelevant"]);
+        expect(stored("c11").due).toBe(new Date(contractNow + 7 * day).toISOString());
+        const c11 = frame.creators.find((c) => c.id === "c11");
+        expect(c11?.stage).toBe("rejected");
+        expect(c11?.archiveDueAt).toBe(contractNow + 7 * day);
+        // A channel only the pipeline knew is tagged the same way.
+        await source.write([
+          {
+            kind: "creator.stage",
+            id: fresh,
+            stage: "rejected",
+            handle: "@x",
+            name: "X",
+            reason: "ai",
+          },
+        ]);
+        expect(stored(fresh)).toMatchObject({ tags: ["irrelevant"], vetting: "newlyFound" });
+        expect((await source.frame()).creators.find((c) => c.id === fresh)?.stage).toBe("rejected");
+      });
+
+      it("bringing a channel back takes the rejecting tags off and clears the date", async () => {
+        const source = start();
+        withDb(file, (db) => {
+          db.prepare("UPDATE channel_state SET channel_tags = ? WHERE channel_id = 'c11'").run(
+            JSON.stringify(["qualified", "haramStuff"]),
+          );
+        });
+        await source.write([stage("c11", "rejected", "audience")]);
+        expect(stored("c11").tags).toEqual(["qualified", "haramStuff", "irrelevant"]);
+        const frame = await writeAll(source, stage("c11", "new"));
+        expect(stored("c11")).toMatchObject({ tags: ["qualified"], due: null });
+        expect(frame.creators.find((c) => c.id === "c11")).toMatchObject({
+          stage: "new",
+          archiveDueAt: null,
+        });
+      });
+
+      it("never contact tags nothing and sets no date", async () => {
+        const source = start();
+        const frame = await writeAll(source, stage("c12", "never"));
+        expect(stored("c12")).toMatchObject({ tags: [], due: null });
+        expect(frame.creators.find((c) => c.id === "c12")?.stage).toBe("never");
+      });
+
+      it("reads the reject reason and time from the newest visible reject or never line", async () => {
+        const source = start();
+        let frame = await writeAll(
+          source,
+          line(idA, contractNow - 2000, "c11", "creator.reject", "views"),
+          stage("c11", "rejected", "views"),
+        );
+        expect(frame.creators.find((c) => c.id === "c11")).toMatchObject({
+          rejectReason: "views",
+          rejectedAt: contractNow - 2000,
+          archiveDueAt: contractNow + 7 * day,
+        });
+        // Other creators are untouched.
+        expect(frame.creators.find((c) => c.id === "c12")).toMatchObject({
+          rejectReason: null,
+          rejectedAt: null,
+        });
+        // A newer never line wins: its time, and no reason.
+        frame = await writeAll(source, line(idB, contractNow - 1000, "c11", "creator.never", null));
+        expect(frame.creators.find((c) => c.id === "c11")).toMatchObject({
+          rejectReason: null,
+          rejectedAt: contractNow - 1000,
+        });
+        // A brought-back creator carries no old reason or time.
+        frame = await writeAll(source, stage("c11", "new"));
+        expect(frame.creators.find((c) => c.id === "c11")).toMatchObject({
+          rejectReason: null,
+          rejectedAt: null,
+        });
+        expect((await source.creatorStates()).find((c) => c.id === "c11")).toMatchObject({
+          rejectReason: null,
+          rejectedAt: null,
+        });
+        await source.write([stage("c11", "rejected", "views")]);
+        // An undo hides the never line, so the reject line is the newest visible one again.
+        withDb(file, (db) => {
+          insertLogRow(
+            db,
+            logRow("k1", new Date(contractNow).toISOString(), {
+              action: "undo",
+              entity_type: "activity_log",
+              entity_id: idB,
+            }),
+          );
+        });
+        frame = await source.frame();
+        expect(frame.creators.find((c) => c.id === "c11")).toMatchObject({
+          rejectReason: "views",
+          rejectedAt: contractNow - 2000,
+        });
+      });
+
+      it("round-trips a log line's ref, action and detail, across a reopen", async () => {
+        const first = start();
+        await first.write([line(idA, contractNow, "c11", "creator.reject", "audience")]);
+        const expected = {
+          id: idA,
+          at: contractNow,
+          who: "u1",
+          text: `Line ${idA}`,
+          ref: "c11",
+          action: "creator.reject",
+          detail: "audience",
+        };
+        expect((await first.frame()).log).toEqual([expected]);
+        first.close();
+        expect((await start().frame()).log).toEqual([expected]);
+      });
+
+      it("gives the catalog every creator's state with its fields", async () => {
+        const source = start();
+        withDb(file, (db) => {
+          db.prepare(
+            "UPDATE channel_state SET manual_engagement_rate = 0.042 WHERE channel_id = 'c11'",
+          ).run();
+          insertLogRow(
+            db,
+            logRow("old1", "2026-10-19T09:00:00Z", {
+              actor_name: "Sara",
+              action: "emailSent",
+              entity_type: "channel",
+              entity_id: "c11",
+              entity_label: "Model Matters",
+            }),
+          );
+        });
+        await source.write([
+          { kind: "me.name", name: "Ada" },
+          stage("c11", "rejected", "ai"),
+          line(idA, contractNow - 500, "c11", "creator.reject", "ai"),
+        ]);
+        const states = await source.creatorStates();
+        const examples = exampleFrame(contractNow).creators;
+        expect(states.map((c) => c.id)).toEqual(examples.map((c) => c.id));
+        const c11 = examples.find((c) => c.id === "c11");
+        expect(states.find((c) => c.id === "c11")).toEqual({
+          id: "c11",
+          handle: c11?.handle,
+          name: c11?.name,
+          stage: "rejected",
+          email: c11?.email,
+          emailConfirmed: false,
+          rejectReason: "ai",
+          rejectedAt: contractNow - 500,
+          archiveDueAt: contractNow + 7 * day,
+          engagement: 0.042,
+          legacyPipelineStage: "new",
+          hasAppStage: true,
+          lastActivity: { at: contractNow - 500, who: "Ada" },
+        });
+        // A creator with no line of its own has no activity; the old app's lines count.
+        const c12 = states.find((c) => c.id === "c12");
+        expect(c12).toMatchObject({ engagement: null, lastActivity: null, archiveDueAt: null });
+        // Never reports its time; a reject line on a creator now at another stage reports nothing.
+        await source.write([
+          stage("c12", "never"),
+          line(idB, contractNow - 400, "c12", "creator.never", null),
+        ]);
+        expect((await source.creatorStates()).find((c) => c.id === "c12")).toMatchObject({
+          rejectReason: null,
+          rejectedAt: contractNow - 400,
+        });
+        withDb(file, (db) => {
+          db.prepare("DELETE FROM activity_log WHERE id = ?").run(idA);
+        });
+        expect((await source.creatorStates()).find((c) => c.id === "c11")?.lastActivity).toEqual({
+          at: Date.parse("2026-10-19T09:00:00Z"),
+          who: "Sara",
+        });
+      });
     });
 
     it("sorts lines written with Z and with +00:00 by time", async () => {

@@ -1,6 +1,6 @@
 import type { IconName } from "@gratovo/ui";
 import type { Store } from "@gratovo/core";
-import { nameMax } from "@gratovo/core/data";
+import { nameMax, type LogEntry } from "@gratovo/core/data";
 
 import { strings } from "../strings";
 import { onPersistenceIdle } from "./persist";
@@ -77,18 +77,31 @@ export interface ActToast {
  * false comes back. Otherwise the change is recorded for Undo, a line is added to the activity log
  * (unless `log` is false), the save state shows "Saving…", and `toast` is shown. The toast's Undo
  * works only while this change is still the newest; after that it says newer changes came first.
+ * `logRef` ties the log line to a creator and what was done to it, so its reason can be read back.
  */
 export function act<R>(
   label: string,
   recipe: (data: DataDraft, ui: AppUi) => R,
-  options: { readonly log?: boolean; readonly toast?: ActToast } = {},
+  options: {
+    readonly log?: boolean;
+    readonly logRef?: Pick<LogEntry, "ref" | "action" | "detail">;
+    readonly toast?: ActToast;
+  } = {},
 ): R | false {
   const store = appStore();
   const before = store.peekUndo()?.id;
   const result = store.act(label, (data, ui) => {
     const value = recipe(data, ui);
     if (value !== false && options.log !== false) {
-      data.log.unshift({ id: crypto.randomUUID(), at: Date.now(), who: data.me, text: label });
+      data.log.unshift({
+        id: crypto.randomUUID(),
+        at: Date.now(),
+        who: data.me,
+        text: label,
+        ref: options.logRef?.ref ?? null,
+        action: options.logRef?.action ?? null,
+        detail: options.logRef?.detail ?? null,
+      });
     }
     return value;
   });

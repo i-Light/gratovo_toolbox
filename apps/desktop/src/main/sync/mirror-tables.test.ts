@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { newestLog } from "../data/repositories";
 import { openDatabase } from "../db/open-database";
 
 import { mirrorTables, toLocalRow, upsertRow } from "./mirror-tables";
@@ -143,6 +144,38 @@ describe("upsertRow", () => {
 
   afterEach(() => {
     db.close();
+  });
+
+  it("maps a pulled creator line back to its ref, action and reason", () => {
+    const t = table("activity_log");
+    upsertRow(
+      db,
+      t,
+      row(t, {
+        id: "11111111-1111-4111-8111-000000000001",
+        at: "2026-10-20T10:00:00.123456+00:00",
+        actor_id: "u2",
+        actor_name: "Sara",
+        actor_role: "full",
+        action: "creator.reject",
+        entity_type: "channel",
+        entity_id: "UC1",
+        entity_label: "AI Weekly",
+        detail: { text: "Rejected AI Weekly", reason: "audience" },
+        received_at: "2026-10-20T10:00:01+00:00",
+      }),
+    );
+    expect(newestLog(db, { seesMoney: true })).toEqual([
+      {
+        id: "11111111-1111-4111-8111-000000000001",
+        at: Date.parse("2026-10-20T10:00:00.123Z"),
+        who: "u2",
+        text: "Rejected AI Weekly",
+        ref: "UC1",
+        action: "creator.reject",
+        detail: "audience",
+      },
+    ]);
   });
 
   it("updates in place, keeping the rowid and local columns", () => {

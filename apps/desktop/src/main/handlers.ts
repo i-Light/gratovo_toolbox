@@ -1,7 +1,8 @@
-import type { DataSource } from "@gratovo/core/data";
+import type { DataSource, DataWrite } from "@gratovo/core/data";
 import type { Handlers } from "@gratovo/ipc";
 
 import type { Account } from "./account/account";
+import type { FindCatalog } from "./find/catalog-types";
 import type { FindService } from "./find/find-service";
 import type { SecretStore } from "./secret-store";
 import type { HandlerServices } from "./services";
@@ -15,6 +16,13 @@ export interface HandlerContext extends HandlerServices {
   version: string;
   secrets: SecretStore;
   find: FindService;
+  /** The Find catalog: pages, one channel's detail and the run history. */
+  catalog: FindCatalog;
+  /**
+   * Called after a stored `data:write` batch that changes what the catalog shows: a creator's
+   * stage, a log line about a creator, or a settled conflict (plan D1). The catalog rebuilds on it.
+   */
+  onCreatorsWritten?: () => void;
   account: Pick<
     Account,
     | "status"
@@ -28,9 +36,22 @@ export interface HandlerContext extends HandlerServices {
   >;
 }
 
+/**
+ * Whether one write can change a catalog row: a stage, a log line on a creator (add) or any
+ * removal, or a conflict settled (keeping yours puts your stage back).
+ */
+function changesCatalog(write: DataWrite): boolean {
+  return (
+    write.kind === "creator.stage" ||
+    write.kind === "conflict.resolve" ||
+    (write.kind === "log.add" && write.ref !== null) ||
+    write.kind === "log.remove"
+  );
+}
+
 /** The main process's answer to each channel in `channels`. */
 export function createHandlers(context: HandlerContext): Handlers {
-  const { version, secrets, account, find } = context;
+  const { version, secrets, account, find, catalog } = context;
   const { importer, connections, gemini, writingRules, mailConsent } = context;
 
   /** The account's open source. The page never asks for data while none is open. */
@@ -49,6 +70,9 @@ export function createHandlers(context: HandlerContext): Handlers {
     // A rejection goes up to the dispatcher, which logs it; the page learns only that it failed.
     "data:write": async ({ writes }) => {
       await openSource().write(writes);
+      if (writes.some(changesCatalog)) {
+        context.onCreatorsWritten?.();
+      }
       return {};
     },
     "auth:status": () => account.status(),
@@ -78,6 +102,9 @@ export function createHandlers(context: HandlerContext): Handlers {
       find.stop();
       return {};
     },
+    "find:query": (request) => catalog.query(request),
+    "find:item": ({ id }) => catalog.item(id),
+    "find:runs": () => catalog.runs(),
     "rules:set": ({ rules }) => {
       find.setRules(rules);
       return {};

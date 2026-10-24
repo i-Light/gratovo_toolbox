@@ -44,12 +44,22 @@ def process_keyword(search: Search, keyword: str) -> KeywordResult:
     #   vet it twice. The keyword is still noted on its tombstone, so it scores the keyword.
     # - known: already held; nothing below can learn anything new about it. It gets the link
     #   saying this keyword found it too. Refreshing a stale channel is a separate job.
+    # - never-contact: on the job's skip list; treated like a known channel but touched in no
+    #   way (no link, no row, no deletion if we already hold it).
+    never = {h: cid for h, cid in discovered.items() if cid in search.skip}
+    if never:
+        discovered = {h: cid for h, cid in discovered.items() if h not in never}
     fresh, known, archived = store.partition_discovered(conn, discovered)
     store.record_keyword_links(conn, known, keyword)
     store.record_archive_keyword_links(conn, archived, keyword, cfg.handles_limit)
     for handle, channel_id in fresh.items():
         store.record_channel_discovery(conn, handle, channel_id, keyword)
-    if known or archived:
+    if never:
+        search.info(
+            f"Skipped {len(known)} known, {len(archived)} archived and {len(never)} "
+            f"never-contact channel(s); {len(fresh)} new."
+        )
+    elif known or archived:
         search.info(
             f"Skipped {len(known)} known and {len(archived)} archived channel(s); {len(fresh)} new."
         )

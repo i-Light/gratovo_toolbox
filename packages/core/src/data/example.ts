@@ -241,6 +241,10 @@ const creators: readonly Creator[] = [
     handle: "@promptlab",
     stage: "signed",
     email: "hello@promptlab.tv",
+    emailConfirmed: false,
+    rejectReason: null,
+    rejectedAt: null,
+    archiveDueAt: null,
   },
   {
     id: "c2",
@@ -248,6 +252,10 @@ const creators: readonly Creator[] = [
     handle: "@neuralnotes",
     stage: "signed",
     email: "team@neuralnotes.io",
+    emailConfirmed: false,
+    rejectReason: null,
+    rejectedAt: null,
+    archiveDueAt: null,
   },
   {
     id: "c3",
@@ -255,6 +263,10 @@ const creators: readonly Creator[] = [
     handle: "@codewithkai",
     stage: "signed",
     email: "kai@codewithkai.dev",
+    emailConfirmed: false,
+    rejectReason: null,
+    rejectedAt: null,
+    archiveDueAt: null,
   },
   {
     id: "c4",
@@ -262,6 +274,10 @@ const creators: readonly Creator[] = [
     handle: "@tensortalk",
     stage: "signed",
     email: "biz@tensortalk.com",
+    emailConfirmed: false,
+    rejectReason: null,
+    rejectedAt: null,
+    archiveDueAt: null,
   },
   {
     id: "c5",
@@ -269,6 +285,10 @@ const creators: readonly Creator[] = [
     handle: "@theaidesk",
     stage: "signed",
     email: "desk@theaidesk.news",
+    emailConfirmed: false,
+    rejectReason: null,
+    rejectedAt: null,
+    archiveDueAt: null,
   },
   {
     id: "c11",
@@ -276,8 +296,22 @@ const creators: readonly Creator[] = [
     handle: "@modelmatters",
     stage: "new",
     email: "modelmatters.yt@gmail.com",
+    emailConfirmed: false,
+    rejectReason: null,
+    rejectedAt: null,
+    archiveDueAt: null,
   },
-  { id: "c12", name: "Prompt Daily", handle: "@promptdaily", stage: "new", email: null },
+  {
+    id: "c12",
+    name: "Prompt Daily",
+    handle: "@promptdaily",
+    stage: "new",
+    email: null,
+    emailConfirmed: false,
+    rejectReason: null,
+    rejectedAt: null,
+    archiveDueAt: null,
+  },
 ];
 
 const brands: readonly Brand[] = [

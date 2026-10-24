@@ -154,7 +154,7 @@ CREATE TABLE IF NOT EXISTS runs (
     run_id INTEGER PRIMARY KEY AUTOINCREMENT,
     started_at TEXT NOT NULL,
     finished_at TEXT,
-    status TEXT NOT NULL DEFAULT 'running',  -- running | done | interrupted
+    status TEXT NOT NULL DEFAULT 'running',  -- running | done | stopped (paused) | interrupted
     keywords_total INTEGER NOT NULL DEFAULT 0,
     keywords_done INTEGER NOT NULL DEFAULT 0,
     channels_upserted INTEGER NOT NULL DEFAULT 0,
@@ -1236,7 +1236,9 @@ def update_run_progress(
 
 
 def finish_run(
-    conn: sqlite3.Connection, run_id: int, status: Literal["done", "interrupted"] = "done"
+    conn: sqlite3.Connection,
+    run_id: int,
+    status: Literal["done", "stopped", "interrupted"] = "done",
 ) -> None:
     conn.execute(
         "UPDATE runs SET status=?, finished_at=? WHERE run_id=?", (status, utc_now(), run_id)

@@ -264,6 +264,10 @@ describe("example records", () => {
       handle: "@promptlab",
       stage: "signed",
       email: "hello@promptlab.tv",
+      emailConfirmed: false,
+      rejectReason: null,
+      rejectedAt: null,
+      archiveDueAt: null,
     });
     expect(data.creators.find((c) => c.id === "c12")?.email).toBeNull();
     expect(data.brands.map((b) => b.name)).toEqual([
@@ -391,7 +395,7 @@ describe("the live gate", () => {
     live();
     go("reach");
     expect(route()).toEqual({ screen: "find", tab: "search" });
-    go("find", "triage");
+    go("find", "gallery");
     expect(route()).toEqual({ screen: "find", tab: "search" });
     go("settings", "day");
     expect(route()).toEqual({ screen: "find", tab: "search" });

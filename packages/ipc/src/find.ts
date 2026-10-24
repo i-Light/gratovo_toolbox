@@ -1,3 +1,14 @@
+import { creatorStages, rejectReasons } from "@gratovo/core/data";
+import {
+  findSignals,
+  findSorts,
+  type CatalogItem,
+  type CatalogVideo,
+  type Facets,
+  type FindFilter,
+  type Fit,
+  type FitPart,
+} from "@gratovo/core/find";
 import { z } from "zod";
 
 /** A tally: found, kept or swept channels. */
@@ -116,3 +127,151 @@ export const findStartResultSchema = z.discriminatedUnion("ok", [
     problem: z.enum(["no_keywords", "running", "no_youtube_key", "no_python"]),
   }),
 ]);
+
+// The catalog channels (plan step 5, D1, D2 and D10). Each schema is typed against the core type
+// it describes, so a schema and its type can't drift apart.
+
+/** The most items one `find:query` page carries. */
+export const findPageMax = 120;
+/** The most videos on a query item (the newest) and on `find:item`'s detail. */
+export const itemVideosMax = 3;
+export const detailVideosMax = 15;
+/** The most search runs `find:runs` lists: the newest. */
+export const findRunsMax = 50;
+
+const catalogId = z.string().min(1).max(100);
+const catalogText = z.string().max(500);
+const time = z.number();
+const amount = z.number().nonnegative();
+/** A country code as the pipeline stores it (ISO-2); kept loose so one odd row can't break a page. */
+const country = z.string().min(1).max(10);
+/** A run id: `runs.id` in `pipeline.db`. */
+const runId = z.number().int().nonnegative();
+
+export const catalogVideoSchema: z.ZodType<CatalogVideo> = z.strictObject({
+  id: catalogId,
+  title: catalogText,
+  views: amount.nullable(),
+  publishedAt: time.nullable(),
+  pic: catalogId.nullable(),
+});
+
+const fitPartSchema: z.ZodType<FitPart> = z.strictObject({
+  key: z.enum(["median", "posting", "audience", "engagement", "sponsored"]),
+  points: amount,
+  of: amount,
+  note: catalogText,
+});
+
+export const fitSchema: z.ZodType<Fit> = z.strictObject({
+  score: z.number().min(0).max(100),
+  parts: z.array(fitPartSchema).max(5),
+});
+
+// The item's fields as a plain shape, so the query and the detail can each add theirs.
+const catalogItemShape = {
+  id: catalogId,
+  name: catalogText,
+  handle: catalogText,
+  pic: catalogId.nullable(),
+  stage: z.enum(creatorStages),
+  emailConfirmed: z.boolean(),
+  email: catalogText.nullable(),
+  subscribers: amount.nullable(),
+  medianViews: amount,
+  uploads30: count,
+  country: country.nullable(),
+  sponsors: z.array(catalogText).max(50),
+  foundEmails: count,
+  latestUploadAt: time.nullable(),
+  foundAt: time.nullable(),
+  run: runId.nullable(),
+  keyword: catalogText.nullable(),
+  videos: z.array(catalogVideoSchema).max(itemVideosMax),
+  engagement: z.number().nullable(),
+  emailedBefore: z.strictObject({ at: time.nullable(), who: catalogText.nullable() }).nullable(),
+  rejectReason: z.enum(rejectReasons).nullable(),
+  archiveDueAt: time.nullable(),
+  hasNumbers: z.boolean(),
+};
+
+export const catalogItemSchema: z.ZodType<CatalogItem> = z.strictObject(catalogItemShape);
+
+/** A query item: the item and its fit. */
+export const findQueryItemSchema: z.ZodType<CatalogItem & { fit: Fit }> = z.strictObject({
+  ...catalogItemShape,
+  fit: fitSchema,
+});
+
+/** `find:item`'s detail: the fit, the description and up to 15 videos. */
+export const findItemDetailSchema: z.ZodType<
+  CatalogItem & { fit: Fit; description: string; videos: CatalogVideo[] }
+> = z.strictObject({
+  ...catalogItemShape,
+  fit: fitSchema,
+  description: z.string().max(5000),
+  videos: z.array(catalogVideoSchema).max(detailVideosMax),
+});
+
+export const findFilterSchema: z.ZodType<FindFilter, FindFilter> = z.strictObject({
+  stages: z.array(z.enum(creatorStages)).max(creatorStages.length),
+  signals: z.array(z.enum(findSignals)).max(findSignals.length),
+  countries: z.array(country).max(250),
+  minMedian: amount,
+  maxMedian: amount.nullable(),
+  minUploads: count,
+  runs: z.array(runId).max(findRunsMax),
+  q: z.string().max(200),
+});
+
+/** At most this many keys in an open-ended facet (countries, runs). */
+const facetKeysMax = 1000;
+const facetCount = z.number().int().nonnegative();
+const openFacet = <K extends z.ZodString>(key: K) =>
+  z
+    .record(key, facetCount)
+    .refine((counts) => Object.keys(counts).length <= facetKeysMax, "too many facet values");
+
+export const facetsSchema: z.ZodType<Facets> = z.strictObject({
+  stages: z.record(z.enum(creatorStages), facetCount),
+  signals: z.record(z.enum(findSignals), facetCount),
+  countries: openFacet(country),
+  runs: openFacet(z.string().regex(/^\d{1,15}$/)),
+});
+
+export const findQueryRequestSchema = z.strictObject({
+  filter: findFilterSchema,
+  sort: z.enum(findSorts),
+  offset: z.number().int().min(0).max(100_000),
+  limit: z.number().int().min(1).max(findPageMax),
+  /** Default true. False skips the facet counts (all zeros come back), for a page that hides them. */
+  facets: z.boolean().optional(),
+});
+
+export const findQueryResultSchema = z.strictObject({
+  /** The catalog's version: the page drops an answer older than one it already has. */
+  version: z.number().int().nonnegative(),
+  total: count,
+  items: z.array(findQueryItemSchema).max(findPageMax),
+  facets: facetsSchema,
+});
+
+export const findItemRequestSchema = z.strictObject({ id: catalogId });
+export const findItemResultSchema = z.strictObject({ item: findItemDetailSchema.nullable() });
+
+export const findRunSchema = z.strictObject({
+  id: runId,
+  startedAt: time,
+  finishedAt: time.nullable(),
+  status: z.string().max(40),
+  keywords: count,
+  found: count,
+  kept: count,
+  gold: count,
+});
+export const findRunsResultSchema = z.strictObject({
+  runs: z.array(findRunSchema).max(findRunsMax),
+});
+
+/** `find:catalog`: the catalog was rebuilt; the page asks again. */
+export const findCatalogEventSchema = z.strictObject({ version: z.number().int().nonnegative() });

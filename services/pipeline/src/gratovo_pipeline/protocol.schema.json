@@ -169,6 +169,14 @@
                       "autoClean"
                     ],
                     "additionalProperties": false
+                  },
+                  "skip": {
+                    "maxItems": 20000,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^UC[A-Za-z0-9_-]{22}$"
+                    }
                   }
                 },
                 "required": [

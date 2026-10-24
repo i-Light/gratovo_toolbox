@@ -79,11 +79,27 @@ test.describe("edits with the compare-and-set, against a fake Supabase", () => {
 
     // The first stage edit has no base; the next one sends the stage it replaces.
     expect(
-      await write(page, [{ kind: "creator.stage", id: creator.channel_id, stage: "shortlisted" }]),
+      await write(page, [
+        {
+          kind: "creator.stage",
+          id: creator.channel_id,
+          stage: "shortlisted",
+          handle: creator.handle,
+          name: creator.handle,
+        },
+      ]),
     ).toMatchObject({ ok: true });
     await syncNow(page);
     expect(
-      await write(page, [{ kind: "creator.stage", id: creator.channel_id, stage: "emailed" }]),
+      await write(page, [
+        {
+          kind: "creator.stage",
+          id: creator.channel_id,
+          stage: "emailed",
+          handle: creator.handle,
+          name: creator.handle,
+        },
+      ]),
     ).toMatchObject({ ok: true });
     await syncNow(page);
     await expect.poll(() => rpcBodies(supabase, "apply_channel_edit").length).toBe(2);
@@ -175,7 +191,15 @@ test.describe("edits with the compare-and-set, against a fake Supabase", () => {
     await expect.poll(() => stageOf(page, creator.channel_id)).toBe("emailed");
 
     expect(
-      await write(page, [{ kind: "creator.stage", id: creator.channel_id, stage: "contact" }]),
+      await write(page, [
+        {
+          kind: "creator.stage",
+          id: creator.channel_id,
+          stage: "contact",
+          handle: creator.handle,
+          name: creator.handle,
+        },
+      ]),
     ).toMatchObject({ ok: true });
     await syncNow(page);
 

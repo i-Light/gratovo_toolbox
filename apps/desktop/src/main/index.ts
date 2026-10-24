@@ -9,6 +9,8 @@ import { builtPageUrl } from "./app-page";
 import { registerAppScheme, serveAppFiles } from "./app-protocol";
 import { createEventSender } from "./events";
 import { isGoogleConsentUrl } from "./external-links";
+import { createCatalog } from "./find/catalog";
+import { createImageNetwork, createImageService } from "./find/images";
 import { createFindService } from "./find/find-service";
 import { createHandlers } from "./handlers";
 import {
@@ -146,7 +148,6 @@ function start(): void {
         appPageUrl === builtPageUrl ? undefined : appPageUrl,
       );
       refuseDownloads(session.defaultSession);
-      serveAppFiles(session.defaultSession, rendererRoot);
       const config = supabaseConfig();
       const secrets = openSecretStore();
       const emit = createEventSender({
@@ -156,6 +157,8 @@ function start(): void {
           console.error(line);
         },
       });
+      // Set once the catalog exists (it needs the account and the find service, made after this).
+      let invalidateCatalog: () => void = () => undefined;
       const opened = createAccount({
         config,
         userData: app.getPath("userData"),
@@ -167,8 +170,19 @@ function start(): void {
           reloadWindows();
           sourceWatch.check();
         },
-        // Main-to-page events go to the app's own page only, after a check of each payload.
-        emit,
+        // Main-to-page events go to the app's own page only, after a check of each payload. A
+        // pull that changed creators or the log also makes the Find catalog rebuild.
+        emit: (event, payload) => {
+          emit(event, payload);
+          if (
+            event === "frame:changed" &&
+            (payload as { parts: readonly string[] }).parts.some(
+              (part) => part === "creators" || part === "log",
+            )
+          ) {
+            invalidateCatalog();
+          }
+        },
       });
       // The account has no "source changed" callback: the watch checks after each call that can
       // open or close a source (sign-in, recheck, sign-out) and before each reload. Every user of
@@ -253,6 +267,7 @@ function start(): void {
         },
       });
       onSourceChanged = () => {
+        invalidateCatalog();
         geminiControl.sourceChanged().catch((error: unknown) => {
           console.error("The Gemini bridge couldn't be stopped after a data switch:", error);
         });
@@ -268,7 +283,34 @@ function start(): void {
           emit("find:changed", state);
         },
         now: Date.now,
+        // Never-contact creators are skipped by a search (plan D7).
+        creatorStates: async () => (await account.source()?.creatorStates()) ?? [],
+        onPipelineChanged: () => {
+          invalidateCatalog();
+        },
       });
+      // The Find read model (plan D1): pipeline.db joined with the open source's creator states.
+      const catalog = createCatalog({
+        pipelineDbPath: () => {
+          const folder = find.folder();
+          return folder === null ? null : join(folder, "pipeline.db");
+        },
+        source: () => account.source(),
+      });
+      invalidateCatalog = () => {
+        catalog.invalidate();
+      };
+      catalog.onChange((version) => {
+        emit("find:catalog", { version });
+      });
+      // Pictures come through main (plan D9); example data only serves what is already on disk.
+      const images = createImageService({
+        network: createImageNetwork(),
+        cacheDir: join(userData, "image-cache"),
+        enabled: () => account.findContext()?.mode === "live",
+        channelPicture: (id) => catalog.channelPicture(id),
+      });
+      serveAppFiles(session.defaultSession, rendererRoot, { images });
       const liveJobContext = (): { dataDir: string; worker: string } | null => {
         const context = account.findContext();
         const dataDir = pipelineFolder();
@@ -380,6 +422,7 @@ function start(): void {
       });
       app.on("will-quit", () => {
         geminiControl.dispose();
+        catalog.close();
         account.close();
       });
       // The data opens before the page can ask for it, as the example source did. With a stored
@@ -393,6 +436,8 @@ function start(): void {
           secrets,
           account,
           find,
+          catalog,
+          onCreatorsWritten: invalidateCatalog,
           importer,
           connections,
           gemini: geminiControl,

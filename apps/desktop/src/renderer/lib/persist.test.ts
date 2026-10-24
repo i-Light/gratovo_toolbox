@@ -120,14 +120,32 @@ describe("diffData", () => {
       notifications: [{ ...n0, read: !n0.read }, ...base.notifications.slice(1)],
       settings: { notify: { reply: false } },
       myName: "Ada",
-      log: [{ id: "a", at: 5, who: base.me, text: "Did it" }],
+      log: [
+        {
+          id: "a",
+          at: 5,
+          who: base.me,
+          text: "Did it",
+          ref: "c1",
+          action: "creator.reject",
+          detail: "ai",
+        },
+      ],
     };
     expect(diffData(base, after)).toEqual({
       writes: [
         { kind: "notification.read", id: n0.id, read: !n0.read },
         { kind: "notify.set", notify: { reply: false } },
         { kind: "me.name", name: "Ada" },
-        { kind: "log.add", id: "a", at: 5, text: "Did it" },
+        {
+          kind: "log.add",
+          id: "a",
+          at: 5,
+          text: "Did it",
+          ref: "c1",
+          action: "creator.reject",
+          detail: "ai",
+        },
       ],
       unsupported: [],
     });
@@ -139,8 +157,8 @@ describe("diffData", () => {
 
   it("writes new log lines oldest first", () => {
     const log = [
-      { id: "b", at: 2, who: base.me, text: "Second" },
-      { id: "a", at: 1, who: base.me, text: "First" },
+      { id: "b", at: 2, who: base.me, text: "Second", ref: null, action: null, detail: null },
+      { id: "a", at: 1, who: base.me, text: "First", ref: null, action: null, detail: null },
     ];
     expect(
       diffData(base, { ...base, log }).writes.map((w) => w.kind === "log.add" && w.id),
@@ -170,12 +188,58 @@ describe("diffData", () => {
       creators: [{ ...c0, stage: next } as typeof c0, ...base.creators.slice(1)],
     };
     expect(diffData(base, after)).toEqual({
-      writes: [{ kind: "creator.stage", id: c0.id, stage: next }],
+      writes: [{ kind: "creator.stage", id: c0.id, stage: next, handle: c0.handle, name: c0.name }],
       unsupported: [],
     });
     expect(diffData(after, base).writes).toEqual([
-      { kind: "creator.stage", id: c0.id, stage: c0.stage },
+      { kind: "creator.stage", id: c0.id, stage: c0.stage, handle: c0.handle, name: c0.name },
     ]);
+  });
+
+  it("writes the reason with a move to rejected, and none with any other move", () => {
+    const c0 = base.creators[0] as AppData["creators"][number];
+    const rejected = {
+      ...base,
+      creators: [
+        { ...c0, stage: "rejected", rejectReason: "views", rejectedAt: 5 } as typeof c0,
+        ...base.creators.slice(1),
+      ],
+    };
+    expect(diffData(base, rejected)).toEqual({
+      writes: [
+        {
+          kind: "creator.stage",
+          id: c0.id,
+          stage: "rejected",
+          handle: c0.handle,
+          name: c0.name,
+          reason: "views",
+        },
+      ],
+      unsupported: [],
+    });
+    expect(diffData(rejected, base).writes).toEqual([
+      { kind: "creator.stage", id: c0.id, stage: c0.stage, handle: c0.handle, name: c0.name },
+    ]);
+    const noReason = {
+      ...base,
+      creators: [{ ...c0, stage: "rejected" } as typeof c0, ...base.creators.slice(1)],
+    };
+    expect(diffData(base, noReason).writes).toEqual([
+      { kind: "creator.stage", id: c0.id, stage: "rejected", handle: c0.handle, name: c0.name },
+    ]);
+  });
+
+  it("writes nothing for a reject reason or time that changes with the same stage", () => {
+    const c0 = base.creators[0] as AppData["creators"][number];
+    const after = {
+      ...base,
+      creators: [
+        { ...c0, rejectReason: "ai", rejectedAt: 9 } as typeof c0,
+        ...base.creators.slice(1),
+      ],
+    };
+    expect(diffData(base, after)).toEqual({ writes: [], unsupported: [] });
   });
 
   it("cannot write any other creator change, or a creator added or removed", () => {
@@ -235,7 +299,15 @@ describe("diffData", () => {
       notifications: [{ ...n0, text: "Changed", read: !n0.read }, ...base.notifications.slice(1)],
     };
     expect(diffData(base, edited)).toEqual({ writes: [], unsupported: ["notifications"] });
-    const line = { id: "a", at: 1, who: base.me, text: "One" };
+    const line = {
+      id: "a",
+      at: 1,
+      who: base.me,
+      text: "One",
+      ref: null,
+      action: null,
+      detail: null,
+    };
     const logged = { ...base, log: [line] };
     expect(diffData(logged, { ...base, log: [{ ...line, text: "Two" }] }).unsupported).toEqual([
       "log",
@@ -293,7 +365,15 @@ describe("installPersistence", () => {
     expect(sent(bridge.calls)).toEqual([
       [
         { kind: "notify.set", notify: { reply: false } },
-        { kind: "log.add", id: line?.id, at: now, text: "Paused replies" },
+        {
+          kind: "log.add",
+          id: line?.id,
+          at: now,
+          text: "Paused replies",
+          ref: null,
+          action: null,
+          detail: null,
+        },
       ],
       [
         { kind: "notify.set", notify: {} },
@@ -521,6 +601,27 @@ describe("today's actions", () => {
 });
 
 describe("adoptServerData", () => {
+  it("writes nothing for a creator it adds", async () => {
+    install();
+    adoptServerData((draft) => {
+      draft.creators.push({
+        id: "UC-adopted",
+        name: "Adopted",
+        handle: "@adopted",
+        stage: "new",
+        email: null,
+        emailConfirmed: false,
+        rejectReason: null,
+        rejectedAt: null,
+        archiveDueAt: null,
+      });
+    });
+    await flush();
+    expect(data().creators.some((c) => c.id === "UC-adopted")).toBe(true);
+    expect(bridge.calls).toHaveLength(0);
+    expect(errors).not.toHaveBeenCalled();
+  });
+
   it("changes the data and the undo steps and writes nothing", async () => {
     install();
     adoptServerData((draft) => {
@@ -529,6 +630,9 @@ describe("adoptServerData", () => {
         at: now,
         who: "x",
         text: "t",
+        ref: null,
+        action: null,
+        detail: null,
       });
     });
     await flush();

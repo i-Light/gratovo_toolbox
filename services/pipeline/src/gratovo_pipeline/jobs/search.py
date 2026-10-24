@@ -137,10 +137,11 @@ def run(start: Start, emitter: Emitter, *, source: Source | None = None) -> None
         "resultsType": cfg.results_type,
         "countries": sorted(cfg.country_filter or ()),
     }
+    skip = frozenset(start["job"].get("skip", ()))  # built once, shared by every worker
     failed: dict[int, str] = {}  # the keyword a failure happened in (not those stopped by it)
 
     def work(worker_conn: sqlite3.Connection, index: int, keyword: str) -> None:
-        search = Search(worker_conn, run_id, cfg, source, pacer, emitter)
+        search = Search(worker_conn, run_id, cfg, source, pacer, emitter, skip)
         store.mark_keyword_started(worker_conn, keyword, cfg.worker, settings)
         emitter.keyword(index=index, total=total, keyword=keyword, state="started")
         try:
@@ -178,7 +179,9 @@ def run(start: Start, emitter: Emitter, *, source: Source | None = None) -> None
             connect=lambda: store.get_connection(cfg.data_dir / DB_NAME),
         )
     except KeyboardInterrupt:  # RunAborted too: a stop
-        _finish(conn, run_id, results, "interrupted")
+        # "stopped", not "interrupted": the person paused it, so the history shows a pause, not a
+        # failure (plan step 5). A failure or a killed process stays "interrupted".
+        _finish(conn, run_id, results, "stopped")
         end("stopped")
         return
     except BaseException as error:
@@ -193,7 +196,7 @@ def run(start: Start, emitter: Emitter, *, source: Source | None = None) -> None
         end("failed", failure)
         return
     if run_control.stop_requested() and end_at() < total:  # stopped before a keyword began
-        _finish(conn, run_id, results, "interrupted")
+        _finish(conn, run_id, results, "stopped")
         end("stopped")
         return
     _finish(conn, run_id, results, "done")
@@ -204,7 +207,7 @@ def _finish(
     conn: sqlite3.Connection,
     run_id: int,
     results: dict[int, KeywordResult],
-    status: Literal["done", "interrupted"],
+    status: Literal["done", "stopped", "interrupted"],
 ) -> None:
     try:
         store.update_run_progress(conn, run_id, keywords_done=len(results))

@@ -49,6 +49,10 @@ describe("creators", () => {
         handle: "@promptlab",
         stage: "replied",
         email: "hi@promptlab.example",
+        emailConfirmed: false,
+        rejectReason: null,
+        rejectedAt: null,
+        archiveDueAt: null,
       },
     ]);
     expect(row("SELECT * FROM channel_state")).toMatchObject({
@@ -124,6 +128,26 @@ describe("creators", () => {
     expect(listCreators(db)[0]?.email).toBe("new@x.example");
   });
 
+  it("reads the primary email's confirmed flag, and false for anything else", () => {
+    upsertCreator(db, { id: "UC1", name: "A", handle: "@a", stage: "new", email: null }, t0);
+    const confirmed = (contacts: unknown) => {
+      db.prepare("UPDATE channel_state SET contacts = ? WHERE channel_id = 'UC1'").run(
+        typeof contacts === "string" ? contacts : JSON.stringify(contacts),
+      );
+      return listCreators(db)[0]?.emailConfirmed;
+    };
+    const primary = { method: "email", value: "a@x.example", primary: true };
+    expect(confirmed([{ ...primary, confirmed: true }])).toBe(true);
+    expect(confirmed([primary])).toBe(false);
+    expect(confirmed([{ ...primary, confirmed: "yes" }])).toBe(false);
+    // A confirmed address that isn't the primary one doesn't count.
+    expect(confirmed([primary, { method: "email", value: "b@x.example", confirmed: true }])).toBe(
+      false,
+    );
+    expect(confirmed([])).toBe(false);
+    expect(confirmed("not json")).toBe(false);
+  });
+
   it("replaces a bare-string primary email and adds one when there is none", () => {
     upsertCreator(db, { id: "UC1", name: "A", handle: "@a", stage: "new", email: null }, t0);
     const set = (contacts: unknown[]) =>
@@ -140,6 +164,10 @@ describe("creators", () => {
       handle: "@a",
       stage: "new",
       email: "new@x.example",
+      emailConfirmed: false,
+      rejectReason: null,
+      rejectedAt: null,
+      archiveDueAt: null,
     };
     set(["bare@x.example", 7, { method: "twitter", value: "@a" }]);
     upsertCreator(db, creator, t0);
@@ -180,9 +208,33 @@ describe("creators", () => {
         handle: "@oldtimer",
         stage: "emailed",
         email: "main@x.example",
+        emailConfirmed: false,
+        rejectReason: null,
+        rejectedAt: null,
+        archiveDueAt: null,
       },
-      { id: "UCrej", name: "@nope", handle: "@nope", stage: "rejected", email: null },
-      { id: "UCnew", name: "@fresh", handle: "@fresh", stage: "shortlisted", email: null },
+      {
+        id: "UCrej",
+        name: "@nope",
+        handle: "@nope",
+        stage: "rejected",
+        email: null,
+        emailConfirmed: false,
+        rejectReason: null,
+        rejectedAt: null,
+        archiveDueAt: null,
+      },
+      {
+        id: "UCnew",
+        name: "@fresh",
+        handle: "@fresh",
+        stage: "shortlisted",
+        email: null,
+        emailConfirmed: false,
+        rejectReason: null,
+        rejectedAt: null,
+        archiveDueAt: null,
+      },
     ]);
   });
 

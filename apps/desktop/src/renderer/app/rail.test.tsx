@@ -158,4 +158,18 @@ describe("the live gate", () => {
       expect(within(rail()).queryByRole("button", { name: new RegExp(`^${name}`) })).toBeNull();
     }
   });
+
+  it("names only what is wired under Find on live data, and all of it on example data", () => {
+    initAppStore({ ...exampleData(Date.now()), source: "live" }, { screen: "find", tab: "search" });
+    render(<Rail />);
+    expect(
+      within(item(strings.screens.find.name)).getByText(strings.screens.find.subLive),
+    ).toBeTruthy();
+    cleanup();
+    initAppStore(exampleData(Date.now()), { screen: "find", tab: "search" });
+    render(<Rail />);
+    expect(
+      within(item(strings.screens.find.name)).getByText(strings.screens.find.sub),
+    ).toBeTruthy();
+  });
 });

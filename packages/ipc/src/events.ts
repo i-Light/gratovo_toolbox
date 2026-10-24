@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { connectionsStatusSchema } from "./connections";
-import { findStateSchema } from "./find";
+import { findCatalogEventSchema, findStateSchema } from "./find";
 import { geminiStatusSchema } from "./gemini";
 import { importProgressSchema } from "./import";
 import { presenceMembersSchema } from "./presence";
@@ -31,6 +31,7 @@ export const appEvents = {
   "sync:status": syncStatusSchema,
   "presence:changed": presenceMembersSchema,
   "find:changed": findStateSchema,
+  "find:catalog": findCatalogEventSchema,
   "import:progress": importProgressSchema,
   "gemini:state": geminiStatusSchema,
   "connections:changed": connectionsStatusSchema,

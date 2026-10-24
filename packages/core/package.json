@@ -6,7 +6,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./data": "./src/data/index.ts"
+    "./data": "./src/data/index.ts",
+    "./find": "./src/find/index.ts"
   },
   "dependencies": {
     "immer": "11.1.21"

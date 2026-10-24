@@ -11,6 +11,7 @@ import {
   logRowFor,
 } from "../data/repositories";
 import type { ActivityRow } from "../data/repositories";
+import { readTags } from "../data/repositories/creators";
 
 // D11: what each write also puts in the outbox. Runs inside the batch's transaction, so a local
 // effect and its entry commit together or not at all.
@@ -46,6 +47,12 @@ function parseValue(stored: unknown): unknown {
   } catch {
     return stored;
   }
+}
+
+/** Whether two tag lists hold the same tags; the server compares them sorted, so order is no change. */
+function sameTags(a: readonly string[], b: readonly string[]): boolean {
+  const sorted = (tags: readonly string[]): string => JSON.stringify([...tags].sort());
+  return sorted(a) === sorted(b);
 }
 
 /** The line with this id: its text, whether an undo hides it, and its newest marker's time. */
@@ -151,7 +158,15 @@ export function recordIntent(
       }
       applyLocal();
       queueLine(
-        logRowFor(db, userId, { id: write.id, at: write.at, who: userId, text: write.text }),
+        logRowFor(db, userId, {
+          id: write.id,
+          at: write.at,
+          who: userId,
+          text: write.text,
+          ref: write.ref,
+          action: write.action,
+          detail: write.detail,
+        }),
       );
       return;
     }
@@ -172,32 +187,39 @@ export function recordIntent(
       return;
     }
     case "creator.stage": {
-      // The base is the stored column, read before the write: null when it was never set, so a
-      // first edit isn't a false conflict even though the frame showed a derived stage.
+      // The base is the stored column, read before the write: null when it was never set (or
+      // there was no row: main creates it, D4, and so does the server), so a first edit isn't a
+      // false conflict even though the frame showed a derived stage.
       const row = db
-        .prepare("SELECT handle, creator_stage FROM channel_state WHERE channel_id = ?")
+        .prepare("SELECT creator_stage FROM channel_state WHERE channel_id = ?")
         .get(write.id);
+      const base = row === undefined ? null : optional(row["creator_stage"]);
+      // A new row starts with no tags, here and on the server.
+      const tagsBefore = readTags(db, write.id) ?? [];
       applyLocal();
-      if (row === undefined) {
+      const label = db
+        .prepare("SELECT handle FROM channel_state WHERE channel_id = ?")
+        .get(write.id)?.["handle"];
+      if (label === undefined) {
         return;
       }
-      const base = optional(row["creator_stage"]);
-      if (base === write.stage) {
-        return;
+      const edit = (field: string, before: unknown, next: unknown): void => {
+        enqueue(db, {
+          userId,
+          kind: "channel.edit",
+          payload: { channelId: write.id, field, base: before, next, label: String(label) },
+          target: { table: "channel_state", key: write.id },
+          now,
+        });
+      };
+      // The stage first, then the tags it moved (D5): the server sees them in that order.
+      if (base !== write.stage) {
+        edit("creator_stage", base, write.stage);
       }
-      enqueue(db, {
-        userId,
-        kind: "channel.edit",
-        payload: {
-          channelId: write.id,
-          field: "creator_stage",
-          base,
-          next: write.stage,
-          label: String(row["handle"]),
-        },
-        target: { table: "channel_state", key: write.id },
-        now,
-      });
+      const tagsAfter = readTags(db, write.id) ?? [];
+      if (!sameTags(tagsBefore, tagsAfter)) {
+        edit("channel_tags", tagsBefore, tagsAfter);
+      }
       return;
     }
     case "brand.set":

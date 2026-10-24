@@ -99,6 +99,9 @@ function teammateChanged(): { frame: Frame; line: LogEntry; stage: string } {
     at: now + 1000,
     who: teammate.id,
     text: "Moved a creator",
+    ref: null,
+    action: null,
+    detail: null,
   };
   const first = base.creators[0];
   const stage = creatorStages.find((s) => s !== first?.stage);
@@ -111,6 +114,10 @@ function teammateChanged(): { frame: Frame; line: LogEntry; stage: string } {
     handle: "@promptlab",
     stage: "new" as const,
     email: null,
+    emailConfirmed: false,
+    rejectReason: null,
+    rejectedAt: null,
+    archiveDueAt: null,
   };
   const frame: Frame = {
     ...base,

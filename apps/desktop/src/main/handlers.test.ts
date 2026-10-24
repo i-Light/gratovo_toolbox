@@ -1,4 +1,5 @@
 import { exampleFrame, type DataSource, type DataWrite } from "@gratovo/core/data";
+import { emptyFacets, emptyFindFilter } from "@gratovo/core/find";
 import {
   channels,
   type AuthStatus,
@@ -8,6 +9,7 @@ import {
 } from "@gratovo/ipc";
 import { describe, expect, it, vi } from "vitest";
 
+import { createStubCatalog, type FindCatalog } from "./find/catalog-types";
 import { createHandlers, type HandlerContext } from "./handlers";
 import type { SecretStore } from "./secret-store";
 import type { HandlerServices } from "./services";
@@ -27,6 +29,7 @@ function storeWith(names: string[]): SecretStore {
 function findWith(overrides: Partial<HandlerContext["find"]> = {}): HandlerContext["find"] {
   return {
     state: () => findState,
+    folder: () => null,
     add: () => ({ added: 0, skipped: 0 }),
     remove: () => ({ ok: true }),
     startAt: () => ({ ok: true }),
@@ -68,6 +71,7 @@ const frame = exampleFrame(Date.UTC(2026, 9, 20));
 function sourceWith(overrides: Partial<DataSource> = {}): DataSource {
   return {
     frame: () => Promise.resolve(frame),
+    creatorStates: () => Promise.resolve([]),
     write: () => Promise.resolve(),
     close: () => undefined,
     readSetting: () => undefined,
@@ -102,12 +106,16 @@ function handlersWith(
   names: string[] = [],
   find: HandlerContext["find"] = findWith(),
   services: Partial<HandlerServices> = {},
+  catalog: FindCatalog = createStubCatalog(),
+  onCreatorsWritten?: () => void,
 ) {
   return createHandlers({
     version: "1.2.3",
     secrets: storeWith(names),
     account,
     find,
+    catalog,
+    ...(onCreatorsWritten === undefined ? {} : { onCreatorsWritten }),
     ...createStubServices(),
     ...services,
   });
@@ -255,6 +263,79 @@ describe("the find handlers", () => {
     );
     await mine["auth:sign-out"]({});
     expect(order).toEqual(["shutdown", "sign-out"]);
+  });
+});
+
+describe("the find catalog handlers", () => {
+  it("answer empty from the stub catalog, and each answer fits its channel", async () => {
+    const mine = handlersWith(accountWith());
+    const query = await mine["find:query"]({
+      filter: emptyFindFilter,
+      sort: "triage",
+      offset: 0,
+      limit: 120,
+    });
+    expect(query).toEqual({ version: 0, total: 0, items: [], facets: emptyFacets });
+    expect(channels["find:query"].response.safeParse(query).success).toBe(true);
+    expect(await mine["find:item"]({ id: "UCaaaaaaaaaaaaaaaaaaaaaa" })).toEqual({ item: null });
+    expect(await mine["find:runs"]({})).toEqual({ runs: [] });
+  });
+
+  it("pass the request to the catalog", async () => {
+    const stub = createStubCatalog();
+    const query = vi.fn<FindCatalog["query"]>((r) => stub.query(r));
+    const item = vi.fn<FindCatalog["item"]>((id) => stub.item(id));
+    const mine = handlersWith(accountWith(), [], findWith(), {}, { ...stub, query, item });
+    const request = { filter: emptyFindFilter, sort: "fit" as const, offset: 120, limit: 60 };
+    await mine["find:query"](request);
+    expect(query).toHaveBeenCalledWith(request);
+    // A page that hides the facets asks for none, and the catalog hears it.
+    await mine["find:query"]({ ...request, facets: false });
+    expect(query).toHaveBeenLastCalledWith({ ...request, facets: false });
+    await mine["find:item"]({ id: "UCbbbbbbbbbbbbbbbbbbbbbb" });
+    expect(item).toHaveBeenCalledWith("UCbbbbbbbbbbbbbbbbbbbbbb");
+  });
+});
+
+describe("data:write and the catalog", () => {
+  const stage: DataWrite = {
+    kind: "creator.stage",
+    id: "UCaaaaaaaaaaaaaaaaaaaaaa",
+    stage: "shortlisted",
+    handle: "@a",
+    name: "A",
+  };
+  const logLine = (ref: string | null): DataWrite => ({
+    kind: "log.add",
+    id: "l1",
+    at: 1,
+    text: "x",
+    ref,
+    action: null,
+    detail: null,
+  });
+
+  async function written(writes: DataWrite[]): Promise<number> {
+    const changed = vi.fn();
+    const mine = handlersWith(accountWith(), [], findWith(), {}, createStubCatalog(), changed);
+    await mine["data:write"]({ writes });
+    return changed.mock.calls.length;
+  }
+
+  it("tells the catalog after a stage change or a log line with a ref", async () => {
+    expect(await written([stage])).toBe(1);
+    expect(await written([logLine("UCaaaaaaaaaaaaaaaaaaaaaa")])).toBe(1);
+    expect(await written([{ kind: "log.remove", id: "l1" }])).toBe(1);
+  });
+
+  it("tells the catalog after a conflict is settled, keeping yours or theirs", async () => {
+    expect(await written([{ kind: "conflict.resolve", id: "k1", choice: "mine" }])).toBe(1);
+    expect(await written([{ kind: "conflict.resolve", id: "k1", choice: "theirs" }])).toBe(1);
+  });
+
+  it("stays quiet for writes the catalog does not show", async () => {
+    expect(await written([logLine(null)])).toBe(0);
+    expect(await written([{ kind: "me.name", name: "Sam" }])).toBe(0);
   });
 });
 

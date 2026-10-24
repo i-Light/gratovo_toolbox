@@ -105,12 +105,12 @@ describe("buildCommands", () => {
 describe("the live gate", () => {
   const liveData = () => ({ ...data(), source: "live" as const });
 
-  it("lists no Go to rows for hidden screens and no find triage or contacts actions", () => {
+  it("lists no Go to rows for hidden screens and no contacts action, and a review action", () => {
     const rows = buildCommands(liveData(), [], "");
     const goTo = rows.filter((r) => r.group === groups.goTo).map((r) => r.label);
     expect(goTo).toEqual([screens.find.name, screens.settings.name]);
     const actions = rows.filter((r) => r.group === groups.actions).map((r) => r.label);
-    expect(actions).not.toContain(strings.palette.actions.reviewFinds);
+    expect(actions).toContain(strings.palette.actions.reviewFinds);
     expect(actions).not.toContain(strings.palette.actions.confirmContacts);
   });
 

@@ -2,6 +2,7 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import type { CreatorState } from "@gratovo/core/data";
 import { findStateSchema, type FindState } from "@gratovo/ipc";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -674,6 +675,76 @@ describe("the find service", () => {
       });
 
       expect(service.state().log.at(-1)?.text).toBe("retrying with [secret] via [secret]");
+    });
+  });
+  describe("the catalog hooks and the skip list", () => {
+    const never = (id: string) => ({ id, stage: "never" }) as unknown as CreatorState;
+    const goodId = `UC${"a".repeat(22)}`;
+
+    function withHooks(extra: {
+      states?: () => Promise<readonly CreatorState[]>;
+      changed?: () => void;
+    }): FindService {
+      return createFindService({
+        supervisor,
+        account: {
+          findContext: () => ({ mode: "example", workerId: "example" }),
+          teamKeys: { youtubeKey: () => key() },
+        },
+        secrets: { get: () => Promise.resolve(undefined) },
+        userData,
+        emit: (state) => emitted.push(state),
+        now: () => clock,
+        ...(extra.states === undefined ? {} : { creatorStates: extra.states }),
+        ...(extra.changed === undefined ? {} : { onPipelineChanged: extra.changed }),
+      });
+    }
+
+    it("sends only well-formed never-contact ids as the job's skip list", async () => {
+      const other = { id: `UC${"b".repeat(22)}`, stage: "shortlisted" } as unknown as CreatorState;
+      service = withHooks({
+        states: () => Promise.resolve([never(goodId), never("not-an-id"), other]),
+      });
+      await started();
+      expect((supervisor.starts[0]?.job as SearchJob | undefined)?.skip).toEqual([goodId]);
+    });
+
+    it("leaves skip out when there are none or the read fails", async () => {
+      service = withHooks({ states: () => Promise.reject(new Error("db")) });
+      await started();
+      expect(supervisor.starts[0]?.job).not.toHaveProperty("skip");
+    });
+
+    it("tells the catalog on a finished or failed keyword and the end, not on a start or a channel", async () => {
+      const changed = vi.fn();
+      service = withHooks({ changed });
+      await started();
+      supervisor.send(keyword(0, "started"));
+      supervisor.send(channel("UC_a", "kept"));
+      supervisor.send(channel("UC_b", "swept"));
+      expect(changed).not.toHaveBeenCalled();
+      supervisor.send(keyword(0, "done", { found: 1, kept: 1 }));
+      supervisor.send(keyword(1, "failed"));
+      expect(changed).toHaveBeenCalledTimes(2);
+      supervisor.finish({ kind: "ended", result: null, end: endLine() });
+      expect(changed).toHaveBeenCalledTimes(3);
+    });
+
+    it("names the open find folder", () => {
+      expect(service.folder()).toBe(join(userData, "example-pipeline"));
+      mode = null;
+      expect(service.folder()).toBeNull();
+    });
+
+    it("names the folder without switching the session to it", async () => {
+      await started(["ai agents"]);
+      supervisor.send(keyword(0, "started"));
+      // The account moves on while the run's session is open; asking for the folder only reads.
+      mode = "live";
+      expect(service.folder()).toBe(join(userData, "pipeline"));
+      mode = "example";
+      expect(service.state().run.state).toBe("running");
+      expect(service.state().queue[0]?.state).toBe("running");
     });
   });
 });

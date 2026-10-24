@@ -58,8 +58,10 @@ describe("on live data", () => {
   });
 
   it("shows only the wired tabs", () => {
-    expect(shownTabs("find", "live").map((t) => t.key)).toEqual(["search"]);
-    expect(isTabShown("find", "triage", "live")).toBe(false);
+    expect(shownTabs("find", "live").map((t) => t.key)).toEqual(["search", "triage"]);
+    expect(isTabShown("find", "triage", "live")).toBe(true);
+    expect(isTabShown("find", "gallery", "live")).toBe(false);
+    expect(isTabShown("find", "contacts", "live")).toBe(false);
     expect(isTabShown("find", "search", "live")).toBe(true);
     expect(isTabShown("find", null, "live")).toBe(true);
     expect(firstShownTab("find", "live")).toBe("search");

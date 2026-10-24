@@ -61,11 +61,24 @@ export type { DispatchErrorReporter, Handlers } from "./dispatch";
 export { appEvents, frameParts } from "./events";
 export type { AppEventName, AppEventPayload, FramePart } from "./events";
 export {
+  catalogItemSchema,
+  catalogVideoSchema,
+  detailVideosMax,
+  facetsSchema,
+  findCatalogEventSchema,
   findErrors,
+  findFilterSchema,
+  findItemDetailSchema,
   findKeywordStates,
+  findPageMax,
+  findQueryItemSchema,
   findRulesSchema,
+  findRunSchema,
+  findRunsMax,
   findRunStates,
   findStateSchema,
+  fitSchema,
+  itemVideosMax,
 } from "./find";
 export type { FindState } from "./find";
 export {

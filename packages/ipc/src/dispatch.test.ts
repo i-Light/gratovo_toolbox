@@ -1,4 +1,5 @@
 import { exampleFrame } from "@gratovo/core/data";
+import { emptyFacets } from "@gratovo/core/find";
 import { describe, expect, it, vi } from "vitest";
 
 import { createDispatcher, type Handlers } from "./dispatch";
@@ -78,6 +79,9 @@ function setup(overrides: Partial<Handlers> = {}) {
     "find:start-at": vi.fn(() => ({ ok: true as const })),
     "find:start": vi.fn(() => ({ ok: true as const })),
     "find:stop": vi.fn(() => ({})),
+    "find:query": vi.fn(() => ({ version: 0, total: 0, items: [], facets: emptyFacets })),
+    "find:item": vi.fn(() => ({ item: null })),
+    "find:runs": vi.fn(() => ({ runs: [] })),
     "rules:set": vi.fn(() => ({})),
     "import:candidates": vi.fn(() => ({ candidates: [] })),
     "import:pick": vi.fn(() => ({ path: null })),

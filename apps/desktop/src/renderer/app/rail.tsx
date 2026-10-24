@@ -133,7 +133,12 @@ export const Rail = memo(function Rail() {
       {(["find", "reach", "close", "deliver"] as const).some(shown) ? (
         <div className="nav-h">{rail.pipeline}</div>
       ) : null}
-      {nav("find", counts.find)}
+      {nav(
+        "find",
+        counts.find,
+        undefined,
+        source === "live" ? strings.screens.find.subLive : undefined,
+      )}
       {nav("reach", counts.reach)}
       {nav("close", counts.close)}
       {nav("deliver", counts.deliver)}
