@@ -21,7 +21,7 @@ Started 2026-10-24. The plan is `.router/PLAN.md` (decisions D1 to D18, contract
 | B16 | N | done | e51c1a9. `logPage`, `peopleInLog`, `linesSince`; counts skip the money-text filter (money-field rule kept) |
 | B17 | N | done | Toolbox screen, list, Archive tool, `lib/toolbox.ts` (`restoreForGood`), `useCatalogTick`; reject sub lives in `findActions.rejectSub`; looked at in dark at 1440 (empty states). Bring back from for-good gave two toasts: B18 fixes |
 | B18 | N | done | Never contact and Activity log tools; one toast on bring back from for-good (the act's, its sub swapped); record's Bring back restores when archived. Page overlays held `never` creators main's list lacks (main lagged after a block on example data: R4 checks why). Looked at in dark at 1440 |
-| W4 | N | todo | |
+| W4 | N | done | `e2e/toolbox.spec.ts`; `live-gate.spec.ts` now expects Toolbox in the live rail (D34). Full suite to re-run in L4 |
 | R4 | H | todo | |
 | L4 | lead | todo | |
 
