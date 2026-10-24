@@ -13,8 +13,8 @@ Started 2026-10-24. The plan is `.router/PLAN.md` (decisions D1 to D18, contract
 | C2 | H | done | views in `find.views`, `logFor`/`linesFor`, notes write + outbox (`''` is null, as the server), conflict values cut; lead: notes up to 50,000 with `notesCut` |
 | G1 | N | done | `Gallery`, facets, chips, saved views, toolbar, `useGalleryPages` (one page at a time, facets on offset 0), 7 prefs; Found by lists runs with kept > 0 |
 | P1 | N | done | `renderer/record/creator-*`, `RecordBody` in record-summary; `record: []` already shows the record in live; falls back to the summary when the catalog lacks a creator |
-| G2 | N | running | cards, table, selection, bulk bar, compare |
-| W2 | N | todo | wiring, live gate, smoke test |
+| G2 | N | done | cards (stretched Open button, `content-visibility`), table, `useFindSelection(order, ready)`, bulk bar, compare; fit popup clipped in cards → W2 moves it to `Floating` |
+| W2 | N | running | wiring, live gate, smoke test |
 | R2 | H | todo | review |
 | L2 | lead | todo | checks, PR, merge |
 

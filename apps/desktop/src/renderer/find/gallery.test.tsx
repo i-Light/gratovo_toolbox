@@ -109,7 +109,7 @@ const click = async (el: HTMLElement): Promise<void> => {
 const list = (): string[] =>
   within(screen.getByRole("list", { name: t.resultsLabel }))
     .getAllByRole("listitem")
-    .map((li) => li.textContent);
+    .map((li) => li.getAttribute("data-name") ?? "");
 const toasts = () => appStore().getState().ui.toasts;
 const facets = () => within(screen.getByRole("complementary", { name: t.filtersLabel }));
 
