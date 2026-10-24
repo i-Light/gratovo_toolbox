@@ -16,7 +16,14 @@ Started 2026-10-24. The plan is `.router/PLAN.md` (decisions D1 to D18, contract
 | B5 | N | done | `useCatalogQuery`/`useCatalogItem`/`useRuns`, `ensureCreators`, the five acts; lead: persister writes records before log lines (B3's naming point) |
 | B6 | N | done | Review new, triage card, runs table, Thumb, fit chip, a FindTabs strip; run filter is a module store in triage.tsx (no route option); Kept removed |
 | B7 | N | done | skip split off in `process_keyword`, carried on the `Search` context |
-| W1 | N | running | with T1 |
-| T1 | N | todo | smoke test |
-| R1 | H | todo | review |
-| L1 | lead | todo | checks, PR, merge |
+| W1 | N | done | catalog, pictures, skip wired; `find.folder()`, `onPipelineChanged`, `onCreatorsWritten`; rail `subLive` |
+| T1 | N | done | `e2e/find-triage.spec.ts`; `find-search.spec.ts` moved onto the runs table |
+| R1 | H | done | review: 1 blocker, 4 important, 11 minor, all fixed (R1a main/core, R1b renderer). Lead: a paused search is recorded `stopped` and shows as a pause; CodeQL file race in the picture cache; old e2e specs on the new write shape |
+| L1 | lead | in progress | full checks and 16 Electron specs green locally; Review new looked at in dark at 1440; PR, CI, merge |
+
+## Notes for 5b and later
+
+- The run filter for "Review results" on an older run is a module store in `renderer/find/triage.tsx` (no route option); 5b sends older runs to the gallery and can move it to the route.
+- Reject toast says "It leaves Review new; Undo brings it back." 5c changes it to the archive wording when Toolbox › Archive arrives.
+- Promo codes ("Use code X") show as sponsors: the ported detector does that on purpose (old behaviour).
+- The heavy-owner catalog timing test can exceed its bound when the whole suite runs in parallel on a busy machine; it is skipped in CI.
