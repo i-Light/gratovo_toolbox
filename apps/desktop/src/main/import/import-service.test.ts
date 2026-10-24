@@ -1,9 +1,17 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { defaultFindFile, readFindFile, writeFindFile } from "../find/find-store";
 import type { ImportReport, Start } from "../pipeline/protocol";
@@ -11,6 +19,7 @@ import type { ImportReport, Start } from "../pipeline/protocol";
 import {
   createImporter,
   readPipelineChannels,
+  realImportFs,
   type ImporterDeps,
   type StoreJobOutcome,
 } from "./import-service";
@@ -120,6 +129,80 @@ describe("the importer", () => {
     expect(starts).toHaveLength(0);
   });
 
+  it("refuses a link into its own data folder, and gives the job the real path", async () => {
+    writeFileSync(join(userData, "gratovo.db"), "x");
+    const link = join(root, "looks elsewhere");
+    try {
+      // A junction needs no special rights on Windows; elsewhere this is a plain symlink.
+      symlinkSync(userData, link, "junction");
+    } catch {
+      console.warn("Skipped the junction check: this machine doesn't allow creating one here.");
+      return;
+    }
+    expect(await make().dryRun(join(link, "gratovo.db"))).toEqual({
+      ok: false,
+      reason: "own_data",
+    });
+    expect(await make().run(join(link, "gratovo.db"), false)).toEqual({
+      ok: false,
+      reason: "own_data",
+    });
+    expect(starts).toHaveLength(0);
+    // A link to a good file is followed: the job reads the file that was checked.
+    const oldLink = join(root, "old link");
+    symlinkSync(join(oldDir, "database"), oldLink, "junction");
+    await make().dryRun(join(oldLink, "gratovo.db"));
+    expect(starts[0]?.job).toMatchObject({ source: realpathSync.native(oldDb) });
+  });
+
+  it("refuses a path whose real path is in its own data folder (an 8.3 short name)", async () => {
+    const fs = { ...realImportFs, realpath: () => join(userData, "gratovo.db") };
+    expect(await make({ fs }).dryRun("C:\\Users\\OWNER~1\\AppData\\GRATOV~1\\gratovo.db")).toEqual({
+      ok: false,
+      reason: "own_data",
+    });
+    expect(starts).toHaveLength(0);
+  });
+
+  it("refuses \\\\?\\ and \\\\.\\ paths without a job", async () => {
+    writeFileSync(join(userData, "gratovo.db"), "x");
+    for (const path of [
+      `\\\\?\\${join(userData, "gratovo.db")}`,
+      `\\\\?\\${oldDb}`,
+      `\\\\.\\${oldDb}`,
+      `//?/${oldDb}`,
+    ]) {
+      expect(await make().dryRun(path)).toEqual({ ok: false, reason: "not_found" });
+    }
+    expect(starts).toHaveLength(0);
+  });
+
+  it("refuses a network path with its own reason, without a job", async () => {
+    for (const path of [
+      "\\\\server\\share\\gratovo.db",
+      "//server/share/gratovo.db",
+      "\\\\?\\UNC\\server\\share\\gratovo.db",
+    ]) {
+      expect(await make().dryRun(path)).toEqual({ ok: false, reason: "network_path" });
+      expect(await make().run(path, false)).toEqual({ ok: false, reason: "network_path" });
+    }
+    // A mapped drive: the path looks local, its real path is a share.
+    const fs = { ...realImportFs, realpath: () => "\\\\server\\share\\data\\gratovo.db" };
+    expect(await make({ fs }).dryRun("Z:\\data\\gratovo.db")).toEqual({
+      ok: false,
+      reason: "network_path",
+    });
+    expect(starts).toHaveLength(0);
+  });
+
+  it("refuses a path that isn't there, without a job", async () => {
+    expect(await make().dryRun(join(root, "nowhere", "gratovo.db"))).toEqual({
+      ok: false,
+      reason: "not_found",
+    });
+    expect(starts).toHaveLength(0);
+  });
+
   it("refuses a relative path, example data and a missing folder", async () => {
     expect(await make().dryRun("old.db")).toEqual({ ok: false, reason: "not_found" });
     expect(await make({ isLive: () => false }).dryRun(oldDb)).toEqual({
@@ -140,7 +223,12 @@ describe("the importer", () => {
       source: "live",
       dataDir,
       worker: "worker-1",
-      job: { kind: "import.legacy", source: oldDb, dryRun: true, backupDir: null },
+      job: {
+        kind: "import.legacy",
+        source: realpathSync.native(oldDb),
+        dryRun: true,
+        backupDir: null,
+      },
       settings: {},
       secrets: { youtubeKey: null, proxyUrls: [], gatewayUrls: [] },
     });
@@ -204,7 +292,7 @@ describe("the importer", () => {
       ]);
       expect(settings["import"]).toEqual({
         at: "2026-10-24T10:00:00.000Z",
-        source: oldDb,
+        source: realpathSync.native(oldDb),
         counts: { channels: 2 },
         backup: backup(),
       });
@@ -238,6 +326,77 @@ describe("the importer", () => {
       const result = await make().run(oldDb, false);
       expect(result.ok).toBe(true);
       expect(settings["import"]).toMatchObject({ backup: null });
+    });
+
+    describe("a step after the job fails", () => {
+      beforeEach(() => {
+        vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      });
+      afterEach(() => {
+        vi.restoreAllMocks();
+      });
+
+      it("the find.json copy: a warning, and the old rules are left alone", async () => {
+        const fs = {
+          ...realImportFs,
+          copyFile: () => {
+            throw new Error("EBUSY: C:\\somewhere\\find.json");
+          },
+        };
+        writeFileSync(join(oldDir, "run_config.json"), JSON.stringify({ handle_limit: 150 }));
+        const result = await make({ fs }).run(oldDb, true);
+        expect(result).toEqual({
+          ok: true,
+          report: report(backup(), false),
+          warnings: ["find_backup", "old_rules"],
+        });
+        expect(settings["import"]).toMatchObject({ counts: { channels: 2 } });
+        expect(seeded).toHaveLength(1);
+        expect(readFindFile(dataDir).rules.perKeyword).toBe(77);
+        // The log names the kind of error, never its message (it can carry a path).
+        expect(JSON.stringify(vi.mocked(console.warn).mock.calls)).not.toContain("somewhere");
+      });
+
+      it("the channel names: a warning, and the rest still happens", async () => {
+        const result = await make({
+          seedChannelNames: () => {
+            throw new Error("locked");
+          },
+        }).run(oldDb, true);
+        expect(result).toEqual({
+          ok: true,
+          report: report(backup(), false),
+          warnings: ["channel_names"],
+        });
+        expect(settings["import"]).toMatchObject({ backup: backup() });
+      });
+
+      it("the old rules: a warning, and the import state is written", async () => {
+        // A folder where writeFindFile puts its temporary file makes the write fail.
+        mkdirSync(join(dataDir, "find.json.tmp"));
+        const result = await make().run(oldDb, true);
+        expect(result).toEqual({
+          ok: true,
+          report: report(backup(), false),
+          warnings: ["old_rules"],
+        });
+        expect(settings["import"]).toMatchObject({ counts: { channels: 2 } });
+        expect(seeded).toHaveLength(1);
+      });
+
+      it("the import state: a warning, and the rest still happens", async () => {
+        const result = await make({
+          writeSetting: () => {
+            throw new Error("disk full");
+          },
+        }).run(oldDb, false);
+        expect(result).toEqual({
+          ok: true,
+          report: report(backup(), false),
+          warnings: ["import_state"],
+        });
+        expect(seeded).toHaveLength(1);
+      });
     });
 
     it("does not seed or write state when the job fails", async () => {

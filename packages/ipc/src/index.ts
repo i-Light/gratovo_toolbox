@@ -83,6 +83,7 @@ export {
   importReportSchema,
   importResultSchema,
   importSkipReasons,
+  importWarnings,
   pickedPathSchema,
 } from "./import";
 export type { ImportCandidates, ImportReport, ImportResult, PickedPath } from "./import";

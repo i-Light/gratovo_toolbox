@@ -17,7 +17,13 @@ import { strings } from "../strings";
  * Connecting a Gmail mailbox (plan step 4, D10): OAuth 2.0 for installed apps. A one-shot
  * listener on 127.0.0.1 with a port the system picks, PKCE (S256), a random `state`, Google's
  * consent page in the system browser, five minutes to finish, one code accepted. Main exchanges
- * the code at Google's token endpoint and stores the refresh token through `saveMailbox`.
+ * the code at Google's token endpoint and stores the refresh token through `saveMailbox`; a token
+ * that can't be stored is revoked at once, so no live grant is left behind.
+ *
+ * Only Google's redirect, with our `state`, can end a connect (or the timeout). A request with a
+ * missing or wrong `state` gets a bare 404 and changes nothing: a web page in the person's browser
+ * can reach the loopback port, and must not be able to cancel the connect so the real redirect
+ * finds no one listening.
  *
  * Nothing secret is logged: no code, verifier, state, token, client secret or address. Log lines
  * name a step and a reason or an HTTP status, nothing else.
@@ -55,12 +61,15 @@ export interface MailConsentDeps {
 
 export const googleAuthUrl = "https://accounts.google.com/o/oauth2/v2/auth";
 export const googleTokenUrl = "https://oauth2.googleapis.com/token";
+/** Same origin as the token endpoint, so the same one-origin allowlist covers it. */
+export const googleRevokeUrl = "https://oauth2.googleapis.com/revoke";
 /** As the old app (legacy/pipeline/gratovo/gmail.py), plus `openid email` for the address. */
 export const gmailScopes =
   "https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/gmail.send openid email";
 
 const defaultTimeoutMs = 5 * 60_000;
 const exchangeTimeoutMs = 30_000;
+const revokeTimeoutMs = 10_000;
 const randomSize = 32;
 const googleIssuers = new Set(["https://accounts.google.com", "accounts.google.com"]);
 // As packages/ipc/src/connections.ts.
@@ -120,7 +129,7 @@ type Callback = { kind: "code"; code: string } | { kind: "failed"; reason: MailC
  * No signature check: the token came straight from Google's token endpoint over TLS, in answer to
  * our own request with our client secret, so it is as trustworthy as the channel (OpenID Connect
  * Core 3.1.3.7 allows this). The claims are still checked so a token meant for another client,
- * or an unverified address, is refused.
+ * or an address Google doesn't mark as verified (unverified, or no claim at all), is refused.
  */
 function addressFromIdToken(idToken: string, clientId: string): string | null {
   const parts = idToken.split(".");
@@ -141,7 +150,7 @@ function addressFromIdToken(idToken: string, clientId: string): string | null {
   if (aud !== clientId || typeof iss !== "string" || !googleIssuers.has(iss)) {
     return null;
   }
-  if (verified === false || verified === "false" || typeof email !== "string") {
+  if ((verified !== true && verified !== "true") || typeof email !== "string") {
     return null;
   }
   const address = email.toLowerCase();
@@ -197,10 +206,10 @@ export function createMailConsent(deps: MailConsentDeps): MailConsentService {
       }
       const params = target.searchParams;
       const states = params.getAll("state");
-      // A wrong state is a stale tab or a forged request: either way this connect is over.
+      // A missing or wrong state is a stale tab or a forged request (any page in the browser can
+      // reach this port). It is ignored, so it can't end the connect; nothing of it is echoed.
       if (states.length !== 1 || !sameText(states[0] ?? "", state)) {
-        finish({ kind: "failed", reason: "bad_state" });
-        return page(400, pageText.failed);
+        return bare(404);
       }
       if (now() > deadline) {
         finish({ kind: "failed", reason: "timeout" });
@@ -298,8 +307,40 @@ export function createMailConsent(deps: MailConsentDeps): MailConsentService {
     if (address === null) {
       return fail("bad_response");
     }
-    const saved = await deps.saveMailbox(address, refreshToken);
-    return saved.ok ? { ok: true, address } : fail(saved.reason);
+    let saved: SaveMailboxResult;
+    try {
+      saved = await deps.saveMailbox(address, refreshToken);
+    } catch (error) {
+      await revoke(refreshToken);
+      throw error;
+    }
+    if (!saved.ok) {
+      await revoke(refreshToken);
+      return fail(saved.reason);
+    }
+    return { ok: true, address };
+  }
+
+  /**
+   * Revokes a refresh token that couldn't be stored (too many mailboxes, say), so the grant doesn't
+   * stay live at Google with no copy here. Best effort: a failure is logged by status or kind only
+   * and never changes the connect's answer.
+   */
+  async function revoke(refreshToken: string): Promise<void> {
+    try {
+      const response = await network.request(googleRevokeUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ token: refreshToken }).toString(),
+        timeoutMs: revokeTimeoutMs,
+      });
+      log(`Mail consent: the unsaved token's revoke answered ${String(response.status)}.`);
+      await response.body?.cancel();
+    } catch (error) {
+      log(
+        `Mail consent: the unsaved token couldn't be revoked (${error instanceof Error ? error.name : "unknown"}).`,
+      );
+    }
   }
 
   async function run(): Promise<MailConnectResult> {

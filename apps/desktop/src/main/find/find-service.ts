@@ -31,7 +31,10 @@ export interface FindServiceDeps {
   };
   secrets: Pick<SecretStore, "get">;
   userData: string;
-  /** The start message's `settings` (pacing, parallel, proxies); `{}` when not given. */
+  /**
+   * The start message's `settings` (pacing, parallel, proxies); `{}` when not given. Any `mail`
+   * part is dropped: a search needs no mailbox, so its start message carries no address.
+   */
   settings?: () => Start["settings"];
   emit: (state: FindState) => void;
   now: () => number;
@@ -58,6 +61,13 @@ export interface FindService {
 }
 
 const queueMax = 500;
+
+/** The settings a search starts with: everything but the mail settings. */
+function searchSettings(settings: Start["settings"] | undefined): Start["settings"] {
+  const kept = { ...settings };
+  delete kept.mail;
+  return kept;
+}
 const logMax = 200;
 const keptMax = 100;
 const noData = "No data is open.";
@@ -391,7 +401,7 @@ export function createFindService(deps: FindServiceDeps): FindService {
               startAt: s.at,
               rules: pipelineRules(s.rules),
             },
-            settings: deps.settings?.() ?? {},
+            settings: searchSettings(deps.settings?.()),
             secrets: { youtubeKey, proxyUrls, gatewayUrls },
           },
           {

@@ -4,10 +4,18 @@ import { useState } from "react";
 
 import { strings } from "../strings";
 import { GeminiRow } from "./connections/gemini-row";
-import { MailAppRow, MailboxesRow, MailSettingsRow } from "./connections/gmail-rows";
+import { MailAppRow } from "./connections/mail-app-row";
+import { MailSettingsRow } from "./connections/mail-settings-row";
+import { MailboxesRow } from "./connections/mailboxes-row";
 import { ImportDialog } from "./connections/import-dialog";
-import { AwsRow, PacingRow, ProxiesRow } from "./connections/routing-rows";
-import { CourseRow, OldDataRow, PythonRow, SyncRow, YoutubeRow } from "./connections/simple-rows";
+import { AwsRow } from "./connections/aws-row";
+import { PacingRow } from "./connections/pacing-row";
+import { ProxiesRow } from "./connections/proxies-row";
+import { CourseRow } from "./connections/course-row";
+import { OldDataRow } from "./connections/old-data-row";
+import { PythonRow } from "./connections/python-row";
+import { SyncRow } from "./connections/sync-row";
+import { YoutubeRow } from "./connections/youtube-row";
 import { useConnections } from "./connections/use-connections";
 
 const text = strings.settings.connections;
@@ -36,17 +44,46 @@ export function piecesNeedingALook(status: ConnectionsStatus): readonly string[]
   return names;
 }
 
+/** What isn't set up yet: nothing is broken, but the work that needs it can't run. */
+export function piecesNotSetUp(status: ConnectionsStatus): readonly string[] {
+  const names: string[] = [];
+  if (status.import.state === "never") {
+    names.push(text.pieces.oldData);
+  }
+  if (!status.mailApp.set) {
+    names.push(text.pieces.mailApp);
+  }
+  if (status.mailboxes.length === 0) {
+    names.push(text.pieces.mailboxes);
+  }
+  return names;
+}
+
 function Overview({ status }: { readonly status: ConnectionsStatus }) {
   const names = piecesNeedingALook(status);
-  return names.length === 0 ? (
+  const unset = piecesNotSetUp(status);
+  if (names.length > 0) {
+    return (
+      <div className="callout warn" role="status" data-ui="settings.connections.callout">
+        <Icon name="alert" />
+        <div className="grow col tight">
+          <span>{text.needsLook(names.join(", "))}</span>
+          {unset.length > 0 ? (
+            <span className="small">{text.notSetUp(unset.join(", "))}</span>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+  return unset.length > 0 ? (
+    <div className="callout info" role="status" data-ui="settings.connections.callout">
+      <Icon name="info" />
+      <div className="grow">{text.notSetUpCallout(unset.join(", "))}</div>
+    </div>
+  ) : (
     <div className="callout good" role="status" data-ui="settings.connections.callout">
       <Icon name="check" />
       <div className="grow">{text.goodCallout}</div>
-    </div>
-  ) : (
-    <div className="callout warn" role="status" data-ui="settings.connections.callout">
-      <Icon name="alert" />
-      <div className="grow">{text.needsLook(names.join(", "))}</div>
     </div>
   );
 }

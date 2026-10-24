@@ -482,6 +482,9 @@ export const strings = {
       retry: "Try again",
       goodCallout: "Everything behind the app is connected and working.",
       needsLook: (names: string): string => `Needs a look: ${names}.`,
+      notSetUp: (names: string): string => `Not set up yet: ${names}.`,
+      notSetUpCallout: (names: string): string =>
+        `Not set up yet: ${names}. Everything else is connected and working.`,
       saved: "Saved",
       savedSub: "Applies from the next job.",
       notSaved: "Couldn't save that",
@@ -504,6 +507,9 @@ export const strings = {
         gmail: "Gmail",
         course: "Course folder",
         sync: "Team sync",
+        oldData: "old app data",
+        mailApp: "the Gmail app",
+        mailboxes: "a mailbox",
       },
       tags: {
         connected: "Connected",
@@ -795,6 +801,15 @@ export const strings = {
       resultAlready: (n: number): string => `${n.toLocaleString("en-US")} were already here`,
       backup: (path: string): string => `Your search data was copied first, to ${path}.`,
       noBackup: "There was nothing to copy first, so no backup was made.",
+      warningsTitle: "Your data is in. A few small steps after it didn't finish:",
+      warnings: {
+        find_backup:
+          "Your search settings weren't copied to the backup folder, so your old search rules weren't applied either.",
+        channel_names: "Some creator names didn't come across. They fill in as you search again.",
+        old_rules: "Your old search rules weren't applied. Set them in Settings › Search rules.",
+        import_state:
+          "The app couldn't note that the import is done, so it may offer it again. Bringing it in twice adds nothing.",
+      },
       untouched: "The old file was not changed.",
       doneToast: "Old data brought in",
       doneToastSub: "The old file was not changed.",
@@ -807,6 +822,7 @@ export const strings = {
         no_data: "Sign in first. There is no data open to bring it into.",
         not_found: "That file isn't there any more. Choose it again.",
         own_data: "That is this app's own data. Choose the old app's gratovo.db instead.",
+        network_path: "Copy the old database to this computer first, then choose the copy.",
         old_app_open:
           "The old app seems to be open, or it didn't close cleanly. Open it and close it once, then try again.",
         not_sqlite: "That isn't a database file. Choose the old app's gratovo.db.",

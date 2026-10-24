@@ -1,32 +1,11 @@
 import type { ImportReport } from "@gratovo/ipc";
-import { Icon } from "@gratovo/ui";
 
 import { strings } from "../../strings";
-import { StateTag } from "./parts";
+import { StateTag } from "./state-tag";
+import { UnsentWarning } from "./unsent-warning";
 
 const text = strings.settings.importDialog;
 const whys = ["synced", "bookkeeping", "not-ported"] as const;
-
-/** Whether the old app's search settings were found, so "Use my old search rules" makes sense. */
-export function hasOldRules(report: ImportReport): boolean {
-  return report.settingsFiles.some(
-    (file) => file.found && (file.name === "run_config.json" || file.name === "settings.json"),
-  );
-}
-
-/** The warning about old work that was never sent. Null when there is none. */
-export function UnsentWarning({ report }: { readonly report: ImportReport }) {
-  const n = report.unsent.outbox + report.unsent.activity;
-  if (n === 0) {
-    return null;
-  }
-  return (
-    <div className="callout warn" role="alert">
-      <Icon name="alert" />
-      <div className="grow">{text.unsent(n)}</div>
-    </div>
-  );
-}
 
 /** What a dry run found: tables to copy, tables left behind (grouped by why) and the settings files. */
 export function ReportView({ report }: { readonly report: ImportReport }) {

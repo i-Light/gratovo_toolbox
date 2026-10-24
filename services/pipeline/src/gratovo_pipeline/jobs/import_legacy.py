@@ -5,7 +5,11 @@ The old file is opened read-only and immutable (`mode=ro&immutable=1`, so SQLite
 -shm/-wal beside it) and is never written. A non-empty `-wal` beside it is refused.
 The tables both sides have are copied with `INSERT OR IGNORE`, only the columns both sides
 have, one transaction and
-one `progress` line per table. A row this app already holds wins. A real import first backs an
+one `progress` line per table. A row this app already holds wins. `runs` is the exception to
+the key: its ids are AUTOINCREMENT on both sides, so the id is left out and a run counts as
+here when one with the same `started_at` and `kind` is; an old `running` run arrives
+`interrupted`, without its pid. The source must be a local file (not a network share or a
+device path) outside the app's data folder (data_dir's parent). A real import first backs an
 existing pipeline.db up into `backupDir`; a dry run writes nothing at all (it counts against an
 in-memory copy of the new schema, plus the real pipeline.db attached read-only when there is one).
 
@@ -121,17 +125,39 @@ def _inside(path: Path, folder: Path) -> bool:
     return inner == outer or inner.is_relative_to(outer)
 
 
+def _local(path: Path) -> Path | None:
+    """The path with a `\\\\?\\C:\\` prefix dropped; None for a network share (`\\\\server\\share`,
+    `\\\\?\\UNC\\...`) or a device path (`\\\\.\\...`), which SQLite can't open from a file URI."""
+    raw = str(path)
+    if raw.startswith(("\\\\?\\", "//?/")):
+        rest = raw[4:]
+        if len(rest) >= 3 and rest[0].isalpha() and rest[1] == ":" and rest[2] in "\\/":
+            return Path(rest)
+        return None
+    if raw.startswith(("\\\\", "//")):
+        return None
+    return path
+
+
 def _check_source(source: Path, data_dir: Path) -> Path:
-    """The source, resolved, once it is known to be a readable SQLite file outside data_dir."""
+    """The source, resolved, once it is known to be a readable local SQLite file outside the
+    app's data folder (data_dir's parent, the app's userData, which holds data_dir)."""
+    unreadable = _EndError("source_unreadable", "The old database can't be read.")
+    local = _local(source)
+    if local is None:
+        raise unreadable
     try:
-        resolved = source.resolve(strict=True)
+        resolved = _local(local.resolve(strict=True))
+        if resolved is None:
+            raise unreadable
         if not resolved.is_file():
             raise OSError("not a file")
         with resolved.open("rb") as handle:
             header = handle.read(len(SQLITE_HEADER))
     except OSError:
-        raise _EndError("source_unreadable", "The old database can't be read.") from None
-    if _inside(resolved, data_dir.resolve()):
+        raise unreadable from None
+    app_data = _local(data_dir.resolve().parent)
+    if app_data is None or _inside(resolved, app_data):
         raise _EndError(
             "source_in_data_dir",
             "The old database is inside this app's data folder. Pick the old app's file.",
@@ -188,6 +214,17 @@ def _guards(conn: sqlite3.Connection, table: str, cols: list[str], parents: list
     return clause
 
 
+def _run_value(column: str) -> str:
+    """What an old `runs` column is copied as. A run the old app left saying `running` arrives
+    `interrupted` (what `store.reconcile_stale_runs` makes of a run whose process is gone), and no
+    pid comes along, so a reused pid can't make an old run look alive."""
+    if column == "status":
+        return "CASE WHEN o.status = 'running' THEN 'interrupted' ELSE o.status END"
+    if column == "pid":
+        return "NULL"
+    return f"o.{_q(column)}"
+
+
 def _copy_table(
     conn: sqlite3.Connection, table: str, *, dry_run: bool, have_dst: bool
 ) -> ImportTable:
@@ -205,6 +242,15 @@ def _copy_table(
     target = "dst" if dry_run else "main"
     has_target = (have_dst if dry_run else True) and bool(_columns(conn, target, table))
     same = " AND ".join(f"d.{_q(k)} = o.{_q(k)}" for k in keys)
+    picked = ", ".join(f"o.{_q(c)}" for c in cols)
+    if table == "runs":
+        # run_id is AUTOINCREMENT on both sides: old run 3 and this app's run 3 are different
+        # runs. A run is the same run when it started at the same instant for the same kind.
+        cols = [c for c in cols if c != "run_id"]
+        same = " AND ".join(f"d.{_q(c)} IS o.{_q(c)}" for c in ("started_at", "kind") if c in cols)
+        if not same:
+            return {"name": table, "inOld": in_old, "toAdd": 0, "already": 0}
+        picked = ", ".join(_run_value(c) for c in cols)
     present = f"EXISTS (SELECT 1 FROM {target}.{_q(table)} AS d WHERE {same})"
     already = 0
     if has_target:
@@ -223,13 +269,15 @@ def _copy_table(
 
     guard = _guards(conn, table, cols, ["main"])
     names = ", ".join(_q(c) for c in cols)
-    picked = ", ".join(f"o.{_q(c)}" for c in cols)
+    # A table without a separate identity (runs) needs the check in the query; for the others
+    # the primary key and INSERT OR IGNORE do it.
+    keep = f" AND NOT {present}" if table == "runs" else ""
     conn.execute("BEGIN")
     try:
         before = conn.total_changes
         conn.execute(
             f"INSERT OR IGNORE INTO main.{_q(table)} ({names}) "
-            f"SELECT {picked} FROM old.{_q(table)} AS o WHERE 1{guard}"
+            f"SELECT {picked} FROM old.{_q(table)} AS o WHERE 1{guard}{keep}"
         )
         added = conn.total_changes - before
         conn.execute("COMMIT")

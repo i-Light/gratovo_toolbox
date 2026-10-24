@@ -23,8 +23,10 @@ class Run:
         self.out = io.StringIO()
         self.check = check
         self.root = root
-        self.data_dir = root / "app data"
-        self.backups = root / "backups"
+        # As the app lays it out: <userData>/pipeline and <userData>/backups.
+        self.user_data = root / "user data"
+        self.data_dir = self.user_data / "pipeline"
+        self.backups = self.user_data / "backups"
         self.source = root / "old app" / "data" / "database" / "gratovo.db"
 
     def start(self, *, dry_run: bool, source: Path | None = None) -> Start:
@@ -198,7 +200,7 @@ def test_second_run_backs_up_adds_nothing_and_new_rows_win(run: Run) -> None:
 
 
 def test_an_empty_existing_store_needs_no_backup(run: Run) -> None:
-    run.data_dir.mkdir()
+    run.data_dir.mkdir(parents=True)
     conn = run.dest()
     store.init_db(conn)
     conn.close()
@@ -338,8 +340,115 @@ def test_source_in_data_dir_ignores_case_on_windows(run: Run) -> None:
     assert error_code(run) == "source_in_data_dir"
 
 
+def test_source_in_the_app_data_folder_is_refused(run: Run) -> None:
+    """The app's own gratovo.db sits in userData, beside the pipeline folder, not inside it."""
+    beside = build(run.user_data / "gratovo.db")
+    for dry_run in (True, False):
+        run.go(dry_run=dry_run, source=beside)
+        assert error_code(run) == "source_in_data_dir"
+    assert not (run.data_dir / "pipeline.db").exists()
+
+
+def link_or_skip(link: Path, target: Path) -> None:
+    try:
+        link.symlink_to(target, target_is_directory=True)
+    except (OSError, NotImplementedError) as error:
+        pytest.skip(f"this machine doesn't allow creating a symlink here ({type(error).__name__})")
+
+
+def test_a_link_into_the_app_data_folder_is_refused(run: Run, tmp_path: Path) -> None:
+    build(run.user_data / "gratovo.db")
+    link = tmp_path / "looks elsewhere"
+    link_or_skip(link, run.user_data)
+    run.go(source=link / "gratovo.db")
+    assert error_code(run) == "source_in_data_dir"
+
+
+@pytest.mark.skipif(os.name != "nt", reason="\\\\?\\ paths are a Windows thing")
+def test_an_extended_length_prefix_is_still_checked(run: Run) -> None:
+    beside = build(run.user_data / "gratovo.db")
+    run.go(source=Path("\\\\?\\" + str(beside.resolve())))
+    assert error_code(run) == "source_in_data_dir"
+    # And a good file behind the prefix still imports.
+    run.go(dry_run=True, source=Path("\\\\?\\" + str(run.source.resolve())))
+    assert run.end()["state"] == "done"
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "\\\\server\\share\\gratovo.db",
+        "//server/share/gratovo.db",
+        "\\\\?\\UNC\\server\\share\\gratovo.db",
+        "\\\\.\\C:\\gratovo.db",
+    ],
+)
+def test_a_network_or_device_path_is_unreadable(run: Run, path: str) -> None:
+    run.go(dry_run=True, source=Path(path))
+    assert error_code(run) == "source_unreadable"
+
+
+def add_runs(path: Path, rows: list[tuple[int, str, str, int | None]]) -> None:
+    conn = sqlite3.connect(path)
+    conn.executemany(
+        "INSERT INTO runs (run_id, started_at, status, pid, kind) VALUES (?, ?, ?, ?, 'search')",
+        rows,
+    )
+    conn.commit()
+    conn.close()
+
+
+def test_old_runs_with_ids_already_taken_here_still_arrive(run: Run) -> None:
+    # The old file's run 1 is in the fixture; add run 2, left saying running by a dead process.
+    add_runs(run.source, [(2, "2026-09-02T10:00:00Z", "running", 4242)])
+    run.data_dir.mkdir(parents=True)
+    conn = run.dest()
+    store.init_db(conn)
+    conn.executemany(
+        "INSERT INTO runs (run_id, started_at, status, kind) VALUES (?, ?, 'done', 'search')",
+        [(1, "2026-10-20T08:00:00Z"), (2, "2026-10-21T08:00:00Z")],
+    )
+    conn.commit()
+    conn.close()
+
+    run.go(dry_run=True)
+    assert run.counts()["runs"] == (2, 2, 0)
+    run.go()
+    assert run.counts()["runs"] == (2, 2, 0)
+    conn = run.dest()
+    rows = conn.execute(
+        "SELECT run_id, started_at, status, pid FROM runs ORDER BY run_id"
+    ).fetchall()
+    conn.close()
+    assert rows == [
+        (1, "2026-10-20T08:00:00Z", "done", None),
+        (2, "2026-10-21T08:00:00Z", "done", None),
+        (3, "2026-09-01T10:00:00Z", "done", None),
+        (4, "2026-09-02T10:00:00Z", "interrupted", None),
+    ]
+
+    run.go(dry_run=True)
+    assert run.counts()["runs"] == (2, 0, 2)
+    run.go()
+    assert run.counts()["runs"] == (2, 0, 2)
+    conn = run.dest()
+    assert conn.execute("SELECT COUNT(*) FROM runs").fetchone()[0] == 4
+    conn.close()
+
+
+def test_an_old_running_run_arrives_ended_without_its_pid(run: Run) -> None:
+    add_runs(run.source, [(2, "2026-09-02T10:00:00Z", "running", os.getpid())])
+    run.go()
+    conn = sqlite3.connect(run.data_dir / "pipeline.db")
+    conn.row_factory = sqlite3.Row
+    row = conn.execute("SELECT status, pid FROM runs WHERE started_at = '2026-09-02T10:00:00Z'")
+    assert tuple(row.fetchone()) == ("interrupted", None)
+    assert store.reconcile_stale_runs(conn) == 0
+    conn.close()
+
+
 def test_a_newer_store_is_refused_and_left_alone(run: Run) -> None:
-    run.data_dir.mkdir()
+    run.data_dir.mkdir(parents=True)
     conn = run.dest()
     store.init_db(conn)
     conn.execute("INSERT INTO keywords (keyword, added_at) VALUES ('ai news', 'x')")

@@ -40,6 +40,7 @@ import {
   maxMailboxes,
   startSettings,
 } from "./settings/connections-service";
+import { createSourceWatch, withSourceChecks } from "./settings/source-switch";
 import { createWritingRulesService, playbookRulesDir } from "./settings/writing-rules";
 import { describeConfigProblem, readSupabaseConfig, type SupabaseConfig } from "./supabase/config";
 import { appPageUrl, createMainWindow, rendererRoot } from "./window";
@@ -132,7 +133,7 @@ function start(): void {
     }
   });
 
-  // Set once the Gemini control exists: a switch of data source (sign-in, sign-out) stops the bridge.
+  // Set once the Gemini control exists: every switch of data source stops the bridge (plan D12).
   let onSourceChanged: () => void = () => undefined;
 
   app
@@ -155,7 +156,7 @@ function start(): void {
           console.error(line);
         },
       });
-      const account = createAccount({
+      const opened = createAccount({
         config,
         userData: app.getPath("userData"),
         secrets,
@@ -164,11 +165,21 @@ function start(): void {
         now: Date.now,
         reloadWindow: () => {
           reloadWindows();
-          onSourceChanged();
+          sourceWatch.check();
         },
         // Main-to-page events go to the app's own page only, after a check of each payload.
         emit,
       });
+      // The account has no "source changed" callback: the watch checks after each call that can
+      // open or close a source (sign-in, recheck, sign-out) and before each reload. Every user of
+      // the account goes through `account`, so none of those calls skips the check.
+      const sourceWatch = createSourceWatch(
+        () => opened.source(),
+        () => {
+          onSourceChanged();
+        },
+      );
+      const account = withSourceChecks(opened, sourceWatch.check);
       const userData = app.getPath("userData");
       // Two lanes (plan D14, `laneFor`): the store lane runs the jobs that write `pipeline.db`,
       // the quick lane mail, video stats and gateways, so a Send never waits behind a search.
@@ -251,7 +262,8 @@ function start(): void {
         account,
         secrets,
         userData,
-        settings: () => startSettings(account.source()),
+        // A search needs no mailbox: its start message carries no address.
+        settings: () => startSettings(account.source(), { mail: false }),
         emit: (state) => {
           emit("find:changed", state);
         },
@@ -335,7 +347,8 @@ function start(): void {
           isGoogleConsentUrl(url) ? shell.openExternal(url) : Promise.reject(new Error("Refused.")),
         // Its own instance: only Google's token endpoint, never the Supabase host.
         network: createNetwork({ allowedOrigins: ["https://oauth2.googleapis.com"] }),
-        canAddMailbox: async () => (await connections.status()).mailboxes.length < maxMailboxes,
+        // Counted as addMailbox counts; no status build and no network before the browser opens.
+        canAddMailbox: async () => (await connections.mailboxCount()) < maxMailboxes,
         saveMailbox: async (address, token) => {
           const saved = await connections.addMailbox(address, token);
           return saved.ok ? saved : { ok: false, reason: saved.reason };
@@ -373,6 +386,7 @@ function start(): void {
       // session this reads the local copy and checks with the server in the background. A database
       // that won't open lands in the start-up error dialog below.
       await account.start();
+      sourceWatch.prime();
       registerBridge(
         createHandlers({
           version: app.getVersion(),

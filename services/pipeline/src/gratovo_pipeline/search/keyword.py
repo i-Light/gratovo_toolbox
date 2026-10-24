@@ -9,13 +9,14 @@ finds those channels as known.
 
 from __future__ import annotations
 
+import contextlib
 import dataclasses
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 
 from gratovo_pipeline import store
 from gratovo_pipeline.protocol import Outcome
 from gratovo_pipeline.search import auto_clean, backfill
-from gratovo_pipeline.search.context import Search
+from gratovo_pipeline.search.context import Search, SearchBlockedError
 from gratovo_pipeline.search.uploads import UploadCollector
 from gratovo_pipeline.youtube import BATCH_SIZE, ChannelInfo
 
@@ -143,48 +144,61 @@ def _read_uploads(
     the median-views or uploads bound (announced as swept, and not counted as kept)."""
     if not reading:
         return [], []
-    swept: list[auto_clean.SignalSwept] = []
-    kept: list[str] = []
     search.info(f"Reading recent uploads from {len(reading)} channel(s).")
     every = search.pacer.every()
     collector = UploadCollector(search)
     sweep = search.source.sweep()
     try:
-        for position, (handle, channel_id) in enumerate(reading.items(), 1):
-            if every and position > 1 and (position - 1) % every == 0:
-                search.pacer.sweep_break(position - 1)
-            video_ids = sweep.recent_video_ids(handle)
-            search.pacer.pause("recent_videos_delay")
-            collector.add(channel_id, video_ids)
-    finally:
         try:
-            collector.finish()
+            for position, (handle, channel_id) in enumerate(reading.items(), 1):
+                if every and position > 1 and (position - 1) % every == 0:
+                    search.pacer.sweep_break(position - 1)
+                video_ids = sweep.recent_video_ids(handle)
+                search.pacer.pause("recent_videos_delay")
+                collector.add(channel_id, video_ids)
         finally:
-            sweep.close()
-            # The bounds apply whether or not the subscriber band is on. Judged here, with the
-            # signals just derived, so a stop mid-sweep still judges what was stamped.
-            swept = auto_clean.sweep_by_signals(
-                search.conn,
-                search.cfg.signal_bounds,
-                collector.stamped,
-                keyword=keyword,
-                handles_limit=search.cfg.handles_limit,
-            )
-            gone = {s.channel_id for s in swept}
-            for s in swept:
-                search.events.channel(
-                    keyword=keyword,
-                    channel_id=s.channel_id,
-                    handle=s.handle,
-                    name=s.name,
-                    subscribers=s.subscribers,
-                    median_views=s.median_views,
-                    country=s.country,
-                    outcome="swept",
-                )
-            kept = [cid for cid in collector.stamped if cid not in gone]
-            for channel_id in kept:
-                _announce(search, keyword, channel_id, "kept")
+            try:
+                collector.finish()
+            finally:
+                sweep.close()
+    except KeyboardInterrupt, SearchBlockedError:
+        # A stop or a block mid-sweep still judges what was stamped, so a resume (which finds
+        # those channels as known) doesn't let them skip the bounds. If judging fails, the stop
+        # is still what the run hears. Any other error judges nothing: archiving while a fetch
+        # or database error is in flight would act on a half-finished keyword.
+        with contextlib.suppress(BaseException):
+            _judge(search, keyword, collector.stamped)
+        raise
+    return _judge(search, keyword, collector.stamped)
+
+
+def _judge(
+    search: Search, keyword: str, stamped: Sequence[str]
+) -> tuple[list[str], list[auto_clean.SignalSwept]]:
+    """Applies the median-views and uploads bounds to the stamped channels (whether or not the
+    subscriber band is on), announces each as swept or kept, and returns (kept, swept)."""
+    swept = auto_clean.sweep_by_signals(
+        search.conn,
+        search.cfg.signal_bounds,
+        list(stamped),
+        keyword=keyword,
+        handles_limit=search.cfg.handles_limit,
+    )
+    gone = {s.channel_id for s in swept}
+    for s in swept:
+        search.events.channel(
+            keyword=keyword,
+            channel_id=s.channel_id,
+            handle=s.handle,
+            name=s.name,
+            subscribers=s.subscribers,
+            median_views=s.median_views,
+            country=s.country,
+            outcome="swept",
+        )
+    kept = [cid for cid in stamped if cid not in gone]
+    for channel_id in kept:
+        _announce(search, keyword, channel_id, "kept")
     return kept, swept
 
 

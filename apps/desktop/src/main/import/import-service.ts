@@ -1,4 +1,12 @@
-import { copyFileSync, existsSync, mkdirSync, readFileSync, statSync, type Stats } from "node:fs";
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  realpathSync,
+  statSync,
+  type Stats,
+} from "node:fs";
 import { basename, dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
@@ -6,13 +14,19 @@ import type { AppEventPayload, ImportCandidates, ImportResult, PickedPath } from
 
 import { findFileName, readFindFile, rulesFromOldFiles, writeFindFile } from "../find/find-store";
 import type { JobOutcome } from "../pipeline/jobs";
-import type { EndErrorCode, ImportReport, Start } from "../pipeline/protocol";
+import {
+  protocolVersion,
+  type EndErrorCode,
+  type ImportReport,
+  type Start,
+} from "../pipeline/protocol";
 import type { ImporterService } from "../services";
 
 /**
  * Importing the old app's `gratovo.db` (plan step 4, D2 to D6). Main checks the path, runs the
- * pipeline's `import.legacy` job in the store lane, then copies `find.json` beside the backup,
- * seeds the local channel names and (if asked) maps the old search rules.
+ * pipeline's `import.legacy` job in the store lane, then records the import, copies `find.json`
+ * beside the backup, seeds the local channel names and (if asked) maps the old search rules. The
+ * job has committed by then, so a step after it that fails is a warning on a successful result.
  */
 
 /** How a store-lane job ended, as this service needs it. */
@@ -49,6 +63,8 @@ export interface ImportFs {
   copyFile(from: string, to: string): void;
   mkdir(path: string): void;
   readJson(path: string): unknown;
+  /** The real path (links, junctions and 8.3 short names resolved); null when it can't be. */
+  realpath(path: string): string | null;
 }
 
 export const realImportFs: ImportFs = {
@@ -67,6 +83,13 @@ export const realImportFs: ImportFs = {
     mkdirSync(path, { recursive: true });
   },
   readJson: (path) => JSON.parse(readFileSync(path, "utf8")) as unknown,
+  realpath(path) {
+    try {
+      return realpathSync.native(path);
+    } catch {
+      return null;
+    }
+  },
 };
 
 export interface ImporterDeps {
@@ -121,6 +144,7 @@ export function readPipelineChannels(dataDir: string): { channelId: string; name
 }
 
 type Reason = Extract<ImportResult, { ok: false }>["reason"];
+type Warning = NonNullable<Extract<ImportResult, { ok: true }>["warnings"]>[number];
 
 const reasonOfCode: Partial<Record<EndErrorCode, Reason>> = {
   source_unreadable: "not_found",
@@ -141,6 +165,16 @@ function sameOrInside(folder: string, path: string): boolean {
   return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
 }
 
+/** `\\?\...` and `\\.\...`: Win32 namespace paths, which skip the usual path rules. */
+function isNamespacePath(path: string): boolean {
+  return /^[\\/]{2}[?.][\\/]/.test(path);
+}
+
+/** `\\server\share\...` (or `\\?\UNC\...`): a network share, which SQLite can't open here. */
+function isNetworkPath(path: string): boolean {
+  return /^[\\/]{2}[?.][\\/]unc[\\/]/i.test(path) || /^[\\/]{2}[^\\/?.]/.test(path);
+}
+
 function stampOf(backup: string): string {
   const base = basename(backup, extname(backup));
   const stamp = base.replace(/^pipeline[-_.]?/, "");
@@ -153,9 +187,13 @@ export function createImporter(deps: ImporterDeps): ImporterService {
 
   const fail = (reason: Reason): ImportResult => ({ ok: false, reason });
 
+  /**
+   * The checks before any job. Answers the real path (links, junctions and 8.3 short names
+   * resolved), which is what the job gets, so the file checked is the file read.
+   */
   function check(
     path: string,
-  ): { ok: true; dataDir: string } | { ok: false; result: ImportResult } {
+  ): { ok: true; dataDir: string; source: string } | { ok: false; result: ImportResult } {
     if (!deps.isLive()) {
       return { ok: false, result: fail("example_data") };
     }
@@ -163,13 +201,26 @@ export function createImporter(deps: ImporterDeps): ImporterService {
     if (dataDir === null) {
       return { ok: false, result: fail("no_data") };
     }
-    if (!isAbsolute(path)) {
+    if (isNetworkPath(path)) {
+      return { ok: false, result: fail("network_path") };
+    }
+    if (!isAbsolute(path) || isNamespacePath(path)) {
       return { ok: false, result: fail("not_found") };
     }
     if (sameOrInside(deps.userDataDir, path)) {
       return { ok: false, result: fail("own_data") };
     }
-    return { ok: true, dataDir };
+    const source = fs.realpath(path);
+    if (source === null || isNamespacePath(source)) {
+      return { ok: false, result: fail("not_found") };
+    }
+    if (isNetworkPath(source)) {
+      return { ok: false, result: fail("network_path") }; // a mapped drive
+    }
+    if (sameOrInside(fs.realpath(deps.userDataDir) ?? deps.userDataDir, source)) {
+      return { ok: false, result: fail("own_data") };
+    }
+    return { ok: true, dataDir, source };
   }
 
   function startOf(
@@ -178,7 +229,7 @@ export function createImporter(deps: ImporterDeps): ImporterService {
   ): Start {
     return {
       type: "start",
-      protocol: 1,
+      protocol: protocolVersion,
       source: "live",
       dataDir,
       worker: deps.worker(),
@@ -272,7 +323,7 @@ export function createImporter(deps: ImporterDeps): ImporterService {
         if (!checked.ok) {
           return checked.result;
         }
-        const done = await runImportJob(path, checked.dataDir, true, null);
+        const done = await runImportJob(checked.source, checked.dataDir, true, null);
         return done.ok ? { ok: true, report: done.report } : done.result;
       });
     },
@@ -283,36 +334,65 @@ export function createImporter(deps: ImporterDeps): ImporterService {
         if (!checked.ok) {
           return checked.result;
         }
-        const { dataDir } = checked;
+        const { dataDir, source } = checked;
         const backupDir = join(deps.userDataDir, "backups");
         fs.mkdir(backupDir);
-        const done = await runImportJob(path, dataDir, false, backupDir);
+        const done = await runImportJob(source, dataDir, false, backupDir);
         if (!done.ok) {
           return done.result;
         }
+        // The job has committed: from here a step that fails is a warning, not a failure.
         const { report } = done;
-        const findFile = join(dataDir, findFileName);
-        if (report.backup !== null && fs.exists(findFile)) {
-          fs.copyFile(
-            findFile,
-            join(dirname(report.backup), `find-${stampOf(report.backup)}.json`),
-          );
-        }
-        deps.seedChannelNames((deps.readPipelineChannels ?? readPipelineChannels)(dataDir));
-        if (useOldRules) {
-          applyOldRules(path, dataDir);
-        }
-        const counts: Record<string, number> = {};
-        for (const table of report.tables) {
-          counts[table.name] = table.toAdd;
-        }
-        deps.writeSetting("import", {
-          at: deps.now().toISOString(),
-          source: path,
-          counts,
-          backup: report.backup,
+        const warnings: Warning[] = [];
+        const step = (name: Warning, work: () => void): boolean => {
+          try {
+            work();
+            return true;
+          } catch (error) {
+            // The error's kind only: a message can carry a path.
+            console.warn(
+              `Import: the ${name} step failed:`,
+              error instanceof Error ? error.name : "unexpected error",
+            );
+            warnings.push(name);
+            return false;
+          }
+        };
+        step("import_state", () => {
+          const counts: Record<string, number> = {};
+          for (const table of report.tables) {
+            counts[table.name] = table.toAdd;
+          }
+          deps.writeSetting("import", {
+            at: deps.now().toISOString(),
+            source,
+            counts,
+            backup: report.backup,
+          });
         });
-        return { ok: true, report };
+        const findSaved = step("find_backup", () => {
+          const findFile = join(dataDir, findFileName);
+          if (report.backup !== null && fs.exists(findFile)) {
+            fs.copyFile(
+              findFile,
+              join(dirname(report.backup), `find-${stampOf(report.backup)}.json`),
+            );
+          }
+        });
+        step("channel_names", () => {
+          deps.seedChannelNames((deps.readPipelineChannels ?? readPipelineChannels)(dataDir));
+        });
+        if (useOldRules) {
+          if (findSaved) {
+            step("old_rules", () => {
+              applyOldRules(source, dataDir);
+            });
+          } else {
+            // Without the copy of find.json, mapping the old rules would lose the current ones.
+            warnings.push("old_rules");
+          }
+        }
+        return warnings.length > 0 ? { ok: true, report, warnings } : { ok: true, report };
       });
     },
   };

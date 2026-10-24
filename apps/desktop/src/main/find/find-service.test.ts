@@ -311,6 +311,23 @@ describe("the find service", () => {
       });
     });
 
+    it("leaves the mail settings, and so every mailbox address, out of a search start", async () => {
+      settings = () => ({
+        pacing: "normal",
+        mail: {
+          label: "Gratovo Outreach",
+          senderName: null,
+          mailboxes: [
+            { address: "sam@ai-weekly.example", dailyCap: 20, warmupStartedOn: "2026-10-24" },
+          ],
+        },
+      });
+      service = make();
+      await started();
+      expect(supervisor.starts[0]?.settings).toEqual({ pacing: "normal" });
+      expect(JSON.stringify(supervisor.starts[0])).not.toContain("ai-weekly.example");
+    });
+
     it("sends the live key, the user id, and the proxies and gateways from the secret store", async () => {
       mode = "live";
       secretValues = {

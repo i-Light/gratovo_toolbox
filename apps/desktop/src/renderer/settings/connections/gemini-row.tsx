@@ -5,7 +5,9 @@ import { useState } from "react";
 import { toast } from "../../lib/toast";
 import { strings } from "../../strings";
 import { Row } from "../row";
-import { Line, Problem, StateTag } from "./parts";
+import { Line } from "./line";
+import { Problem } from "./problem";
+import { StateTag } from "./state-tag";
 import { applyConnections, ask, failToast } from "./use-connections";
 
 const text = strings.settings.connections;

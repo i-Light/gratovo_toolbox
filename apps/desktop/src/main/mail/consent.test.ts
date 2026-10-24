@@ -7,6 +7,7 @@ import { createNetwork, listenOnLoopback, type LoopbackHandler } from "../net/ne
 import {
   createMailConsent,
   gmailScopes,
+  googleRevokeUrl,
   googleTokenUrl,
   type MailConsentDeps,
   type SaveMailboxResult,
@@ -82,7 +83,9 @@ function redirectWith(params: Record<string, string>): Browser {
 interface SetupOptions {
   browser?: Browser;
   token?: () => Response;
-  saveMailbox?: SaveMailboxResult;
+  /** Google's answer to a revoke; it may throw (no network). */
+  revoke?: () => Response;
+  saveMailbox?: SaveMailboxResult | (() => Promise<SaveMailboxResult>);
   readClient?: MailConsentDeps["readClient"];
   canAddMailbox?: MailConsentDeps["canAddMailbox"];
   timeoutMs?: number;
@@ -105,8 +108,17 @@ function setup(options: SetupOptions = {}) {
         }),
     ),
   );
+  const revokeFetch = vi.fn<typeof fetch>(() =>
+    Promise.resolve(options.revoke?.() ?? new Response(null, { status: 200 })),
+  );
+  // One fake network: the token endpoint and the revoke endpoint, told apart by URL.
+  const fetchFake: typeof fetch = (input, init) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    return url === googleRevokeUrl ? revokeFetch(input, init) : tokenFetch(input, init);
+  };
+  const saved = options.saveMailbox;
   const saveMailbox = vi.fn<MailConsentDeps["saveMailbox"]>(() =>
-    Promise.resolve(options.saveMailbox ?? { ok: true }),
+    typeof saved === "function" ? saved() : Promise.resolve(saved ?? { ok: true }),
   );
   const listen = async (handler: LoopbackHandler) => {
     const server = await listenOnLoopback(handler);
@@ -132,7 +144,7 @@ function setup(options: SetupOptions = {}) {
     },
     network: createNetwork({
       allowedOrigins: ["https://oauth2.googleapis.com"],
-      fetch: tokenFetch,
+      fetch: fetchFake,
     }),
     saveMailbox,
     ...(options.canAddMailbox === undefined ? {} : { canAddMailbox: options.canAddMailbox }),
@@ -140,7 +152,7 @@ function setup(options: SetupOptions = {}) {
     timeoutMs: options.timeoutMs ?? 5_000,
     listen,
   });
-  return { consent, log, opened, browserRuns, servers, tokenFetch, saveMailbox };
+  return { consent, log, opened, browserRuns, servers, tokenFetch, revokeFetch, saveMailbox };
 }
 
 type Setup = ReturnType<typeof setup>;
@@ -254,38 +266,43 @@ describe("createMailConsent", () => {
     expect(reply?.body).not.toContain(context.opened[0]?.searchParams.get("state") ?? "-");
   });
 
-  it("fails with bad_state on a wrong state, and reflects nothing", async () => {
-    let reply: Reply | undefined;
+  it("ignores wrong, missing and repeated states, then takes the real redirect", async () => {
+    const strays: Reply[] = [];
     const context = setup({
-      browser: async (_auth, port) => {
-        reply = await send(port, `/?state=forged%3Cb%3E&code=${code}`);
+      browser: async (auth, port) => {
+        const state = auth.searchParams.get("state") ?? "";
+        // What a web page in the same browser could send to the port, with the right Host.
+        strays.push(await send(port, `/?state=forged%3Cb%3E&code=${code}`));
+        strays.push(await send(port, "/?state=forged&error=access_denied"));
+        strays.push(await send(port, `/?code=${code}`));
+        strays.push(await send(port, `/?state=${state}&state=${state}&code=${code}`));
+        strays.push(await send(port, `/?state=${state}x&code=${code}`));
+        await send(port, `/?state=${state}&code=${code}`);
       },
     });
-    expect(await context.consent.connect()).toEqual({ ok: false, reason: "bad_state" });
+    expect(await context.consent.connect()).toEqual({ ok: true, address });
     await Promise.all(context.browserRuns);
-    expect(reply?.status).toBe(400);
-    expect(reply?.headers["content-security-policy"]).toBe("default-src 'none'");
-    expect(reply?.body).toContain("couldn't connect this mailbox");
-    expect(reply?.body).not.toContain("forged");
-    expect(context.tokenFetch).not.toHaveBeenCalled();
+    expect(strays.map((reply) => reply.status)).toEqual([404, 404, 404, 404, 404]);
+    for (const reply of strays) {
+      expect(reply.body).toBe("");
+      expect(reply.headers["cache-control"]).toBe("no-store");
+    }
+    expect(context.tokenFetch).toHaveBeenCalledOnce();
+    expect(sentForm(context).get("code")).toBe(code);
     await expectClosed(context);
     expectNoSecretsLogged(context);
   });
 
-  it("fails with bad_state when the state is missing or repeated", async () => {
-    const missing = setup({
+  it("is not ended by a forged request: only the timeout ends it then", async () => {
+    const context = setup({
       browser: async (_auth, port) => {
-        await send(port, `/?code=${code}`);
+        await send(port, "/?state=forged&error=access_denied");
       },
+      timeoutMs: 300,
     });
-    expect(await missing.consent.connect()).toEqual({ ok: false, reason: "bad_state" });
-    const repeated = setup({
-      browser: async (auth, port) => {
-        const state = auth.searchParams.get("state") ?? "";
-        await send(port, `/?state=${state}&state=${state}&code=${code}`);
-      },
-    });
-    expect(await repeated.consent.connect()).toEqual({ ok: false, reason: "bad_state" });
+    expect(await context.consent.connect()).toEqual({ ok: false, reason: "timeout" });
+    expect(context.tokenFetch).not.toHaveBeenCalled();
+    await expectClosed(context);
   });
 
   it("reports denied when the person says no", async () => {
@@ -379,6 +396,9 @@ describe("createMailConsent", () => {
     ["no issuer", idToken({ ...goodClaims, iss: undefined })],
     ["an unverified address", idToken({ ...goodClaims, email_verified: false })],
     ["an unverified address as text", idToken({ ...goodClaims, email_verified: "false" })],
+    ["no email_verified claim", idToken({ ...goodClaims, email_verified: undefined })],
+    ["an email_verified that isn't true", idToken({ ...goodClaims, email_verified: "yes" })],
+    ["an email_verified of 1", idToken({ ...goodClaims, email_verified: 1 })],
     ["no address", idToken({ ...goodClaims, email: undefined })],
     ["a malformed address", idToken({ ...goodClaims, email: "not an address" })],
     ["a header-breaking address", idToken({ ...goodClaims, email: "sam@x.example\r\nBcc: y" })],
@@ -393,6 +413,17 @@ describe("createMailConsent", () => {
     expect(await context.consent.connect()).toEqual({ ok: false, reason: "bad_response" });
     expect(context.saveMailbox).not.toHaveBeenCalled();
     expectNoSecretsLogged(context);
+  });
+
+  it("accepts email_verified given as text", async () => {
+    const context = setup({
+      token: () =>
+        Response.json({
+          refresh_token: refreshToken,
+          id_token: idToken({ ...goodClaims, email_verified: "true" }),
+        }),
+    });
+    expect(await context.consent.connect()).toEqual({ ok: true, address });
   });
 
   it("accepts the issuer without a scheme", async () => {
@@ -411,11 +442,59 @@ describe("createMailConsent", () => {
     expect(await context.consent.connect()).toEqual({ ok: false, reason: "bad_response" });
   });
 
-  it("passes on saveMailbox's failure", async () => {
+  it("passes on saveMailbox's failure, and revokes the token it couldn't keep", async () => {
     const context = setup({ saveMailbox: { ok: false, reason: "too_many" } });
     expect(await context.consent.connect()).toEqual({ ok: false, reason: "too_many" });
     expect(context.saveMailbox).toHaveBeenCalledOnce();
+    expect(context.revokeFetch).toHaveBeenCalledOnce();
+    const [url, init] = context.revokeFetch.mock.calls[0] ?? [];
+    expect(url).toBe(googleRevokeUrl);
+    expect(init?.method).toBe("POST");
+    expect(init?.redirect).toBe("error");
+    expect(new Headers(init?.headers).get("content-type")).toBe(
+      "application/x-www-form-urlencoded",
+    );
+    const body = init?.body;
+    expect(typeof body).toBe("string");
+    expect(Object.fromEntries(new URLSearchParams(typeof body === "string" ? body : ""))).toEqual({
+      token: refreshToken,
+    });
+    expect(context.log).toHaveBeenCalledWith(
+      "Mail consent: the unsaved token's revoke answered 200.",
+    );
     await expectClosed(context);
+    expectNoSecretsLogged(context);
+  });
+
+  it("revokes nothing when the mailbox is saved", async () => {
+    const context = setup();
+    expect((await context.consent.connect()).ok).toBe(true);
+    expect(context.revokeFetch).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["refused", () => Response.json({ error: `invalid_token ${refreshToken}` }, { status: 400 })],
+    [
+      "unreachable",
+      (): Response => {
+        throw new TypeError("fetch failed");
+      },
+    ],
+  ])("keeps saveMailbox's reason when the revoke is %s", async (_name, revoke) => {
+    const context = setup({ saveMailbox: { ok: false, reason: "too_many" }, revoke });
+    expect(await context.consent.connect()).toEqual({ ok: false, reason: "too_many" });
+    expect(context.revokeFetch).toHaveBeenCalledOnce();
+    expect(context.log.mock.calls.flat().join("\n")).not.toContain("invalid_token");
+    expectNoSecretsLogged(context);
+  });
+
+  it("revokes the token when saveMailbox throws, and answers failed", async () => {
+    const context = setup({
+      saveMailbox: () => Promise.reject(new Error(`disk full ${address}`)),
+    });
+    expect(await context.consent.connect()).toEqual({ ok: false, reason: "failed" });
+    expect(context.revokeFetch).toHaveBeenCalledOnce();
+    expectNoSecretsLogged(context);
   });
 
   it("ignores the favicon and other stray requests, then takes the real redirect", async () => {

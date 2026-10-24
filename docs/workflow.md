@@ -84,3 +84,5 @@ Each of these cost a CI round or a review finding (step 3c).
 - A send is not idempotent: never retry it after the request may have reached the server (3e-3b).
 - Agents running at once must not share files, and the pre-commit hook (lint-staged) stashes unstaged changes while it runs: the lead commits named paths once every agent is done.
 - Still owed by later steps: the packaged build ships `@supabase/realtime-js` with main, and Deno plus `yt-dlp-ejs` for subtitles (T5); the two known sync limits in ADR 0012. Code scanning isn't enabled for the repository (the owner's choice). The owner's files under `design/` aren't part of any step unless the owner says so.
+- Tell every agent that shares the working tree never to run `git stash`, `git reset` or `git checkout -- <file>`: in step 4 one agent's stash and pop emptied every other agent's edits from the tree for a minute. Commit only from the lead, once no agent is running.
+- The import rehearsal must run on a copy of the old database: a read-only SQLite open of a WAL-mode file still creates `-shm` and `-wal` beside it (step 4, ADR 0016).

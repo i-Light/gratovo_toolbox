@@ -1,4 +1,6 @@
-# Progress: step 4 (live data import and operational connections)
+# Progress: step 4 (live data import and operational connections): done
+
+**Step 4 is done** (2026-10-24, ADR 0016). **Next: step 5 (Find)**, in a fresh session, from the migration plan's §5 and §6. Start a new `.router/CONTEXT.md` and `.router/PLAN.md` for it and rewrite this file. Notes for step 5: the Find rail subtitle still says "Search, triage, contacts" while only Search is wired in live mode; Find › triage, gallery and contacts tabs, Toolbox › Archive, Never-contact and Activity log turn on in `renderer/lib/wired.ts`; `archiveDays` (find.json, kept in main) is read by the reject.
 
 **Plan realigned** (owner, 2026-10-24): pipeline-first order and ground rules 9 and 10 are in the migration plan and `docs/workflow.md` (PR #18). 3e-3's lessons moved to `docs/workflow.md`.
 
@@ -26,10 +28,10 @@ Branch `feat/4-live-data-and-connections`, from `docs/plan-pipeline-first` at 8e
 | F1 | N | done | rehearsal re-run on a fresh copy: only `gratovo.db` left beside it. Was: **after W1 and B10:** the old file opened `mode=ro&immutable=1`; a non-empty `-wal` beside it → end code `old_app_open` (Python, protocol both sides, ipc reason, B4 mapping, B10 words). Found by the rehearsal: `mode=ro` created `-shm`/`-wal` beside the copy |
 | T1 | N | done | `e2e/live-gate.spec.ts` (owner, live): rail shows Find only (Settings is in the account menu), first-run lands on Connections, Python row and "Not brought in yet", palette has no Go to Today; plus smoke/settings/frame specs 13/13 locally |
 | D1 | N | done | ADR 0016, architecture, SECURITY, pipeline README, parity note on the AWS row |
-| R1 | H | in progress | review fixes: import path realpath + `data_dir.parent`, runs dedupe on (started_at, kind) and `running`→`interrupted`, import state written before best-effort steps, UNC refusal, `protocolVersion`, keyword.py `finally` |
-| R2 | N | in progress | review fixes: consent ignores wrong state (404, no settle), `email_verified` must be true, revoke the token when saving fails, cheap `mailboxCount()`, no `mail` in search starts, Gemini stop tied to source open/close, split `connections-service.ts` |
-| R3 | N | in progress | review fix: one component per file under `renderer/settings/connections/` and `search-rules-section.tsx` |
-| L1 | lead | – | checks, rehearsal (done), review (done: 0 blockers, 3 important, 9 minor), PR |
+| R1 | H | done | review fixes: import path realpath + `data_dir.parent`, runs dedupe on (started_at, kind) and `running`→`interrupted`, import state written before best-effort steps, UNC refusal, `protocolVersion`, keyword.py `finally` |
+| R2 | H | done | review fixes: consent ignores wrong state (404, no settle), `email_verified` must be true, revoke the token when saving fails, cheap `mailboxCount()`, no `mail` in search starts, Gemini stop tied to source open/close, split `connections-service.ts` |
+| R3 | N | done | review fix: one component per file under `renderer/settings/connections/` and `search-rules-section.tsx` |
+| L1 | lead | done | full checks green; rehearsal; review (0 blockers, 3 important, 9 minor: all fixed); import warnings shown in the dialog; the Connections callout says what isn't set up instead of "everything works"; looked at in dark at 1440 px (Connections, import dialog, Search rules view and edit, Writing rules, Find) |
 
 ## Rehearsal (lead, 2026-10-24)
 

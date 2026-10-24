@@ -153,9 +153,35 @@ afterEach(() => {
 });
 
 describe("Connections: the overview and the rows", () => {
+  it("says what isn't set up yet instead of claiming everything works", async () => {
+    install({ "connections:status": status({ mailboxes: [] }) });
+    await show();
+    expect(
+      screen.getByText(
+        text.notSetUpCallout(
+          [text.pieces.oldData, text.pieces.mailApp, text.pieces.mailboxes].join(", "),
+        ),
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText(text.goodCallout)).toBeNull();
+  });
+
+  it("puts what isn't set up under what needs a look", async () => {
+    install({ "connections:status": status({ python: { state: "missing" } }) });
+    await show();
+    expect(screen.getByText(text.needsLook(text.pieces.python))).toBeTruthy();
+    expect(
+      screen.getByText(text.notSetUp([text.pieces.oldData, text.pieces.mailApp].join(", "))),
+    ).toBeTruthy();
+  });
+
   it("shows the good callout and every row when nothing needs a look", async () => {
     install({
-      "connections:status": status({ mailApp: { set: true }, sync: { state: "synced" } }),
+      "connections:status": status({
+        mailApp: { set: true },
+        sync: { state: "synced" },
+        import: { state: "done", at: "2026-10-24T09:00:00.000Z", backup: null },
+      }),
     });
     await show();
     expect(screen.getByText(text.goodCallout)).toBeTruthy();
@@ -175,7 +201,7 @@ describe("Connections: the overview and the rows", () => {
     ]) {
       expect(row(id).getAttribute("data-ui")).toMatch(/^settings\.connections\./);
     }
-    expect(within(row("connOld")).getByText(text.old.never)).toBeTruthy();
+    expect(within(row("connOld")).getByText(new RegExp(`^${text.old.done(null)} `))).toBeTruthy();
     expect(within(row("connPython")).getByText(text.tags.ready)).toBeTruthy();
     expect(within(row("connYoutube")).getByText(text.tags.available)).toBeTruthy();
     expect(within(row("connProxies")).getByText("2 proxies")).toBeTruthy();
@@ -588,7 +614,11 @@ describe("the import dialog", () => {
         ],
       },
       "import:dry-run": { ok: true, report: report() },
-      "import:run": { ok: true, report: report({ dryRun: false, backup: "C:\\data\\backup.db" }) },
+      "import:run": {
+        ok: true,
+        report: report({ dryRun: false, backup: "C:\\data\\backup.db" }),
+        warnings: ["channel_names"],
+      },
     });
     resetAppStoreForTests({ screen: "settings", tab: "connections" });
     await chooseAndCheck();
@@ -611,6 +641,8 @@ describe("the import dialog", () => {
     expect(within(dialog).getByText(imp.backup("C:\\data\\backup.db"))).toBeTruthy();
     expect(within(dialog).getByText(imp.untouched)).toBeTruthy();
     expect(within(dialog).getByText(imp.resultAdded(105))).toBeTruthy();
+    expect(within(dialog).getByText(imp.warningsTitle)).toBeTruthy();
+    expect(within(dialog).getByText(imp.warnings.channel_names)).toBeTruthy();
   });
 
   it("shows live progress from import:progress while it runs", async () => {
@@ -649,6 +681,7 @@ describe("the import dialog", () => {
       await Promise.resolve();
     });
     expect(within(dialog).getByText(imp.noBackup)).toBeTruthy();
+    expect(within(dialog).queryByText(imp.warningsTitle)).toBeNull();
   });
 
   it("says a refusal in words and stays on the same step", async () => {

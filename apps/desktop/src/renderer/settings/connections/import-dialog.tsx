@@ -1,4 +1,4 @@
-import type { Bridge, ImportCandidates, ImportReport } from "@gratovo/ipc";
+import type { Bridge, ImportCandidates, ImportReport, importWarnings } from "@gratovo/ipc";
 import { Btn, Icon, IconBtn } from "@gratovo/ui";
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
@@ -9,8 +9,13 @@ import { toast } from "../../lib/toast";
 import { ModalLayer } from "../../overlays/modal-layer";
 import { strings } from "../../strings";
 import { whenText, sizeText } from "./format";
-import { ReportView, UnsentWarning, hasOldRules } from "./import-report";
+import { hasOldRules } from "./has-old-rules";
+import { ReportView } from "./report-view";
+import { UnsentWarning } from "./unsent-warning";
 import { ask, loadConnections } from "./use-connections";
+
+/** A step after the copy that didn't finish; the data itself was brought in. */
+type ImportWarning = (typeof importWarnings)[number];
 
 const text = strings.settings.importDialog;
 
@@ -32,6 +37,7 @@ export function ImportDialog({ onClose }: { readonly onClose: () => void }) {
   const [problem, setProblem] = useState<Reason | null>(null);
   const [busy, setBusy] = useState(false);
   const [report, setReport] = useState<ImportReport | null>(null);
+  const [warnings, setWarnings] = useState<readonly ImportWarning[]>([]);
   const [useRules, setUseRules] = useState(false);
   const [progress, setProgress] = useState<Progress | null>(null);
   const alive = useRef(true);
@@ -142,6 +148,7 @@ export function ImportDialog({ onClose }: { readonly onClose: () => void }) {
           setStep("report");
         } else {
           setReport(answer.report);
+          setWarnings(answer.warnings ?? []);
           setStep("result");
         }
       },
@@ -262,6 +269,19 @@ export function ImportDialog({ onClose }: { readonly onClose: () => void }) {
                 <span className="small">{text.resultAlready(already)}</span>
               </div>
             </div>
+            {warnings.length > 0 ? (
+              <div className="callout warn" role="status">
+                <Icon name="alert" />
+                <div className="grow col tight">
+                  <b>{text.warningsTitle}</b>
+                  {warnings.map((w) => (
+                    <span key={w} className="small">
+                      {text.warnings[w]}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : null}
             <UnsentWarning report={report} />
             <p className="small ink2">
               {report.backup === null ? text.noBackup : text.backup(report.backup)}

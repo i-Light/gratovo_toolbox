@@ -64,6 +64,8 @@ export const importProblems = [
   "not_found",
   /** The path is inside the new app's own data folder. */
   "own_data",
+  /** On a network share or a mapped drive: the owner copies the file to this computer first. */
+  "network_path",
   /** The old app is open, or left an unfinished `-wal` file: open and close it once. */
   "old_app_open",
   "not_sqlite",
@@ -75,8 +77,25 @@ export const importProblems = [
   "failed",
 ] as const;
 
+/**
+ * Steps after a successful import that didn't work out. The data is in either way, so the result
+ * stays a success and names them: the `find.json` copy beside the backup, the local channel names,
+ * the old search rules (skipped when the `find.json` copy failed, so no rules are lost), and the
+ * `import` setting.
+ */
+export const importWarnings = [
+  "find_backup",
+  "channel_names",
+  "old_rules",
+  "import_state",
+] as const;
+
 export const importResultSchema = z.discriminatedUnion("ok", [
-  z.strictObject({ ok: z.literal(true), report: importReportSchema }),
+  z.strictObject({
+    ok: z.literal(true),
+    report: importReportSchema,
+    warnings: z.array(z.enum(importWarnings)).max(importWarnings.length).optional(),
+  }),
   z.strictObject({ ok: z.literal(false), reason: z.enum(importProblems) }),
 ]);
 export type ImportResult = z.output<typeof importResultSchema>;

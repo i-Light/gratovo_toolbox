@@ -1,13 +1,16 @@
 import type { ConnectionsStatus } from "@gratovo/ipc";
 import { mailboxCapMax, mailboxCapMin, mailboxesMax } from "@gratovo/ipc";
 import { Btn } from "@gratovo/ui";
-import { useRef, useState } from "react";
+import { useState } from "react";
 
 import { toast } from "../../lib/toast";
 import { strings } from "../../strings";
 import { Row } from "../row";
 import { whenText } from "./format";
-import { Confirm, Line, Problem, StateTag, Stepper } from "./parts";
+import { Confirm } from "./confirm";
+import { Line } from "./line";
+import { StateTag } from "./state-tag";
+import { Stepper } from "./stepper";
 import { applyConnections, ask, failToast, loadConnections, saveChange } from "./use-connections";
 
 const text = strings.settings.connections;
@@ -21,120 +24,6 @@ const healthWords = {
   error: text.tags.error,
   unknown: text.tags.unknown,
 } as const;
-
-/** The Gmail app's client ID and secret: set only. After saving, nothing of them shows. */
-export function MailAppRow({ status }: { readonly status: ConnectionsStatus }) {
-  const [editing, setEditing] = useState(false);
-  const [id, setId] = useState("");
-  const [secret, setSecret] = useState("");
-  const [busy, setBusy] = useState(false);
-  const saving = useRef(false);
-  const isSet = status.mailApp.set;
-  const showForm = !isSet || editing;
-  const ready = id.trim() !== "" && secret.trim() !== "";
-  const save = (): void => {
-    if (!ready || saving.current) {
-      return;
-    }
-    saving.current = true;
-    setBusy(true);
-    void saveChange(
-      { kind: "mail.client", id: id.trim(), secret: secret.trim() },
-      { row: "connMailApp", msg: text.mailApp.toast },
-    ).then((ok) => {
-      saving.current = false;
-      setBusy(false);
-      if (ok) {
-        setId("");
-        setSecret("");
-        setEditing(false);
-      }
-    });
-  };
-  return (
-    <Row
-      id="connMailApp"
-      label={rows.connMailApp.label}
-      scope="team"
-      desc={rows.connMailApp.desc}
-      ui="settings.connections.mailApp"
-    >
-      <Line
-        actions={
-          isSet && !editing ? (
-            <Btn
-              size="sm"
-              onClick={() => {
-                setEditing(true);
-              }}
-            >
-              {text.replace}
-            </Btn>
-          ) : null
-        }
-      >
-        <StateTag tone={isSet ? "good" : undefined} icon={isSet ? "check" : undefined}>
-          {isSet ? text.tags.set : text.tags.notSet}
-        </StateTag>
-        {showForm ? null : <span className="hint">{text.mailApp.isSet}</span>}
-      </Line>
-      {showForm ? (
-        <form
-          className="col"
-          style={{ gap: "8px", width: "100%" }}
-          onSubmit={(event) => {
-            event.preventDefault();
-            save();
-          }}
-        >
-          {isSet ? null : <span className="hint">{text.mailApp.notSet}</span>}
-          <label className="field">
-            {text.mailApp.id}
-            <input
-              className="inp"
-              type="password"
-              autoComplete="off"
-              value={id}
-              onChange={(event) => {
-                setId(event.currentTarget.value);
-              }}
-            />
-          </label>
-          <label className="field">
-            {text.mailApp.secret}
-            <input
-              className="inp"
-              type="password"
-              autoComplete="off"
-              value={secret}
-              onChange={(event) => {
-                setSecret(event.currentTarget.value);
-              }}
-            />
-          </label>
-          <div className="row wrap">
-            <Btn kind="pri" size="sm" icon="check" disabled={!ready || busy} onClick={save}>
-              {text.mailApp.save}
-            </Btn>
-            {isSet ? (
-              <Btn
-                size="sm"
-                kind="ghost"
-                onClick={() => {
-                  setEditing(false);
-                  setId("");
-                  setSecret("");
-                }}
-              >
-                {text.cancel}
-              </Btn>
-            ) : null}
-          </div>
-        </form>
-      ) : null}
-    </Row>
-  );
-}
 
 function MailboxLine({ box }: { readonly box: Mailbox }) {
   const [asking, setAsking] = useState(false);
@@ -310,72 +199,6 @@ export function MailboxesRow({ status }: { readonly status: ConnectionsStatus })
           {text.mailboxes.waiting}
         </span>
       ) : null}
-    </Row>
-  );
-}
-
-/** The sender name and the Gmail label every email carries. */
-export function MailSettingsRow({ status }: { readonly status: ConnectionsStatus }) {
-  const [sender, setSender] = useState(status.mail.senderName ?? "");
-  const [label, setLabel] = useState(status.mail.label);
-  const cleanLabel = label.trim();
-  const cleanSender = sender.trim();
-  const labelBad = cleanLabel.length < 1 || cleanLabel.length > 100;
-  const senderBad = cleanSender.length > 100;
-  const changed =
-    cleanLabel !== status.mail.label || cleanSender !== (status.mail.senderName ?? "");
-  return (
-    <Row
-      id="connMailSettings"
-      label={rows.connMailSettings.label}
-      scope="team"
-      desc={rows.connMailSettings.desc}
-      ui="settings.connections.mailSettings"
-    >
-      <label className="field" style={{ width: "100%" }}>
-        {text.mailSettings.sender}
-        <input
-          className="inp"
-          value={sender}
-          aria-invalid={senderBad}
-          onChange={(event) => {
-            setSender(event.currentTarget.value);
-          }}
-        />
-        <span className="hint">{text.mailSettings.senderHint}</span>
-      </label>
-      <label className="field" style={{ width: "100%" }}>
-        {text.mailSettings.label}
-        <input
-          className="inp"
-          value={label}
-          aria-invalid={labelBad}
-          onChange={(event) => {
-            setLabel(event.currentTarget.value);
-          }}
-        />
-        <span className="hint">{text.mailSettings.labelHint}</span>
-      </label>
-      {labelBad ? <Problem>{text.mailSettings.labelBad}</Problem> : null}
-      {senderBad ? <Problem>{text.mailSettings.senderBad}</Problem> : null}
-      <Btn
-        kind="pri"
-        size="sm"
-        icon="check"
-        disabled={!changed || labelBad || senderBad}
-        onClick={() => {
-          void saveChange(
-            {
-              kind: "mail.settings",
-              label: cleanLabel,
-              senderName: cleanSender === "" ? null : cleanSender,
-            },
-            { row: "connMailSettings" },
-          );
-        }}
-      >
-        {text.mailSettings.save}
-      </Btn>
     </Row>
   );
 }
