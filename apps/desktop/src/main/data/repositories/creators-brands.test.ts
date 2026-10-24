@@ -55,6 +55,7 @@ describe("creators", () => {
         contactConfidence: null,
         rejectReason: null,
         rejectedAt: null,
+        neverReason: null,
         archiveDueAt: null,
       },
     ]);
@@ -173,6 +174,7 @@ describe("creators", () => {
       contactConfidence: null,
       rejectReason: null,
       rejectedAt: null,
+      neverReason: null,
       archiveDueAt: null,
     };
     set(["bare@x.example", 7, { method: "twitter", value: "@a" }]);
@@ -220,6 +222,7 @@ describe("creators", () => {
         contactConfidence: null,
         rejectReason: null,
         rejectedAt: null,
+        neverReason: null,
         archiveDueAt: null,
       },
       {
@@ -234,6 +237,7 @@ describe("creators", () => {
         contactConfidence: null,
         rejectReason: null,
         rejectedAt: null,
+        neverReason: null,
         archiveDueAt: null,
       },
       {
@@ -248,6 +252,7 @@ describe("creators", () => {
         contactConfidence: null,
         rejectReason: null,
         rejectedAt: null,
+        neverReason: null,
         archiveDueAt: null,
       },
     ]);

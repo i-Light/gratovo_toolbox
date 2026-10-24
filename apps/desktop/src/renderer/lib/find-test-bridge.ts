@@ -64,7 +64,10 @@ export function aiChannel(id: string, name: string, over: Partial<CatalogItem> =
     engagement: null,
     emailedBefore: null,
     rejectReason: null,
+    rejectedAt: null,
+    neverReason: null,
     archiveDueAt: null,
+    archivedAt: null,
     hasNumbers: true,
     ...over,
   };

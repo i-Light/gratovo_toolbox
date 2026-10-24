@@ -138,6 +138,14 @@ export function createHandlers(context: HandlerContext): Handlers {
     "find:views-set": ({ views }) => writeViews(openSource(), views),
     "find:ideas": ({ count }) => ideas.suggest(count),
     "log:for": async ({ ref, limit }) => ({ lines: [...(await openSource().logFor(ref, limit))] }),
+    // Plan step 5d: stubs until the Toolbox reader (B14), the archive service (B15) and the
+    // log page (B16) are built.
+    "log:page": () => ({ lines: [], more: false, people: [] }),
+    "toolbox:list": () => ({ version: 0, total: 0, items: [] }),
+    "toolbox:archived": () => ({ total: 0, items: [] }),
+    "toolbox:restore": () => ({ ok: false as const, problem: "no_python" as const }),
+    "toolbox:sweep": () => ({}),
+    "toolbox:counts": () => ({ archive: 0, never: 0, archived: 0, logToday: 0 }),
     "rules:set": ({ rules }) => {
       find.setRules(rules);
       return {};

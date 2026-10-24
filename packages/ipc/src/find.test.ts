@@ -144,7 +144,10 @@ describe("the catalog channels", () => {
     engagement: null,
     emailedBefore: null,
     rejectReason: null,
+    rejectedAt: null,
+    neverReason: null,
     archiveDueAt: null,
+    archivedAt: null,
     hasNumbers: true,
   };
   const fit = {

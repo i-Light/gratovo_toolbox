@@ -45,7 +45,8 @@ export function ensureCreators(items: readonly CatalogItem[]): void {
         contactSource: null,
         contactConfidence: null,
         rejectReason: item.rejectReason,
-        rejectedAt: null,
+        rejectedAt: item.rejectedAt,
+        neverReason: item.neverReason,
         archiveDueAt: item.archiveDueAt,
       });
     }

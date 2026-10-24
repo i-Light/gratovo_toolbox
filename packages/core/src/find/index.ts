@@ -5,9 +5,11 @@ export {
   findSorts,
   foundEmailsMax,
   savedViewsMax,
+  toolboxLists,
   viewNameMax,
 } from "./types";
 export type {
+  ArchivedChannel,
   CatalogItem,
   CatalogVideo,
   Facets,
@@ -18,7 +20,10 @@ export type {
   FoundEmail,
   SavedView,
   Signal,
+  ToolboxItem,
+  ToolboxList,
 } from "./types";
+export { archiveDate } from "./archive";
 export { emailConfidence, sortFoundEmails } from "./email";
 export type { FoundEmailSource } from "./email";
 export { fitOf, fitScore, isGold } from "./fit";

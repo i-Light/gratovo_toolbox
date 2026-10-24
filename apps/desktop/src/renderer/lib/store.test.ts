@@ -270,6 +270,7 @@ describe("example records", () => {
       contactConfidence: null,
       rejectReason: null,
       rejectedAt: null,
+      neverReason: null,
       archiveDueAt: null,
     });
     expect(data.creators.find((c) => c.id === "c12")?.email).toBeNull();

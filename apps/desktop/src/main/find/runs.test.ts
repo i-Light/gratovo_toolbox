@@ -33,7 +33,10 @@ function item(over: Partial<CatalogItem>): CatalogItem {
     engagement: null,
     emailedBefore: null,
     rejectReason: null,
+    rejectedAt: null,
+    neverReason: null,
     archiveDueAt: null,
+    archivedAt: null,
     hasNumbers: true,
     ...over,
   };

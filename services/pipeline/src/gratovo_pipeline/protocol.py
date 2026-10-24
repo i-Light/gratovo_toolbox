@@ -101,6 +101,8 @@ ResultKind = Literal[
     "gateways.destroy",
     "gateways.test",
     "import.legacy",
+    "archive.sweep",
+    "archive.restore",
 ]
 JobKind = Literal["search"] | ResultKind
 BackfillPart = Literal["channels", "videos", "backfill", "backlog"]
@@ -119,7 +121,13 @@ RESULT_KINDS: Final[tuple[ResultKind, ...]] = (
     "gateways.destroy",
     "gateways.test",
     "import.legacy",
+    "archive.sweep",
+    "archive.restore",
 )
+# The jobs example data runs for real (plan step 5d, D37): the rest are faked on main's side.
+EXAMPLE_KINDS: Final[tuple[JobKind, ...]] = ("search", "archive.sweep", "archive.restore")
+# The most channels one archive job takes.
+ARCHIVE_MAX_CHANNELS: Final = 2000
 
 
 class AutoClean(TypedDict):
@@ -245,6 +253,26 @@ class ImportLegacyJob(TypedDict):
     backupDir: str | None  # a full path; needed unless dryRun
 
 
+class ArchiveChannel(TypedDict):
+    channelId: str  # a YouTube channel id, UC and 22 more
+    handle: str | None
+
+
+class ArchiveSweepJob(TypedDict):
+    """Archive rejected channels for good (plan step 5d, D37): a tombstone each, label
+    `rejected`, and their pipeline rows deleted. A channel with no row gets a tombstone too."""
+
+    kind: Literal["archive.sweep"]
+    channels: list[ArchiveChannel]  # 1 to ARCHIVE_MAX_CHANNELS, unique ids
+
+
+class ArchiveRestoreJob(TypedDict):
+    """Delete these channels' tombstones (D38)."""
+
+    kind: Literal["archive.restore"]
+    channelIds: list[str]  # 1 to ARCHIVE_MAX_CHANNELS, unique
+
+
 type Job = (
     SearchJob
     | MailStatusJob
@@ -259,6 +287,8 @@ type Job = (
     | GatewaysDestroyJob
     | GatewaysTestJob
     | ImportLegacyJob
+    | ArchiveSweepJob
+    | ArchiveRestoreJob
 )
 
 
@@ -519,6 +549,16 @@ class ImportReport(TypedDict):
     settingsFiles: list[ImportSettingsFile]  # at most IMPORT_MAX_SETTINGS_FILES
     dryRun: bool
     backup: str | None  # the copy of pipeline.db made first; None on a dry run or a first import
+
+
+class ArchiveSweepData(TypedDict):
+    archived: int  # the tombstones written
+
+
+class ArchiveRestoreData(TypedDict):
+    # Each tombstone deleted, with its handle (None when it had none, or one that isn't an
+    # @handle); unknown ids are left out.
+    restored: list[ArchiveChannel]
 
 
 class BadStartError(ValueError):
@@ -819,6 +859,19 @@ def _gateway_ref(value: object) -> GatewayRef:
     }
 
 
+def _archive_channel(value: object) -> ArchiveChannel:
+    raw = _object(value, "job.channels", {"channelId", "handle"})
+    handle = raw["handle"]
+    return {
+        "channelId": _matching(
+            raw["channelId"], "job.channels.channelId", _YOUTUBE_CHANNEL_ID, "a YouTube channel id"
+        ),
+        "handle": None
+        if handle is None
+        else _matching(handle, "job.channels.handle", _HANDLE, "an @handle"),
+    }
+
+
 def _job(job: object) -> Job:
     if not isinstance(job, dict):
         raise BadStartError("job must be an object")
@@ -883,6 +936,21 @@ def _job(job: object) -> Job:
         return {"kind": "gateways.destroy", "gateways": [_gateway_ref(g) for g in gateways]}
     if kind == "import.legacy":
         return _import_legacy_job(_object(value, "job", {"kind", "source", "dryRun", "backupDir"}))
+    if kind == "archive.sweep":
+        raw = _object(value, "job", {"kind", "channels"})
+        channels = [
+            _archive_channel(item)
+            for item in _list(raw["channels"], "job.channels", ARCHIVE_MAX_CHANNELS, low=1)
+        ]
+        _unique([c["channelId"] for c in channels], "job.channels.channelId")
+        return {"kind": "archive.sweep", "channels": channels}
+    if kind == "archive.restore":
+        raw = _object(value, "job", {"kind", "channelIds"})
+        ids = [
+            _matching(item, "job.channelIds", _YOUTUBE_CHANNEL_ID, "YouTube channel ids")
+            for item in _list(raw["channelIds"], "job.channelIds", ARCHIVE_MAX_CHANNELS, low=1)
+        ]
+        return {"kind": "archive.restore", "channelIds": _unique(ids, "job.channelIds")}
     _object(value, "job", {"kind"})
     return {"kind": "gateways.test"}
 
@@ -1006,12 +1074,13 @@ def parse_start(line: str) -> Start:
     data_dir = _string(raw["dataDir"], "dataDir", 1, 1024)
     worker = _string(raw["worker"], "worker", 1, 64)
     job = _job(raw["job"])
-    # Example data fakes the other jobs on main's side (steps 5 to 9): only a search runs on it.
+    # Example data fakes the other jobs on main's side (steps 5 to 9): only a search runs on it,
+    # and the archive jobs, which only touch the open source's own pipeline.db (step 5d, D37).
     if source == "example" and job["kind"] == "import.legacy":
         # It writes the live pipeline.db (plan D3): example data never takes an import.
         raise BadStartError("only a search runs on example data: the import is for live data")
-    if source == "example" and job["kind"] != "search":
-        raise BadStartError("only a search runs on example data")
+    if source == "example" and job["kind"] not in EXAMPLE_KINDS:
+        raise BadStartError("only a search and the archive jobs run on example data")
     settings = _settings(raw["settings"])
     secrets = _secrets(raw["secrets"])
     # A mailbox's address is read from the settings, never the secrets (ADR 0015 §8), so every
@@ -1261,6 +1330,10 @@ class Emitter:
     def result(self, kind: Literal["gateways.test"], data: GatewaysTestData) -> None: ...
     @overload
     def result(self, kind: Literal["import.legacy"], data: ImportReport) -> None: ...
+    @overload
+    def result(self, kind: Literal["archive.sweep"], data: ArchiveSweepData) -> None: ...
+    @overload
+    def result(self, kind: Literal["archive.restore"], data: ArchiveRestoreData) -> None: ...
     def result(self, kind: ResultKind, data: Mapping[str, object]) -> None:
         """The job's answer: at most once, before `end`; on `done` (and on `stopped` for refetch
         and backfill), never on `failed`. Messages are cut to fit, as in `end`."""

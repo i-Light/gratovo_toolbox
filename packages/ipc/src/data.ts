@@ -9,6 +9,7 @@ import {
   frameSources,
   logActions,
   nameMax,
+  neverReasonMax,
   notesMax,
   notificationIcons,
   rejectReasons,
@@ -125,6 +126,30 @@ export const logForResultSchema = z.strictObject({
   lines: z.array(logEntrySchema).max(logForMax),
 });
 
+/** The most lines one `log:page` answers with (plan step 5, D40). */
+export const logPageMax = 100;
+/** The most people `log:page` counts lines for. */
+export const logPeopleMax = 50;
+
+/**
+ * `log:page`: the whole activity log, newest first (Toolbox › Activity log, D40). `before` is the
+ * last line already shown, so the next page starts after it; `who` keeps one person's lines.
+ */
+export const logPageRequestSchema = z.strictObject({
+  before: z.strictObject({ at: time, id }).nullable(),
+  limit: z.number().int().min(1).max(logPageMax),
+  who: z.string().max(100).nullable(),
+});
+
+/** The page, whether more lines follow, and each person who has lines, most lines first. */
+export const logPageResultSchema = z.strictObject({
+  lines: z.array(logEntrySchema).max(logPageMax),
+  more: z.boolean(),
+  people: z
+    .array(z.strictObject({ who: z.string().max(100), name: text, count }))
+    .max(logPeopleMax),
+});
+
 export const creatorSchema: z.ZodType<Creator, Creator> = z.strictObject({
   id,
   name: text,
@@ -138,6 +163,7 @@ export const creatorSchema: z.ZodType<Creator, Creator> = z.strictObject({
   contactConfidence: confidenceSchema.nullable(),
   rejectReason: z.enum(rejectReasons).nullable(),
   rejectedAt: time.nullable(),
+  neverReason: z.string().max(neverReasonMax).nullable(),
   archiveDueAt: time.nullable(),
 });
 

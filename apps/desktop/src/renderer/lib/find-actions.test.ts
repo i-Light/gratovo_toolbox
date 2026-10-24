@@ -45,7 +45,10 @@ function item(id: string, name: string, stage: CatalogItem["stage"] = "new"): Ca
     engagement: null,
     emailedBefore: null,
     rejectReason: null,
+    rejectedAt: null,
+    neverReason: null,
     archiveDueAt: null,
+    archivedAt: null,
     hasNumbers: true,
   };
 }
@@ -107,6 +110,7 @@ describe("ensureCreators", () => {
       contactConfidence: null,
       rejectReason: null,
       rejectedAt: null,
+      neverReason: null,
       archiveDueAt: null,
     });
     await settle();

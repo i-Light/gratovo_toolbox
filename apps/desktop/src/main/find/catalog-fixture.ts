@@ -171,6 +171,7 @@ export function creatorState(id: string, over: Partial<CreatorState> = {}): Crea
     contactName: null,
     rejectReason: null,
     rejectedAt: null,
+    neverReason: null,
     archiveDueAt: null,
     engagement: null,
     legacyPipelineStage: "new",

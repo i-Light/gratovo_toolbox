@@ -247,6 +247,7 @@ const creators: readonly Creator[] = [
     contactConfidence: null,
     rejectReason: null,
     rejectedAt: null,
+    neverReason: null,
     archiveDueAt: null,
   },
   {
@@ -261,6 +262,7 @@ const creators: readonly Creator[] = [
     contactConfidence: null,
     rejectReason: null,
     rejectedAt: null,
+    neverReason: null,
     archiveDueAt: null,
   },
   {
@@ -275,6 +277,7 @@ const creators: readonly Creator[] = [
     contactConfidence: null,
     rejectReason: null,
     rejectedAt: null,
+    neverReason: null,
     archiveDueAt: null,
   },
   {
@@ -289,6 +292,7 @@ const creators: readonly Creator[] = [
     contactConfidence: null,
     rejectReason: null,
     rejectedAt: null,
+    neverReason: null,
     archiveDueAt: null,
   },
   {
@@ -303,6 +307,7 @@ const creators: readonly Creator[] = [
     contactConfidence: null,
     rejectReason: null,
     rejectedAt: null,
+    neverReason: null,
     archiveDueAt: null,
   },
   {
@@ -317,6 +322,7 @@ const creators: readonly Creator[] = [
     contactConfidence: null,
     rejectReason: null,
     rejectedAt: null,
+    neverReason: null,
     archiveDueAt: null,
   },
   {
@@ -331,6 +337,7 @@ const creators: readonly Creator[] = [
     contactConfidence: null,
     rejectReason: null,
     rejectedAt: null,
+    neverReason: null,
     archiveDueAt: null,
   },
 ];

@@ -437,6 +437,7 @@ describe("data:write and the email finder (plan D30)", () => {
           contactName: null,
           rejectReason: null,
           rejectedAt: null,
+          neverReason: null,
           archiveDueAt: null,
           engagement: null,
           legacyPipelineStage: "",

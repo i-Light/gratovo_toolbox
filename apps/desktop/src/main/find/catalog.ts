@@ -287,7 +287,11 @@ function build(dbPath: string | null, states: readonly CreatorState[], now: numb
       engagement: state?.engagement ?? null,
       emailedBefore: emailedBefore(state),
       rejectReason: state?.rejectReason ?? null,
+      rejectedAt: state?.rejectedAt ?? null,
+      neverReason: state?.neverReason ?? null,
       archiveDueAt: state?.archiveDueAt ?? null,
+      // Plan step 5d: B14 reads it from `channel_archive`.
+      archivedAt: null,
       hasNumbers: true,
     });
   }
@@ -319,7 +323,10 @@ function build(dbPath: string | null, states: readonly CreatorState[], now: numb
       engagement: state.engagement,
       emailedBefore: emailedBefore(state),
       rejectReason: state.rejectReason,
+      rejectedAt: state.rejectedAt,
+      neverReason: state.neverReason,
       archiveDueAt: state.archiveDueAt,
+      archivedAt: null,
       hasNumbers: false,
     });
   }

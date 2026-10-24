@@ -120,6 +120,7 @@ function teammateChanged(): { frame: Frame; line: LogEntry; stage: string } {
     contactConfidence: null,
     rejectReason: null,
     rejectedAt: null,
+    neverReason: null,
     archiveDueAt: null,
   };
   const frame: Frame = {

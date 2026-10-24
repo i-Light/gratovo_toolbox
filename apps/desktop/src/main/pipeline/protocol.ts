@@ -217,6 +217,34 @@ const importLegacyJob = z
     path: ["backupDir"],
   });
 
+/** A YouTube channel id, as the archive jobs take them. */
+const youtubeChannelId = z.string().regex(/^UC[A-Za-z0-9_-]{22}$/);
+
+/**
+ * Plan step 5d, D37: archive rejected channels for good. Each gets a tombstone in
+ * `channel_archive` (label `rejected`) and loses its pipeline rows, a channel with no row too.
+ */
+const archiveSweepJob = z
+  .strictObject({
+    kind: z.literal("archive.sweep"),
+    channels: z
+      .array(z.strictObject({ channelId: youtubeChannelId, handle: handle.nullable() }))
+      .min(1)
+      .max(2000),
+  })
+  .refine(
+    (job) => unique(job.channels.map((channel) => channel.channelId)),
+    "channel ids must be unique",
+  );
+
+/** D38: bring channels back from "Archived for good" by deleting their tombstones. */
+const archiveRestoreJob = z
+  .strictObject({
+    kind: z.literal("archive.restore"),
+    channelIds: z.array(youtubeChannelId).min(1).max(2000),
+  })
+  .refine((job) => unique(job.channelIds), "channel ids must be unique");
+
 export const jobSchema = z.discriminatedUnion("kind", [
   searchJob,
   mailStatusJob,
@@ -231,7 +259,12 @@ export const jobSchema = z.discriminatedUnion("kind", [
   gatewaysDestroyJob,
   gatewaysTestJob,
   importLegacyJob,
+  archiveSweepJob,
+  archiveRestoreJob,
 ]);
+
+/** The jobs example data runs for real: the rest are faked on main's side. */
+const exampleJobs: ReadonlySet<string> = new Set(["search", "archive.sweep", "archive.restore"]);
 
 export const startSchema = z
   .strictObject({
@@ -290,10 +323,11 @@ export const startSchema = z
         .optional(),
     }),
   })
-  // Example data fakes the other jobs on main's side (steps 5 to 9): only a search runs on it.
+  // Example data fakes the other jobs on main's side (steps 5 to 9): only a search runs on it,
+  // and the archive jobs, which only touch the open source's own pipeline.db (plan step 5d, D37).
   // The import is refused there too: it writes the live pipeline.db (plan D3).
-  .refine((start) => start.source === "live" || start.job.kind === "search", {
-    message: "only a search runs on example data",
+  .refine((start) => start.source === "live" || exampleJobs.has(start.job.kind), {
+    message: "only a search and the archive jobs run on example data",
     path: ["source"],
   })
   // A mailbox's address is read from the settings, never the secrets (ADR 0015 §8).
@@ -318,6 +352,8 @@ export type Job = z.infer<typeof jobSchema>;
 export type JobKind = Job["kind"];
 export type SearchJob = Extract<Job, { kind: "search" }>;
 export type ImportLegacyJob = Extract<Job, { kind: "import.legacy" }>;
+export type ArchiveSweepJob = Extract<Job, { kind: "archive.sweep" }>;
+export type ArchiveRestoreJob = Extract<Job, { kind: "archive.restore" }>;
 export type Start = z.infer<typeof startSchema>;
 export type Stop = z.infer<typeof stopSchema>;
 
@@ -595,6 +631,24 @@ const importLegacyResult = z.strictObject({
   data: importReportSchema,
 });
 
+const archiveSweepResult = z.strictObject({
+  type: z.literal("result"),
+  kind: z.literal("archive.sweep"),
+  /** The tombstones written. */
+  data: z.strictObject({ archived: count }),
+});
+
+const archiveRestoreResult = z.strictObject({
+  type: z.literal("result"),
+  kind: z.literal("archive.restore"),
+  /** Each tombstone deleted, with its handle when it had one; unknown ids are left out. */
+  data: z.strictObject({
+    restored: z
+      .array(z.strictObject({ channelId: youtubeChannelId, handle: handle.nullable() }))
+      .max(2000),
+  }),
+});
+
 const resultSchema = z.discriminatedUnion("kind", [
   mailStatusResult,
   mailSendResult,
@@ -608,6 +662,8 @@ const resultSchema = z.discriminatedUnion("kind", [
   gatewaysDestroyResult,
   gatewaysTestResult,
   importLegacyResult,
+  archiveSweepResult,
+  archiveRestoreResult,
 ]);
 
 export const endErrorCodes = [

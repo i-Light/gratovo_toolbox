@@ -6,6 +6,7 @@ import {
   creatorStageFrom,
   creatorStages,
   legacyCreatorFields,
+  neverReasonMax,
   primaryEmail,
   rejectReasons,
 } from "@gratovo/core/data";
@@ -413,6 +414,7 @@ function storedFields(
   | "contactName"
   | "rejectReason"
   | "rejectedAt"
+  | "neverReason"
   | "archiveDueAt"
 > {
   const contacts = String(row["contacts"]);
@@ -443,6 +445,11 @@ function storedFields(
       (rejected || stage === "never") && action !== null
         ? lineMs(row["reject_at_ms"], row["reject_at"])
         : null,
+    // The reason the person wrote, while the creator is still at never (D39).
+    neverReason:
+      stage === "never" && action === "creator.never"
+        ? neverReasonFrom(row["reject_detail"])
+        : null,
     archiveDueAt: Number.isNaN(due) ? null : due,
   };
 }
@@ -463,6 +470,18 @@ function lineMs(atMs: unknown, at: unknown): number {
 
 /** The reason in a line's stored detail (`{"reason": …}`); null when it isn't one of the four. */
 function reasonFrom(detail: unknown): RejectReason | null {
+  const reason = storedReason(detail);
+  return rejectReasons.find((known) => known === reason) ?? null;
+}
+
+/** A never line's reason, cut to `neverReasonMax`; null when it has none. */
+function neverReasonFrom(detail: unknown): string | null {
+  const reason = storedReason(detail)?.trim() ?? "";
+  return reason === "" ? null : reason.slice(0, neverReasonMax);
+}
+
+/** The text in a line's stored detail (`{"reason": …}`); null when there is none. */
+function storedReason(detail: unknown): string | null {
   if (typeof detail !== "string") {
     return null;
   }
@@ -476,7 +495,7 @@ function reasonFrom(detail: unknown): RejectReason | null {
     return null;
   }
   const reason = (parsed as Readonly<Record<string, unknown>>)["reason"];
-  return rejectReasons.find((known) => known === reason) ?? null;
+  return typeof reason === "string" ? reason : null;
 }
 
 /**

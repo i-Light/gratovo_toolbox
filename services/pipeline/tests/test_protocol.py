@@ -257,7 +257,20 @@ GOOD_JOBS: list[dict[str, Any]] = [
         "dryRun": True,
         "backupDir": None,
     },
+    {
+        "kind": "archive.sweep",
+        "channels": [
+            {"channelId": "UCaaaaaaaaaaaaaaaaaaaaaa", "handle": "@aitoolsweekly"},
+            {"channelId": "UCbbbbbbbbbbbbbbbbbbbbbb", "handle": None},
+        ],
+    },
+    {"kind": "archive.restore", "channelIds": ["UCaaaaaaaaaaaaaaaaaaaaaa"]},
 ]
+
+# The jobs example data runs for real besides a search (plan step 5d, D37).
+ARCHIVE_KINDS = ("archive.sweep", "archive.restore")
+LIVE_ONLY_JOBS = [job for job in GOOD_JOBS if job["kind"] not in ARCHIVE_KINDS]
+LIVE_ONLY_IDS = [f"{job['kind']}-{i}" for i, job in enumerate(LIVE_ONLY_JOBS)]
 
 # Two jobs of a kind (all fields, and the required ones only) get told apart by their place.
 GOOD_IDS = [f"{job['kind']}-{i}" for i, job in enumerate(GOOD_JOBS)]
@@ -347,6 +360,20 @@ BAD_JOBS: list[dict[str, Any]] = [
         "backupDir": None,
         "tables": ["channels"],
     },
+    {"kind": "archive.sweep", "channels": []},
+    {"kind": "archive.sweep", "channels": [{"channelId": "UCabc", "handle": None}]},
+    {
+        "kind": "archive.sweep",
+        "channels": [{"channelId": "UCaaaaaaaaaaaaaaaaaaaaaa", "handle": "aitoolsweekly"}],
+    },
+    {"kind": "archive.sweep", "channels": [{"channelId": "UCaaaaaaaaaaaaaaaaaaaaaa"}]},
+    {
+        "kind": "archive.sweep",
+        "channels": [{"channelId": f"UC{i:022d}", "handle": None} for i in range(2001)],
+    },
+    {"kind": "archive.restore", "channelIds": []},
+    {"kind": "archive.restore", "channelIds": ["@aitoolsweekly"]},
+    {"kind": "archive.restore", "channelIds": ["UCaaaaaaaaaaaaaaaaaaaaaa"], "label": "rejected"},
 ]
 
 
@@ -367,6 +394,17 @@ def test_a_job_that_breaks_the_schema_is_refused(
         {"kind": "refetch", "handles": ["@AIToolsWeekly", "@aitoolsweekly"], "autoClean": None},
         {"kind": "backfill", "only": ["videos", "videos"]},
         {"kind": "gateways.deploy", "regions": ["eu-west-1", "eu-west-1"]},
+        {
+            "kind": "archive.sweep",
+            "channels": [
+                {"channelId": "UCaaaaaaaaaaaaaaaaaaaaaa", "handle": None},
+                {"channelId": "UCaaaaaaaaaaaaaaaaaaaaaa", "handle": "@aitoolsweekly"},
+            ],
+        },
+        {
+            "kind": "archive.restore",
+            "channelIds": ["UCaaaaaaaaaaaaaaaaaaaaaa", "UCaaaaaaaaaaaaaaaaaaaaaa"],
+        },
     ],
 )
 def test_a_job_that_breaks_a_refinement_is_refused(job: dict[str, Any]) -> None:
@@ -381,10 +419,18 @@ def test_a_real_import_without_a_backup_folder_is_refused() -> None:
         parse_start(json.dumps(live({**job, "backupDir": None})))
 
 
-@pytest.mark.parametrize("job", GOOD_JOBS, ids=GOOD_IDS)
-def test_only_a_search_runs_on_example_data(job: dict[str, Any]) -> None:
+@pytest.mark.parametrize("job", LIVE_ONLY_JOBS, ids=LIVE_ONLY_IDS)
+def test_only_a_search_and_the_archive_jobs_run_on_example_data(job: dict[str, Any]) -> None:
     with pytest.raises(BadStartError, match="example data"):
         parse_start(json.dumps(changed("job", job)))
+
+
+@pytest.mark.parametrize("kind", ARCHIVE_KINDS)
+def test_the_archive_jobs_run_on_example_data(kind: str) -> None:
+    """They only touch the open source's own pipeline.db (plan step 5d, D37)."""
+    job = next(job for job in GOOD_JOBS if job["kind"] == kind)
+    message = changed("job", job)
+    assert parse_start(json.dumps(message)) == message
 
 
 def test_the_import_says_why_it_is_refused_on_example_data() -> None:
@@ -703,6 +749,16 @@ RESULTS: list[tuple[protocol.ResultKind, dict[str, Any]]] = [
             "backup": "C:\\Users\\a\\backups\\pipeline-20261024T090000Z.db",
         },
     ),
+    ("archive.sweep", {"archived": 2}),
+    (
+        "archive.restore",
+        {
+            "restored": [
+                {"channelId": "UCaaaaaaaaaaaaaaaaaaaaaa", "handle": "@aitoolsweekly"},
+                {"channelId": "UCbbbbbbbbbbbbbbbbbbbbbb", "handle": None},
+            ]
+        },
+    ),
 ]
 
 
@@ -752,7 +808,7 @@ def test_a_result_is_cut_to_fit_the_schema(check_from_pipeline: Check) -> None:
 
 def test_an_import_report_is_cut_to_its_bounds(check_from_pipeline: Check) -> None:
     out = io.StringIO()
-    report = cast("protocol.ImportReport", copy.deepcopy(RESULTS[-1][1]))
+    report = cast("protocol.ImportReport", copy.deepcopy(dict(RESULTS)["import.legacy"]))
     report["tables"] = [
         {"name": f"t{i}" + "x" * 100, "inOld": i, "toAdd": 0, "already": i} for i in range(50)
     ]
@@ -883,7 +939,7 @@ def start_for(job: dict[str, Any]) -> Start:
     return parse_start(json.dumps(START if job["kind"] == "search" else live(job)))
 
 
-@pytest.mark.parametrize("job", [START["job"], *GOOD_JOBS], ids=["search", *GOOD_IDS])
+@pytest.mark.parametrize("job", [START["job"], *LIVE_ONLY_JOBS], ids=["search", *LIVE_ONLY_IDS])
 def test_the_dispatcher_runs_the_module_of_each_kind(
     job: dict[str, Any], monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -897,6 +953,18 @@ def test_the_dispatcher_runs_the_module_of_each_kind(
         monkeypatch.setattr(module, "run", record)
     jobs.run(start_for(job), Emitter(io.StringIO()))
     assert ran == [JOB_MODULES[job["kind"]]]
+
+
+@pytest.mark.parametrize("kind", ARCHIVE_KINDS)
+def test_the_archive_jobs_fail_until_they_are_built(kind: str, check_from_pipeline: Check) -> None:
+    """Plan step 5d: the protocol knows them; task B13 builds them."""
+    job = next(job for job in GOOD_JOBS if job["kind"] == kind)
+    out = io.StringIO()
+    jobs.run(start_for(job), Emitter(out))
+    end = check_from_pipeline(out.getvalue())
+    assert end["type"] == "end"
+    assert end["state"] == "failed"
+    assert end["error"]["code"] == "crash"
 
 
 def test_the_entry_point_opens_the_job_s_hosts_then_runs_it(
