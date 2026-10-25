@@ -25,7 +25,7 @@ Started 2026-10-24. The plan is `.router/PLAN.md` (decisions D1 to D18, contract
 | R4 | H | done | review: 1 blocker (sweep used a stale due list after waiting), 4 important, 15 minor. Lead: restore first, then the act on success (fixes 3 and 8); J/K skipped while a peek is open; `failed` restore problem added to ipc. Fixes: R4a (main), R4b (renderer) |
 | R4a | H | done | sweep re-reads the due list per job after any wait; a start throw frees the lane; refetch handles deduped; restore `failed` as a value; `peopleInLog` → `{people,total}` in one query, `log:page` gains `total`; blank handle null; unreadable tombstone time → `archivedAt: 0`; archived names from the snapshot; never-list follows a write (test) |
 | R4b | N | done | restore first, then `bringBack(item, sub)` on ok; never overlay only this page's blocks since the last tick; avatar real name, `total`, `now` per minute; drafts dropped from copy; record Bring back disabled while running; non-UC rows hide Bring back; J/K off under a peek. Lead: `page.total` read plainly |
-| L4 | lead | todo | |
+| L4 | lead | running | checks green (lint, typecheck, 2,459 + 1,514 unit tests, 68 Electron tests); looked at in dark at 1440; status table; PR |
 
 ## Tasks, 5c
 
