@@ -26,9 +26,13 @@ import {
   reachDraftIdRequestSchema,
   reachDraftNowRequestSchema,
   reachDraftNowResultSchema,
+  reachMailboxSetRequestSchema,
+  reachMailboxSetResultSchema,
   reachRefreshResultSchema,
   reachRewriteRequestSchema,
   reachRewriteResultSchema,
+  reachSendTestRequestSchema,
+  reachSendTestResultSchema,
   reachThreadRequestSchema,
   reachThreadResultSchema,
 } from "./reach";
@@ -339,6 +343,16 @@ export const channels = {
   "reach:mailboxes-refresh": {
     request: z.strictObject({}),
     response: reachRefreshResultSchema,
+  },
+  /** Sets a mailbox's daily cap or pause at once (D20); not an undo step. */
+  "reach:mailbox-set": {
+    request: reachMailboxSetRequestSchema,
+    response: reachMailboxSetResultSchema,
+  },
+  /** Sends a test email from a mailbox to its own address, on a person's click (D20). */
+  "reach:send-test": {
+    request: reachSendTestRequestSchema,
+    response: reachSendTestResultSchema,
   },
   /** Starts the Gemini bridge. Sends no prompt. */
   "gemini:start": {

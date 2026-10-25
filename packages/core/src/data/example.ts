@@ -692,6 +692,7 @@ function exampleReach(outreach: ExampleSeed["outreach"]): ReachData {
     gemini: "off",
     geminiPausedUntil: null,
     sender: null,
+    zones: {},
   };
 }
 

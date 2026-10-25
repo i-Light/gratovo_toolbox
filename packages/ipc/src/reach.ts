@@ -1,3 +1,4 @@
+import { capMax, capMin, capStep } from "@gratovo/core/reach";
 import {
   draftBodyMax,
   draftFindingsMax,
@@ -161,6 +162,12 @@ export const mailboxViewSchema: z.ZodType<MailboxView> = z.strictObject({
   checkedAt: time.nullable(),
 });
 
+/** An IANA zone name, as `countryZones` gives them. */
+const zone = z
+  .string()
+  .max(64)
+  .regex(/^[A-Za-z]+(?:\/[A-Za-z_-]+){1,2}$/);
+
 export const reachDataSchema: z.ZodType<ReachData> = z.strictObject({
   drafts: z.array(outreachDraftSchema).max(reachDraftsMax),
   sequences: z.array(sequenceSchema).max(reachThreadsMax),
@@ -169,6 +176,9 @@ export const reachDataSchema: z.ZodType<ReachData> = z.strictObject({
   gemini: z.enum(reachGeminiStates),
   geminiPausedUntil: time.nullable(),
   sender: z.string().max(100).nullable(),
+  zones: z
+    .record(id, zone)
+    .refine((zones) => Object.keys(zones).length <= reachDraftsMax, "too many zones"),
 });
 
 export const threadMessageSchema: z.ZodType<ThreadMessage> = z.strictObject({
@@ -232,4 +242,38 @@ export const reachDraftActionResultSchema = z.union([
 export const reachRefreshResultSchema = z.union([
   done,
   z.strictObject({ ok: z.literal(false), problem: z.enum(["busy", "no_mail", "no_data"]) }),
+]);
+
+/**
+ * `reach:mailbox-set` (D20): the daily cap (10 to 50 in steps of 5) or the pause, written at once,
+ * not as an undo step.
+ */
+export const reachMailboxSetRequestSchema = z
+  .strictObject({
+    address,
+    dailyCap: z.number().int().min(capMin).max(capMax).multipleOf(capStep).optional(),
+    paused: z.boolean().optional(),
+  })
+  .refine((r) => r.dailyCap !== undefined || r.paused !== undefined, "nothing to change");
+export const reachMailboxSetResultSchema = z.union([
+  done,
+  z.strictObject({ ok: z.literal(false), problem: z.enum(["not_found", "no_data"]) }),
+]);
+
+/** `reach:send-test` (D20): a test email from the mailbox to its own address, on a person's click. */
+export const reachSendTestRequestSchema = z.strictObject({ address });
+export const reachSendTestResultSchema = z.union([
+  done,
+  z.strictObject({
+    ok: z.literal(false),
+    problem: z.enum([
+      "not_found",
+      "not_connected",
+      "signed_out",
+      "paused",
+      "busy",
+      "failed",
+      "no_data",
+    ]),
+  }),
 ]);
