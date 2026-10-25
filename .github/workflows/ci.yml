@@ -1,24 +1,21 @@
 # Lint, typecheck, unit tests and the Electron end-to-end tests on Windows, the only system the
 # app supports, a secret scan of the whole history, a dependency audit, CodeQL and the SQL tests.
 # Actions are pinned by commit, with their release beside each one.
+#
+# Manual only (owner, 2026-10-25): the account's Actions minutes ran out, and every check now runs
+# on the owner's computer with `pnpm verify` (tooling/verify.ts), which a pull request must pass.
+# Nothing here starts on a push, a pull request or a schedule. Run it by hand (workflow_dispatch)
+# only when the owner asks; CodeQL is the one check `pnpm verify` doesn't repeat.
 name: CI
 
 on:
-  pull_request:
-  push:
-    branches: [main]
   workflow_dispatch:
-  # Once a week, so new advisories surface even when nobody pushes.
-  schedule:
-    - cron: "23 5 * * 1"
 
 permissions:
   contents: read
 
-# A new push to a pull request cancels its older run. Runs on main always finish.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   # A uv.lock that doesn't match pyproject.toml fails the run instead of being rewritten.
@@ -27,8 +24,6 @@ env:
 jobs:
   checks:
     name: Checks (Windows)
-    # The weekly run is for new advisories only; nothing here changes without a push.
-    if: github.event_name != 'schedule'
     runs-on: windows-2025
     timeout-minutes: 30
     steps:
@@ -78,7 +73,6 @@ jobs:
   # has nothing to do with which systems the app supports.
   sql:
     name: SQL tests (Linux, Docker)
-    if: github.event_name != 'schedule'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -104,7 +98,6 @@ jobs:
   # migrations add policies on realtime.messages.
   server:
     name: Server tests (Linux, local Supabase)
-    if: github.event_name != 'schedule'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -160,7 +153,6 @@ jobs:
   # supports. Windows minutes also count double on a private repository.
   secrets:
     name: Secret scan
-    if: github.event_name != 'schedule'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:

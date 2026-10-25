@@ -150,8 +150,9 @@ Changes to the team's live Supabase project never go out by themselves.
 
 ## 7. Run the tests
 
+- `pnpm verify`: everything a pull request must pass, in one go ([workflow.md](workflow.md#the-local-gate-pnpm-verify-since-2026-10-25)).
 - `pnpm test:sql`: the database rules in a throwaway Postgres in Docker. Nothing touches the live project.
-- `pnpm test:server`: the server tests against a local copy of Supabase. They use made-up users, a fake YouTube value and fake R2 values (like `r2-test-000`). CI runs them as the job "Server tests (Linux, local Supabase)". On your machine they are optional.
+- `pnpm test:server`: the server tests against a local copy of Supabase. They use made-up users, a fake YouTube value and fake R2 values (like `r2-test-000`). `pnpm verify` runs them, with the steps below done for you, whenever a change touches the server or the code that talks to it (or with `pnpm verify --server`). To run them by hand:
 
   The tests need three values: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` and `SUPABASE_SECRET_KEY`. They come from the local stack, never from the team's project: the local stack prints the command line's fixed local values, which open nothing but the throwaway copy on your machine. **Never put the production keys here.**
 

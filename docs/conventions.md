@@ -64,7 +64,7 @@ Words follow the product: **creator** (not influencer), **brand**, **deal**, **d
 - **Unit:** `packages/core` aims at 100% branch coverage of the engines. Use Vitest.
 - **Component:** React Testing Library for components with logic.
 - **End to end:** Playwright against the built Electron app on example data, for every flow in the parity checklist that a person would notice breaking. The prototype's Python Playwright tests are the starting list.
-- **Python:** pytest. **SQL:** tests run in Docker in CI.
+- **Python:** pytest. **SQL:** tests run in Docker, in `pnpm verify`.
 - A bug fix starts with a failing test.
 
 ## Docs

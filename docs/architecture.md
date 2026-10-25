@@ -95,7 +95,7 @@ gratovo_toolbox/
 │   └── gemini-extension/     the browser extension
 ├── supabase/
 │   ├── migrations/           ordered SQL migrations, additive until cutover
-│   └── tests/                SQL and RLS tests (Docker in CI)
+│   └── tests/                SQL and RLS tests (Docker, `pnpm verify`)
 ├── design/                   the prototype and explorations (design reference)
 ├── docs/                     this documentation
 ├── legacy/                   read-only copy of the old app (deleted in step 11)
@@ -115,7 +115,7 @@ The policy is [SECURITY.md](../SECURITY.md). In code:
 3. **Secrets:** a main-process `secrets` module over `safeStorage`. The renderer can ask whether a secret is set; it can never read one. Python processes get the secrets they need through their stdin at launch, never through the command line or environment of a long-lived shell.
 4. **Local services:** the Gemini bridge daemon binds `127.0.0.1` and refuses any web page. The Firefox build of the add-on must also show a random per-launch token; Chrome and Edge, which load the add-on unpacked, cannot carry one, so the origin check and browser admission guard them ([ADR 0016](decisions/0016-live-data-and-connections.md)).
 5. **Supabase:** row-level security on every table. Access (`profiles.role`: unauthorized, basic, full) is enforced in policies; `basic` and `full` are identical in the database today. Agency roles (Owner, Scout, Outreach, Deal lead, Delivery) and "sees money" live in `member_access`, which only an Owner can change, through a function. Money is hidden in the new app only (the main process sends no price to a member who may not see it); the database locks it when the old app retires (steps 10 and 11). The main process talks only to the project's Supabase host. The service-role key never ships, and the app refuses a secret key. See [decisions/0011-accounts-roles-team-keys.md](decisions/0011-accounts-roles-team-keys.md). The sync sends only the signed-in member's own outbox rows. Live updates use private channels that only authorized members can join (policies on `realtime.messages`), with public access off; they carry no row data, only "something changed" and presence.
-6. **Supply chain:** the lockfile is committed; Dependabot, OSV-Scanner, CodeQL and gitleaks run in CI; release builds are fused (`apps/desktop/scripts/release-fuses.ts`) but not code-signed, by the owner's choice (§9 Q12).
+6. **Supply chain:** the lockfile is committed; Dependabot runs on GitHub, and OSV-Scanner and gitleaks run in `pnpm verify` on the owner's PC (CodeQL only when the owner starts the GitHub workflow by hand); release builds are fused (`apps/desktop/scripts/release-fuses.ts`) but not code-signed, by the owner's choice (§9 Q12).
 
 The choices behind each of these are in [decisions/0008-security-baseline.md](decisions/0008-security-baseline.md).
 
@@ -151,7 +151,7 @@ Pinned in step 3a on 2026-10-19, at the current stable releases. Every package v
 | @axe-core/playwright | 4.14.0 (added in 3c-3) | `apps/desktop` |
 | SQLite | `node:sqlite`, SQLite 3.53.4 inside Electron 44.9.0 (added in 3d-1; no package) | built in |
 | Postgres for the SQL tests | `postgres:17.11`, pinned by digest (added in 3d-1) | `supabase/tests/run.ts` |
-| Supabase CLI for the server tests | 2.119.0, through `npx` locally, `supabase/setup-cli` in CI (added in 3d-2a; not a dependency) | `.github/workflows/ci.yml`, `docs/setup.md` |
+| Supabase CLI for the server tests | 2.119.0, through `npx`, as `pnpm verify` runs it (`supabase/setup-cli` in the manual GitHub workflow; added in 3d-2a; not a dependency) | `tooling/verify.ts`, `.github/workflows/ci.yml`, `docs/setup.md` |
 | @supabase/realtime-js | 2.117.2, with `tslib` 2.8.1 and `@supabase/phoenix` 0.4.5 (added in 3d-2b; the packaged build must ship it with main) | `apps/desktop` |
 | zod | 4.6.7 | `packages/ipc`, `apps/desktop` |
 | immer | 11.1.21 (added in 3c) | `packages/core` |

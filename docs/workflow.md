@@ -2,7 +2,7 @@
 
 ## Git
 
-- `main` is always releasable: changes land through pull requests with green CI. Branch protection that enforces it comes in step 7 (was 3g).
+- `main` is always releasable: changes land through pull requests that passed `pnpm verify` on the owner's Windows PC (below). GitHub Actions is manual only (owner, 2026-10-25: the account's minutes ran out, and nothing should need GitHub to be checked). Branch protection isn't available on the free plan for a private repository.
 - One branch per piece of work: `type/short-description` (`feat/`, `fix/`, `docs/`, `chore/`, `refactor/`, `test/`). Cloud sessions may use their own `claude/...` branch names.
 - Commits are small and say why. The subject is in the imperative and under about 70 characters; the body says what changed and why. Commits made by Claude end with the co-author line.
 - Never force-push a shared branch, never rewrite `main`, never commit secrets (see [SECURITY.md](../SECURITY.md)).
@@ -13,27 +13,37 @@
 1. **Start.** Read the [migration plan](migration-plan.md): its status table (§5) says which step is next, and the step says what done means. If `.router/PROGRESS.md` exists, a step is in progress: carry on from it. Write the step's working plan with the `smart-task-router` skill: `.router/CONTEXT.md` and `.router/PLAN.md`, with tasks, tiers and done-checks.
 2. **Build** in small tasks, each with a check (a test, typecheck, lint, a screenshot). Use the skills listed in [CLAUDE.md](../CLAUDE.md). Build in pipeline order, and keep anything not wired to real data hidden in live mode (ground rule 9 of the plan).
 3. **Verify** in two tiers (ground rule 10 of the plan, owner 2026-10-24):
-   - **Every sub-step's pull request:** `pnpm lint`, `pnpm typecheck` and `pnpm test` (Vitest and pytest), plus at most one new, light Electron smoke test that the new screen renders and completes its main IPC round trip. The Electron tests that already exist still run in CI.
+   - **Every sub-step's pull request:** `pnpm lint`, `pnpm typecheck` and `pnpm test` (Vitest and pytest), plus at most one new, light Electron smoke test that the new screen renders and completes its main IPC round trip. The Electron tests that already exist still run, in `pnpm verify`.
    - **At the end of a major step:** the full Playwright flow suite for that stage (the keyboard matrix, undo edge cases, the parity flows) in one batch.
 
    Then look at the result yourself: dark, at desktop width (1440 px). No light-theme checks (the app is dark only for now) and no phone or narrow-width checks (owner, 2026-10-20).
 4. **Review.** Run an independent reviewer (the `router-reviewer` agent, or a fresh agent), fix what it finds, and re-run the checks.
 5. **Finish.** Update the plan's status table, and remove `.router/` if the step is complete (anything worth keeping moves into these docs first). Commit, push the branch, and open a pull request that lists what was checked and how.
-6. **Merge.** When CI is green and the review findings are fixed, the session merges its own pull request. The owner doesn't merge or do anything by hand on GitHub (their rule of 2026-10-19).
+6. **Merge.** When `pnpm verify --status` has passed on the branch's last commit (it marks that commit green on GitHub as "local verify", which costs no Actions minutes) and the review findings are fixed, the session merges its own pull request. The owner doesn't merge or do anything by hand on GitHub (their rule of 2026-10-19).
 7. **Owner check.** The owner tries it in the real app (from step 7, with prototype mode on for screens not wired yet) and comments. Their comments start the next round.
 
 **Stopping mid-step.** Commit the work in progress on the branch, with `.router/PROGRESS.md` saying exactly where you stopped and what is next. There is no hand-off file (the owner removed it on 2026-10-20). A cloud session sees only what is pushed.
 
-## Continuous integration (since step 3b)
+## The local gate: `pnpm verify` (since 2026-10-25)
 
-| Job | Runs |
+Every check CI used to run, on this computer, in this order (`tooling/verify.ts`). The first failure stops the run, and the summary says how long each step took.
+
+| Step | Runs |
 |---|---|
+| deps | `pnpm install --frozen-lockfile` (the lockfile matches); uv runs with `UV_LOCKED=1` |
+| secrets | gitleaks over every local branch's history (known false positives in `.gitleaksignore`) |
+| audit | OSV-Scanner over `pnpm-lock.yaml` and `services/pipeline/uv.lock` |
 | lint | ESLint, Prettier check, ruff |
-| typecheck | `tsc --noEmit` on every package, pyright |
-| unit | Vitest, pytest |
-| e2e | Playwright against the Electron build on Windows, on example data |
+| typecheck | `tsc -b`, pyright |
+| test | Vitest, pytest |
+| e2e | Playwright against the Electron build, on example data |
 | sql | Supabase migrations plus SQL and RLS tests in Docker |
-| security | gitleaks, OSV-Scanner (dependency audit), CodeQL; also weekly |
+| server | the app's sign-in and sync against a throwaway local Supabase stack in Docker |
+
+- **sql and server run only when they matter:** when the branch touches `supabase/`, `legacy/backend/schema.sql`, or the code the server tests import (`apps/desktop/src/main/` `supabase`, `sync`, `net`, `db`, `data`, `secret-store.ts`), or with `pnpm verify --server`. They start Docker Desktop when it isn't running. The Supabase CLI comes through `npx` at the pinned version, as in [setup.md](setup.md).
+- **`--from=<step>`** starts again at a step after a fix. **`--status`** posts the green mark on GitHub; it needs a full run and a clean tree.
+- **Not repeated locally:** CodeQL. Its workflow job still exists and runs only when started by hand (`workflow_dispatch`), so only on the owner's say. A security-sensitive change gets the `sentry-security-review` skill in its review instead.
+- **About 10 minutes** without the Docker steps: lint, typecheck and tests about 5, the Electron build and tests about 2, the rest seconds.
 
 ## Releases (from step T5)
 
@@ -47,14 +57,14 @@
 
 ## Setting up and things to know
 
-- **Cloud sessions run in Linux containers;** the app is Windows only. In a container, edit the code and run `pnpm lint`, `pnpm typecheck` and `pnpm test`. The Electron tests run on Windows in CI; don't set them up in the container.
-- **On a Windows machine** (the owner's PC, 2026-10-20): Node 24.22.0 as a portable copy in `~/.local/opt/node-v24.22.0-win-x64` (put it first on `PATH`), with pnpm 12.14.0 installed into it; `uv`, `gitleaks` and `gh` in `~/.local/bin`, which is on the user's `PATH`. gh isn't logged in: git's stored login lacks the `read:org` scope `gh auth login` wants, so each gh command gets it as `GH_TOKEN` read from `git credential fill` (never printed). In Git Bash, `unset ELECTRON_RUN_AS_NODE` before the Electron tests (it was set in one shell, and every launch failed). One spec: `cd apps/desktop && pnpm exec playwright test e2e/<file>` after `pnpm build` (`pnpm test:e2e -- <file>` doesn't filter).
+- **Cloud sessions run in Linux containers;** the app is Windows only. In a container, edit the code and run `pnpm lint`, `pnpm typecheck` and `pnpm test`. The Electron tests run only on the owner's Windows PC (`pnpm verify`); don't set them up in the container. A cloud session's pull request isn't merged until a Windows session has run `pnpm verify` on it.
+- **On a Windows machine** (the owner's PC, 2026-10-20): Node 24.22.0 as a portable copy in `~/.local/opt/node-v24.22.0-win-x64` (put it first on `PATH`), with pnpm 12.14.0 installed into it; `uv`, `gitleaks`, `osv-scanner` and `gh` in `~/.local/bin`, which is on the user's `PATH`. OSV-Scanner is v2.7.0, `osv-scanner_windows_amd64.exe` from its GitHub release saved as `osv-scanner.exe`, checked against the release's `osv-scanner_SHA256SUMS`. Docker Desktop is installed for the sql and server steps. gh isn't logged in: git's stored login lacks the `read:org` scope `gh auth login` wants, so each gh command gets it as `GH_TOKEN` read from `git credential fill` (never printed). In Git Bash, `unset ELECTRON_RUN_AS_NODE` before the Electron tests (it was set in one shell, and every launch failed). One spec: `cd apps/desktop && pnpm exec playwright test e2e/<file>` after `pnpm build` (`pnpm test:e2e -- <file>` doesn't filter).
 - **Tools a cloud container lacks** (it has Node 22, pnpm 10 and uv 0.11, and no gitleaks). Node 24.22.0 from nodejs.org (check `SHASUMS256.txt`) unpacked under `/root/.local/opt/`, then `npm i -g pnpm@12.14.0` with that Node first on `PATH`. uv: `UV_TOOL_BIN_DIR=/root/.local/opt/uv-bin uv tool install uv==0.13.1`. gitleaks: `GOBIN=/root/.local/bin go install github.com/zricethezav/gitleaks/v8@v8.30.1` (GitHub release downloads are blocked there; the Go proxy is not).
 - **What step 3b left for later steps:**
   - Each Electron test gets a fresh data folder (`GRATOVO_USER_DATA`, read only by unpackaged builds), and `pnpm dev` uses "Gratovo Toolbox (dev)", so neither touches the installed app's data or its single-instance lock.
   - The fuse `EnableEmbeddedAsarIntegrityValidation` needs the packager (3h) to write the archive's hash into the app.
   - Dependabot's first run was due on the Monday after 3b merged. Check that it works with pnpm 12 (its runs appear under Actions as "Dependabot Updates"), then treat its pull requests like any other. As of 2026-10-19 21:10 UTC (that Monday) no Dependabot run or pull request had appeared yet: check again.
-  - A CodeQL result or a new advisory turns CI red. Fix it, or record a reviewed exception (ADR 0008 says how).
+  - A new advisory fails the audit step of `pnpm verify`. Fix it, or record a reviewed exception (ADR 0008 says how).
 - **Electron 44 downloads its binary on first use,** not at install. The `dev`, `preview` and `test:e2e` scripts run `install-electron` first (it checks the download against Electron's own checksums and exits at once when the binary is there).
 - **`minimumReleaseAge` is one day.** A version published in the last 24 hours won't install: pick the one before it.
 - **The prototype is the spec.** Before building a screen, open it (or read its `js/<screen>.js`) and its design notes (`js/plan.js`, the `WHY` notes). The token and `DEAL_FLOW` tests fail if the prototype and the port drift apart; change both together.
@@ -69,7 +79,7 @@ Each of these cost a CI round or a review finding (step 3c).
 - Playwright's `getByText(…, { exact: true })` compares an element's whole text, children included ("Undone" plus its sub line never matches); find toasts by role and the words they contain. `keyboard.press("Shift+/")` sends `/`: press `"?"`.
 - In Electron, `@axe-core/playwright` needs `setLegacyMode(true)`: its default mode opens a new page, which an Electron app can't.
 - A modal `<dialog>` sits in the browser's top layer: what must show above it renders through `Floating` (overlays/floating.tsx). Moving an element restarts its CSS animations; the toasts put theirs back (`onFloatingMoved`).
-- Run Windows CI by workflow_dispatch before opening a PR with new Electron tests: their first run has found a real bug or a wrong locator every time.
+- Run the Electron tests (`pnpm verify`, or `pnpm test:e2e`) before opening a PR with new Electron tests: their first run has found a real bug or a wrong locator every time.
 - Don't commit while a build agent is still writing files: one agent's staged files were swept into another task's commit (da9ceb1). Stage named paths and commit once agents are done.
 - After a pull request is squash-merged, bring `main` into the branch with a merge commit before new work. CLAUDE.md forbids force-pushes, so don't reset and force-push the branch.
 - Main's CI once timed out starting the app on a busy runner (the re-run passed); app start-up in the e2e fixture now has its own 60 s limit. A failure there again is worth a real look, not a re-run.
