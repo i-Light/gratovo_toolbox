@@ -54,3 +54,16 @@ export const mailboxStrings = {
   testBody:
     "This is a test from Gratovo. If it reached your main inbox, mail from this address is landing well.",
 } as const;
+
+/**
+ * The activity log lines of the follow-up sequences (plan step 6c, D22). Names only, never an
+ * address or a body.
+ */
+export const sequenceStrings = {
+  stopped: (name: string): string => `Stopped the follow-ups to ${name}`,
+  resumed: (name: string): string => `Resumed the follow-ups to ${name}`,
+  parked: (name: string, until: number): string =>
+    `Parked ${name} until ${new Date(until).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`,
+  woke: (name: string): string => `Woke ${name}`,
+  finished: (name: string): string => `The follow-ups to ${name} are finished: no reply`,
+} as const;

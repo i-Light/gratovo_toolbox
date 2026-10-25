@@ -7,8 +7,10 @@ import type {
   MailboxView,
   NewMessage,
   OutreachStore,
+  Sequence,
   StoredDraft,
 } from "@gratovo/core/data";
+import { planSteps } from "@gratovo/core/reach";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -103,6 +105,7 @@ interface Commit {
   at: number;
   drafts?: readonly { id: string; patch: DraftPatch }[];
   messages?: readonly NewMessage[];
+  sequences?: readonly Sequence[];
   writes?: readonly DataWrite[];
 }
 
@@ -116,6 +119,7 @@ function fakeSource(clock: () => number) {
   const messages: NewMessage[] = [];
   const commits: Commit[] = [];
   const patches: DraftPatch[] = [];
+  const sequences = new Map<string, Sequence>();
   const applied: DataWrite[] = [];
   let creators: CreatorState[] = [creator(kai), creator(lab)];
 
@@ -178,9 +182,12 @@ function fakeSource(clock: () => number) {
     recentOutbound: () => [],
     sentSince: () => [],
     mailboxCounts: () => new Map(),
-    sequence: () => null,
+    sequence: (id) => sequences.get(id) ?? null,
     commit(change) {
       commits.push(change);
+      for (const q of change.sequences ?? []) {
+        sequences.set(q.creator, q);
+      }
       for (const d of change.drafts ?? []) {
         patch(d.id, d.patch, change.at);
       }
@@ -238,6 +245,7 @@ function fakeSource(clock: () => number) {
     messages,
     commits,
     patches,
+    sequences,
     applied,
     put(r: Row) {
       drafts.set(r.id, r);
@@ -474,6 +482,54 @@ describe("the sender", () => {
       expect(fake.creator(kai)?.stage).toBe("emailed");
       expect(afterSend).toHaveBeenCalledTimes(1);
       expect(changed).toHaveBeenCalled();
+    });
+
+    it("starts the sequence in the same commit as a first email, from the mailbox it went from", async () => {
+      fake.put(row("d1"));
+      await approve("d1");
+      await advance(holdMs);
+      const last = fake.commits.at(-1);
+      expect(last?.messages).toHaveLength(1);
+      const sentAt = start + 11_000;
+      expect(last?.sequences).toEqual([
+        {
+          creator: kai,
+          mailbox: "sara@gratovo.ai",
+          startedAt: sentAt,
+          steps: planSteps(sentAt),
+          stopped: null,
+          parkUntil: null,
+        },
+      ]);
+    });
+
+    it("keeps a sequence that exists, and marks a sent follow-up's step sent in its commit", async () => {
+      const have: Sequence = {
+        creator: kai,
+        mailbox: "omar@gratovo.ai",
+        startedAt: start - 4 * 86_400_000,
+        steps: [
+          { n: 1, dueAt: start - 86_400_000, state: "drafted", sentAt: null },
+          { n: 2, dueAt: start + 3 * 86_400_000, state: "planned", sentAt: null },
+        ],
+        stopped: null,
+        parkUntil: null,
+      };
+      fake.sequences.set(kai, have);
+      fake.put(row("d1")); // a first email: no second sequence
+      fake.put(row("f1", { kind: "followUp", followUp: 1 }));
+      await approve("f1");
+      await advance(holdMs);
+      const sent = fake.commits.find((c) => c.messages?.[0]?.kind === "followUp");
+      expect(sent?.messages?.[0]?.conversationKey).toBe(`c:${kai}`);
+      expect(sent?.sequences?.[0]?.mailbox).toBe("omar@gratovo.ai");
+      expect(sent?.sequences?.[0]?.steps.map((x) => [x.n, x.state, x.sentAt])).toEqual([
+        [1, "sent", start + 11_000],
+        [2, "planned", null],
+      ]);
+      await approve("d1");
+      await advance(holdMs);
+      expect(fake.sequences.get(kai)?.mailbox).toBe("omar@gratovo.ai");
     });
 
     it("moves no stage for a follow-up, or for a creator past contact", async () => {

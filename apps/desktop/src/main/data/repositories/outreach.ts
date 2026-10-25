@@ -15,7 +15,7 @@ import {
   sequenceStops,
   threadPreviewMax,
 } from "@gratovo/core/data";
-import { bounceWindowMs, replyWindowMs } from "@gratovo/core/reach";
+import { bounceWindowMs, replyWindowMs, withStep } from "@gratovo/core/reach";
 import type {
   DataWrite,
   DraftFinding,
@@ -407,6 +407,47 @@ export function writeDraftState(
       to === "ready" ? ", problem = NULL" : ""
     } WHERE id = ?`,
   ).run(to, now, write.id);
+  // A follow-up's step follows its draft (D22): skipping it skips the step, and an Undo of the
+  // skip puts the step back to drafted. Same transaction as the write.
+  if (to === "skipped" || from === "skipped") {
+    markStep(db, write.id, to === "skipped" ? "skipped" : "drafted", now);
+  }
+}
+
+/** Sets the sequence step a follow-up draft is for; nothing for any other draft. */
+export function markStep(
+  db: DatabaseSync,
+  draftId: string,
+  state: "drafted" | "skipped",
+  now: number,
+): void {
+  const draft = db
+    .prepare("SELECT channel_id, kind, follow_up FROM outreach_drafts WHERE id = ?")
+    .get(draftId);
+  if (
+    draft === undefined ||
+    draft["kind"] !== "followUp" ||
+    typeof draft["follow_up"] !== "number"
+  ) {
+    return;
+  }
+  const row = db
+    .prepare("SELECT * FROM outreach_sequences WHERE channel_id = ?")
+    .get(String(draft["channel_id"]));
+  if (row === undefined) {
+    return;
+  }
+  const sequence = sequenceFrom(row);
+  const step = sequence.steps.find((s) => s.n === draft["follow_up"]);
+  // A sent step stays sent; a skip only moves a drafted step, an Undo only a skipped one.
+  if (step === undefined || step.state !== (state === "skipped" ? "drafted" : "skipped")) {
+    return;
+  }
+  db.prepare("UPDATE outreach_sequences SET steps = ?, updated_at = ? WHERE channel_id = ?").run(
+    JSON.stringify(withStep(sequence, step.n, state).steps),
+    now,
+    sequence.creator,
+  );
 }
 
 /** `draft.text`: stores the text and marks it edited; not on a draft that is going or gone. */

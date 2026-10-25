@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { DEAL_FLOW } from "../deal-flow";
 import { seesMoney } from "./access";
+import { dueSteps } from "../reach/sequence";
 import { exampleFrame, exampleSeed, exampleSeedVersion } from "./example";
 import { agencyRoles, creatorStages, notificationIcons } from "./types";
 
@@ -154,7 +155,7 @@ describe("exampleSeed", () => {
         text: "It says we worked with Lumen AI before. Confirm that is true.",
       },
     ]);
-    // Four messages of the creators; the rest is outreach3's imported week (next test).
+    // Five messages of the creators; the rest is outreach3's imported week (next test).
     const creatorIds = new Set(seed.creators.map((c) => c.id));
     expect(
       seed.outreach.messages
@@ -164,6 +165,7 @@ describe("exampleSeed", () => {
       ["c8", "out"],
       ["c9", "out"],
       ["c10", "out"],
+      ["c9", "out"],
       ["c10", "in"],
     ]);
   });
@@ -205,10 +207,25 @@ describe("exampleSeed", () => {
     ).toEqual([
       ["c10", 2, false],
       ["c8", 1, true],
-      ["c9", 1, true],
+      ["c9", 2, true],
     ]);
     expect(reach.threads.find((t) => t.creator === "c10")?.lastIn?.preview).toBe("Hi Moustafa,");
-    expect(reach).toMatchObject({ mailboxes: [], gemini: "off", sender: null, sequences: [] });
+    expect(reach).toMatchObject({ mailboxes: [], gemini: "off", sender: null });
+    // Two sequences (D22), none due at load, so the stand-in drafter writes nothing by itself.
+    expect(reach.sequences.map((q) => [q.creator, q.stopped, q.parkUntil])).toEqual([
+      ["c9", null, null],
+      ["c8", null, null],
+    ]);
+    expect(reach.sequences.find((q) => q.creator === "c9")?.steps.map((x) => x.state)).toEqual([
+      "sent",
+      "planned",
+      "planned",
+    ]);
+    for (const q of reach.sequences) {
+      expect(dueSteps(q, now)).toEqual([]);
+      // The stage of its creator is emailed.
+      expect(seed.creators.find((c) => c.id === q.creator)?.stage).toBe("emailed");
+    }
   });
 });
 
@@ -265,7 +282,7 @@ describe("exampleFrame", () => {
       conflicts: [],
       notify: {},
       seesMoney: true,
-      reach: { ...frame.reach, sequences: [], mailboxes: [], sender: null },
+      reach: { ...frame.reach, mailboxes: [], sender: null },
     });
   });
 

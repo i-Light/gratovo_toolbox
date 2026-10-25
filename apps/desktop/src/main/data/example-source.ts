@@ -107,7 +107,11 @@ function seed(db: DatabaseSync, now: number): void {
       outreach.insertDraft(draft);
       outreach.updateDraft(draft.id, { state, subject, body, proposal }, draft.at);
     }
-    outreach.commit({ at: now, messages: fixtures.outreach.messages });
+    outreach.commit({
+      at: now,
+      messages: fixtures.outreach.messages,
+      sequences: fixtures.outreach.sequences,
+    });
     setMeta(db, seedKey, String(exampleSeedVersion));
   });
 }

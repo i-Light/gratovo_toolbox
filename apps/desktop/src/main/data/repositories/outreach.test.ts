@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { migrate } from "../../db/migrate";
 import { inTransaction } from "../sqlite-source";
 
-import { createOutreachStore, textHash } from "./outreach";
+import { createOutreachStore, textHash, writeDraftState } from "./outreach";
 
 const hour = 60 * 60 * 1000;
 const now = Date.UTC(2026, 9, 20, 12, 0, 0);
@@ -482,6 +482,85 @@ describe("sequences", () => {
     db.exec("UPDATE outreach_sequences SET steps = '{oops'");
     expect(store.sequence("UCa")?.steps).toEqual([]);
     expect(store.sequence("UCz")).toBeNull();
+  });
+});
+
+describe("skipping a follow-up's draft", () => {
+  const steps = (): string[] => (store.sequence("UCa")?.steps ?? []).map((x) => x.state);
+  function followUp(id: string, n: number): void {
+    store.insertDraft({
+      id,
+      creator: "UCa",
+      kind: "followUp",
+      followUp: n,
+      mailbox: "outreach1@gratovo.example",
+      replyTo: null,
+      at: now,
+    });
+    store.updateDraft(id, { state: "ready" }, now);
+  }
+
+  it("marks its step skipped in the same write, and an Undo puts it back to drafted", () => {
+    store.commit({
+      at: now,
+      sequences: [
+        {
+          creator: "UCa",
+          mailbox: "outreach1@gratovo.example",
+          startedAt: now - 5 * 24 * hour,
+          steps: [
+            { n: 1, dueAt: now - hour, state: "sent", sentAt: now - hour },
+            { n: 2, dueAt: now, state: "drafted", sentAt: null },
+            { n: 3, dueAt: now + 24 * hour, state: "planned", sentAt: null },
+          ],
+          stopped: null,
+          parkUntil: null,
+        },
+      ],
+    });
+    followUp("f2", 2);
+    inTransaction(db, () => {
+      writeDraftState(
+        db,
+        { kind: "draft.state", id: "f2", state: "skipped", sendAt: null },
+        "u1",
+        now,
+      );
+    });
+    expect(store.draft("f2")?.state).toBe("skipped");
+    expect(steps()).toEqual(["sent", "skipped", "planned"]);
+    inTransaction(db, () => {
+      writeDraftState(
+        db,
+        { kind: "draft.state", id: "f2", state: "ready", sendAt: null },
+        "u1",
+        now,
+      );
+    });
+    expect(steps()).toEqual(["sent", "drafted", "planned"]);
+  });
+
+  it("leaves the sequence alone for a first email, a missing sequence and a sent step", () => {
+    draft("first");
+    store.updateDraft("first", { state: "ready" }, now);
+    inTransaction(db, () => {
+      writeDraftState(
+        db,
+        { kind: "draft.state", id: "first", state: "skipped", sendAt: null },
+        "u1",
+        now,
+      );
+    });
+    followUp("f1", 1);
+    inTransaction(db, () => {
+      writeDraftState(
+        db,
+        { kind: "draft.state", id: "f1", state: "skipped", sendAt: null },
+        "u1",
+        now,
+      );
+    });
+    expect(store.sequence("UCa")).toBeNull();
   });
 });
 

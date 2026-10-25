@@ -4,11 +4,24 @@ import {
   exampleCountries,
   reachDraftsMax,
   threadMessagesMax,
+  type CreatorState,
   type DataSource,
+  type DataWrite,
+  type DraftState,
   type Frame,
   type MailboxView,
+  type Sequence,
 } from "@gratovo/core/data";
-import { zoneOf } from "@gratovo/core/reach";
+import {
+  isFinished,
+  isRunning,
+  parked,
+  resumed,
+  stopped,
+  wakeDue,
+  woken,
+  zoneOf,
+} from "@gratovo/core/reach";
 import type { ChannelInput, ChannelResponse, GeminiStatus } from "@gratovo/ipc";
 
 import type { JobOutcome } from "../pipeline/jobs";
@@ -26,7 +39,7 @@ import { createMailState, type MailState } from "./mail-state";
 import { mailboxKey, noFlags, readMailboxFlags, writeMailboxFlags } from "./mailbox-settings";
 import { createQuickQueue, type QuickQueue } from "./quick-queue";
 import { createSender, type CheckOutcome, type Sender, type SendOutcome } from "./sender";
-import { mailboxStrings } from "./strings";
+import { mailboxStrings, sequenceStrings } from "./strings";
 
 /**
  * Reach in the main process (plan step 6, A6): one quick queue, the mail state, the sender and the
@@ -480,7 +493,240 @@ export function createReachService(deps: ReachServiceDeps): ReachServiceHandle {
     return zones;
   }
 
+  // --- the follow-up sequences (D22) ---
+
+  /** The follow-up drafts a Stop or a Park skips; one being sent is left. */
+  const openFollowUp: readonly DraftState[] = [
+    "drafting",
+    "ready",
+    "failed",
+    "approved",
+    "scheduled",
+  ];
+
+  const nameOf = (creator: CreatorState): string => creator.name ?? creator.handle;
+
+  const logLine = (creator: CreatorState, text: string, at: number): DataWrite => ({
+    kind: "log.add",
+    id: randomUUID(),
+    at,
+    text,
+    ref: creator.id,
+    action: null,
+    detail: null,
+  });
+
+  const stageWrite = (creator: CreatorState, stage: "emailed" | "parked"): DataWrite => ({
+    kind: "creator.stage",
+    id: creator.id,
+    stage,
+    handle: creator.handle,
+    name: nameOf(creator),
+  });
+
+  /** The creator's open follow-up drafts, as skip patches. */
+  function skipOpen(
+    source: DataSource,
+    creatorId: string,
+  ): { id: string; patch: { state: "skipped"; problem: null } }[] {
+    return source.outreach
+      .draftsIn(openFollowUp)
+      .filter((d) => d.creator === creatorId && d.kind === "followUp")
+      .map((d) => ({ id: d.id, patch: { state: "skipped" as const, problem: null } }));
+  }
+
+  type SequenceAnswer = ChannelResponse<"reach:sequence-stop">;
+
+  /** What each command needs: the open source, the creator and its sequence. */
+  async function sequenceOf(
+    creatorId: string,
+  ): Promise<
+    | { source: DataSource; creator: CreatorState; sequence: Sequence }
+    | Extract<SequenceAnswer, { ok: false }>
+  > {
+    const source = deps.source();
+    if (source === null || deps.mode() === null) {
+      return { ok: false, problem: "no_data" };
+    }
+    const creator = (await source.creatorStates()).find((c) => c.id === creatorId) ?? null;
+    const sequence = source.outreach.sequence(creatorId);
+    if (creator === null || sequence === null) {
+      return { ok: false, problem: "not_found" };
+    }
+    return { source, creator, sequence };
+  }
+
+  function afterCommand(): SequenceAnswer {
+    changed();
+    theSender.afterWrite();
+    return { ok: true };
+  }
+
+  const localMidnight = (at: number): number => {
+    const d = new Date(at);
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+  };
+
+  async function stopSequence(creatorId: string): Promise<SequenceAnswer> {
+    const found = await sequenceOf(creatorId);
+    if (!("source" in found)) {
+      return found;
+    }
+    const { source, creator, sequence } = found;
+    if (sequence.stopped !== null) {
+      return { ok: false, problem: "wrong_state" };
+    }
+    const at = now();
+    source.outreach.commit({
+      at,
+      drafts: skipOpen(source, creatorId),
+      sequences: [stopped(sequence)],
+      writes: [logLine(creator, sequenceStrings.stopped(nameOf(creator)), at)],
+    });
+    return afterCommand();
+  }
+
+  async function resumeSequence(creatorId: string): Promise<SequenceAnswer> {
+    const found = await sequenceOf(creatorId);
+    if (!("source" in found)) {
+      return found;
+    }
+    const { source, creator, sequence } = found;
+    if (sequence.stopped !== "you") {
+      return { ok: false, problem: "wrong_state" };
+    }
+    const at = now();
+    source.outreach.commit({
+      at,
+      sequences: [resumed(sequence)],
+      writes: [logLine(creator, sequenceStrings.resumed(nameOf(creator)), at)],
+    });
+    drafter.kick();
+    return afterCommand();
+  }
+
+  async function parkCreator(creatorId: string, until: number): Promise<SequenceAnswer> {
+    const found = await sequenceOf(creatorId);
+    if (!("source" in found)) {
+      return found;
+    }
+    const { source, creator, sequence } = found;
+    const at = now();
+    if (
+      creator.stage !== "emailed" ||
+      !isRunning(sequence) ||
+      localMidnight(until) <= localMidnight(at)
+    ) {
+      return { ok: false, problem: "wrong_state" };
+    }
+    const next = parked(sequence, until);
+    source.outreach.commit({
+      at,
+      drafts: skipOpen(source, creatorId),
+      sequences: [next],
+      writes: [
+        stageWrite(creator, "parked"),
+        logLine(creator, sequenceStrings.parked(nameOf(creator), next.parkUntil ?? until), at),
+      ],
+    });
+    return afterCommand();
+  }
+
+  async function wakeCreator(creatorId: string): Promise<SequenceAnswer> {
+    const found = await sequenceOf(creatorId);
+    if (!("source" in found)) {
+      return found;
+    }
+    const { source, creator, sequence } = found;
+    if (creator.stage !== "parked") {
+      return { ok: false, problem: "wrong_state" };
+    }
+    const at = now();
+    source.outreach.commit({
+      at,
+      sequences: [woken(sequence, at)],
+      writes: [
+        stageWrite(creator, "emailed"),
+        logLine(creator, sequenceStrings.woke(nameOf(creator)), at),
+      ],
+    });
+    drafter.kick();
+    return afterCommand();
+  }
+
+  // --- the day timer: at start and at each local midnight ---
+  let dayTimer: unknown = null;
+
+  function stopDayTimer(): void {
+    if (dayTimer !== null) {
+      clearTimer(dayTimer);
+      dayTimer = null;
+    }
+  }
+
+  function armDayTimer(): void {
+    stopDayTimer();
+    const at = now();
+    const next = new Date(at);
+    next.setHours(24, 0, 0, 0);
+    dayTimer = setTimer(
+      () => {
+        dayTimer = null;
+        void dayTick();
+        armDayTimer();
+      },
+      Math.max(1000, next.getTime() - at),
+    );
+  }
+
+  /** Finishes the sequences that ran out and wakes the parked creators whose day came. */
+  async function dayTick(): Promise<void> {
+    const source = deps.source();
+    if (source === null || deps.mode() === null) {
+      return;
+    }
+    try {
+      const at = now();
+      const states = await source.creatorStates();
+      if (deps.source() !== source) {
+        return;
+      }
+      for (const sequence of source.outreach.reachParts(at).sequences) {
+        const creator = states.find((c) => c.id === sequence.creator);
+        if (creator === undefined) {
+          continue;
+        }
+        if (wakeDue(sequence, at)) {
+          source.outreach.commit({
+            at,
+            sequences: [woken(sequence, at)],
+            writes: [
+              ...(creator.stage === "parked" ? [stageWrite(creator, "emailed")] : []),
+              logLine(creator, sequenceStrings.woke(nameOf(creator)), at),
+            ],
+          });
+        } else if (sequence.parkUntil === null && isFinished(sequence, at)) {
+          source.outreach.commit({
+            at,
+            sequences: [{ ...sequence, stopped: "finished" }],
+            writes: [logLine(creator, sequenceStrings.finished(nameOf(creator)), at)],
+          });
+        }
+      }
+    } catch {
+      log("Reach: the day's sequence check failed.");
+    }
+    changed();
+    drafter.kick();
+  }
+
   return {
+    sequenceStop: stopSequence,
+    sequenceResume: resumeSequence,
+    park: parkCreator,
+    wake: wakeCreator,
+
     thread(creatorId) {
       const source = deps.source();
       if (source === null || deps.mode() === null) {
@@ -545,6 +791,8 @@ export function createReachService(deps: ReachServiceDeps): ReachServiceHandle {
       await refreshAndTell();
       theSender.start();
       drafter.kick();
+      void dayTick();
+      armDayTimer();
       if (deps.mode() === "live") {
         armRefreshTimer();
       }
@@ -553,6 +801,7 @@ export function createReachService(deps: ReachServiceDeps): ReachServiceHandle {
       drafter.drop();
       theSender.drop();
       stopRefreshTimer();
+      stopDayTimer();
     },
     geminiChanged() {
       drafter.kick();
@@ -563,6 +812,7 @@ export function createReachService(deps: ReachServiceDeps): ReachServiceHandle {
     },
     dispose() {
       stopRefreshTimer();
+      stopDayTimer();
       if (emitTimer !== null) {
         clearTimer(emitTimer);
         emitTimer = null;
