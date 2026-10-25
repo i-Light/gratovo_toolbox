@@ -14,7 +14,7 @@ const railName = (name: string, sub: string | null) =>
   new RegExp(`^${name}${sub === null ? "$" : ` ${sub}$`}`);
 
 test.describe("the live gate, against a fake Supabase", () => {
-  test("a fresh live user sees only Find and Settings, and lands on Connections", async ({
+  test("a fresh live user sees only what is wired, and lands on Connections", async ({
     supabase,
     startSigned,
     signedErrors,
@@ -39,7 +39,13 @@ test.describe("the live gate, against a fake Supabase", () => {
         name: railName(screens.toolbox.name, screens.toolbox.sub),
       }),
     ).toBeVisible();
-    for (const key of ["today", "reach", "close", "deliver", "insights", "team"] as const) {
+    // Reach is wired from plan step 6a: the board, named for what is wired.
+    await expect(
+      rail(page).getByRole("button", {
+        name: railName(screens.reach.name, screens.reach.subLive),
+      }),
+    ).toBeVisible();
+    for (const key of ["today", "close", "deliver", "insights", "team"] as const) {
       await expect(
         rail(page).getByRole("button", { name: railName(screens[key].name, screens[key].sub) }),
       ).toHaveCount(0);

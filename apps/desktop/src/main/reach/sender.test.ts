@@ -385,6 +385,8 @@ describe("the sender", () => {
       newId: () => `id-${String(++ids)}`,
       log: (line) => lines.push(line),
     });
+    // As the app does when a source opens (with nothing left from an earlier run here).
+    sender.start();
   });
 
   afterEach(() => {
@@ -552,6 +554,25 @@ describe("the sender", () => {
     });
   });
 
+  describe("before start", () => {
+    it("fires nothing until start() has settled what an earlier run left approved", async () => {
+      sender.drop();
+      // The app closed mid-hold: the row is still approved, its time long past.
+      fake.put(row("left", { state: "approved", sendAt: start - 60_000, approvedBy: me }));
+      // A write comes in while the mailboxes are still being read (opened() awaits a status).
+      sender.afterWrite();
+      await advance(holdMs * 3);
+      expect(send).not.toHaveBeenCalled();
+      sender.start();
+      await advance(holdMs * 3);
+      expect(send).not.toHaveBeenCalled();
+      expect(fake.source.outreach.draft("left")).toMatchObject({
+        state: "ready",
+        problem: "not_sent_closed",
+      });
+    });
+  });
+
   describe("the person's approval", () => {
     it("is the only way a mail.send reaches send", async () => {
       // Every state main or the drafter can leave a row in, and an approved row with no approver.
@@ -651,6 +672,27 @@ describe("the sender", () => {
       expect(check).toHaveBeenCalledTimes(1);
       expect(send).toHaveBeenCalledTimes(1);
       expect(fake.state("d1")).toBe("sent");
+    });
+
+    it("holds a text the checks had blocked until a check passes: no check, no send", async () => {
+      const blockedRow = (id: string) =>
+        row(id, {
+          ...edited,
+          proposal: { ...proposal, status: "blocked" },
+        });
+      check.mockResolvedValueOnce({ ok: false });
+      fake.put(blockedRow("d1"));
+      await approve("d1");
+      await advance(holdMs);
+      expect(send).not.toHaveBeenCalled();
+      expect(fake.drafts.get("d1")).toMatchObject({ state: "ready", problem: "needs_check" });
+
+      // A check that passes lifts the engine's "blocked" and it goes.
+      fake.put(blockedRow("d2"));
+      await approve("d2");
+      await advance(holdMs);
+      expect(send).toHaveBeenCalledTimes(1);
+      expect(fake.state("d2")).toBe("sent");
     });
 
     it("goes with the bridge off, and the log line says it wasn't checked again", async () => {

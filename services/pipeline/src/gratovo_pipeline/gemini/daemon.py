@@ -40,8 +40,9 @@ from typing import Any, TextIO
 from . import __version__, actions, pause
 from .browser import manager as browser_manager
 from .browser.manager import BrowserPaths
-from .client import Gemini
+from .client import Gemini, SendGap
 from .errors import ExtensionNotConnected, GeminiError
+from .pacing_state import PACING_FILE, PacingStore
 from .server import DEFAULT_PORT
 
 WORKERS = 4
@@ -176,11 +177,18 @@ class Daemon:
         self.port = port
         self.out = out
         self.paths = paths
+        # The owner's pacing outlives this process (plan D6a): the pause, the page errors that
+        # count towards one and the last send are saved beside the browser profile, the Gemini
+        # account's own folder, and read back here, so a crash or a Stop then Start in Settings
+        # cannot cut a pause or the 60 s gap short.
+        pacing = PacingStore(paths.profile_dir / PACING_FILE)
         self.gemini = Gemini(
             port=port,
             auto_open=False,
             data_dir=data_dir,
             logger=logging.getLogger("gratovo_pipeline.gemini"),
+            send_gap=SendGap(store=pacing),
+            breaker=pause.Breaker(store=pacing),
         )
         # The token the Firefox add-on must show (plan D13); the browser manager builds it in.
         self.gemini.server.set_token(paths.token)

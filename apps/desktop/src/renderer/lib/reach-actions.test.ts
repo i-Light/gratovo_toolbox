@@ -200,10 +200,21 @@ describe("mergeServerData for Reach", () => {
       await settle();
       const approved = draft("d1");
       expect(approved?.state).toBe("approved");
-      // The server echoes the approved draft back, and a teammate-made thread appears.
+      // Main echoes the approved draft back with its own hold and change time (it sets both, D11),
+      // and a teammate-made thread appears. Its own times must not count as news for the undo
+      // steps: Undo still takes the send back.
       server = serverWith({
         ...data().reach,
-        drafts: approved === undefined ? [] : [approved],
+        drafts:
+          approved === undefined
+            ? []
+            : [
+                {
+                  ...approved,
+                  sendAt: (approved.sendAt ?? 0) + 37,
+                  updatedAt: approved.updatedAt + 37,
+                },
+              ],
         sender: "Sam",
         gemini: "ready",
       });
@@ -215,7 +226,10 @@ describe("mergeServerData for Reach", () => {
       undo();
       await settle();
       expect(draft("d1")?.state).toBe("ready");
-      expect(bridge.writes.flat().map((w) => w.kind)).toEqual(["draft.state", "draft.state"]);
+      expect(bridge.writes.flat()).toEqual([
+        expect.objectContaining({ kind: "draft.state", state: "approved" }),
+        expect.objectContaining({ kind: "draft.state", state: "ready", sendAt: null }),
+      ]);
     } finally {
       stop();
     }

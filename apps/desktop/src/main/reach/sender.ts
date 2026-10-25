@@ -12,12 +12,11 @@ import {
   type MailboxView,
   type StoredDraft,
 } from "@gratovo/core/data";
-import { canSend, draftGates, type Gate } from "@gratovo/core/reach";
+import { canSend, draftGates, findMailbox, type Gate } from "@gratovo/core/reach";
 
 import { textHash } from "../data/repositories/outreach";
 import type { JobOutcome } from "../pipeline/jobs";
 import { jobSchema, type Job, type ResultData } from "../pipeline/protocol";
-import { sameAddress } from "../settings/connections-store";
 
 import { senderStrings } from "./sender-strings";
 
@@ -196,6 +195,8 @@ export function createSender(deps: SenderDeps): Sender {
     });
 
   let timer: unknown = null;
+  /** Set by `start()`, cleared by `drop()`: the timer arms only in between. */
+  let started = false;
   // The send under way: its source and draft, and its end.
   let current: { source: DataSource; id: string; done: Promise<void> } | null = null;
   // The drafts "It was sent" is recording now: a second click must not record it twice.
@@ -211,7 +212,10 @@ export function createSender(deps: SenderDeps): Sender {
   function arm(): void {
     disarm();
     const source = deps.source();
-    if (current !== null || deps.mode() === null || source === null) {
+    // Before `start()` has settled what an earlier run left approved, nothing may fire: a row the
+    // app left mid-hold would otherwise go out on the first write after opening (review of 6a,
+    // finding 2).
+    if (!started || current !== null || deps.mode() === null || source === null) {
       return;
     }
     const waiting = source.outreach.draftsIn(sendable);
@@ -264,10 +268,7 @@ export function createSender(deps: SenderDeps): Sender {
   }
 
   function mailboxOf(address: string | null): MailboxView | null {
-    if (address === null) {
-      return null;
-    }
-    return deps.mailboxes().find((m) => sameAddress(m.address, address)) ?? null;
+    return findMailbox(deps.mailboxes(), address);
   }
 
   function settle(source: DataSource, id: string, patch: DraftPatch): void {
@@ -385,18 +386,34 @@ export function createSender(deps: SenderDeps): Sender {
       return;
     }
 
-    // An edited text is checked first. The check is advice; the person's approval is the rule,
-    // so with the bridge off it goes, and the log says it wasn't checked again.
+    // An edited text is checked first. The check is advice, and the person's approval is the
+    // rule, so with the bridge off it goes and the log says it wasn't checked again. Except a text
+    // the checks had blocked: that one waits for a check that passes (D10).
     let unchecked = false;
     let patch: DraftPatch = {};
     if (draft.edited && !draft.checked && draft.proposal !== null) {
+      const wasBlocked =
+        draft.proposal.status === "blocked" || draft.proposal.findings.some((f) => f.blocking);
       const result: CheckOutcome =
         mode === "live" ? await deps.check(draft.id, draft.subject, draft.body) : { ok: false };
       if (!result.ok) {
+        if (wasBlocked) {
+          if (!still()) {
+            return;
+          }
+          log(`Reach: a ${draft.kind} draft the checks had blocked went back: no check could run.`);
+          settle(source, id, { state: "ready", sendAt: null, problem: "needs_check" });
+          return;
+        }
         unchecked = true;
       } else {
         const proposal = {
           ...draft.proposal,
+          // A pass lifts the engine's own "blocked": the checks are what blocked it.
+          status:
+            !result.blocking && draft.proposal.status === "blocked"
+              ? ("ready" as const)
+              : draft.proposal.status,
           findings: result.findings.slice(0, draftFindingsMax),
         };
         patch = { proposal, checkedHash: textHash(draft.subject, draft.body) };
@@ -533,6 +550,7 @@ export function createSender(deps: SenderDeps): Sender {
         source.outreach.commit({ at, drafts });
         deps.changed();
       }
+      started = true;
       arm();
     },
 
@@ -607,7 +625,10 @@ export function createSender(deps: SenderDeps): Sender {
       return Promise.resolve({ ok: true });
     },
 
-    drop: disarm,
+    drop() {
+      started = false;
+      disarm();
+    },
 
     idle: () => current?.done ?? Promise.resolve(),
   };

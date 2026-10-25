@@ -1449,6 +1449,14 @@ export function describeDataSourceContract(
         });
       });
 
+      it("never approves a draft that may have gone out: only It was sent or Send as new", async () => {
+        const source = start();
+        addDraft(source, "d1", { state: "failed" });
+        source.outreach.updateDraft("d1", { problem: "maybe_sent" }, contractNow);
+        await source.write([state("d1", "approved", hold), state("d1", "scheduled", hold)]);
+        expect(source.outreach.draft("d1")).toMatchObject({ state: "failed", approvedBy: null });
+      });
+
       it("gives every approval its full hold, even one carrying a time already past", async () => {
         // A Redo, or an Undo that puts an old approval back, carries the old time: it must not
         // send at once.

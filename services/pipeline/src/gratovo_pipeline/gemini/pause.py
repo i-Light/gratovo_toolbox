@@ -17,6 +17,10 @@ What trips it:
 One breaker per bridge process, held by the `Gemini` client: the client counts what it sees on
 every send, and the daemon counts what an action raises without passing through a send (the
 engine reads a "something went wrong" answer as a page error itself).
+
+The daemon gives it a `PacingStore` (`pacing_state.py`): the pause's end and the page errors in
+the window are saved on every change and read back at start, so a crash or a Stop then Start in
+Settings neither ends a pause early nor forgets the errors that count towards the next one.
 """
 
 from __future__ import annotations
@@ -30,6 +34,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from .errors import ActionRefused, GeminiError, GeminiPageError, Paused
+from .pacing_state import PacingStore
 
 #: The owner's numbers: three page errors within 15 minutes, or one refusal, pause for 30 minutes.
 WINDOW_S = 15 * 60.0
@@ -106,6 +111,9 @@ class Breaker:
     Time runs on `clock` (monotonic seconds), so a change to the computer's clock cannot shorten a
     pause; `now` (UTC) only turns the end of a pause into the ISO time the app shows. Both are
     injectable so the tests run without waiting. Thread-safe: the daemon runs requests on a pool.
+
+    With a `store`, a pause and the page errors saved by an earlier bridge process carry on here
+    (what is left of them, by the wall clock), and every change is saved for the next one.
     """
 
     def __init__(
@@ -116,6 +124,7 @@ class Breaker:
         window_s: float = WINDOW_S,
         pause_s: float = PAUSE_S,
         errors_to_trip: int = ERRORS_TO_TRIP,
+        store: PacingStore | None = None,
     ) -> None:
         self._clock = clock
         self._now = now
@@ -129,6 +138,15 @@ class Breaker:
         #: How many refusals and page errors have been counted so far. The daemon compares it
         #: before and after a call, so an error the client already counted is not counted twice.
         self.recorded = 0
+        self._store = store
+        if store is not None:
+            started = clock()
+            left = store.pause_left(pause_s)
+            if left > 0:
+                self._until = started + left
+                self._until_iso = _iso(now() + timedelta(seconds=left))
+            for age in store.page_error_ages(window_s):
+                self._errors.append(started - age)
 
     # --- reading -------------------------------------------------------------
 
@@ -176,6 +194,8 @@ class Breaker:
                 self._errors.popleft()
             if len(self._errors) >= self._errors_to_trip:
                 self._trip()
+            elif self._store is not None:
+                self._store.save_page_errors(moment - t for t in self._errors)
 
     def note(self, error: BaseException) -> None:
         """Counts `error` when it is a refusal or a page error; anything else is not Gemini's
@@ -201,6 +221,8 @@ class Breaker:
         self._errors.clear()
         self._until = self._clock() + self._pause_s
         self._until_iso = _iso(self._now() + timedelta(seconds=self._pause_s))
+        if self._store is not None:
+            self._store.save_pause(self._pause_s)
 
 
 def _refused(error: GeminiError) -> bool:

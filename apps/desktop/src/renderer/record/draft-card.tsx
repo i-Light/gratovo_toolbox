@@ -1,6 +1,6 @@
 import { rewriteHows } from "@gratovo/core/data";
 import type { OutreachDraft } from "@gratovo/core/data";
-import { canSend, draftGates } from "@gratovo/core/reach";
+import { canSend, draftGates, findMailbox } from "@gratovo/core/reach";
 import { Btn, cx, Icon, IconBtn, Tag } from "@gratovo/ui";
 import { useState } from "react";
 import type { KeyboardEvent, MouseEvent } from "react";
@@ -23,9 +23,7 @@ function Card({ draft }: { readonly draft: OutreachDraft }) {
   const now = useNow();
   const gemini = useApp((s) => s.data.reach.gemini);
   const creator = useApp((s) => s.data.creators.find((c) => c.id === draft.creator) ?? null);
-  const mailbox = useApp(
-    (s) => s.data.reach.mailboxes.find((m) => m.address === draft.mailbox) ?? null,
-  );
+  const mailbox = useApp((s) => findMailbox(s.data.reach.mailboxes, draft.mailbox));
   const creatorName = creator?.name ?? "";
   const typed = useDraftText(draft);
   const [whyOpen, setWhyOpen] = useState(false);

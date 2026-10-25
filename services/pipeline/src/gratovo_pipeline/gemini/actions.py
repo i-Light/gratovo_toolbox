@@ -132,7 +132,10 @@ def _ask(gemini: Gemini, params: Params, message: str, skill: str | None = None)
         # "I'm having a hard time fulfilling your request" is Gemini balking, not an answer. The
         # owner's rule is to pause after a refusal, never to send again at once: the client has
         # already counted it, so the bridge holds every prompt back for the next 30 minutes.
-        log.warning("Gemini refused (%r); the bridge pauses", raw[:80])
+        # Never the answer's text in the log (it can quote the prompt: creators, threads).
+        log.warning(
+            "Gemini refused the prompt (answer of %d characters); the bridge pauses", len(raw)
+        )
         raise ActionRefused(
             message="Gemini refused the prompt: " + raw.strip()[:200],
             details={"raw": raw, "model": used_model},

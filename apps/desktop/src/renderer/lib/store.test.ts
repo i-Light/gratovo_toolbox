@@ -256,7 +256,7 @@ describe("the store at boot", () => {
 describe("example records", () => {
   it("has the prototype's creators, brands, deals and teammate run", () => {
     const data = exampleData(now);
-    // c6 to c10, c13 and c14 are Reach's (plan step 6): contacts, sequences and a reply.
+    // c6 to c10 and c13 are Reach's (plan step 6): contacts, emailed creators and a reply.
     expect(data.creators.map((c) => c.id)).toEqual([
       "c1",
       "c2",
@@ -271,7 +271,6 @@ describe("example records", () => {
       "c8",
       "c9",
       "c10",
-      "c14",
     ]);
     expect(data.creators.filter((c) => c.stage === "new")).toHaveLength(2);
     expect(data.creators[0]).toEqual({

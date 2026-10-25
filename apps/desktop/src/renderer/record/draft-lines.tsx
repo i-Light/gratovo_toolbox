@@ -1,5 +1,5 @@
 import type { MailboxView, OutreachDraft } from "@gratovo/core/data";
-import { mailboxGate } from "@gratovo/core/reach";
+import { findMailbox, mailboxGate } from "@gratovo/core/reach";
 import { Icon, Tag } from "@gratovo/ui";
 
 import { setDraftMailbox } from "../lib/reach-actions";
@@ -75,7 +75,7 @@ export function ToLine({ draft }: { readonly draft: OutreachDraft }) {
 /** Which mailbox it goes from, with its sends left today. Only a first email can change it (D3). */
 export function FromLine({ draft }: { readonly draft: OutreachDraft }) {
   const mailboxes = useApp((s) => s.data.reach.mailboxes);
-  const mailbox = mailboxes.find((m) => m.address === draft.mailbox) ?? null;
+  const mailbox = findMailbox(mailboxes, draft.mailbox);
   const editable = draft.kind === "first" && (draft.state === "ready" || draft.state === "failed");
   const left = mailbox === null ? 0 : Math.max(0, mailbox.leftToday);
   const cap = mailbox === null ? 1 : Math.max(1, mailbox.effectiveCap);

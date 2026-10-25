@@ -54,6 +54,8 @@ export const draftProblems = [
   "not_sent_closed",
   "late",
   "gates_changed",
+  // An edited draft the checks had blocked can't go unchecked, and no check could run.
+  "needs_check",
 ] as const;
 
 export type DraftProblem = (typeof draftProblems)[number];

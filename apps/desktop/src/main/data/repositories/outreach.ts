@@ -327,13 +327,18 @@ function draftState(db: DatabaseSync, id: string): DraftState | null {
   return row === undefined ? null : oneOf(draftStates, row["state"]);
 }
 
+function draftProblem(db: DatabaseSync, id: string): DraftProblem | null {
+  const row = db.prepare("SELECT problem FROM outreach_drafts WHERE id = ?").get(id);
+  return row === undefined ? null : oneOf(draftProblems, row["problem"]);
+}
+
 const fromReady: readonly DraftState[] = ["ready", "failed"];
 const fromTaken: readonly DraftState[] = ["approved", "scheduled", "skipped"];
 
-/** `draft.state`: only between ready/failed and approved/scheduled/skipped, and back to ready. */
 /** How long an approved email waits before it goes, so Undo can take it back (D11). */
 export const sendHoldMs = 10_000;
 
+/** `draft.state`: only between ready/failed and approved/scheduled/skipped, and back to ready. */
 export function writeDraftState(
   db: DatabaseSync,
   write: Extract<DataWrite, { kind: "draft.state" }>,
@@ -345,7 +350,12 @@ export function writeDraftState(
     return;
   }
   const to = write.state;
-  const allowed = to === "ready" ? fromTaken.includes(from) : fromReady.includes(from);
+  // A draft that may have gone out can only be recorded as sent or copied (D11): approving it
+  // again would run its send once more.
+  const mayHaveGone =
+    (to === "approved" || to === "scheduled") && draftProblem(db, write.id) === "maybe_sent";
+  const allowed =
+    !mayHaveGone && (to === "ready" ? fromTaken.includes(from) : fromReady.includes(from));
   if (!allowed) {
     refused(write.kind);
     return;
@@ -461,7 +471,17 @@ export function createOutreachStore(db: DatabaseSync, deps: OutreachDeps): Outre
       sets.push(`${column} = ?`);
       params.push(value);
     };
-    if (patch.state !== undefined) set("state", patch.state);
+    if (patch.state !== undefined) {
+      set("state", patch.state);
+      // Back with a person (or Gemini): no approval and no send time is left on the row, so
+      // nothing can send it and the record says nobody approved it (review of 6a, finding 8).
+      if (patch.state === "ready" || patch.state === "skipped" || patch.state === "drafting") {
+        sets.push("approved_by = NULL");
+        if (patch.sendAt === undefined) {
+          sets.push("send_at = NULL");
+        }
+      }
+    }
     if (patch.subject !== undefined) set("subject", patch.subject.slice(0, draftSubjectMax));
     if (patch.body !== undefined) set("body", patch.body.slice(0, draftBodyMax));
     if (patch.mailbox !== undefined) set("mailbox", patch.mailbox);

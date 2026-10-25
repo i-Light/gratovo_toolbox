@@ -1332,6 +1332,8 @@ export const strings = {
     reach: {
       name: "Reach",
       sub: "Emails, replies, sequences",
+      // Live, only what is wired (plan step 6a: the board); 6c and 6d widen it.
+      subLive: "Draft, approve and send",
       tabs: { board: "Board", sequences: "Sequences", inbox: "Replies", mailboxes: "Mailboxes" },
     },
     close: {
@@ -1744,6 +1746,7 @@ export const strings = {
       not_sent_closed: "Not sent: the app closed before it went",
       late: "It was too late to send",
       gates_changed: "Not sent: something changed, check the email again",
+      needs_check: "Not sent: start Gemini so your edit can be checked first",
     },
     /** What stands between a draft and Send, by gate. */
     gates: {

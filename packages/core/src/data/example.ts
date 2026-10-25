@@ -28,7 +28,7 @@ import type {
  */
 
 /** Bump it when the fixtures change: an older example database is then seeded again. */
-export const exampleSeedVersion = 3;
+export const exampleSeedVersion = 4;
 
 /** What the example database is seeded from, and the extras (presence, counts, a run) it serves. */
 export interface ExampleSeed {
@@ -392,21 +392,6 @@ const creators: readonly Creator[] = [
     "Theo",
   ),
   confirmed("c10", "Vector Vlog", "@vectorvlog", "replied", "hi@vectorvlog.io", "Noor"),
-  {
-    id: "c14",
-    name: "Context Window",
-    handle: "@contextwindow",
-    stage: "shortlisted",
-    email: "hello@contextwindow.dev",
-    emailConfirmed: false,
-    contactName: null,
-    contactSource: null,
-    contactConfidence: null,
-    rejectReason: null,
-    rejectedAt: null,
-    neverReason: null,
-    archiveDueAt: null,
-  },
 ];
 
 const brands: readonly Brand[] = [

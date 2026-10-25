@@ -43,6 +43,7 @@ from .errors import (
     JobFailed,
     SignedOut,
 )
+from .pacing_state import PacingStore
 from .pause import Breaker, sends_prompt
 from .server import DEFAULT_PORT, NOT_CONNECTED_MESSAGE, BridgeServer
 
@@ -75,6 +76,9 @@ class SendGap:
     keyword batch's chats and main's own `send` all wait their turn. The wait happens with the lock
     held, so two sends that arrive together go out one gap apart, in turn. The clock is monotonic
     and the sleep a single call, so the tests can pass fakes and run at once.
+
+    With a `store` (`pacing_state.py`), the last send of an earlier bridge process counts too:
+    a bridge started again within the gap waits out the rest of it, and every send is saved.
     """
 
     def __init__(
@@ -83,12 +87,18 @@ class SendGap:
         *,
         clock: Callable[[], float] = time.monotonic,
         sleep: Callable[[float], object] = time.sleep,
+        store: PacingStore | None = None,
     ) -> None:
         self.gap_s = SEND_GAP_S if gap_s is None else float(gap_s)
         self._clock = clock
         self._sleep = sleep
         self._lock = threading.Lock()
         self._last: float | None = None
+        self._store = store
+        if store is not None:
+            since = store.since_last_send()
+            if since is not None and since < self.gap_s:
+                self._last = clock() - since
 
     def wait(self, before_send: Callable[[], None] | None = None) -> float:
         """Waits out the gap, runs `before_send` (the breaker's check, so a pause that began while
@@ -103,6 +113,8 @@ class SendGap:
             if before_send is not None:
                 before_send()
             self._last = self._clock()
+            if self._store is not None:
+                self._store.save_send()
             return waited
 
 

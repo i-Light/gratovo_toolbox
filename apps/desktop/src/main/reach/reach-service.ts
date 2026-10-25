@@ -356,6 +356,9 @@ export function createReachService(deps: ReachServiceDeps): ReachServiceHandle {
     afterWrite(writes) {
       if (writes.some((write) => write.kind.startsWith("draft."))) {
         theSender.afterWrite();
+        // A write main ignored (an Undo after the send started) must reach the page as main has
+        // it, so it shows the draft going rather than `ready` (D5; review of 6a, finding 5).
+        changed();
       }
       if (
         writes.some((write) => write.kind === "creator.stage" || write.kind === "creator.contact")

@@ -122,7 +122,6 @@ describe("exampleSeed", () => {
       "Ship AI",
       "Diffusion Diaries",
       "Vector Vlog",
-      "Context Window",
     ]);
   });
 
@@ -161,8 +160,6 @@ describe("exampleSeed", () => {
       ["c10", "out"],
       ["c10", "in"],
     ]);
-    expect(seed.creators.find((c) => c.id === "c14")?.stage).toBe("shortlisted");
-    expect(seed.creators.find((c) => c.id === "c14")?.emailConfirmed).toBe(false);
   });
 
   it("derives the frame's Reach from those rows", () => {

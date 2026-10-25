@@ -31,7 +31,10 @@ export interface Gate {
 }
 
 export interface GateInput {
-  readonly draft: Pick<OutreachDraft, "kind" | "proposal" | "gatesOk" | "mailbox">;
+  readonly draft: Pick<
+    OutreachDraft,
+    "kind" | "proposal" | "gatesOk" | "mailbox" | "edited" | "checked"
+  >;
   readonly creator: Pick<Creator, "stage" | "emailConfirmed" | "email"> | null;
   /** The draft's mailbox, or null when none is picked or it is not known. */
   readonly mailbox: MailboxView | null;
@@ -39,6 +42,21 @@ export interface GateInput {
 
 const hard = (key: GateKey): Gate => ({ key, engine: null, holdsSend: true, holdsSchedule: true });
 const soft = (key: GateKey): Gate => ({ key, engine: null, holdsSend: true, holdsSchedule: false });
+
+/**
+ * A draft's mailbox among the views, matched as Gmail matches addresses (case and spaces aside).
+ * The page and main both use it, so their gates agree.
+ */
+export function findMailbox(
+  mailboxes: readonly MailboxView[],
+  address: string | null,
+): MailboxView | null {
+  if (address === null) {
+    return null;
+  }
+  const key = address.trim().toLowerCase();
+  return mailboxes.find((m) => m.address.trim().toLowerCase() === key) ?? null;
+}
 
 /** Why a mailbox can't send now, as a gate key; null when it can. */
 export function mailboxGate(mailbox: MailboxView | null): GateKey | null {
@@ -71,10 +89,12 @@ export function draftGates(input: GateInput): Gate[] {
     gates.push(soft(box));
   }
   const proposal = draft.proposal;
+  // A text the person edited since the last check steps the checks aside: main checks it again
+  // at send time, and sends it back with the findings if it still blocks (D10, D11).
+  const awaitsCheck = draft.edited && !draft.checked;
   if (
     proposal === null ||
-    proposal.status === "blocked" ||
-    proposal.findings.some((f) => f.blocking)
+    (!awaitsCheck && (proposal.status === "blocked" || proposal.findings.some((f) => f.blocking)))
   ) {
     gates.push(hard("blocked"));
   }

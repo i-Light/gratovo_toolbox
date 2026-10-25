@@ -1,4 +1,4 @@
-import { canSend, draftGates } from "@gratovo/core/reach";
+import { canSend, draftGates, findMailbox } from "@gratovo/core/reach";
 import type { Gate } from "@gratovo/core/reach";
 import type {
   DraftState,
@@ -28,7 +28,7 @@ const reachNow = (): ReachData => appStore().getState().data.reach;
 const draftOf = (id: string): OutreachDraft | undefined =>
   reachNow().drafts.find((d) => d.id === id);
 const mailboxOf = (address: string | null): MailboxView | null =>
-  address === null ? null : (reachNow().mailboxes.find((m) => m.address === address) ?? null);
+  findMailbox(reachNow().mailboxes, address);
 const creatorOf = (id: string) =>
   appStore()
     .getState()

@@ -608,10 +608,15 @@ class BridgeServer:
         try:
             parsed: object = json.loads(text)
         except ValueError:
-            self._log.warning("ignoring a frame that is not JSON: %s", _one_line(text[:200]))
+            # Only its length: a frame can carry a prompt or an answer (creators, threads).
+            self._log.warning("ignoring a frame that is not JSON (%d characters)", len(text))
             return
         if not isinstance(parsed, dict):
-            self._log.warning("ignoring a frame that is not an object: %s", _one_line(text[:200]))
+            self._log.warning(
+                "ignoring a frame that is not an object (%s, %d characters)",
+                type(parsed).__name__,
+                len(text),
+            )
             return
         frame: dict[str, Any] = parsed  # pyright: ignore[reportUnknownVariableType]
         kind = frame.get("type")
@@ -644,7 +649,10 @@ class BridgeServer:
         event = frame.get("event")
         raw_data: Any = frame.get("data")
         if not isinstance(event, str):
-            self._log.warning("ignoring an event without a name: %s", _one_line(frame))
+            # Not the frame itself: its data can carry a prompt or an answer.
+            self._log.warning(
+                "ignoring an event without a name (keys: %s)", _one_line(sorted(frame))
+            )
             return
         data: dict[str, Any] = (
             cast("dict[str, Any]", raw_data) if isinstance(raw_data, dict) else {"value": raw_data}

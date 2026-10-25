@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { DraftProposal, MailboxView } from "../data";
 
-import { canSchedule, canSend, draftGates, mailboxGate, pickMailbox } from "./gates";
+import { canSchedule, canSend, draftGates, findMailbox, mailboxGate, pickMailbox } from "./gates";
 import type { GateInput } from "./gates";
 
 const proposal = (over: Partial<DraftProposal> = {}): DraftProposal => ({
@@ -34,7 +34,14 @@ const box = (over: Partial<MailboxView> = {}): MailboxView => ({
 });
 
 const input = (over: Partial<GateInput> = {}): GateInput => ({
-  draft: { kind: "first", proposal: proposal(), gatesOk: [], mailbox: "outreach1@gratovo.test" },
+  draft: {
+    kind: "first",
+    proposal: proposal(),
+    gatesOk: [],
+    mailbox: "outreach1@gratovo.test",
+    edited: false,
+    checked: true,
+  },
   creator: { stage: "contact", emailConfirmed: true, email: "kai@codewithkai.test" },
   mailbox: box(),
   ...over,
@@ -101,6 +108,16 @@ describe("draftGates", () => {
     ).toEqual([]);
   });
 
+  it("steps the checks aside once the person edited the text since the last check", () => {
+    const draft = { ...input().draft, proposal: proposal({ status: "blocked" }) };
+    expect(keys(input({ draft }))).toEqual(["blocked"]);
+    expect(keys(input({ draft: { ...draft, edited: true, checked: false } }))).toEqual([]);
+    // Still being written: nothing to check yet.
+    expect(
+      keys(input({ draft: { ...draft, proposal: null, edited: true, checked: false } })),
+    ).toEqual(["blocked"]);
+  });
+
   it("holds each engine gate until a person confirms it", () => {
     const gates = [
       { key: "g1", kind: "price" as const, text: "It names a rate." },
@@ -149,5 +166,14 @@ describe("mailboxGate and pickMailbox", () => {
     expect(pickMailbox([full])).toBe("c@gratovo.test");
     expect(pickMailbox([box({ connected: false })])).toBeNull();
     expect(pickMailbox([])).toBeNull();
+  });
+});
+
+describe("findMailbox", () => {
+  it("matches an address as Gmail does, case and spaces aside", () => {
+    const boxes = [box({ address: "Outreach1@Gratovo.test" })];
+    expect(findMailbox(boxes, " outreach1@gratovo.TEST ")?.address).toBe("Outreach1@Gratovo.test");
+    expect(findMailbox(boxes, "other@gratovo.test")).toBeNull();
+    expect(findMailbox(boxes, null)).toBeNull();
   });
 });

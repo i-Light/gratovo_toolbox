@@ -1,37 +1,34 @@
 # PROGRESS: plan step 6 (Reach)
 
-Plan: `.router/PLAN.md` (decisions D1–D19, D6a; 6a's task table). Map: `.router/CONTEXT.md`.
+Plan: `.router/PLAN.md` (decisions D1–D19, D6a). Map: `.router/CONTEXT.md`.
 
-## Where it stands (2026-10-25, paused for a context compact)
+## Where it stands (2026-10-25)
 
-- Sub-step **6a** on branch `feat/6a-reach-drafts`, committed as work in progress. No agent is running.
-- `pnpm lint` and `pnpm typecheck` pass. Last test runs: main 1423+ (all pass), renderer 785 (all pass after the store test fix), core and ipc pass, pytest 1613 pass. Run `pnpm test` once in full on resume.
+- **6a done** on branch `feat/6a-reach-drafts` (pull request opened from it). All checks pass: lint, typecheck, Vitest 2708, pytest 1636, the Electron suite (the Reach smoke test `e2e/reach-board.spec.ts` included).
+- **Next: 6b** (D9 and D12): the Mailboxes tab (capacity, warm-up, the cap stepper 10–50, pause, bounce and reply rates, the slowdown rule, a test email to the mailbox's own address), the header capacity summary as a button to it, Send later (their morning, tomorrow 09:00, Monday 09:00) and Toolbox › Scheduled. Plan its tasks in PLAN.md first (a "Tasks for 6b" table), as 6a's.
+
+## What 6a's review found and how it was fixed (keep for ADR 0018 in 6e)
+
+The `router-reviewer` found no way to send without approval, and nine problems, all fixed:
+
+1. Critical: main's copy of an approved draft (its own `sendAt`, `updatedAt`) counted as news and went into every undo step, so Undo wrote nothing and the email went. Now `mergeDrafts` in `renderer/lib/live.ts` merges field by field: a person's field is news only when main's value differs from what the page showed. A test echoes main's own times.
+2. High: a write while `opened()` awaited the mailbox status could fire a draft left approved by an earlier run. The sender now arms only after `start()` (`started` flag; `drop()` clears it).
+3. Medium: the Gemini pause and the 60 s gap were in memory only. `gemini/pacing_state.py` keeps the pause end, the last send and the recent page errors in `<profile-dir>/gemini-pacing.json` (atomic writes; malformed reads as empty; clamped).
+4. Medium: a blocked draft could never be sent. The `blocked` gate steps aside once the person edits; the send-time check sends it back if it still blocks, and with no check possible it comes back `needs_check`. A pass lifts the engine's `blocked`.
+5. Medium: an ignored write (Undo after the send started) didn't reach the page: `afterWrite` now always tells the page.
+6. Low: `approved`/`scheduled` refused on a `maybe_sent` draft.
+7. Low: the page matched mailboxes with `===`: `findMailbox` in core, used by page and main.
+8. Low: rows going back to `ready`/`skipped`/`drafting` clear `approved_by` and `send_at` (in `updateDraft`).
+9. Low: no Gemini answer text in a log line (`actions.py`, `server.py`).
+
+Other fixes found by the lead in 6a: the page took main's frame changes only when signed in (example data never updated); `takeBack` was an undo step (Ctrl Z could re-approve); main now gives every approval its own 10 s hold (`sendHoldMs`); the drafter started "ready" before checking the bridge; the seed's shortlisted c14 broke Find's flows (removed, seed version 4).
+
+## Known limits after 6a
+
+- `comms/pool.py` (a hand-run tool) paces in memory only, per run.
+- Example creators (`c1`…) show the record summary in the peek, with the Emails section under it.
+- The record page's Full page button doesn't carry the tab.
+- "Send as new" asks with an inline Yes/Cancel.
+- A send waiting in the quick queue at quit comes back `maybe_sent` (the safe side).
+- Drafts and threads are local to this computer until step T.
 - The pre-commit hook can't take ~100 files at once on Windows ("The command line is too long"): commit in batches of about 30 named paths.
-
-## 6a tasks
-
-| id | tier used | state | note |
-|---|---|---|---|
-| A0 | H | done | Bridge pacing (D6a): 60 s gap and a fresh chat on every send in `gemini/client.py`; the engine's, coach's and pairwise's follow-up turns are standalone fresh-chat prompts (`engine.fresh_turn`); breaker `gemini/pause.py` (a true refusal pauses 30 min at once; generic errors count, 3 in 15 min); `PAUSED` code, `bridge.status.pausedUntil`; main's waits +60 s per prompt (`promptGapS`). |
-| A1 | H (lead) | done | Contracts: `core/data/reach-types.ts`, `core/data/outreach-store.ts` (`DataSource.outreach`), `core/reach/{gates,board}.ts`, `ipc/reach.ts`, four draft writes, frame part `reach`, seven `reach:*` channels (`reach:rewrite` also answers `no_sender`). |
-| A2+A3 | N | done | Migration 0004, `repositories/outreach.ts`, sqlite-source writes and `commit`; draft writes bypass `onWrite` (local only, D1). Example seed v3: creators c6–c10, c13, c14, three example mailboxes in `mail.settings`. |
-| A4 | H | done | `main/reach/drafter.ts`, `facts.ts`, `strings.ts`. Lead fixes: starts "off" on live until it has checked the bridge (always "ready" on example data); checks the bridge when the queue is empty (a status call, never a prompt). |
-| A5 | H | done | `quick-queue.ts`, `mail-state.ts`, `sender.ts`, `sender-strings.ts`. A send queued at quit comes back `maybe_sent` (the safe side). |
-| A6 | N | done | `reach-service.ts`, handlers, services, index wiring. Lead fix: `connections-harness.ts` clears the seeded mail settings. |
-| A7 | N | done | Renderer data side: `AppData.reach`, the persist diff, `mergeReach`, `reach-actions.ts`, strings. |
-| A8 | N | done | Reach screen, board, draft card, thread, Emails tab, peek on a tab. Lead safety fix: `takeBack` is no longer an undo step (it goes straight through with `adoptServerData`), and main sets every approval's hold itself (`sendHoldMs` in `writeDraftState`), so a Redo or an Undo carrying an old time never sends at once (contract test added). |
-| A9 | – | next | One Electron smoke test `apps/desktop/e2e/reach-board.spec.ts` (example data: the Board lanes; open a Waiting card on its Emails tab; Send, the toast, Undo; Send again and the card leaves the lane). Run: `pnpm build`, then `cd apps/desktop && pnpm exec playwright test e2e/reach-board.spec.ts` (`unset ELECTRON_RUN_AS_NODE` first). |
-| A10 | H | after A9 | Look at Reach at 1440 px, dark (the lead's screenshot scripts: `docs/lead-scripts.md`), then a `router-reviewer` review of the diff (no send without approval; no body, address or secret in a log; the plan). Fix the findings. |
-
-## Known open points for 6a
-
-- Example creators (`c1`…) show the record summary in the peek, not `CreatorRecord`; the Emails section sits under the summary (A8 deviation 1). Check that it looks right.
-- The record page's Full page button doesn't carry the tab (the route has no tab slot).
-- "Send as new" asks with an inline Yes/Cancel (the app has no modal confirm).
-- The sub line says "N follow-ups to approve" (the prototype: "due today"); follow-ups arrive in 6c.
-- `counts.reach` comes from main's overlay: check the rail shows it after a `frame:changed {parts:["reach"]}`.
-- `comms/pool.py` keeps its own copy of the generic-error pattern (a hand-run tool).
-
-## Then
-
-The PR for 6a (its body lists what was checked and how), `pnpm verify --status` until green, fix the review findings, merge. Update the plan's §5 row 6 ("6a done …") in the same PR. Then plan 6b's tasks from D9 and D12 (the Mailboxes tab, Send later, Toolbox › Scheduled).
