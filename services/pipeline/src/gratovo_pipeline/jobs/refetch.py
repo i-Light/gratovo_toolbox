@@ -165,8 +165,9 @@ def _resolve(
         if resolved is None:
             return None
         channel_id, info = resolved
-        # A person naming this handle overrides the tombstone, as re-adding it by hand does.
-        store.unarchive(conn, channel_id)
+        # A person naming this handle overrides the tombstone, as re-adding it by hand does. The
+        # row comes back from it with the keywords that really found it (D44), not only ours.
+        store.restore_channel_locally(conn, channel_id)
         store.record_channel_discovery(conn, handle, channel_id, keyword)
         store.force_refetch_by_handle(conn, handle)
     else:

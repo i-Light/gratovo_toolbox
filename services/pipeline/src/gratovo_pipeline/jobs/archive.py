@@ -53,31 +53,29 @@ def _sweep(conn: sqlite3.Connection, channels: list[ArchiveChannel]) -> tuple[in
         for channel in channels:
             run_control.check_stop()
             channel_id = channel["channelId"]
-            if store.is_archived(conn, channel_id):
-                continue  # already rejected: keep its date and numbers
-            handle = channel["handle"]
-            if not handle:
-                row = store.get_channel_row(conn, channel_id)
-                handle = row["handle"] if row else None
-            store.archive_channel_locally(conn, channel_id, handle or "", REJECTED)
-            archived += 1
+            row = store.get_channel_row(conn, channel_id)
+            if row is None and store.is_archived(conn, channel_id):
+                continue  # already archived and nothing new to keep: its date and facts stay
+            handle = channel["handle"] or (row["handle"] if row else None)
+            # A channel row beside its tombstone is merged in (D43): nothing is lost either way.
+            if store.archive_channel_locally(conn, channel_id, handle or "", REJECTED):
+                archived += 1
     except KeyboardInterrupt:  # RunAborted too: a stop
         return archived, True
     return archived, False
 
 
 def _restore(conn: sqlite3.Connection, channel_ids: list[str]) -> tuple[list[ArchiveChannel], bool]:
+    """(the channels brought back with their handles, whether a stop cut it short)."""
     restored: list[ArchiveChannel] = []
     try:
         for channel_id in channel_ids:
             run_control.check_stop()
-            row = conn.execute(
-                "SELECT handle FROM channel_archive WHERE channel_id=?", (channel_id,)
-            ).fetchone()
-            if row is None:
+            # The row and its keywords come back from the tombstone (D44); unknown ids are skipped.
+            handle = store.restore_channel_locally(conn, channel_id)
+            if handle is None:
                 continue
-            store.unarchive(conn, channel_id)
-            restored.append({"channelId": channel_id, "handle": _sendable_handle(row["handle"])})
+            restored.append({"channelId": channel_id, "handle": _sendable_handle(handle)})
     except KeyboardInterrupt:
         return restored, True
     return restored, False

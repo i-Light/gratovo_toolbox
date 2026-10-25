@@ -399,6 +399,10 @@ def _import(
         for done, table in enumerate(COPIED, start=1):
             tables.append(_copy_table(conn, table, dry_run=dry_run, have_dst=have_dst))
             emitter.progress(table=table, done=done, total=len(COPIED))
+        if not dry_run:
+            # An old file can hold a channel and its own tombstone: the tombstone keeps the
+            # channel's facts and keywords too (plan D42). Nothing is deleted or announced.
+            store.fill_archive_from_channels(conn)
         outbox, activity = _unsent(conn)
         skipped = _skipped(conn)
     finally:

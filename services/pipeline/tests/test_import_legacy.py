@@ -3,6 +3,7 @@ that the old file is never touched. Over small old databases built in tmp_path."
 
 import hashlib
 import io
+import json
 import os
 import sqlite3
 from collections.abc import Callable
@@ -98,6 +99,35 @@ def test_dry_run_reports_and_writes_nothing(run: Run) -> None:
     assert not run.data_dir.exists()
     assert not run.backups.exists()
     assert fingerprint(run.source) == before
+
+
+def test_a_channel_beside_its_own_tombstone_gives_the_tombstone_its_facts(run: Run) -> None:
+    # The old app could leave a channel and its tombstone side by side; its tombstones kept no
+    # name and, from the 7-day sweep, no keywords (plan D42).
+    old = sqlite3.connect(run.source)
+    old.execute(
+        "INSERT INTO channel_archive (channel_id, handle, label, archived_at)"
+        " VALUES ('UCai0002', '@claudecodedaily', 'rejected', '2026-09-20T00:00:00Z')"
+    )
+    old.commit()
+    old.close()
+
+    run.go()
+
+    assert run.end()["state"] == "done"
+    conn = run.dest()
+    conn.row_factory = sqlite3.Row
+    row = conn.execute("SELECT * FROM channel_archive WHERE channel_id = 'UCai0002'").fetchone()
+    assert (row["label"], row["archived_at"]) == ("rejected", "2026-09-20T00:00:00Z")
+    assert (row["name"], row["subscribers"]) == ("Claude Code Daily", "54000")
+    assert [e["keyword"] for e in json.loads(row["found_via"])] == ["claude code tutorial"]
+    assert row["announced"] == 0, "nothing is announced"
+    assert row["source"] is None
+    # The import removes nothing, and an old tombstone with no channel keeps its blanks.
+    assert conn.execute("SELECT COUNT(*) FROM channels").fetchone()[0] == 2
+    bare = conn.execute("SELECT * FROM channel_archive WHERE channel_id = 'UCai0009'").fetchone()
+    assert (bare["handle"], bare["name"], bare["found_via"]) == ("@oldaichannel", None, None)
+    conn.close()
 
 
 def test_dry_run_counts_against_an_existing_store_without_touching_it(run: Run) -> None:

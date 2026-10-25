@@ -512,7 +512,7 @@ def test_a_check_reads_the_store_without_writing_or_upgrading_it(tmp_path: Path)
     finally:
         conn.close()
     assert db.read_bytes() == before, "a check never migrates the search job's file"
-    assert store.SCHEMA_VERSION == 3
+    assert store.SCHEMA_VERSION == 4
 
 
 def test_a_check_with_no_store_yet_creates_none(tmp_path: Path) -> None:
