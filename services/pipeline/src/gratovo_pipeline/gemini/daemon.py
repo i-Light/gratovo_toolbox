@@ -37,7 +37,7 @@ from collections.abc import Callable, MutableMapping
 from pathlib import Path
 from typing import Any, TextIO
 
-from . import __version__, actions
+from . import __version__, actions, pause
 from .browser import manager as browser_manager
 from .browser.manager import BrowserPaths
 from .client import Gemini
@@ -291,6 +291,28 @@ class Daemon:
         return details
 
     def dispatch(self, method: str, params: dict[str, Any]) -> Any:
+        if pause.sends_prompt(method):
+            return self.prompting(method, params)
+        return self.route(method, params)
+
+    def prompting(self, method: str, params: dict[str, Any]) -> Any:
+        """A method that sends a prompt, under the breaker (pause.py, plan D6a).
+
+        While it is open the method fails at once with `PAUSED`, before anything reaches the page.
+        A refusal or a page error the method raises is counted, unless the client already counted
+        it on the send it came from (the breaker's `recorded` moved).
+        """
+        breaker = self.gemini.breaker
+        breaker.check()
+        before = breaker.recorded
+        try:
+            return self.route(method, params)
+        except GeminiError as error:
+            if breaker.recorded == before:
+                breaker.note(error)
+            raise
+
+    def route(self, method: str, params: dict[str, Any]) -> Any:
         if method.startswith("bridge."):
             return self.bridge_method(method[len("bridge.") :], params)
         if method.startswith("action."):
@@ -389,6 +411,8 @@ class Daemon:
             "extensionConnected": g.connected,
             "hello": g.server.hello,
             "status": None,
+            # When the breaker's pause ends (ISO 8601 UTC), or None while prompts may go.
+            "pausedUntil": g.breaker.paused_until(),
         }
         if not g.connected:
             result["statusError"] = {

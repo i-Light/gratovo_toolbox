@@ -211,12 +211,17 @@ def test_a_garbage_reply_is_action_parse_failed(harness: Harness) -> None:
 
 
 @pytest.mark.usefixtures("skills")
-def test_a_refusal_is_retried_once_then_raised(harness: Harness) -> None:
+def test_a_refusal_is_raised_at_once_and_pauses_the_bridge(harness: Harness) -> None:
+    # The owner's rule (plan D6a): a refusal means pause, never send again at once.
     fake = harness.attach({"send": send_reply("I'm having a hard time fulfilling your request.")})
     with pytest.raises(GeminiError) as info:
         harness.gemini.generate_keywords("AI agents")
     assert info.value.code == "ACTION_REFUSED"
-    assert len(fake.calls("send")) == 2
+    assert len(fake.calls("send")) == 1
+    with pytest.raises(GeminiError) as paused:
+        harness.gemini.generate_keywords("AI agents")
+    assert paused.value.code == "PAUSED"
+    assert len(fake.calls("send")) == 1, "nothing reaches the page while paused"
 
 
 # --- dispatch --------------------------------------------------------------------------

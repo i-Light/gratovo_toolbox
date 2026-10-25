@@ -124,6 +124,16 @@ export {
 export type { ImportCandidates, ImportReport, ImportResult, PickedPath } from "./import";
 export { presenceMembersSchema, presenceScreens, presenceSetSchema } from "./presence";
 export type { PresenceScreen } from "./presence";
+export {
+  draftProposalSchema,
+  mailboxViewSchema,
+  outreachDraftSchema,
+  reachDataSchema,
+  replyReadingSchema,
+  sequenceSchema,
+  threadMessageSchema,
+  threadSummarySchema,
+} from "./reach";
 export { syncStatusSchema, syncStates } from "./sync";
 export {
   archivedChannelSchema,

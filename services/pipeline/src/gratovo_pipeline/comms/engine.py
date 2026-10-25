@@ -10,11 +10,16 @@ we hold, the agency's true claims, what the agency wants now. The engine
      deterministic, no Gemini call;
   2. otherwise asks Gemini through the `gratovo-comms` skill (picked from the @ list, chat mode) for
      the skill's JSON answer;
-  3. runs the deterministic checks (checks.py); blocking findings go back to Gemini in the same chat
-     for up to `repair_rounds` fixes;
+  3. runs the deterministic checks (checks.py); blocking findings go back to Gemini for up to
+     `repair_rounds` fixes;
   4. adds the gates a person must confirm (money, terms, claims, ethics) and returns a status:
      `ready` (approve and send), `needs_human` (a decision or fact is needed), `blocked` (checks
      still fail after repair: do not show as sendable), `no_message` (wait, close, schedule).
+
+Every turn is its own prompt in a fresh chat (the owner's rule, plan D6a: one prompt per fresh
+chat). A follow-up turn (the JSON alone, the format spelled out, the write pass, a repair) repeats
+the case prompt, then the previous answer, then what to do with it (`fresh_turn`). The bridge keeps
+60 s between prompts and opens the new chat itself (gemini/client.py).
 
 Nothing is ever sent from here: every outgoing message waits for a person (owner's decision,
 2026-10-14)."""
@@ -30,7 +35,13 @@ from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Protocol, cast
 
 from gratovo_pipeline.comms import checks, playbook
-from gratovo_pipeline.gemini.errors import GeminiError, GeminiPageError, ThinkingNotSet
+from gratovo_pipeline.gemini import pause
+from gratovo_pipeline.gemini.errors import (
+    ActionRefused,
+    GeminiError,
+    GeminiPageError,
+    ThinkingNotSet,
+)
 from gratovo_pipeline.gemini.json_reply import extract_json
 
 if TYPE_CHECKING:
@@ -530,6 +541,26 @@ def case_prompt(case: dict[str, Any], examples: str = "") -> str:
     )
 
 
+def fresh_turn(original: str, answer: str, instruction: str) -> str:
+    """A follow-up turn as a prompt of its own: the original prompt, the previous answer in a code
+    block, then the turn's instruction.
+
+    The turn goes to a fresh chat (plan D6a), which has seen neither the case nor the answer, so it
+    carries both. The fence is longer than any run of backticks in the answer, so an answer with its
+    own ```json block stays inside it.
+    """
+    longest = max((len(run) for run in re.findall(r"`+", answer)), default=0)
+    fence = "`" * max(3, longest + 1)
+    return (
+        f"{original}\n\nYour previous answer was:\n{fence}\n{answer.strip()}\n{fence}\n\n"
+        f"{instruction}"
+    )
+
+
+def _answer_json(data: dict[str, Any]) -> str:
+    return json.dumps(data, ensure_ascii=False, indent=1)
+
+
 def _parse(text: str) -> dict[str, Any] | None:
     data = extract_json(text or "", strict=False)
     if isinstance(data, dict) and "decision" in data:
@@ -548,7 +579,6 @@ def _ours(gemini: GeminiCaller, tab_id: int | None, ref: str) -> bool:
     return ref in " ".join(str(turns[users[-1]].get("text") or "").split())[-200:]
 
 
-GENERIC_ERROR = re.compile(r"something went wrong|an error occurred|حدث خطأ", re.I)
 EMPTY_ANSWER = re.compile(r"(skills?:\s*[\w ,-]*)?", re.I)
 
 
@@ -600,7 +630,13 @@ def _send(
     # error answer is raised for the pool (its throttle rule counts it); an empty first answer is
     # the send failing, so the prompt is sent again once in a fresh chat.
     answer = str(r.get("textRaw") or r.get("text") or "").strip()
-    if len(answer) < 300 and GENERIC_ERROR.search(answer):
+    if pause.is_refusal(answer):
+        # A refusal is not a page error: it pauses the bridge at once (the client counted it), and
+        # the case is not asked again in this proposal.
+        raise ActionRefused(
+            message="Gemini refused the prompt: " + answer[:200], details={"raw": answer}
+        )
+    if pause.is_generic_error(answer):
         raise GeminiPageError(message=answer)
     if new_chat and not _retried and EMPTY_ANSWER.fullmatch(answer):
         return _send(
@@ -668,10 +704,10 @@ def propose(
 ) -> dict[str, Any]:
     """`variant` (plan §7b, compared on the scenario suite): "base" one prompt; "examples" the same
     prompt with the example-bank entries closest to the case; "write" those examples plus a second
-    pass in the same chat that rewrites the message (decide, then write) with the reply type's key
-    rules in front of it; "auto" write for a first message, base otherwise. `coach_rounds` (plan §7b
-    step 4): up to that many coach reviews, each followed by one rewrite when the verdict is not
-    "good"."""
+    pass that rewrites the message (decide, then write) with the reply type's key rules in front of
+    it; "auto" write for a first message, base otherwise. Every pass is its own prompt in a fresh
+    chat (`fresh_turn`). `coach_rounds` (plan §7b step 4): up to that many coach reviews, each
+    followed by one rewrite when the verdict is not "good"."""
     if variant not in VARIANTS:
         raise ValueError(f"variant {variant!r} is not one of {VARIANTS}")
     refused = checks.policy_findings(case)
@@ -702,14 +738,15 @@ def propose(
         shown = example_bank.render(example_bank.for_case(case))
     rounds = 0
     level: dict[str, Any] = {}
+    original = case_prompt(case, shown if variant == "examples" else "")
 
     def ask(ref: str) -> dict[str, Any] | None:
-        """The case in a fresh chat, then (in that chat) the JSON alone, then the format spelled
-        out."""
+        """The case in a fresh chat, then the JSON alone, then the format spelled out: each in a
+        fresh chat of its own that is shown the case and the answer before it (`fresh_turn`)."""
         nonlocal rounds, level
         r = _send(
             gemini,
-            case_prompt(case, shown if variant == "examples" else ""),
+            original,
             new_chat=True,
             skill=skill,
             mode=mode,
@@ -726,10 +763,10 @@ def propose(
         if data is None:
             r = _send(
                 gemini,
-                JSON_ONLY,
-                new_chat=False,
-                skill=None,
-                mode="",
+                fresh_turn(original, text, JSON_ONLY),
+                new_chat=True,
+                skill=skill,
+                mode=mode,
                 tab_id=tab_id,
                 timeout_s=timeout_s,
                 thinking=thinking,
@@ -742,10 +779,10 @@ def propose(
         if data is not None and shape_problems(data):
             r = _send(
                 gemini,
-                FORMAT.format(problems="; ".join(shape_problems(data))),
-                new_chat=False,
-                skill=None,
-                mode="",
+                fresh_turn(original, text, FORMAT.format(problems="; ".join(shape_problems(data)))),
+                new_chat=True,
+                skill=skill,
+                mode=mode,
                 tab_id=tab_id,
                 timeout_s=timeout_s,
                 thinking=thinking,
@@ -783,15 +820,19 @@ def propose(
         target, theirs = target_words(case)
         r = _send(
             gemini,
-            WRITE.format(
-                target=target,
-                theirs=theirs,
-                keys=key_rules_text(_as_dict(data["situation"]).get("reply_type")),
-                examples=("\n" + EXAMPLES.format(examples=shown).rstrip()) if shown else "",
+            fresh_turn(
+                original,
+                _answer_json(data),
+                WRITE.format(
+                    target=target,
+                    theirs=theirs,
+                    keys=key_rules_text(_as_dict(data["situation"]).get("reply_type")),
+                    examples=("\n" + EXAMPLES.format(examples=shown).rstrip()) if shown else "",
+                ),
             ),
-            new_chat=False,
-            skill=None,
-            mode="",
+            new_chat=True,
+            skill=skill,
+            mode=mode,
             tab_id=tab_id,
             timeout_s=timeout_s,
             thinking=thinking,
@@ -806,16 +847,21 @@ def propose(
             data = written
 
     def repair(data: dict[str, Any]) -> tuple[dict[str, Any], list[checks.Finding], int]:
-        """Blocking findings go back to Gemini in the current chat, up to `repair_rounds` times."""
+        """Blocking findings go back to Gemini, each time in a fresh chat shown the case and the
+        answer being repaired, up to `repair_rounds` times."""
         nonlocal rounds
         findings, used = checks.check(case, data), 0
         while checks.blocking(findings) and used < repair_rounds:
             r = _send(
                 gemini,
-                REPAIR.format(findings=checks.describe(checks.blocking(findings))),
-                new_chat=False,
-                skill=None,
-                mode="",
+                fresh_turn(
+                    original,
+                    _answer_json(data),
+                    REPAIR.format(findings=checks.describe(checks.blocking(findings))),
+                ),
+                new_chat=True,
+                skill=skill,
+                mode=mode,
                 tab_id=tab_id,
                 timeout_s=timeout_s,
                 thinking=thinking,
@@ -870,7 +916,7 @@ def propose(
         )
         r = _send(
             gemini,
-            case_prompt(case, shown if variant == "examples" else "")
+            original
             + "\n\n"
             + REVISE.format(
                 verdict=review.get("verdict"),

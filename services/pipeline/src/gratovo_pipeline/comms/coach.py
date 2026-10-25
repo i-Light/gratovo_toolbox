@@ -128,13 +128,14 @@ def review(
     thinking: str = "high",
     version: int = 1,
 ) -> dict[str, Any]:
-    """One review in a fresh chat; asked once more for the JSON when the answer has none. Like the
-    engine's, every prompt carries a ref and an answer under another prompt is refused
-    (engine._ours)."""
+    """One review in a fresh chat; asked once more for the JSON, in another fresh chat shown the
+    review asked for and the answer, when the answer has none. Like the engine's, every prompt
+    carries a ref and an answer under another prompt is refused (engine._ours)."""
     ref = uuid.uuid4().hex[:10]
+    asked = prompt(side, stage, situation, draft, version)
     r = engine._send(  # pyright: ignore[reportPrivateUsage]
         gemini,
-        prompt(side, stage, situation, draft, version),
+        asked,
         new_chat=True,
         skill=skill,
         mode=mode,
@@ -146,13 +147,19 @@ def review(
     raw = [_text(r)]
     data = parse(raw[0])
     if data is None:
+        # A prompt of its own in a fresh chat (one prompt per fresh chat, plan D6a): the review
+        # asked for, the answer that had no verdict, then the ask.
         r = engine._send(  # pyright: ignore[reportPrivateUsage]
             gemini,
-            "Answer again with ONLY the coach-review JSON (verdict, points, summary), in one code "
-            "block.",
-            new_chat=False,
-            skill=None,
-            mode="",
+            engine.fresh_turn(
+                asked,
+                raw[0],
+                "Answer again with ONLY the coach-review JSON (verdict, points, summary), in one "
+                "code block.",
+            ),
+            new_chat=True,
+            skill=skill,
+            mode=mode,
             tab_id=tab_id,
             timeout_s=timeout_s,
             thinking=thinking,

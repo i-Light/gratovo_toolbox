@@ -50,6 +50,24 @@ def test_a_comparison_is_one_fresh_chat_with_both_drafts_and_parses() -> None:
     assert pairwise.parse('{"better": "maybe"}') is None
 
 
+def test_an_answer_without_a_choice_is_asked_again_in_a_fresh_chat_with_the_answer() -> None:
+    # One prompt per fresh chat (plan D6a): the re-ask repeats the comparison and shows the answer.
+    g = FakeGemini(
+        "Both are fine, honestly.",
+        '```json\n{"better": "A", "why": "A is shorter", "rules": []}\n```',
+    )
+    r = pairwise.choose(g, "influencer", "replies", "They asked which brands.", "One", "Two")
+    assert r["pair"]["better"] == "A"
+    assert len(g.sent) == 2
+    again = g.sent[1]
+    assert again["newChat"] is True
+    assert again["skills"] == ["gratovo-comms"]
+    assert again["text"].startswith(
+        pairwise.prompt("influencer", "replies", "They asked which brands.", "One", "Two")
+    )
+    assert "Your previous answer was:\n```\nBoth are fine, honestly.\n```" in again["text"]
+
+
 def test_the_coachs_rewrite_is_a_or_b_by_the_items_hash_and_is_what_should_win() -> None:
     it = {"student_email": "student", "rewrite": "coach"}
     orders = {
