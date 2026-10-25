@@ -451,6 +451,24 @@ button.rc-cap:hover {
 }
 
 /* Reach › Replies (prototype reach.js .rc-in): the list on the left, the reply open on the right. */
+/* A row's name comes first: the reading's tag gives way, not the name. */
+.rp-who {
+  min-width: 0;
+  flex-wrap: nowrap;
+}
+.rp-who > b {
+  flex: 0 0 auto;
+  max-width: 65%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rp-who > .tag {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
 .rp-split {
   display: grid;
   grid-template-columns: minmax(280px, 380px) minmax(0, 1fr);

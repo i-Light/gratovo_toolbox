@@ -61,7 +61,7 @@ function ReplyRow({
     >
       <Avatar name={creator.name} color={avatarColor(creator.handle)} size="s" decorative />
       <span className="lt">
-        <span className="row" style={{ gap: "6px" }}>
+        <span className="row rp-who" style={{ gap: "6px" }}>
           <b>{creator.name}</b>
           <Tag {...toneOf(replyTone(reading?.replyType ?? null, bounced))}>{tag}</Tag>
         </span>
