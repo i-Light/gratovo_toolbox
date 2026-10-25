@@ -48,7 +48,12 @@ from gratovo_pipeline.scrapetube import scrapetube
 from gratovo_pipeline.scrapetube.proxy_pool import ProxyPool
 from gratovo_pipeline.search import backfill as backlog_step
 from gratovo_pipeline.search import signals
-from gratovo_pipeline.search.context import Search, SearchBlockedError, Source
+from gratovo_pipeline.search.context import (
+    ChannelUnreadableError,
+    Search,
+    SearchBlockedError,
+    Source,
+)
 from gratovo_pipeline.search.discover import LiveSource
 from gratovo_pipeline.search.pacing import Pacer
 from gratovo_pipeline.youtube import BATCH_SIZE, YouTubeApi, YouTubeError
@@ -306,7 +311,10 @@ def _backfill(work: _Work) -> None:
             known = store.get_existing_video_ids(work.conn, channel_id)
             # A block raises SearchBlockedError, which ends the job: another channel would only
             # be another request to an address YouTube has stopped answering.
-            scraped = sweep.recent_video_ids(handle, limit=wanted)
+            try:
+                scraped = sweep.recent_video_ids(handle, limit=wanted)
+            except ChannelUnreadableError:
+                continue  # nothing is stamped here, so the next backfill asks again
             fresh = [v for v in dict.fromkeys(scraped) if v not in known and v not in owner]
             if fresh:
                 result["channels"] += 1

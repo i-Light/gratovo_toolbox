@@ -160,6 +160,7 @@ def _version_3_file(path: Path) -> None:
     conn = store.get_connection(path)
     store.init_db(conn)
     conn.execute("ALTER TABLE channels DROP COLUMN videos_known")
+    conn.execute("ALTER TABLE channels DROP COLUMN unreadable_until")
     conn.execute(
         "INSERT INTO channels (channel_id, handle, first_seen_at) VALUES ('UC_a', '@aitools', 'T')"
     )
@@ -207,6 +208,7 @@ def test_a_version_3_file_gains_the_tombstone_facts_and_loses_nothing(tmp_path: 
         assert all(new[name] is None for name, _ in store.ARCHIVE_FACTS), "unknown, not zero"
     row = conn.execute("SELECT handle, videos_known FROM channels").fetchone()
     assert (row["handle"], row["videos_known"]) == ("@aitools", None)
+    assert conn.execute("SELECT unreadable_until FROM channels").fetchone()[0] is None
     conn.close()
 
 

@@ -11,7 +11,7 @@ from gratovo_pipeline.config import Config
 from gratovo_pipeline.protocol import LogLevel
 from gratovo_pipeline.scrapetube import scrapetube
 from gratovo_pipeline.search import discover
-from gratovo_pipeline.search.context import SearchBlockedError
+from gratovo_pipeline.search.context import ChannelUnreadableError, SearchBlockedError
 from gratovo_pipeline.search.pacing import Pacer
 from gratovo_pipeline.youtube import YouTubeApi
 
@@ -221,7 +221,7 @@ def test_a_sweep_can_be_asked_for_more_than_the_search_window(
     assert limits == [15, 120]  # a search never passes one
 
 
-def test_a_sweep_read_that_fails_is_an_empty_list_unless_blocked(
+def test_a_sweep_read_that_fails_is_unreadable_not_empty_and_a_block_stops(
     monkeypatch: pytest.MonkeyPatch, rec: Recorder
 ) -> None:
     monkeypatch.setattr(scrapetube, "get_session", FakeSession)
@@ -230,7 +230,9 @@ def test_a_sweep_read_that_fails_is_an_empty_list_unless_blocked(
         raise ValueError("bad page")
 
     monkeypatch.setattr(scrapetube, "get_channel", broken)
-    assert live(rec).sweep().recent_video_ids("@ai-tools-weekly") == []
+    # Not an empty list: that would stamp the channel as read with no uploads, for good.
+    with pytest.raises(ChannelUnreadableError):
+        live(rec).sweep().recent_video_ids("@ai-tools-weekly")
     assert rec.lines == [("warn", "Couldn't read @ai-tools-weekly's uploads (ValueError).")]
 
     def blocked(**_kwargs: Any) -> Iterator[dict[str, Any]]:

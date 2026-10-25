@@ -15,7 +15,7 @@ Started 2026-10-24. The plan is `.router/PLAN.md` (decisions D1 to D18, contract
 | id | tier | state | note |
 |---|---|---|---|
 | A1 | H | done | schema 4 (tombstone facts + `channels.videos_known`), one tombstone builder with merge, `restore_channel_locally`, refetch and import use it; old-app failure modes as tests (no keywords, INSERT OR REPLACE blanking, unarchive losing keywords, 0 for unknown, half-written tombstone). Newer known fact wins on merge |
-| A2 | N | running | |
+| A2 | N | done | a failed upload read was stamped "zero uploads" and dropped for good: now `ChannelUnreadableError`, the channel stays a candidate and steps aside 1 day (`channels.unreadable_until`, schema 4); oldest-first starvation fixed by that back-off; delayed, restored and zero-upload channels proven. Open for the owner: the backlog doesn't apply the median and uploads bounds after reading a deferred channel (old behaviour too) |
 | A3 | N | done | `ArchivedChannel` facts, `CatalogItem.uploadsRead`, `refetchKeyword` in protocol.ts, readers tolerate schema 3 and skip the refetch keyword (catalog, results, toolbox). `results.ts` skip untested |
 | A4 | N | todo | |
 | R5 | H | todo | |

@@ -68,6 +68,8 @@ CREATE TABLE IF NOT EXISTS channels (
     -- Version 4: how many videos we had when it came back from a tombstone (its rows were
     -- deleted when it was archived). NULL otherwise. See measure_archive_numbers.
     videos_known INTEGER,
+    -- Version 4: a failed read of its uploads steps the channel out of the backlog until then.
+    unreadable_until TEXT,
     -- R2 bookkeeping; each stamp equals a `videos_fetched_at`:
     --   blob_uploaded_at        the version THIS machine last uploaded
     --   blob_version            the newest version the catalog says exists
@@ -233,6 +235,8 @@ def _add_archive_facts(conn: sqlite3.Connection) -> None:
     columns = {row[1] for row in conn.execute("PRAGMA table_info(channels)").fetchall()}
     if "videos_known" not in columns:
         conn.execute("ALTER TABLE channels ADD COLUMN videos_known INTEGER")
+    if "unreadable_until" not in columns:
+        conn.execute("ALTER TABLE channels ADD COLUMN unreadable_until TEXT")
 
 
 # What each version adds to the one before it, run in order on a file older than it. Version 1 is
@@ -254,6 +258,8 @@ BOOTSTRAP_CURSOR: Final = "__r2_bootstrapped"  # set once this store's first sha
 
 # How long a channel a teammate read stays out of the backlog while its object hasn't arrived.
 AWAITING_PEER_DAYS: Final = 30
+# How long a channel whose uploads failed to read steps aside before the backlog tries again.
+READ_RETRY_DAYS: Final = 1
 ROLLUP_WINDOW_DAYS: Final = 30
 BLOB_SCHEMA: Final = 1
 
@@ -600,6 +606,10 @@ def all_channel_ids(conn: sqlite3.Connection) -> list[str]:
 # --- the video backlog ---
 
 
+def _iso(now: float | None = None) -> str:
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now if now is not None else time.time()))
+
+
 def _awaiting_peer_cutoff(now: float | None = None) -> str:
     stamp = now if now is not None else time.time()
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(stamp - AWAITING_PEER_DAYS * 86400))
@@ -607,14 +617,16 @@ def _awaiting_peer_cutoff(now: float | None = None) -> str:
 
 def _video_backlog_where(country: str | None, now: float | None = None) -> tuple[str, list[Any]]:
     """The predicate the backlog query and its count share, so the number a run reports and the
-    slice it works never answer different questions. A channel waiting for a teammate's object
-    is left out until AWAITING_PEER_DAYS pass."""
+    slice it works never answer different questions. A channel waiting for a teammate's object,
+    or backed off after a failed read (`defer_unreadable_channel`), is left out until its wait
+    passes."""
     where = (
-        "((videos_fetched_at IS NULL "
-        "  AND (awaiting_peer_since IS NULL OR awaiting_peer_since < ?)) "
-        " OR force_refetch = 1)"
+        "(((videos_fetched_at IS NULL "
+        "   AND (awaiting_peer_since IS NULL OR awaiting_peer_since < ?)) "
+        "  OR force_refetch = 1) "
+        " AND (unreadable_until IS NULL OR unreadable_until < ?))"
     )
-    params: list[Any] = [_awaiting_peer_cutoff(now)]
+    params: list[Any] = [_awaiting_peer_cutoff(now), _iso(now)]
     if country:
         where += " AND country = ?"
         params.append(country)
@@ -630,12 +642,24 @@ def count_channels_awaiting_peers(conn: sqlite3.Connection, now: float | None = 
     return int(row["n"])
 
 
+def defer_unreadable_channel(conn: sqlite3.Connection, channel_id: str) -> None:
+    """A channel whose uploads could not be read stays unstamped and in the backlog, but steps
+    aside for READ_RETRY_DAYS (`unreadable_until`), so a channel that always fails can't fill
+    every slice and starve the ones behind it. A successful read clears it."""
+    until = _iso(time.time() + READ_RETRY_DAYS * 86400)
+    conn.execute("UPDATE channels SET unreadable_until=? WHERE channel_id=?", (until, channel_id))
+    conn.commit()
+
+
 def get_video_backfill_candidates(
-    conn: sqlite3.Connection, limit: int, country: str | None = None
+    conn: sqlite3.Connection,
+    limit: int,
+    country: str | None = None,
+    now: float | None = None,
 ) -> Discovered:
     """Channels anywhere in the store still missing their recent uploads, oldest first, so a
     channel whose turn never came (a crash, a block, a short run) gets one."""
-    where, params = _video_backlog_where(country)
+    where, params = _video_backlog_where(country, now=now)
     params.append(limit)
     rows = conn.execute(
         f"SELECT channel_id, handle FROM channels WHERE {where} ORDER BY first_seen_at ASC LIMIT ?",
@@ -659,8 +683,8 @@ def mark_channels_videos_fetched(conn: sqlite3.Connection, channel_ids: Iterable
     if not ids:
         return
     conn.execute(
-        "UPDATE channels SET videos_fetched_at=?, force_refetch=0, awaiting_peer_since=NULL "
-        f"WHERE channel_id IN ({_placeholders(ids)})",
+        "UPDATE channels SET videos_fetched_at=?, force_refetch=0, awaiting_peer_since=NULL, "
+        f"unreadable_until=NULL WHERE channel_id IN ({_placeholders(ids)})",
         [utc_now(), *ids],
     )
     compute_channel_rollups(conn, ids)
