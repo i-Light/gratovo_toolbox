@@ -7,6 +7,7 @@ Tuesday, while the person was still away. FND-WRITE-05: they get their first wor
 follow-up comes after it."""
 
 import inspect
+import json
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -152,8 +153,13 @@ def test_an_answer_in_another_shape_is_asked_again_with_the_format_spelled_out()
     assert result["status"] == "ready"
     assert result["proposal"]["message"]["body"].startswith("Hi Sam")
     assert len(g.sent) == 2
-    assert "not in the required format" in g.sent[1]["text"]
-    assert g.sent[1]["newChat"] is False
+    format_turn = g.sent[1]
+    assert "not in the required format" in format_turn["text"]
+    # One prompt per fresh chat (plan D6a): the turn repeats the case and shows the answer before.
+    assert format_turn["newChat"] is True
+    assert format_turn["skills"] == [engine.SKILL]
+    assert format_turn["text"].startswith(engine.case_prompt(REPLY_CASE))
+    assert "Your previous answer was:\n````\n" + OTHER_SHAPE + "\n````" in format_turn["text"]
 
 
 def test_an_answer_that_stays_in_another_shape_is_blocked_not_silently_empty() -> None:
@@ -162,12 +168,10 @@ def test_an_answer_that_stays_in_another_shape_is_blocked_not_silently_empty() -
     assert result["status"] == "blocked"
     assert result["findings"][0]["code"] == "UNPARSED"
     assert "decision" in result["findings"][0]["detail"]
-    assert [s["newChat"] for s in g.sent] == [
-        True,
-        False,
-        True,
-        False,
-    ]  # the case asked again in a fresh chat
+    # every turn in a fresh chat (plan D6a); the second round is a new case ref
+    assert [s["newChat"] for s in g.sent] == [True, True, True, True]
+    refs = [s["text"].rsplit("(case ref ", 1)[1] for s in g.sent]
+    assert refs[0] == refs[1] != refs[2] == refs[3]
 
 
 def test_a_chat_stuck_in_another_shape_gets_the_case_once_more_in_a_fresh_chat() -> None:
@@ -192,7 +196,7 @@ def test_shape_problems_names_what_is_wrong() -> None:
     assert any("not one of" in p for p in problems)
 
 
-def test_the_write_variant_rewrites_the_message_in_the_same_chat_and_keeps_the_action() -> None:
+def test_the_write_variant_rewrites_the_message_in_a_fresh_chat_and_keeps_the_action() -> None:
     rewritten = (
         GOOD.replace(
             "What do you usually charge for a sponsored segment?", "What's your rate for a segment?"
@@ -210,8 +214,15 @@ def test_the_write_variant_rewrites_the_message_in_the_same_chat_and_keeps_the_a
     assert result["first_draft"]["body"].endswith("Adam")
     assert result["variant"] == "write"
     assert len(g.sent) == 2
-    assert g.sent[1]["newChat"] is False
-    assert "About" in g.sent[1]["text"]
+    write_turn = g.sent[1]
+    assert write_turn["newChat"] is True
+    assert "About" in write_turn["text"]
+    # The fresh chat is shown the case and the first pass's answer before the instruction.
+    assert write_turn["text"].startswith(engine.case_prompt(REPLY_CASE))
+    after = write_turn["text"].split("Your previous answer was:\n```\n", 1)[1]
+    shown, instruction = after.split("\n```\n", 1)
+    assert "usually charge" in json.loads(shown)["message"]["body"]
+    assert instruction.lstrip().startswith("Now write the message")
 
 
 def test_auto_writes_a_first_message_twice_and_answers_a_reply_in_one_pass() -> None:
@@ -224,7 +235,7 @@ def test_auto_writes_a_first_message_twice_and_answers_a_reply_in_one_pass() -> 
     )  # spares: a reply-shaped answer to a first message is repaired
     first = engine.propose(g, dict(REPLY_CASE, thread=[]), variant="auto")
     assert first["variant"] == "write"
-    assert g.sent[1]["newChat"] is False
+    assert g.sent[1]["newChat"] is True
     assert "About" in g.sent[1]["text"]
     g = FakeGemini(GOOD)
     reply = engine.propose(g, REPLY_CASE, variant="auto")
@@ -521,7 +532,41 @@ def test_a_draft_copying_a_lesson_is_sent_back_to_be_repaired() -> None:
     )
     g = FakeGemini(copied, GOOD)
     result = engine.propose(g, REPLY_CASE)
-    assert "FND-WRITE-15" in g.sent[1]["text"]
-    assert "COPY_COURSE" in g.sent[1]["text"]
+    repair = g.sent[1]
+    assert "FND-WRITE-15" in repair["text"]
+    assert "COPY_COURSE" in repair["text"]
+    # The repair is a prompt of its own in a fresh chat: the case, the answer it fixes, the fix.
+    assert repair["newChat"] is True
+    assert repair["skills"] == [engine.SKILL]
+    assert repair["text"].startswith(engine.case_prompt(REPLY_CASE))
+    shown = repair["text"].split("Your previous answer was:\n```\n", 1)[1].split("\n```\n", 1)[0]
+    assert "A real person watched the whole video" in json.loads(shown)["message"]["body"]
     assert result["status"] == "ready"
     assert result["repairs"] == 1
+
+
+def test_a_fresh_turn_carries_the_prompt_the_answer_and_the_instruction_in_that_order() -> None:
+    turn = engine.fresh_turn("CASE PROMPT", "plain answer", "Do this now.")
+    assert turn == (
+        "CASE PROMPT\n\nYour previous answer was:\n```\nplain answer\n```\n\nDo this now."
+    )
+    # An answer with its own fence is shown inside a longer one, so it can't end the block.
+    fenced = engine.fresh_turn("P", "```json\n{}\n```", "Again.")
+    assert "\n````\n```json\n{}\n```\n````\n" in fenced
+
+
+def test_no_turn_of_a_proposal_goes_in_the_same_chat() -> None:
+    # plan D6a: the JSON-only, format, write and repair turns are each a fresh chat with the case
+    rewritten = GOOD.replace(
+        "What do you usually charge for a sponsored segment?", "What's your rate for a segment?"
+    )
+    g = FakeGemini("no json here at all", OTHER_SHAPE, GOOD, rewritten, rewritten, rewritten)
+    engine.propose(g, dict(REPLY_CASE, thread=[]), variant="write")
+    assert len(g.sent) >= 3
+    assert all(s["newChat"] is True for s in g.sent)
+    assert all(s["skills"] == [engine.SKILL] for s in g.sent)
+    original = engine.case_prompt(dict(REPLY_CASE, thread=[]))
+    assert all(s["text"].startswith(original) for s in g.sent)
+    assert ["Your previous answer was:" in s["text"] for s in g.sent[:3]] == [False, True, True]
+    assert "no json here at all" in g.sent[1]["text"]
+    assert "ONLY the JSON object" in g.sent[1]["text"]

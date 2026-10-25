@@ -15,7 +15,7 @@ import {
   startRoute,
 } from "./wired";
 
-const hidden: readonly ScreenKey[] = ["today", "reach", "close", "deliver", "insights", "team"];
+const hidden: readonly ScreenKey[] = ["today", "close", "deliver", "insights", "team"];
 
 describe("on example data", () => {
   it("shows every screen, tab and section", () => {
@@ -39,12 +39,12 @@ describe("on example data", () => {
 });
 
 describe("on live data", () => {
-  it("shows only Find, Toolbox, Settings and the record page", () => {
+  it("shows only Find, Reach, Toolbox, Settings and the record page", () => {
     for (const key of hidden) {
       expect(isScreenShown(key, "live")).toBe(false);
       expect(isTabShown(key, null, "live")).toBe(false);
     }
-    for (const key of ["find", "toolbox", "settings", "record"] as const) {
+    for (const key of ["find", "reach", "toolbox", "settings", "record"] as const) {
       expect(isScreenShown(key, "live")).toBe(true);
     }
   });
@@ -64,7 +64,10 @@ describe("on live data", () => {
     expect(isTabShown("find", "search", "live")).toBe(true);
     expect(isTabShown("find", null, "live")).toBe(true);
     expect(firstShownTab("find", "live")).toBe("search");
-    expect(firstShownTab("reach", "live")).toBeNull();
+    expect(shownTabs("reach", "live").map((t) => t.key)).toEqual(["board"]);
+    expect(firstShownTab("reach", "live")).toBe("board");
+    expect(isTabShown("reach", "mailboxes", "live")).toBe(false);
+    expect(firstShownTab("close", "live")).toBeNull();
     expect(shownTabs("settings", "live").map((t) => t.key)).toEqual(liveWired.settings);
   });
 
@@ -89,7 +92,11 @@ describe("on live data", () => {
       tab: "connections",
     });
     expect(startRoute("", "live", "unknown")).toEqual({ screen: "find", tab: "search" });
-    expect(startRoute("#/reach", "live", "unknown")).toEqual({ screen: "find", tab: "search" });
+    expect(startRoute("#/close", "live", "unknown")).toEqual({ screen: "find", tab: "search" });
+    expect(startRoute("#/reach/board", "live", "unknown")).toEqual({
+      screen: "reach",
+      tab: "board",
+    });
     expect(startRoute("#/settings/day", "live", "unknown")).toEqual({
       screen: "find",
       tab: "search",

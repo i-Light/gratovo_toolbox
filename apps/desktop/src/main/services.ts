@@ -1,4 +1,6 @@
+import type { DataWrite, Frame, RewriteHow } from "@gratovo/core/data";
 import type {
+  ChannelResponse,
   ConnectionsChange,
   ConnectionsSetResult,
   ConnectionsStatus,
@@ -69,6 +71,21 @@ export interface MailConsentService {
   connect(): Promise<MailConnectResult>;
 }
 
+/** Reach's drafts, sends and mailboxes (plan step 6). Owned by `main/reach/reach-service.ts`. */
+export interface ReachService {
+  thread(creatorId: string): Promise<ChannelResponse<"reach:thread">>;
+  draftNow(creatorId: string): Promise<ChannelResponse<"reach:draft-now">>;
+  rewrite(draftId: string, how: RewriteHow): Promise<ChannelResponse<"reach:rewrite">>;
+  retry(draftId: string): Promise<ChannelResponse<"reach:retry">>;
+  markSent(draftId: string): Promise<ChannelResponse<"reach:mark-sent">>;
+  sendNew(draftId: string): Promise<ChannelResponse<"reach:send-new">>;
+  refreshMailboxes(): Promise<ChannelResponse<"reach:mailboxes-refresh">>;
+  /** The frame with the runtime parts of `reach` and the rail count filled in. */
+  overlay(frame: Frame): Frame;
+  /** Called after a `data:write` batch has been stored. */
+  afterWrite(writes: readonly DataWrite[]): void;
+}
+
 /** The step 4 services, as `HandlerContext` holds them. */
 export interface HandlerServices {
   importer: ImporterService;
@@ -76,4 +93,5 @@ export interface HandlerServices {
   gemini: GeminiControl;
   writingRules: WritingRulesService;
   mailConsent: MailConsentService;
+  reach: ReachService;
 }

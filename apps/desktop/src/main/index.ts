@@ -22,6 +22,8 @@ import {
   geminiLaunchOptions,
 } from "./gemini/gemini-control";
 import { createImporter, storeOutcomeOf } from "./import/import-service";
+import { readMailSecrets } from "./pipeline/pipeline-secrets";
+import { createReachService, type ReachServiceHandle } from "./reach/reach-service";
 import { registerBridge } from "./ipc-bridge";
 import { createMailConsent, type MailClient } from "./mail/consent";
 import { createNetwork } from "./net/network";
@@ -140,6 +142,8 @@ function start(): void {
 
   // Set once the Gemini control exists: every switch of data source stops the bridge (plan D12).
   let onSourceChanged: () => void = () => undefined;
+  // Set once Reach exists (it needs the Gemini control and the connections, made after the account).
+  let reachService: ReachServiceHandle | null = null;
 
   app
     .whenReady()
@@ -268,10 +272,19 @@ function start(): void {
         pythonPath: python,
         emit: (status) => {
           emit("gemini:state", status);
+          // The bridge turning ready makes the drafter look again; a pause ending too.
+          reachService?.geminiChanged();
         },
       });
       onSourceChanged = () => {
         invalidateCatalog();
+        // No Reach queue or timer survives a switch; the new source (if any) starts its own.
+        reachService?.closed();
+        if (account.source() !== null) {
+          reachService?.opened().catch((error: unknown) => {
+            console.error("Reach couldn't start after a data switch:", error);
+          });
+        }
         geminiControl.sourceChanged().catch((error: unknown) => {
           console.error("The Gemini bridge couldn't be stopped after a data switch:", error);
         });
@@ -444,6 +457,32 @@ function start(): void {
         },
         now: Date.now,
       });
+      // Reach (plan step 6): the drafter, the sender and the mailboxes over one quick-lane queue.
+      // Nothing here starts the bridge or sends without a person's approval.
+      const reach = createReachService({
+        mode: () => account.findContext()?.mode ?? null,
+        source: () => account.source(),
+        gemini: { status: () => geminiControl.status(), call: (m, p, o) => gemini.call(m, p, o) },
+        jobs: { jobContext: liveJobContext, secrets },
+        runQuickJob: (start) => runJob(quickLane, start),
+        connected: async () =>
+          (await readMailSecrets(secrets))?.mailboxes.map((m) => m.address) ?? [],
+        emit: () => {
+          emit("frame:changed", { parts: ["reach"] });
+        },
+      });
+      reachService = reach;
+      // Settings saved for the mail (sender name, mailboxes) change what Reach may do.
+      const connectionsForPage: typeof connections = {
+        ...connections,
+        async set(change) {
+          const result = await connections.set(change);
+          if (result.ok && change.kind.startsWith("mail")) {
+            reach.mailSettingsChanged();
+          }
+          return result;
+        },
+      };
       const writingRules = createWritingRulesService({
         rulesDir: playbookRulesDir({
           packaged: app.isPackaged,
@@ -461,6 +500,9 @@ function start(): void {
         canAddMailbox: async () => (await connections.mailboxCount()) < maxMailboxes,
         saveMailbox: async (address, token) => {
           const saved = await connections.addMailbox(address, token);
+          if (saved.ok) {
+            reach.mailSettingsChanged();
+          }
           return saved.ok ? saved : { ok: false, reason: saved.reason, known: saved.known };
         },
         // Step names and reasons only; the consent code never logs a secret.
@@ -490,6 +532,7 @@ function start(): void {
       });
       app.on("will-quit", () => {
         geminiControl.dispose();
+        reach.dispose();
         emailFinder.dispose();
         archive.dispose();
         catalog.close();
@@ -514,12 +557,19 @@ function start(): void {
           },
           archive,
           importer,
-          connections,
+          connections: connectionsForPage,
           gemini: geminiControl,
           writingRules,
           mailConsent,
+          reach,
         }),
       );
+      // Data that was open at start: mailboxes first, then the senders' timers and the drafter.
+      if (account.source() !== null) {
+        reach.opened().catch((error: unknown) => {
+          console.error("Reach couldn't start:", error);
+        });
+      }
       // The app draws its whole frame. Electron's default menu (File, Edit, View…) would sit above
       // it on Windows and bring shortcuts the app doesn't want, such as reload and zoom. Copy,
       // paste and undo in text fields work without it on Windows.

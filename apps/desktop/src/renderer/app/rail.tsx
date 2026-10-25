@@ -140,7 +140,12 @@ export const Rail = memo(function Rail() {
         undefined,
         source === "live" ? strings.screens.find.subLive : undefined,
       )}
-      {nav("reach", counts.reach)}
+      {nav(
+        "reach",
+        counts.reach,
+        undefined,
+        source === "live" ? strings.screens.reach.subLive : undefined,
+      )}
       {nav("close", counts.close)}
       {nav("deliver", counts.deliver)}
       {(["insights", "toolbox", "team"] as const).some(shown) ? (

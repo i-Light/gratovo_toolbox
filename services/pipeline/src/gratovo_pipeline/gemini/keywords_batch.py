@@ -43,8 +43,18 @@ if TYPE_CHECKING:  # pragma: no cover - typing only, avoids a circular import
 MAX_CHATS = 8
 #: Extra attempts for a chat that failed for a reason a fresh chat can fix.
 CHAT_RETRIES = 1
-#: A retry cannot fix these: nothing is listening, or the account is signed out.
-FATAL_CODES = frozenset({"EXTENSION_NOT_CONNECTED", "SIGNED_OUT", "NO_TAB", "BAD_PARAMS"})
+#: A retry cannot fix these: nothing is listening, the account is signed out, or Gemini refused
+#: and the bridge is paused (pause.py: the owner's rule is to wait, not to send again).
+FATAL_CODES = frozenset(
+    {
+        "EXTENSION_NOT_CONNECTED",
+        "SIGNED_OUT",
+        "NO_TAB",
+        "BAD_PARAMS",
+        "ACTION_REFUSED",
+        "PAUSED",
+    }
+)
 
 #: Topic-agnostic lenses, after the `youtube-ai-keywords` rules (sub-topic +
 #: phrasing style + one specific angle). Rotated across the chats of a batch.

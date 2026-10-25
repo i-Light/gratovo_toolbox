@@ -3,6 +3,7 @@ import type { CSSProperties } from "react";
 
 import type { RecordRef } from "../lib/routes";
 import { dealName, findRecord, useApp } from "../lib/store";
+import { CreatorEmails } from "../record/creator-emails";
 import { CreatorRecord } from "../record/creator-record";
 import { isChannelId } from "../record/detail";
 import { strings } from "../strings";
@@ -23,7 +24,14 @@ const tileStyle: CSSProperties = {
  * full record arrives with its screen. It stands in for the real record (steps 4 to 9) in the peek
  * panel and on the record page, so both already have something true to show.
  */
-export function RecordSummary({ record }: { readonly record: RecordRef }) {
+export function RecordSummary({
+  record,
+  tab,
+}: {
+  readonly record: RecordRef;
+  /** The record tab asked for: "emails" adds the creator's emails under the summary. */
+  readonly tab?: string;
+}) {
   const data = useApp((s) => s.data);
   const found = findRecord(data, record);
   if (found === undefined) {
@@ -65,7 +73,11 @@ export function RecordSummary({ record }: { readonly record: RecordRef }) {
           <span className="small muted">{sub}</span>
         </div>
       </div>
-      <p className="hint">{strings.record.fullRecordLater}</p>
+      {record.kind === "creator" && tab === "emails" ? (
+        <CreatorEmails creatorId={record.id} />
+      ) : (
+        <p className="hint">{strings.record.fullRecordLater}</p>
+      )}
     </>
   );
 }
@@ -78,22 +90,28 @@ export function RecordSummary({ record }: { readonly record: RecordRef }) {
 export function RecordBody({
   record,
   layout,
+  tab,
 }: {
   readonly record: RecordRef;
   readonly layout: "peek" | "page";
+  /** The record tab to open on (the creator record's "emails"). */
+  readonly tab?: string;
 }) {
   const held = useApp((s) => s.data.creators.some((c) => c.id === record.id));
   const example = useApp((s) => s.data.source === "example");
   // Example creators (c1, c2 ...) are not in the catalog: asking would only flash a skeleton. The
   // id decides, not whether the page holds it: an adopted channel keeps its full record.
   if (record.kind !== "creator" || (example && !isChannelId(record.id))) {
-    return <RecordSummary record={record} />;
+    return <RecordSummary record={record} {...(tab === undefined ? {} : { tab })} />;
   }
   return (
     <CreatorRecord
       id={record.id}
       layout={layout}
-      fallback={held ? <RecordSummary record={record} /> : undefined}
+      {...(tab === undefined ? {} : { tab })}
+      fallback={
+        held ? <RecordSummary record={record} {...(tab === undefined ? {} : { tab })} /> : undefined
+      }
     />
   );
 }

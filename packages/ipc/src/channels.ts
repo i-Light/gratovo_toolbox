@@ -22,6 +22,17 @@ import {
   logPageResultSchema,
 } from "./data";
 import {
+  reachDraftActionResultSchema,
+  reachDraftIdRequestSchema,
+  reachDraftNowRequestSchema,
+  reachDraftNowResultSchema,
+  reachRefreshResultSchema,
+  reachRewriteRequestSchema,
+  reachRewriteResultSchema,
+  reachThreadRequestSchema,
+  reachThreadResultSchema,
+} from "./reach";
+import {
   findAddRequestSchema,
   findAddResultSchema,
   findEditResultSchema,
@@ -293,6 +304,41 @@ export const channels = {
   "gateways:remove": {
     request: gatewaysRemoveRequestSchema,
     response: gatewaysRemoveResultSchema,
+  },
+  /** One creator's thread, oldest first (plan step 6, D4). */
+  "reach:thread": {
+    request: reachThreadRequestSchema,
+    response: reachThreadResultSchema,
+  },
+  /** Queues a first email for a creator at `contact` now (D15). */
+  "reach:draft-now": {
+    request: reachDraftNowRequestSchema,
+    response: reachDraftNowResultSchema,
+  },
+  /** Asks Gemini to rewrite a draft (D8); the new text arrives as the frame's `reach`. */
+  "reach:rewrite": {
+    request: reachRewriteRequestSchema,
+    response: reachRewriteResultSchema,
+  },
+  /** Drafts a failed draft again (D6). */
+  "reach:retry": {
+    request: reachDraftIdRequestSchema,
+    response: reachDraftActionResultSchema,
+  },
+  /** A send that may have gone out did: records it from the draft, sends nothing (D11). */
+  "reach:mark-sent": {
+    request: reachDraftIdRequestSchema,
+    response: reachDraftActionResultSchema,
+  },
+  /** A send that may have gone out didn't: a copy of the draft, `ready`, with its own send key (D11). */
+  "reach:send-new": {
+    request: reachDraftIdRequestSchema,
+    response: reachDraftActionResultSchema,
+  },
+  /** Reads each mailbox's numbers from Gmail again (`mail.status`, D9). */
+  "reach:mailboxes-refresh": {
+    request: z.strictObject({}),
+    response: reachRefreshResultSchema,
   },
   /** Starts the Gemini bridge. Sends no prompt. */
   "gemini:start": {

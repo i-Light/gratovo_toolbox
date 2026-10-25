@@ -216,6 +216,14 @@ class NotImplementedYet(GeminiError):
     code = "NOT_IMPLEMENTED"
 
 
+class Paused(GeminiError):
+    """A prompt was held back: Gemini refused, or showed three page errors in 15 minutes, so the
+    bridge sends nothing for 30 minutes (pause.py, the owner's rule); `details`: `{until}`, ISO
+    8601 UTC."""
+
+    code = "PAUSED"
+
+
 # --- the actions' and the skills' ---
 
 
@@ -226,7 +234,8 @@ class ActionParseFailed(GeminiError):
 
 
 class ActionRefused(GeminiError):
-    """Gemini answered with its generic refusal twice in a row; `details`: `{raw, model}`."""
+    """Gemini answered with its generic refusal; `details`: `{raw, model}`. It pauses the bridge
+    (pause.py), so it is never retried at once."""
 
     code = "ACTION_REFUSED"
 
@@ -274,6 +283,7 @@ ERROR_CLASSES: tuple[type[GeminiError], ...] = (
     AddonInstallFailed,
     BrowserLaunchFailed,
     NotImplementedYet,
+    Paused,
     ActionParseFailed,
     ActionRefused,
     SkillFileMissing,

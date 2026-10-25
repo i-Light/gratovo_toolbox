@@ -95,6 +95,20 @@ function sourceWith(overrides: Partial<DataSource> = {}): DataSource {
     readSetting: () => undefined,
     writeSetting: () => undefined,
     seedChannelNames: () => 0,
+    outreach: {
+      reachParts: () => ({ drafts: [], sequences: [], threads: [] }),
+      draft: () => null,
+      draftsIn: () => [],
+      openDraft: () => null,
+      insertDraft: () => undefined,
+      updateDraft: () => false,
+      thread: () => [],
+      hasOutbound: () => false,
+      recentOutbound: () => [],
+      sentSince: () => [],
+      sequence: () => null,
+      commit: () => undefined,
+    },
     ...overrides,
   };
 }
@@ -502,6 +516,62 @@ describe("keyword ideas", () => {
       dropped: 0,
     });
     expect(suggest).toHaveBeenCalledWith(3);
+  });
+});
+
+describe("Reach channels", () => {
+  const draftId = "draft-1";
+  const answers = (name: keyof typeof channels, answer: unknown): void => {
+    expect(channels[name].response.safeParse(answer).success).toBe(true);
+  };
+
+  it("answer each channel in its schema from the stubs", async () => {
+    const mine = handlersWith(accountWith());
+    answers("reach:thread", await mine["reach:thread"]({ creatorId: "c1" }));
+    answers("reach:draft-now", await mine["reach:draft-now"]({ creatorId: "c1" }));
+    answers("reach:rewrite", await mine["reach:rewrite"]({ draftId, how: "shorter" }));
+    answers("reach:retry", await mine["reach:retry"]({ draftId }));
+    answers("reach:mark-sent", await mine["reach:mark-sent"]({ draftId }));
+    answers("reach:send-new", await mine["reach:send-new"]({ draftId }));
+    answers("reach:mailboxes-refresh", await mine["reach:mailboxes-refresh"]({}));
+  });
+
+  it("send each channel to the Reach service", async () => {
+    const reach = {
+      ...createStubServices().reach,
+      thread: vi.fn(() => Promise.resolve({ ok: true as const, messages: [] })),
+      draftNow: vi.fn(() => Promise.resolve({ ok: true as const })),
+      rewrite: vi.fn(() => Promise.resolve({ ok: true as const })),
+      retry: vi.fn(() => Promise.resolve({ ok: true as const })),
+      markSent: vi.fn(() => Promise.resolve({ ok: true as const })),
+      sendNew: vi.fn(() => Promise.resolve({ ok: true as const })),
+      refreshMailboxes: vi.fn(() => Promise.resolve({ ok: true as const })),
+    };
+    const mine = handlersWith(accountWith(), [], findWith(), { reach });
+    answers("reach:thread", await mine["reach:thread"]({ creatorId: "c1" }));
+    answers("reach:draft-now", await mine["reach:draft-now"]({ creatorId: "c1" }));
+    answers("reach:rewrite", await mine["reach:rewrite"]({ draftId, how: "warmer" }));
+    answers("reach:retry", await mine["reach:retry"]({ draftId }));
+    answers("reach:mark-sent", await mine["reach:mark-sent"]({ draftId }));
+    answers("reach:send-new", await mine["reach:send-new"]({ draftId }));
+    answers("reach:mailboxes-refresh", await mine["reach:mailboxes-refresh"]({}));
+    expect(reach.thread).toHaveBeenCalledWith("c1");
+    expect(reach.rewrite).toHaveBeenCalledWith(draftId, "warmer");
+    expect(reach.markSent).toHaveBeenCalledWith(draftId);
+    expect(reach.refreshMailboxes).toHaveBeenCalled();
+  });
+
+  it("puts the frame through the overlay and tells Reach about a write", async () => {
+    const overlay = vi.fn((f: typeof frame) => ({ ...f, counts: { ...f.counts, reach: 7 } }));
+    const afterWrite = vi.fn();
+    const mine = handlersWith(accountWith(), [], findWith(), {
+      reach: { ...createStubServices().reach, overlay, afterWrite },
+    });
+    const loaded = await mine["frame:load"]({});
+    expect(loaded.counts.reach).toBe(7);
+    const write: DataWrite = { kind: "notification.read", id: "n1", read: true };
+    await mine["data:write"]({ writes: [write] });
+    expect(afterWrite).toHaveBeenCalledWith([write]);
   });
 });
 

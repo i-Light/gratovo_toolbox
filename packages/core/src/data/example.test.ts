@@ -116,7 +116,62 @@ describe("exampleSeed", () => {
       "The AI Desk",
       "Model Matters",
       "Prompt Daily",
+      "Agent Weekly",
+      "LLM Lowdown",
+      "Token Tuesday",
+      "Ship AI",
+      "Diffusion Diaries",
+      "Vector Vlog",
     ]);
+  });
+
+  it("seeds three example mailboxes, outreach2 nine days into its warm-up", () => {
+    expect(seed.mailSettings.senderName).toBe("Moustafa");
+    expect(seed.mailSettings.mailboxes).toEqual([
+      { address: "outreach1@gratovo.example", dailyCap: 30, warmupStartedOn: null },
+      {
+        address: "outreach2@gratovo.example",
+        dailyCap: 20,
+        warmupStartedOn: new Date(now - 9 * 86_400_000).toISOString().slice(0, 10),
+      },
+      { address: "outreach3@gratovo.example", dailyCap: 30, warmupStartedOn: null },
+    ]);
+  });
+
+  it("seeds Reach: three ready drafts (one with a claim gate) and four messages", () => {
+    const stageOf = (id: string) => seed.creators.find((c) => c.id === id)?.stage;
+    expect(seed.outreach.drafts.map((d) => [d.creator, d.state, stageOf(d.creator)])).toEqual([
+      ["c6", "ready", "contact"],
+      ["c13", "ready", "contact"],
+      ["c7", "ready", "contact"],
+    ]);
+    const gated = seed.outreach.drafts.find((d) => d.creator === "c7")?.proposal;
+    expect(gated?.status).toBe("needs_human");
+    expect(gated?.gates).toEqual([
+      {
+        key: "g-claim",
+        kind: "claim",
+        text: "It says we worked with Lumen AI before. Confirm that is true.",
+      },
+    ]);
+    expect(seed.outreach.messages.map((m) => [m.creator, m.direction])).toEqual([
+      ["c8", "out"],
+      ["c9", "out"],
+      ["c10", "out"],
+      ["c10", "in"],
+    ]);
+  });
+
+  it("derives the frame's Reach from those rows", () => {
+    const reach = exampleFrame(now).reach;
+    expect(reach.drafts.map((d) => d.id)).toEqual(["dr3", "dr2", "dr1"]);
+    expect(reach.threads.map((t) => [t.creator, t.count, t.answered])).toEqual([
+      ["c10", 2, false],
+      ["c8", 1, true],
+      ["c9", 1, true],
+    ]);
+    expect(reach.threads[0]?.lastIn?.preview).toBe("Hi Moustafa,");
+    expect(reach).toMatchObject({ mailboxes: [], gemini: "off", sender: null, sequences: [] });
   });
 });
 
@@ -173,6 +228,7 @@ describe("exampleFrame", () => {
       conflicts: [],
       notify: {},
       seesMoney: true,
+      reach: { ...frame.reach, sequences: [], mailboxes: [], sender: null },
     });
   });
 

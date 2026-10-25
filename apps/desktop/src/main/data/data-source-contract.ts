@@ -15,12 +15,13 @@ import type {
   CreatorStage,
   DataSource,
   DataWrite,
+  DraftState,
   Frame,
   FrameSource,
   LogAction,
   RejectReason,
 } from "@gratovo/core/data";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { openDatabase } from "../db/open-database";
 import { createCatalog } from "../find/catalog";
@@ -1385,6 +1386,254 @@ export function describeDataSourceContract(
         insertLogRow(db, logRow("z4", "2026-10-20T10:01:30+00:00", { detail: { text: "D" } }));
       });
       expect((await source.frame()).log.map((l) => l.id)).toEqual(["z4", "z3", "z2", "z1"]);
+    });
+
+    describe("draft writes (plan step 6, D5)", () => {
+      const creator = "UCdraftsAiCreator0000001";
+      const hold = contractNow + 10_000;
+
+      function addDraft(
+        source: DataSource,
+        id: string,
+        over: { kind?: "first" | "followUp" | "reply"; state?: DraftState } = {},
+      ): void {
+        source.outreach.insertDraft({
+          id,
+          creator,
+          kind: over.kind ?? "first",
+          followUp: over.kind === "followUp" ? 1 : null,
+          mailbox: null,
+          replyTo: null,
+          at: contractNow - 1000,
+        });
+        source.outreach.updateDraft(
+          id,
+          { state: over.state ?? "ready", subject: "Subject", body: "Body" },
+          contractNow - 1000,
+        );
+      }
+
+      const state = (
+        id: string,
+        to: "ready" | "approved" | "scheduled" | "skipped",
+        sendAt: number | null = null,
+      ): DataWrite => ({ kind: "draft.state", id, state: to, sendAt });
+
+      it("serves a draft in the frame with its fields", async () => {
+        const source = start();
+        addDraft(source, "d-frame");
+        const frame = await source.frame();
+        expect(frame.reach.drafts.find((d) => d.id === "d-frame")).toMatchObject({
+          creator,
+          kind: "first",
+          state: "ready",
+          subject: "Subject",
+        });
+        expect(frameSchema.safeParse(frame).success).toBe(true);
+      });
+
+      it("approves and schedules from ready or failed, recording who and when", async () => {
+        const source = start();
+        addDraft(source, "d1");
+        addDraft(source, "d2", { state: "failed" });
+        await source.write([state("d1", "approved", hold), state("d2", "scheduled", hold + 1)]);
+        expect(source.outreach.draft("d1")).toMatchObject({
+          state: "approved",
+          approvedBy: "u1",
+          sendAt: hold,
+        });
+        expect(source.outreach.draft("d2")).toMatchObject({
+          state: "scheduled",
+          approvedBy: "u1",
+          sendAt: hold + 1,
+        });
+      });
+
+      it("never approves a draft that may have gone out: only It was sent or Send as new", async () => {
+        const source = start();
+        addDraft(source, "d1", { state: "failed" });
+        source.outreach.updateDraft("d1", { problem: "maybe_sent" }, contractNow);
+        await source.write([state("d1", "approved", hold), state("d1", "scheduled", hold)]);
+        expect(source.outreach.draft("d1")).toMatchObject({ state: "failed", approvedBy: null });
+      });
+
+      it("gives every approval its full hold, even one carrying a time already past", async () => {
+        // A Redo, or an Undo that puts an old approval back, carries the old time: it must not
+        // send at once.
+        const source = start();
+        addDraft(source, "d1");
+        addDraft(source, "d2");
+        await source.write([
+          state("d1", "approved", contractNow - 60_000),
+          state("d2", "scheduled", contractNow - 60_000),
+        ]);
+        expect(source.outreach.draft("d1")?.sendAt).toBe(hold);
+        expect(source.outreach.draft("d2")?.sendAt).toBe(hold);
+      });
+
+      it("puts an approved or skipped draft back to ready, clearing the hold and the problem", async () => {
+        const source = start();
+        addDraft(source, "d1");
+        await source.write([state("d1", "approved", hold)]);
+        source.outreach.updateDraft("d1", { problem: "late" }, contractNow);
+        await source.write([state("d1", "ready")]);
+        expect(source.outreach.draft("d1")).toMatchObject({
+          state: "ready",
+          approvedBy: null,
+          sendAt: null,
+          problem: null,
+        });
+        await source.write([state("d1", "skipped")]);
+        expect(source.outreach.draft("d1")).toMatchObject({ state: "skipped", sendAt: null });
+        await source.write([state("d1", "ready")]);
+        expect(source.outreach.draft("d1")?.state).toBe("ready");
+      });
+
+      it("refuses every other move and logs the kind only", async () => {
+        const source = start();
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+        try {
+          for (const from of ["drafting", "sending", "sent"] as const) {
+            addDraft(source, `d-${from}`, { state: from });
+            await source.write([state(`d-${from}`, "approved", hold), state(`d-${from}`, "ready")]);
+            expect(source.outreach.draft(`d-${from}`)?.state).toBe(from);
+            expect(source.outreach.draft(`d-${from}`)?.approvedBy).toBeNull();
+          }
+          addDraft(source, "d-sched");
+          await source.write([state("d-sched", "scheduled", hold)]);
+          // The taken states do not move among themselves, and ready stays ready.
+          await source.write([state("d-sched", "skipped"), state("d-sched", "approved", hold)]);
+          expect(source.outreach.draft("d-sched")?.state).toBe("scheduled");
+          addDraft(source, "d-ready");
+          await source.write([state("d-ready", "ready")]);
+          expect(source.outreach.draft("d-ready")?.state).toBe("ready");
+          // A failed draft is not put back by a person: only ready and failed go forward.
+          addDraft(source, "d-failed", { state: "failed" });
+          await source.write([state("d-failed", "ready")]);
+          expect(source.outreach.draft("d-failed")?.state).toBe("failed");
+          // A draft that does not exist is ignored.
+          await source.write([state("missing", "approved", hold)]);
+          const logged = JSON.stringify(warn.mock.calls);
+          expect(logged).toContain("draft.state");
+          expect(logged).not.toContain("Subject");
+        } finally {
+          warn.mockRestore();
+        }
+      });
+
+      it("stores the text, marks it edited, and leaves a draft that is going or gone", async () => {
+        const source = start();
+        addDraft(source, "d1");
+        addDraft(source, "d-sending", { state: "sending" });
+        addDraft(source, "d-sent", { state: "sent" });
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+        try {
+          await source.write([
+            { kind: "draft.text", id: "d1", subject: "New", body: "New body" },
+            { kind: "draft.text", id: "d-sending", subject: "X", body: "X" },
+            { kind: "draft.text", id: "d-sent", subject: "X", body: "X" },
+          ]);
+        } finally {
+          warn.mockRestore();
+        }
+        expect(source.outreach.draft("d1")).toMatchObject({
+          subject: "New",
+          body: "New body",
+          edited: true,
+          checked: false,
+        });
+        expect(source.outreach.draft("d-sending")).toMatchObject({
+          subject: "Subject",
+          edited: false,
+        });
+        expect(source.outreach.draft("d-sent")).toMatchObject({ body: "Body", edited: false });
+      });
+
+      it("stores a mailbox for a first email and refuses it for follow-ups and answers", async () => {
+        const source = start();
+        addDraft(source, "d-first");
+        addDraft(source, "d-follow", { kind: "followUp" });
+        addDraft(source, "d-reply", { kind: "reply" });
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+        try {
+          const mailbox = "outreach2@gratovo.example";
+          await source.write([
+            { kind: "draft.mailbox", id: "d-first", mailbox },
+            { kind: "draft.mailbox", id: "d-follow", mailbox },
+            { kind: "draft.mailbox", id: "d-reply", mailbox },
+          ]);
+          expect(source.outreach.draft("d-first")?.mailbox).toBe(mailbox);
+          expect(source.outreach.draft("d-follow")?.mailbox).toBeNull();
+          expect(source.outreach.draft("d-reply")?.mailbox).toBeNull();
+          await source.write([{ kind: "draft.mailbox", id: "d-first", mailbox: null }]);
+          expect(source.outreach.draft("d-first")?.mailbox).toBeNull();
+        } finally {
+          warn.mockRestore();
+        }
+      });
+
+      it("adds and removes a confirmed gate once, keeping the order", async () => {
+        const source = start();
+        addDraft(source, "d1");
+        const gate = (key: string, ok: boolean): DataWrite => ({
+          kind: "draft.gate",
+          id: "d1",
+          gate: key,
+          ok,
+        });
+        await source.write([gate("a", true), gate("b", true), gate("a", true)]);
+        expect(source.outreach.draft("d1")?.gatesOk).toEqual(["b", "a"]);
+        await source.write([gate("b", false), gate("zzz", false)]);
+        expect(source.outreach.draft("d1")?.gatesOk).toEqual(["a"]);
+      });
+
+      it("commits a draft, a message and a stage change together", async () => {
+        const source = start();
+        addDraft(source, "d1");
+        source.outreach.commit({
+          at: contractNow,
+          drafts: [{ id: "d1", patch: { state: "sent" } }],
+          messages: [
+            {
+              id: "m1",
+              creator,
+              direction: "out",
+              kind: "first",
+              followUp: null,
+              subject: "Subject",
+              body: "Body",
+              bodyCut: false,
+              at: contractNow,
+              mailbox: "outreach1@gratovo.example",
+              peer: "a@b.example",
+              peerName: null,
+              conversationKey: `c:${creator}`,
+              gmailMessageId: "g-1",
+              gmailThreadId: null,
+              draftId: "d1",
+              by: "u1",
+              source: "app",
+              reading: null,
+            },
+          ],
+          writes: [
+            {
+              kind: "creator.stage",
+              id: creator,
+              stage: "emailed",
+              handle: "@drafts",
+              name: "Drafts",
+            },
+          ],
+        });
+        const frame = await source.frame();
+        expect(frame.creators.find((c) => c.id === creator)?.stage).toBe("emailed");
+        expect(frame.reach.threads.find((t) => t.creator === creator)).toMatchObject({
+          count: 1,
+          answered: true,
+        });
+        expect(source.outreach.draft("d1")?.state).toBe("sent");
+      });
     });
   });
 }

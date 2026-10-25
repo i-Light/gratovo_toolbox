@@ -1,7 +1,9 @@
+import type { OutreachDraft } from "@gratovo/core/data";
 import type { FramePart, SyncStatus } from "@gratovo/ipc";
 import type { Bridge } from "@gratovo/ipc/bridge";
 
 import { toAppData } from "./frame";
+import { noticeReachChange } from "./reach-actions";
 import { adoptServerData, onPersistenceIdle, persistenceIdle } from "./persist";
 import type { DataDraft } from "./persist";
 import { appStore } from "./store";
@@ -101,6 +103,111 @@ function mergeLog(draft: DataDraft, shown: AppData, next: AppData): void {
   }
 }
 
+const reachMainFields = [
+  "threads",
+  "sequences",
+  "mailboxes",
+  "gemini",
+  "geminiPausedUntil",
+  "sender",
+] as const satisfies readonly (keyof AppData["reach"])[];
+
+/** The draft fields a person sets: their own change coming back is not news (D5). */
+const personDraftFields = [
+  "state",
+  "subject",
+  "body",
+  "mailbox",
+  "gatesOk",
+] as const satisfies readonly (keyof OutreachDraft)[];
+
+/**
+ * One draft of `list` (the page's data or an undo step) with main's answer folded in, field by
+ * field. A field a person sets is news only when main's value differs from what the page showed,
+ * so a Send or a Skip coming back, with main's own `sendAt` and `updatedAt`, never reaches the
+ * undo steps before it, and Undo still takes it back. The fields main alone sets (the proposal,
+ * the problem, the times, rewriting) always follow main. `sendAt` follows the state that wins.
+ */
+function mergeDraft(
+  item: OutreachDraft,
+  shown: OutreachDraft | undefined,
+  next: OutreachDraft,
+): OutreachDraft {
+  const out: Record<string, unknown> = { ...item };
+  let changed = false;
+  for (const key of Object.keys(next) as (keyof OutreachDraft)[]) {
+    if (key === "sendAt") {
+      continue;
+    }
+    const person = (personDraftFields as readonly string[]).includes(key);
+    const isNews = !person || shown === undefined || !sameValue(shown[key], next[key]);
+    if (isNews && !sameValue(item[key], next[key])) {
+      out[key] = next[key];
+      changed = true;
+    }
+  }
+  const sendAt = out.state === next.state ? next.sendAt : item.sendAt;
+  if (!Object.is(sendAt, item.sendAt)) {
+    out.sendAt = sendAt;
+    changed = true;
+  }
+  return changed ? (out as unknown as OutreachDraft) : item;
+}
+
+/** The drafts to put in place of `list`, or null when nothing changes (as `mergeList`). */
+function mergeDrafts(
+  list: readonly OutreachDraft[],
+  shown: readonly OutreachDraft[],
+  next: readonly OutreachDraft[],
+): readonly OutreachDraft[] | null {
+  const shownById = new Map(shown.map((d) => [d.id, d]));
+  const nextById = new Map(next.map((d) => [d.id, d]));
+  const held = new Set(list.map((d) => d.id));
+  let changed = false;
+  const merged: OutreachDraft[] = [];
+  for (const item of list) {
+    const fresh = nextById.get(item.id);
+    if (fresh === undefined) {
+      // Gone from main's list (a day after it was sent or skipped): gone here too, unless the
+      // page never showed it gone.
+      if (shownById.has(item.id)) {
+        changed = true;
+        continue;
+      }
+      merged.push(item);
+      continue;
+    }
+    const done = mergeDraft(item, shownById.get(item.id), fresh);
+    changed ||= done !== item;
+    merged.push(done);
+  }
+  // Drafts this step lacks: those that are news (new, or changed since the page showed them).
+  for (const fresh of next) {
+    const was = shownById.get(fresh.id);
+    if (!held.has(fresh.id) && (was === undefined || !sameValue(was, fresh))) {
+      merged.push(fresh);
+      changed = true;
+    }
+  }
+  return changed ? merged : null;
+}
+
+/**
+ * Reach is server news like the records: drafts by id and field (`mergeDrafts`); the rest is
+ * main's and is replaced when it differs.
+ */
+function mergeReach(draft: DataDraft, shown: AppData, next: AppData): void {
+  const drafts = mergeDrafts(draft.reach.drafts, shown.reach.drafts, next.reach.drafts);
+  if (drafts !== null) {
+    draft.reach.drafts = drafts as typeof draft.reach.drafts;
+  }
+  for (const field of reachMainFields) {
+    if (!sameValue(draft.reach[field], next.reach[field])) {
+      (draft.reach as Record<string, unknown>)[field] = next.reach[field];
+    }
+  }
+}
+
 /**
  * Folds the server's answer into the page's data, or into one of its undo steps (`bg` runs this on
  * each). `shown` is the page's data when the answer arrived: only what differs from it is news, so
@@ -142,6 +249,7 @@ export function mergeServerData(
   if (deals !== null) {
     draft.deals = deals as typeof draft.deals;
   }
+  mergeReach(draft, shown, next);
   if (parts.has("log")) {
     mergeLog(draft, shown, next);
   }
@@ -230,6 +338,7 @@ export function installLiveUpdates(bridge: Pick<Bridge, "invoke" | "on">): () =>
       adoptServerData((draft) => {
         mergeServerData(draft, next, parts, shown);
       });
+      noticeReachChange(shown.reach, next.reach);
     } catch (reason) {
       console.error("The page couldn't read the server's changes:", reason);
     } finally {

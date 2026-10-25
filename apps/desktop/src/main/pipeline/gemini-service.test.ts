@@ -14,6 +14,7 @@ import {
   bridgeArgs,
   bridgeTokenEnv,
   callTimeoutMs,
+  promptGapS,
   createGeminiService,
   listenTimeoutMs,
   newBridgeToken,
@@ -314,7 +315,8 @@ describe("the Gemini bridge service", () => {
     });
     await settle();
     const [request] = child.requests();
-    vi.advanceTimersByTime(39_999);
+    // 10 s, the bridge's 60 s gap before the prompt, and the 30 s margin
+    vi.advanceTimersByTime(99_999);
     await settle();
     expect(answered).toBe(false);
     vi.advanceTimersByTime(1);
@@ -397,27 +399,44 @@ describe("the Gemini bridge service", () => {
 
 describe("how long main waits for the bridge", () => {
   it("waits the bridge's own default for a method, plus 30 s", () => {
-    expect(callTimeoutMs("bridge.ask", { prompt: "AI news keywords" })).toBe(270_000);
+    expect(callTimeoutMs("bridge.ask", { prompt: "AI news keywords" })).toBe(
+      (240 + promptGapS) * 1000 + 30_000,
+    );
     expect(callTimeoutMs("action.gem_read", { gem: "abc" })).toBe(120_000);
     expect(callTimeoutMs("bridge.status", {})).toBe(30_000);
   });
 
   it("takes the call's own timeoutS when it names one", () => {
-    expect(callTimeoutMs("bridge.ask", { prompt: "AI news keywords", timeoutS: 10 })).toBe(40_000);
+    expect(callTimeoutMs("bridge.ask", { prompt: "AI news keywords", timeoutS: 10 })).toBe(
+      (10 + promptGapS) * 1000 + 30_000,
+    );
   });
 
   it("gives a keyword batch its time once per chat", () => {
     expect(callTimeoutMs("action.generate_keywords", { topic: "AI agents", chats: 4 })).toBe(
-      (240 * 4 + 60) * 1000 + 30_000,
+      ((240 + promptGapS) * 4 + 60) * 1000 + 30_000,
     );
   });
 
   it("reads a draft's timeoutS inside its request and leaves room for the subtitles", () => {
     const params = { request: { kind: "first", channelId: "UCabc", timeoutS: 100 } };
-    expect(callTimeoutMs("action.comms_propose", params)).toBe((100 * 3 + 660) * 1000 + 30_000);
-    expect(callTimeoutMs("action.comms_propose", { request: { kind: "reply" } })).toBe(
-      (300 * 3 + 660) * 1000 + 30_000,
+    expect(callTimeoutMs("action.comms_propose", params)).toBe(
+      (100 * 3 + 660 + 360) * 1000 + 30_000,
     );
+    expect(callTimeoutMs("action.comms_propose", { request: { kind: "reply" } })).toBe(
+      (300 * 3 + 660 + 360) * 1000 + 30_000,
+    );
+  });
+
+  it("gives every prompt a call may send the bridge's 60 s gap first", () => {
+    expect(promptGapS).toBe(60);
+    const draft = callTimeoutMs("action.comms_propose", { request: { kind: "first" } });
+    expect(draft - ((300 * 3 + 660) * 1000 + 30_000)).toBe(6 * 60_000);
+    const classify = callTimeoutMs("action.classify_channel", { channel: {}, niche: "AI tools" });
+    expect(classify).toBe((240 + 60) * 1000 + 30_000);
+    // the gem and skill pages send no prompt, so they get no gap
+    expect(callTimeoutMs("action.gem_create", { name: "AI news" })).toBe(210_000);
+    expect(callTimeoutMs("action.skill_deploy", { folder: "C:/skills/x" })).toBe(630_000);
   });
 });
 

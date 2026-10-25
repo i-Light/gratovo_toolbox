@@ -56,7 +56,13 @@ def test_an_answer_without_a_verdict_is_asked_again_once() -> None:
     g = FakeGemini("Here is my view: it is fine.", REVIEW)
     assert coach.review(g, "brand", "replies", "s", "d")["review"]["verdict"] == "mixed"
     assert len(g.sent) == 2
-    assert g.sent[1]["newChat"] is False
+    # One prompt per fresh chat (plan D6a): the re-ask repeats the review and shows the answer.
+    again = g.sent[1]
+    assert again["newChat"] is True
+    assert again["skills"] == ["gratovo-comms"]
+    assert again["text"].startswith(coach.prompt("brand", "replies", "s", "d", 1))
+    assert "Your previous answer was:\n```\nHere is my view: it is fine.\n```" in again["text"]
+    assert "ONLY the coach-review JSON" in again["text"]
     assert coach.parse('{"verdict": "great"}') is None
 
 

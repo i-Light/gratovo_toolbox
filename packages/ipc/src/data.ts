@@ -1,6 +1,9 @@
 import { DEAL_FLOW } from "@gratovo/core";
 import {
   agencyRoles,
+  draftBodyMax,
+  draftSubjectMax,
+  personDraftStates,
   contactNameMax,
   contactSources,
   creatorStages,
@@ -28,6 +31,8 @@ import {
   type TeamMember,
 } from "@gratovo/core/data";
 import { z } from "zod";
+
+import { reachDataSchema } from "./reach";
 
 /**
  * The schemas of the data channels. Each is typed against the core type it describes, so the
@@ -223,6 +228,7 @@ export const frameSchema: z.ZodType<Frame> = z.strictObject({
   conflicts: z.array(editConflictSchema).max(conflictsMax),
   notify: notifySettingsSchema,
   seesMoney: z.boolean(),
+  reach: reachDataSchema,
 });
 
 /** One change the app writes, told apart by `kind`. */
@@ -286,4 +292,29 @@ export const dataWriteSchema: z.ZodType<DataWrite> = z.discriminatedUnion("kind"
       .max(DEAL_FLOW.length - 1),
   }),
   z.strictObject({ kind: z.literal("conflict.resolve"), id, choice: z.enum(["mine", "theirs"]) }),
+  z
+    .strictObject({
+      kind: z.literal("draft.state"),
+      id,
+      state: z.enum(personDraftStates),
+      sendAt: time.nullable(),
+    })
+    // Send and Send later say when; Undo, Cancel and Skip don't.
+    .refine(
+      (write) =>
+        (write.state === "approved" || write.state === "scheduled") === (write.sendAt !== null),
+      { path: ["sendAt"], message: "Only an approved or scheduled draft has a send time." },
+    ),
+  z.strictObject({
+    kind: z.literal("draft.text"),
+    id,
+    subject: z.string().max(draftSubjectMax),
+    body: z.string().max(draftBodyMax),
+  }),
+  z.strictObject({
+    kind: z.literal("draft.mailbox"),
+    id,
+    mailbox: emailAddressSchema.nullable(),
+  }),
+  z.strictObject({ kind: z.literal("draft.gate"), id, gate: id, ok: z.boolean() }),
 ]);

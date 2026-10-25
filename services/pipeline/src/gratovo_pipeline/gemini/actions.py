@@ -40,9 +40,11 @@ from .errors import (
     ActionRefused,
     BadParams,
     GeminiError,
+    GeminiPageError,
     SkillFileMissing,
 )
 from .json_reply import extract_json, parse_json_reply
+from .pause import is_generic_error, is_refusal
 from .progress import Emit
 
 if TYPE_CHECKING:  # pragma: no cover - typing only, avoids a circular import
@@ -117,7 +119,7 @@ def _ask(gemini: Gemini, params: Params, message: str, skill: str | None = None)
     model, gem, new_chat, timeout = _params_common(params)
     if gem:
         # Navigating to the gem IS the new chat; clicking "New chat" after it would leave the gem.
-        # So `newChat` is ignored once a gem is given.
+        # So `newChat` is ignored once a gem is given (the client sends the next prompt as it is).
         gemini.open_gem(gem)
         prompt = message
         new_chat = False
@@ -126,26 +128,23 @@ def _ask(gemini: Gemini, params: Params, message: str, skill: str | None = None)
     else:
         prompt = message
     raw, used_model = _send(gemini, prompt, new_chat, model, timeout)
-    if _REFUSAL.search(raw) and len(raw) < 400:
-        # "I'm having a hard time fulfilling your request" is Gemini balking at a long prompt, not
-        # an answer; a fresh chat usually takes it. If it balks again the app sees the refusal
-        # verbatim in `raw`.
-        log.warning("Gemini refused (%r); retrying once in a new chat", raw[:80])
-        retry_raw, retry_model = _send(gemini, prompt, not gem, model, timeout)
-        if not (_REFUSAL.search(retry_raw) and len(retry_raw) < 400):
-            return retry_raw, retry_model
-        raise ActionRefused(
-            message="Gemini refused the prompt twice: " + retry_raw.strip()[:200],
-            details={"raw": retry_raw, "model": retry_model},
+    if is_refusal(raw):
+        # "I'm having a hard time fulfilling your request" is Gemini balking, not an answer. The
+        # owner's rule is to pause after a refusal, never to send again at once: the client has
+        # already counted it, so the bridge holds every prompt back for the next 30 minutes.
+        # Never the answer's text in the log (it can quote the prompt: creators, threads).
+        log.warning(
+            "Gemini refused the prompt (answer of %d characters); the bridge pauses", len(raw)
         )
+        raise ActionRefused(
+            message="Gemini refused the prompt: " + raw.strip()[:200],
+            details={"raw": raw, "model": used_model},
+        )
+    if is_generic_error(raw):
+        # "Sorry, something went wrong" is the page failing, not an answer: one of the three page
+        # errors that pause the bridge (counted already by the client), raised as one.
+        raise GeminiPageError(message=raw.strip()[:200], details={"raw": raw, "model": used_model})
     return raw, used_model
-
-
-_REFUSAL = re.compile(
-    r"having a hard time fulfilling|can.?t help with that|unable to (help|assist) with that|"
-    r"something went wrong|try again later",
-    re.I,
-)
 
 
 def _send(

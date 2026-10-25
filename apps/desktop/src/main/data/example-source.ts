@@ -6,10 +6,12 @@ import type { DataSource } from "@gratovo/core/data";
 import { openDatabase } from "../db/open-database";
 
 import {
+  createOutreachStore,
   getMeta,
   replaceMemberAccess,
   setMeta,
   setNotify,
+  setSetting,
   upsertBrand,
   upsertCreator,
   upsertDeal,
@@ -31,6 +33,9 @@ const dataTables = [
   "profiles",
   "local_settings",
   "member_access",
+  "outreach_drafts",
+  "outreach_messages",
+  "outreach_sequences",
 ] as const;
 
 /**
@@ -89,6 +94,19 @@ function seed(db: DatabaseSync, now: number): void {
       upsertNotification(db, notification);
     }
     setNotify(db, {});
+    setSetting(db, "mail.settings", fixtures.mailSettings);
+    // Only the inserts are used here, so the store needs no transaction of its own.
+    const outreach = createOutreachStore(db, {
+      transaction: (fn) => {
+        fn();
+      },
+      applyWrites: () => undefined,
+    });
+    for (const { state, subject, body, proposal, ...draft } of fixtures.outreach.drafts) {
+      outreach.insertDraft(draft);
+      outreach.updateDraft(draft.id, { state, subject, body, proposal }, draft.at);
+    }
+    outreach.commit({ at: now, messages: fixtures.outreach.messages });
     setMeta(db, seedKey, String(exampleSeedVersion));
   });
 }

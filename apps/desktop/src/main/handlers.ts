@@ -79,7 +79,7 @@ function changesCatalog(write: DataWrite): boolean {
 /** The main process's answer to each channel in `channels`. */
 export function createHandlers(context: HandlerContext): Handlers {
   const { version, secrets, account, find, catalog, ideas } = context;
-  const { importer, connections, gemini, writingRules, mailConsent } = context;
+  const { importer, connections, gemini, writingRules, mailConsent, reach } = context;
 
   /** The account's open source. The page never asks for data while none is open. */
   function openSource(): DataSource {
@@ -117,7 +117,7 @@ export function createHandlers(context: HandlerContext): Handlers {
   return {
     "app:ping": () => ({ ok: true, version }),
     "secrets:status": async ({ name }) => ({ set: await secrets.has(name) }),
-    "frame:load": () => openSource().frame(),
+    "frame:load": async () => reach.overlay(await openSource().frame()),
     // A rejection goes up to the dispatcher, which logs it; the page learns only that it failed.
     "data:write": async ({ writes }) => {
       const source = openSource();
@@ -131,6 +131,7 @@ export function createHandlers(context: HandlerContext): Handlers {
           ? new Map<string, CreatorStage>()
           : new Map((await source.creatorStates()).map((c) => [c.id, c.stage]));
       await source.write(writes);
+      reach.afterWrite(writes);
       if (writes.some(changesCatalog)) {
         context.onCreatorsWritten?.();
       }
@@ -224,6 +225,13 @@ export function createHandlers(context: HandlerContext): Handlers {
     "mail:check": () => connections.checkMailboxes(),
     "gateways:deploy": ({ regions }) => connections.deployGateways(regions),
     "gateways:remove": ({ region }) => connections.removeGateways(region),
+    "reach:thread": ({ creatorId }) => reach.thread(creatorId),
+    "reach:draft-now": ({ creatorId }) => reach.draftNow(creatorId),
+    "reach:rewrite": ({ draftId, how }) => reach.rewrite(draftId, how),
+    "reach:retry": ({ draftId }) => reach.retry(draftId),
+    "reach:mark-sent": ({ draftId }) => reach.markSent(draftId),
+    "reach:send-new": ({ draftId }) => reach.sendNew(draftId),
+    "reach:mailboxes-refresh": () => reach.refreshMailboxes(),
     "gemini:start": () => gemini.start(),
     "gemini:stop": () => gemini.stop(),
     "gemini:open-window": ({ browser }) => gemini.openWindow(browser),

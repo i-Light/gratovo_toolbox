@@ -1,0 +1,151 @@
+/* The record's Emails tab: the thread and the draft card. The rules are the prototype's
+   (index.html l.307-337: .thread, .msg, .draft, .gate); .dr-skel is this app's own. */
+.thread {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.msg {
+  max-width: 88%;
+  padding: 9px 12px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.msg.in {
+  background: var(--sunk);
+  align-self: flex-start;
+  border-end-start-radius: 4px;
+}
+.msg.out {
+  background: var(--accent-soft);
+  align-self: flex-end;
+  border-end-end-radius: 4px;
+}
+.msg .mh {
+  display: flex;
+  gap: 8px;
+  font: 500 11px var(--f-ui);
+  color: var(--muted);
+  margin-bottom: 3px;
+}
+.draft {
+  border: 1px solid var(--line);
+  border-radius: var(--r-l);
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: var(--shadow-1);
+}
+.draft .dh {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--sunk);
+}
+.draft .dline {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+  min-width: 0;
+}
+.draft .dline > span:first-child {
+  color: var(--muted);
+  font-size: 12px;
+}
+.draft .db {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.draft .subj {
+  font-weight: 600;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 4px 6px;
+  margin: -4px -6px;
+  background: none;
+  width: calc(100% + 12px);
+}
+.draft .subj:hover {
+  border-color: var(--line);
+}
+.draft .subj:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.draft .bodyta {
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 6px 8px;
+  margin: -6px -8px;
+  width: calc(100% + 16px);
+  resize: none;
+  background: none;
+  line-height: 1.6;
+  font-size: 13.5px;
+  min-height: 120px;
+  overflow: hidden;
+}
+.draft .bodyta:hover {
+  border-color: var(--line);
+}
+.draft .bodyta:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.draft .df {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  border-top: 1px solid var(--line);
+  background: var(--sunk);
+}
+.draft.rewriting .bodyta {
+  animation: shimmer 1s linear infinite;
+  background: linear-gradient(90deg, transparent 0%, var(--accent-soft) 50%, transparent 100%);
+  background-size: 200% 100%;
+  color: var(--muted);
+}
+.gate {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  background: var(--warn-soft);
+}
+.gate > .ic {
+  color: var(--warn);
+}
+.gate.block {
+  background: var(--crit-soft);
+}
+.gate.block > .ic {
+  color: var(--crit);
+}
+.dr-skel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.dr-skel i {
+  display: block;
+  height: 10px;
+  border-radius: 5px;
+  background: var(--sunk-2);
+  animation: pulse 1.4s ease-in-out infinite;
+}

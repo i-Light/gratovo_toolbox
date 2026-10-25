@@ -50,8 +50,12 @@ export async function startApp(root: Root, invoke: Bridge["invoke"]): Promise<vo
       // From here on every change to the data is written back; what was just loaded counts as saved.
       installPersistence(invoke);
       installHashSync();
-      if (signedIn && on !== undefined) {
+      // Main changes the frame on example data too (Reach's drafts and sends, plan step 6), so
+      // the page always takes its changes in; the rest follows a signed-in account only.
+      if (on !== undefined) {
         installLiveUpdates({ invoke, on });
+      }
+      if (signedIn && on !== undefined) {
         installEmailJobs({ on });
         installConflictToasts(invoke);
         installPresenceReporting(invoke);

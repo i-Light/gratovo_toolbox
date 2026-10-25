@@ -178,6 +178,7 @@
                   "ADDON_INSTALL_FAILED",
                   "BROWSER_LAUNCH_FAILED",
                   "NOT_IMPLEMENTED",
+                  "PAUSED",
                   "ACTION_PARSE_FAILED",
                   "ACTION_REFUSED",
                   "SKILL_FILE_MISSING",
@@ -2089,6 +2090,12 @@
             "message"
           ],
           "additionalProperties": {}
+        },
+        "pausedUntil": {
+          "type": [
+            "string",
+            "null"
+          ]
         }
       },
       "required": [

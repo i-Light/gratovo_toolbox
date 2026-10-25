@@ -37,11 +37,12 @@ from collections.abc import Callable, MutableMapping
 from pathlib import Path
 from typing import Any, TextIO
 
-from . import __version__, actions
+from . import __version__, actions, pause
 from .browser import manager as browser_manager
 from .browser.manager import BrowserPaths
-from .client import Gemini
+from .client import Gemini, SendGap
 from .errors import ExtensionNotConnected, GeminiError
+from .pacing_state import PACING_FILE, PacingStore
 from .server import DEFAULT_PORT
 
 WORKERS = 4
@@ -176,11 +177,18 @@ class Daemon:
         self.port = port
         self.out = out
         self.paths = paths
+        # The owner's pacing outlives this process (plan D6a): the pause, the page errors that
+        # count towards one and the last send are saved beside the browser profile, the Gemini
+        # account's own folder, and read back here, so a crash or a Stop then Start in Settings
+        # cannot cut a pause or the 60 s gap short.
+        pacing = PacingStore(paths.profile_dir / PACING_FILE)
         self.gemini = Gemini(
             port=port,
             auto_open=False,
             data_dir=data_dir,
             logger=logging.getLogger("gratovo_pipeline.gemini"),
+            send_gap=SendGap(store=pacing),
+            breaker=pause.Breaker(store=pacing),
         )
         # The token the Firefox add-on must show (plan D13); the browser manager builds it in.
         self.gemini.server.set_token(paths.token)
@@ -291,6 +299,28 @@ class Daemon:
         return details
 
     def dispatch(self, method: str, params: dict[str, Any]) -> Any:
+        if pause.sends_prompt(method):
+            return self.prompting(method, params)
+        return self.route(method, params)
+
+    def prompting(self, method: str, params: dict[str, Any]) -> Any:
+        """A method that sends a prompt, under the breaker (pause.py, plan D6a).
+
+        While it is open the method fails at once with `PAUSED`, before anything reaches the page.
+        A refusal or a page error the method raises is counted, unless the client already counted
+        it on the send it came from (the breaker's `recorded` moved).
+        """
+        breaker = self.gemini.breaker
+        breaker.check()
+        before = breaker.recorded
+        try:
+            return self.route(method, params)
+        except GeminiError as error:
+            if breaker.recorded == before:
+                breaker.note(error)
+            raise
+
+    def route(self, method: str, params: dict[str, Any]) -> Any:
         if method.startswith("bridge."):
             return self.bridge_method(method[len("bridge.") :], params)
         if method.startswith("action."):
@@ -389,6 +419,8 @@ class Daemon:
             "extensionConnected": g.connected,
             "hello": g.server.hello,
             "status": None,
+            # When the breaker's pause ends (ISO 8601 UTC), or None while prompts may go.
+            "pausedUntil": g.breaker.paused_until(),
         }
         if not g.connected:
             result["statusError"] = {

@@ -182,12 +182,17 @@ function addRecent(ui: UiDraft, record: RecordRef): void {
   ui.recent = [{ kind: record.kind, id: record.id }, ...rest].slice(0, maxRecent);
 }
 
-/** Opens a record in the side panel. `list` is the ids on screen, in order, for stepping. Adds it to `recent`. */
-export function peek(record: RecordRef, list?: readonly string[]): void {
+/** Opens a record in the side panel. `list` is the ids on screen, in order, for stepping; `tab` names the record tab to open on. Adds it to `recent`. */
+export function peek(
+  record: RecordRef,
+  list?: readonly string[],
+  options: { readonly tab?: string } = {},
+): void {
   appStore().ui((ui) => {
     ui.peek = {
       record: { kind: record.kind, id: record.id },
       list: list === undefined ? null : [...list],
+      ...(options.tab === undefined ? {} : { tab: options.tab }),
     };
     addRecent(ui, record);
   });

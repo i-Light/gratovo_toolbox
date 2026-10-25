@@ -41,3 +41,12 @@ export {
   removeOtherUsers,
 } from "./outbox";
 export type { OutboxEntry, OutboxKind } from "./outbox";
+export {
+  createOutreachStore,
+  textHash,
+  writeDraftGate,
+  writeDraftMailbox,
+  writeDraftState,
+  writeDraftText,
+} from "./outreach";
+export type { OutreachDeps } from "./outreach";

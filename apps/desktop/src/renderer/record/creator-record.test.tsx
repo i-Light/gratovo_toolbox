@@ -298,6 +298,8 @@ describe("the tabs", () => {
     expect(tab(t.tabs.notes).getAttribute("tabindex")).toBe("-1");
     tab(t.tabs.overview).focus();
     fireEvent.keyDown(tab(t.tabs.overview), { key: "ArrowRight" });
+    expect(tab(t.tabs.emails).getAttribute("aria-selected")).toBe("true");
+    fireEvent.keyDown(tab(t.tabs.emails), { key: "ArrowRight" });
     expect(tab(t.tabs.notes).getAttribute("aria-selected")).toBe("true");
     expect(document.activeElement).toBe(tab(t.tabs.notes));
     fireEvent.keyDown(tab(t.tabs.notes), { key: "End" });
@@ -306,6 +308,24 @@ describe("the tabs", () => {
     expect(tab(t.tabs.overview).getAttribute("aria-selected")).toBe("true");
     fireEvent.keyDown(tab(t.tabs.overview), { key: "ArrowLeft" });
     expect(tab(t.tabs.activity).getAttribute("aria-selected")).toBe("true");
+  });
+});
+
+describe("the Emails tab", () => {
+  it("opens on the tab it is asked for, and says so when the emails can't be read", async () => {
+    bridge({ items: { "UC-a": detail("UC-a") } });
+    render(<CreatorRecord id="UC-a" layout="peek" tab="emails" />);
+    await settle();
+    expect(tab(t.tabs.emails).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByText(strings.reach.emails.loadFailed)).toBeTruthy();
+    expect(calls).toContainEqual(["reach:thread", { creatorId: "UC-a" }]);
+  });
+
+  it("opens on Overview when the tab is not one of its tabs", async () => {
+    bridge({ items: { "UC-a": detail("UC-a") } });
+    render(<CreatorRecord id="UC-a" layout="page" tab="nope" />);
+    await settle();
+    expect(tab(t.tabs.overview).getAttribute("aria-selected")).toBe("true");
   });
 });
 

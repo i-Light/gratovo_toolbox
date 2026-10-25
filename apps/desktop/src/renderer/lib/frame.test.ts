@@ -128,7 +128,7 @@ describe("routeOf", () => {
       screen: "find",
       tab: "search",
     });
-    expect(routeOf({ screen: "reach", tab: "board" }, "live")).toEqual({
+    expect(routeOf({ screen: "close", tab: "roster" }, "live")).toEqual({
       screen: "find",
       tab: "search",
     });

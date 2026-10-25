@@ -1,0 +1,323 @@
+import type { DataSource } from "@gratovo/core/data";
+import { describe, expect, it, vi } from "vitest";
+
+import type { JobOutcome } from "../pipeline/jobs";
+import type { ResultData } from "../pipeline/protocol";
+
+import {
+  createMailState,
+  localMidnight,
+  warmupCap,
+  warmupDay,
+  type MailStateDeps,
+} from "./mail-state";
+
+// Noon on 2026-10-25, local time.
+const clock = new Date(2026, 9, 25, 12, 0, 0).getTime();
+const dayMs = 86_400_000;
+
+type Account = ResultData<"mail.status">["accounts"][number];
+
+function isoDay(daysAgo: number): string {
+  const d = new Date(2026, 9, 25 - daysAgo);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${String(d.getFullYear())}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function source(
+  mailboxes: { address: string; dailyCap: number; warmupStartedOn: string | null }[],
+  sent: { mailbox: string; count: number }[] = [],
+) {
+  const sentSince = vi.fn((since: number) => {
+    expect(since).toBe(localMidnight(clock));
+    return sent;
+  });
+  const fake = {
+    readSetting: (key: string) =>
+      key === "mail.settings"
+        ? { label: "Gratovo Outreach", senderName: null, mailboxes }
+        : undefined,
+    outreach: { sentSince },
+  };
+  return fake as unknown as DataSource;
+}
+
+function account(address: string, over: Partial<Account> = {}): Account {
+  return {
+    account: address,
+    connected: true,
+    counters: null,
+    limits: { dailyCap: 30, warmupStartedOn: null, sentToday: 0, leftToday: 30 },
+    lastSweepAt: null,
+    error: null,
+    ...over,
+  };
+}
+
+function status(accounts: Account[]): JobOutcome {
+  return {
+    ok: true,
+    replies: [],
+    exit: {
+      kind: "ended",
+      end: { type: "end", state: "done", at: 0, found: 0, kept: 0 },
+      result: {
+        type: "result",
+        kind: "mail.status",
+        data: { configured: true, label: "Gratovo Outreach", senderName: null, accounts },
+      },
+    },
+  };
+}
+
+function setup(over: Partial<MailStateDeps> = {}) {
+  const runStatus = vi.fn<MailStateDeps["runStatus"]>(() => Promise.resolve(status([])));
+  const deps: MailStateDeps = {
+    mode: () => "live",
+    source: () => null,
+    runStatus,
+    connected: () => Promise.resolve([]),
+    now: () => clock,
+    log: () => undefined,
+    ...over,
+  };
+  return { state: createMailState(deps), runStatus };
+}
+
+describe("warm-up", () => {
+  it("counts the start date as day 1 and ends after 30 days", () => {
+    expect(warmupDay(isoDay(0), clock)).toBe(1);
+    expect(warmupDay(isoDay(29), clock)).toBe(30);
+    expect(warmupDay(isoDay(30), clock)).toBeNull();
+    expect(warmupDay(null, clock)).toBeNull();
+    expect(warmupDay(isoDay(-2), clock)).toBeNull();
+  });
+});
+
+describe("the mailbox views", () => {
+  it("builds each view from the settings, the last status and the app's own count", async () => {
+    const src = source(
+      [
+        { address: "kai@gratovo.ai", dailyCap: 30, warmupStartedOn: null },
+        { address: "lina@gratovo.ai", dailyCap: 40, warmupStartedOn: isoDay(4) },
+        { address: "omar@gratovo.ai", dailyCap: 25, warmupStartedOn: null },
+      ],
+      [
+        { mailbox: "Kai@Gratovo.ai", count: 6 },
+        { mailbox: "lina@gratovo.ai", count: 2 },
+      ],
+    );
+    const runStatus = vi.fn(() =>
+      Promise.resolve(
+        status([
+          account("kai@gratovo.ai", {
+            limits: { dailyCap: 30, warmupStartedOn: null, sentToday: 4, leftToday: 26 },
+          }),
+          account("lina@gratovo.ai", {
+            limits: { dailyCap: 40, warmupStartedOn: isoDay(4), sentToday: 9, leftToday: 31 },
+          }),
+        ]),
+      ),
+    );
+    const { state } = setup({
+      source: () => src,
+      runStatus,
+      connected: () => Promise.resolve(["kai@gratovo.ai", "LINA@gratovo.ai"]),
+    });
+    await expect(state.refresh()).resolves.toBe("ok");
+    const [kai, lina, omar] = state.views();
+    // Ours (6) is newer than Gmail's (4): the larger wins.
+    expect(kai).toMatchObject({
+      connected: true,
+      signedOut: false,
+      dailyCap: 30,
+      effectiveCap: 30,
+      sentToday: 6,
+      leftToday: 24,
+      warmup: null,
+      status: "good",
+      paused: false,
+      bounceRate: null,
+      replyRate: null,
+      checkedAt: clock,
+    });
+    // Warming: the cap is at most 20, and Gmail's count (9) is the larger.
+    expect(lina).toMatchObject({
+      connected: true,
+      effectiveCap: warmupCap,
+      sentToday: 9,
+      leftToday: 11,
+      warmup: { day: 5, of: 30 },
+      status: "warming",
+    });
+    // No token stored: not connected, never checked.
+    expect(omar).toMatchObject({ connected: false, checkedAt: null, leftToday: 25 });
+  });
+
+  it("shows a mailbox whose token Gmail refused as signed out", async () => {
+    const src = source([{ address: "kai@gratovo.ai", dailyCap: 20, warmupStartedOn: isoDay(1) }]);
+    const { state } = setup({
+      source: () => src,
+      connected: () => Promise.resolve(["kai@gratovo.ai"]),
+      runStatus: () =>
+        Promise.resolve(
+          status([
+            account("kai@gratovo.ai", {
+              limits: null,
+              error: { code: "mail_auth", message: "Reconnect the mailbox in Settings." },
+            }),
+          ]),
+        ),
+    });
+    await state.refresh();
+    expect(state.views()[0]).toMatchObject({ signedOut: true, status: "signed_out" });
+  });
+
+  it("keeps the cap from the settings when it is under the warm-up cap", () => {
+    const src = source([{ address: "kai@gratovo.ai", dailyCap: 10, warmupStartedOn: isoDay(0) }]);
+    const { state } = setup({ source: () => src });
+    expect(state.views()[0]).toMatchObject({ effectiveCap: 10, status: "warming" });
+  });
+
+  it("lists every example mailbox as connected, with the app's own counts and no job", async () => {
+    const src = source(
+      [
+        { address: "kai@gratovo.ai", dailyCap: 30, warmupStartedOn: null },
+        { address: "lina@gratovo.ai", dailyCap: 30, warmupStartedOn: null },
+      ],
+      [{ mailbox: "kai@gratovo.ai", count: 3 }],
+    );
+    const connected = vi.fn(() => Promise.resolve([]));
+    const { state, runStatus } = setup({ source: () => src, mode: () => "example", connected });
+    await expect(state.refresh()).resolves.toBe("ok");
+    state.afterSend();
+    expect(runStatus).not.toHaveBeenCalled();
+    expect(connected).not.toHaveBeenCalled();
+    expect(state.views().map((v) => [v.connected, v.sentToday, v.leftToday])).toEqual([
+      [true, 3, 27],
+      [true, 0, 30],
+    ]);
+  });
+
+  it("is empty with no data open", () => {
+    const { state } = setup({ mode: () => null });
+    expect(state.views()).toEqual([]);
+  });
+});
+
+describe("refresh", () => {
+  const one = [{ address: "kai@gratovo.ai", dailyCap: 30, warmupStartedOn: null }];
+
+  it("answers no_data with no source, and no_mail with no mailbox or no token", async () => {
+    await expect(setup().state.refresh()).resolves.toBe("no_data");
+    const empty = source([]);
+    await expect(setup({ source: () => empty }).state.refresh()).resolves.toBe("no_mail");
+    const src = source(one);
+    const { state, runStatus } = setup({ source: () => src });
+    await expect(state.refresh()).resolves.toBe("no_mail");
+    expect(runStatus).not.toHaveBeenCalled();
+  });
+
+  it("answers no_mail when the job says no mailbox is connected", async () => {
+    const src = source(one);
+    const { state } = setup({
+      source: () => src,
+      connected: () => Promise.resolve(["kai@gratovo.ai"]),
+      runStatus: () =>
+        Promise.resolve({
+          ok: true,
+          replies: [],
+          exit: {
+            kind: "ended",
+            end: {
+              type: "end",
+              state: "failed",
+              at: 0,
+              found: 0,
+              kept: 0,
+              error: { code: "mail_not_connected", message: "No Gmail client." },
+            },
+            result: null,
+          },
+        }),
+    });
+    await expect(state.refresh()).resolves.toBe("no_mail");
+  });
+
+  it("runs one status at a time", async () => {
+    const src = source(one);
+    let finish!: (outcome: JobOutcome) => void;
+    const runStatus = vi.fn(
+      () =>
+        new Promise<JobOutcome>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const { state } = setup({
+      source: () => src,
+      runStatus,
+      connected: () => Promise.resolve(["kai@gratovo.ai"]),
+    });
+    const first = state.refresh();
+    await expect(state.refresh()).resolves.toBe("busy");
+    await vi.waitFor(() => {
+      expect(runStatus).toHaveBeenCalledTimes(1);
+    });
+    finish(status([account("kai@gratovo.ai")]));
+    await expect(first).resolves.toBe("ok");
+    expect(runStatus).toHaveBeenCalledTimes(1);
+  });
+
+  it("reads again after a send, once the status already running ends", async () => {
+    const src = source(one);
+    const finishes: ((outcome: JobOutcome) => void)[] = [];
+    const runStatus = vi.fn(
+      () =>
+        new Promise<JobOutcome>((resolve) => {
+          finishes.push(resolve);
+        }),
+    );
+    const { state } = setup({
+      source: () => src,
+      runStatus,
+      connected: () => Promise.resolve(["kai@gratovo.ai"]),
+    });
+    const first = state.refresh();
+    state.afterSend();
+    await vi.waitFor(() => {
+      expect(runStatus).toHaveBeenCalledTimes(1);
+    });
+    finishes[0]?.(status([account("kai@gratovo.ai")]));
+    await first;
+    await vi.waitFor(() => {
+      expect(runStatus).toHaveBeenCalledTimes(2);
+    });
+    finishes[1]?.(status([account("kai@gratovo.ai")]));
+  });
+
+  it("keeps the last numbers when a check fails", async () => {
+    const src = source(one);
+    const answers: JobOutcome[] = [
+      status([
+        account("kai@gratovo.ai", {
+          limits: { dailyCap: 30, warmupStartedOn: null, sentToday: 7, leftToday: 23 },
+        }),
+      ]),
+      { ok: false, problem: "no_python" },
+      { ok: true, replies: [], exit: { kind: "failed", reason: "crash" } },
+    ];
+    let at = clock;
+    const { state } = setup({
+      source: () => src,
+      now: () => at,
+      runStatus: () => Promise.resolve(answers.shift() ?? status([])),
+      connected: () => Promise.resolve(["kai@gratovo.ai"]),
+    });
+    await state.refresh();
+    at += 60_000;
+    await expect(state.refresh()).resolves.toBe("ok");
+    await expect(state.refresh()).resolves.toBe("ok");
+    expect(state.views()[0]).toMatchObject({ sentToday: 7, checkedAt: clock });
+    expect(at - clock).toBeLessThan(dayMs);
+  });
+});

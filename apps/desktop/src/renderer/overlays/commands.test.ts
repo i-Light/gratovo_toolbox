@@ -105,10 +105,15 @@ describe("buildCommands", () => {
 describe("the live gate", () => {
   const liveData = () => ({ ...data(), source: "live" as const });
 
-  it("lists no Go to rows for hidden screens, and the review and contacts actions", () => {
+  it("lists Go to rows only for wired screens, and the review and contacts actions", () => {
     const rows = buildCommands(liveData(), [], "");
     const goTo = rows.filter((r) => r.group === groups.goTo).map((r) => r.label);
-    expect(goTo).toEqual([screens.find.name, screens.toolbox.name, screens.settings.name]);
+    expect(goTo).toEqual([
+      screens.find.name,
+      screens.reach.name,
+      screens.toolbox.name,
+      screens.settings.name,
+    ]);
     const actions = rows.filter((r) => r.group === groups.actions).map((r) => r.label);
     expect(actions).toContain(strings.palette.actions.reviewFinds);
     expect(actions).toContain(strings.palette.actions.confirmContacts);

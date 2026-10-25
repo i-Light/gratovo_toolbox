@@ -5,6 +5,9 @@
  * them without pulling in the store's immer.
  */
 
+import type { OutreachStore } from "./outreach-store";
+import type { PersonDraftState, ReachData } from "./reach-types";
+
 /** What a person may do in the app; the only roles Supabase's `profiles.role` knows. */
 export type AppRole = "unauthorized" | "basic" | "full";
 
@@ -315,6 +318,8 @@ export interface Frame {
   readonly notify: NotifySettings;
   /** Whether `me` may see money. When false, every price is null and no money notification is here. */
   readonly seesMoney: boolean;
+  /** Drafts, threads, sequences and mailboxes (plan step 6, D4). */
+  readonly reach: ReachData;
 }
 
 /** One change the app writes: exactly the changes it makes today. */
@@ -394,7 +399,35 @@ export type DataWrite =
   /** A deal's step: an index into DEAL_FLOW, 0 to DEAL_FLOW.length - 1. */
   | { readonly kind: "deal.step"; readonly id: string; readonly step: number }
   /** Settles a conflict by keeping your value or the server's. */
-  | { readonly kind: "conflict.resolve"; readonly id: string; readonly choice: "mine" | "theirs" };
+  | { readonly kind: "conflict.resolve"; readonly id: string; readonly choice: "mine" | "theirs" }
+  /**
+   * A draft's state, set by a person (plan step 6, D5): Send (`approved`, `sendAt` the end of the
+   * 10 s hold), Send later (`scheduled`, `sendAt` the time), Skip, or back to `ready` (Undo,
+   * Cancel). Main ignores it on a draft that is `sending` or `sent`, and records `me` as the one
+   * who approved. `sendAt` is null for `ready` and `skipped`.
+   */
+  | {
+      readonly kind: "draft.state";
+      readonly id: string;
+      readonly state: PersonDraftState;
+      readonly sendAt: number | null;
+    }
+  /** A draft's text. Typing sends it straight through (not undoable); a rewrite's Undo is an act. */
+  | {
+      readonly kind: "draft.text";
+      readonly id: string;
+      readonly subject: string;
+      readonly body: string;
+    }
+  /** The mailbox a first email goes from; refused for follow-ups and answers (D3). */
+  | { readonly kind: "draft.mailbox"; readonly id: string; readonly mailbox: string | null }
+  /** A person confirmed an engine gate (`ok`), or took the confirm back. */
+  | {
+      readonly kind: "draft.gate";
+      readonly id: string;
+      readonly gate: string;
+      readonly ok: boolean;
+    };
 
 /** Where the app's data lives: one read and one write, both async so the database can move. */
 export interface DataSource {
@@ -440,5 +473,7 @@ export interface DataSource {
    * rows it changed. One transaction.
    */
   seedChannelNames(rows: readonly { readonly channelId: string; readonly name: string }[]): number;
+  /** Reach's rows, for main's drafter, sender and reply sweep (plan step 6, D2). */
+  readonly outreach: OutreachStore;
   close(): void;
 }

@@ -17,6 +17,7 @@ export const frameParts = [
   "log",
   "notify",
   "conflicts",
+  "reach",
 ] as const;
 export type FramePart = (typeof frameParts)[number];
 

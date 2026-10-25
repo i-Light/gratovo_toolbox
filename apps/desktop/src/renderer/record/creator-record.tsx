@@ -5,6 +5,7 @@ import { FitChip } from "../find/fit-chip";
 import { ThumbAvatar } from "../find/thumb";
 import { strings } from "../strings";
 import { CreatorActivity } from "./creator-activity";
+import { CreatorEmails } from "./creator-emails";
 import { CreatorNext } from "./creator-next";
 import { CreatorNotes } from "./creator-notes";
 import { CreatorOverview } from "./creator-overview";
@@ -13,7 +14,7 @@ import { useCreatorItem } from "./use-creator-item";
 
 const text = strings.creatorRecord;
 
-const tabKeys = ["overview", "notes", "activity"] as const;
+const tabKeys = ["overview", "emails", "notes", "activity"] as const;
 type TabKey = (typeof tabKeys)[number];
 
 /** The header and the tab strip as grey shapes, for the moment before the channel arrives. */
@@ -44,14 +45,17 @@ function Skeleton() {
 export function CreatorRecord({
   id,
   layout,
+  tab: wanted,
   fallback,
 }: {
   readonly id: string;
   readonly layout: "peek" | "page";
+  /** The tab to open on; Overview when it is not one of the tabs. */
+  readonly tab?: string;
   readonly fallback?: ReactNode;
 }) {
   const { status, item, retry } = useCreatorItem(id);
-  const [tab, setTab] = useState<TabKey>("overview");
+  const [tab, setTab] = useState<TabKey>(tabKeys.find((k) => k === wanted) ?? "overview");
   const base = useId();
   if (status === "loading") {
     return <Skeleton />;
@@ -143,6 +147,15 @@ export function CreatorRecord({
         hidden={tab !== "overview"}
       >
         <CreatorOverview item={item} />
+      </div>
+      <div
+        id={panelId("emails")}
+        role="tabpanel"
+        aria-labelledby={tabId("emails")}
+        className="cr-panel"
+        hidden={tab !== "emails"}
+      >
+        {tab === "emails" ? <CreatorEmails creatorId={item.id} /> : null}
       </div>
       {/* Always mounted, so leaving the tab with unsaved text still saves it on blur. */}
       <div

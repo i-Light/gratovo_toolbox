@@ -65,6 +65,24 @@ def no_network(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) 
     monkeypatch.setattr(socket, "getaddrinfo", _refuse)
 
 
+@pytest.fixture(autouse=True)
+def no_send_gap(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A `Gemini` made in a test keeps no 60 s between prompts (the owner's pacing, plan D6a), so
+    a test of several sends runs at once. test_gemini_pacing.py passes its own gap and fake clock,
+    and asks for `real_send_gap` to see the real number; a daemon started as a subprocess keeps
+    the real gap."""
+    if "real_send_gap" in request.fixturenames:
+        return
+    from gratovo_pipeline.gemini import client
+
+    monkeypatch.setattr(client, "SEND_GAP_S", 0.0)
+
+
+@pytest.fixture
+def real_send_gap() -> None:
+    """Asking for this keeps the client's real gap between prompts (see `no_send_gap`)."""
+
+
 @pytest.fixture
 def loopback() -> None:
     """Asking for this lets the test connect to 127.0.0.1 and nowhere else (see `no_network`)."""

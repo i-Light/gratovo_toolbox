@@ -96,6 +96,7 @@ export function Peek() {
           key={`${peek.record.kind}${peek.record.id}`}
           record={peek.record}
           layout="peek"
+          {...(peek.tab === undefined ? {} : { tab: peek.tab })}
         />
       </div>
     </aside>

@@ -26,6 +26,7 @@ from __future__ import annotations
 import logging
 import queue
 import re
+import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -42,6 +43,8 @@ from .errors import (
     JobFailed,
     SignedOut,
 )
+from .pacing_state import PacingStore
+from .pause import Breaker, sends_prompt
 from .server import DEFAULT_PORT, NOT_CONNECTED_MESSAGE, BridgeServer
 
 GEMINI_APP_URL = "https://gemini.google.com/app"
@@ -60,6 +63,59 @@ MAX_ACCOUNT_INDEX = 9
 # genuinely takes the full `timeoutMs` the *extension's* TIMEOUT (which
 # carries `partial`) is the one that reaches the caller, not ours.
 RPC_GRACE_SECONDS = 15.0
+
+#: The owner's pacing rule (docs/product/owner-rules.md, "Gemini"; plan D6a): at least this long
+#: between two prompt sends of one bridge process, whoever asks for them.
+SEND_GAP_S = 60.0
+
+
+class SendGap:
+    """Holds each prompt send until `gap_s` after the previous one began.
+
+    One per bridge process, so the rule holds across every caller: an action's follow-up turns, a
+    keyword batch's chats and main's own `send` all wait their turn. The wait happens with the lock
+    held, so two sends that arrive together go out one gap apart, in turn. The clock is monotonic
+    and the sleep a single call, so the tests can pass fakes and run at once.
+
+    With a `store` (`pacing_state.py`), the last send of an earlier bridge process counts too:
+    a bridge started again within the gap waits out the rest of it, and every send is saved.
+    """
+
+    def __init__(
+        self,
+        gap_s: float | None = None,
+        *,
+        clock: Callable[[], float] = time.monotonic,
+        sleep: Callable[[float], object] = time.sleep,
+        store: PacingStore | None = None,
+    ) -> None:
+        self.gap_s = SEND_GAP_S if gap_s is None else float(gap_s)
+        self._clock = clock
+        self._sleep = sleep
+        self._lock = threading.Lock()
+        self._last: float | None = None
+        self._store = store
+        if store is not None:
+            since = store.since_last_send()
+            if since is not None and since < self.gap_s:
+                self._last = clock() - since
+
+    def wait(self, before_send: Callable[[], None] | None = None) -> float:
+        """Waits out the gap, runs `before_send` (the breaker's check, so a pause that began while
+        this send waited still holds it back), and marks the send as begun; returns the seconds
+        waited."""
+        with self._lock:
+            waited = 0.0
+            if self._last is not None:
+                waited = max(0.0, self._last + self.gap_s - self._clock())
+                if waited > 0:
+                    self._sleep(waited)
+            if before_send is not None:
+                before_send()
+            self._last = self._clock()
+            if self._store is not None:
+                self._store.save_send()
+            return waited
 
 
 @dataclass
@@ -154,8 +210,17 @@ class Gemini:
         auto_open: bool = True,
         logger: logging.Logger | None = None,
         data_dir: Path | None = None,
+        send_gap: SendGap | None = None,
+        breaker: Breaker | None = None,
     ) -> None:
         self.connect_timeout = float(connect_timeout)
+        # The owner's pacing, enforced where every prompt passes (`call`, plan D6a): the gap
+        # between sends, and the breaker that pauses them after a refusal or repeated page errors.
+        self.send_gap = send_gap or SendGap()
+        self.breaker = breaker or Breaker()
+        # True right after `open_gem`: navigating to a gem opens a fresh chat in it, so the next
+        # send must not click "New chat" (that would leave the gem).
+        self._fresh_from_gem = False
         self.call_timeout = float(call_timeout)
         # Where the skill files for the actions live (`--data-dir`, plan D2). None means there
         # is none: an action that needs a skill file then says `SKILL_FILE_MISSING`.
@@ -226,10 +291,45 @@ class Gemini:
     def call(
         self, method: str, params: dict[str, Any] | None = None, timeout: float | None = None
     ) -> Any:
-        """Sends any method by name and returns its raw result."""
-        return self.server.call(
-            method, params or {}, self.call_timeout if timeout is None else timeout
-        )
+        """Sends any method by name and returns its raw result.
+
+        Every prompt passes here, whoever sends it (`send` and `ask`, the actions, the comms
+        engine's `call("send", ...)`, main's proxied `send`), so this is where the owner's pacing
+        is kept (plan D6a): see `_send_prompt`.
+        """
+        rpc_timeout = self.call_timeout if timeout is None else timeout
+        if sends_prompt(method):
+            return self._send_prompt(method, params or {}, rpc_timeout)
+        return self.server.call(method, params or {}, rpc_timeout)
+
+    def _send_prompt(self, method: str, params: dict[str, Any], timeout: float) -> Any:
+        """One prompt to the page, under the owner's rules (plan D6a):
+
+        * nothing goes while the breaker is open (`Paused`, checked before and after the gap);
+        * at least `SEND_GAP_S` after the previous prompt of this process;
+        * always in a new chat, whatever the caller asked: one prompt per fresh chat. Right after
+          `open_gem` the gem's own page is that new chat, and "New chat" would leave the gem.
+
+        A refusal or a page error, given as an error or as the answer, is counted by the breaker.
+        """
+        self.breaker.check()
+        fresh_from_gem, self._fresh_from_gem = self._fresh_from_gem, False
+        params = {**params, "newChat": not fresh_from_gem}
+        self.send_gap.wait(self.breaker.check)
+        try:
+            result: Any = self.server.call(method, params, timeout)
+        except GeminiError as error:
+            self.breaker.note(error)
+            raise
+        returned: object = result
+        if isinstance(returned, dict):
+            reply = cast("dict[str, Any]", returned)
+            answer: object = reply.get("text")
+            if not isinstance(answer, str):
+                answer = reply.get("textRaw")
+            if isinstance(answer, str):
+                self.breaker.note_answer(answer)
+        return result
 
     def _call_waiting(self, method: str, params: dict[str, Any], timeout: float | None) -> Any:
         """A call whose extension-side wait is `timeout` seconds; the RPC gets a little longer."""
@@ -328,6 +428,9 @@ class Gemini:
         confirmed): the level resets to the lowest on every new tab and reload,
         so a caller that cares passes it on every send; `thinking` in the
         result is the level confirmed.
+
+        Every send opens a new chat and waits its turn (`call`, plan D6a), so `new_chat` no longer
+        changes anything; it stays so callers written before the rule still fit.
         """
         params: dict[str, Any] = {"wait": bool(wait)}
         if text is not None:
@@ -477,6 +580,8 @@ class Gemini:
         else:
             url = f"{GEMINI_ORIGIN}/u/{index}/gem/{gem.strip('/')}"
         landed = self.navigate(url, timeout=timeout)
+        # The gem's page is a fresh chat in the gem: the next prompt goes there as it is.
+        self._fresh_from_gem = True
         return {"url": landed.get("url", url), "tabId": landed.get("tabId")}
 
     def ensure_account(self, match: str) -> dict[str, Any]:
