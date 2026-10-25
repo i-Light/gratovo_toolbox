@@ -24,8 +24,18 @@ function capped(note: string): string {
   return note.length > noteMax ? note.slice(0, noteMax) : note;
 }
 
+/**
+ * True for a pipeline channel whose uploads were never read (deferred, restored, failed): the page
+ * says "not read yet" and never shows a made-up 0 (D45). A state-only row has no numbers at all.
+ */
+export function uploadsUnread(item: CatalogItem): boolean {
+  return item.hasNumbers && !item.uploadsRead;
+}
+
 function medianPoints(item: CatalogItem): number {
-  return item.hasNumbers ? Math.round(Math.min(1, item.medianViews / 90000) * medianShare) : 0;
+  return item.hasNumbers && item.uploadsRead
+    ? Math.round(Math.min(1, item.medianViews / 90000) * medianShare)
+    : 0;
 }
 
 function postingPoints(uploads30: number): number {
@@ -74,19 +84,23 @@ function audiencePart(country: string | null): FitPart {
 
 /** Five parts, each with the reason for its points, so the score is never a black box. */
 export function fitOf(item: CatalogItem): Fit {
-  const numbers = item.hasNumbers;
+  const numbers = item.hasNumbers && item.uploadsRead;
+  const noteFor = (read: string): string => {
+    if (!item.hasNumbers) return fitWords.noNumbers;
+    return item.uploadsRead ? read : fitWords.uploadsUnread;
+  };
   const parts: FitPart[] = [
     {
       key: "median",
       points: medianPoints(item),
       of: medianShare,
-      note: numbers ? fitWords.perVideo(item.medianViews) : fitWords.noNumbers,
+      note: noteFor(fitWords.perVideo(item.medianViews)),
     },
     {
       key: "posting",
       points: numbers ? postingPoints(item.uploads30) : 0,
       of: postingShare,
-      note: numbers ? fitWords.uploads(item.uploads30, item.uploads30 > 20) : fitWords.noNumbers,
+      note: noteFor(fitWords.uploads(item.uploads30, item.uploads30 > 20)),
     },
     audiencePart(item.country),
     {
@@ -115,7 +129,7 @@ export function fitOf(item: CatalogItem): Fit {
 export function fitScore(item: CatalogItem): number {
   return (
     medianPoints(item) +
-    (item.hasNumbers ? postingPoints(item.uploads30) : 0) +
+    (item.hasNumbers && item.uploadsRead ? postingPoints(item.uploads30) : 0) +
     audiencePoints(item.country) +
     engagementPoints(item.engagement) +
     sponsoredPoints(item.sponsors)
@@ -124,7 +138,7 @@ export function fitScore(item: CatalogItem): number {
 
 /** A gold mine: views at least 40% of subscribers, 3 to 20 uploads a month, 40K+ views. */
 export function isGold(item: CatalogItem): boolean {
-  if (item.subscribers === null) return false;
+  if (item.subscribers === null || !item.uploadsRead) return false;
   return (
     item.medianViews >= 40000 &&
     item.medianViews / Math.max(item.subscribers, 1) >= 0.4 &&

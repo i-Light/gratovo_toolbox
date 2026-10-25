@@ -178,6 +178,41 @@ describe("Toolbox › Archived for good", () => {
     ).toContain(50);
   });
 
+  it("shows what the tombstone kept, and not known for the rest", async () => {
+    const rows = [
+      tomb(1, {
+        name: "Agent Lab",
+        country: "US",
+        medianViews: 41_000,
+        uploads30: 6,
+        keywords: [
+          { keyword: "ai agents", at: 1 },
+          { keyword: "llm tools", at: 2 },
+          { keyword: "prompt tips", at: 3 },
+          { keyword: "rag", at: 4 },
+          { keyword: "mcp", at: 5 },
+        ],
+      }),
+      tomb(2),
+    ];
+    stubToolboxBridge({ archived: rows });
+    await show();
+    const section = within(screen.getByRole("region", { name: t.forGoodTitle }));
+    expect(
+      section.getByText(
+        /Country: US · Subscribers: 120K · Median views: 41K · Uploads in 30 days: 6 · Found by: ai agents, llm tools, prompt tips \+2 more/,
+      ),
+    ).toBeTruthy();
+    expect(
+      section.getByText(
+        "Country: not known · Subscribers: 120K · Median views: not known · Uploads in 30 days: not known · Found by: not known",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByLabelText(t.searchLabel).getAttribute("placeholder")).toMatch(
+      /name or handle/i,
+    );
+  });
+
   it("searches after a short wait", async () => {
     const bridge = stubToolboxBridge({ archived: [tomb(1, { handle: "@claudecoach" }), tomb(2)] });
     await show();

@@ -4,6 +4,14 @@
  */
 export const strings = {
   appName: "Gratovo Toolbox",
+  /** A channel whose uploads were never read shows this, never a 0 (step 5d-2, D45). */
+  unread: {
+    label: "Not read yet",
+    lastKnown: (value: string): string => `Not read yet (last known: ${value})`,
+    lastKnownShort: (value: string): string => `last known ${value}`,
+    /** A creator with no pipeline row at all: nothing was ever measured. */
+    noNumbers: "No numbers yet",
+  },
   brand: { name: "Gratovo", sub: "Workbench" },
   auth: {
     signIn: {
@@ -1431,14 +1439,21 @@ export const strings = {
       bringBack: "Bring back",
       bringBackLabel: (name: string): string => `Bring back ${name}`,
       forGoodTitle: "Archived for good",
-      forGoodHint: "Searches skip these channels. Bring one back and its numbers are read again.",
+      forGoodHint: "Searches skip these channels. Bring one back and it returns to Review new.",
       searchLabel: "Search archived channels",
-      searchPlaceholder: "Search by handle or name",
+      searchPlaceholder: "Search by name or handle",
       forGoodEmpty: "Nothing archived for good yet.",
       noMatch: "No archived channel matches that.",
       rejectedLabel: "Rejected",
-      subscribers: (n: string): string => `${n} subscribers`,
       hiddenSubscribers: "Hidden subscribers",
+      keptCountry: (country: string | null): string => `Country: ${country ?? "not known"}`,
+      keptSubscribers: (n: string | null): string => `Subscribers: ${n ?? "not known"}`,
+      keptMedian: (n: string | null): string => `Median views: ${n ?? "not known"}`,
+      keptUploads: (n: string | null): string => `Uploads in 30 days: ${n ?? "not known"}`,
+      keptFoundBy: (named: readonly string[], more: number): string =>
+        named.length === 0
+          ? "Found by: not known"
+          : `Found by: ${named.join(", ")}${more > 0 ? ` +${String(more)} more` : ""}`,
       unknownName: "Unknown channel",
       archivedOn: (when: string): string => `archived ${when}`,
     },
@@ -1477,9 +1492,9 @@ export const strings = {
       emptyHint: "Nothing has been logged for this person.",
     },
     restore: {
-      comingBack: (name: string): string => `${name} is coming back`,
-      comingBackSub: "Its numbers are read again, then it shows in Review new.",
-      returnsLater: "It returns to Review new when a search finds it again.",
+      comingBack: (name: string): string => `${name} is back`,
+      comingBackSub: "Back in Review new. Its numbers are being read again.",
+      returnsLater: "Back in Review new with its last known numbers.",
       busy: "A search is running. Bring it back when it pauses or ends.",
       failed: "Couldn’t bring it back. Try again.",
       fallbackName: "The channel",

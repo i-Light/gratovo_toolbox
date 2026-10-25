@@ -1,7 +1,8 @@
-import { fitOf, formatCount, type CatalogItem } from "@gratovo/core/find";
+import { fitOf, formatCount, uploadsUnread, type CatalogItem } from "@gratovo/core/find";
 import { Btn, cx, IconBtn } from "@gratovo/ui";
 import { useEffect, useMemo, useRef } from "react";
 
+import { unreadWords } from "../lib/format";
 import { strings } from "../strings";
 import { Thumb } from "./thumb";
 
@@ -21,6 +22,8 @@ interface Cell {
   readonly shown: string;
   /** What "best" compares; null never wins. */
   readonly rank: number | null;
+  /** Not read yet: shown dimmed. */
+  readonly muted?: boolean;
 }
 
 interface Row {
@@ -53,12 +56,27 @@ function rowsOf(items: readonly CatalogItem[]): Row[] {
     {
       label: text.median,
       hasBest: true,
-      cells: cells((i) => ({ shown: formatCount(i.medianViews), rank: i.medianViews })),
+      cells: cells((i) =>
+        uploadsUnread(i)
+          ? {
+              shown: unreadWords(i.medianViews > 0 ? formatCount(i.medianViews) : null),
+              rank: null,
+              muted: true,
+            }
+          : { shown: formatCount(i.medianViews), rank: i.medianViews },
+      ),
     },
     {
       label: text.uploads,
       hasBest: true,
       cells: cells((i) => {
+        if (uploadsUnread(i)) {
+          return {
+            shown: unreadWords(i.uploads30 > 0 ? String(i.uploads30) : null),
+            rank: null,
+            muted: true,
+          };
+        }
         const shorts = i.uploads30 > shortsOver;
         return {
           shown: `${String(i.uploads30)}${shorts ? text.shorts : ""}`,
@@ -137,6 +155,7 @@ export function Compare({ items, onShortlist, onOpen, onClose }: CompareProps) {
                     key={items[idx]?.id}
                     className={cx(
                       "num",
+                      cell.muted === true && "muted",
                       row.hasBest && n > 1 && best !== null && cell.rank === best && "best",
                     )}
                   >

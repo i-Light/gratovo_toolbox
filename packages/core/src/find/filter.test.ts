@@ -247,6 +247,17 @@ describe("sortItems", () => {
     expect(ids(sortItems([b, c, a, e, f], "median"))).toEqual(["c", "f", "a", "e", "b"]);
   });
 
+  it("median and latest put unread channels last, whatever they carry", () => {
+    const unread = makeItem({
+      id: "u",
+      medianViews: 999999,
+      latestUploadAt: 9999,
+      uploadsRead: false,
+    });
+    expect(ids(sortItems([unread, b, c, a], "median"))).toEqual(["c", "a", "b", "u"]);
+    expect(ids(sortItems([unread, b, a], "latest")).at(-1)).toBe("u");
+  });
+
   it("subs is largest first with unknown last", () => {
     expect(ids(sortItems([e, b, c, a], "subs"))).toEqual(["c", "a", "b", "e"]);
   });

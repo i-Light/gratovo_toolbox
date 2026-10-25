@@ -208,6 +208,54 @@ describe("cards", () => {
     expect(getPrefs().findSize).toBe("s");
   });
 
+  it("says Not read yet on a card whose uploads were never read, never 0", async () => {
+    const unread = aiChannel("UC-unread", "Deferred Digest", {
+      medianViews: 0,
+      uploads30: 0,
+      uploadsRead: false,
+    });
+    const carried = aiChannel("UC-carried", "Restored Rewind", {
+      medianViews: 12_000,
+      uploadsRead: false,
+    });
+    await show([agentLab, unread, carried]);
+    const gone = within(card("Deferred Digest"));
+    expect(gone.getByText(strings.unread.label)).toBeTruthy();
+    expect(card("Deferred Digest").textContent).not.toContain(t.card.in30);
+    expect(card("Restored Rewind").textContent).toContain(strings.unread.lastKnown("12K median"));
+    expect(card("Agent Lab").textContent).not.toContain(strings.unread.label);
+  });
+
+  it("says Not read yet in the table's median and latest columns", async () => {
+    const unread = aiChannel("UC-unread", "Deferred Digest", {
+      medianViews: 0,
+      uploadsRead: false,
+    });
+    await show([agentLab, unread]);
+    act(() => {
+      setGalleryView("table");
+    });
+    const row = screen.getByText("Deferred Digest").closest("tr");
+    expect(row?.textContent.match(/Not read yet/g)).toHaveLength(2);
+  });
+
+  it("says No numbers yet, never 0, for a creator nothing was ever measured for", async () => {
+    const bare = aiChannel("UC-bare", "Roster Only", {
+      medianViews: 0,
+      uploads30: 0,
+      hasNumbers: false,
+      uploadsRead: false,
+    });
+    await show([agentLab, bare]);
+    expect(card("Roster Only").textContent).toContain(strings.unread.noNumbers);
+    expect(card("Roster Only").textContent).not.toContain(t.card.median);
+    act(() => {
+      setGalleryView("table");
+    });
+    const row = screen.getByText("Roster Only").closest("tr");
+    expect(row?.textContent).not.toContain(strings.unread.label);
+  });
+
   it("dims rejected channels", async () => {
     stubFindBridge({ items });
     patchGalleryFilter({ stages: ["rejected", "new"] });

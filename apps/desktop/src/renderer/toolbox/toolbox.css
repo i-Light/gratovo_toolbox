@@ -89,6 +89,19 @@
   min-height: var(--row-h);
   border-top: 1px solid var(--line);
 }
+.tb-gone .lt {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.tb-gone .lt b {
+  font-weight: 500;
+}
+.tb-gone .lt small {
+  font-size: 12px;
+  line-height: 1.35;
+}
 
 /* the Never contact tool */
 .tb-why {

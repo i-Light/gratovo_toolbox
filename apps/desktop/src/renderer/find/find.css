@@ -788,6 +788,17 @@
   max-width: 260px;
   cursor: pointer;
 }
+.tbl .tbl-unread {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.tbl .tbl-unread small {
+  font-size: 11px;
+}
 .tbl .tbl-sort {
   padding: 0 4px;
   height: 22px;
