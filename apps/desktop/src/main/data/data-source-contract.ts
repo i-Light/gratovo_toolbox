@@ -1650,6 +1650,99 @@ export function describeDataSourceContract(
         });
         expect(source.outreach.draft("d1")?.state).toBe("sent");
       });
+
+      it("saves a fact a reply gave, shows it saved in the frame, and ignores a repeat or a stranger", async () => {
+        const source = start();
+        const reading = {
+          replyType: "inf.gives_rate",
+          label: "Gives their rate or rate card",
+          summary: "They gave a price.",
+          side: "influencer",
+          corrected: false,
+          facts: [
+            { key: "rate" as const, rate: 1200, saved: false },
+            { key: "age" as const, band: "25-34", saved: false },
+          ],
+        };
+        source.outreach.commit({
+          at: contractNow,
+          messages: [
+            {
+              id: "m-in",
+              creator,
+              direction: "in",
+              kind: null,
+              followUp: null,
+              subject: "Re: Hello",
+              body: "My rate is $1,200. Audience ages 25-34.",
+              bodyCut: false,
+              at: contractNow,
+              mailbox: "outreach1@gratovo.example",
+              peer: "a@b.example",
+              peerName: null,
+              conversationKey: `c:${creator}`,
+              gmailMessageId: "g-in",
+              gmailThreadId: null,
+              draftId: null,
+              by: null,
+              source: "sweep",
+              reading,
+            },
+          ],
+          writes: [
+            {
+              kind: "creator.stage",
+              id: creator,
+              stage: "replied",
+              handle: "@drafts",
+              name: "Drafts",
+            },
+          ],
+        });
+        const saved = async (): Promise<unknown> =>
+          (await source.frame()).reach.threads
+            .find((t) => t.creator === creator)
+            ?.lastIn?.reading?.facts.map((f) => [f.key, f.saved]);
+        expect(await saved()).toEqual([
+          ["rate", false],
+          ["age", false],
+        ]);
+        await source.write([
+          { kind: "reply.fact", messageId: "m-in", key: "rate" },
+          { kind: "reply.fact", messageId: "m-in", key: "rate" },
+          { kind: "reply.fact", messageId: "nobody", key: "age" },
+        ]);
+        expect(await saved()).toEqual([
+          ["rate", true],
+          ["age", false],
+        ]);
+        expect(source.outreach.message("m-in")?.factsSaved).toEqual(["rate"]);
+      });
+
+      it("adds a notification in a commit and serves it in the frame", async () => {
+        const source = start();
+        source.outreach.commit({
+          at: contractNow,
+          notifications: [
+            {
+              id: "reply-x",
+              at: contractNow,
+              icon: "reply",
+              text: "Vector Vlog replied",
+              sub: "Re: Hello",
+              go: { screen: "reach", tab: "inbox" },
+              read: false,
+            },
+          ],
+        });
+        const frame = await source.frame();
+        expect(frame.notifications.find((n) => n.id === "reply-x")).toMatchObject({
+          icon: "reply",
+          go: { screen: "reach", tab: "inbox" },
+          read: false,
+        });
+        await frameSchema.parseAsync(frame);
+      });
     });
   });
 }

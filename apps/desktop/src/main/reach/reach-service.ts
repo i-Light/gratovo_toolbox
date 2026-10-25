@@ -45,7 +45,9 @@ import { buildCommsFacts, threadIdOf } from "./facts";
 import { createMailState, type MailState } from "./mail-state";
 import { mailboxKey, noFlags, readMailboxFlags, writeMailboxFlags } from "./mailbox-settings";
 import { createQuickQueue, type QuickQueue } from "./quick-queue";
+import { createReplySweep, skipOpenFollowUps, type ReplySweep } from "./reply-sweep";
 import { createSender, type CheckOutcome, type Sender, type SendOutcome } from "./sender";
+import { createSituations, type Situations } from "./situations";
 import { mailboxStrings, sequenceStrings } from "./strings";
 
 /**
@@ -89,6 +91,8 @@ export interface ReachServiceDeps {
   runQuickJob(start: Start): Promise<JobOutcome>;
   /** The addresses with a stored refresh token. */
   connected(): Promise<readonly string[]>;
+  /** The reply situations of the course's playbook; none when the file is not there. */
+  situations?: Situations;
   /** The country (two letters) of each channel the Find catalog knows; unknown ones are left out. */
   countries?(ids: readonly string[]): Promise<ReadonlyMap<string, string>>;
   /** Tells the page the frame's `reach` part changed, and `more` parts besides it. */
@@ -194,6 +198,9 @@ export function createReachService(deps: ReachServiceDeps): ReachServiceHandle {
     source: () => deps.source(),
     runStatus: () => runMail({ kind: "mail.status" }),
     connected: () => deps.connected(),
+    notified: () => {
+      changed(["notify"]);
+    },
     now,
     log,
   });
@@ -307,11 +314,34 @@ export function createReachService(deps: ReachServiceDeps): ReachServiceHandle {
       return { ready: true, pausedUntil: await bridgePausedUntil() };
     },
     propose: (params) => deps.gemini.call("action.comms_propose", params),
+    // How an answer's reply was read is stored on the reply (D23).
+    reading: (draft, proposal) => replies.reading(draft, proposal),
     sender,
     mailboxes: () => mailState.views(),
     changed,
     now,
     ...(deps.draftWait === undefined ? {} : { wait: deps.draftWait }),
+  });
+
+  // --- the replies (D23): the sweep, Paste a reply, the reading and "That's not it" ---
+  const replies: ReplySweep = createReplySweep({
+    mode: () => deps.mode(),
+    source: () => deps.source(),
+    run: (job) => runMail(job),
+    connected: () => deps.connected(),
+    situations: deps.situations ?? createSituations({ file: null, log }),
+    reread: (draftId, label) => drafter.reread(draftId, label),
+    changed,
+    kick: () => {
+      drafter.kick();
+    },
+    afterWrite: () => {
+      theSender.afterWrite();
+    },
+    now,
+    ...(deps.setTimer === undefined ? {} : { setTimer: deps.setTimer }),
+    ...(deps.clearTimer === undefined ? {} : { clearTimer: deps.clearTimer }),
+    log,
   });
 
   // --- the mailbox numbers, read again every ten minutes while live data is open ---
@@ -517,15 +547,6 @@ export function createReachService(deps: ReachServiceDeps): ReachServiceHandle {
 
   // --- the follow-up sequences (D22) ---
 
-  /** The follow-up drafts a Stop or a Park skips; one being sent is left. */
-  const openFollowUp: readonly DraftState[] = [
-    "drafting",
-    "ready",
-    "failed",
-    "approved",
-    "scheduled",
-  ];
-
   const nameOf = (creator: CreatorState): string => creator.name ?? creator.handle;
 
   const logLine = (creator: CreatorState, text: string, at: number): DataWrite => ({
@@ -545,17 +566,6 @@ export function createReachService(deps: ReachServiceDeps): ReachServiceHandle {
     handle: creator.handle,
     name: nameOf(creator),
   });
-
-  /** The creator's open follow-up drafts, as skip patches. */
-  function skipOpen(
-    source: DataSource,
-    creatorId: string,
-  ): { id: string; patch: { state: "skipped"; problem: null } }[] {
-    return source.outreach
-      .draftsIn(openFollowUp)
-      .filter((d) => d.creator === creatorId && d.kind === "followUp")
-      .map((d) => ({ id: d.id, patch: { state: "skipped" as const, problem: null } }));
-  }
 
   type SequenceAnswer = ChannelResponse<"reach:sequence-resume">;
   type SkipAnswer = ChannelResponse<"reach:sequence-stop">;
@@ -647,7 +657,7 @@ export function createReachService(deps: ReachServiceDeps): ReachServiceHandle {
       return { ok: false, problem: "wrong_state" };
     }
     const at = now();
-    const skip = skipOpen(source, creatorId);
+    const skip = skipOpenFollowUps(source, creatorId);
     source.outreach.commit({
       at,
       drafts: skip,
@@ -702,7 +712,7 @@ export function createReachService(deps: ReachServiceDeps): ReachServiceHandle {
       return { ok: false, problem: "wrong_state" };
     }
     const next = parked(sequence, until);
-    const skip = skipOpen(source, creatorId);
+    const skip = skipOpenFollowUps(source, creatorId);
     source.outreach.commit({
       at,
       drafts: skip,
@@ -862,6 +872,11 @@ export function createReachService(deps: ReachServiceDeps): ReachServiceHandle {
     setMailbox,
     sendTest,
 
+    checkReplies: () => replies.check(),
+    pasteReply: (creatorId, text) => replies.paste(creatorId, text),
+    reclassify: (messageId, replyType) => replies.reclassify(messageId, replyType),
+    situations: () => replies.situations(),
+
     async overlay(frame) {
       me = frame.me;
       myName = frame.myName;
@@ -907,11 +922,13 @@ export function createReachService(deps: ReachServiceDeps): ReachServiceHandle {
       armDayTimer();
       if (deps.mode() === "live") {
         armRefreshTimer();
+        replies.start();
       }
     },
     closed() {
       drafter.drop();
       theSender.drop();
+      replies.stop();
       stopRefreshTimer();
       stopDayTimer();
     },
@@ -923,6 +940,7 @@ export function createReachService(deps: ReachServiceDeps): ReachServiceHandle {
       drafter.kick();
     },
     dispose() {
+      replies.stop();
       stopRefreshTimer();
       stopDayTimer();
       if (emitTimer !== null) {

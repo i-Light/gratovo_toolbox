@@ -24,6 +24,7 @@ import {
 import { createImporter, storeOutcomeOf } from "./import/import-service";
 import { readMailSecrets } from "./pipeline/pipeline-secrets";
 import { createReachService, type ReachServiceHandle } from "./reach/reach-service";
+import { createSituations, situationsFile } from "./reach/situations";
 import { registerBridge } from "./ipc-bridge";
 import { createMailConsent, type MailClient } from "./mail/consent";
 import { createNetwork } from "./net/network";
@@ -469,6 +470,14 @@ function start(): void {
         runQuickJob: (start) => runJob(quickLane, start),
         connected: async () =>
           (await readMailSecrets(secrets))?.mailboxes.map((m) => m.address) ?? [],
+        // The reply situations of the course's playbook, for a reading's label and the picker.
+        situations: createSituations({
+          file: situationsFile({
+            packaged: app.isPackaged,
+            appPath: app.getAppPath(),
+            exists: existsSync,
+          }),
+        }),
         // The Find catalog's country of each channel, for Send later's "Their morning". The last
         // build's rows, so a frame never waits on a catalog rebuild; only the very first waits.
         countries: async (ids) => {

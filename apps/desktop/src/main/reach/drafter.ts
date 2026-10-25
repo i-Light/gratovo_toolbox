@@ -21,7 +21,7 @@ import {
   type RewriteHow,
   type StoredDraft,
 } from "@gratovo/core/data";
-import { dueSteps, pickMailbox, withStep } from "@gratovo/core/reach";
+import { dueSteps, pickMailbox, readReplyFacts, withStep } from "@gratovo/core/reach";
 import type { ChannelResponse } from "@gratovo/ipc";
 
 import type { GeminiParams, GeminiResult } from "../pipeline/gemini-protocol";
@@ -49,6 +49,11 @@ export interface Drafter {
   draftNow(creatorId: string): Promise<ChannelResponse<"reach:draft-now">>;
   /** `reach:rewrite`: the new text arrives through `changed()`. */
   rewrite(draftId: string, how: RewriteHow): Promise<ChannelResponse<"reach:rewrite">>;
+  /**
+   * "That's not it" (D23): writes an open answer draft again with the steer note "Read their reply
+   * as: <label>". It shares the rewrite's answers and its Undo.
+   */
+  reread(draftId: string, label: string): Promise<ChannelResponse<"reach:rewrite">>;
   /** `reach:retry`: a draft whose drafting failed goes back in the queue. */
   retry(draftId: string): Promise<ChannelResponse<"reach:retry">>;
   /** Whether drafts can be written now, as the frame's `reach.gemini` says it. */
@@ -75,6 +80,11 @@ export interface DrafterDeps {
   propose(
     params: GeminiParams<"action.comms_propose">,
   ): Promise<GeminiCall<"action.comms_propose">>;
+  /**
+   * An answer draft's proposal says how the reply was read (D23): stores the reading on the
+   * reply, and says whether it is a bounce (then no answer is written). Never throws into the queue.
+   */
+  reading?(draft: StoredDraft, proposal: DraftProposal): Promise<{ bounce: boolean }>;
   /** The name drafts are signed with; null blocks drafting. */
   sender(): string | null;
   mailboxes(): readonly MailboxView[];
@@ -251,6 +261,60 @@ export function standInDraft(
     sender,
   ].join("\n\n");
   return { subject: text.subject, body, proposal: standInProposal() };
+}
+
+/** The situation the example data's stand-in reads a reply as, from its words (D23). */
+export function standInSituation(body: string): string {
+  if (
+    /mailer-daemon|undeliverable|delivery status|address not found|couldn't be delivered/i.test(
+      body,
+    )
+  ) {
+    return "any.bounce";
+  }
+  if (/not interested|no thanks|no, thank|unsubscribe|please stop/i.test(body)) {
+    return "inf.not_interested";
+  }
+  if (readReplyFacts(body).some((fact) => fact.key === "rate")) {
+    return "inf.gives_rate";
+  }
+  if (/\b(?:manager|agency|agent)\b/i.test(body)) {
+    return "inf.has_manager";
+  }
+  if (/\b(?:busy|later|next month|next week)\b/i.test(body)) {
+    return "inf.later";
+  }
+  return "inf.interested_vague";
+}
+
+/** The example data's answer to a reply, and the reading its proposal carries (D23). */
+export function standInReply(
+  creator: Pick<CreatorState, "contactName">,
+  sender: string,
+  message: { readonly subject: string; readonly body: string },
+  replyType: string | null = null,
+): { subject: string; body: string; proposal: DraftProposal } {
+  const text = reachStrings.standInReply;
+  const type = replyType ?? standInSituation(message.body);
+  const lines = text.answers[type] ?? text.otherAnswer;
+  return {
+    subject: text.subject(message.subject),
+    body: [text.greeting(creator.contactName), ...lines, sender].join("\n\n"),
+    proposal: {
+      status: "ready",
+      why: text.why,
+      rules: [...text.rules],
+      findings: [],
+      gates: [],
+      situation: {
+        side: type.startsWith("brd.") ? "brand" : type.startsWith("any.") ? "any" : "influencer",
+        stage: "replied",
+        replyType: type,
+        summary: text.summaries[type] ?? text.other,
+      },
+      model: null,
+    },
+  };
 }
 
 /** A body cut into its greeting, its paragraphs and its sign-off. */
@@ -476,6 +540,19 @@ export function createDrafter(deps: DrafterDeps): Drafter {
     return states.find((state) => state.id === id) ?? null;
   }
 
+  /** Stores how an answer's reply was read; true when it was a bounce (D23). */
+  async function bounceRead(draft: StoredDraft, proposal: DraftProposal | null): Promise<boolean> {
+    if (deps.reading === undefined || draft.kind !== "reply" || proposal?.situation == null) {
+      return false;
+    }
+    try {
+      return (await deps.reading(draft, proposal)).bounce;
+    } catch {
+      console.error("Reach: storing the reading of a reply failed.");
+      return false;
+    }
+  }
+
   /** Drafts one row; "stop" ends this pass of the queue. */
   async function draftOne(
     mine: number,
@@ -501,10 +578,22 @@ export function createDrafter(deps: DrafterDeps): Drafter {
       if (mine !== generation || source.outreach.draft(row.id)?.state !== "drafting") {
         return mine === generation ? "next" : "stop";
       }
-      const filled = standInDraft(creator, sender);
+      const replied =
+        row.kind === "reply" && row.replyTo !== null ? source.outreach.message(row.replyTo) : null;
+      const filled =
+        row.kind === "reply"
+          ? standInReply(creator, sender, replied ?? { subject: "", body: "" })
+          : standInDraft(creator, sender);
+      const bounce = await bounceRead(row, filled.proposal);
+      if (mine !== generation || source.outreach.draft(row.id)?.state !== "drafting") {
+        return mine === generation ? "next" : "stop";
+      }
+      // A bounce has nobody to answer: the draft is set aside, as a person's Skip would.
       source.outreach.updateDraft(
         row.id,
-        { state: "ready", ...filled, problem: null, edited: false },
+        bounce
+          ? { state: "skipped", problem: null, proposal: filled.proposal }
+          : { state: "ready", ...filled, problem: null, edited: false },
         now(),
       );
       deps.changed();
@@ -517,9 +606,18 @@ export function createDrafter(deps: DrafterDeps): Drafter {
     if (source.outreach.draft(row.id)?.state !== "drafting") {
       return "next";
     }
+    const bounce = await bounceRead(row, outcome.proposal);
+    if (mine !== generation) {
+      return "stop";
+    }
+    if (source.outreach.draft(row.id)?.state !== "drafting") {
+      return "next";
+    }
     let patch: DraftPatch;
     let result: "next" | "stop" = "next";
-    if (outcome.ok) {
+    if (bounce) {
+      patch = { state: "skipped", problem: null, proposal: outcome.proposal };
+    } else if (outcome.ok) {
       patch = {
         state: "ready",
         subject: outcome.subject,
@@ -732,6 +830,7 @@ export function createDrafter(deps: DrafterDeps): Drafter {
     source: DrafterSource,
     draft: StoredDraft,
     how: RewriteHow,
+    note: string,
     sender: string | null,
   ): Promise<void> {
     const flying = inFlight;
@@ -750,8 +849,13 @@ export function createDrafter(deps: DrafterDeps): Drafter {
         if (mine !== generation || creator === null || sender === null) {
           return { ok: false, problem: "engine_failed", proposal: null };
         }
-        return ask(source, draft, creator, sender, reachStrings.rewriteNotes[how]);
+        return ask(source, draft, creator, sender, note);
       });
+      if (mine !== generation) {
+        return;
+      }
+      // The answer to a reply may read it differently now (D23): a bounce sets the draft aside.
+      const bounce = await bounceRead(draft, outcome.proposal);
       if (mine !== generation) {
         return;
       }
@@ -761,7 +865,9 @@ export function createDrafter(deps: DrafterDeps): Drafter {
       }
       const open = current.state === "ready" || current.state === "failed";
       let patch: DraftPatch = { rewriting: null };
-      if (open && outcome.ok) {
+      if (open && bounce) {
+        patch = { rewriting: null, state: "skipped", problem: null };
+      } else if (open && outcome.ok) {
         patch = {
           rewriting: null,
           state: "ready",
@@ -783,6 +889,65 @@ export function createDrafter(deps: DrafterDeps): Drafter {
     } finally {
       flying.delete(draft.id);
     }
+  }
+
+  async function startRewrite(
+    draftId: string,
+    how: RewriteHow,
+    note: string,
+  ): Promise<ChannelResponse<"reach:rewrite">> {
+    const mode = deps.mode();
+    const source = deps.source();
+    if (mode === null || source === null) {
+      return { ok: false, problem: "not_found" };
+    }
+    const mine = generation;
+    const usable = (): "ok" | "not_found" | "busy" => {
+      const draft = source.outreach.draft(draftId);
+      if (draft === null) {
+        return "not_found";
+      }
+      if (inFlight.has(draftId) || draft.rewriting !== null) {
+        return "busy";
+      }
+      const open =
+        draft.state === "ready" || (draft.state === "failed" && draft.problem !== "maybe_sent");
+      return open ? "ok" : "busy";
+    };
+    const first = usable();
+    if (first !== "ok") {
+      return { ok: false, problem: first };
+    }
+    const sender = deps.sender();
+    if (mode === "live") {
+      // No sender: a draft would be signed "[Your name]".
+      if (sender === null) {
+        return { ok: false, problem: "no_sender" };
+      }
+      const bridge = await checkBridge();
+      if (mine !== generation) {
+        return { ok: false, problem: "not_found" };
+      }
+      if (!bridge.ready) {
+        return { ok: false, problem: "bridge_off" };
+      }
+      if (bridge.paused) {
+        return { ok: false, problem: "paused" };
+      }
+      const still = usable();
+      if (still !== "ok") {
+        return { ok: false, problem: still };
+      }
+    }
+    const draft = source.outreach.draft(draftId);
+    if (draft === null) {
+      return { ok: false, problem: "not_found" };
+    }
+    inFlight.add(draftId);
+    source.outreach.updateDraft(draftId, { rewriting: how, steer: { how, note } }, now());
+    deps.changed();
+    track(runRewrite(mine, mode, source, draft, how, note, sender));
+    return { ok: true };
   }
 
   return {
@@ -839,64 +1004,9 @@ export function createDrafter(deps: DrafterDeps): Drafter {
       return { ok: true };
     },
 
-    async rewrite(draftId, how) {
-      const mode = deps.mode();
-      const source = deps.source();
-      if (mode === null || source === null) {
-        return { ok: false, problem: "not_found" };
-      }
-      const mine = generation;
-      const usable = (): "ok" | "not_found" | "busy" => {
-        const draft = source.outreach.draft(draftId);
-        if (draft === null) {
-          return "not_found";
-        }
-        if (inFlight.has(draftId) || draft.rewriting !== null) {
-          return "busy";
-        }
-        const open =
-          draft.state === "ready" || (draft.state === "failed" && draft.problem !== "maybe_sent");
-        return open ? "ok" : "busy";
-      };
-      const first = usable();
-      if (first !== "ok") {
-        return { ok: false, problem: first };
-      }
-      const sender = deps.sender();
-      if (mode === "live") {
-        // No sender: a draft would be signed "[Your name]".
-        if (sender === null) {
-          return { ok: false, problem: "no_sender" };
-        }
-        const bridge = await checkBridge();
-        if (mine !== generation) {
-          return { ok: false, problem: "not_found" };
-        }
-        if (!bridge.ready) {
-          return { ok: false, problem: "bridge_off" };
-        }
-        if (bridge.paused) {
-          return { ok: false, problem: "paused" };
-        }
-        const still = usable();
-        if (still !== "ok") {
-          return { ok: false, problem: still };
-        }
-      }
-      const draft = source.outreach.draft(draftId);
-      if (draft === null) {
-        return { ok: false, problem: "not_found" };
-      }
-      inFlight.add(draftId);
-      source.outreach.updateDraft(
-        draftId,
-        { rewriting: how, steer: { how, note: reachStrings.rewriteNotes[how] } },
-        now(),
-      );
-      deps.changed();
-      track(runRewrite(mine, mode, source, draft, how, sender));
-      return { ok: true };
-    },
+    rewrite: (draftId, how) => startRewrite(draftId, how, reachStrings.rewriteNotes[how]),
+
+    reread: (draftId, label) => startRewrite(draftId, "redo", reachStrings.readAs(label)),
 
     retry(draftId) {
       const source = deps.source();

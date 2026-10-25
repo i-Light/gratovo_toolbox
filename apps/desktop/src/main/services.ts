@@ -96,6 +96,14 @@ export interface ReachService {
   ): Promise<ChannelResponse<"reach:sequence-resume">>;
   park(creatorId: string, until: number): Promise<ChannelResponse<"reach:park">>;
   wake(creatorId: string, restore?: readonly string[]): Promise<ChannelResponse<"reach:wake">>;
+  /** Reads new replies now (D23): live data with a connected mailbox only. */
+  checkReplies(): Promise<ChannelResponse<"reach:check-replies">>;
+  /** A reply the person pasted, for a creator already emailed (D23). */
+  pasteReply(creatorId: string, text: string): Promise<ChannelResponse<"reach:paste-reply">>;
+  /** "That's not it": reads a reply as another situation (D23). */
+  reclassify(messageId: string, replyType: string): Promise<ChannelResponse<"reach:reclassify">>;
+  /** The reply situations of each side, for the picker (D23). */
+  situations(): Promise<ChannelResponse<"reach:situations">>;
   /** The frame with the runtime parts of `reach` and the rail count filled in. */
   overlay(frame: Frame): Promise<Frame>;
   /** Called after a `data:write` batch has been stored. */

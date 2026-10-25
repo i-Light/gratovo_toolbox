@@ -47,6 +47,8 @@ function source(
     openDraft: unused,
     insertDraft: unused,
     updateDraft: unused,
+    message: unused,
+    storedGmailIds: unused,
     thread: (creator, limit) => {
       asked.thread.push([creator, limit]);
       return [...messages];

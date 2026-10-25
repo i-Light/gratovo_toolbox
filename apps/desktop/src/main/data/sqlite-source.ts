@@ -42,6 +42,7 @@ import {
   writeDraftMailbox,
   writeDraftState,
   writeDraftText,
+  writeReplyFact,
 } from "./repositories/outreach";
 import {
   creatorStates,
@@ -208,6 +209,9 @@ export function createSqliteSource(db: DatabaseSync, options: SqliteSourceOption
         return;
       case "draft.gate":
         writeDraftGate(db, write, clock());
+        return;
+      case "reply.fact":
+        writeReplyFact(db, write);
         return;
       case "conflict.resolve": {
         const settled = markResolved(db, write.id);

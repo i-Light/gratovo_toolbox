@@ -1,3 +1,5 @@
+import { readReplyFacts } from "../reach/reply-facts";
+
 import { seesMoney, sortRoles } from "./access";
 import type { NewDraft, NewMessage } from "./outreach-store";
 import { threadPreviewMax } from "./reach-types";
@@ -29,7 +31,7 @@ import type {
  */
 
 /** Bump it when the fixtures change: an older example database is then seeded again. */
-export const exampleSeedVersion = 6;
+export const exampleSeedVersion = 7;
 
 /** What the example database is seeded from, and the extras (presence, counts, a run) it serves. */
 export interface ExampleSeed {
@@ -550,6 +552,10 @@ function drafts(now: number): readonly ExampleDraft[] {
   ];
 }
 
+/** Noor's answer: a question, a rate and a few audience numbers, so the reading has facts. */
+const replyBody =
+  "Hi Moustafa,\n\nThanks for the kind words! Which brand is this for? I only take sponsors I use myself.\n\nFor a dedicated video my rate is $1,200. My audience is mostly US and UK, ages 25-34.\n\nNoor";
+
 /** Three first emails sent, and one friendly answer. */
 function messages(now: number): readonly NewMessage[] {
   const out = (
@@ -641,7 +647,7 @@ function messages(now: number): readonly NewMessage[] {
       kind: null,
       followUp: null,
       subject: "Re: Your vector database video",
-      body: "Hi Moustafa,\n\nThanks for the kind words! Which brand is this for? I only take sponsors I use myself.\n\nNoor",
+      body: replyBody,
       bodyCut: false,
       at: now - dayMs,
       mailbox: "outreach1@gratovo.example",
@@ -653,7 +659,15 @@ function messages(now: number): readonly NewMessage[] {
       draftId: null,
       by: null,
       source: "sweep",
-      reading: null,
+      reading: {
+        replyType: "inf.gives_rate",
+        label: "Gives their rate or rate card",
+        summary:
+          "They asked which brand it is for, and gave a price for one video and their audience.",
+        side: "influencer",
+        corrected: false,
+        facts: readReplyFacts(replyBody),
+      },
     },
   ];
 }

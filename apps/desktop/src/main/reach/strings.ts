@@ -16,6 +16,8 @@ export const reachStrings = {
     direct: "Make it more direct: get to the question.",
     redo: "Write it again from a different angle, using another moment from their videos.",
   } satisfies Record<RewriteHow, string>,
+  /** The steer note "That's not it" sends Gemini (D23): "Read their reply as: Not interested". */
+  readAs: (label: string): string => `Read their reply as: ${label}`,
   /** The example data's first email, filled 0.9 s after the draft is made. */
   standIn: {
     subject: "your latest video",
@@ -28,6 +30,53 @@ export const reachStrings = {
     ],
     why: "It opens on a moment from their latest video and asks one small question.",
     rules: ["INF-FIRST-02", "FND-WRITE-11"],
+  },
+  /**
+   * The example data's answer to a reply and the reading behind it (D23). AI-niche only, never
+   * sent anywhere. `summaries` and `answers` are keyed by the situation id the stand-in picked;
+   * `other` is for any id they don't name (a person's correction).
+   */
+  standInReply: {
+    subject: (original: string): string =>
+      /^re:/i.test(original.trim()) ? original : `Re: ${original}`,
+    greeting: (contact: string | null): string => `Hi ${contact ?? "there"},`,
+    why: "It answers what they asked, in their words, and asks one small question back.",
+    rules: ["INF-REPLY-04", "FND-WRITE-11"],
+    summaries: {
+      "inf.gives_rate": "They gave a price for one video and some audience numbers.",
+      "inf.not_interested": "They said no for now.",
+      "inf.later": "They are busy and asked to talk later.",
+      "inf.has_manager": "They pointed to a manager or an agency.",
+      "inf.interested_vague": "They are open to it and want to know more.",
+      "any.bounce": "The address did not accept the email.",
+    } as Readonly<Record<string, string>>,
+    other: "A person read this reply differently.",
+    answers: {
+      "inf.gives_rate": [
+        "Thank you for the rate and the audience numbers, they help a lot.",
+        "I will check them against the AI tool brands we are talking to this month and come back with a fit.",
+      ],
+      "inf.not_interested": [
+        "Thanks for telling me straight, I appreciate it.",
+        "If a brand that fits your channel comes up later, may I write once more?",
+      ],
+      "inf.later": [
+        "No problem at all, thanks for answering.",
+        "Would the first week of next month suit you better for a short note?",
+      ],
+      "inf.has_manager": [
+        "Thanks for pointing me to the right person.",
+        "I will write to them today and mention your latest video.",
+      ],
+      "inf.interested_vague": [
+        "Glad it caught your eye. The brand is an AI tool maker that sponsors creators who test things for real.",
+        "Would a short note with the details and a rough price range be useful?",
+      ],
+    } as Readonly<Record<string, readonly string[]>>,
+    otherAnswer: [
+      "Thanks for your reply, I read it with care.",
+      "Could you tell me what would make a sponsorship a good fit for your channel?",
+    ],
   },
   /** The stand-in rewrites' own lines (D8): deterministic edits of the text. */
   standInRewrite: {
@@ -48,11 +97,29 @@ export const mailboxStrings = {
   /** The log line when bounces slow a mailbox: "outreach3 slowed to 20 sends a day: 4.2% bounced this week". */
   slowed: (name: string, cap: number, rate: number): string =>
     `${name} slowed to ${String(cap)} sends a day: ${String(rate)}% bounced this week`,
+  /** The notification when bounces slow a mailbox (6d): "outreach3 slowed to 20 sends a day". */
+  slowedNotice: (name: string, cap: number): string =>
+    `${name} slowed to ${String(cap)} sends a day`,
+  slowedSub: (rate: number): string => `${String(rate)}% bounced this week`,
   /** The log line when it recovers. */
   recovered: (name: string, cap: number): string => `${name} is back to ${String(cap)} sends a day`,
   testSubject: "Gratovo test email",
   testBody:
     "This is a test from Gratovo. If it reached your main inbox, mail from this address is landing well.",
+} as const;
+
+/**
+ * The words of replies (plan step 6d, D23): the notifications and the activity log lines. Names
+ * only, never an address or a body; the notification's second line is the reply's subject.
+ */
+export const replyStrings = {
+  replied: (name: string): string => `${name} replied`,
+  repliedPasted: (name: string): string => `Added ${name}'s reply by hand`,
+  bounced: (name: string): string => `${name}'s email bounced`,
+  /** The second line of a bounce's notification. */
+  bouncedSub: "The address is marked not confirmed.",
+  /** The second line of a reply's notification when the reply has no subject. */
+  repliedSub: "Open Replies to read it.",
 } as const;
 
 /**

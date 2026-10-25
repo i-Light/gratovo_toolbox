@@ -102,6 +102,8 @@ function sourceWith(overrides: Partial<DataSource> = {}): DataSource {
       openDraft: () => null,
       insertDraft: () => undefined,
       updateDraft: () => false,
+      message: () => null,
+      storedGmailIds: () => new Set(),
       thread: () => [],
       hasOutbound: () => false,
       recentOutbound: () => [],
@@ -545,6 +547,16 @@ describe("Reach channels", () => {
     answers("reach:sequence-resume", await mine["reach:sequence-resume"]({ creatorId: "c8" }));
     answers("reach:park", await mine["reach:park"]({ creatorId: "c8", until: 1_800_000_000_000 }));
     answers("reach:wake", await mine["reach:wake"]({ creatorId: "c8" }));
+    answers("reach:check-replies", await mine["reach:check-replies"]({}));
+    answers(
+      "reach:paste-reply",
+      await mine["reach:paste-reply"]({ creatorId: "c8", text: "Thanks!" }),
+    );
+    answers(
+      "reach:reclassify",
+      await mine["reach:reclassify"]({ messageId: "m1", replyType: "inf.gives_rate" }),
+    );
+    answers("reach:situations", await mine["reach:situations"]({}));
   });
 
   it("send each channel to the Reach service", async () => {
@@ -563,6 +575,10 @@ describe("Reach channels", () => {
       sequenceResume: vi.fn(() => Promise.resolve({ ok: true as const })),
       park: vi.fn(() => Promise.resolve({ ok: false as const, problem: "wrong_state" as const })),
       wake: vi.fn(() => Promise.resolve({ ok: true as const })),
+      checkReplies: vi.fn(() => Promise.resolve({ ok: true as const, stored: 2 })),
+      pasteReply: vi.fn(() => Promise.resolve({ ok: true as const })),
+      reclassify: vi.fn(() => Promise.resolve({ ok: true as const })),
+      situations: vi.fn(() => Promise.resolve({ ok: true as const, situations: [] })),
     };
     const mine = handlersWith(accountWith(), [], findWith(), { reach });
     answers("reach:thread", await mine["reach:thread"]({ creatorId: "c1" }));
@@ -591,6 +607,20 @@ describe("Reach channels", () => {
     expect(reach.sequenceResume).toHaveBeenCalledWith("c8", undefined);
     expect(reach.park).toHaveBeenCalledWith("c8", 1_800_000_000_000);
     expect(reach.wake).toHaveBeenCalledWith("c8", ["d1"]);
+    expect(await mine["reach:check-replies"]({})).toEqual({ ok: true, stored: 2 });
+    answers(
+      "reach:paste-reply",
+      await mine["reach:paste-reply"]({ creatorId: "c8", text: "Thanks!" }),
+    );
+    answers(
+      "reach:reclassify",
+      await mine["reach:reclassify"]({ messageId: "m1", replyType: "inf.gives_rate" }),
+    );
+    answers("reach:situations", await mine["reach:situations"]({}));
+    expect(reach.checkReplies).toHaveBeenCalled();
+    expect(reach.pasteReply).toHaveBeenCalledWith("c8", "Thanks!");
+    expect(reach.reclassify).toHaveBeenCalledWith("m1", "inf.gives_rate");
+    expect(reach.situations).toHaveBeenCalled();
   });
 
   it("puts the frame through the overlay and tells Reach about a write", async () => {
