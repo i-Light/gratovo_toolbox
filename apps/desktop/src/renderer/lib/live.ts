@@ -110,6 +110,7 @@ const reachMainFields = [
   "gemini",
   "geminiPausedUntil",
   "sender",
+  "zones",
 ] as const satisfies readonly (keyof AppData["reach"])[];
 
 /** The draft fields a person sets: their own change coming back is not news (D5). */

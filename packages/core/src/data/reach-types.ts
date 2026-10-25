@@ -53,6 +53,8 @@ export const draftProblems = [
   "mailbox_signed_out",
   "not_sent_closed",
   "late",
+  // A Send later put back (Redo, or Undo of a Cancel) whose time had already passed.
+  "time_passed",
   "gates_changed",
   // An edited draft the checks had blocked can't go unchecked, and no check could run.
   "needs_check",

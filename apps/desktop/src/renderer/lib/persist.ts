@@ -180,6 +180,7 @@ const reachMainFields = [
   "gemini",
   "geminiPausedUntil",
   "sender",
+  "zones",
 ] as const satisfies readonly (keyof AppData["reach"])[];
 
 /**

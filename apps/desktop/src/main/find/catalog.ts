@@ -449,6 +449,9 @@ export function createCatalog(deps: CatalogDeps): Catalog {
       const { rows } = await ready();
       return { version, rows };
     },
+    peek() {
+      return built?.rows ?? null;
+    },
     async item(id: string) {
       const { rows } = await ready();
       const row = rows.find((candidate) => candidate.id === id);

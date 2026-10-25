@@ -221,12 +221,15 @@ describe("mergeServerData for Reach", () => {
               ],
         sender: "Sam",
         gemini: "ready",
+        // A draft written after the first load gets its zone in a later frame.
+        zones: { [id0()]: "America/New_York" },
       });
       fire({ parts: ["reach"] });
       await vi.advanceTimersByTimeAsync(1500);
       await settle();
       expect(data().reach.sender).toBe("Sam");
       expect(data().reach.gemini).toBe("ready");
+      expect(data().reach.zones).toEqual({ [id0()]: "America/New_York" });
       undo();
       await settle();
       expect(draft("d1")?.state).toBe("ready");
@@ -483,6 +486,16 @@ describe("too late to undo", () => {
     const count = toasts().length;
     noticeReachChange(gone, reachWith({ drafts: [aiDraft("d1", id0(), { state: "sent" })] }));
     expect(toasts().length).toBe(count);
+  });
+
+  it("says too late to cancel when a Cancel met a send already going", () => {
+    setReach(
+      reachWith({ drafts: [aiDraft("d1", id0(), { state: "scheduled", sendAt: now + 5 })] }),
+    );
+    expect(cancelScheduled("d1")).toBe(true);
+    const before = data().reach;
+    noticeReachChange(before, reachWith({ drafts: [aiDraft("d1", id0(), { state: "sending" })] }));
+    expect(toasts().at(-1)?.msg).toBe(t.tooLateCancel);
   });
 
   it("stays quiet when a draft the page holds as approved goes out", () => {

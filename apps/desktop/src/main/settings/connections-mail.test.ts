@@ -42,10 +42,19 @@ describe("the connections service's mailboxes", () => {
         warmupStartedOn: null,
       }),
     ).toEqual({ ok: false, reason: "unknown_mailbox" });
+    // Reach's pause of it (and any other mailbox's) is in the source's settings.
+    h.source?.writeSetting("reach.mailboxes", {
+      "sam@ai-weekly.example": { paused: true, slowed: true },
+      "lee@ai-weekly.example": { paused: true, slowed: false },
+    });
     expect(
       await h.service.set({ kind: "mailbox.remove", address: "sam@ai-weekly.example" }),
     ).toEqual({ ok: true });
     expect((await h.service.status()).mailboxes).toEqual([]);
+    // Its flags go with it, so adding it again starts fresh; the others stay.
+    expect(h.source?.readSetting("reach.mailboxes")).toEqual({
+      "lee@ai-weekly.example": { paused: true, slowed: false },
+    });
     expect(JSON.parse(h.store.values.get("mail.mailboxes") ?? "null")).toEqual([]);
     expect(
       await h.service.set({ kind: "mailbox.remove", address: "sam@ai-weekly.example" }),

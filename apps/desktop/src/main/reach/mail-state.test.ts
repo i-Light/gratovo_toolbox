@@ -361,10 +361,18 @@ describe("pause, slowdown and the rates", () => {
   });
 
   it("falls back to not paused and not slowed on a bad setting", () => {
-    for (const bad of ["x", 7, null, [1], { "outreach3@gratovo.example": "no" }]) {
+    for (const bad of ["x", 7, null, [1], { "outreach3@gratovo.example": {} }]) {
       const fake = fakeSource([open], [], {}, bad);
       const { state } = setup({ source: () => fake.source, mode: () => "example" });
       expect(state.views()[0]).toMatchObject({ paused: false, status: "good", effectiveCap: 30 });
+    }
+  });
+
+  it("reads a damaged entry of one mailbox as paused: the safe side, one click to resume", () => {
+    for (const bad of ["no", 7, { paused: "yes" }]) {
+      const fake = fakeSource([open], [], {}, { "outreach3@gratovo.example": bad });
+      const { state } = setup({ source: () => fake.source, mode: () => "example" });
+      expect(state.views()[0]).toMatchObject({ paused: true, status: "paused" });
     }
   });
 
@@ -413,6 +421,32 @@ describe("pause, slowdown and the rates", () => {
     // The pause stays as the owner set it.
     expect(better.settings.get("reach.mailboxes")).toEqual({
       "outreach3@gratovo.example": { paused: true, slowed: false },
+    });
+  });
+
+  it("names the warm-up cap when a warming mailbox recovers", async () => {
+    const started = new Date(clock - 5 * 86_400_000);
+    const day = `${String(started.getFullYear())}-${String(started.getMonth() + 1).padStart(2, "0")}-${String(started.getDate()).padStart(2, "0")}`;
+    const warming = { ...open, warmupStartedOn: day };
+    const flags = { "outreach3@gratovo.example": { paused: false, slowed: true } };
+    const fake = fakeSource([warming], [], counts(60, 1), flags);
+    const { state } = setup({ source: () => fake.source, mode: () => "example" });
+    await state.refresh();
+    expect(fake.write).toHaveBeenCalledWith([
+      expect.objectContaining({ text: "outreach3 is back to 20 sends a day" }),
+    ]);
+  });
+
+  it("keeps the flag as it was when the log line can't be written, and tries again", async () => {
+    const fake = fakeSource([open], [], counts(31, 1));
+    fake.write.mockRejectedValueOnce(new Error("disk full"));
+    const { state } = setup({ source: () => fake.source, mode: () => "example" });
+    await state.refresh();
+    expect(fake.settings.get("reach.mailboxes")).toBeUndefined();
+    await state.refresh();
+    expect(fake.write).toHaveBeenCalledTimes(2);
+    expect(fake.settings.get("reach.mailboxes")).toEqual({
+      "outreach3@gratovo.example": { paused: false, slowed: true },
     });
   });
 

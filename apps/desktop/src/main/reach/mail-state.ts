@@ -258,8 +258,10 @@ export function createMailState(deps: MailStateDeps): MailState {
       if (slowed === was.slowed) {
         continue;
       }
-      writeMailboxFlags(source, row.address, { ...was, slowed });
       const name = row.address.split("@")[0] ?? row.address;
+      const warming = warmupDay(row.warmupStartedOn, now()) !== null;
+      // The line first: when it can't be written the flag stays, and the next refresh tries both
+      // again, so a change is never made without its line (review of 6b).
       await source.write([
         {
           kind: "log.add",
@@ -267,12 +269,13 @@ export function createMailState(deps: MailStateDeps): MailState {
           at: now(),
           text: slowed
             ? mailboxStrings.slowed(name, capFor(row.dailyCap, false, true), bounceRate ?? 0)
-            : mailboxStrings.recovered(name, row.dailyCap),
+            : mailboxStrings.recovered(name, capFor(row.dailyCap, warming, false)),
           ref: null,
           action: null,
           detail: null,
         },
       ]);
+      writeMailboxFlags(source, row.address, { ...was, slowed });
     }
   }
 

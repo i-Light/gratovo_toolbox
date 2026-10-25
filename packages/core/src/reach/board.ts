@@ -95,6 +95,14 @@ function laneOf(item: BoardItem): BoardLaneKey | null {
   }
 }
 
+/** When an In sequence card next goes: its scheduled email, else its next step. */
+function seqDueAt(item: BoardItem): number {
+  if (item.draft?.state === "scheduled" && item.draft.sendAt !== null) {
+    return item.draft.sendAt;
+  }
+  return nextStep(item.sequence)?.dueAt ?? Number.POSITIVE_INFINITY;
+}
+
 const byNumber =
   <T>(key: (t: T) => number, dir: 1 | -1 = 1) =>
   (a: T, b: T): number =>
@@ -123,13 +131,7 @@ export function boardLanes(input: BoardInput): BoardLane[] {
   const draftAt = (i: BoardItem): number => i.draft?.createdAt ?? Number.POSITIVE_INFINITY;
   lanes.get("todraft")?.sort((a, b) => byNumber(draftAt)(a, b) || byName(a, b));
   lanes.get("waiting")?.sort((a, b) => byNumber(draftAt)(a, b) || byName(a, b));
-  lanes
-    .get("seq")
-    ?.sort(
-      (a, b) =>
-        byNumber((i: BoardItem) => nextStep(i.sequence)?.dueAt ?? Number.POSITIVE_INFINITY)(a, b) ||
-        byName(a, b),
-    );
+  lanes.get("seq")?.sort((a, b) => byNumber(seqDueAt)(a, b) || byName(a, b));
   lanes
     .get("replied")
     ?.sort(

@@ -112,7 +112,16 @@ describe("boardLanes", () => {
       ],
     });
     expect(lane(input, "waiting")).toEqual([]);
-    expect(lane(input, "seq").sort()).toEqual(["a", "b"]);
+    // Sorted by when each goes, as the chip shows.
+    expect(lane(input, "seq")).toEqual(["a", "b"]);
+    const later = base({
+      ...input,
+      drafts: [
+        draft("q1", "a", { state: "scheduled", sendAt: 9 }),
+        draft("q2", "b", { kind: "followUp", followUp: 1, state: "scheduled", sendAt: 6 }),
+      ],
+    });
+    expect(lane(later, "seq")).toEqual(["b", "a"]);
   });
 
   it("orders In sequence by the next step due, and Replied by the newest reply", () => {

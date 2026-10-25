@@ -145,6 +145,17 @@ function parseFacts(value: unknown): ReplyFact[] {
   return facts;
 }
 
+/**
+ * Whether an in-message is a bounce: Gemini read it as one, or it came from a mail server's
+ * daemon address (D17), read or not.
+ */
+function isBounce(reading: ReplyReading | null, peer: unknown): boolean {
+  return (
+    reading?.replyType === "any.bounce" ||
+    (typeof peer === "string" && /^(?:mailer-daemon|postmaster)@/i.test(peer.trim()))
+  );
+}
+
 function parseReading(text: unknown): ReplyReading | null {
   const value = parseJson(text);
   if (!isRecord(value)) {
@@ -320,6 +331,9 @@ function previewOf(body: string): string {
 
 // The four draft writes (plan D5). A refused one is a no-op: it logs its kind only, never text.
 
+/** A scheduled time this far past is refused, not sent at once. */
+export const scheduleGraceMs = 60_000;
+
 function refused(kind: string): void {
   console.warn(`A ${kind} write was refused: the draft is not in a state that allows it.`);
 }
@@ -362,14 +376,28 @@ export function writeDraftState(
     refused(write.kind);
     return;
   }
+  if (to === "scheduled" && (write.sendAt ?? 0) < now - scheduleGraceMs) {
+    // A Redo of a Send later, or an Undo of its Cancel, can carry a time long past. Sending it at
+    // once is not what the person chose: the draft stays as it was and says why (review of 6b).
+    refused(write.kind);
+    db.prepare("UPDATE outreach_drafts SET problem = ?, updated_at = ? WHERE id = ?").run(
+      "time_passed",
+      now,
+      write.id,
+    );
+    return;
+  }
   if (to === "approved" || to === "scheduled") {
     // Main sets the hold, not the page: an approval always gets its full 10 s from now, and a
     // later time never less. A Redo, or an Undo that puts back an old approval, carries a time
     // already past, and must not send at once (plan step 6, D11).
     const sendAt =
       to === "approved" ? now + sendHoldMs : Math.max(write.sendAt ?? 0, now + sendHoldMs);
+    // A note that only said why it didn't go before is done with once the person sends again.
     db.prepare(
-      "UPDATE outreach_drafts SET state = ?, approved_by = ?, send_at = ?, updated_at = ? WHERE id = ?",
+      `UPDATE outreach_drafts SET state = ?, approved_by = ?, send_at = ?, updated_at = ?,
+         problem = CASE WHEN problem IN ('time_passed', 'late', 'not_sent_closed') THEN NULL ELSE problem END
+       WHERE id = ?`,
     ).run(to, me, sendAt, now, write.id);
     return;
   }
@@ -574,7 +602,7 @@ export function createOutreachStore(db: DatabaseSync, deps: OutreachDeps): Outre
       const rows = db
         .prepare(
           `SELECT * FROM (
-             SELECT id, channel_id, direction, at, reading, substr(body, 1, 2000) AS body,
+             SELECT id, channel_id, direction, at, reading, peer, substr(body, 1, 2000) AS body,
                     ROW_NUMBER() OVER (PARTITION BY channel_id ORDER BY at DESC, rowid DESC) AS n
              FROM outreach_messages ${where}
            ) WHERE n = 1`,
@@ -595,7 +623,7 @@ export function createOutreachStore(db: DatabaseSync, deps: OutreachDeps): Outre
           at: num(incoming["at"]),
           reading,
           preview: previewOf(String(incoming["body"])),
-          bounce: reading?.replyType === "any.bounce",
+          bounce: isBounce(reading, incoming["peer"]),
         };
       }
       return {
@@ -710,19 +738,24 @@ export function createOutreachStore(db: DatabaseSync, deps: OutreachDeps): Outre
         .all(since7)) {
         entry(row["mailbox"]).sent7 += num(row["n"]);
       }
-      // Only the in-messages with a reading are parsed, and only to see if they are bounces.
       for (const row of db
         .prepare(
-          `SELECT mailbox, reading FROM outreach_messages
-           WHERE direction = 'in' AND mailbox IS NOT NULL AND at >= ? AND reading IS NOT NULL`,
+          `SELECT mailbox, reading, peer FROM outreach_messages
+           WHERE direction = 'in' AND mailbox IS NOT NULL AND at >= ?`,
         )
         .all(since7)) {
-        if (parseReading(row["reading"])?.replyType === "any.bounce") {
+        if (isBounce(parseReading(row["reading"]), row["peer"])) {
           entry(row["mailbox"]).bounced7 += 1;
         }
       }
       // The first email each creator got from each mailbox (the earliest), and whether anything
-      // but a bounce came back from that creator after it.
+      // but a bounce came back from that creator to that mailbox after it. A pasted reply has no
+      // mailbox: it counts for each mailbox the creator heard from.
+      const answersTo = db.prepare(
+        `SELECT reading, peer FROM outreach_messages
+         WHERE direction = 'in' AND channel_id = ? AND at > ?
+           AND (mailbox IS NULL OR lower(mailbox) = lower(?))`,
+      );
       for (const row of db
         .prepare(
           `SELECT mailbox, channel_id, MIN(at) AS first_at FROM outreach_messages
@@ -732,13 +765,12 @@ export function createOutreachStore(db: DatabaseSync, deps: OutreachDeps): Outre
         .all(since30)) {
         const found = entry(row["mailbox"]);
         found.firsts30 += 1;
-        const answers = db
-          .prepare(
-            `SELECT reading FROM outreach_messages
-             WHERE direction = 'in' AND channel_id = ? AND at > ?`,
-          )
-          .all(String(row["channel_id"]), num(row["first_at"]));
-        if (answers.some((answer) => parseReading(answer["reading"])?.replyType !== "any.bounce")) {
+        const answers = answersTo.all(
+          String(row["channel_id"]),
+          num(row["first_at"]),
+          String(row["mailbox"]),
+        );
+        if (answers.some((answer) => !isBounce(parseReading(answer["reading"]), answer["peer"]))) {
           found.replied30 += 1;
         }
       }

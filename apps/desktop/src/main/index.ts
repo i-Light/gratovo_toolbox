@@ -454,6 +454,8 @@ function start(): void {
         pathExists: (path) => Promise.resolve(existsSync(path)),
         emit: (status) => {
           emit("connections:changed", status);
+          // A mailbox added, removed or given a new cap changes Reach's mailboxes too.
+          emit("frame:changed", { parts: ["reach"] });
         },
         now: Date.now,
       });
@@ -467,10 +469,11 @@ function start(): void {
         runQuickJob: (start) => runJob(quickLane, start),
         connected: async () =>
           (await readMailSecrets(secrets))?.mailboxes.map((m) => m.address) ?? [],
-        // The Find catalog's country of each channel, for Send later's "Their morning".
+        // The Find catalog's country of each channel, for Send later's "Their morning". The last
+        // build's rows, so a frame never waits on a catalog rebuild; only the very first waits.
         countries: async (ids) => {
           const wanted = new Set(ids);
-          const { rows } = await catalog.snapshot();
+          const rows = catalog.peek() ?? (await catalog.snapshot()).rows;
           const found = new Map<string, string>();
           for (const row of rows) {
             if (wanted.has(row.id) && row.country !== null) {

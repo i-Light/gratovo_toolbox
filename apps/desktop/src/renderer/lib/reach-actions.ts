@@ -199,6 +199,11 @@ export function setDraftMailbox(id: string, address: string): boolean {
 }
 
 /** What a rewrite replaced, until its new text arrives. */
+/** Drafts whose Send later the person cancelled, and when: their too-late notice says "cancel". */
+const cancels = new Map<string, number>();
+/** How long a cancel is remembered for that notice. */
+const cancelNoticeMs = 60_000;
+
 const rewrites = new Map<
   string,
   { readonly how: RewriteHow; readonly subject: string; readonly body: string; readonly at: number }
@@ -336,7 +341,7 @@ export async function loadThread(creatorId: string): Promise<readonly ThreadMess
  * Looks at what the server changed in Reach (called from the live updates, with the page's Reach
  * before the answer and the answer's). Two things are said once:
  * - a draft the page holds as `ready` (the person's Undo put it back) that the server says is
- *   `sending` or `sent`: "Too late to undo: it has gone";
+ *   `sending` or `sent`: "Too late to undo: it has gone" ("Too late to cancel" after a Cancel);
  * - a draft being rewritten whose new text arrived: "Rewritten <how>", with an Undo that puts the
  *   old text back.
  */
@@ -344,7 +349,14 @@ export function noticeReachChange(before: ReachData, after: ReachData): void {
   const was = new Map(before.drafts.map((d) => [d.id, d]));
   for (const now of after.drafts) {
     if (was.get(now.id)?.state === "ready" && (now.state === "sending" || now.state === "sent")) {
-      toast({ msg: t.tooLate, sub: t.tooLateSub, icon: "alert", tone: "info" });
+      const cancelledAt = cancels.get(now.id);
+      cancels.delete(now.id);
+      const cancelled = cancelledAt !== undefined && Date.now() - cancelledAt < cancelNoticeMs;
+      toast(
+        cancelled
+          ? { msg: t.tooLateCancel, sub: t.tooLateCancelSub, icon: "alert", tone: "info" }
+          : { msg: t.tooLate, sub: t.tooLateSub, icon: "alert", tone: "info" },
+      );
     }
   }
   const at = Date.now();
@@ -457,6 +469,7 @@ export function cancelScheduled(id: string): boolean {
     return false;
   }
   const name = nameOf(draft);
+  cancels.set(id, Date.now());
   const label =
     draft.kind === "first"
       ? t.later.cancelledLabel.first(name)

@@ -419,6 +419,36 @@ describe("messages", () => {
     });
   });
 
+  it("counts an unread daemon bounce as a bounce, and an answer only for the mailbox it reached", () => {
+    const day = 24 * hour;
+    const m2 = "outreach2@gratovo.example";
+    store.commit({
+      at: now,
+      messages: [
+        // UCa got first emails from both mailboxes; it answered outreach2 only.
+        message("o1", { creator: "UCa", at: now - 3 * day }),
+        message("o2", { creator: "UCa", at: now - 3 * day, mailbox: m2 }),
+        message("i1", { creator: "UCa", direction: "in", kind: null, at: now - day, mailbox: m2 }),
+        // UCb's address bounced; the bounce is not read yet.
+        message("o3", { creator: "UCb", at: now - 3 * day }),
+        message("i2", {
+          creator: "UCb",
+          direction: "in",
+          kind: null,
+          at: now - 2 * day,
+          peer: "MAILER-DAEMON@googlemail.com",
+        }),
+      ],
+    });
+    const counts = store.mailboxCounts(now);
+    expect(counts.get("outreach1@gratovo.example")).toMatchObject({
+      bounced7: 1,
+      firsts30: 2,
+      replied30: 0,
+    });
+    expect(counts.get(m2)).toMatchObject({ firsts30: 1, replied30: 1 });
+  });
+
   it("cuts a body to the limit and marks it cut", () => {
     store.commit({ at: now, messages: [message("m1", { body: "x".repeat(100_001) })] });
     const stored = store.thread("UCa", 1)[0];

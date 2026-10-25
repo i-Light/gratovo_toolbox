@@ -845,6 +845,22 @@ describe("the sender", () => {
       expect(send.mock.calls.map((c) => c[0].sendKey)).toEqual(["draft-soon", "draft-later"]);
     });
 
+    it("sends a Send later back to the person when the computer slept far past its time", async () => {
+      fake.put(row("s", { state: "scheduled", sendAt: start + 60_000, approvedBy: me }));
+      fake.put(
+        row("t", { creator: lab, state: "scheduled", sendAt: start + 120_000, approvedBy: me }),
+      );
+      sender.start();
+      // The app stays open while the computer sleeps for three days: the clock jumps, then the
+      // timer fires once on wake.
+      clock = start + 3 * 86_400_000;
+      await advance(0);
+      expect(send).not.toHaveBeenCalled();
+      expect(fake.drafts.get("s")).toMatchObject({ state: "ready", problem: "late" });
+      expect(fake.drafts.get("t")).toMatchObject({ state: "ready", problem: "late" });
+      expect(changed).toHaveBeenCalled();
+    });
+
     it("arms a timer only for approved and scheduled drafts, and drop clears it", () => {
       fake.put(
         row("later", { state: "scheduled", sendAt: start + 5 * 86_400_000, approvedBy: me }),

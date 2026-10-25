@@ -1465,10 +1465,26 @@ export function describeDataSourceContract(
         addDraft(source, "d2");
         await source.write([
           state("d1", "approved", contractNow - 60_000),
-          state("d2", "scheduled", contractNow - 60_000),
+          state("d2", "scheduled", contractNow - 30_000),
         ]);
         expect(source.outreach.draft("d1")?.sendAt).toBe(hold);
         expect(source.outreach.draft("d2")?.sendAt).toBe(hold);
+      });
+
+      it("refuses a Send later whose time is long past, and says so", async () => {
+        // A Redo of a schedule, or an Undo of its Cancel, the day after: not sent at once.
+        const source = start();
+        addDraft(source, "d1");
+        await source.write([state("d1", "scheduled", contractNow - 61_000)]);
+        expect(source.outreach.draft("d1")).toMatchObject({
+          state: "ready",
+          approvedBy: null,
+          sendAt: null,
+          problem: "time_passed",
+        });
+        // Sending it again clears the note.
+        await source.write([state("d1", "approved", hold)]);
+        expect(source.outreach.draft("d1")).toMatchObject({ state: "approved", problem: null });
       });
 
       it("puts an approved or skipped draft back to ready, clearing the hold and the problem", async () => {
