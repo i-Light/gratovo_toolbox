@@ -126,9 +126,21 @@ export function cardInfo(
     if (sequence?.stopped != null) {
       return { sub: sub.stopped[sequence.stopped], need: false, chip: null, action: null };
     }
+    if (sequence === null) {
+      // No sequence (none before step 6c, or an old email): say when the email went, and
+      // promise no follow-up.
+      const out = thread?.lastOutAt ?? null;
+      return {
+        sub: out === null ? sub.emailedEarlier : sub.emailed(ago(out, now)),
+        need: false,
+        // The line already says when; a chip would say it again.
+        chip: null,
+        action: null,
+      };
+    }
     const next = nextStep(sequence);
-    const first = sequence?.startedAt;
-    const emailed = first === undefined ? sub.emailedEarlier : sub.emailed(ago(first, now));
+    const first = sequence.startedAt;
+    const emailed = sub.emailed(ago(first, now));
     return {
       sub:
         next === null

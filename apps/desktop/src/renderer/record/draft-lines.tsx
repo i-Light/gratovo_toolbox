@@ -83,10 +83,10 @@ export function FromLine({ draft }: { readonly draft: OutreachDraft }) {
   return (
     <div className="dline">
       <span>{text.from}</span>
-      <span className="row" style={{ gap: "8px", minWidth: 0 }}>
+      <span className="row wrap" style={{ gap: "6px 8px", minWidth: 0 }}>
         <select
           className="sel sm"
-          style={{ width: "auto", maxWidth: "60%" }}
+          style={{ width: "auto", maxWidth: "100%" }}
           value={draft.mailbox ?? ""}
           disabled={!editable}
           data-tip={draft.kind === "first" ? undefined : text.sameMailbox}
@@ -116,7 +116,9 @@ export function FromLine({ draft }: { readonly draft: OutreachDraft }) {
             >
               <i style={{ width: `${String((100 * used) / cap)}%` }}></i>
             </span>
-            <span className="small muted num">{text.leftToday(left)}</span>
+            <span className="small muted num" style={{ whiteSpace: "nowrap" }}>
+              {text.leftToday(left)}
+            </span>
             {mailbox.signedOut ? (
               <Tag tone="crit" icon="alert">
                 {text.signedOut}
