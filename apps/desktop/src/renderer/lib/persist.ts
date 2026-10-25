@@ -1,5 +1,6 @@
 import type { Store } from "@gratovo/core";
-import type { DataWrite } from "@gratovo/core/data";
+import { personDraftStates } from "@gratovo/core/data";
+import type { DataWrite, DraftState, OutreachDraft, PersonDraftState } from "@gratovo/core/data";
 import type { Bridge } from "@gratovo/ipc/bridge";
 
 import { strings } from "../strings";
@@ -129,6 +130,58 @@ function diffRecords<T extends { readonly id: string }>(
   return true;
 }
 
+function isPersonState(state: DraftState): state is PersonDraftState {
+  return (personDraftStates as readonly string[]).includes(state);
+}
+
+/** The writes for one draft a person changed; null when the change is one a person can't make. */
+function draftWrites(was: OutreachDraft | undefined, now: OutreachDraft): DataWrite[] | null {
+  if (
+    was === undefined ||
+    !sameBut(was, now, "state", "sendAt", "subject", "body", "mailbox", "gatesOk", "edited")
+  ) {
+    return null;
+  }
+  const out: DataWrite[] = [];
+  if (was.subject !== now.subject || was.body !== now.body) {
+    out.push({ kind: "draft.text", id: now.id, subject: now.subject, body: now.body });
+  }
+  if (was.mailbox !== now.mailbox) {
+    out.push({ kind: "draft.mailbox", id: now.id, mailbox: now.mailbox });
+  }
+  for (const key of now.gatesOk) {
+    if (!was.gatesOk.includes(key)) {
+      out.push({ kind: "draft.gate", id: now.id, gate: key, ok: true });
+    }
+  }
+  for (const key of was.gatesOk) {
+    if (!now.gatesOk.includes(key)) {
+      out.push({ kind: "draft.gate", id: now.id, gate: key, ok: false });
+    }
+  }
+  if (was.state !== now.state || was.sendAt !== now.sendAt) {
+    // A person sets ready, approved, scheduled or skipped; a skipped draft may come from failed
+    // (D5). Any other state is main's.
+    if (
+      !isPersonState(now.state) ||
+      (was.state !== now.state && !isPersonState(was.state) && was.state !== "failed")
+    ) {
+      return null;
+    }
+    out.push({ kind: "draft.state", id: now.id, state: now.state, sendAt: now.sendAt });
+  }
+  return out;
+}
+
+const reachMainFields = [
+  "sequences",
+  "threads",
+  "mailboxes",
+  "gemini",
+  "geminiPausedUntil",
+  "sender",
+] as const satisfies readonly (keyof AppData["reach"])[];
+
 /**
  * The writes that turn `before` into `after`, compared by reference (the store shares unchanged
  * parts, so nothing changed costs one comparison). A change the write vocabulary cannot express
@@ -256,6 +309,14 @@ export function diffData(
     )
   ) {
     unsupported.push("deals");
+  }
+  if (before.reach !== after.reach) {
+    const draftsOk =
+      before.reach.drafts === after.reach.drafts ||
+      diffRecords(before.reach.drafts, after.reach.drafts, draftWrites, writes);
+    if (!draftsOk || reachMainFields.some((f) => before.reach[f] !== after.reach[f])) {
+      unsupported.push("reach");
+    }
   }
   for (const field of unsupportedFields) {
     if (before[field] !== after[field]) {

@@ -2,6 +2,7 @@ import type { FramePart, SyncStatus } from "@gratovo/ipc";
 import type { Bridge } from "@gratovo/ipc/bridge";
 
 import { toAppData } from "./frame";
+import { noticeReachChange } from "./reach-actions";
 import { adoptServerData, onPersistenceIdle, persistenceIdle } from "./persist";
 import type { DataDraft } from "./persist";
 import { appStore } from "./store";
@@ -101,6 +102,31 @@ function mergeLog(draft: DataDraft, shown: AppData, next: AppData): void {
   }
 }
 
+const reachMainFields = [
+  "threads",
+  "sequences",
+  "mailboxes",
+  "gemini",
+  "geminiPausedUntil",
+  "sender",
+] as const satisfies readonly (keyof AppData["reach"])[];
+
+/**
+ * Reach is server news like the records: drafts by id, news only (your own Send or Skip coming
+ * back never reaches the undo steps before it); the rest is main's and is replaced when it differs.
+ */
+function mergeReach(draft: DataDraft, shown: AppData, next: AppData): void {
+  const drafts = mergeList(draft.reach.drafts, shown.reach.drafts, next.reach.drafts, false);
+  if (drafts !== null) {
+    draft.reach.drafts = drafts as typeof draft.reach.drafts;
+  }
+  for (const field of reachMainFields) {
+    if (!sameValue(draft.reach[field], next.reach[field])) {
+      (draft.reach as Record<string, unknown>)[field] = next.reach[field];
+    }
+  }
+}
+
 /**
  * Folds the server's answer into the page's data, or into one of its undo steps (`bg` runs this on
  * each). `shown` is the page's data when the answer arrived: only what differs from it is news, so
@@ -142,6 +168,7 @@ export function mergeServerData(
   if (deals !== null) {
     draft.deals = deals as typeof draft.deals;
   }
+  mergeReach(draft, shown, next);
   if (parts.has("log")) {
     mergeLog(draft, shown, next);
   }
@@ -230,6 +257,7 @@ export function installLiveUpdates(bridge: Pick<Bridge, "invoke" | "on">): () =>
       adoptServerData((draft) => {
         mergeServerData(draft, next, parts, shown);
       });
+      noticeReachChange(shown.reach, next.reach);
     } catch (reason) {
       console.error("The page couldn't read the server's changes:", reason);
     } finally {

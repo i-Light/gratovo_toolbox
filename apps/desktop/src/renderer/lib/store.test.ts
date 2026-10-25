@@ -256,7 +256,23 @@ describe("the store at boot", () => {
 describe("example records", () => {
   it("has the prototype's creators, brands, deals and teammate run", () => {
     const data = exampleData(now);
-    expect(data.creators.map((c) => c.id)).toEqual(["c1", "c2", "c3", "c4", "c5", "c11", "c12"]);
+    // c6 to c10, c13 and c14 are Reach's (plan step 6): contacts, sequences and a reply.
+    expect(data.creators.map((c) => c.id)).toEqual([
+      "c1",
+      "c2",
+      "c3",
+      "c4",
+      "c5",
+      "c11",
+      "c12",
+      "c6",
+      "c7",
+      "c13",
+      "c8",
+      "c9",
+      "c10",
+      "c14",
+    ]);
     expect(data.creators.filter((c) => c.stage === "new")).toHaveLength(2);
     expect(data.creators[0]).toEqual({
       id: "c1",
@@ -397,9 +413,9 @@ describe("the live gate", () => {
 
   it("sends a hidden screen or tab to the default route", () => {
     live();
-    go("reach");
-    expect(route()).toEqual({ screen: "find", tab: "search" });
     go("close");
+    expect(route()).toEqual({ screen: "find", tab: "search" });
+    go("reach", "mailboxes");
     expect(route()).toEqual({ screen: "find", tab: "search" });
     go("settings", "day");
     expect(route()).toEqual({ screen: "find", tab: "search" });
@@ -420,7 +436,7 @@ describe("the live gate", () => {
       ui.history = {
         entries: [
           { screen: "find", tab: "search" },
-          { screen: "reach", tab: "board" },
+          { screen: "close", tab: "roster" },
           { screen: "settings", tab: "profile" },
         ],
         index: 2,

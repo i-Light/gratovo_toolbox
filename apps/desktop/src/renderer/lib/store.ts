@@ -18,7 +18,9 @@ import type {
   MateRun,
   NotifySettings,
   RailCounts,
+  ReachData,
 } from "@gratovo/core/data";
+import { emptyReach } from "@gratovo/core/data";
 import type { SyncStatus } from "@gratovo/ipc";
 import type { IconName } from "@gratovo/ui";
 import { useSyncExternalStore } from "react";
@@ -73,6 +75,8 @@ export interface AppData {
   readonly brands: readonly Brand[];
   readonly deals: readonly Deal[];
   readonly mateRun: MateRun | null;
+  /** Reach: drafts, threads, sequences and mailboxes (plan step 6). */
+  readonly reach: ReachData;
   /** Your changes that met a different value on the server: you choose which one stays. */
   readonly conflicts: readonly EditConflict[];
   /** Team-wide settings. A notification kind is on unless it is false here. */
@@ -136,6 +140,8 @@ export interface OpenMenu {
 export interface Peek {
   readonly record: RecordRef;
   readonly list: readonly string[] | null;
+  /** The record tab to open on (the creator record's "emails"); left out for its first. */
+  readonly tab?: string;
 }
 
 /** A background job shown in the jobs tray. */
@@ -208,6 +214,7 @@ const emptyData: AppData = {
   brands: [],
   deals: [],
   mateRun: null,
+  reach: emptyReach,
   conflicts: [],
   settings: { notify: {} },
 };

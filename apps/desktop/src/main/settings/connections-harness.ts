@@ -78,6 +78,8 @@ export function useConnections(): Harness {
   beforeEach(async () => {
     h.folder = await mkdtemp(join(tmpdir(), "gratovo-connections-"));
     h.source = openExampleSource(join(h.folder, "example.db"));
+    // The example seed lists three example mailboxes (plan step 6); these tests start with none.
+    h.source.writeSetting("mail.settings", {});
     h.store = fakeStore();
     h.python = "python.exe";
     h.starts = [];

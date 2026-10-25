@@ -67,5 +67,16 @@ export function createStubServices(): HandlerServices {
     mailConsent: {
       connect: () => Promise.resolve(notBuilt),
     },
+    reach: {
+      thread: () => Promise.resolve({ ok: false, problem: "no_data" }),
+      draftNow: () => Promise.resolve({ ok: false, problem: "no_data" }),
+      rewrite: () => Promise.resolve({ ok: false, problem: "not_found" }),
+      retry: () => Promise.resolve({ ok: false, problem: "not_found" }),
+      markSent: () => Promise.resolve({ ok: false, problem: "not_found" }),
+      sendNew: () => Promise.resolve({ ok: false, problem: "not_found" }),
+      refreshMailboxes: () => Promise.resolve({ ok: false, problem: "no_data" }),
+      overlay: (frame) => frame,
+      afterWrite: () => undefined,
+    },
   };
 }
