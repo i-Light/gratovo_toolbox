@@ -75,7 +75,9 @@ export function createStubServices(): HandlerServices {
       markSent: () => Promise.resolve({ ok: false, problem: "not_found" }),
       sendNew: () => Promise.resolve({ ok: false, problem: "not_found" }),
       refreshMailboxes: () => Promise.resolve({ ok: false, problem: "no_data" }),
-      overlay: (frame) => frame,
+      setMailbox: () => Promise.resolve({ ok: false, problem: "no_data" }),
+      sendTest: () => Promise.resolve({ ok: false, problem: "no_data" }),
+      overlay: (frame) => Promise.resolve(frame),
       afterWrite: () => undefined,
     },
   };

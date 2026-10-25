@@ -467,6 +467,18 @@ function start(): void {
         runQuickJob: (start) => runJob(quickLane, start),
         connected: async () =>
           (await readMailSecrets(secrets))?.mailboxes.map((m) => m.address) ?? [],
+        // The Find catalog's country of each channel, for Send later's "Their morning".
+        countries: async (ids) => {
+          const wanted = new Set(ids);
+          const { rows } = await catalog.snapshot();
+          const found = new Map<string, string>();
+          for (const row of rows) {
+            if (wanted.has(row.id) && row.country !== null) {
+              found.set(row.id, row.country);
+            }
+          }
+          return found;
+        },
         emit: () => {
           emit("frame:changed", { parts: ["reach"] });
         },

@@ -1,6 +1,6 @@
 export { isAgencyRole, isOwner, noAccess, seesMoney, sortRoles } from "./access";
 export type { MemberAccess } from "./access";
-export { exampleFrame, exampleSeed, exampleSeedVersion } from "./example";
+export { exampleCountries, exampleFrame, exampleSeed, exampleSeedVersion } from "./example";
 export type { ExampleSeed } from "./example";
 export {
   creatorStageFrom,
@@ -107,6 +107,7 @@ export type {
 } from "./reach-types";
 export type {
   DraftPatch,
+  MailboxCounts,
   NewDraft,
   NewMessage,
   OutreachStore,

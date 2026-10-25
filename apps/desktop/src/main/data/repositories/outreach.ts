@@ -15,6 +15,7 @@ import {
   sequenceStops,
   threadPreviewMax,
 } from "@gratovo/core/data";
+import { bounceWindowMs, replyWindowMs } from "@gratovo/core/reach";
 import type {
   DataWrite,
   DraftFinding,
@@ -25,6 +26,7 @@ import type {
   DraftState,
   EngineGate,
   NewDraft,
+  MailboxCounts,
   NewMessage,
   OutreachDraft,
   OutreachStore,
@@ -687,6 +689,61 @@ export function createOutreachStore(db: DatabaseSync, deps: OutreachDeps): Outre
         )
         .all(since)
         .map((row) => ({ mailbox: String(row["mailbox"]), count: num(row["n"]) })),
+    mailboxCounts(now) {
+      const counts = new Map<string, { -readonly [K in keyof MailboxCounts]: MailboxCounts[K] }>();
+      const entry = (mailbox: unknown) => {
+        const address = String(mailbox).trim().toLowerCase();
+        let found = counts.get(address);
+        if (found === undefined) {
+          found = { sent7: 0, bounced7: 0, firsts30: 0, replied30: 0 };
+          counts.set(address, found);
+        }
+        return found;
+      };
+      const since7 = now - bounceWindowMs;
+      const since30 = now - replyWindowMs;
+      for (const row of db
+        .prepare(
+          `SELECT mailbox, COUNT(*) AS n FROM outreach_messages
+           WHERE direction = 'out' AND mailbox IS NOT NULL AND at >= ? GROUP BY mailbox`,
+        )
+        .all(since7)) {
+        entry(row["mailbox"]).sent7 += num(row["n"]);
+      }
+      // Only the in-messages with a reading are parsed, and only to see if they are bounces.
+      for (const row of db
+        .prepare(
+          `SELECT mailbox, reading FROM outreach_messages
+           WHERE direction = 'in' AND mailbox IS NOT NULL AND at >= ? AND reading IS NOT NULL`,
+        )
+        .all(since7)) {
+        if (parseReading(row["reading"])?.replyType === "any.bounce") {
+          entry(row["mailbox"]).bounced7 += 1;
+        }
+      }
+      // The first email each creator got from each mailbox (the earliest), and whether anything
+      // but a bounce came back from that creator after it.
+      for (const row of db
+        .prepare(
+          `SELECT mailbox, channel_id, MIN(at) AS first_at FROM outreach_messages
+           WHERE direction = 'out' AND kind = 'first' AND mailbox IS NOT NULL AND at >= ?
+           GROUP BY lower(mailbox), channel_id`,
+        )
+        .all(since30)) {
+        const found = entry(row["mailbox"]);
+        found.firsts30 += 1;
+        const answers = db
+          .prepare(
+            `SELECT reading FROM outreach_messages
+             WHERE direction = 'in' AND channel_id = ? AND at > ?`,
+          )
+          .all(String(row["channel_id"]), num(row["first_at"]));
+        if (answers.some((answer) => parseReading(answer["reading"])?.replyType !== "any.bounce")) {
+          found.replied30 += 1;
+        }
+      }
+      return counts;
+    },
     sequence: (creator) => {
       const row = db.prepare("SELECT * FROM outreach_sequences WHERE channel_id = ?").get(creator);
       return row === undefined ? null : sequenceFrom(row);

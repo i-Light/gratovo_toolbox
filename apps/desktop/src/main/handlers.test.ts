@@ -106,6 +106,7 @@ function sourceWith(overrides: Partial<DataSource> = {}): DataSource {
       hasOutbound: () => false,
       recentOutbound: () => [],
       sentSince: () => [],
+      mailboxCounts: () => new Map(),
       sequence: () => null,
       commit: () => undefined,
     },
@@ -534,6 +535,11 @@ describe("Reach channels", () => {
     answers("reach:mark-sent", await mine["reach:mark-sent"]({ draftId }));
     answers("reach:send-new", await mine["reach:send-new"]({ draftId }));
     answers("reach:mailboxes-refresh", await mine["reach:mailboxes-refresh"]({}));
+    answers(
+      "reach:mailbox-set",
+      await mine["reach:mailbox-set"]({ address: "a@gratovo.example", paused: true }),
+    );
+    answers("reach:send-test", await mine["reach:send-test"]({ address: "a@gratovo.example" }));
   });
 
   it("send each channel to the Reach service", async () => {
@@ -546,6 +552,8 @@ describe("Reach channels", () => {
       markSent: vi.fn(() => Promise.resolve({ ok: true as const })),
       sendNew: vi.fn(() => Promise.resolve({ ok: true as const })),
       refreshMailboxes: vi.fn(() => Promise.resolve({ ok: true as const })),
+      setMailbox: vi.fn(() => Promise.resolve({ ok: true as const })),
+      sendTest: vi.fn(() => Promise.resolve({ ok: true as const })),
     };
     const mine = handlersWith(accountWith(), [], findWith(), { reach });
     answers("reach:thread", await mine["reach:thread"]({ creatorId: "c1" }));
@@ -555,6 +563,13 @@ describe("Reach channels", () => {
     answers("reach:mark-sent", await mine["reach:mark-sent"]({ draftId }));
     answers("reach:send-new", await mine["reach:send-new"]({ draftId }));
     answers("reach:mailboxes-refresh", await mine["reach:mailboxes-refresh"]({}));
+    answers(
+      "reach:mailbox-set",
+      await mine["reach:mailbox-set"]({ address: "a@gratovo.example", dailyCap: 25 }),
+    );
+    answers("reach:send-test", await mine["reach:send-test"]({ address: "a@gratovo.example" }));
+    expect(reach.setMailbox).toHaveBeenCalledWith({ address: "a@gratovo.example", dailyCap: 25 });
+    expect(reach.sendTest).toHaveBeenCalledWith("a@gratovo.example");
     expect(reach.thread).toHaveBeenCalledWith("c1");
     expect(reach.rewrite).toHaveBeenCalledWith(draftId, "warmer");
     expect(reach.markSent).toHaveBeenCalledWith(draftId);
@@ -562,7 +577,9 @@ describe("Reach channels", () => {
   });
 
   it("puts the frame through the overlay and tells Reach about a write", async () => {
-    const overlay = vi.fn((f: typeof frame) => ({ ...f, counts: { ...f.counts, reach: 7 } }));
+    const overlay = vi.fn((f: typeof frame) =>
+      Promise.resolve({ ...f, counts: { ...f.counts, reach: 7 } }),
+    );
     const afterWrite = vi.fn();
     const mine = handlersWith(accountWith(), [], findWith(), {
       reach: { ...createStubServices().reach, overlay, afterWrite },

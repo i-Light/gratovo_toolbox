@@ -1,16 +1,11 @@
-import type { DataSource } from "@gratovo/core/data";
+import type { DataSource, MailboxCounts } from "@gratovo/core/data";
+import { limitedCap } from "@gratovo/core/reach";
 import { describe, expect, it, vi } from "vitest";
 
 import type { JobOutcome } from "../pipeline/jobs";
 import type { ResultData } from "../pipeline/protocol";
 
-import {
-  createMailState,
-  localMidnight,
-  warmupCap,
-  warmupDay,
-  type MailStateDeps,
-} from "./mail-state";
+import { createMailState, localMidnight, warmupDay, type MailStateDeps } from "./mail-state";
 
 // Noon on 2026-10-25, local time.
 const clock = new Date(2026, 9, 25, 12, 0, 0).getTime();
@@ -24,22 +19,44 @@ function isoDay(daysAgo: number): string {
   return `${String(d.getFullYear())}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-function source(
+interface Fake {
+  source: DataSource;
+  /** The local settings as written. */
+  settings: Map<string, unknown>;
+  write: ReturnType<typeof vi.fn>;
+}
+
+function fakeSource(
   mailboxes: { address: string; dailyCap: number; warmupStartedOn: string | null }[],
   sent: { mailbox: string; count: number }[] = [],
-) {
+  counts: Record<string, MailboxCounts> = {},
+  flags?: unknown,
+): Fake {
   const sentSince = vi.fn((since: number) => {
     expect(since).toBe(localMidnight(clock));
     return sent;
   });
+  const settings = new Map<string, unknown>([
+    ["mail.settings", { label: "Gratovo Outreach", senderName: null, mailboxes }],
+  ]);
+  if (flags !== undefined) {
+    settings.set("reach.mailboxes", flags);
+  }
+  const write = vi.fn(() => Promise.resolve());
   const fake = {
-    readSetting: (key: string) =>
-      key === "mail.settings"
-        ? { label: "Gratovo Outreach", senderName: null, mailboxes }
-        : undefined,
-    outreach: { sentSince },
+    readSetting: (key: string) => settings.get(key),
+    writeSetting: (key: string, value: unknown) => settings.set(key, value),
+    write,
+    outreach: { sentSince, mailboxCounts: () => new Map(Object.entries(counts)) },
   };
-  return fake as unknown as DataSource;
+  return { source: fake as unknown as DataSource, settings, write };
+}
+
+function source(
+  mailboxes: { address: string; dailyCap: number; warmupStartedOn: string | null }[],
+  sent: { mailbox: string; count: number }[] = [],
+): DataSource {
+  return fakeSource(mailboxes, sent).source;
 }
 
 function account(address: string, over: Partial<Account> = {}): Account {
@@ -144,7 +161,7 @@ describe("the mailbox views", () => {
     // Warming: the cap is at most 20, and Gmail's count (9) is the larger.
     expect(lina).toMatchObject({
       connected: true,
-      effectiveCap: warmupCap,
+      effectiveCap: limitedCap,
       sentToday: 9,
       leftToday: 11,
       warmup: { day: 5, of: 30 },
@@ -319,5 +336,91 @@ describe("refresh", () => {
     await expect(state.refresh()).resolves.toBe("ok");
     expect(state.views()[0]).toMatchObject({ sentToday: 7, checkedAt: clock });
     expect(at - clock).toBeLessThan(dayMs);
+  });
+});
+
+describe("pause, slowdown and the rates", () => {
+  const open = { address: "outreach3@gratovo.example", dailyCap: 30, warmupStartedOn: null };
+  const counts = (sent7: number, bounced7: number, firsts30 = 0, replied30 = 0) => ({
+    "outreach3@gratovo.example": { sent7, bounced7, firsts30, replied30 },
+  });
+
+  it("reads the pause and the slowdown from the setting and shows both rates", () => {
+    const fake = fakeSource([open], [], counts(40, 1, 20, 3), {
+      "outreach3@gratovo.example": { paused: true, slowed: true },
+    });
+    const { state } = setup({ source: () => fake.source, mode: () => "example" });
+    expect(state.views()[0]).toMatchObject({
+      paused: true,
+      status: "paused",
+      effectiveCap: limitedCap,
+      leftToday: limitedCap,
+      bounceRate: 2.5,
+      replyRate: 15,
+    });
+  });
+
+  it("falls back to not paused and not slowed on a bad setting", () => {
+    for (const bad of ["x", 7, null, [1], { "outreach3@gratovo.example": "no" }]) {
+      const fake = fakeSource([open], [], {}, bad);
+      const { state } = setup({ source: () => fake.source, mode: () => "example" });
+      expect(state.views()[0]).toMatchObject({ paused: false, status: "good", effectiveCap: 30 });
+    }
+  });
+
+  it("slows a mailbox over 3% once, writes the setting and one log line", async () => {
+    const fake = fakeSource([open], [], counts(31, 1));
+    const { state } = setup({
+      source: () => fake.source,
+      mode: () => "example",
+      newId: () => "log-1",
+    });
+    await state.refresh();
+    expect(fake.settings.get("reach.mailboxes")).toEqual({
+      "outreach3@gratovo.example": { paused: false, slowed: true },
+    });
+    expect(fake.write).toHaveBeenCalledTimes(1);
+    expect(fake.write).toHaveBeenCalledWith([
+      {
+        kind: "log.add",
+        id: "log-1",
+        at: clock,
+        text: "outreach3 slowed to 20 sends a day: 3.2% bounced this week",
+        ref: null,
+        action: null,
+        detail: null,
+      },
+    ]);
+    expect(state.views()[0]).toMatchObject({ status: "slowed", effectiveCap: 20 });
+    // The state did not change, so a second refresh writes nothing.
+    await state.refresh();
+    expect(fake.write).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a slowed mailbox slowed until bounces are under 2%, then says so", async () => {
+    const flags = { "outreach3@gratovo.example": { paused: true, slowed: true } };
+    const fake = fakeSource([open], [], counts(50, 1), flags);
+    const { state } = setup({ source: () => fake.source, mode: () => "example" });
+    // 2.0% is not under 2%.
+    await state.refresh();
+    expect(fake.write).not.toHaveBeenCalled();
+    const better = fakeSource([open], [], counts(60, 1), flags);
+    const again = setup({ source: () => better.source, mode: () => "example" });
+    await again.state.refresh();
+    expect(better.write).toHaveBeenCalledWith([
+      expect.objectContaining({ text: "outreach3 is back to 30 sends a day" }),
+    ]);
+    // The pause stays as the owner set it.
+    expect(better.settings.get("reach.mailboxes")).toEqual({
+      "outreach3@gratovo.example": { paused: true, slowed: false },
+    });
+  });
+
+  it("changes nothing when there are too few sends for a rate", async () => {
+    const fake = fakeSource([open], [], counts(9, 9));
+    const { state } = setup({ source: () => fake.source, mode: () => "example" });
+    await state.refresh();
+    expect(fake.write).not.toHaveBeenCalled();
+    expect(state.views()[0]).toMatchObject({ bounceRate: null, status: "good" });
   });
 });

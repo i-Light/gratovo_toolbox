@@ -28,7 +28,7 @@ import type {
  */
 
 /** Bump it when the fixtures change: an older example database is then seeded again. */
-export const exampleSeedVersion = 4;
+export const exampleSeedVersion = 5;
 
 /** What the example database is seeded from, and the extras (presence, counts, a run) it serves. */
 export interface ExampleSeed {
@@ -59,6 +59,10 @@ export interface ExampleSeed {
   readonly notifications: readonly FrameNotification[];
   /** The `mail.settings` row of `local_settings`: the example mailboxes and the sender's name. */
   readonly mailSettings: ExampleMailSettings;
+  /** The `reach.mailboxes` row of `local_settings` (D20): pause and slowdown, by address in lower case. */
+  readonly reachMailboxes: Readonly<
+    Record<string, { readonly paused: boolean; readonly slowed: boolean }>
+  >;
   /** Reach's rows: the drafts waiting for a person and the emails already sent or received. */
   readonly outreach: {
     readonly drafts: readonly ExampleDraft[];
@@ -105,7 +109,8 @@ export function exampleSeed(now: number): ExampleSeed {
     deals,
     notifications: notifications(now),
     mailSettings: mailSettings(now),
-    outreach: { drafts: drafts(now), messages: messages(now) },
+    reachMailboxes: { "outreach3@gratovo.example": { paused: false, slowed: true } },
+    outreach: { drafts: drafts(now), messages: [...messages(now), ...history(now)] },
     mateRun: (at) => mateRun(dayTime(at, 0, 9, 2)),
   };
 }
@@ -626,6 +631,78 @@ function messages(now: number): readonly NewMessage[] {
 }
 
 /**
+ * outreach3's week, imported: 30 first emails to channels that belong to no creator in the
+ * example, five of them answered, and one bounce. With the one real send from outreach3 that is
+ * 31 sends and 1 bounce (3.2%), over the 3% line, so outreach3 is slowed (D20). The sends sit on
+ * the six days before today, so today's count is unchanged. No creator owns these channel ids, so
+ * the board, the rail and the record never list them.
+ */
+function history(now: number): readonly NewMessage[] {
+  const mailbox = "outreach3@gratovo.example";
+  const base = {
+    followUp: null,
+    bodyCut: false,
+    mailbox,
+    conversationKey: null,
+    gmailThreadId: null,
+    draftId: null,
+    source: "imported",
+  } as const;
+  const list: NewMessage[] = [];
+  for (let i = 0; i < 30; i += 1) {
+    const channel = `hist-ch-${String(i)}`;
+    list.push({
+      ...base,
+      id: `hist-o3-${String(i)}`,
+      creator: channel,
+      direction: "out",
+      kind: "first",
+      subject: "Your latest video",
+      body: "Imported from Gmail.",
+      at: now - dayMs - i * 4 * hour,
+      peer: `hello@${channel}.example`,
+      peerName: null,
+      gmailMessageId: `gm-hist-o3-${String(i)}`,
+      by: me,
+      reading: null,
+    });
+  }
+  const reply = (i: number): NewMessage => ({
+    ...base,
+    id: `hist-in-${String(i)}`,
+    creator: `hist-ch-${String(i)}`,
+    direction: "in",
+    kind: null,
+    subject: "Re: Your latest video",
+    body: "Imported from Gmail.",
+    at: now - dayMs / 2 - i * hour,
+    peer: `hello@hist-ch-${String(i)}.example`,
+    peerName: null,
+    gmailMessageId: `gm-hist-in-${String(i)}`,
+    by: null,
+    reading: null,
+  });
+  for (let i = 0; i < 5; i += 1) {
+    list.push(reply(i));
+  }
+  list.push({
+    ...reply(29),
+    id: "hist-bounce",
+    gmailMessageId: "gm-hist-bounce",
+    subject: "Delivery Status Notification (Failure)",
+    reading: {
+      replyType: "any.bounce",
+      label: "Bounce",
+      summary: "The address does not exist.",
+      side: "none",
+      corrected: false,
+      facts: [],
+    },
+  });
+  return list;
+}
+
+/**
  * Reach in the frame, from the seed's rows by the same rules the database applies (drafts newest
  * first, one thread summary per creator, the newest thread first). Main overlays the mailboxes,
  * Gemini's state and the sender later, so a fresh source serves them empty.
@@ -706,3 +783,13 @@ function previewOf(body: string): string {
   }
   return "";
 }
+
+/**
+ * The country of the example creators who have a draft, by creator id, for Send later's "Their
+ * morning" (D21). The example data has no Find catalog to ask.
+ */
+export const exampleCountries: Readonly<Record<string, string>> = {
+  c6: "US",
+  c13: "GB",
+  c7: "IN",
+};

@@ -38,3 +38,19 @@ export const reachStrings = {
       "Your viewers often ask which AI tools are worth paying for, and a sponsor that fits could answer that for them.",
   },
 } as const;
+
+/**
+ * The words of the mailboxes (plan step 6b, D20): the activity log lines of the slowdown rule and
+ * the test email. The test email is plain English with no template slots: it goes to the owner's
+ * own address and is never stored.
+ */
+export const mailboxStrings = {
+  /** The log line when bounces slow a mailbox: "outreach3 slowed to 20 sends a day: 4.2% bounced this week". */
+  slowed: (name: string, cap: number, rate: number): string =>
+    `${name} slowed to ${String(cap)} sends a day: ${String(rate)}% bounced this week`,
+  /** The log line when it recovers. */
+  recovered: (name: string, cap: number): string => `${name} is back to ${String(cap)} sends a day`,
+  testSubject: "Gratovo test email",
+  testBody:
+    "This is a test from Gratovo. If it reached your main inbox, mail from this address is landing well.",
+} as const;

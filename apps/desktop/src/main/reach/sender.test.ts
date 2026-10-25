@@ -177,6 +177,7 @@ function fakeSource(clock: () => number) {
     hasOutbound: () => false,
     recentOutbound: () => [],
     sentSince: () => [],
+    mailboxCounts: () => new Map(),
     sequence: () => null,
     commit(change) {
       commits.push(change);

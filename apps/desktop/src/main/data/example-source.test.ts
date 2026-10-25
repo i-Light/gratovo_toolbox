@@ -4,6 +4,7 @@ import { join } from "node:path";
 
 import { exampleFrame, exampleSeedVersion } from "@gratovo/core/data";
 import type { DataSource } from "@gratovo/core/data";
+import { rateOf } from "@gratovo/core/reach";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { openDatabase } from "../db/open-database";
@@ -41,6 +42,21 @@ describe("example source", () => {
 
   it("serves exactly the example frame from a fresh file", async () => {
     expect(await start().frame()).toEqual(exampleFrame(contractNow));
+  });
+
+  it("seeds outreach3 as slowed, with a bounce rate over 3%", () => {
+    const source = start();
+    expect(source.readSetting("reach.mailboxes")).toEqual({
+      "outreach3@gratovo.example": { paused: false, slowed: true },
+    });
+    const counts = source.outreach.mailboxCounts(contractNow).get("outreach3@gratovo.example");
+    expect(counts?.sent7).toBeGreaterThanOrEqual(10);
+    expect(counts?.bounced7).toBeGreaterThanOrEqual(1);
+    expect(rateOf(counts?.bounced7 ?? 0, counts?.sent7 ?? 0) ?? 0).toBeGreaterThan(3);
+    // The other two are healthy.
+    expect(
+      source.outreach.mailboxCounts(contractNow).get("outreach1@gratovo.example")?.bounced7,
+    ).toBe(0);
   });
 
   it("does not seed again on a reopen", async () => {

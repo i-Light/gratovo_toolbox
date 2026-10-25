@@ -77,6 +77,18 @@ export interface NewMessage {
   readonly reading: ReplyReading | null;
 }
 
+/** What a mailbox's bounce and reply rates are built from (D20). */
+export interface MailboxCounts {
+  /** Messages sent from the mailbox in the last 7 days. */
+  readonly sent7: number;
+  /** Bounces that came back to the mailbox in the last 7 days. */
+  readonly bounced7: number;
+  /** Creators who got a first email from the mailbox in the last 30 days. */
+  readonly firsts30: number;
+  /** Of those, the creators who wrote back (anything but a bounce) after it. */
+  readonly replied30: number;
+}
+
 export interface OutreachStore {
   /** The stored parts of the frame's `reach` (D4), read at `now`. */
   reachParts(now: number): Pick<ReachData, "drafts" | "sequences" | "threads">;
@@ -96,6 +108,11 @@ export interface OutreachStore {
   recentOutbound(limit: number): { readonly creator: string; readonly body: string }[];
   /** How many messages each mailbox sent at or after `since` (ms). */
   sentSince(since: number): { readonly mailbox: string; readonly count: number }[];
+  /**
+   * Each mailbox's counts for its health rates (D20), keyed by the address in lower case: sends and
+   * bounces in the last 7 days, first emails and the creators who answered them in the last 30.
+   */
+  mailboxCounts(now: number): ReadonlyMap<string, MailboxCounts>;
   sequence(creator: string): Sequence | null;
   /**
    * In one transaction: the drafts' patches, the new messages (one whose Gmail id is already

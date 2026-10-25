@@ -113,6 +113,9 @@ class FakeOutreach implements OutreachStore {
       .slice(0, limit)
       .map((m) => ({ creator: m.creator, body: m.message.body }));
   }
+  mailboxCounts(): ReturnType<OutreachStore["mailboxCounts"]> {
+    return new Map();
+  }
   sentSince(): { mailbox: string; count: number }[] {
     return [];
   }
