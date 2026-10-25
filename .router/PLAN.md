@@ -373,3 +373,58 @@ Same rules as 6a's tasks.
 | C3 | N | C1 | `renderer/reach/sequences.tsx` (new, + test), `reach-screen.tsx`, `reach.css`, `reach-view.ts`, `renderer/record/creator-emails.tsx`, `renderer/lib/reach-actions.ts` (+ test), `lib/wired.ts` (+ test), `renderer/strings.ts`, `e2e/live-gate.spec.ts` expectations | D22 in the page, per the prototype. | vitest; screenshot at 1440 px |
 | C4 | N | C2, C3 | `apps/desktop/e2e/reach-sequences.spec.ts` | One smoke on example data: Send a first email and let it go; Sequences shows its row with follow-up 1 in 3 days; Stop; the toast's Undo resumes it. | e2e on Windows |
 | C5 | H | all | review (router-reviewer) | The diff against this plan. No automatic send (a follow-up is only ever drafted). The timer and wake paths. | findings fixed |
+
+## Decisions added for 6d (2026-10-25)
+
+**D23. Replies, in detail** (D17, D18; prototype `reach.js` Inbox and InboxRow, `records.js` thread, paste and `W.AiRead`, `engine.js` `A.pasteReply`).
+
+**The sweep** (`main/reach/reply-sweep.ts`): live data only, with a connected mailbox. It runs 30 s after start, every 10 minutes, and on **Check now** (`reach:check-replies`). Example data never sweeps.
+
+Each `reply` line of `mail.replies`:
+- **Match:** by `channelId`, else by the conversation key `c:<id>`, else by the sender's address equal to a creator's address (case-insensitive). An unmatched reply is logged by its message id only and not stored, so it is offered again.
+- **Store:** an `in` message (`source: "sweep"`), `gmail_message_id` unique (a reply stored twice is a no-op), mailbox = the account it reached. All of one sweep's replies go in one transaction. Then `mail.ack` for the stored ids only.
+- **A bounce** is a reply from `mailer-daemon@` or `postmaster@`, or one the engine later reads as `any.bounce`. It stops the sequence (`stopped: "bounced"`), skips the creator's open follow-ups, marks the address not confirmed (through the contact write Find's Confirm uses), and adds a notification "X's email bounced" (icon `alert`). No answer is drafted.
+- **A reply:** these all go in one commit:
+  - the stage goes from `emailed` or `parked` to `replied` (the normal `creator.stage` write);
+  - the sequence stops with `stopped: "replied"`, and open follow-ups are skipped;
+  - a notification "X replied", with icon `reply`, that goes to Reach › Replies;
+  - a log line;
+  - an answer draft (`kind: "reply"`, `replyTo` = the message, mailbox = the account the reply reached), queued for the drafter. It is only ever drafted, never sent on its own.
+
+**The reading:** when the answer draft's proposal arrives, its `situation` becomes the in-message's `reading`. That reading holds the reply type, the label from the situations map, the summary, the side, `corrected: false`, and the facts from core's `readReplyFacts`. No extra Gemini prompt. A reading of `any.bounce` turns the reply into a bounce, as above, and skips the answer draft. Example data uses a stand-in reading.
+
+**Facts (D18):** core `readReplyFacts(text)` (pure) finds:
+- a rate: `$1,200`, `1200 USD`, "my rate is 900";
+- top countries with shares: "US 45%, UK 20%", "mostly US and Canada";
+- an age band: "25-34", "18 to 24".
+
+Each fact has **Save to record**. It sends the DataWrite `reply.fact {messageId, key}`: main merges it into `channel_state.provided_data` (`{rate, countries, age}`), queues a `channel.edit provided_data` with its base (it syncs), and adds the key to the message's `facts_saved`. The stage stays `replied`.
+
+**That's not it:**
+- It opens a picker of the side's situations: `reach:situations` serves them from the pipeline's `situations.json`, 20 creator, 22 brand and 5 for any, with id and label.
+- Picking one sends `reach:reclassify {messageId, replyType}`. Main marks the reading `corrected` with that type and label at once, then re-proposes the open answer draft with the steer note "Read their reply as: <label>". It is like a rewrite: `rewriting` shows, and the old text is kept for the toast's Undo.
+- Without an open answer draft, only the reading changes.
+
+**Paste a reply** (`reach:paste-reply {creatorId, text}`, at most 20 000 characters) works only for a creator with an outbound email. It adds an `in` message (`source: "pasted"`, no Gmail ids) and does what a swept reply does, except the notification (the person did it). It is a command with no Undo, which is recorded as a limit.
+
+**The page:**
+- **Reach › Replies** (`inbox`, now in the live rail) lists every creator whose last message is theirs, or who has an open answer draft, newest first. Each row shows the reading's tag and the first line, with "Draft ready", "Answered" or "Your move".
+- **The detail** shows the thread, then Gemini's reading (the intent, the summary, the facts with Save to record, and That's not it), then the answer's draft card. Check now sits in the header.
+- **The record's Emails tab** gets the reading under their last message, and **Paste a reply by hand** under the thread once there is an outbound email.
+- **The Sequences empty state** says again that follow-ups "stop on their own when someone replies".
+- **The 6b slowdown** also adds a notification ("outreach3 slowed to 20 sends a day", icon `alert`, go Reach › Mailboxes).
+- **The live gate:** `liveWired.reach` adds `inbox`.
+
+**Example data:** the replied creator c10 gets a stand-in reading with a rate and countries. Paste works on example data, with a stand-in reading and answer.
+
+## Tasks for 6d
+
+Same rules as 6a's tasks.
+
+| id | tier | depends | files | spec | done-check |
+|---|---|---|---|---|---|
+| D1 | H (lead) | – | `packages/core/src/reach/reply-facts.ts`, `replies.ts` (+ tests), `reach/index.ts`, `data/types.ts` (`reply.fact`), `packages/ipc/src/reach.ts`, `data.ts`, `channels.ts` (+ tests) | `readReplyFacts`; the Replies list (pure); the write and the four channels. | typecheck; core and ipc tests |
+| D2 | N | D1 | `main/reach/reply-sweep.ts` (new), `drafter.ts`, `reach-service.ts`, `mail-state.ts`, `strings.ts`, `main/data/repositories/outreach.ts`, `sqlite-source.ts`, `example-source.ts`, `data-source-contract.ts`, `handlers.ts`, `services.ts`, `stub-services.ts`, `index.ts`, `packages/core/src/data/example.ts`, the tests | D23 in main. | vitest; contract tests |
+| D3 | N | D1 | `renderer/reach/replies.tsx` (new, + test), `reach-screen.tsx`, `reach.css`, `renderer/record/reading.tsx` (new), `creator-emails.tsx`, `thread.tsx`, `renderer/lib/reach-actions.ts`, `persist.ts` (the `reply.fact` diff, if it is an `act`), `lib/wired.ts`, `strings.ts`, the tests | D23 in the page. | vitest; screenshot at 1440 px |
+| D4 | N | D2, D3 | `apps/desktop/e2e/reach-replies.spec.ts` | One smoke on example data: Paste a reply for an emailed creator; it moves to Replied, Replies lists it with a reading, and an answer draft appears. | e2e on Windows |
+| D5 | H | all | review (router-reviewer) | The diff against the plan. No automatic send (an answer is only drafted). Ack only what is stored. The mailbox is read only by `mail.replies`. | findings fixed |
