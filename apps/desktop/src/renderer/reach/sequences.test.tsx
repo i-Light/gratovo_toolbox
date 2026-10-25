@@ -139,7 +139,8 @@ describe("Reach > Sequences", () => {
     };
     const park = Object.values(t.parkChoices);
     expect(open("Prompt Lab")).toEqual([t.open, t.stop, t.parkHead, ...park]);
-    expect(open("Tensor Talk")).toEqual([t.open, t.resume, t.parkHead, ...park]);
+    // Stopped by you: Resume, and no Park (main refuses Park on a stopped sequence).
+    expect(open("Tensor Talk")).toEqual([t.open, t.resume]);
     expect(open("Code with Kai")).toEqual([t.open, t.wake]);
     expect(open("The AI Desk")).toEqual([t.open]);
   });
@@ -171,11 +172,16 @@ describe("Reach > Sequences", () => {
     expect(bridge.calls.at(-1)).toEqual(["reach:sequence-resume", { creatorId: "c4" }]);
     await undo();
     expect(bridge.calls.at(-1)).toEqual(["reach:sequence-stop", { creatorId: "c4" }]);
-    await pick("Tensor Talk", t.parkChoices.month1);
+    // A sequence you stopped offers no Park: main would refuse it. Resume it first.
+    fireEvent.click(
+      within(row("Tensor Talk")).getByRole("button", { name: t.moreFor("Tensor Talk") }),
+    );
+    expect(menu()?.items.some((i) => "label" in i && i.label === t.parkChoices.month1)).toBe(false);
+    await pick("Prompt Lab", t.parkChoices.month1);
     expect(bridge.calls.at(-1)?.[0]).toBe("reach:park");
-    expect(toasts().at(-1)?.msg).toContain("Tensor Talk");
+    expect(toasts().at(-1)?.msg).toContain("Prompt Lab");
     await undo();
-    expect(bridge.calls.at(-1)).toEqual(["reach:wake", { creatorId: "c4" }]);
+    expect(bridge.calls.at(-1)).toEqual(["reach:wake", { creatorId: "c1" }]);
     await pick("Code with Kai", t.wake);
     expect(bridge.calls.at(-1)).toEqual(["reach:wake", { creatorId: "c3" }]);
     await undo();

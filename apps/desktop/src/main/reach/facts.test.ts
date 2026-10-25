@@ -59,6 +59,7 @@ function source(
     sentSince: unused,
     mailboxCounts: unused,
     sequence: unused,
+    runningSequences: unused,
     commit: unused,
   };
   return { creatorStates: () => Promise.resolve(states), outreach, asked };

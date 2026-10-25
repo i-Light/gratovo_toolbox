@@ -35,7 +35,9 @@ import {
   reachRewriteResultSchema,
   reachSendTestRequestSchema,
   reachSendTestResultSchema,
+  reachRestoreRequestSchema,
   reachSequenceResultSchema,
+  reachSequenceSkipResultSchema,
   reachThreadRequestSchema,
   reachThreadResultSchema,
 } from "./reach";
@@ -360,21 +362,21 @@ export const channels = {
   /** Stops a creator's follow-ups (D22); its open follow-up drafts are skipped. */
   "reach:sequence-stop": {
     request: reachCreatorRequestSchema,
-    response: reachSequenceResultSchema,
+    response: reachSequenceSkipResultSchema,
   },
   /** Runs a sequence the person stopped again (D22); due steps are drafted, never sent. */
   "reach:sequence-resume": {
-    request: reachCreatorRequestSchema,
+    request: reachRestoreRequestSchema,
     response: reachSequenceResultSchema,
   },
   /** Parks a creator until a day (D22): the stage `parked`, the follow-ups waiting. */
   "reach:park": {
     request: reachParkRequestSchema,
-    response: reachSequenceResultSchema,
+    response: reachSequenceSkipResultSchema,
   },
   /** Wakes a parked creator now (D22): back to `emailed`, the steps re-timed. */
   "reach:wake": {
-    request: reachCreatorRequestSchema,
+    request: reachRestoreRequestSchema,
     response: reachSequenceResultSchema,
   },
   /** Starts the Gemini bridge. Sends no prompt. */

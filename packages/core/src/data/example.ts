@@ -701,8 +701,9 @@ function sequences(now: number): readonly Sequence[] {
 
 /**
  * outreach3's week, imported: 30 first emails to channels that belong to no creator in the
- * example, five of them answered, and one bounce. With the one real send from outreach3 that is
- * 31 sends and 1 bounce (3.2%), over the 3% line, so outreach3 is slowed (D20). The sends sit on
+ * example, five of them answered, and one bounce. With the two real sends from outreach3 (a first
+ * email and a follow-up) that is 32 sends and 1 bounce (3.1%), over the 3% line, so outreach3 is
+ * slowed (D20). The sends sit on
  * the six days before today, so today's count is unchanged. No creator owns these channel ids, so
  * the board, the rail and the record never list them.
  */
@@ -832,9 +833,9 @@ function exampleReach(outreach: ExampleSeed["outreach"]): ReachData {
     .map(({ summary }) => summary);
   return {
     drafts,
-    // Oldest first, as the database lists them.
+    // Newest first, as the database lists them.
     sequences: [...outreach.sequences].sort(
-      (a, b) => a.startedAt - b.startedAt || (a.creator < b.creator ? -1 : 1),
+      (a, b) => b.startedAt - a.startedAt || (a.creator < b.creator ? -1 : 1),
     ),
     threads,
     mailboxes: [],

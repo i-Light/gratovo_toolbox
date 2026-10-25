@@ -600,40 +600,53 @@ type SequenceChannel =
 
 /**
  * Runs one sequence command in main (D22). Commands, not undo steps: the toast carries an Undo
- * button that runs the opposite command. A refusal gets a plain toast.
+ * button that runs the opposite command. A refusal gets a plain toast. Gives the follow-up drafts
+ * a Stop or Park skipped (none for Resume and Wake), or null when it didn't run.
  */
 async function sequenceCommand(
   channel: SequenceChannel,
-  input: { readonly creatorId: string; readonly until?: number },
-): Promise<boolean> {
+  input: {
+    readonly creatorId: string;
+    readonly until?: number;
+    readonly restore?: readonly string[];
+  },
+): Promise<readonly string[] | null> {
   let result;
   try {
     result = await window.gratovo.invoke(channel, input);
   } catch {
     toast({ msg: t.sequences.problems.no_data, icon: "alert" });
-    return false;
+    return null;
   }
   if (!result.ok) {
     toast({ msg: t.sequences.problems.no_data, icon: "alert" });
-    return false;
+    return null;
   }
-  const value = result.value as { readonly ok: boolean; readonly problem?: string };
+  const value = result.value as {
+    readonly ok: boolean;
+    readonly problem?: string;
+    readonly skipped?: readonly string[];
+  };
   if (!value.ok) {
     const problem = (value.problem ?? "no_data") as keyof typeof t.sequences.problems;
     toast({ msg: t.sequences.problems[problem], icon: "alert" });
-    return false;
+    return null;
   }
-  return true;
+  return value.skipped ?? [];
 }
 
 const sequenceOf = (creatorId: string) =>
   reachNow().sequences.find((s) => s.creator === creatorId) ?? null;
 const undoAction = (run: () => void) => [{ label: strings.actions.undo, run }];
 
-/** Stops a creator's sequence. Undo resumes it. */
+/**
+ * Stops a creator's sequence. Undo resumes it and brings back the follow-up drafts the stop
+ * skipped, as they were (review of 6c, finding 3).
+ */
 export async function stopSequence(creatorId: string, withUndo = true): Promise<boolean> {
   const name = creatorOf(creatorId)?.name ?? "";
-  if (!(await sequenceCommand("reach:sequence-stop", { creatorId }))) {
+  const skipped = await sequenceCommand("reach:sequence-stop", { creatorId });
+  if (skipped === null) {
     return false;
   }
   toast({
@@ -643,7 +656,7 @@ export async function stopSequence(creatorId: string, withUndo = true): Promise<
     ...(withUndo
       ? {
           actions: undoAction(() => {
-            void resumeSequence(creatorId, false);
+            void resumeSequence(creatorId, false, skipped);
           }),
         }
       : {}),
@@ -651,10 +664,15 @@ export async function stopSequence(creatorId: string, withUndo = true): Promise<
   return true;
 }
 
-/** Runs a sequence that the person stopped. Undo stops it again. */
-export async function resumeSequence(creatorId: string, withUndo = true): Promise<boolean> {
+/** Runs a sequence that the person stopped; `restore` is a Stop's skipped drafts. Undo stops it again. */
+export async function resumeSequence(
+  creatorId: string,
+  withUndo = true,
+  restore: readonly string[] = [],
+): Promise<boolean> {
   const name = creatorOf(creatorId)?.name ?? "";
-  if (!(await sequenceCommand("reach:sequence-resume", { creatorId }))) {
+  const input = restore.length > 0 ? { creatorId, restore } : { creatorId };
+  if ((await sequenceCommand("reach:sequence-resume", input)) === null) {
     return false;
   }
   toast({
@@ -672,14 +690,15 @@ export async function resumeSequence(creatorId: string, withUndo = true): Promis
   return true;
 }
 
-/** Parks a creator until the day `until` falls on. Undo wakes them. */
+/** Parks a creator until the day `until` falls on. Undo wakes them, with the drafts it skipped. */
 export async function parkCreator(
   creatorId: string,
   until: number,
   withUndo = true,
 ): Promise<boolean> {
   const name = creatorOf(creatorId)?.name ?? "";
-  if (!(await sequenceCommand("reach:park", { creatorId, until }))) {
+  const skipped = await sequenceCommand("reach:park", { creatorId, until });
+  if (skipped === null) {
     return false;
   }
   toast({
@@ -689,7 +708,7 @@ export async function parkCreator(
     ...(withUndo
       ? {
           actions: undoAction(() => {
-            void wakeCreator(creatorId, false);
+            void wakeCreator(creatorId, false, skipped);
           }),
         }
       : {}),
@@ -697,11 +716,19 @@ export async function parkCreator(
   return true;
 }
 
-/** Wakes a parked creator now. Undo parks them again, to the day they were parked until. */
-export async function wakeCreator(creatorId: string, withUndo = true): Promise<boolean> {
+/**
+ * Wakes a parked creator now; `restore` is a Park's skipped drafts. Undo parks them again, to the
+ * day they were parked until.
+ */
+export async function wakeCreator(
+  creatorId: string,
+  withUndo = true,
+  restore: readonly string[] = [],
+): Promise<boolean> {
   const name = creatorOf(creatorId)?.name ?? "";
   const was = sequenceOf(creatorId)?.parkUntil ?? null;
-  if (!(await sequenceCommand("reach:wake", { creatorId }))) {
+  const input = restore.length > 0 ? { creatorId, restore } : { creatorId };
+  if ((await sequenceCommand("reach:wake", input)) === null) {
     return false;
   }
   const back = was !== null && was > Date.now() ? was : null;

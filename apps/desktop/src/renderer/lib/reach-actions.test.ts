@@ -576,15 +576,18 @@ describe("the sequence commands", () => {
     await settle();
   };
 
-  it("stops, and Undo resumes", async () => {
-    install();
+  it("stops, and Undo resumes with the drafts the stop skipped", async () => {
+    install({ "reach:sequence-stop": { ok: true, skipped: ["f1"] } });
     const id = id0();
     const name = data().creators[0]?.name ?? "";
     expect(await stopSequence(id)).toBe(true);
     expect(bridge.calls.at(-1)).toEqual(["reach:sequence-stop", { creatorId: id }]);
     expect(toasts().at(-1)?.msg).toBe(t.sequences.toasts.stopped(name));
     await toastUndo();
-    expect(bridge.calls.at(-1)).toEqual(["reach:sequence-resume", { creatorId: id }]);
+    expect(bridge.calls.at(-1)).toEqual([
+      "reach:sequence-resume",
+      { creatorId: id, restore: ["f1"] },
+    ]);
     expect(toasts().at(-1)?.actions).toEqual([]);
   });
 
@@ -595,14 +598,14 @@ describe("the sequence commands", () => {
     expect(bridge.calls.at(-1)).toEqual(["reach:sequence-stop", { creatorId: "c" }]);
   });
 
-  it("parks, and Undo wakes", async () => {
-    install();
+  it("parks, and Undo wakes with the drafts the park skipped", async () => {
+    install({ "reach:park": { ok: true, skipped: ["f2", "f3"] } });
     const until = Date.now() + 14 * day;
     expect(await parkCreator("c", until)).toBe(true);
     expect(bridge.calls.at(-1)).toEqual(["reach:park", { creatorId: "c", until }]);
     expect(toasts().at(-1)?.msg).toContain(dayWords(until));
     await toastUndo();
-    expect(bridge.calls.at(-1)).toEqual(["reach:wake", { creatorId: "c" }]);
+    expect(bridge.calls.at(-1)).toEqual(["reach:wake", { creatorId: "c", restore: ["f2", "f3"] }]);
   });
 
   it("wakes, and Undo parks again until the old day", async () => {

@@ -135,6 +135,18 @@ describe("the Sequences words and dots", () => {
   };
   const next = strings.reach.sequences.next;
 
+  it("reads a creator at stage parked as parked, even with no day stored", () => {
+    const rows = sequenceRows(
+      [aiCreator("c1", "Agent Weekly", { stage: "parked" })],
+      [sequence()],
+      [],
+      now,
+    );
+    const row = rows[0];
+    expect(row?.state).toBe("parked");
+    expect(row === undefined ? null : nextWords(row, now).text).toBe(next.parkedNoDay);
+  });
+
   it("names the next step", () => {
     expect(nextWords(rowOf(sequence()), now).text).toBe(next.step(1, next.dueToday));
     const later = sequence({

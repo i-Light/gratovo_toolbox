@@ -130,6 +130,7 @@ export {
   outreachDraftSchema,
   reachDataSchema,
   replyReadingSchema,
+  sequenceRestoreMax,
   sequenceSchema,
   threadMessageSchema,
   threadSummarySchema,

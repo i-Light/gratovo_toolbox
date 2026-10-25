@@ -1745,6 +1745,7 @@ export const strings = {
       },
       next: {
         parked: (day: string): string => `Parked until ${day}`,
+        parkedNoDay: "Parked",
         you: "Stopped by you",
         replied: "Stopped: they replied",
         bounced: "Stopped: the email bounced",
@@ -1770,7 +1771,7 @@ export const strings = {
       },
       emptyTitle: "No sequences yet",
       emptyHint:
-        "The first email you send starts one. Follow-ups are planned 3, 7 and 14 days later, and stop on their own when someone replies.",
+        "The first email you send starts one. Follow-ups are planned 3, 7 and 14 days later, and each waits for you to send it.",
       emptyAction: "Open the Board",
       noMatchTitle: "No sequences match",
       noMatchHint: "Try another filter.",

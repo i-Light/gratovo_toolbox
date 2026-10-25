@@ -98,6 +98,15 @@ describe("the reach schemas", () => {
       true,
     );
     expect(parseRequest("reach:park", { creatorId: "UCabc" }).ok).toBe(false);
+    expect(parseRequest("reach:park", { creatorId: "UCabc", until: 1e300 }).ok).toBe(false);
+    expect(parseRequest("reach:park", { creatorId: "UCabc", until: 1.5 }).ok).toBe(false);
+    expect(parseRequest("reach:wake", { creatorId: "UCabc", restore: ["d1", "d2"] }).ok).toBe(true);
+    expect(
+      parseRequest("reach:sequence-resume", {
+        creatorId: "UCabc",
+        restore: Array.from({ length: 11 }, (_, i) => `d${String(i)}`),
+      }).ok,
+    ).toBe(false);
     expect(parseRequest("reach:sequence-resume", { creatorId: "UCabc", extra: 1 }).ok).toBe(false);
   });
 });

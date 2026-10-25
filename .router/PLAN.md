@@ -355,7 +355,12 @@ Same rules as 6a's tasks.
   - **The send toast** names the next follow-up date ("Follow-up 1 on Wed 28 Oct"), from `planSteps` for a first email, or from the sequence for a follow-up.
   - **The record's Emails tab** shows the next step under the thread, with Stop and Park.
   - **Live gate:** `liveWired.reach` adds `sequences`.
-- **Example data:** the seed gives the emailed creators c8 and c9 sequences (one with step 1 sent), plus one parked creator and one stopped by you. No step is due at load, so the stand-in drafter writes nothing by itself.
+- **Example data:** the seed gives the emailed creators c8 and c9 sequences (one with step 1 sent). No step is due at load, so the stand-in drafter writes nothing by itself. *As built:* no parked or stopped-by-you creator is seeded. Every other seed creator is held at its stage by a draft, a deal, a reply or Find's tests, and a new one would shift many counts. Park and Stop can be tried on c8 and c9.
+- **Review of 6c:**
+  - Stop and Park answer with the follow-up drafts they skipped, and their Undo brings exactly those back. An approved or scheduled draft comes back as `ready`, so an Undo never sends.
+  - A step sent late moves the later ones, so the gaps between follow-ups stay.
+  - A stage of `parked` with no day counts as parked, so Wake is always offered.
+  - Park is offered only on a running sequence.
 
 ## Tasks for 6c
 

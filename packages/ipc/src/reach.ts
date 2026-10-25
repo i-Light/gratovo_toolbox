@@ -14,6 +14,7 @@ import {
   reachDraftsMax,
   reachGeminiStates,
   reachMailboxesMax,
+  reachSequencesMax,
   reachThreadsMax,
   rewriteHows,
   sequenceStops,
@@ -170,7 +171,7 @@ const zone = z
 
 export const reachDataSchema: z.ZodType<ReachData> = z.strictObject({
   drafts: z.array(outreachDraftSchema).max(reachDraftsMax),
-  sequences: z.array(sequenceSchema).max(reachThreadsMax),
+  sequences: z.array(sequenceSchema).max(reachSequencesMax),
   threads: z.array(threadSummarySchema).max(reachThreadsMax),
   mailboxes: z.array(mailboxViewSchema).max(reachMailboxesMax),
   gemini: z.enum(reachGeminiStates),
@@ -280,13 +281,31 @@ export const reachSendTestResultSchema = z.union([
 
 /** `reach:sequence-stop`, `reach:sequence-resume`, `reach:wake` (D22): one creator's sequence. */
 export const reachCreatorRequestSchema = z.strictObject({ creatorId: id });
+/** How many follow-up drafts one Stop or Park can skip, and one Undo bring back. */
+export const sequenceRestoreMax = 10;
+/**
+ * `reach:sequence-resume`, `reach:wake`: `restore` names the drafts the Stop or Park being undone
+ * skipped (its answer's `skipped`); they come back as they were, and the steps are not re-timed
+ * (review of 6c, finding 3).
+ */
+export const reachRestoreRequestSchema = z.strictObject({
+  creatorId: id,
+  restore: z.array(id).max(sequenceRestoreMax).optional(),
+});
 /** `reach:park` (D22): until the local midnight of `until`'s day, which must be ahead. */
-export const reachParkRequestSchema = z.strictObject({ creatorId: id, until: time });
-/** The answer of the four sequence commands; each is a command, not an undo step. */
-export const reachSequenceResultSchema = z.union([
-  done,
-  z.strictObject({
-    ok: z.literal(false),
-    problem: z.enum(["not_found", "wrong_state", "no_data"]),
-  }),
+export const reachParkRequestSchema = z.strictObject({
+  creatorId: id,
+  // A real day: a huge number would make an invalid date (review of 6c, finding 7).
+  until: z.number().int().min(0).max(8_640_000_000_000_000),
+});
+const sequenceRefused = z.strictObject({
+  ok: z.literal(false),
+  problem: z.enum(["not_found", "wrong_state", "no_data"]),
+});
+/** The answer of Resume and Wake; each is a command, not an undo step. */
+export const reachSequenceResultSchema = z.union([done, sequenceRefused]);
+/** The answer of Stop and Park: the follow-up drafts it skipped, for its Undo. */
+export const reachSequenceSkipResultSchema = z.union([
+  z.strictObject({ ok: z.literal(true), skipped: z.array(id).max(sequenceRestoreMax) }),
+  sequenceRefused,
 ]);

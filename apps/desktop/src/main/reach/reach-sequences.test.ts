@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import type { DataSource, DraftState, Sequence } from "@gratovo/core/data";
+import { withStep } from "@gratovo/core/reach";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { contractNow } from "../data/data-source-contract";
@@ -132,7 +133,10 @@ describe("the four sequence commands", () => {
       source.outreach.updateDraft(id, { state }, clock);
     }
     expect(await service.sequenceResume("c8")).toEqual({ ok: false, problem: "wrong_state" });
-    expect(await service.sequenceStop("c8")).toEqual({ ok: true });
+    expect(await service.sequenceStop("c8")).toEqual({
+      ok: true,
+      skipped: ["f-ready", "f-approved"],
+    });
     expect(source.outreach.sequence("c8")?.stopped).toBe("you");
     expect(source.outreach.draft("f-ready")?.state).toBe("skipped");
     expect(source.outreach.draft("f-approved")?.state).toBe("skipped");
@@ -174,7 +178,7 @@ describe("the four sequence commands", () => {
     source.outreach.updateDraft("f1", { state: "ready" }, clock);
 
     const until = clock + 14 * day;
-    expect(await service.park("c8", until)).toEqual({ ok: true });
+    expect(await service.park("c8", until)).toEqual({ ok: true, skipped: ["f1"] });
     expect(await stageOf("c8")).toBe("parked");
     const parkUntil = source.outreach.sequence("c8")?.parkUntil;
     expect(parkUntil).not.toBeNull();
@@ -288,5 +292,308 @@ describe("no automatic send", () => {
     // One draft per creator at a time, and each step was drafted once.
     const perStep = followUps.map((d) => `${d.creator}:${String(d.followUp)}`);
     expect(new Set(perStep).size).toBe(perStep.length);
+  });
+});
+
+/** A follow-up draft of c8 in the given state, with its step drafted. */
+function openFollowUp(id: string, n: number, state: DraftState, body = "Hi Ship AI"): void {
+  source.outreach.insertDraft({
+    id,
+    creator: "c8",
+    kind: "followUp",
+    followUp: n,
+    mailbox: "outreach1@gratovo.example",
+    replyTo: null,
+    at: clock,
+  });
+  source.outreach.updateDraft(
+    id,
+    { state, subject: body === "" ? "" : "a note", body, sendAt: clock + 10_000 },
+    clock,
+  );
+  const q = source.outreach.sequence("c8") as Sequence;
+  source.outreach.commit({ at: clock, sequences: [withStep(q, n, "drafted")] });
+}
+
+describe("an Undo of Stop or Park (review of 6c, finding 3)", () => {
+  it("brings the skipped draft back as ready, never approved, its step drafted, nothing re-timed", async () => {
+    openFollowUp("f1", 1, "approved");
+    const stop = await service.sequenceStop("c8");
+    expect(stop).toEqual({ ok: true, skipped: ["f1"] });
+    expect(source.outreach.draft("f1")?.state).toBe("skipped");
+    expect(source.outreach.sequence("c8")?.steps[0]?.state).toBe("planned");
+    const timed = source.outreach.sequence("c8")?.steps.map((x) => x.dueAt);
+
+    clock += 10 * day;
+    expect(await service.sequenceResume("c8", ["f1", "nobody"])).toEqual({ ok: true });
+    expect(source.outreach.draft("f1")).toMatchObject({
+      state: "ready",
+      approvedBy: null,
+      sendAt: null,
+      body: "Hi Ship AI",
+    });
+    const q = source.outreach.sequence("c8");
+    expect(q?.stopped).toBeNull();
+    expect(q?.steps[0]?.state).toBe("drafted");
+    expect(q?.steps.map((x) => x.dueAt)).toEqual(timed);
+  });
+
+  it("puts a draft with no text back to drafting, and refuses another creator's, a non-skipped one and a second open one", async () => {
+    openFollowUp("f1", 1, "drafting", "");
+    expect(await service.sequenceStop("c8")).toEqual({ ok: true, skipped: ["f1"] });
+    source.outreach.insertDraft({
+      id: "other",
+      creator: "c9",
+      kind: "followUp",
+      followUp: 2,
+      mailbox: null,
+      replyTo: null,
+      at: clock,
+    });
+    source.outreach.updateDraft("other", { state: "skipped" }, clock);
+    expect(await service.sequenceResume("c8", ["other", "f1"])).toEqual({ ok: true });
+    expect(source.outreach.draft("other")?.state).toBe("skipped");
+    expect(source.outreach.draft("f1")?.state).toBe("drafting");
+
+    // A new open draft since the Stop: nothing comes back on top of it.
+    await service.sequenceStop("c8");
+    expect(source.outreach.draft("f1")?.state).toBe("skipped");
+    source.outreach.insertDraft({
+      id: "newer",
+      creator: "c8",
+      kind: "followUp",
+      followUp: 2,
+      mailbox: null,
+      replyTo: null,
+      at: clock,
+    });
+    await service.sequenceResume("c8", ["f1"]);
+    expect(source.outreach.draft("f1")?.state).toBe("skipped");
+  });
+
+  it("without restore, resume re-times the planned steps to now", async () => {
+    await service.sequenceStop("c8");
+    clock += 10 * day;
+    expect(await service.sequenceResume("c8")).toEqual({ ok: true });
+    expect(source.outreach.sequence("c8")?.steps[0]?.dueAt).toBe(clock);
+  });
+
+  it("Park then Wake with restore brings the draft back and keeps the steps", async () => {
+    openFollowUp("f1", 1, "ready");
+    const parked = await service.park("c8", clock + 14 * day);
+    expect(parked).toEqual({ ok: true, skipped: ["f1"] });
+    const before = source.outreach.sequence("c8")?.steps.map((x) => x.dueAt);
+    clock += 3 * day;
+    expect(await service.wake("c8", ["f1"])).toEqual({ ok: true });
+    expect(await stageOf("c8")).toBe("emailed");
+    expect(source.outreach.draft("f1")?.state).toBe("ready");
+    expect(source.outreach.sequence("c8")?.steps[0]?.state).toBe("drafted");
+    expect(source.outreach.sequence("c8")?.steps.map((x) => x.dueAt)).toEqual(before);
+  });
+});
+
+describe("wake, park and the day check (review of 6c, findings 4, 7 and 11)", () => {
+  it("wakes a sequence whose date is set even when the stage moved on, and leaves the stage", async () => {
+    await service.park("c8", clock + 14 * day);
+    await source.write([
+      { kind: "creator.stage", id: "c8", stage: "replied", handle: "@shipai", name: "Ship AI" },
+    ]);
+    expect(await stageOf("c8")).toBe("replied");
+    expect(await service.wake("c8")).toEqual({ ok: true });
+    expect(source.outreach.sequence("c8")?.parkUntil).toBeNull();
+    expect(await stageOf("c8")).toBe("replied");
+  });
+
+  it("wakes a parked stage whose date was lost, and refuses an awake creator", async () => {
+    await service.park("c8", clock + 14 * day);
+    const q = source.outreach.sequence("c8") as Sequence;
+    source.outreach.commit({ at: clock, sequences: [{ ...q, parkUntil: null }] });
+    expect(await service.wake("c8")).toEqual({ ok: true });
+    expect(await stageOf("c8")).toBe("emailed");
+    expect(await service.wake("c8")).toEqual({ ok: false, problem: "wrong_state" });
+  });
+
+  it("commits one wake for a double click", async () => {
+    await service.park("c8", clock + 14 * day);
+    const answers = await Promise.all([service.wake("c8"), service.wake("c8")]);
+    expect(answers.filter((a) => a.ok)).toHaveLength(1);
+    expect(answers.filter((a) => !a.ok)).toEqual([{ ok: false, problem: "wrong_state" }]);
+    expect((await logTexts()).filter((t) => t === "Woke Ship AI")).toHaveLength(1);
+  });
+
+  it("commits one wake for a Wake that meets the day check", async () => {
+    await service.park("c8", clock + 14 * day);
+    clock += 15 * day;
+    const [, wake] = await Promise.all([service.dayTick(), service.wake("c8")]);
+    expect(wake).toEqual({ ok: false, problem: "wrong_state" });
+    expect((await logTexts()).filter((t) => t === "Woke Ship AI")).toHaveLength(1);
+  });
+
+  it("refuses a park day that is not a finite number", async () => {
+    for (const until of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+      expect(await service.park("c8", until)).toEqual({ ok: false, problem: "wrong_state" });
+    }
+    expect(await stageOf("c8")).toBe("emailed");
+  });
+
+  it("the day check leaves a never-contact creator parked, with no line, and writes no stage for one that moved on", async () => {
+    await service.park("c8", clock + 14 * day);
+    await service.park("c9", clock + 14 * day);
+    await source.write([
+      { kind: "creator.stage", id: "c8", stage: "never", handle: "@shipai", name: "Ship AI" },
+      {
+        kind: "creator.stage",
+        id: "c9",
+        stage: "replied",
+        handle: "@diffusion",
+        name: "Diffusion Diaries",
+      },
+    ]);
+    clock += 15 * day;
+    await service.dayTick();
+    expect(source.outreach.sequence("c8")?.parkUntil).not.toBeNull();
+    expect(await stageOf("c8")).toBe("never");
+    expect(await logTexts()).not.toContain("Woke Ship AI");
+    expect(source.outreach.sequence("c9")?.parkUntil).toBeNull();
+    expect(await stageOf("c9")).toBe("replied");
+    expect(await logTexts()).toContain("Woke Diffusion Diaries");
+  });
+
+  it("runs the check again after the computer sleeps, sets the timer again, and is safe with no data", async () => {
+    await service.opened();
+    await service.park("c8", clock + 14 * day);
+    clock += 15 * day;
+    timers = [];
+    await service.dayTick();
+    expect(await stageOf("c8")).toBe("emailed");
+    expect(timers.filter((t) => t.ms === midnightAfter(clock))).toHaveLength(1);
+    const none = make({ source: () => null, mode: () => null });
+    await expect(none.dayTick()).resolves.toBeUndefined();
+  });
+
+  it("tells the page about the log and the creators after a command and a wake", async () => {
+    const emit = vi.fn();
+    const mine = make({ emit });
+    await mine.sequenceStop("c8");
+    expect(emit).toHaveBeenLastCalledWith(["log", "creators"]);
+    mine.dispose();
+  });
+});
+
+describe("no automatic send, live mode", () => {
+  const proposal = {
+    status: "ready",
+    proposal: {
+      situation: {
+        side: "influencer",
+        stage: "prospect",
+        reply_type: null,
+        summary: "A follow-up.",
+      },
+      decision: { action: "send_message", why: "A short nudge.", rules: ["INF-FIRST-02"] },
+      message: { channel: "email", subject: "a nudge", body: "Hi,\n\nA short note.\n\nMoustafa" },
+      needs_human: [],
+      follow_up: { in_working_days: 3, note: null },
+      facts_used: [],
+    },
+    findings: [],
+    gates: [],
+    case: { side: "influencer", stage: "prospect", goal: "Follow up." },
+    moments: [],
+    momentsNote: null,
+    seconds: 5,
+    model: "Gemini 3 Pro",
+    thinking: "High",
+  };
+
+  it("drafts follow-ups through Stop, Resume, Park, Wake and many day checks, and never approves or sends", async () => {
+    const methods: string[] = [];
+    const bridge = vi.fn((method: string) => {
+      methods.push(method);
+      if (method === "action.comms_propose") {
+        return Promise.resolve({ ok: true, result: proposal });
+      }
+      if (method === "bridge.status") {
+        return Promise.resolve({ ok: true, result: { pausedUntil: null } });
+      }
+      return Promise.resolve({
+        ok: false,
+        error: { code: "unavailable", message: "", details: {} },
+      });
+    });
+    const live = make({
+      mode: () => "live",
+      gemini: {
+        status: () => ({
+          state: "listening",
+          addon: { state: "connected", version: "1" },
+          browser: null,
+          problem: null,
+        }),
+        call: bridge as never,
+      },
+    });
+    await live.overlay({ ...(await source.frame()), myName: "Moustafa" });
+    const outBefore = source.outreach.recentOutbound(10_000).length;
+
+    const checks = async (): Promise<void> => {
+      await live.dayTick();
+      await vi.waitFor(() => {
+        expect(allDrafts().filter((d) => d.state === "drafting")).toEqual([]);
+      });
+    };
+    const ageFollowUps = async (): Promise<void> => {
+      // The person (or the page) skips what was drafted, so the next step can come due.
+      await source.write(
+        allDrafts()
+          .filter((d) => d.kind === "followUp" && d.state === "ready")
+          .map((d) => ({
+            kind: "draft.state" as const,
+            id: d.id,
+            state: "skipped" as const,
+            sendAt: null,
+          })),
+      );
+    };
+
+    for (let i = 0; i < 3; i += 1) {
+      clock += 4 * day;
+      await checks();
+    }
+    const drafted = allDrafts().filter((d) => d.kind === "followUp" && d.state === "ready");
+    expect(drafted.length).toBeGreaterThan(0);
+
+    const stop = await live.sequenceStop("c8");
+    expect(stop.ok).toBe(true);
+    await checks();
+    const back = await live.sequenceResume("c8", stop.ok && "skipped" in stop ? stop.skipped : []);
+    expect(back).toEqual({ ok: true });
+    await live.sequenceStop("c8");
+    expect(await live.sequenceResume("c8")).toEqual({ ok: true });
+    await checks();
+    const park = await live.park("c9", clock + 10 * day);
+    expect(park.ok).toBe(true);
+    await live.wake("c9", park.ok && "skipped" in park ? park.skipped : []);
+    await live.park("c9", clock + 10 * day);
+    clock += 11 * day;
+    await checks();
+    await live.wake("c9");
+    for (let i = 0; i < 4; i += 1) {
+      await ageFollowUps();
+      clock += 5 * day;
+      await checks();
+    }
+
+    const everything = allDrafts();
+    expect(
+      everything.some((d) => ["approved", "scheduled", "sending", "sent"].includes(d.state)),
+    ).toBe(false);
+    expect(everything.every((d) => d.approvedBy === null)).toBe(true);
+    expect(everything.every((d) => d.sendAt === null)).toBe(true);
+    expect(runQuickJob).not.toHaveBeenCalled();
+    expect(source.outreach.recentOutbound(10_000)).toHaveLength(outBefore);
+    // The bridge was asked to write (so the run exercised live drafting), never anything else.
+    expect(methods).toContain("action.comms_propose");
+    live.dispose();
   });
 });

@@ -122,7 +122,13 @@ class FakeOutreach implements OutreachStore {
   sequence(creator: string): Sequence | null {
     return this.sequences.get(creator) ?? null;
   }
+  runningSequences(): Sequence[] {
+    return [...this.sequences.values()].filter((q) => q.stopped === null);
+  }
   commit(change: Parameters<OutreachStore["commit"]>[0]): void {
+    for (const draft of change.newDrafts ?? []) {
+      this.insertDraft(draft);
+    }
     for (const { id, patch } of change.drafts ?? []) {
       this.updateDraft(id, patch, change.at);
     }

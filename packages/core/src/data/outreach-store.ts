@@ -114,13 +114,17 @@ export interface OutreachStore {
    */
   mailboxCounts(now: number): ReadonlyMap<string, MailboxCounts>;
   sequence(creator: string): Sequence | null;
+  /** Every sequence not stopped (running or parked): the day timer's list, which has no cap. */
+  runningSequences(): Sequence[];
   /**
-   * In one transaction: the drafts' patches, the new messages (one whose Gmail id is already
+   * In one transaction: the new drafts, the drafts' patches, the new messages (one whose Gmail id is already
    * stored is skipped), the sequences, then `writes` applied as the person's own would be (so a
    * stage change syncs and its log line is the person's).
    */
   commit(change: {
     readonly at: number;
+    /** New draft rows, inserted first: a follow-up's row and its step go in one transaction. */
+    readonly newDrafts?: readonly NewDraft[];
     readonly drafts?: readonly { readonly id: string; readonly patch: DraftPatch }[];
     readonly messages?: readonly NewMessage[];
     readonly sequences?: readonly Sequence[];

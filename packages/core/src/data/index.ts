@@ -72,6 +72,7 @@ export {
   reachDraftsMax,
   reachGeminiStates,
   reachMailboxesMax,
+  reachSequencesMax,
   reachThreadsMax,
   replyFactKeys,
   rewriteHows,

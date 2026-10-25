@@ -213,8 +213,8 @@ describe("exampleSeed", () => {
     expect(reach).toMatchObject({ mailboxes: [], gemini: "off", sender: null });
     // Two sequences (D22), none due at load, so the stand-in drafter writes nothing by itself.
     expect(reach.sequences.map((q) => [q.creator, q.stopped, q.parkUntil])).toEqual([
-      ["c9", null, null],
       ["c8", null, null],
+      ["c9", null, null],
     ]);
     expect(reach.sequences.find((q) => q.creator === "c9")?.steps.map((x) => x.state)).toEqual([
       "sent",

@@ -108,6 +108,7 @@ function sourceWith(overrides: Partial<DataSource> = {}): DataSource {
       sentSince: () => [],
       mailboxCounts: () => new Map(),
       sequence: () => null,
+      runningSequences: () => [],
       commit: () => undefined,
     },
     ...overrides,
@@ -558,7 +559,7 @@ describe("Reach channels", () => {
       refreshMailboxes: vi.fn(() => Promise.resolve({ ok: true as const })),
       setMailbox: vi.fn(() => Promise.resolve({ ok: true as const })),
       sendTest: vi.fn(() => Promise.resolve({ ok: true as const })),
-      sequenceStop: vi.fn(() => Promise.resolve({ ok: true as const })),
+      sequenceStop: vi.fn(() => Promise.resolve({ ok: true as const, skipped: ["d1"] })),
       sequenceResume: vi.fn(() => Promise.resolve({ ok: true as const })),
       park: vi.fn(() => Promise.resolve({ ok: false as const, problem: "wrong_state" as const })),
       wake: vi.fn(() => Promise.resolve({ ok: true as const })),
@@ -585,11 +586,11 @@ describe("Reach channels", () => {
     answers("reach:sequence-stop", await mine["reach:sequence-stop"]({ creatorId: "c8" }));
     answers("reach:sequence-resume", await mine["reach:sequence-resume"]({ creatorId: "c8" }));
     answers("reach:park", await mine["reach:park"]({ creatorId: "c8", until: 1_800_000_000_000 }));
-    answers("reach:wake", await mine["reach:wake"]({ creatorId: "c8" }));
+    answers("reach:wake", await mine["reach:wake"]({ creatorId: "c8", restore: ["d1"] }));
     expect(reach.sequenceStop).toHaveBeenCalledWith("c8");
-    expect(reach.sequenceResume).toHaveBeenCalledWith("c8");
+    expect(reach.sequenceResume).toHaveBeenCalledWith("c8", undefined);
     expect(reach.park).toHaveBeenCalledWith("c8", 1_800_000_000_000);
-    expect(reach.wake).toHaveBeenCalledWith("c8");
+    expect(reach.wake).toHaveBeenCalledWith("c8", ["d1"]);
   });
 
   it("puts the frame through the overlay and tells Reach about a write", async () => {

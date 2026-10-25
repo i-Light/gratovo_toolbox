@@ -703,16 +703,22 @@ export function createDrafter(deps: DrafterDeps): Drafter {
       if (sequence === null || step === undefined) {
         continue;
       }
-      source.outreach.insertDraft({
-        id: newId(),
-        creator: creator.id,
-        kind: "followUp",
-        followUp: step.n,
-        mailbox: sequence.mailbox,
-        replyTo: null,
+      // One transaction: a row with no step drafted (or the reverse) would draft the step twice.
+      source.outreach.commit({
         at,
+        newDrafts: [
+          {
+            id: newId(),
+            creator: creator.id,
+            kind: "followUp",
+            followUp: step.n,
+            mailbox: sequence.mailbox,
+            replyTo: null,
+            at,
+          },
+        ],
+        sequences: [withStep(sequence, step.n, "drafted")],
       });
-      source.outreach.commit({ at, sequences: [withStep(sequence, step.n, "drafted")] });
       any = true;
     }
     if (any) {

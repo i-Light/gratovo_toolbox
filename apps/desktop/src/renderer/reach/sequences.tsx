@@ -63,7 +63,8 @@ function rowMenu(event: MouseEvent<HTMLElement>, row: SeqRow, ids: readonly stri
         },
       });
     }
-    if (byYou || (sequence.stopped === null && state !== "finished")) {
+    // Park pauses a running sequence; a stopped one is resumed first (review of 6c, finding 5).
+    if (sequence.stopped === null && state !== "finished") {
       actions.push(...parkItems(id));
     }
   }

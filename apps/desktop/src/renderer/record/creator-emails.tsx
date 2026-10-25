@@ -28,11 +28,12 @@ type Loaded =
 /** The next step under the thread (D22): its words, with Stop and Park, or Resume or Wake now. */
 function SequenceLine({ creatorId }: { readonly creatorId: string }) {
   const sequence = useApp((s) => s.data.reach.sequences.find((q) => q.creator === creatorId));
+  const stage = useApp((s) => s.data.creators.find((c) => c.id === creatorId)?.stage);
   const now = useNow();
   if (sequence === undefined) {
     return null;
   }
-  const state = seqState(sequence, now);
+  const state = seqState(sequence, now, stage);
   const words = nextWords({ sequence, state, next: nextStep(sequence) }, now);
   const byYou = sequence.stopped === "you";
   const open = state === "running" || state === "done";
@@ -77,7 +78,7 @@ function SequenceLine({ creatorId }: { readonly creatorId: string }) {
           {seqText.stopShort}
         </Btn>
       ) : null}
-      {open || byYou ? (
+      {open ? (
         <Btn
           size="sm"
           icon="alarm"

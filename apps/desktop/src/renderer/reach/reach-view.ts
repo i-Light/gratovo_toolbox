@@ -1,5 +1,6 @@
 import type {
   Creator,
+  CreatorStage,
   MailboxView,
   OutreachDraft,
   ReachData,
@@ -140,9 +141,12 @@ export function cardInfo(
         action: null,
       };
     }
-    if (sequence?.parkUntil != null) {
+    if (sequence?.parkUntil != null || item.creator.stage === "parked") {
       return {
-        sub: sub.parked(dayWords(sequence.parkUntil)),
+        sub:
+          sequence?.parkUntil == null
+            ? t.sequences.next.parkedNoDay
+            : sub.parked(dayWords(sequence.parkUntil)),
         need: false,
         chip: null,
         action: null,
@@ -228,9 +232,13 @@ export interface SeqRow {
   readonly running: boolean;
 }
 
-/** The sequence's state: parked, stopped (by whom), finished, done (last step sent, waiting), or running. */
-export function seqState(sequence: Sequence, now: number): SeqState {
-  if (sequence.parkUntil !== null) {
+/**
+ * The sequence's state: parked, stopped (by whom), finished, done (last step sent, waiting), or
+ * running. A creator whose stage is `parked` counts as parked even with no day stored, so Wake is
+ * always there to put it right (review of 6c, finding 4).
+ */
+export function seqState(sequence: Sequence, now: number, stage?: CreatorStage): SeqState {
+  if (sequence.parkUntil !== null || stage === "parked") {
     return "parked";
   }
   if (sequence.stopped === "finished" || isFinished(sequence, now)) {
@@ -257,7 +265,7 @@ export function sequenceRows(
     if (creator === undefined) {
       continue;
     }
-    const state = seqState(sequence, now);
+    const state = seqState(sequence, now, creator.stage);
     rows.push({
       creator,
       sequence,
@@ -303,7 +311,10 @@ export function nextWords(
   const { sequence, state, next } = row;
   if (state === "parked") {
     return {
-      text: seq.next.parked(dayWords(sequence.parkUntil ?? now)),
+      text:
+        sequence.parkUntil === null
+          ? seq.next.parkedNoDay
+          : seq.next.parked(dayWords(sequence.parkUntil)),
       icon: "alarm",
       due: false,
     };

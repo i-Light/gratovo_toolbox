@@ -1,6 +1,6 @@
 import { DatabaseSync } from "node:sqlite";
 
-import { threadPreviewMax } from "@gratovo/core/data";
+import { reachSequencesMax, threadPreviewMax } from "@gratovo/core/data";
 import type { NewMessage, OutreachStore, Sequence } from "@gratovo/core/data";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -482,6 +482,92 @@ describe("sequences", () => {
     db.exec("UPDATE outreach_sequences SET steps = '{oops'");
     expect(store.sequence("UCa")?.steps).toEqual([]);
     expect(store.sequence("UCz")).toBeNull();
+  });
+});
+
+describe("the sequences in the frame", () => {
+  const day = 24 * hour;
+  const at = (creator: string, over: Partial<Sequence> = {}): Sequence => ({
+    creator,
+    mailbox: "outreach1@gratovo.example",
+    startedAt: now - 5 * day,
+    steps: [{ n: 1, dueAt: now + hour, state: "planned", sentAt: null }],
+    stopped: null,
+    parkUntil: null,
+    ...over,
+  });
+  const ids = (): string[] => store.reachParts(now).sequences.map((q) => q.creator);
+
+  it("lists the running, parked and stopped-by-you, and recent endings, newest first", () => {
+    store.commit({ at: now - 60 * day, sequences: [at("old-replied", { stopped: "replied" })] });
+    store.commit({ at: now - 60 * day, sequences: [at("old-you", { stopped: "you" })] });
+    store.commit({
+      at: now - 60 * day,
+      sequences: [at("old-running", { startedAt: now - 70 * day })],
+    });
+    store.commit({ at: now - 60 * day, sequences: [at("old-parked", { parkUntil: now + day })] });
+    store.commit({ at: now - 2 * day, sequences: [at("new-bounced", { stopped: "bounced" })] });
+    store.commit({ at: now - 2 * day, sequences: [at("new-finished", { stopped: "finished" })] });
+    store.commit({ at: now, sequences: [at("fresh", { startedAt: now - day })] });
+    expect(ids()).toEqual([
+      "fresh",
+      "new-bounced",
+      "new-finished",
+      "old-parked",
+      "old-you",
+      "old-running",
+    ]);
+  });
+
+  it("is capped at reachSequencesMax, and the day timer's own list is not", () => {
+    const many = Array.from({ length: reachSequencesMax + 50 }, (_, i) =>
+      at(`UC${String(i)}`, { startedAt: now - i }),
+    );
+    store.commit({ at: now, sequences: many });
+    const listed = store.reachParts(now).sequences;
+    expect(listed).toHaveLength(reachSequencesMax);
+    // Newest first: the cap drops the oldest.
+    expect(listed[0]?.creator).toBe("UC0");
+    expect(store.runningSequences()).toHaveLength(reachSequencesMax + 50);
+  });
+
+  it("inserts a new draft and the sequence in one transaction", () => {
+    store.commit({
+      at: now,
+      newDrafts: [
+        {
+          id: "n1",
+          creator: "UCa",
+          kind: "followUp",
+          followUp: 1,
+          mailbox: null,
+          replyTo: null,
+          at: now,
+        },
+      ],
+      sequences: [at("UCa")],
+    });
+    expect(store.draft("n1")?.state).toBe("drafting");
+    expect(store.sequence("UCa")).not.toBeNull();
+    // A draft row that can't go in takes the sequence with it.
+    expect(() => {
+      store.commit({
+        at: now,
+        newDrafts: [
+          {
+            id: "n1",
+            creator: "UCb",
+            kind: "followUp",
+            followUp: 1,
+            mailbox: null,
+            replyTo: null,
+            at: now,
+          },
+        ],
+        sequences: [at("UCb")],
+      });
+    }).toThrow();
+    expect(store.sequence("UCb")).toBeNull();
   });
 });
 
