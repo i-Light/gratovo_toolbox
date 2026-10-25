@@ -9,6 +9,9 @@ export const rendererRoot = join(__dirname, "../renderer");
 
 const preloadScript = join(__dirname, "../preload/index.js");
 
+/** The logo as the window and taskbar icon. Packaging (plan step T) must ship resources/ beside out/. */
+const windowIcon = join(__dirname, "../../resources/icon.ico");
+
 // A packaged app ignores the dev server variable altogether.
 const devServerUrl = app.isPackaged
   ? undefined
@@ -42,6 +45,7 @@ export function createMainWindow(): BrowserWindow {
     minWidth: 400,
     minHeight: 600,
     show: false,
+    icon: windowIcon,
     // The dark --bg, so nothing light shows before the page paints (the app is dark only for now).
     backgroundColor: "#06131d",
     webPreferences: {

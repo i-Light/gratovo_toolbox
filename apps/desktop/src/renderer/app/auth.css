@@ -37,6 +37,9 @@
   color: var(--muted);
 }
 .auth-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -66,4 +69,8 @@
 }
 .auth-actions .btn.pri {
   flex: 1;
+}
+.auth-logo {
+  width: 28px;
+  height: 28px;
 }

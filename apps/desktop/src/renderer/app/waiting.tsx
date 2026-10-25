@@ -1,6 +1,7 @@
 import type { AuthState } from "@gratovo/ipc";
 import { useState } from "react";
 
+import logoUrl from "../assets/logo.svg";
 import { strings } from "../strings";
 
 const text = strings.auth.waiting;
@@ -35,7 +36,10 @@ export function Waiting({ email, recheck, onChange, onSignOut }: WaitingProps) {
     <main className="auth">
       <div className="auth-card">
         <div className="auth-head">
-          <span className="auth-brand">{strings.brand.name}</span>
+          <span className="auth-brand">
+            <img className="auth-logo" src={logoUrl} alt="" />
+            {strings.brand.name}
+          </span>
           <h1>{text.title}</h1>
           <p>{text.sub}</p>
           {email === null ? null : <p className="hint">{text.signedInAs(email)}</p>}

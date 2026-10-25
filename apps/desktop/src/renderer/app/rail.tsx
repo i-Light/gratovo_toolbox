@@ -10,6 +10,7 @@ import { screens, type ScreenKey } from "../lib/routes";
 import { openMenu, openSetting, setShortcuts } from "../lib/actions";
 import { go, selectRoute, useApp } from "../lib/store";
 import { isScreenShown, isSettingsSectionShown } from "../lib/wired";
+import logoUrl from "../assets/logo.svg";
 import { strings } from "../strings";
 
 interface NavItemProps {
@@ -118,7 +119,7 @@ export const Rail = memo(function Rail() {
     // must not reach buttons nobody can see.
     <nav className="rail" id={railId} aria-label={rail.label} inert={narrow && !railOpen}>
       <div className="brand">
-        <span className="logo" aria-hidden="true"></span>
+        <img className="logo" src={logoUrl} alt="" />
         <div>
           <b>{strings.brand.name}</b>
           <small>{strings.brand.sub}</small>

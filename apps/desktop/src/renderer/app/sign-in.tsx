@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
 
+import logoUrl from "../assets/logo.svg";
 import { strings } from "../strings";
 
 const text = strings.auth.signIn;
@@ -85,7 +86,10 @@ export function SignIn({ signIn, onDone }: SignInProps) {
         noValidate
       >
         <div className="auth-head">
-          <span className="auth-brand">{strings.brand.name}</span>
+          <span className="auth-brand">
+            <img className="auth-logo" src={logoUrl} alt="" />
+            {strings.brand.name}
+          </span>
           <h1>{text.title}</h1>
           <p>{text.sub}</p>
         </div>

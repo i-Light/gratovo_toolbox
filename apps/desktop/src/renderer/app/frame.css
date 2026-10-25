@@ -35,26 +35,8 @@
 .logo {
   width: 30px;
   height: 30px;
-  border-radius: 9px;
   flex: none;
-  /* prettier-ignore */
-  background: conic-gradient(from 210deg, var(--find), var(--reach), var(--close), var(--deliver), var(--money), var(--find));
-  position: relative;
-}
-.logo::after {
-  content: "";
-  position: absolute;
-  inset: 7px;
-  border-radius: 5px;
-  background: var(--panel);
-}
-.logo::before {
-  content: "";
-  position: absolute;
-  inset: 11px;
-  border-radius: 2px;
-  background: var(--ink);
-  z-index: 1;
+  object-fit: contain;
 }
 .brand b {
   font-weight: 600;
