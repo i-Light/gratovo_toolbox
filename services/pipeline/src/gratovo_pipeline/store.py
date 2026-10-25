@@ -1066,15 +1066,27 @@ def merge_archive_numbers(
 @contextmanager
 def _atomic(conn: sqlite3.Connection) -> Generator[None]:
     """All or nothing, whether the connection runs Python's implicit transactions or autocommit
-    (the import's): a stop or a crash half way leaves the rows as they were."""
+    (the import's): a stop or a crash half way leaves the rows as they were.
+
+    Outside a transaction it opens one with the write lock taken first, and commits it. The work
+    inside reads before it writes, and in WAL mode a read-then-write transaction can't wait for
+    the lock: when another writer (a parallel search worker) commits meanwhile, it fails at once
+    with "database is locked", busy_timeout or not. Taking the lock first lets busy_timeout wait."""
+    began = not conn.in_transaction
+    if began:
+        conn.execute("BEGIN IMMEDIATE")
     conn.execute("SAVEPOINT tombstone")
     try:
         yield
     except BaseException:
         conn.execute("ROLLBACK TO tombstone")
         conn.execute("RELEASE tombstone")
+        if began:
+            conn.rollback()
         raise
     conn.execute("RELEASE tombstone")
+    if began:
+        conn.commit()
 
 
 def _merge_found_via(*sources: Iterable[object]) -> list[Any]:

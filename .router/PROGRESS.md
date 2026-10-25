@@ -102,3 +102,4 @@ Started 2026-10-24. The plan is `.router/PLAN.md` (decisions D1 to D18, contract
 - Promo codes ("Use code X") show as sponsors: the ported detector does that on purpose (old behaviour).
 - The heavy-owner catalog timing test can exceed its bound when the whole suite runs in parallel on a busy machine; it is skipped in CI.
 - Workflow lesson (5d-2): an agent had `git add`ed its half-done tests, and the lead's `git add <paths> && git commit` took the whole index into another task's commit. Tell agents not to stage, and check `git diff --cached --stat` before each commit.
+- Found by the first `pnpm verify` run (3 in 100 under load): a parallel search crashed with "database is locked" when a rejected channel was archived. F1's tombstone reads before it writes, and a WAL read-then-write transaction can't wait for the lock. `_atomic` now opens with `BEGIN IMMEDIATE`; a two-connection test proves it waits.

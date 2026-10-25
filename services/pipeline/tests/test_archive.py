@@ -7,6 +7,9 @@ vet a second time.
 
 import json
 import sqlite3
+import threading
+import time
+from pathlib import Path
 
 import pytest
 
@@ -854,3 +857,55 @@ def test_a_refetch_keyword_an_older_build_left_on_a_tombstone_goes_on_the_next_a
     store.archive_channel_locally(conn, FULL, "@aiagentslab", "rejected")
 
     assert keywords_of(tomb(conn)["found_via"]) == [k for k, _ in LINKS]
+
+
+# --- parallel workers ---
+
+
+def test_archiving_waits_for_another_writer_instead_of_failing(tmp_path: Path) -> None:
+    """Parallel search workers write the same file. A tombstone reads the channel before it
+    writes; in WAL mode a read-then-write transaction can't wait for the lock (it fails at once
+    with "database is locked" when another worker committed meanwhile), so it must take the
+    write lock first and let busy_timeout do the waiting."""
+    db = tmp_path / "pipeline.db"
+    setup = store.get_connection(db)
+    store.init_db(setup)
+    setup.execute(
+        "INSERT INTO channels (channel_id, handle, first_seen_at) VALUES (?, ?, ?)",
+        ("UC1", "@one", "2026-08-01T00:00:00Z"),
+    )
+    setup.commit()
+    setup.close()
+
+    other = store.get_connection(db)
+    other.execute("BEGIN IMMEDIATE")
+    other.execute(
+        "INSERT INTO channels (channel_id, handle, first_seen_at) VALUES (?, ?, ?)",
+        ("UC2", "@two", "2026-08-01T00:00:00Z"),
+    )
+    errors: list[BaseException] = []
+
+    def archive_in_worker() -> None:
+        conn = store.get_connection(db)
+        try:
+            store.archive_channel_locally(conn, "UC1", "@one", "rejected")
+        except BaseException as error:
+            errors.append(error)
+        finally:
+            conn.close()
+
+    worker = threading.Thread(target=archive_in_worker)
+    worker.start()
+    time.sleep(0.3)  # the worker is now waiting on the other writer's lock
+    other.commit()
+    worker.join(timeout=10)
+    other.close()
+
+    assert not worker.is_alive()
+    assert errors == []
+    check = store.get_connection(db)
+    try:
+        assert count(check, "SELECT COUNT(*) FROM channel_archive WHERE channel_id='UC1'") == 1
+        assert count(check, "SELECT COUNT(*) FROM channels WHERE channel_id='UC1'") == 0
+    finally:
+        check.close()
