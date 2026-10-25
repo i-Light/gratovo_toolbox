@@ -21,7 +21,7 @@ Started 2026-10-24. The plan is `.router/PLAN.md` (decisions D1 to D18, contract
 | R5 | H | done | no blockers; 5 should-fix, 7 nits: lifetime median and a known 0 lost on restore then re-archive, endless daily retry of a channel that never reads, no pause after a failed read, import skips an existing tombstone, plus nits. Became F1, F2 |
 | F1 | H | done | R5 1–9 fixed, 20 new tests (1566 pass): median with basis and a known 0 kept across bring back then archive (`median_known`, `median_known_basis`, `videos_last_30_known`); `read_failures`, back-off 1/3/7 days, gives up at 3 (a person's refetch or bring back resets it); a pause after every failed read (keyword, backfill, refetch); the import merges into an existing tombstone (`merge_archive_copies`); refetch keyword never written; backfill keeps partial ids. Version 4 re-runs on open |
 | F2 | N | done | `CatalogItem.readFailed` (`read_failures >= 3`, tolerant read), "Couldn't read" everywhere "Not read yet" shows; `ArchivedChannel.keywordsTotal` for "+N more"; test that results.ts skips the refetch keyword |
-| L5 | lead | todo | |
+| L5 | lead | done | lint, typecheck, 2481 vitest + 1566 pytest, 68 e2e pass; status table; PR, CI, merge |
 
 **Then: 5e** in a fresh session: the Find flow suite (D18), ADR 0017 (step 5's decisions D1 to D41), architecture and parity notes, the docs/workflow.md lessons below, the status table, and `.router/` removed (step 5 complete).
 
@@ -101,3 +101,4 @@ Started 2026-10-24. The plan is `.router/PLAN.md` (decisions D1 to D18, contract
 - Reject toast says "It leaves Review new; Undo brings it back." 5c changes it to the archive wording when Toolbox › Archive arrives.
 - Promo codes ("Use code X") show as sponsors: the ported detector does that on purpose (old behaviour).
 - The heavy-owner catalog timing test can exceed its bound when the whole suite runs in parallel on a busy machine; it is skipped in CI.
+- Workflow lesson (5d-2): an agent had `git add`ed its half-done tests, and the lead's `git add <paths> && git commit` took the whole index into another task's commit. Tell agents not to stage, and check `git diff --cached --stat` before each commit.
