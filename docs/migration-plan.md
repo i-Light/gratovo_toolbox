@@ -32,11 +32,11 @@ Replace the Flutter app (old repository `gratovo_code`) with a new desktop app t
 3. **The parity checklist is the definition of done.** Step 10 walks it row by row, and nothing is waved through.
 4. **`legacy/` is read-only.** Read it, port from it, never build or edit it. It is deleted in step 11.
 5. **Security first.** No secret in git, ever. The Electron hardening in [SECURITY.md](../SECURITY.md) is part of the foundation, not a later polish.
-6. **Small, verified steps.** Each step lands as one or more pull requests with green CI, and the owner checks the result in the real app before the next step starts (in prototype mode, once step 7 builds it, for screens not wired yet).
+6. **Small, verified steps.** Each step lands as one or more pull requests that passed `pnpm verify` (the local gate; GitHub Actions is manual only since 2026-10-25), and the owner checks the result in the real app before the next step starts (in prototype mode, once step 7 builds it, for screens not wired yet).
 7. **Cleanup is last.** Nothing is deleted from `legacy/` or merged in the docs before step 10 passes. This is the owner's explicit wish.
 8. **Solo first** (owner, 2026-10-21). The app is made fully functional for one person before any work that exists only for the team. Team work is everything about sharing with or coordinating other people: sharing results through R2, a teammate's run and overlap warnings, hand-offs, the Team screen and rebalancing, the team view of Today, "see the app as a teammate", new-VA onboarding, and updates for other members' machines. All of it is in [step T](#step-t-team-work-and-packaging-after-the-app-works-for-one-person). Data fields that carry an owner or a role stay (they cost nothing and the owner is the only person for now), and what 3d-2 built is kept as it is. When a step's work turns out to be team work, move it to T and say so here.
 9. **Pipeline-first order, and no dead screens in live mode** (owner, 2026-10-24). The steps follow the business pipeline: live data, then Find, then Reach, then Today, then Close and Deliver. Each step pulls in what its stage needs from later steps (settings, Toolbox parts, the import) instead of waiting for them. In live mode, the rail, the top bar, the command palette (Ctrl K) and the tabs inside a screen show only what is fully wired to real data and real handlers. A screen or tab that a later step builds is hidden in live mode, so the owner never clicks a dead or mock element during real work. Today stays hidden until Find and Reach feed it (step 7). Once prototype mode exists (step 7), turning it on switches to `example.db` and shows the whole Workbench, unwired stages included, for review and comments.
-10. **Two-tier testing** (owner, 2026-10-24). While a sub-step is built, its pull request needs the fast checks (`pnpm lint`, `pnpm typecheck`, `pnpm test`: Vitest and pytest) plus **at most one** light Electron smoke test that proves the new screen renders and completes its main IPC round trip. The full Playwright flow suite for a stage (the keyboard matrix, undo edge cases, full parity flows) runs as one batch at the end of the major step, not across every sub-PR. Tests that already exist keep running in CI on every pull request.
+10. **Two-tier testing** (owner, 2026-10-24). While a sub-step is built, its pull request needs the fast checks (`pnpm lint`, `pnpm typecheck`, `pnpm test`: Vitest and pytest) plus **at most one** light Electron smoke test that proves the new screen renders and completes its main IPC round trip. The full Playwright flow suite for a stage (the keyboard matrix, undo edge cases, full parity flows) runs as one batch at the end of the major step, not across every sub-PR. Tests that already exist keep running on every pull request, in `pnpm verify`.
 
 ## 4. Owner actions
 
@@ -245,7 +245,7 @@ Added 2026-10-21 (owner: "all steps and plans for team work should be pushed bac
   - a release build refuses to build without the two Supabase values (ADR 0011);
   - no code signing (§9 Q12): document the first-run Windows warning for members;
   - auto-update with electron-updater from the private R2 bucket (URLs from the server function; builds unsigned, §9 Q12).
-  - *Acceptance:* an installer built in CI installs on a clean Windows machine and runs a search on example data; a clean machine updates itself to a newer test build.
+  - *Acceptance:* an installer built on the owner's PC (GitHub Actions is manual only since 2026-10-25) installs on a clean Windows machine and runs a search on example data; a clean machine updates itself to a newer test build.
 
 **Legacy:** `legacy/pipeline/gratovo/sync.py`, `r2.py`, `legacy/lib/core/sync/` for behaviour; `legacy/scripts/` for the versioning rule; the rest comes from the prototype.
 **Acceptance:** the team rows of the parity checklist (§1 rows 7, 18, 119 and 122, and the Team, Today team view, Find overlap, Settings scope and Prototype rows in §2 and §3), each ticked in the real app with two accounts; two machines share results through R2; T5's checks above.
@@ -299,7 +299,7 @@ Added 2026-10-21 (owner: "all steps and plans for team work should be pushed bac
 |---|---|
 | The old app breaks because Supabase changed under it | Additive-only migrations until cutover; the old app is tested against the migrated schema in step 3d. |
 | Data loss at import | Backup first, dry-run report, import into the new app's own folder; the old database is never modified. |
-| Secrets leak again | gitleaks before commit and in CI; secrets only in `safeStorage` or server-side; the renderer never sees them. |
+| Secrets leak again | gitleaks before commit and in `pnpm verify`; secrets only in `safeStorage` or server-side; the renderer never sees them. |
 | Gemini account blocks | The owner's pacing rules are built into the bridge (3 tabs, 60 s gap, refusal toast means pause). |
 | Scope creep | The parity checklist is the scope. New ideas go to the owner as comments in prototype mode, not into the current step. |
 | The cloud session lacks context | `CLAUDE.md`, this plan's status table and the step's `.router/` state are committed at the end of every working session. |

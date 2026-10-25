@@ -1,5 +1,5 @@
-# Dependabot pull requests are handled like any other: a session checks CI and merges
-# (see docs/workflow.md).
+# Dependabot pull requests are handled like any other: a session runs `pnpm verify` on the branch
+# and merges (see docs/workflow.md).
 version: 2
 
 updates:

@@ -5,7 +5,7 @@ This app holds creators' and brands' contact details, deal terms, money, and the
 ## Secrets never enter the repository
 
 - No `.env` files, keys, tokens, passwords, OAuth client secrets or service-role keys in any commit, on any branch.
-- `.gitignore` blocks the usual files. A secret scanner (gitleaks) runs before every commit and in CI from step 3 on. A finding fails the build.
+- `.gitignore` blocks the usual files. A secret scanner (gitleaks) runs before every commit, and over every branch's history in `pnpm verify`, the local gate a pull request must pass. A finding fails it.
 - Configuration that isn't secret is passed at build time and is never hard-coded in source. For Supabase that is two values, `MAIN_VITE_SUPABASE_URL` and `MAIN_VITE_SUPABASE_PUBLISHABLE_KEY`, read from the environment or from `apps/desktop/.env.local` (ignored by Git). The app refuses a secret key (`sb_secret_…`) and any key shaped like a legacy JWT (`anon`, `service_role`). Steps: [docs/setup.md](docs/setup.md).
 - Example values in docs and tests are obviously fake, like `sk-test-000` or `https://example.supabase.co`.
 - If a secret is committed by mistake, treat it as leaked: rotate it first, then remove it from history. Deleting the file is not enough.
@@ -52,7 +52,7 @@ Earlier commits also held the Supabase service-role key and an AWS IAM key pair 
 - Electron fuses are set for release builds: `RunAsNode` off, `NODE_OPTIONS` off, `--inspect` off, cookie encryption on, the app loaded only from its archive and that archive's integrity checked, and no extra privileges for `file://`.
 - Local services (the Gemini bridge daemon) bind to `127.0.0.1` only, refuse web pages, and require a per-launch token from the Firefox add-on (Chrome and Edge are guarded by the origin check and browser admission instead).
 - Releases are not code-signed: the owner's choice, since the app is for the owner and a few trusted members (migration plan §9 Q12). To make up for it, installers and updates come only from the private release location through the server function, over https, and the updater checks each download against the hash published with the release.
-- Dependencies are pinned through the lockfile, checked in CI by OSV-Scanner (on every pull request and weekly), updated through Dependabot, and reviewed before an upgrade. CodeQL checks the code itself.
+- Dependencies are pinned through the lockfile, checked by OSV-Scanner in `pnpm verify` on every pull request, updated through Dependabot, and reviewed before an upgrade. CodeQL runs only when the owner starts the GitHub workflow by hand (the Actions minutes ran out, 2026-10-25); a security-sensitive change gets a security review instead.
 
 How each of these is built, and why: [docs/decisions/0008-security-baseline.md](docs/decisions/0008-security-baseline.md).
 
