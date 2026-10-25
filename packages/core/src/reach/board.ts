@@ -68,6 +68,10 @@ function laneOf(item: BoardItem): BoardLaneKey | null {
     if (draft.kind === "reply") {
       return "replied";
     }
+    // A scheduled email waits for its time, not for the person: it shows with the sequence.
+    if (draft.state === "scheduled") {
+      return "seq";
+    }
     if (draft.kind === "followUp") {
       return draft.state === "drafting" ? "seq" : "waiting";
     }
@@ -89,6 +93,14 @@ function laneOf(item: BoardItem): BoardLaneKey | null {
     default:
       return null;
   }
+}
+
+/** When an In sequence card next goes: its scheduled email, else its next step. */
+function seqDueAt(item: BoardItem): number {
+  if (item.draft?.state === "scheduled" && item.draft.sendAt !== null) {
+    return item.draft.sendAt;
+  }
+  return nextStep(item.sequence)?.dueAt ?? Number.POSITIVE_INFINITY;
 }
 
 const byNumber =
@@ -119,13 +131,7 @@ export function boardLanes(input: BoardInput): BoardLane[] {
   const draftAt = (i: BoardItem): number => i.draft?.createdAt ?? Number.POSITIVE_INFINITY;
   lanes.get("todraft")?.sort((a, b) => byNumber(draftAt)(a, b) || byName(a, b));
   lanes.get("waiting")?.sort((a, b) => byNumber(draftAt)(a, b) || byName(a, b));
-  lanes
-    .get("seq")
-    ?.sort(
-      (a, b) =>
-        byNumber((i: BoardItem) => nextStep(i.sequence)?.dueAt ?? Number.POSITIVE_INFINITY)(a, b) ||
-        byName(a, b),
-    );
+  lanes.get("seq")?.sort((a, b) => byNumber(seqDueAt)(a, b) || byName(a, b));
   lanes
     .get("replied")
     ?.sort(

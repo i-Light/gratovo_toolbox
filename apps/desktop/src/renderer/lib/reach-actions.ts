@@ -1,4 +1,4 @@
-import { canSend, draftGates, findMailbox } from "@gratovo/core/reach";
+import { canSchedule, canSend, draftGates, findMailbox } from "@gratovo/core/reach";
 import type { Gate } from "@gratovo/core/reach";
 import type {
   DraftState,
@@ -199,6 +199,11 @@ export function setDraftMailbox(id: string, address: string): boolean {
 }
 
 /** What a rewrite replaced, until its new text arrives. */
+/** Drafts whose Send later the person cancelled, and when: their too-late notice says "cancel". */
+const cancels = new Map<string, number>();
+/** How long a cancel is remembered for that notice. */
+const cancelNoticeMs = 60_000;
+
 const rewrites = new Map<
   string,
   { readonly how: RewriteHow; readonly subject: string; readonly body: string; readonly at: number }
@@ -336,7 +341,7 @@ export async function loadThread(creatorId: string): Promise<readonly ThreadMess
  * Looks at what the server changed in Reach (called from the live updates, with the page's Reach
  * before the answer and the answer's). Two things are said once:
  * - a draft the page holds as `ready` (the person's Undo put it back) that the server says is
- *   `sending` or `sent`: "Too late to undo: it has gone";
+ *   `sending` or `sent`: "Too late to undo: it has gone" ("Too late to cancel" after a Cancel);
  * - a draft being rewritten whose new text arrived: "Rewritten <how>", with an Undo that puts the
  *   old text back.
  */
@@ -344,7 +349,14 @@ export function noticeReachChange(before: ReachData, after: ReachData): void {
   const was = new Map(before.drafts.map((d) => [d.id, d]));
   for (const now of after.drafts) {
     if (was.get(now.id)?.state === "ready" && (now.state === "sending" || now.state === "sent")) {
-      toast({ msg: t.tooLate, sub: t.tooLateSub, icon: "alert", tone: "info" });
+      const cancelledAt = cancels.get(now.id);
+      cancels.delete(now.id);
+      const cancelled = cancelledAt !== undefined && Date.now() - cancelledAt < cancelNoticeMs;
+      toast(
+        cancelled
+          ? { msg: t.tooLateCancel, sub: t.tooLateCancelSub, icon: "alert", tone: "info" }
+          : { msg: t.tooLate, sub: t.tooLateSub, icon: "alert", tone: "info" },
+      );
     }
   }
   const at = Date.now();
@@ -371,4 +383,186 @@ export function noticeReachChange(before: ReachData, after: ReachData): void {
       });
     }
   }
+}
+
+const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
+const months = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+] as const;
+
+/** A day in the sender's time as "Tue 27 Oct". */
+export function dayWords(at: number): string {
+  const d = new Date(at);
+  return `${weekdays[d.getDay()] ?? ""} ${String(d.getDate())} ${months[d.getMonth()] ?? ""}`;
+}
+
+/** A moment in the sender's time as "Tue 27 Oct, 09:00". */
+export function whenWords(at: number): string {
+  const d = new Date(at);
+  const two = (n: number): string => String(n).padStart(2, "0");
+  return `${dayWords(at)}, ${two(d.getHours())}:${two(d.getMinutes())}`;
+}
+
+/**
+ * Schedules a draft (D12, D21): `ready` becomes `scheduled` with `sendAt`; main sends at that
+ * time like an approved draft. Refused, with a toast, while a gate holds it. Undo puts it back.
+ */
+export function scheduleDraft(id: string, at: number): boolean {
+  const draft = draftOf(id);
+  if (draft?.state !== "ready" || at <= Date.now()) {
+    return false;
+  }
+  const gates = gatesOf(draft);
+  if (!canSchedule(gates)) {
+    const first = gates.find((g) => g.holdsSchedule);
+    toast({
+      msg: t.stillNeedsYou,
+      ...(first === undefined ? {} : { sub: gateText(first, draft) }),
+      icon: "alert",
+    });
+    return false;
+  }
+  const name = nameOf(draft);
+  const label =
+    draft.kind === "first"
+      ? t.later.scheduledLabel.first(name)
+      : draft.kind === "followUp"
+        ? t.later.scheduledLabel.followUp(draft.followUp ?? 1, name)
+        : t.later.scheduledLabel.reply(name);
+  return act(
+    label,
+    (data) => {
+      const target = data.reach.drafts.find((d) => d.id === id);
+      if (target?.state !== "ready") {
+        return false;
+      }
+      target.state = "scheduled";
+      target.sendAt = at;
+      return true;
+    },
+    {
+      log: false,
+      toast: {
+        msg: t.later.toast(whenWords(at)),
+        sub: t.later.toastSub,
+        icon: "clock",
+      },
+    },
+  );
+}
+
+/** Cancels a scheduled email: `scheduled` goes back to `ready`. Undo schedules it again. */
+export function cancelScheduled(id: string): boolean {
+  const draft = draftOf(id);
+  if (draft?.state !== "scheduled") {
+    return false;
+  }
+  const name = nameOf(draft);
+  cancels.set(id, Date.now());
+  const label =
+    draft.kind === "first"
+      ? t.later.cancelledLabel.first(name)
+      : draft.kind === "followUp"
+        ? t.later.cancelledLabel.followUp(name)
+        : t.later.cancelledLabel.reply(name);
+  return act(
+    label,
+    (data) => {
+      const target = data.reach.drafts.find((d) => d.id === id);
+      if (target?.state !== "scheduled") {
+        return false;
+      }
+      target.state = "ready";
+      target.sendAt = null;
+      return true;
+    },
+    {
+      log: false,
+      toast: { msg: t.later.cancelled, sub: t.later.cancelledSub, icon: "undo" },
+    },
+  );
+}
+
+const localPart = (address: string): string => address.split("@")[0] ?? address;
+
+/**
+ * Sets a mailbox's normal daily limit or pauses or resumes it (D20). Written at once through main,
+ * not an undo step, so the toast has no Undo. Main's new numbers arrive by `reach:changed`.
+ */
+export async function setMailbox(
+  address: string,
+  patch: { readonly dailyCap?: number; readonly paused?: boolean },
+): Promise<boolean> {
+  const name = localPart(address);
+  let result;
+  try {
+    result = await window.gratovo.invoke("reach:mailbox-set", { address, ...patch });
+  } catch {
+    toast({ msg: t.mailboxes.setProblems.no_data, icon: "alert" });
+    return false;
+  }
+  if (!result.ok) {
+    toast({ msg: t.mailboxes.setProblems.no_data, icon: "alert" });
+    return false;
+  }
+  if (!result.value.ok) {
+    toast({ msg: t.mailboxes.setProblems[result.value.problem], icon: "alert" });
+    return false;
+  }
+  if (patch.paused === true) {
+    toast({
+      msg: t.mailboxes.pausedToast(name),
+      sub: t.mailboxes.pausedSub,
+      icon: "pause",
+      tone: "info",
+    });
+  } else if (patch.paused === false) {
+    toast({ msg: t.mailboxes.resumedToast(name), icon: "play", tone: "info" });
+  } else if (patch.dailyCap !== undefined) {
+    toast({
+      msg: t.mailboxes.capToast(name, patch.dailyCap),
+      icon: "gauge",
+      tone: "info",
+      ms: 3500,
+    });
+  }
+  return true;
+}
+
+/** Sends a short test email from a mailbox to its own address, on a person's click (D20). */
+export async function sendTest(address: string): Promise<boolean> {
+  let result;
+  try {
+    result = await window.gratovo.invoke("reach:send-test", { address });
+  } catch {
+    toast({ msg: t.mailboxes.testProblems.failed, icon: "alert" });
+    return false;
+  }
+  if (!result.ok) {
+    toast({ msg: t.mailboxes.testProblems.failed, icon: "alert" });
+    return false;
+  }
+  if (!result.value.ok) {
+    toast({ msg: t.mailboxes.testProblems[result.value.problem], icon: "alert" });
+    return false;
+  }
+  toast({
+    msg: t.mailboxes.testSent(address),
+    sub: t.mailboxes.testSentSub,
+    icon: "mail",
+    tone: "good",
+    ms: 5500,
+  });
+  return true;
 }

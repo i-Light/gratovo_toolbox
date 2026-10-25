@@ -1,5 +1,6 @@
 import type { DataWrite, Frame, RewriteHow } from "@gratovo/core/data";
 import type {
+  ChannelInput,
   ChannelResponse,
   ConnectionsChange,
   ConnectionsSetResult,
@@ -80,8 +81,14 @@ export interface ReachService {
   markSent(draftId: string): Promise<ChannelResponse<"reach:mark-sent">>;
   sendNew(draftId: string): Promise<ChannelResponse<"reach:send-new">>;
   refreshMailboxes(): Promise<ChannelResponse<"reach:mailboxes-refresh">>;
+  /** The daily cap or the pause of a mailbox, written at once (D20). */
+  setMailbox(
+    request: ChannelInput<"reach:mailbox-set">,
+  ): Promise<ChannelResponse<"reach:mailbox-set">>;
+  /** A test email from a mailbox to its own address; only a person's click calls it (D20). */
+  sendTest(address: string): Promise<ChannelResponse<"reach:send-test">>;
   /** The frame with the runtime parts of `reach` and the rail count filled in. */
-  overlay(frame: Frame): Frame;
+  overlay(frame: Frame): Promise<Frame>;
   /** Called after a `data:write` batch has been stored. */
   afterWrite(writes: readonly DataWrite[]): void;
 }

@@ -95,6 +95,7 @@ function seed(db: DatabaseSync, now: number): void {
     }
     setNotify(db, {});
     setSetting(db, "mail.settings", fixtures.mailSettings);
+    setSetting(db, "reach.mailboxes", fixtures.reachMailboxes);
     // Only the inserts are used here, so the store needs no transaction of its own.
     const outreach = createOutreachStore(db, {
       transaction: (fn) => {

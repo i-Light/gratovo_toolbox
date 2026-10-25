@@ -15,8 +15,8 @@ import type { SectionKey } from "./settings";
 /** What the live app may show. A screen missing here is hidden; `tabs` lists the tabs it may show. */
 export const liveWired = {
   find: ["search", "triage", "gallery", "contacts"],
-  reach: ["board"],
-  toolbox: ["archive", "never", "log"],
+  reach: ["board", "mailboxes"],
+  toolbox: ["archive", "never", "scheduled", "log"],
   record: [],
   settings: [
     "profile",

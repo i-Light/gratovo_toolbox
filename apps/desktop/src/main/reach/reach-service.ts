@@ -1,25 +1,32 @@
+import { randomUUID } from "node:crypto";
+
 import {
+  exampleCountries,
+  reachDraftsMax,
   threadMessagesMax,
   type DataSource,
   type Frame,
   type MailboxView,
 } from "@gratovo/core/data";
-import type { GeminiStatus } from "@gratovo/ipc";
+import { zoneOf } from "@gratovo/core/reach";
+import type { ChannelInput, ChannelResponse, GeminiStatus } from "@gratovo/ipc";
 
 import type { JobOutcome } from "../pipeline/jobs";
 import type { GeminiParams } from "../pipeline/gemini-protocol";
 import type { GeminiCall } from "../pipeline/gemini-service";
-import type { Start } from "../pipeline/protocol";
+import { jobSchema, type Start } from "../pipeline/protocol";
 import type { ReachService } from "../services";
 import type { ConnectionsDeps } from "../settings/connections-service";
 import { buildQuickStart } from "../settings/connections-jobs";
-import { readMailRows } from "../settings/connections-store";
+import { readMailRows, sameAddress } from "../settings/connections-store";
 
 import { createDrafter, proposeTimeoutS, type Drafter } from "./drafter";
 import { buildCommsFacts, threadIdOf } from "./facts";
 import { createMailState, type MailState } from "./mail-state";
+import { mailboxKey, noFlags, readMailboxFlags, writeMailboxFlags } from "./mailbox-settings";
 import { createQuickQueue, type QuickQueue } from "./quick-queue";
 import { createSender, type CheckOutcome, type Sender, type SendOutcome } from "./sender";
+import { mailboxStrings } from "./strings";
 
 /**
  * Reach in the main process (plan step 6, A6): one quick queue, the mail state, the sender and the
@@ -60,6 +67,8 @@ export interface ReachServiceDeps {
   runQuickJob(start: Start): Promise<JobOutcome>;
   /** The addresses with a stored refresh token. */
   connected(): Promise<readonly string[]>;
+  /** The country (two letters) of each channel the Find catalog knows; unknown ones are left out. */
+  countries?(ids: readonly string[]): Promise<ReadonlyMap<string, string>>;
   /** Tells the page the frame's `reach` part changed. */
   emit(): void;
   now?: () => number;
@@ -74,6 +83,8 @@ export interface ReachServiceDeps {
 
 /** The page hears of a change at most this often. */
 export const changedGapMs = 250;
+/** How long the example data's test email takes. */
+export const exampleTestMs = 600;
 /** How often the mailbox numbers are read again while live data is open. */
 export const mailRefreshMs = 10 * 60_000;
 
@@ -314,6 +325,161 @@ export function createReachService(deps: ReachServiceDeps): ReachServiceHandle {
     }
   }
 
+  // --- the mailbox settings and the test email (D20) ---
+
+  function setMailbox(
+    request: ChannelInput<"reach:mailbox-set">,
+  ): Promise<ChannelResponse<"reach:mailbox-set">> {
+    const source = deps.source();
+    if (source === null || deps.mode() === null) {
+      return Promise.resolve({ ok: false, problem: "no_data" });
+    }
+    const mail = readMailRows(source);
+    const row = mail.mailboxes.find((m) => sameAddress(m.address, request.address));
+    if (row === undefined) {
+      return Promise.resolve({ ok: false, problem: "not_found" });
+    }
+    const { dailyCap } = request;
+    if (dailyCap !== undefined) {
+      // Only the cap changes: the row keeps its warm-up date, as Settings › Connections does.
+      source.writeSetting("mail.settings", {
+        ...mail,
+        mailboxes: mail.mailboxes.map((m) =>
+          m === row ? { address: m.address, dailyCap, warmupStartedOn: m.warmupStartedOn } : m,
+        ),
+      });
+    }
+    if (request.paused !== undefined) {
+      const was = readMailboxFlags(source).get(mailboxKey(row.address)) ?? noFlags;
+      writeMailboxFlags(source, row.address, { ...was, paused: request.paused });
+    }
+    changed();
+    // A paused mailbox's approved draft must be checked again before it goes.
+    theSender.afterWrite();
+    return Promise.resolve({ ok: true });
+  }
+
+  /** The addresses a test email is on its way from. */
+  const testing = new Set<string>();
+
+  async function sendTest(address: string): Promise<ChannelResponse<"reach:send-test">> {
+    const source = deps.source();
+    const mode = deps.mode();
+    if (source === null || mode === null) {
+      return { ok: false, problem: "no_data" };
+    }
+    if (me === "") {
+      await readIdentity();
+    }
+    if (me === "") {
+      return { ok: false, problem: "no_data" };
+    }
+    const row = readMailRows(source).mailboxes.find((m) => sameAddress(m.address, address));
+    if (row === undefined) {
+      return { ok: false, problem: "not_found" };
+    }
+    const view = mailState.views().find((v) => sameAddress(v.address, row.address));
+    if (view?.paused === true) {
+      return { ok: false, problem: "paused" };
+    }
+    if (view?.signedOut === true) {
+      return { ok: false, problem: "signed_out" };
+    }
+    const key = mailboxKey(row.address);
+    if (testing.has(key)) {
+      return { ok: false, problem: "busy" };
+    }
+    testing.add(key);
+    try {
+      if (mode === "example") {
+        // No job: a stand-in success after a short wait.
+        await new Promise<void>((resolve) => {
+          setTimer(resolve, exampleTestMs);
+        });
+        return { ok: true };
+      }
+      if (!(await deps.connected()).some((a) => sameAddress(a, row.address))) {
+        return { ok: false, problem: "not_connected" };
+      }
+      // Sent from this click and from no other path; it is not stored as an outreach message.
+      const message = {
+        to: row.address,
+        mailbox: row.address,
+        subject: mailboxStrings.testSubject,
+        body: mailboxStrings.testBody,
+        newThread: true,
+        sendKey: `test-${randomUUID()}`,
+        approvedBy: me,
+      };
+      if (!jobSchema.safeParse({ kind: "mail.send", message }).success) {
+        log("Reach: a test email doesn't fit the send job.");
+        return { ok: false, problem: "failed" };
+      }
+      let outcome: JobOutcome | null = null;
+      try {
+        outcome = await runMail({ kind: "mail.send", message });
+      } catch {
+        outcome = null;
+      }
+      if (
+        outcome?.ok === true &&
+        outcome.exit.kind === "ended" &&
+        outcome.exit.end.state === "done" &&
+        outcome.exit.result?.kind === "mail.send"
+      ) {
+        return { ok: true };
+      }
+      // The code only: never the address, the subject or the body.
+      let code = "unknown";
+      if (outcome === null) {
+        code = "not_started";
+      } else if (!outcome.ok) {
+        code = outcome.problem;
+      } else if (outcome.exit.kind === "ended") {
+        code = outcome.exit.end.error?.code ?? outcome.exit.end.state;
+      } else {
+        code = outcome.exit.reason;
+      }
+      log(`Reach: a test email didn't go (${code}).`);
+      return { ok: false, problem: "failed" };
+    } finally {
+      testing.delete(key);
+      if (mode === "live") {
+        mailState.afterSend();
+      }
+    }
+  }
+
+  /** The zone of each creator with an open draft whose channel's country is known (D21). */
+  async function zonesOf(frame: Frame): Promise<Record<string, string>> {
+    const open = frame.reach.drafts
+      .filter((d) => d.state !== "sent" && d.state !== "skipped")
+      .slice(0, reachDraftsMax);
+    const ids = [...new Set(open.map((d) => d.creator))];
+    if (ids.length === 0) {
+      return {};
+    }
+    let countries: ReadonlyMap<string, string> = new Map();
+    if (deps.mode() === "example") {
+      countries = new Map(Object.entries(exampleCountries));
+    } else if (deps.countries !== undefined) {
+      try {
+        countries = await deps.countries(ids);
+      } catch {
+        log("Reach: the channels' countries couldn't be read.");
+      }
+    }
+    const zones: Record<string, string> = {};
+    for (const id of ids) {
+      const country = countries.get(id);
+      const zone = country === undefined ? null : zoneOf(country);
+      if (zone !== null) {
+        zones[id] = zone;
+      }
+    }
+    return zones;
+  }
+
   return {
     thread(creatorId) {
       const source = deps.source();
@@ -335,11 +501,15 @@ export function createReachService(deps: ReachServiceDeps): ReachServiceHandle {
       return answer === "ok" ? { ok: true } : { ok: false, problem: answer };
     },
 
-    overlay(frame) {
+    setMailbox,
+    sendTest,
+
+    async overlay(frame) {
       me = frame.me;
       myName = frame.myName;
       const state = drafter.state();
       const mailboxes: MailboxView[] = mailState.views();
+      const zones = await zonesOf(frame);
       return {
         ...frame,
         counts: { ...frame.counts, reach: countsForRail(frame) },
@@ -349,6 +519,7 @@ export function createReachService(deps: ReachServiceDeps): ReachServiceHandle {
           gemini: state.gemini,
           geminiPausedUntil: state.pausedUntil,
           sender: sender(),
+          zones,
         },
       };
     },

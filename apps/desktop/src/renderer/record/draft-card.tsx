@@ -1,23 +1,40 @@
 import { rewriteHows } from "@gratovo/core/data";
 import type { OutreachDraft } from "@gratovo/core/data";
-import { canSend, draftGates, findMailbox } from "@gratovo/core/reach";
+import {
+  canSchedule,
+  canSend,
+  draftGates,
+  findMailbox,
+  mondayAt9,
+  theirMorning,
+  tomorrowAt9,
+} from "@gratovo/core/reach";
 import { Btn, cx, Icon, IconBtn, Tag } from "@gratovo/ui";
 import { useState } from "react";
 import type { KeyboardEvent, MouseEvent } from "react";
 
 import { openMenu } from "../lib/actions";
 import { ago } from "../lib/format";
-import { kindLabel, rewriteDraft, sendDraft, skipDraft } from "../lib/reach-actions";
+import {
+  dayWords,
+  whenWords,
+  kindLabel,
+  rewriteDraft,
+  scheduleDraft,
+  sendDraft,
+  skipDraft,
+} from "../lib/reach-actions";
 import { useApp } from "../lib/store";
 import { useNow } from "../lib/use-now";
 import { strings } from "../strings";
 import { DraftGates } from "./draft-gates";
 import { AutoText, NeverAsk } from "./draft-parts";
 import { FromLine, ToLine } from "./draft-lines";
-import { DraftingBody, ProblemCallout, SendNote } from "./draft-states";
+import { DraftingBody, ProblemCallout, ScheduledNote, SendNote } from "./draft-states";
 import { useDraftText } from "./use-draft-text";
 
 const text = strings.reach.card;
+const later = strings.reach.later;
 
 function Card({ draft }: { readonly draft: OutreachDraft }) {
   const now = useNow();
@@ -32,6 +49,8 @@ function Card({ draft }: { readonly draft: OutreachDraft }) {
   const busy = draft.rewriting !== null;
   const ready = draft.state === "ready";
   const blocked = !canSend(gates);
+  const zone = useApp((s) => s.data.reach.zones[draft.creator] ?? null);
+  const cannotSchedule = !canSchedule(gates);
   const send = (): void => {
     typed.flush();
     sendDraft(draft.id);
@@ -44,6 +63,48 @@ function Card({ draft }: { readonly draft: OutreachDraft }) {
         send();
       }
     }
+  };
+  const sendLater = (event: MouseEvent<HTMLButtonElement>): void => {
+    const box = event.currentTarget.getBoundingClientRect();
+    const at = Date.now();
+    const morning = theirMorning(zone, at);
+    const tomorrow = tomorrowAt9(at);
+    const monday = mondayAt9(at);
+    const pick = (when: number) => (): void => {
+      typed.flush();
+      scheduleDraft(draft.id, when);
+    };
+    openMenu(
+      box,
+      [
+        { kind: "heading", label: later.menu },
+        {
+          kind: "item",
+          label: later.theirMorning,
+          hint: morning.theirs
+            ? later.theirHint(whenWords(morning.at))
+            : later.yoursHint(dayWords(morning.at)),
+          icon: "sun",
+          run: pick(morning.at),
+        },
+        {
+          kind: "item",
+          label: later.tomorrow,
+          hint: dayWords(tomorrow),
+          icon: "clock",
+          run: pick(tomorrow),
+        },
+        {
+          kind: "item",
+          label: later.monday,
+          hint: dayWords(monday),
+          icon: "calendar",
+          run: pick(monday),
+        },
+      ],
+      later.menu,
+      "start",
+    );
   };
   const more = (event: MouseEvent<HTMLButtonElement>): void => {
     const box = event.currentTarget.getBoundingClientRect();
@@ -169,6 +230,8 @@ function Card({ draft }: { readonly draft: OutreachDraft }) {
         <div className="df">
           {draft.state === "approved" || draft.state === "sending" ? (
             <SendNote draft={draft} />
+          ) : draft.state === "scheduled" ? (
+            <ScheduledNote draft={draft} />
           ) : (
             <>
               {ready ? (
@@ -182,6 +245,15 @@ function Card({ draft }: { readonly draft: OutreachDraft }) {
                     onClick={send}
                   >
                     {text.send}
+                  </Btn>
+                  <Btn
+                    kind="pri"
+                    label={later.menu}
+                    disabled={cannotSchedule || busy}
+                    tip={cannotSchedule ? later.menuBlocked : later.menuTip}
+                    onClick={sendLater}
+                  >
+                    <Icon name="chevD" size={14} />
                   </Btn>
                 </span>
               ) : null}

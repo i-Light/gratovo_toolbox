@@ -65,6 +65,15 @@
   font-weight: 500;
   font-size: 13px;
 }
+/* A card's time chip: "in 2 h" with its clock, or an age. */
+.kcard .due {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.kcard .due.late {
+  color: var(--warn);
+}
 .lane .empty {
   padding: 14px 8px;
   font-size: 12px;
@@ -120,4 +129,62 @@ button.rc-cap:hover {
 .rc-cap small {
   color: var(--muted);
   font-size: 11.5px;
+}
+
+/* Mailboxes: the prototype's reach.js styles (.rc-mgrid to .rc-step). */
+.rc-mgrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--gap);
+  align-items: start;
+}
+.rc-mrow {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  font-size: 12.5px;
+}
+.rc-mrow .meter {
+  width: 100%;
+}
+.rc-mstats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.rc-ms {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 8px 10px;
+  border-radius: var(--r-m);
+  background: var(--sunk);
+  min-width: 0;
+}
+.rc-ms b {
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.rc-ms small {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.rc-ms.warn b {
+  color: var(--warn);
+}
+.rc-ms.crit b {
+  color: var(--crit);
+}
+.rc-step {
+  min-width: 34px;
+  text-align: center;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+}
+.seg button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }

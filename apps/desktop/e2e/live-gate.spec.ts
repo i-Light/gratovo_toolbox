@@ -33,13 +33,13 @@ test.describe("the live gate, against a fake Supabase", () => {
         name: railName(screens.find.name, screens.find.subLive),
       }),
     ).toBeVisible();
-    // Toolbox is wired too (plan D34): Archive, Never contact and the Activity log.
+    // Toolbox is wired too (plan D34): Archive, Never contact, Scheduled emails and the Activity log.
     await expect(
       rail(page).getByRole("button", {
         name: railName(screens.toolbox.name, screens.toolbox.sub),
       }),
     ).toBeVisible();
-    // Reach is wired from plan step 6a: the board, named for what is wired.
+    // Reach is wired from plan step 6a (the board) and 6b (Mailboxes), named for what is wired.
     await expect(
       rail(page).getByRole("button", {
         name: railName(screens.reach.name, screens.reach.subLive),

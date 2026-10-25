@@ -9,6 +9,7 @@ import { undo } from "./actions";
 import { installLiveUpdates } from "./live";
 import { adoptServerData, diffData, installPersistence, persistenceIdle } from "./persist";
 import {
+  cancelScheduled,
   confirmGate,
   draftNow,
   loadThread,
@@ -16,9 +17,12 @@ import {
   noticeReachChange,
   retryDraft,
   rewriteDraft,
+  scheduleDraft,
   sendAsNew,
   sendDraft,
+  sendTest,
   setDraftMailbox,
+  setMailbox,
   skipDraft,
   typeDraft,
   undoRewrite,
@@ -217,12 +221,15 @@ describe("mergeServerData for Reach", () => {
               ],
         sender: "Sam",
         gemini: "ready",
+        // A draft written after the first load gets its zone in a later frame.
+        zones: { [id0()]: "America/New_York" },
       });
       fire({ parts: ["reach"] });
       await vi.advanceTimersByTimeAsync(1500);
       await settle();
       expect(data().reach.sender).toBe("Sam");
       expect(data().reach.gemini).toBe("ready");
+      expect(data().reach.zones).toEqual({ [id0()]: "America/New_York" });
       undo();
       await settle();
       expect(draft("d1")?.state).toBe("ready");
@@ -481,6 +488,16 @@ describe("too late to undo", () => {
     expect(toasts().length).toBe(count);
   });
 
+  it("says too late to cancel when a Cancel met a send already going", () => {
+    setReach(
+      reachWith({ drafts: [aiDraft("d1", id0(), { state: "scheduled", sendAt: now + 5 })] }),
+    );
+    expect(cancelScheduled("d1")).toBe(true);
+    const before = data().reach;
+    noticeReachChange(before, reachWith({ drafts: [aiDraft("d1", id0(), { state: "sending" })] }));
+    expect(toasts().at(-1)?.msg).toBe(t.tooLateCancel);
+  });
+
   it("stays quiet when a draft the page holds as approved goes out", () => {
     const approved = reachWith({
       drafts: [aiDraft("d1", id0(), { state: "approved", sendAt: 1 })],
@@ -490,5 +507,59 @@ describe("too late to undo", () => {
       reachWith({ drafts: [aiDraft("d1", id0(), { state: "sending" })] }),
     );
     expect(toasts()).toHaveLength(0);
+  });
+});
+
+describe("Send later and mailbox settings", () => {
+  const later = strings.reach.later;
+
+  it("schedules a ready draft, writes draft.state with sendAt, and refuses a past time", async () => {
+    const creator = setReach(
+      reachWith({ drafts: [aiDraft("d1", "c1")], mailboxes: [goodMailbox(address)] }),
+    );
+    adoptServerData((d) => {
+      const target = d.reach.drafts[0];
+      if (target !== undefined) {
+        target.creator = creator;
+      }
+    });
+    expect(scheduleDraft("d1", now - 1)).toBe(false);
+    const at = now + 86_400_000;
+    expect(scheduleDraft("d1", at)).toBe(true);
+    await settle();
+    expect(draft("d1")).toMatchObject({ state: "scheduled", sendAt: at });
+    expect(bridge.writes.at(-1)).toEqual([
+      { kind: "draft.state", id: "d1", state: "scheduled", sendAt: at },
+    ]);
+    expect(scheduleDraft("d1", at + 1)).toBe(false);
+    expect(cancelScheduled("d1")).toBe(true);
+    expect(draft("d1")).toMatchObject({ state: "ready", sendAt: null });
+    expect(toasts().at(-1)?.msg).toBe(later.cancelled);
+    expect(cancelScheduled("d1")).toBe(false);
+  });
+
+  it("refuses to schedule while a gate holds the draft", () => {
+    setReach(reachWith({ drafts: [aiDraft("d1", "c1")], mailboxes: [] }));
+    expect(scheduleDraft("d1", now + 86_400_000)).toBe(false);
+    expect(draft("d1")?.state).toBe("ready");
+    expect(toasts().at(-1)?.msg).toBe(t.stillNeedsYou);
+  });
+
+  it("sets a mailbox through main with no Undo, and says when it fails", async () => {
+    install({ "reach:mailbox-set": { ok: false, problem: "no_data" } });
+    expect(await setMailbox(address, { dailyCap: 40 })).toBe(false);
+    expect(toasts().at(-1)?.msg).toBe(t.mailboxes.setProblems.no_data);
+    install();
+    expect(await setMailbox(address, { dailyCap: 40 })).toBe(true);
+    expect(bridge.calls.at(-1)).toEqual(["reach:mailbox-set", { address, dailyCap: 40 }]);
+    expect(toasts().at(-1)).toMatchObject({ msg: t.mailboxes.capToast("sam", 40), actions: [] });
+  });
+
+  it("sends a test and gives each problem a toast", async () => {
+    expect(await sendTest(address)).toBe(true);
+    expect(toasts().at(-1)?.msg).toBe(t.mailboxes.testSent(address));
+    install({ "reach:send-test": { ok: false, problem: "signed_out" } });
+    expect(await sendTest(address)).toBe(false);
+    expect(toasts().at(-1)?.msg).toBe(t.mailboxes.testProblems.signed_out);
   });
 });

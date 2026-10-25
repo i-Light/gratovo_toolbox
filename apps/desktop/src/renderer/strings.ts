@@ -1356,8 +1356,13 @@ export const strings = {
     insights: { name: "Insights", sub: "Analytics, keywords, funnel", tabs: {} },
     toolbox: {
       name: "Toolbox",
-      sub: "Archive, never contact, log",
-      tabs: { archive: "Archive", never: "Never contact", log: "Activity log" },
+      sub: "Archive, scheduled, never contact, log",
+      tabs: {
+        archive: "Archive",
+        never: "Never contact",
+        scheduled: "Scheduled emails",
+        log: "Activity log",
+      },
     },
     team: { name: "Team", sub: "People, load, mailboxes", tabs: {} },
     settings: {
@@ -1424,12 +1429,27 @@ export const strings = {
         sub: "Channels that must not be emailed again",
         long: "Searches skip these channels. Add one here.",
       },
+      scheduled: {
+        sub: "Emails waiting for their send time",
+        long: "Emails you set to go out later. Cancel one and it comes back to Reach as a draft.",
+      },
       log: {
         sub: "Who did what, newest first",
         long: "Every change anyone made, so a surprise on a record can be traced.",
       },
     },
-    countTips: { log: "Changes today" },
+    countTips: { log: "Changes today", scheduled: "Waiting to go out" },
+    scheduled: {
+      emptyTitle: "Nothing is scheduled",
+      emptyHint:
+        "Use the arrow beside Send on any draft to pick a later time. Scheduled emails wait here until they go out.",
+      from: (address: string | null): string => `from ${address ?? "a mailbox"}`,
+      noLine: "No text yet",
+      cancel: "Cancel send",
+      cancelLabel: (name: string): string => `Cancel the scheduled email to ${name}`,
+      openLabel: (name: string): string => `Open ${name}, emails tab`,
+      listLabel: "Scheduled emails",
+    },
     loadFailed: "Couldn’t load this list.",
     showMore: "Show more",
     moreFailed: "Couldn’t load more. Try again",
@@ -1687,6 +1707,8 @@ export const strings = {
     stillNeedsYou: "This email still needs you",
     tooLate: "Too late to undo: it has gone",
     tooLateSub: "The email was already on its way when you pressed Undo.",
+    tooLateCancel: "Too late to cancel: it has gone",
+    tooLateCancelSub: "Its time came before you pressed Cancel.",
     skippedLabel: (kind: string, name: string): string => `Skipped ${kind} to ${name}`,
     skipped: "Skipped",
     skippedSubFollowUp: "The next follow-up stays planned.",
@@ -1745,6 +1767,7 @@ export const strings = {
       mailbox_signed_out: "Not sent: the mailbox is signed out",
       not_sent_closed: "Not sent: the app closed before it went",
       late: "It was too late to send",
+      time_passed: "Not scheduled: that time has passed. Send it now or pick another time.",
       gates_changed: "Not sent: something changed, check the email again",
       needs_check: "Not sent: start Gemini so your edit can be checked first",
     },
@@ -1769,6 +1792,117 @@ export const strings = {
       mailbox_full: "mailbox full",
       blocked: "needs a fix",
       engine: "needs a look",
+    },
+    /** Send later and Toolbox > Scheduled (D21). */
+    later: {
+      scheduledLabel: {
+        first: (name: string): string => `Scheduled the first email to ${name}`,
+        followUp: (n: number, name: string): string =>
+          `Scheduled follow-up ${String(n)} to ${name}`,
+        reply: (name: string): string => `Scheduled the answer to ${name}`,
+      },
+      cancelledLabel: {
+        first: (name: string): string => `Cancelled the scheduled email to ${name}`,
+        followUp: (name: string): string => `Cancelled the scheduled follow-up to ${name}`,
+        reply: (name: string): string => `Cancelled the scheduled answer to ${name}`,
+      },
+      toast: (when: string): string => `Scheduled for ${when}`,
+      toastSub: "Cancel it any time from Toolbox › Scheduled.",
+      cancelled: "Scheduled email cancelled",
+      cancelledSub: "It is back in Reach as a draft.",
+      menu: "Send later",
+      menuTip: "Send later",
+      menuBlocked: "Clear the warning above first",
+      theirMorning: "Their morning",
+      /** `when` is in the sender's time, which may fall on another day than theirs. */
+      theirHint: (when: string): string => `${when} yours · 09:00 theirs`,
+      yoursHint: (day: string): string => `${day} · 09:00 your time`,
+      tomorrow: "Tomorrow, 09:00",
+      monday: "Monday, 09:00",
+      scheduledFor: (when: string): string => `Scheduled for ${when}`,
+      fromBox: (address: string): string => ` from ${address}`,
+      cancel: "Cancel",
+      cancelTip: "Take it out of the queue. It goes back to a draft.",
+    },
+    /** Reach > Mailboxes (D20; prototype reach.js MailCard). */
+    mailboxes: {
+      label: "Mailboxes",
+      ruleLead: "Bounces over 3% slow a mailbox down on its own.",
+      ruleBody:
+        " It drops to 20 sends a day and goes back to its normal limit once bounces are under 2%. Fewer bounces protect every address you send from.",
+      rightNow: (parts: readonly string[]): string =>
+        ` Right now ${parts.join(" and ")} ${parts.length === 1 ? "is" : "are"} slowed.`,
+      slowedPart: (name: string, rate: number | null): string =>
+        rate === null ? name : `${name} (${String(rate)}%)`,
+      emptyTitle: "No mailbox is connected",
+      emptyHint: "Connect a Gmail address in Settings. Its sends and limits show up here.",
+      emptyAction: "Open Connections",
+      status: {
+        signed_out: "Signed out",
+        paused: "Paused",
+        slowed: "Slowed",
+        warming: "Warming up",
+        good: "Healthy",
+      },
+      signedOutLine:
+        "Gmail refused this mailbox. Nothing goes out from it until you sign in again.",
+      signIn: "Sign in again",
+      sentToday: "Sent today",
+      sentTodayMeter: (name: string): string => `${name} sends used`,
+      sentOf: (sent: number, cap: number): string => `${String(sent)} of ${String(cap)}`,
+      warmup: "Warm-up",
+      warmupMeter: "Warm-up progress",
+      warmupDay: (day: number, of: number): string => `day ${String(day)} of ${String(of)}`,
+      warmupDone: "Finished",
+      bounces: "Bounces",
+      bouncesTip: "Share of emails that bounced this week. Over 3% slows the mailbox.",
+      replies: "Replies",
+      repliesTip: "Share of first emails that got a reply in the last 30 days.",
+      noRate: "—",
+      noBounceTip: "Shows after 10 sends this week",
+      noReplyTip: "Shows after 10 first emails",
+      rate: (n: number): string => `${String(n)}%`,
+      dailyLimit: "Daily limit",
+      limitGroup: (name: string): string => `Daily limit for ${name}`,
+      lower: "Lower the daily limit by 5",
+      raise: "Raise the daily limit by 5",
+      atLeast: (n: number): string => `${String(n)} a day is the least`,
+      atMost: (n: number): string => `${String(n)} a day is the most`,
+      warmingHint: (cap: number): string =>
+        cap > 20
+          ? `Sends 20 a day until warm-up ends, then ${String(cap)}.`
+          : "Warm-up keeps it at 20 a day or less.",
+      slowedHint: (cap: number): string =>
+        cap > 20
+          ? `Held at 20 until bounces are under 2%, then ${String(cap)}.`
+          : "Slowed until bounces are under 2%.",
+      test: "Send a test",
+      testTipPaused: "Resume sending first",
+      testTipSignedOut: "Sign in again first",
+      testTip: "Sends a short email to this address",
+      pause: "Pause sending",
+      resume: "Resume sending",
+      queued: (n: number): string =>
+        `${String(n)} ${n === 1 ? "draft" : "drafts"} will send from here`,
+      capToast: (name: string, cap: number): string => `${name} can send ${String(cap)} a day`,
+      pausedToast: (name: string): string => `${name} is paused`,
+      pausedSub: "Nothing goes out from it until you resume.",
+      resumedToast: (name: string): string => `${name} is sending again`,
+      testSent: (address: string): string => `Test email sent to ${address}`,
+      testSentSub: "Check that it reached the main inbox, not Promotions.",
+      setProblems: {
+        not_found: "That mailbox isn't connected here anymore.",
+        no_data: "The change couldn't be saved.",
+      },
+      testProblems: {
+        not_found: "That mailbox isn't connected here anymore.",
+        not_connected: "That mailbox isn't connected. Connect it in Settings first.",
+        signed_out: "That mailbox is signed out. Sign in again first.",
+        paused: "That mailbox is paused. Resume sending first.",
+        busy: "Another email is going out. Try again in a moment.",
+        failed: "The test email couldn't be sent.",
+        no_data: "The test email couldn't be sent.",
+      },
     },
     /** The Reach screen: heading, capacity, banners and the board (prototype reach.js). */
     screen: {
@@ -1847,6 +1981,7 @@ export const strings = {
         todraft: "Address confirmed, no email written yet",
         drafting: "Gemini is writing the email",
         readyToSend: "ready to send",
+        scheduled: "scheduled",
         replied: "Replied",
         answered: "Answered, waiting for them",
         emailed: (when: string): string => `Emailed ${when}`,

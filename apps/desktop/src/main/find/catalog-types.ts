@@ -13,6 +13,11 @@ export interface FindCatalog {
   runs(): Promise<ChannelResponse<"find:runs">>;
   /** Every row with the catalog's version, for the Toolbox lists (plan step 5d, D36 and D39). */
   snapshot(): Promise<{ version: number; rows: readonly CatalogItem[] }>;
+  /**
+   * The rows of the last build, at once, without waiting for a build that is due; null before the
+   * first build. For reads that can live with rows a moment old (Reach's zones, plan step 6b).
+   */
+  peek(): readonly CatalogItem[] | null;
 }
 
 /** A catalog with nothing in it, until the read model (B2) is wired in. */
@@ -22,6 +27,7 @@ export function createStubCatalog(): FindCatalog {
     item: () => Promise.resolve({ item: null }),
     runs: () => Promise.resolve({ runs: [] }),
     snapshot: () => Promise.resolve({ version: 0, rows: [] }),
+    peek: () => [],
   };
 }
 

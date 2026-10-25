@@ -9,6 +9,7 @@ import { strings } from "../strings";
 import { Board } from "./board";
 import { CapSummary } from "./cap-summary";
 import { GeminiBanner } from "./gemini-banner";
+import { Mailboxes } from "./mailboxes";
 import { subLine } from "./reach-view";
 
 const text = strings.reach.screen;
@@ -86,6 +87,8 @@ export function ReachScreen() {
       <div id={panelId} role="tabpanel" aria-labelledby={tabId(tab)}>
         {tab === "board" ? (
           <Board />
+        ) : tab === "mailboxes" ? (
+          <Mailboxes />
         ) : (
           <div className="card">
             <Empty icon="wrench" title={screens.reach.tabs.find((t) => t.key === tab)?.name ?? ""}>

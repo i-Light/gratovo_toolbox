@@ -70,6 +70,11 @@ describe("Toolbox", () => {
       expect(press("k")).toBe(true);
       await Promise.resolve();
     });
+    expect(route().tab).toBe("scheduled");
+    await act(async () => {
+      press("k");
+      await Promise.resolve();
+    });
     expect(route().tab).toBe("never");
     await act(async () => {
       press("k");
@@ -82,7 +87,7 @@ describe("Toolbox", () => {
       await Promise.resolve();
     });
     expect(route().tab).toBe("archive");
-    for (let i = 0; i < 4; i += 1) {
+    for (let i = 0; i < 5; i += 1) {
       await act(async () => {
         press("j");
         await Promise.resolve();

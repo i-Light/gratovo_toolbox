@@ -2,6 +2,7 @@ import type { Sequence } from "@gratovo/core/data";
 import { describe, expect, it } from "vitest";
 
 import { strings } from "../strings";
+import { aiDraft } from "../lib/reach-test-bridge";
 import { aiCreator } from "./reach-fixtures";
 import { cardInfo } from "./reach-view";
 
@@ -47,5 +48,22 @@ describe("cardInfo for In sequence", () => {
       null,
     );
     expect(info.chip).toEqual({ kind: "due", at: now + 2 * day });
+  });
+
+  it("shows a scheduled email with its send time", () => {
+    const info = cardInfo(
+      {
+        creator: aiCreator("c1", "Agent Weekly", { stage: "contact" }),
+        draft: aiDraft("d1", "c1", { state: "scheduled", sendAt: now + day }),
+        sequence: null,
+        thread: null,
+      },
+      "seq",
+      now,
+      null,
+    );
+    expect(info.sub).toContain(strings.reach.board.sub.scheduled);
+    expect(info.chip).toEqual({ kind: "due", at: now + day });
+    expect(info.action).toBeNull();
   });
 });

@@ -66,4 +66,28 @@ describe("the reach schemas", () => {
     expect(parseRequest("reach:rewrite", { draftId: "d1", how: "louder" }).ok).toBe(false);
     expect(parseRequest("reach:mailboxes-refresh", {}).ok).toBe(true);
   });
+
+  it("takes a cap of 10 to 50 in steps of 5, or a pause, and nothing empty", () => {
+    const set = (r: object) => parseRequest("reach:mailbox-set", r).ok;
+    const address = "outreach1@gratovo.test";
+    expect(set({ address, dailyCap: 35 })).toBe(true);
+    expect(set({ address, paused: true })).toBe(true);
+    expect(set({ address, dailyCap: 10, paused: false })).toBe(true);
+    expect(set({ address, dailyCap: 5 })).toBe(false);
+    expect(set({ address, dailyCap: 55 })).toBe(false);
+    expect(set({ address, dailyCap: 33 })).toBe(false);
+    expect(set({ address })).toBe(false);
+    expect(parseRequest("reach:send-test", { address }).ok).toBe(true);
+    expect(parseRequest("reach:send-test", { address: "x" }).ok).toBe(false);
+  });
+
+  it("takes zones by creator as IANA names only", () => {
+    const zones = (z: object) => reachDataSchema.safeParse({ ...emptyReach, zones: z }).success;
+    expect(zones({ UCabc: "America/New_York", UCdef: "America/Argentina/Buenos_Aires" })).toBe(
+      true,
+    );
+    expect(zones({ UCabc: "Asia/Ho_Chi_Minh" })).toBe(true);
+    expect(zones({ UCabc: "UTC; drop" })).toBe(false);
+    expect(zones({ UCabc: "" })).toBe(false);
+  });
 });

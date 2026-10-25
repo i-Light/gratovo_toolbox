@@ -4,6 +4,7 @@ import { go, selectRoute, useApp } from "../lib/store";
 import { useToolboxCounts } from "../lib/toolbox";
 import { shownTabs } from "../lib/wired";
 import { strings } from "../strings";
+import { useScheduled } from "./scheduled-tool";
 
 const text = strings.toolbox;
 const { tabs } = strings.screens.toolbox;
@@ -20,6 +21,7 @@ interface Tool {
 const toolOrder: readonly Tool[] = [
   { key: "archive", group: "tools", icon: "trash" },
   { key: "never", group: "tools", icon: "ban" },
+  { key: "scheduled", group: "tools", icon: "clock" },
   { key: "log", group: "history", icon: "list" },
 ];
 
@@ -40,9 +42,13 @@ export function useCurrentTool(): Tool | undefined {
 /** The left column: the tools in two groups, each with its icon, one line and a count. */
 export function ToolboxList() {
   const counts = useToolboxCounts();
+  const scheduled = useScheduled().length;
   const shown = useShownTools();
   const current = useCurrentTool();
   const countOf = (key: ToolKey): number => {
+    if (key === "scheduled") {
+      return scheduled;
+    }
     if (counts === null) {
       return 0;
     }
@@ -77,7 +83,9 @@ export function ToolboxList() {
                   {n > 0 ? (
                     <span
                       className="cnt"
-                      {...(t.key === "log" ? { "data-tip": text.countTips.log } : {})}
+                      {...(t.key === "log" || t.key === "scheduled"
+                        ? { "data-tip": text.countTips[t.key] }
+                        : {})}
                     >
                       {n}
                     </span>

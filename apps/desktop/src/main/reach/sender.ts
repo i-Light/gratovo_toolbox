@@ -237,6 +237,19 @@ export function createSender(deps: SenderDeps): Sender {
       return;
     }
     const at = now();
+    // The app stayed open but the computer slept past a Send later: it goes back to the person,
+    // as it would at start (D12; review of 6b).
+    const late = source.outreach
+      .draftsIn(["scheduled"])
+      .filter((d) => dueAt(d) < at - lateMs)
+      .map((d) => ({ id: d.id, patch: { state: "ready", problem: "late" } as const }));
+    if (late.length > 0) {
+      log(
+        `Reach: ${String(late.length)} scheduled draft(s) were too late and went back to a person.`,
+      );
+      source.outreach.commit({ at, drafts: late });
+      deps.changed();
+    }
     const due = source.outreach
       .draftsIn(sendable)
       .filter((d) => dueAt(d) <= at)

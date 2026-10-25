@@ -2,12 +2,20 @@ import type { OutreachDraft } from "@gratovo/core/data";
 import { Btn, Icon } from "@gratovo/ui";
 import { useState } from "react";
 
-import { markSent, retryDraft, sendAsNew } from "../lib/reach-actions";
+import {
+  cancelScheduled,
+  markSent,
+  retryDraft,
+  sendAsNew,
+  skipDraft,
+  whenWords,
+} from "../lib/reach-actions";
 import { useNow } from "../lib/use-now";
 import { strings } from "../strings";
 import { takeBack } from "./draft-actions";
 
 const text = strings.reach.card;
+const later = strings.reach.later;
 
 /** A draft Gemini hasn't written yet: grey lines and, when it waits, why. */
 export function DraftingBody({ draft }: { readonly draft: OutreachDraft }) {
@@ -142,5 +150,43 @@ export function SendNote({ draft }: { readonly draft: OutreachDraft }) {
         {text.undo}
       </Btn>
     </span>
+  );
+}
+
+/** The footer of a scheduled email: when and from where it goes, with Cancel (D21) and Skip. */
+export function ScheduledNote({ draft }: { readonly draft: OutreachDraft }) {
+  const when = draft.sendAt === null ? "" : whenWords(draft.sendAt);
+  return (
+    <>
+      <span className="row" role="status" data-ui="reach.draft.scheduled">
+        <Icon name="clock" />
+        <span>
+          {later.scheduledFor(when)}
+          {draft.mailbox === null ? "" : later.fromBox(draft.mailbox)}
+        </span>
+        <Btn
+          size="sm"
+          icon="x"
+          tip={later.cancelTip}
+          onClick={() => {
+            cancelScheduled(draft.id);
+          }}
+        >
+          {later.cancel}
+        </Btn>
+      </span>
+      <span className="sp"></span>
+      <Btn
+        size="sm"
+        kind="ghost"
+        icon="arrowR"
+        tip={text.skipTip}
+        onClick={() => {
+          skipDraft(draft.id);
+        }}
+      >
+        {text.skip}
+      </Btn>
+    </>
   );
 }

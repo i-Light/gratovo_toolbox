@@ -145,13 +145,14 @@ export function createSqliteSource(db: DatabaseSync, options: SqliteSourceOption
       notify: getNotify(db),
       seesMoney: money,
       // The stored parts only. Main's Reach service overlays the runtime fields later: the
-      // mailboxes (settings and Gmail's numbers), Gemini's state and the sender's name.
+      // mailboxes (settings and Gmail's numbers), Gemini's state, the sender's name and the zones.
       reach: {
         ...outreach.reachParts(clock()),
         mailboxes: [],
         gemini: "off",
         geminiPausedUntil: null,
         sender: null,
+        zones: {},
       },
     };
   }

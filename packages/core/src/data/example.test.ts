@@ -138,7 +138,7 @@ describe("exampleSeed", () => {
     ]);
   });
 
-  it("seeds Reach: three ready drafts (one with a claim gate) and four messages", () => {
+  it("seeds Reach: three ready drafts (one with a claim gate) and the messages", () => {
     const stageOf = (id: string) => seed.creators.find((c) => c.id === id)?.stage;
     expect(seed.outreach.drafts.map((d) => [d.creator, d.state, stageOf(d.creator)])).toEqual([
       ["c6", "ready", "contact"],
@@ -154,7 +154,13 @@ describe("exampleSeed", () => {
         text: "It says we worked with Lumen AI before. Confirm that is true.",
       },
     ]);
-    expect(seed.outreach.messages.map((m) => [m.creator, m.direction])).toEqual([
+    // Four messages of the creators; the rest is outreach3's imported week (next test).
+    const creatorIds = new Set(seed.creators.map((c) => c.id));
+    expect(
+      seed.outreach.messages
+        .filter((m) => creatorIds.has(m.creator))
+        .map((m) => [m.creator, m.direction]),
+    ).toEqual([
       ["c8", "out"],
       ["c9", "out"],
       ["c10", "out"],
@@ -162,15 +168,46 @@ describe("exampleSeed", () => {
     ]);
   });
 
+  it("seeds outreach3 as slowed: over 3% bounced in a week, on channels no creator owns", () => {
+    expect(seed.reachMailboxes).toEqual({
+      "outreach3@gratovo.example": { paused: false, slowed: true },
+    });
+    const week = 7 * 86_400_000;
+    const mine = (m: { mailbox: string | null }) => m.mailbox === "outreach3@gratovo.example";
+    const messages = seed.outreach.messages;
+    const sends = messages.filter(
+      (m) => mine(m) && m.direction === "out" && m.at >= now - week && m.at <= now,
+    );
+    const bounces = messages.filter(
+      (m) => mine(m) && m.direction === "in" && m.reading?.replyType === "any.bounce",
+    );
+    expect(sends.length).toBeGreaterThanOrEqual(10);
+    expect(bounces.length).toBeGreaterThanOrEqual(1);
+    expect(bounces.length / sends.length).toBeGreaterThan(0.03);
+    // Nothing of it lands today, so today's count of sends is unchanged.
+    expect(sends.every((m) => m.at <= now - 86_400_000)).toBe(true);
+    const creatorIds = new Set(seed.creators.map((c) => c.id));
+    const history = messages.filter((m) => m.source === "imported");
+    expect(history.length).toBeGreaterThan(0);
+    expect(history.every((m) => !creatorIds.has(m.creator))).toBe(true);
+    expect(new Set(messages.map((m) => m.id)).size).toBe(messages.length);
+    expect(new Set(messages.map((m) => m.gmailMessageId)).size).toBe(messages.length);
+  });
+
   it("derives the frame's Reach from those rows", () => {
     const reach = exampleFrame(now).reach;
     expect(reach.drafts.map((d) => d.id)).toEqual(["dr3", "dr2", "dr1"]);
-    expect(reach.threads.map((t) => [t.creator, t.count, t.answered])).toEqual([
+    const creatorIds = new Set(seed.creators.map((c) => c.id));
+    expect(
+      reach.threads
+        .filter((t) => creatorIds.has(t.creator))
+        .map((t) => [t.creator, t.count, t.answered]),
+    ).toEqual([
       ["c10", 2, false],
       ["c8", 1, true],
       ["c9", 1, true],
     ]);
-    expect(reach.threads[0]?.lastIn?.preview).toBe("Hi Moustafa,");
+    expect(reach.threads.find((t) => t.creator === "c10")?.lastIn?.preview).toBe("Hi Moustafa,");
     expect(reach).toMatchObject({ mailboxes: [], gemini: "off", sender: null, sequences: [] });
   });
 });

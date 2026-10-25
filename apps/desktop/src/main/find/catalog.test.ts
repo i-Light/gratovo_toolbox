@@ -330,6 +330,13 @@ describe("the catalog", () => {
     expect([0, 1, 2, 3, 4].map(country)).toEqual([null, null, null, "GB", "CA"]);
   });
 
+  it("peeks at the last build without waiting, and gives null before the first", async () => {
+    const catalog = open({ channels: [{ id: a, country: "US" }] });
+    expect(catalog.peek()).toBeNull();
+    await catalog.snapshot();
+    expect(catalog.peek()?.map((row) => [row.id, row.country])).toEqual([[a, "US"]]);
+  });
+
   it("skips the facet counts when asked", async () => {
     const catalog = open({ channels: [{ id: a, country: "US" }] });
     const request = { ...everything, offset: 0, limit: 10 };

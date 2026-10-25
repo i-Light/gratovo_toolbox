@@ -3,6 +3,7 @@ import { isAbsolute } from "node:path";
 import type { DataSource } from "@gratovo/core/data";
 import type { ConnectionsChange, ConnectionsSetResult } from "@gratovo/ipc";
 
+import { forgetMailboxFlags } from "../reach/mailbox-settings";
 import { pipelineSecretNames, setGatewaysEnabled } from "../pipeline/pipeline-secrets";
 import type { SecretStore } from "../secret-store";
 
@@ -102,6 +103,7 @@ export async function applyChange(
         ...mail,
         mailboxes: mail.mailboxes.filter((m) => !sameAddress(m.address, change.address)),
       });
+      forgetMailboxFlags(source, change.address);
       forgetMailbox(change.address);
       return ok;
     }

@@ -57,6 +57,7 @@ function source(
       return outbound;
     },
     sentSince: unused,
+    mailboxCounts: unused,
     sequence: unused,
     commit: unused,
   };

@@ -53,6 +53,8 @@ export const draftProblems = [
   "mailbox_signed_out",
   "not_sent_closed",
   "late",
+  // A Send later put back (Redo, or Undo of a Cancel) whose time had already passed.
+  "time_passed",
   "gates_changed",
   // An edited draft the checks had blocked can't go unchecked, and no check could run.
   "needs_check",
@@ -247,9 +249,9 @@ export interface MailboxView {
   readonly warmup: { readonly day: number; readonly of: number } | null;
   readonly paused: boolean;
   readonly status: MailboxStatus;
-  /** Share of this week's sends that bounced, 0 to 100; null with no sends this week. */
+  /** Share of the last 7 days' sends that bounced, in %; null under 10 sends (D20). */
   readonly bounceRate: number | null;
-  /** Share of this week's sends that got a reply, 0 to 100; null with no sends this week. */
+  /** Share of the last 30 days' first emails that got a reply, in %; null under 10 (D20). */
   readonly replyRate: number | null;
   /** In ms: when Gmail's numbers were last read; null when never. */
   readonly checkedAt: number | null;
@@ -277,6 +279,11 @@ export interface ReachData {
   readonly geminiPausedUntil: number | null;
   /** The name drafts are signed with; null blocks drafting. */
   readonly sender: string | null;
+  /**
+   * The time zone of each creator with an open draft whose channel country is known, by creator
+   * id: for Send later's "Their morning" (D21).
+   */
+  readonly zones: Readonly<Record<string, string>>;
 }
 
 /** One message of a thread (`reach:thread`). */
@@ -315,4 +322,5 @@ export const emptyReach: ReachData = {
   gemini: "off",
   geminiPausedUntil: null,
   sender: null,
+  zones: {},
 };

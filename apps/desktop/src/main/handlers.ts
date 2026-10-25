@@ -232,6 +232,8 @@ export function createHandlers(context: HandlerContext): Handlers {
     "reach:mark-sent": ({ draftId }) => reach.markSent(draftId),
     "reach:send-new": ({ draftId }) => reach.sendNew(draftId),
     "reach:mailboxes-refresh": () => reach.refreshMailboxes(),
+    "reach:mailbox-set": (request) => reach.setMailbox(request),
+    "reach:send-test": ({ address }) => reach.sendTest(address),
     "gemini:start": () => gemini.start(),
     "gemini:stop": () => gemini.stop(),
     "gemini:open-window": ({ browser }) => gemini.openWindow(browser),

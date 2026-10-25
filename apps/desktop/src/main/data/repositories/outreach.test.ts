@@ -348,6 +348,107 @@ describe("messages", () => {
     ]);
   });
 
+  it("counts a mailbox's sends, bounces, first emails and answers, ignoring the case", () => {
+    const day = 24 * hour;
+    const bounce = {
+      replyType: "any.bounce",
+      label: "Bounce",
+      summary: "",
+      side: "",
+      corrected: false,
+      facts: [],
+    };
+    const friendly = { ...bounce, replyType: "creator.interested", label: "Interested" };
+    const m1 = "Outreach1@Gratovo.example";
+    store.commit({
+      at: now,
+      messages: [
+        // Three first emails in the last week, one from the same creator twice (counts once).
+        message("o1", { creator: "UCa", at: now - 2 * day, mailbox: m1 }),
+        message("o2", { creator: "UCb", at: now - 3 * day }),
+        message("o3", { creator: "UCc", at: now - day }),
+        message("o4", { creator: "UCa", at: now - day, kind: "followUp" }),
+        // 10 days ago: in the 30-day window but not the 7-day one.
+        message("o5", { creator: "UCd", at: now - 10 * day }),
+        // 40 days ago: outside both.
+        message("o6", { creator: "UCe", at: now - 40 * day }),
+        // Another mailbox.
+        message("o7", { creator: "UCf", at: now - day, mailbox: "outreach2@gratovo.example" }),
+        // UCa answers (friendly), UCb's address bounced, UCd answers with no reading.
+        message("i1", {
+          creator: "UCa",
+          direction: "in",
+          kind: null,
+          at: now - day,
+          reading: friendly,
+        }),
+        message("i2", {
+          creator: "UCb",
+          direction: "in",
+          kind: null,
+          at: now - 2 * day,
+          reading: bounce,
+        }),
+        message("i3", { creator: "UCd", direction: "in", kind: null, at: now - 9 * day }),
+        // A bounce 8 days ago is out of the 7-day window; one before the first email is no answer.
+        message("i4", {
+          creator: "UCc",
+          direction: "in",
+          kind: null,
+          at: now - 8 * day,
+          reading: bounce,
+        }),
+      ],
+    });
+    const counts = store.mailboxCounts(now);
+    expect([...counts.keys()].sort()).toEqual([
+      "outreach1@gratovo.example",
+      "outreach2@gratovo.example",
+    ]);
+    expect(counts.get("outreach1@gratovo.example")).toEqual({
+      sent7: 4,
+      bounced7: 1,
+      firsts30: 4,
+      replied30: 2,
+    });
+    expect(counts.get("outreach2@gratovo.example")).toEqual({
+      sent7: 1,
+      bounced7: 0,
+      firsts30: 1,
+      replied30: 0,
+    });
+  });
+
+  it("counts an unread daemon bounce as a bounce, and an answer only for the mailbox it reached", () => {
+    const day = 24 * hour;
+    const m2 = "outreach2@gratovo.example";
+    store.commit({
+      at: now,
+      messages: [
+        // UCa got first emails from both mailboxes; it answered outreach2 only.
+        message("o1", { creator: "UCa", at: now - 3 * day }),
+        message("o2", { creator: "UCa", at: now - 3 * day, mailbox: m2 }),
+        message("i1", { creator: "UCa", direction: "in", kind: null, at: now - day, mailbox: m2 }),
+        // UCb's address bounced; the bounce is not read yet.
+        message("o3", { creator: "UCb", at: now - 3 * day }),
+        message("i2", {
+          creator: "UCb",
+          direction: "in",
+          kind: null,
+          at: now - 2 * day,
+          peer: "MAILER-DAEMON@googlemail.com",
+        }),
+      ],
+    });
+    const counts = store.mailboxCounts(now);
+    expect(counts.get("outreach1@gratovo.example")).toMatchObject({
+      bounced7: 1,
+      firsts30: 2,
+      replied30: 0,
+    });
+    expect(counts.get(m2)).toMatchObject({ firsts30: 1, replied30: 1 });
+  });
+
   it("cuts a body to the limit and marks it cut", () => {
     store.commit({ at: now, messages: [message("m1", { body: "x".repeat(100_001) })] });
     const stored = store.thread("UCa", 1)[0];
