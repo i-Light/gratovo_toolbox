@@ -955,18 +955,6 @@ def test_the_dispatcher_runs_the_module_of_each_kind(
     assert ran == [JOB_MODULES[job["kind"]]]
 
 
-@pytest.mark.parametrize("kind", ARCHIVE_KINDS)
-def test_the_archive_jobs_fail_until_they_are_built(kind: str, check_from_pipeline: Check) -> None:
-    """Plan step 5d: the protocol knows them; task B13 builds them."""
-    job = next(job for job in GOOD_JOBS if job["kind"] == kind)
-    out = io.StringIO()
-    jobs.run(start_for(job), Emitter(out))
-    end = check_from_pipeline(out.getvalue())
-    assert end["type"] == "end"
-    assert end["state"] == "failed"
-    assert end["error"]["code"] == "crash"
-
-
 def test_the_entry_point_opens_the_job_s_hosts_then_runs_it(
     monkeypatch: pytest.MonkeyPatch, base_network_rule: None
 ) -> None:
