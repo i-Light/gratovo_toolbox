@@ -471,7 +471,7 @@ Things the Flutter app does that the 127 tasks don't name. Each is ported, repla
 | Edit conflicts: resolve or discard refused edits | `features/conflicts` | Port: the conflict banner on the record plus a conflicts list | ☐ |
 | News: industry feeds | `features/news`, `pipeline/tools/news.py` | Decide | ☐ |
 | Scratchpad: one live shared text box per person | `features/scratchpad` | Decide | ☐ |
-| Activity log | `features/logs` | Port: Toolbox › Activity log (in the prototype) | ☐ |
+| Activity log | `features/logs` | Port: Toolbox › Activity log (in the prototype). Built in step 5 (ADR 0017): the whole log, by person, by day, 30 at a time | ☐ |
 | Notification history | `features/notifications` | Port: the bell plus Toolbox › Notifications (in the prototype) | ☐ |
 | Presence: who is online, what each person is viewing | `core/presence` | Port: in the prototype's top bar and records | ☐ |
 | In-app updater | `core/update` | Port in step T5, was 3h (unsigned builds from the private release location, §9 Q12) | ☐ |
@@ -482,9 +482,9 @@ Things the Flutter app does that the 127 tasks don't name. Each is ported, repla
 | Python environment setting | settings | Replace: the bundled runtime | ☐ |
 | GitHub token setting (updater) | `core/github` | Replace: the release design in step T5 (was 3h) | ☐ |
 | AI providers (Anthropic API, template fill) | `core/ai` | Decide: Gemini bridge only, or also an API provider | ☐ |
-| Channel avatar cache | `core/images` | Port | ☐ |
+| Channel avatar cache | `core/images` | Port. Built in step 5 (ADR 0017): pictures fetched and cached by main | ☐ |
 | Crash log | `core/logging/crash_log.dart` | Port: structured logs plus a crash report the owner can send | ☐ |
 | Remote search requests (start a search on another machine) | `features/search` (`remote_search_intake`) | Port | ☐ |
-| The 7-day archive sweep and restore | `features/archive`, `data/repositories/mirror/local_archive.dart` | Port: in the prototype's Toolbox › Archive and Find | ☐ |
+| The 7-day archive sweep and restore | `features/archive`, `data/repositories/mirror/local_archive.dart` | Port: in the prototype's Toolbox › Archive and Find. Built in step 5 (ADR 0017): the countdown, the sweep and Bring back, and the tombstone keeps every fact | ☐ |
 | Arabic UI and right-to-left layout | `l10n/` | Later: English only for now, strings kept in one place | ☐ |
 | Web read-only preview build | `web/` | Decide: probably drop | ☐ |
