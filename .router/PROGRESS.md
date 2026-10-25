@@ -1,12 +1,48 @@
 # PROGRESS: plan step 6 (Reach)
 
-Plan: `.router/PLAN.md` (decisions D1–D21, D6a). Map: `.router/CONTEXT.md`.
+Plan: `.router/PLAN.md` (decisions D1–D22, D6a). Map: `.router/CONTEXT.md`.
 
 ## Where it stands (2026-10-25)
 
-- **6a done** and merged (pull request #29).
-- **6b done** on branch `feat/6b-reach-mailboxes`: D20 and D21 (Reach › Mailboxes, the slowdown rule, the test email, Send later, Toolbox › Scheduled). All checks pass: lint, typecheck, Vitest 2782, the Electron suite (74, with the new `e2e/reach-later.spec.ts`). Looked at in the built app at 1440 px: Mailboxes, the Send later menu, a scheduled card, Toolbox › Scheduled.
-- **Next: 6c** (D13): sequences. Follow-ups planned on the first send (+3, +7, +14 days), drafted on the day they are due, the Sequences tab (the timeline), Stop, Park until a date, Skip. Plan its tasks in PLAN.md first (a "Tasks for 6c" table), as 6a's and 6b's.
+- **6a** and **6b** are done and merged (pull requests #29 and #30).
+- **6c done** on branch `feat/6c-reach-sequences`: D22 (the sequences: planned on a first send, drafted when due, the day timer, Stop, Resume, Park, Wake, Reach › Sequences). Lint, typecheck and Vitest 2854 pass. The new smoke test `e2e/reach-sequences.spec.ts` passes. I looked at it in the built app at 1440 px: the timeline, the row menu, the Emails tab's next step and the board.
+- **Next: 6d** (D17, D18): replies.
+  - The background sweep and ack.
+  - The thread, Gemini's reading, and the 47-situation correction.
+  - Facts saved to the record, and Paste a reply.
+  - Notifications and stage moves.
+  - Reach › Replies.
+  - A reply stops the sequence (`stopped: "replied"`, open follow-ups skipped). Put back the Sequences empty state's "stop on their own when someone replies".
+  - The slowdown's notification (6b).
+  - Plan its tasks in PLAN.md first.
+
+## What 6c's review found and how it was fixed (keep for ADR 0018 in 6e)
+
+The `router-reviewer` found no automatic send and no security problem, and seventeen points, all handled:
+
+1. High: the frame listed every sequence, capped at 5000 by the schema, so the data would stop loading after a few months. Now it lists running, parked, stopped by you, and those ended in the last 30 days, newest first, `LIMIT reachSequencesMax` (2000). The day timer reads running ones on its own.
+2. Overdue steps went back to back. A step sent late moves the later ones; Resume re-times like Wake.
+3. Stop or Park, then Undo, lost the follow-up draft. Stop and Park answer with the drafts they skipped, and their Undo brings them back (never as `approved` or `scheduled`, so an Undo never sends).
+4. The stage and `park_until` could drift, leaving a creator stuck. A `parked` stage counts as parked on the page; Wake accepts either; the day tick writes the stage only when it is `parked` and skips never-contact creators.
+5. Park was offered on a stopped sequence and always refused. Offered only on a running one.
+6. The no-automatic-send test now runs live mode with a fake bridge and fake jobs, through the real skip path.
+7. The park day had no bounds. It does, and main checks it is finite.
+8. `parkChoices` overflowed month ends. Clamped.
+9. `planSteps` used 24 h multiples (a step could land on the wrong day across a clock change). It adds calendar days.
+10. `isFinished` counted milliseconds; it counts days.
+11. A double-click on Wake, or a Wake during the day tick, could commit twice. Once only.
+12. Undo out of `skipped` restores its step before any early return.
+13. A follow-up row and its step `drafted` were written in two transactions. One now (`commit` takes `newDrafts`).
+14. Until 6d a reply doesn't stop a sequence: recorded below, and the empty state no longer promises it.
+15. The day tick reruns on resume from sleep (`powerMonitor`). Commands now tell the page's log and creators too.
+16. The seed's comment fixed. The plan records that no parked or stopped creator is seeded.
+17. This file and the status table, updated in this commit.
+
+## Known limits after 6c
+
+- On live data, until 6d stores replies, a creator who replies keeps getting follow-up drafts. None is sent without a person pressing Send.
+- Example follow-ups use the stand-in text of a first email.
+- Stop, Resume, Park and Wake are commands with an Undo button on their toast; Ctrl Z does not cover them (as with mailboxes in 6b).
 
 ## What 6b's review found and how it was fixed (keep for ADR 0018 in 6e)
 
