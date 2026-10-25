@@ -16,7 +16,7 @@ from collections.abc import Mapping, Sequence
 from gratovo_pipeline import store
 from gratovo_pipeline.protocol import Outcome
 from gratovo_pipeline.search import auto_clean, backfill
-from gratovo_pipeline.search.context import Search
+from gratovo_pipeline.search.context import ChannelUnreadableError, Search
 from gratovo_pipeline.search.uploads import UploadCollector
 from gratovo_pipeline.youtube import BATCH_SIZE, ChannelInfo
 
@@ -163,7 +163,13 @@ def _read_uploads(
             for position, (handle, channel_id) in enumerate(reading.items(), 1):
                 if every and position > 1 and (position - 1) % every == 0:
                     search.pacer.sweep_break(position - 1)
-                video_ids = sweep.recent_video_ids(handle)
+                try:
+                    video_ids = sweep.recent_video_ids(handle)
+                except ChannelUnreadableError:
+                    store.defer_unreadable_channel(search.conn, channel_id)  # the backlog's
+                    # A failed read was still a page request: paced like one that worked.
+                    search.pacer.pause("recent_videos_delay")
+                    continue
                 search.pacer.pause("recent_videos_delay")
                 collector.add(channel_id, video_ids)
         finally:

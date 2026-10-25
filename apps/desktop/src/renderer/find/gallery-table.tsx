@@ -1,4 +1,4 @@
-import { fitOf, formatCount, type CatalogItem } from "@gratovo/core/find";
+import { fitOf, formatCount, uploadsUnread, type CatalogItem } from "@gratovo/core/find";
 import { Icon, Tag } from "@gratovo/ui";
 import { memo, useMemo, useState } from "react";
 
@@ -18,8 +18,26 @@ interface RowProps {
   readonly onPick: (id: string, shiftKey: boolean) => void;
 }
 
+/** "Not read yet" on one line, the last known figure under it: a column stays narrow (D45). */
+function Unread({
+  lastKnown,
+  failed,
+}: {
+  readonly lastKnown: string | null;
+  readonly failed: boolean;
+}) {
+  const words = failed ? strings.unread.failed : strings.unread;
+  return (
+    <span className="tbl-unread">
+      <span>{words.label}</span>
+      {lastKnown === null ? null : <small>{words.lastKnownShort(lastKnown)}</small>}
+    </span>
+  );
+}
+
 const Row = memo(function Row({ item, selected, now, onOpen, onPick }: RowProps) {
   const fit = useMemo(() => fitOf(item), [item]);
+  const unread = uploadsUnread(item);
   const latest = item.latestUploadAt === null ? text.none : ago(item.latestUploadAt, now);
   return (
     <tr
@@ -78,9 +96,29 @@ const Row = memo(function Row({ item, selected, now, onOpen, onPick }: RowProps)
       >
         <FitChip fit={fit} />
       </td>
-      <td className="n">{formatCount(item.medianViews)}</td>
+      <td className="n">
+        {unread ? (
+          <Unread
+            lastKnown={item.medianViews > 0 ? formatCount(item.medianViews) : null}
+            failed={item.readFailed}
+          />
+        ) : item.hasNumbers ? (
+          formatCount(item.medianViews)
+        ) : (
+          text.none
+        )}
+      </td>
       <td className="n">{item.subscribers === null ? text.none : formatCount(item.subscribers)}</td>
-      <td className="n">{latest}</td>
+      <td className="n">
+        {unread ? (
+          <Unread
+            lastKnown={item.latestUploadAt === null ? null : ago(item.latestUploadAt, now)}
+            failed={item.readFailed}
+          />
+        ) : (
+          latest
+        )}
+      </td>
       <td>{item.country ?? text.none}</td>
       <td>
         {item.emailConfirmed ? (

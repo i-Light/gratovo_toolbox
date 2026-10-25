@@ -41,6 +41,8 @@ function row(id: string, over: Partial<CatalogItem> = {}): CatalogItem {
     archiveDueAt: null,
     archivedAt: null,
     hasNumbers: true,
+    uploadsRead: true,
+    readFailed: false,
     ...over,
   };
 }
@@ -157,6 +159,109 @@ describe("readArchived", () => {
     expect(ids("_")).toEqual([b, a]);
     expect(ids("\\")).toEqual([]);
     expect(readArchived(path, { q: "alpha", offset: 0, limit: 10 }, names).total).toBe(1);
+  });
+
+  it("reads what the tombstone kept: facts, keywords earliest first, no refetch link", () => {
+    const d = channelId("delta");
+    const other = join(folder, "kept.db");
+    const via = (keyword: string, at: string | null) => ({ keyword, limit: 50, discovered_at: at });
+    writePipelineDb(other, {
+      archive: [
+        {
+          id: d,
+          at: "2026-10-06 00:00:00",
+          handle: "@delta_ai",
+          subscribers: "9100",
+          name: "Delta AI",
+          country: "gb",
+          median: 31_000,
+          videos: 42,
+          uploads30: 5,
+          latestUpload: "2026-09-28 12:00:00",
+          foundVia: JSON.stringify([
+            via("agent news", "2026-09-03 00:00:00"),
+            via("__manual_refetch__", "2026-10-07 00:00:00"),
+            via("ai coding tools", "2026-09-01 00:00:00"),
+            via("agent news", "2026-08-30 00:00:00"),
+            via("no time", null),
+            { limit: 5 },
+          ]),
+        },
+      ],
+    });
+    const names = new Map([[d, { name: "App name", stage: null }]]);
+    const [item] = readArchived(other, { q: "", offset: 0, limit: 10 }, names).items;
+    expect(item).toMatchObject({
+      name: "Delta AI",
+      country: "GB",
+      medianViews: 31_000,
+      videos: 42,
+      uploads30: 5,
+      latestUploadAt: Date.UTC(2026, 8, 28, 12),
+    });
+    expect(item?.keywords).toEqual([
+      { keyword: "agent news", at: Date.UTC(2026, 7, 30) },
+      { keyword: "ai coding tools", at: Date.UTC(2026, 8, 1) },
+      { keyword: "no time", at: null },
+    ]);
+    // The tombstone's own name is searchable too.
+    expect(readArchived(other, { q: "delta ai", offset: 0, limit: 10 }, none).total).toBe(1);
+  });
+
+  it("falls back to the app's name, and reads bad found_via and unknown numbers as none", () => {
+    const e = channelId("echo");
+    const other = join(folder, "bad.db");
+    writePipelineDb(other, {
+      archive: [{ id: e, at: "2026-10-06 00:00:00", foundVia: "{not json", country: "usa" }],
+    });
+    const names = new Map([[e, { name: "Echo Agents", stage: null }]]);
+    const [item] = readArchived(other, { q: "", offset: 0, limit: 10 }, names).items;
+    expect(item).toMatchObject({
+      name: "Echo Agents",
+      country: null,
+      medianViews: null,
+      uploads30: null,
+      latestUploadAt: null,
+      videos: null,
+      keywords: [],
+    });
+  });
+
+  it("caps the keywords at 50", () => {
+    const f = channelId("foxtrot");
+    const other = join(folder, "many.db");
+    const many = Array.from({ length: 60 }, (_, n) => ({
+      keyword: `ai topic ${String(n).padStart(2, "0")}`,
+      discovered_at: `2026-09-01 00:${String(n).padStart(2, "0")}:00`,
+    }));
+    writePipelineDb(other, {
+      archive: [{ id: f, at: "2026-10-06 00:00:00", foundVia: JSON.stringify(many) }],
+    });
+    const [item] = readArchived(other, { q: "", offset: 0, limit: 10 }, none).items;
+    expect(item?.keywords).toHaveLength(50);
+    expect(item?.keywordsTotal).toBe(60);
+    expect(item?.keywords[0]?.keyword).toBe("ai topic 00");
+  });
+
+  it("reads a schema-3 file (no fact columns) as none, without failing", () => {
+    const old = join(folder, "schema3.db");
+    writePipelineDb(old, {
+      schema3: true,
+      archive: [{ id: a, at: "2026-10-02 00:00:00", handle: "@alpha_ai", subscribers: "48200" }],
+    });
+    const names = new Map([[a, { name: "Alpha AI", stage: null }]]);
+    const page = readArchived(old, { q: "alpha", offset: 0, limit: 10 }, names);
+    expect(page.total).toBe(1);
+    expect(page.items[0]).toMatchObject({
+      name: "Alpha AI",
+      subscribers: 48_200,
+      country: null,
+      medianViews: null,
+      uploads30: null,
+      latestUploadAt: null,
+      videos: null,
+      keywords: [],
+    });
   });
 
   it("reads a blank handle as none", () => {

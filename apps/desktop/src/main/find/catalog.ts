@@ -19,6 +19,7 @@ import {
   type FoundEmail,
 } from "@gratovo/core/find";
 
+import { refetchKeyword } from "../pipeline/protocol";
 import type { Catalog, CatalogDeps } from "./catalog-types";
 import { parseTime, readRunWindows, readRuns, runAt, type RunWindow } from "./runs";
 
@@ -33,6 +34,8 @@ const videoPattern = /^[A-Za-z0-9_-]{11}$/;
 const itemVideos = 15;
 const listVideos = 3;
 const sponsorMax = 50;
+/** Failed reads after which the pipeline stops retrying a channel (`READ_GIVE_UP`). */
+const readGiveUp = 3;
 const descriptionMax = 5000;
 /** Stages that mean someone has been in touch (D12). */
 const contacted: ReadonlySet<CreatorStage> = new Set([
@@ -68,6 +71,8 @@ interface ChannelRow {
   profile_picture: string | null;
   country: string | null;
   first_seen_at: string | null;
+  /** Set once the channel's uploads have been read (D45). */
+  videos_fetched_at: string | null;
   videos_last_30: number | null;
   median_views_last_30: number | null;
   latest_upload_at: string | null;
@@ -75,6 +80,7 @@ interface ChannelRow {
   found_emails: string | null;
   /** Null when the file is older than schema 3 and has no such column. */
   found_email_sources: string | null;
+  read_failures: number | null;
 }
 
 interface VideoRow {
@@ -207,15 +213,21 @@ function build(dbPath: string | null, states: readonly CreatorState[], now: numb
     const db = new DatabaseSync(dbPath, { readOnly: true });
     try {
       // Schema 3 added `found_email_sources`; an older file has no such column.
-      const hasSources = (
-        db.prepare("PRAGMA table_info(channels)").all() as unknown as { name: string }[]
-      ).some((column) => column.name === "found_email_sources");
+      const channelColumns = new Set(
+        (db.prepare("PRAGMA table_info(channels)").all() as unknown as { name: string }[]).map(
+          (column) => column.name,
+        ),
+      );
+      const hasSources = channelColumns.has("found_email_sources");
+      // The pipeline's own count of failed reads (schema 4+); an older file has none.
+      const hasFailures = channelColumns.has("read_failures");
       channels.push(
         ...(db
           .prepare(
             `SELECT channel_id, handle, name, subscribers, profile_picture, country, first_seen_at,
-               videos_last_30, median_views_last_30, latest_upload_at, seen_brands, found_emails,
-               ${hasSources ? "found_email_sources" : "NULL AS found_email_sources"}
+               videos_fetched_at, videos_last_30, median_views_last_30, latest_upload_at, seen_brands, found_emails,
+               ${hasSources ? "found_email_sources" : "NULL AS found_email_sources"},
+               ${hasFailures ? "read_failures" : "NULL AS read_failures"}
              FROM channels`,
           )
           .all() as unknown as ChannelRow[]),
@@ -238,9 +250,10 @@ function build(dbPath: string | null, states: readonly CreatorState[], now: numb
           `SELECT channel_id, keyword, discovered_at FROM (
              SELECT channel_id, keyword, discovered_at, ROW_NUMBER() OVER
                (PARTITION BY channel_id ORDER BY discovered_at, keyword) AS n FROM channel_keywords
+             WHERE keyword <> ?
            ) WHERE n = 1`,
         )
-        .all() as unknown as KeywordRow[];
+        .all(refetchKeyword) as unknown as KeywordRow[];
       for (const row of keywordRows) {
         keywords.set(row.channel_id, row);
       }
@@ -306,6 +319,8 @@ function build(dbPath: string | null, states: readonly CreatorState[], now: numb
       archiveDueAt: state?.archiveDueAt ?? null,
       archivedAt: archived.get(id) ?? null,
       hasNumbers: true,
+      uploadsRead: channel.videos_fetched_at !== null && channel.videos_fetched_at.trim() !== "",
+      readFailed: (channel.read_failures ?? 0) >= readGiveUp,
     });
   }
 
@@ -341,6 +356,8 @@ function build(dbPath: string | null, states: readonly CreatorState[], now: numb
       archiveDueAt: state.archiveDueAt,
       archivedAt: archived.get(state.id) ?? null,
       hasNumbers: false,
+      uploadsRead: false,
+      readFailed: false,
     });
   }
   return { rows, pictures };

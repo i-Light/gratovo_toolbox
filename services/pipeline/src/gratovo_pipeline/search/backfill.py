@@ -17,7 +17,7 @@ from __future__ import annotations
 import threading
 
 from gratovo_pipeline import store
-from gratovo_pipeline.search.context import Search
+from gratovo_pipeline.search.context import ChannelUnreadableError, Search
 from gratovo_pipeline.search.uploads import UploadCollector
 
 # One worker at a time: the backlog is one shared list, and two workers taking a slice at once
@@ -54,7 +54,14 @@ def backfill_missing_videos(search: Search, limit: int | None = None) -> int:
     sweep = search.source.sweep()
     try:
         for handle, channel_id in backlog.items():
-            video_ids = sweep.recent_video_ids(handle)
+            try:
+                video_ids = sweep.recent_video_ids(handle)
+            except ChannelUnreadableError:
+                # Not stamped: it steps aside for longer each failure, and leaves the backlog
+                # after store.READ_GIVE_UP of them in a row.
+                store.defer_unreadable_channel(conn, channel_id)
+                search.pacer.pause("recent_videos_delay")
+                continue
             search.pacer.pause("recent_videos_delay")
             collector.add(channel_id, video_ids)
             # Persist what is complete now: the loop may not come back from the next read.

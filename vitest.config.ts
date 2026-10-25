@@ -8,5 +8,11 @@ export default defineConfig({
       "apps/*/src/**/*.test.{ts,tsx}",
       "supabase/functions/**/*.test.ts",
     ],
+    // The checks run on the owner's PC (`pnpm verify`). With a worker per core the page tests
+    // starved each other: 130-row renders that take 2 s alone hit 6 s and timed out. Half the
+    // cores costs about 6 s on the whole run and leaves the slowest test near 4 s; the longer
+    // limit keeps a busy machine from failing a correct test.
+    maxWorkers: "50%",
+    testTimeout: 10_000,
   },
 });

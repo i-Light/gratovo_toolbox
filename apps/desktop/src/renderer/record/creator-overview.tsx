@@ -1,9 +1,9 @@
-import { formatCount } from "@gratovo/core/find";
+import { formatCount, uploadsUnread } from "@gratovo/core/find";
 import { Icon, Tag } from "@gratovo/ui";
 import { useState } from "react";
 
 import { Thumb } from "../find/thumb";
-import { ago, shortDate } from "../lib/format";
+import { ago, shortDate, unreadWords } from "../lib/format";
 import { strings } from "../strings";
 import { videoUrl, type CreatorDetail } from "./detail";
 
@@ -13,10 +13,18 @@ const numbers = text.numbers;
 /** How much of the description shows before "Show all". */
 export const descriptionShown = 600;
 
-function Stat({ value, label }: { readonly value: string; readonly label: string }) {
+function Stat({
+  value,
+  label,
+  muted = false,
+}: {
+  readonly value: string;
+  readonly label: string;
+  readonly muted?: boolean;
+}) {
   return (
     <div className="stat">
-      <b>{value}</b>
+      <b className={muted ? "muted" : undefined}>{value}</b>
       <small>{label}</small>
     </div>
   );
@@ -27,6 +35,7 @@ export function CreatorOverview({ item }: { readonly item: CreatorDetail }) {
   const [all, setAll] = useState(false);
   // Read once on mount: the ages do not need to tick.
   const [now] = useState(() => Date.now());
+  const unread = uploadsUnread(item);
   const description = item.description;
   const long = description.length > descriptionShown;
   const found =
@@ -41,12 +50,41 @@ export function CreatorOverview({ item }: { readonly item: CreatorDetail }) {
             value={item.subscribers === null ? numbers.hidden : formatCount(item.subscribers)}
             label={numbers.subscribers}
           />
-          <Stat value={formatCount(item.medianViews)} label={numbers.median} />
-          <Stat value={String(item.uploads30)} label={numbers.uploads} />
+          <Stat
+            value={
+              unread
+                ? unreadWords(
+                    item.medianViews > 0 ? formatCount(item.medianViews) : null,
+                    item.readFailed,
+                  )
+                : formatCount(item.medianViews)
+            }
+            label={numbers.median}
+            muted={unread}
+          />
+          <Stat
+            value={
+              unread
+                ? unreadWords(item.uploads30 > 0 ? String(item.uploads30) : null, item.readFailed)
+                : String(item.uploads30)
+            }
+            label={numbers.uploads}
+            muted={unread}
+          />
           <Stat value={item.country ?? numbers.unknown} label={numbers.country} />
           <Stat
-            value={item.latestUploadAt === null ? numbers.unknown : ago(item.latestUploadAt, now)}
+            value={
+              unread
+                ? unreadWords(
+                    item.latestUploadAt === null ? null : ago(item.latestUploadAt, now),
+                    item.readFailed,
+                  )
+                : item.latestUploadAt === null
+                  ? numbers.unknown
+                  : ago(item.latestUploadAt, now)
+            }
             label={numbers.latest}
+            muted={unread}
           />
           <Stat value={found} label={numbers.found} />
         </div>

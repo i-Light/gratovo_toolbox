@@ -50,6 +50,13 @@ const tomb = (n: number, over: Partial<ArchivedChannel> = {}): ArchivedChannel =
   archivedAt: Date.UTC(2026, 9, 1),
   subscribers: 120_000,
   stage: null,
+  country: null,
+  medianViews: null,
+  uploads30: null,
+  latestUploadAt: null,
+  videos: null,
+  keywords: [],
+  keywordsTotal: 0,
   ...over,
 });
 
@@ -170,6 +177,53 @@ describe("Toolbox › Archived for good", () => {
         .filter(([c]) => c === "toolbox:archived")
         .map(([, i]) => (i as { offset: number }).offset),
     ).toContain(50);
+  });
+
+  it("counts every keyword in +N more, not just the 50 sent", async () => {
+    const keywords = Array.from({ length: 50 }, (_, n) => ({
+      keyword: `ai topic ${String(n)}`,
+      at: n,
+    }));
+    stubToolboxBridge({ archived: [tomb(1, { name: "Agent Lab", keywords, keywordsTotal: 60 })] });
+    await show();
+    const section = within(screen.getByRole("region", { name: t.forGoodTitle }));
+    expect(section.getByText(/ai topic 0, ai topic 1, ai topic 2 \+57 more/)).toBeTruthy();
+  });
+
+  it("shows what the tombstone kept, and not known for the rest", async () => {
+    const rows = [
+      tomb(1, {
+        name: "Agent Lab",
+        country: "US",
+        medianViews: 41_000,
+        uploads30: 6,
+        keywords: [
+          { keyword: "ai agents", at: 1 },
+          { keyword: "llm tools", at: 2 },
+          { keyword: "prompt tips", at: 3 },
+          { keyword: "rag", at: 4 },
+          { keyword: "mcp", at: 5 },
+        ],
+        keywordsTotal: 5,
+      }),
+      tomb(2),
+    ];
+    stubToolboxBridge({ archived: rows });
+    await show();
+    const section = within(screen.getByRole("region", { name: t.forGoodTitle }));
+    expect(
+      section.getByText(
+        /Country: US · Subscribers: 120K · Median views: 41K · Uploads in 30 days: 6 · Found by: ai agents, llm tools, prompt tips \+2 more/,
+      ),
+    ).toBeTruthy();
+    expect(
+      section.getByText(
+        "Country: not known · Subscribers: 120K · Median views: not known · Uploads in 30 days: not known · Found by: not known",
+      ),
+    ).toBeTruthy();
+    expect(screen.getByLabelText(t.searchLabel).getAttribute("placeholder")).toMatch(
+      /name or handle/i,
+    );
   });
 
   it("searches after a short wait", async () => {

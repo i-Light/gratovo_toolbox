@@ -69,6 +69,8 @@ export function aiChannel(id: string, name: string, over: Partial<CatalogItem> =
     archiveDueAt: null,
     archivedAt: null,
     hasNumbers: true,
+    uploadsRead: true,
+    readFailed: false,
     ...over,
   };
 }

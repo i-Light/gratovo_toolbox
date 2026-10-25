@@ -23,12 +23,25 @@ class SearchBlockedError(RuntimeError):
     is to stop making requests: a run that carries on lengthens the block."""
 
 
+class ChannelUnreadableError(RuntimeError):
+    """One channel's uploads could not be read (its page failed, not a block). The channel is
+    not "read, zero uploads": the caller leaves it unstamped, so a later slice tries again.
+
+    `partial` holds the ids read before a later page failed. A search must not take them as a
+    read (the window may be short); the backfill job, which only adds older uploads, uses them."""
+
+    def __init__(self, handle: str, *, partial: Sequence[str] = ()) -> None:
+        super().__init__(handle)
+        self.partial: list[str] = list(partial)
+
+
 class Sweep(Protocol):
     """Reads channels' recent uploads one after another, on one session (a browser opens the
     connection once and keeps it)."""
 
     def recent_video_ids(self, handle: str, *, limit: int = RECENT_VIDEOS) -> list[str]:
-        """At most `limit` of the channel's newest upload ids (15 unless a job asks for more)."""
+        """At most `limit` of the channel's newest upload ids (15 unless a job asks for more).
+        Raises ChannelUnreadableError when the read failed; an empty list means no uploads."""
         ...
 
     def close(self) -> None: ...

@@ -2,6 +2,7 @@
 pipeline.db in a temporary folder; every line is checked against the protocol schema."""
 
 import io
+import json
 import sqlite3
 from collections.abc import Callable, Iterator
 from pathlib import Path
@@ -195,3 +196,120 @@ def test_a_crash_ends_failed_without_the_error_text(
     assert lines[0]["state"] == "failed"
     assert lines[0]["error"]["code"] == "crash"
     assert "secret" not in lines[0]["error"]["message"]
+
+
+# --- the archive keeps its data (plan D42 to D44) ---
+
+
+def add_full_channel(conn: sqlite3.Connection, channel_id: str) -> None:
+    """A channel read in full: its facts, keywords found on different days, and two videos."""
+    conn.execute(
+        "INSERT INTO channels (channel_id, handle, name, subscribers, country, first_seen_at, "
+        " videos_fetched_at, videos_last_30, median_views_last_30, latest_upload_at, "
+        " seen_brands, found_emails, found_email_sources) "
+        "VALUES (?, '@llmnewsroom', 'LLM Newsroom', '76000', 'GB', '2026-01-01T00:00:00Z', "
+        " '2026-03-02T00:00:00Z', 1, 5400, '2026-03-01T00:00:00Z', '[\"Perplexity\"]', "
+        ' \'["desk@llmnewsroom.example"]\', \'[{"email": "desk@llmnewsroom.example"}]\')',
+        (channel_id,),
+    )
+    conn.executemany(
+        "INSERT INTO channel_keywords (channel_id, keyword, discovered_at) VALUES (?, ?, ?)",
+        [
+            (channel_id, "ai news", "2026-01-01T00:00:00Z"),
+            (channel_id, "gpt release recap", "2026-02-14T00:00:00Z"),
+        ],
+    )
+    conn.executemany(
+        "INSERT INTO videos (video_id, channel_id, view_count) VALUES (?, ?, ?)",
+        [(f"{channel_id}_1", channel_id, "5400"), (f"{channel_id}_2", channel_id, "8000")],
+    )
+    conn.commit()
+
+
+def test_the_sweep_keeps_every_fact_and_every_keyword(
+    tmp_path: Path, check_from_pipeline: Check
+) -> None:
+    conn = db(tmp_path)
+    add_full_channel(conn, UC_A)
+
+    run(tmp_path, check_from_pipeline, sweep_job((UC_A, "@llmnewsroom")))
+
+    row = tombstone(conn, UC_A)
+    assert row is not None
+    assert (row["name"], row["country"], row["subscribers"]) == ("LLM Newsroom", "GB", "76000")
+    assert (row["videos_last_30"], row["latest_upload_at"]) == (1, "2026-03-01T00:00:00Z")
+    assert row["found_at"] == "2026-01-01T00:00:00Z"
+    assert (row["median_views_last_30"], row["videos_found_count"]) == (5400, 2)
+    assert row["seen_brands"] == '["Perplexity"]'
+    assert row["found_emails"] == '["desk@llmnewsroom.example"]'
+    assert row["found_email_sources"] == '[{"email": "desk@llmnewsroom.example"}]'
+    assert [(e["keyword"], e["discovered_at"]) for e in json.loads(row["found_via"])] == [
+        ("ai news", "2026-01-01T00:00:00Z"),
+        ("gpt release recap", "2026-02-14T00:00:00Z"),
+    ]
+    conn.close()
+
+
+def test_a_re_sweep_merges_a_row_that_came_back_and_loses_nothing(
+    tmp_path: Path, check_from_pipeline: Check
+) -> None:
+    conn = db(tmp_path)
+    add_full_channel(conn, UC_A)
+    run(tmp_path, check_from_pipeline, sweep_job((UC_A, "@llmnewsroom")))
+    before = dict(tombstone(conn, UC_A) or {})
+    conn.execute(
+        "INSERT INTO channels (channel_id, handle, first_seen_at) "
+        "VALUES (?, '@llmnewsroom', '2026-09-01T00:00:00Z')",
+        (UC_A,),
+    )
+    conn.execute(
+        "INSERT INTO channel_keywords (channel_id, keyword, discovered_at) "
+        "VALUES (?, 'ai agents news', '2026-09-01T00:00:00Z')",
+        (UC_A,),
+    )
+    conn.commit()
+
+    lines = run(tmp_path, check_from_pipeline, sweep_job((UC_A, None)))
+
+    assert lines[0]["data"] == {"archived": 0}, "merged, not new"
+    after = tombstone(conn, UC_A)
+    assert after is not None
+    for key in ("label", "archived_at", "found_at", "subscribers", "name", "videos_found_count"):
+        assert after[key] == before[key], key
+    assert [e["keyword"] for e in json.loads(after["found_via"])] == [
+        "ai news",
+        "gpt release recap",
+        "ai agents news",
+    ]
+    assert store.get_channel_row(conn, UC_A) is None
+    conn.close()
+
+
+def test_restore_brings_the_row_and_its_keywords_back(
+    tmp_path: Path, check_from_pipeline: Check
+) -> None:
+    conn = db(tmp_path)
+    add_full_channel(conn, UC_A)
+    run(tmp_path, check_from_pipeline, sweep_job((UC_A, "@llmnewsroom")))
+
+    lines = run(tmp_path, check_from_pipeline, {"kind": "archive.restore", "channelIds": [UC_A]})
+
+    assert lines[0]["data"] == {"restored": [{"channelId": UC_A, "handle": "@llmnewsroom"}]}
+    assert tombstone(conn, UC_A) is None
+    row = store.get_channel_row(conn, UC_A)
+    assert row is not None
+    assert (row["name"], row["subscribers"], row["first_seen_at"]) == (
+        "LLM Newsroom",
+        "76000",
+        "2026-01-01T00:00:00Z",
+    )
+    assert (row["videos_fetched_at"], row["force_refetch"]) == (None, 1)
+    keywords = conn.execute(
+        "SELECT keyword, discovered_at FROM channel_keywords WHERE channel_id=? ORDER BY 2",
+        (UC_A,),
+    ).fetchall()
+    assert [tuple(k) for k in keywords] == [
+        ("ai news", "2026-01-01T00:00:00Z"),
+        ("gpt release recap", "2026-02-14T00:00:00Z"),
+    ]
+    conn.close()

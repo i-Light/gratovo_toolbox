@@ -1,4 +1,10 @@
-import { emptyFindFilter, fitOf, formatCount, type CatalogItem } from "@gratovo/core/find";
+import {
+  emptyFindFilter,
+  fitOf,
+  formatCount,
+  uploadsUnread,
+  type CatalogItem,
+} from "@gratovo/core/find";
 import { Btn, Empty } from "@gratovo/ui";
 import { useEffect, useRef } from "react";
 
@@ -201,7 +207,12 @@ export function Contacts() {
                   {item.subscribers === null
                     ? strings.findTriage.subscribersHidden
                     : text.subscribers(formatCount(item.subscribers))}{" "}
-                  · {text.median(formatCount(item.medianViews))}
+                  ·{" "}
+                  {uploadsUnread(item)
+                    ? item.readFailed
+                      ? strings.unread.failed.label
+                      : strings.unread.label
+                    : text.median(formatCount(item.medianViews))}
                 </span>
               </div>
               <FitChip fit={fitOf(item)} />

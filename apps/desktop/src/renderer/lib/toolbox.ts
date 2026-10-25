@@ -344,6 +344,8 @@ function itemFromCreator(c: Creator): CatalogItem {
     archiveDueAt: c.archiveDueAt,
     archivedAt: null,
     hasNumbers: false,
+    uploadsRead: false,
+    readFailed: false,
   };
 }
 

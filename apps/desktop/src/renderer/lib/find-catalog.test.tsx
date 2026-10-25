@@ -43,6 +43,8 @@ function item(id: string, name: string): CatalogItem {
     archiveDueAt: null,
     archivedAt: null,
     hasNumbers: true,
+    uploadsRead: true,
+    readFailed: false,
   };
 }
 

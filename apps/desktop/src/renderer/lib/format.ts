@@ -3,6 +3,15 @@ import { strings } from "../strings";
 const { time } = strings;
 
 /**
+ * "Not read yet", with the last known figure when there is a real one (more than 0): the page
+ * shows this where a channel's uploads were never read, so a 0 never passes for a fact (D45).
+ */
+export function unreadWords(lastKnown: string | null, failed = false): string {
+  const words = failed ? strings.unread.failed : strings.unread;
+  return lastKnown === null ? words.label : words.lastKnown(lastKnown);
+}
+
+/**
  * A length of time in the words the rail and plans use: "45 min", "1 h", "1 h 30 min". The input
  * is rounded to whole minutes first, so 89.5 reads as "1 h 30 min".
  */

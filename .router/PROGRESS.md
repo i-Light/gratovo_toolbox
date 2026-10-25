@@ -10,7 +10,20 @@ Started 2026-10-24. The plan is `.router/PLAN.md` (decisions D1 to D18, contract
 
 **5d done:** PR #23 (Toolbox: Archive, Never contact, Activity log; D34 to D41).
 
-**Next: 5e** in a fresh session: the Find flow suite (D18), ADR 0017 (step 5's decisions D1 to D41), architecture and parity notes, the docs/workflow.md lessons below, the status table, and `.router/` removed (step 5 complete).
+**Now: 5d-2** (the archive keeps its data, owner 2026-10-25) on branch `feat/5d-archive-data`. Plan: PLAN.md "5d-2" (D42 to D46).
+
+| id | tier | state | note |
+|---|---|---|---|
+| A1 | H | done | schema 4 (tombstone facts + `channels.videos_known`), one tombstone builder with merge, `restore_channel_locally`, refetch and import use it; old-app failure modes as tests (no keywords, INSERT OR REPLACE blanking, unarchive losing keywords, 0 for unknown, half-written tombstone). Newer known fact wins on merge |
+| A2 | N | done | a failed upload read was stamped "zero uploads" and dropped for good: now `ChannelUnreadableError`, the channel stays a candidate and steps aside 1 day (`channels.unreadable_until`, schema 4); oldest-first starvation fixed by that back-off; delayed, restored and zero-upload channels proven. Open for the owner: the backlog doesn't apply the median and uploads bounds after reading a deferred channel (old behaviour too) |
+| A3 | N | done | `ArchivedChannel` facts, `CatalogItem.uploadsRead`, `refetchKeyword` in protocol.ts, readers tolerate schema 3 and skip the refetch keyword (catalog, results, toolbox). `results.ts` skip untested |
+| A4 | N | done | Find says "Not read yet" (last known under it) where uploads were never read, never 0; unread go last on median and latest sorts, score 0 on median and posting, never gold. A creator with no pipeline row says "No numbers yet" (card) or "–" (table). "Archived for good" rows show country, subscribers, median, uploads, found by (3 + N more), "not known" otherwise. Lead fixed the row layout (text ran together) and the table cell wrap; looked at 1440 dark |
+| R5 | H | done | no blockers; 5 should-fix, 7 nits: lifetime median and a known 0 lost on restore then re-archive, endless daily retry of a channel that never reads, no pause after a failed read, import skips an existing tombstone, plus nits. Became F1, F2 |
+| F1 | H | done | R5 1–9 fixed, 20 new tests (1566 pass): median with basis and a known 0 kept across bring back then archive (`median_known`, `median_known_basis`, `videos_last_30_known`); `read_failures`, back-off 1/3/7 days, gives up at 3 (a person's refetch or bring back resets it); a pause after every failed read (keyword, backfill, refetch); the import merges into an existing tombstone (`merge_archive_copies`); refetch keyword never written; backfill keeps partial ids. Version 4 re-runs on open |
+| F2 | N | done | `CatalogItem.readFailed` (`read_failures >= 3`, tolerant read), "Couldn't read" everywhere "Not read yet" shows; `ArchivedChannel.keywordsTotal` for "+N more"; test that results.ts skips the refetch keyword |
+| L5 | lead | done | lint, typecheck, 2481 vitest + 1566 pytest, 68 e2e pass; status table; PR, CI, merge |
+
+**Then: 5e** in a fresh session: the Find flow suite (D18), ADR 0017 (step 5's decisions D1 to D41), architecture and parity notes, the docs/workflow.md lessons below, the status table, and `.router/` removed (step 5 complete).
 
 ## Tasks, 5d
 
@@ -88,3 +101,5 @@ Started 2026-10-24. The plan is `.router/PLAN.md` (decisions D1 to D18, contract
 - Reject toast says "It leaves Review new; Undo brings it back." 5c changes it to the archive wording when Toolbox › Archive arrives.
 - Promo codes ("Use code X") show as sponsors: the ported detector does that on purpose (old behaviour).
 - The heavy-owner catalog timing test can exceed its bound when the whole suite runs in parallel on a busy machine; it is skipped in CI.
+- Workflow lesson (5d-2): an agent had `git add`ed its half-done tests, and the lead's `git add <paths> && git commit` took the whole index into another task's commit. Tell agents not to stage, and check `git diff --cached --stat` before each commit.
+- Found by the first `pnpm verify` run (3 in 100 under load): a parallel search crashed with "database is locked" when a rejected channel was archived. F1's tombstone reads before it writes, and a WAL read-then-write transaction can't wait for the lock. `_atomic` now opens with `BEGIN IMMEDIATE`; a two-connection test proves it waits.

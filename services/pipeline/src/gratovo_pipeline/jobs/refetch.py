@@ -38,7 +38,13 @@ from gratovo_pipeline.protocol import (
 from gratovo_pipeline.scrapetube import scrapetube
 from gratovo_pipeline.scrapetube.proxy_pool import ProxyPool
 from gratovo_pipeline.search import auto_clean
-from gratovo_pipeline.search.context import Search, SearchBlockedError, Source, Sweep
+from gratovo_pipeline.search.context import (
+    ChannelUnreadableError,
+    Search,
+    SearchBlockedError,
+    Source,
+    Sweep,
+)
 from gratovo_pipeline.search.discover import LiveSource
 from gratovo_pipeline.search.pacing import Pacer
 from gratovo_pipeline.search.uploads import UploadCollector
@@ -165,8 +171,9 @@ def _resolve(
         if resolved is None:
             return None
         channel_id, info = resolved
-        # A person naming this handle overrides the tombstone, as re-adding it by hand does.
-        store.unarchive(conn, channel_id)
+        # A person naming this handle overrides the tombstone, as re-adding it by hand does. The
+        # row comes back from it with the keywords that really found it (D44), not only ours.
+        store.restore_channel_locally(conn, channel_id)
         store.record_channel_discovery(conn, handle, channel_id, keyword)
         store.force_refetch_by_handle(conn, handle)
     else:
@@ -233,7 +240,17 @@ def _refetch_one(
 
     collector = UploadCollector(search)
     try:
-        collector.add(channel_id, sweep.recent_video_ids(handle))
+        try:
+            video_ids = sweep.recent_video_ids(handle)
+        except ChannelUnreadableError:
+            # Left unstamped for the backlog, which tries again later (store.READ_BACKOFF_DAYS).
+            store.defer_unreadable_channel(conn, channel_id)
+            search.warn(f"Could not read {handle}'s uploads. The backlog will try again.")
+            tally.failed.append(handle)
+            # A failed read was still a page request: paced like one that worked.
+            search.pacer.pause("recent_videos_delay")
+            return
+        collector.add(channel_id, video_ids)
         search.pacer.pause("recent_videos_delay")
     finally:
         collector.finish()

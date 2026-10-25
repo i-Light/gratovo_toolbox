@@ -10,6 +10,7 @@ import {
   type ToolboxList,
 } from "@gratovo/core/find";
 
+import { refetchKeyword } from "../pipeline/protocol";
 import { parseTime } from "./runs";
 
 /**
@@ -132,6 +133,70 @@ interface ArchiveRow {
   label: string | null;
   archived_at: string | null;
   subscribers: string | number | null;
+  name: string | null;
+  country: string | null;
+  videos_last_30: number | null;
+  latest_upload_at: string | null;
+  videos_found_count: number | null;
+  median_views_last_30: number | null;
+  found_via: string | null;
+}
+
+const keywordsMax = 50;
+
+/** A whole non-negative number, or none ("never known" stays null, never 0). */
+function wholeOf(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0
+    ? Math.floor(value)
+    : null;
+}
+
+/**
+ * The keywords in `found_via`, earliest first (no time last), up to 50. Bad JSON, a bad entry and
+ * the refetch keyword are skipped (D44); a repeat keeps its earliest time.
+ */
+export function keywordsOf(text: string | null): ArchivedChannel["keywords"] {
+  return keywordsWithTotal(text).keywords;
+}
+
+/** The capped keyword list and the count of every keyword before the cap ("+N more"). */
+export function keywordsWithTotal(text: string | null): {
+  keywords: ArchivedChannel["keywords"];
+  total: number;
+} {
+  const none = { keywords: [], total: 0 };
+  if (text === null) {
+    return none;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return none;
+  }
+  if (!Array.isArray(parsed)) {
+    return none;
+  }
+  const byKeyword = new Map<string, number | null>();
+  for (const entry of parsed as unknown[]) {
+    if (typeof entry !== "object" || entry === null) {
+      continue;
+    }
+    const { keyword, discovered_at: when } = entry as Record<string, unknown>;
+    if (typeof keyword !== "string" || keyword.trim() === "" || keyword === refetchKeyword) {
+      continue;
+    }
+    const word = keyword.trim().slice(0, 500);
+    const at = parseTime(when);
+    const earlier = byKeyword.get(word);
+    if (earlier === undefined || (at !== null && (earlier === null || at < earlier))) {
+      byKeyword.set(word, at);
+    }
+  }
+  const keywords = [...byKeyword]
+    .map(([keyword, at]) => ({ keyword, at }))
+    .sort((a, b) => (a.at ?? Infinity) - (b.at ?? Infinity) || a.keyword.localeCompare(b.keyword));
+  return { keywords: keywords.slice(0, keywordsMax), total: keywords.length };
 }
 
 /** "48200" is a number; "Hidden" and anything else is none. */
@@ -145,6 +210,17 @@ function subscribersOf(value: string | number | null): number | null {
 /** A stored handle, or null for none: the sweep stores a channel with no handle as "". */
 function handleOf(value: string | null): string | null {
   return value === null || value.trim() === "" ? null : value;
+}
+
+/** The tombstone's own name, or none when it kept none. */
+function nameOf(value: string | null): string | null {
+  return value === null || value.trim() === "" ? null : value.trim().slice(0, 500);
+}
+
+/** A two-letter country code, upper case; anything else is none. */
+function countryOf(value: string | null): string | null {
+  const code = (value ?? "").trim().toUpperCase();
+  return /^[A-Z]{2}$/.test(code) ? code : null;
 }
 
 /** Makes text safe in a LIKE pattern that says `ESCAPE '\'`. */
@@ -190,6 +266,10 @@ export function readArchived(
         }
         where = `WHERE channel_id IN (SELECT value FROM json_each(?)) OR handle LIKE ? ESCAPE '\\'`;
         args.push(JSON.stringify(ids), `%${likeEscape(q)}%`);
+        if (columns.has("name")) {
+          where += ` OR name LIKE ? ESCAPE '\\'`;
+          args.push(`%${likeEscape(q)}%`);
+        }
       }
       const total = (
         db.prepare(`SELECT COUNT(*) AS n FROM channel_archive ${where}`).get(...args) as {
@@ -199,22 +279,35 @@ export function readArchived(
       const rows = db
         .prepare(
           `SELECT channel_id, ${column("handle")}, ${column("label")}, ${column("archived_at")},
-             ${column("subscribers")}
+             ${column("subscribers")}, ${column("name")}, ${column("country")},
+             ${column("videos_last_30")}, ${column("latest_upload_at")},
+             ${column("videos_found_count")}, ${column("median_views_last_30")},
+             ${column("found_via")}
            FROM channel_archive ${where}
            ORDER BY archived_at DESC, channel_id LIMIT ? OFFSET ?`,
         )
         .all(...args, request.limit, request.offset) as unknown as ArchiveRow[];
       return {
         total,
-        items: rows.map((row) => ({
-          id: row.channel_id,
-          handle: handleOf(row.handle),
-          name: names.get(row.channel_id)?.name ?? null,
-          label: row.label,
-          archivedAt: parseTime(row.archived_at),
-          subscribers: subscribersOf(row.subscribers),
-          stage: names.get(row.channel_id)?.stage ?? null,
-        })),
+        items: rows.map((row) => {
+          const found = keywordsWithTotal(row.found_via);
+          return {
+            id: row.channel_id,
+            handle: handleOf(row.handle),
+            name: nameOf(row.name) ?? names.get(row.channel_id)?.name ?? null,
+            label: row.label,
+            archivedAt: parseTime(row.archived_at),
+            subscribers: subscribersOf(row.subscribers),
+            stage: names.get(row.channel_id)?.stage ?? null,
+            country: countryOf(row.country),
+            medianViews: wholeOf(row.median_views_last_30),
+            uploads30: wholeOf(row.videos_last_30),
+            latestUploadAt: parseTime(row.latest_upload_at),
+            videos: wholeOf(row.videos_found_count),
+            keywords: found.keywords,
+            keywordsTotal: found.total,
+          };
+        }),
       };
     } finally {
       db.close();

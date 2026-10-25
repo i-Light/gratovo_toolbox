@@ -18,6 +18,8 @@ const dayMs = 86_400_000;
 const clockMs = 60_000;
 /** The ids main will restore; a tombstone with any other id can't be brought back. */
 const channelIdLike = /^UC[A-Za-z0-9_-]{22}$/;
+/** How many keywords a row names before "+N more". */
+const keywordsShown = 3;
 /** The archive window when the rules haven't loaded: the default (plan D6). */
 const defaultDays = 7;
 
@@ -134,13 +136,24 @@ function ArchivedRow({
     row.name === null ? null : row.handle,
     labelWords(row.label),
     row.archivedAt === null ? null : text.archivedOn(shortDate(row.archivedAt)),
-    row.subscribers === null ? null : text.subscribers(formatCount(row.subscribers)),
   ].filter((x) => x !== null && x !== "");
+  // What the tombstone kept (D46); a fact it never had reads "not known", never 0.
+  const kept = [
+    text.keptCountry(row.country),
+    text.keptSubscribers(row.subscribers === null ? null : formatCount(row.subscribers)),
+    text.keptMedian(row.medianViews === null ? null : formatCount(row.medianViews)),
+    text.keptUploads(row.uploads30 === null ? null : String(row.uploads30)),
+    text.keptFoundBy(
+      row.keywords.slice(0, keywordsShown).map((k) => k.keyword),
+      Math.max(0, row.keywordsTotal - keywordsShown),
+    ),
+  ];
   return (
     <div className="row tb-gone">
       <span className="lt grow">
         <b>{title}</b>
         <small className="muted">{details.join(" · ")}</small>
+        <small className="muted">{kept.join(" · ")}</small>
       </span>
       {channelIdLike.test(row.id) ? (
         <Btn

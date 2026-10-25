@@ -1,9 +1,9 @@
-import { formatCount, isGold, type CatalogItem, type Fit } from "@gratovo/core/find";
+import { formatCount, isGold, uploadsUnread, type CatalogItem, type Fit } from "@gratovo/core/find";
 import type { RejectReason } from "@gratovo/core/data";
 import { Btn, Icon, Tag } from "@gratovo/ui";
 import { useEffect, useRef, useState } from "react";
 
-import { ago } from "../lib/format";
+import { ago, unreadWords } from "../lib/format";
 import { strings } from "../strings";
 import { FitChip } from "./fit-chip";
 import { Thumb, ThumbAvatar } from "./thumb";
@@ -18,10 +18,18 @@ const sponsorTags = 3;
 
 export type TriageItem = CatalogItem & { readonly fit: Fit };
 
-function Stat({ value, label }: { readonly value: string; readonly label: string }) {
+function Stat({
+  value,
+  label,
+  muted = false,
+}: {
+  readonly value: string;
+  readonly label: string;
+  readonly muted?: boolean;
+}) {
   return (
     <div className="stat">
-      <b>{value}</b>
+      <b className={muted ? "muted" : undefined}>{value}</b>
       <small>{label}</small>
     </div>
   );
@@ -65,6 +73,7 @@ export function TriageCard({
     }
   }, [asking]);
   const numbers = item.hasNumbers;
+  const unread = uploadsUnread(item);
   const sponsors = item.sponsors.slice(0, sponsorTags);
   const more = item.sponsors.length - sponsors.length;
   const before = item.emailedBefore;
@@ -123,14 +132,44 @@ export function TriageCard({
         )}
         <div className="stats">
           <Stat
-            value={numbers ? formatCount(item.medianViews) : text.unknown}
+            value={
+              unread
+                ? unreadWords(
+                    item.medianViews > 0 ? formatCount(item.medianViews) : null,
+                    item.readFailed,
+                  )
+                : numbers
+                  ? formatCount(item.medianViews)
+                  : text.unknown
+            }
             label={text.medianViews}
+            muted={unread}
           />
-          <Stat value={numbers ? String(item.uploads30) : text.unknown} label={text.uploads30} />
+          <Stat
+            value={
+              unread
+                ? unreadWords(item.uploads30 > 0 ? String(item.uploads30) : null, item.readFailed)
+                : numbers
+                  ? String(item.uploads30)
+                  : text.unknown
+            }
+            label={text.uploads30}
+            muted={unread}
+          />
           <Stat value={item.country ?? text.unknown} label={text.country} />
           <Stat
-            value={item.latestUploadAt === null ? text.unknown : ago(item.latestUploadAt, now)}
+            value={
+              unread
+                ? unreadWords(
+                    item.latestUploadAt === null ? null : ago(item.latestUploadAt, now),
+                    item.readFailed,
+                  )
+                : item.latestUploadAt === null
+                  ? text.unknown
+                  : ago(item.latestUploadAt, now)
+            }
             label={text.latestUpload}
+            muted={unread}
           />
         </div>
         <div className="tr-tags">

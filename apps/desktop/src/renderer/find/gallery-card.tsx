@@ -1,8 +1,8 @@
-import { fitOf, formatCount, isGold, type CatalogItem } from "@gratovo/core/find";
+import { fitOf, formatCount, isGold, uploadsUnread, type CatalogItem } from "@gratovo/core/find";
 import { cx, Icon, Tag } from "@gratovo/ui";
 import { memo, useMemo, useRef, useState, type MouseEvent } from "react";
 
-import { ago } from "../lib/format";
+import { ago, unreadWords } from "../lib/format";
 import { strings } from "../strings";
 import { FitChip } from "./fit-chip";
 import { Thumb, ThumbAvatar } from "./thumb";
@@ -153,12 +153,25 @@ export const GalleryCard = memo(function GalleryCard({
           </span>
         ) : null}
         <span className="gmeta">
-          <span>
-            <b>{formatCount(item.medianViews)}</b> {text.median}
-          </span>
-          <span>
-            <b>{item.uploads30}</b> {text.in30}
-          </span>
+          {uploadsUnread(item) ? (
+            <span className="muted">
+              {unreadWords(
+                item.medianViews > 0 ? `${formatCount(item.medianViews)} ${text.median}` : null,
+                item.readFailed,
+              )}
+            </span>
+          ) : !item.hasNumbers ? (
+            <span className="muted">{strings.unread.noNumbers}</span>
+          ) : (
+            <>
+              <span>
+                <b>{formatCount(item.medianViews)}</b> {text.median}
+              </span>
+              <span>
+                <b>{item.uploads30}</b> {text.in30}
+              </span>
+            </>
+          )}
           {item.country === null ? null : (
             <span>
               <b>{item.country}</b>

@@ -12,9 +12,11 @@ from fakes import FakeSource, channel_info
 from helpers import start_with
 
 from gratovo_pipeline import protocol, run_control, store
+from gratovo_pipeline.config import DelayKey
 from gratovo_pipeline.jobs import refetch as refetch_job
 from gratovo_pipeline.protocol import Emitter, Start
-from gratovo_pipeline.search.context import SearchBlockedError
+from gratovo_pipeline.search.context import ChannelUnreadableError, SearchBlockedError
+from gratovo_pipeline.search.pacing import Pacer
 from gratovo_pipeline.youtube import ChannelInfo, YouTubeError
 
 CLEAN = {
@@ -218,6 +220,42 @@ def test_an_archived_handle_is_restored(run: Run) -> None:
     assert run.outcomes() == {"@oldaichannel": "kept"}
 
 
+def test_a_restored_handle_keeps_the_keywords_that_found_it(run: Run) -> None:
+    # The old app deleted the tombstone and filed the channel under the refetch keyword only.
+    seed_known(run, "@oldaichannel", "UC3")
+    conn = run.db()
+    try:
+        conn.execute(
+            "INSERT INTO channel_keywords (channel_id, keyword, discovered_at) "
+            "VALUES ('UC3', 'claude code tutorial', '2026-02-02T00:00:00Z')"
+        )
+        conn.execute(
+            "UPDATE channel_keywords SET discovered_at='2026-01-01T00:00:00Z' "
+            "WHERE keyword='ai agents'"
+        )
+        conn.commit()
+        store.archive_channel_locally(conn, "UC3", "@oldaichannel", "inactive")
+    finally:
+        conn.close()
+    source = RefetchFake(lookups=[channel_info("@oldaichannel", "UC3")])
+
+    go(run, start_for(run, ["@oldaichannel"]), source)
+
+    conn = run.db()
+    try:
+        keywords = conn.execute(
+            "SELECT keyword, discovered_at FROM channel_keywords WHERE channel_id='UC3' "
+            "ORDER BY discovered_at"
+        ).fetchall()
+    finally:
+        conn.close()
+    assert [tuple(k) for k in keywords][:2] == [
+        ("ai agents", "2026-01-01T00:00:00Z"),
+        ("claude code tutorial", "2026-02-02T00:00:00Z"),
+    ]
+    assert [k[0] for k in keywords][2:] == [protocol.REFETCH_KEYWORD]
+
+
 def test_the_run_is_recorded_as_a_re_enrich_run(run: Run) -> None:
     seed_known(run, "@aitoolsweekly", "UC1")
     source = RefetchFake(details=[channel_info("@aitoolsweekly", "UC1")])
@@ -310,6 +348,47 @@ def test_a_failing_handle_does_not_stop_the_others(run: Run) -> None:
     row = channel_row(run, "UC20")
     assert row is not None
     assert row["last_fetch_status"] == "failed"
+
+
+class CountingPacer(Pacer):
+    """No waits; remembers each pause asked for."""
+
+    def __init__(self) -> None:
+        super().__init__(None)
+        self.pauses: list[str] = []
+
+    def pause(self, key: DelayKey, reason: str | None = None) -> None:
+        self.pauses.append(key)
+
+
+def test_an_unreadable_upload_page_is_paced_like_one_that_reads(
+    run: Run, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seed_known(run, "@aitoolsweekly", "UC1", subscribers="260000")
+    seed_known(run, "@llmexplained", "UC2", subscribers="260000")
+    source = RefetchFake(
+        details=[
+            channel_info("@aitoolsweekly", "UC1", subscribers="260000"),
+            channel_info("@llmexplained", "UC2", subscribers="260000"),
+        ],
+        uploads={"@llmexplained": ["v1"]},
+    )
+
+    def first_fails(handle: str) -> None:
+        if handle == "@aitoolsweekly":
+            raise ChannelUnreadableError(handle)
+
+    source.on_read = first_fails
+    pacer = CountingPacer()
+    monkeypatch.setattr(refetch_job.Pacer, "off", lambda: pacer)
+
+    go(run, start_for(run, ["@aitoolsweekly", "@llmexplained"]), source)
+
+    assert run.result()["failed"] == ["@aitoolsweekly"]
+    assert pacer.pauses.count("recent_videos_delay") == 2
+    row = channel_row(run, "UC1")
+    assert row is not None
+    assert row["read_failures"] == 1
 
 
 def test_an_unexpected_error_in_one_handle_is_a_failed_handle(run: Run) -> None:

@@ -16,6 +16,8 @@ export function formatCount(n: number): string {
 
 export const fitWords = {
   noNumbers: "No numbers yet",
+  uploadsUnread: "Uploads not read yet",
+  uploadsFailed: "Uploads couldn't be read",
   perVideo: (median: number) => `${formatCount(median)} per video`,
   uploads: (count: number, mostlyShorts: boolean) =>
     `${String(count)} ${count === 1 ? "upload" : "uploads"} in 30 days${mostlyShorts ? " (mostly Shorts)" : ""}`,

@@ -4,7 +4,7 @@
  */
 
 import { creatorStages, type CreatorStage } from "../data/types";
-import { fitOf, fitScore, isGold } from "./fit";
+import { fitOf, fitScore, isGold, uploadsUnread } from "./fit";
 import {
   emptyFacets,
   findSignals,
@@ -101,7 +101,10 @@ export function sortItems(items: readonly CatalogItem[], sort: FindSort): Catalo
         order = b.fit - a.fit;
         break;
       case "median":
-        order = b.item.medianViews - a.item.medianViews;
+        // An unread channel has no real median: it goes last, whatever number it carries.
+        order =
+          Number(uploadsUnread(a.item)) - Number(uploadsUnread(b.item)) ||
+          b.item.medianViews - a.item.medianViews;
         break;
       case "subs":
         order = desc(a.item.subscribers, b.item.subscribers);
@@ -110,7 +113,9 @@ export function sortItems(items: readonly CatalogItem[], sort: FindSort): Catalo
         order = desc(a.item.foundAt, b.item.foundAt);
         break;
       case "latest":
-        order = desc(a.item.latestUploadAt, b.item.latestUploadAt);
+        order =
+          Number(uploadsUnread(a.item)) - Number(uploadsUnread(b.item)) ||
+          desc(a.item.latestUploadAt, b.item.latestUploadAt);
         break;
       case "triage":
         order = Number(b.gold) - Number(a.gold) || b.fit - a.fit;

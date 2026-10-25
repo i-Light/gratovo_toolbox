@@ -15,7 +15,11 @@ from gratovo_pipeline import net
 from gratovo_pipeline.config import Config
 from gratovo_pipeline.protocol import LogLevel
 from gratovo_pipeline.scrapetube import scrapetube
-from gratovo_pipeline.search.context import RECENT_VIDEOS, SearchBlockedError
+from gratovo_pipeline.search.context import (
+    RECENT_VIDEOS,
+    ChannelUnreadableError,
+    SearchBlockedError,
+)
 from gratovo_pipeline.search.pacing import Pacer
 from gratovo_pipeline.youtube import ChannelInfo, VideoInfo, YouTubeApi
 
@@ -76,6 +80,10 @@ class LiveSweep:
             raise
         except Exception as error:  # one channel's page must not end the run
             self._log("warn", f"Couldn't read {handle}'s uploads ({type(error).__name__}).")
+            # Not "no uploads": that would stamp the channel as read and drop it from the backlog
+            # for good (the old app's way to lose a channel's videos on one bad page). The ids an
+            # earlier page gave go with it, for the backfill job.
+            raise ChannelUnreadableError(handle, partial=ids) from error
         return ids
 
     def close(self) -> None:

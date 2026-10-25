@@ -33,6 +33,8 @@ function makeItem(patch: Partial<CatalogItem> = {}): CatalogItem {
     archiveDueAt: null,
     archivedAt: null,
     hasNumbers: true,
+    uploadsRead: true,
+    readFailed: false,
     ...patch,
   };
 }
@@ -119,6 +121,30 @@ describe("fitOf", () => {
     expect(part({ engagement: 3 }, "engagement").note).toBe("3%");
     expect(part({ engagement: 6 }, "engagement").points).toBe(15);
     expect(part({ engagement: 9 }, "engagement").points).toBe(15);
+  });
+
+  it("scores median and posting 0 when the uploads were never read", () => {
+    const unread = { uploadsRead: false, medianViews: 80000, uploads30: 8 };
+    expect(part(unread, "median")).toMatchObject({ points: 0, note: "Uploads not read yet" });
+    expect(part(unread, "posting")).toMatchObject({ points: 0, note: "Uploads not read yet" });
+    expect(fitScore(makeItem(unread))).toBe(fitOf(makeItem(unread)).score);
+    expect(fitOf(makeItem(unread)).score).toBeLessThan(
+      fitOf(makeItem({ medianViews: 80000, uploads30: 8 })).score,
+    );
+  });
+
+  it("says the uploads couldn't be read once the pipeline gave up", () => {
+    const failed = { uploadsRead: false, readFailed: true, medianViews: 80000, uploads30: 8 };
+    expect(part(failed, "median")).toMatchObject({ points: 0, note: "Uploads couldn't be read" });
+    expect(part(failed, "posting")).toMatchObject({ points: 0, note: "Uploads couldn't be read" });
+    // A read channel never says it, whatever the flag.
+    expect(part({ readFailed: true }, "median").note).not.toContain("couldn't");
+  });
+
+  it("is never gold when the uploads were never read", () => {
+    const gold = { medianViews: 60000, subscribers: 100000, uploads30: 6 };
+    expect(isGold(makeItem(gold))).toBe(true);
+    expect(isGold(makeItem({ ...gold, uploadsRead: false }))).toBe(false);
   });
 
   it("gives 15 for sponsors and names them", () => {

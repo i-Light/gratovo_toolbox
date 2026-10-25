@@ -13,6 +13,9 @@ export const archivedPageMax = 100;
 /** The most channels one `toolbox:restore` brings back. */
 export const restoreMax = 50;
 
+/** The most keywords one tombstone shows (D46 keeps up to 50). */
+export const archivedKeywordsMax = 50;
+
 const time = z.number();
 const amount = z.number().nonnegative();
 const count = z.number().int().nonnegative();
@@ -38,6 +41,18 @@ export const archivedChannelSchema: z.ZodType<ArchivedChannel, ArchivedChannel> 
   archivedAt: time.nullable(),
   subscribers: amount.nullable(),
   stage: z.enum(creatorStages).nullable(),
+  country: z
+    .string()
+    .regex(/^[A-Z]{2}$/)
+    .nullable(),
+  medianViews: amount.nullable(),
+  uploads30: count.nullable(),
+  latestUploadAt: time.nullable(),
+  videos: count.nullable(),
+  keywords: z
+    .array(z.strictObject({ keyword: archivedText, at: time.nullable() }))
+    .max(archivedKeywordsMax),
+  keywordsTotal: count,
 });
 
 /** `toolbox:list`: one page of the countdown or the never-contact list (D36, D39). */

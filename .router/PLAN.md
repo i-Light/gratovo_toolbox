@@ -259,6 +259,41 @@ archive.restore { channelIds: UC…[] /* 1..2000, unique */ } -> result { kind: 
 | R4 | H | all | – | `router-reviewer` on the diff; findings become tasks |
 | L4 | lead | R4 | – | checks, look, status table, PR, CI, merge |
 
+## 5d-2: the archive keeps its data (owner, 2026-10-25, after 5d merged)
+
+The owner: what found a channel and when, its subscribers and the videos we had must survive archiving, because keyword analytics needs them. In the old app the archive was flaky: data went missing, and it was never filled for channels that were deferred or archived. Gaps found by the lead on `main` at 2c2bbb9:
+1. The 7-day sweep (`jobs/archive.py`) calls `archive_channel_locally` without `found_via`, so the tombstone's keyword list is empty. (The search rules' sweep passes only the one keyword in hand, not the channel's earlier ones.)
+2. Restore (`store.unarchive`) deletes the tombstone and its `found_via`; refetch then files the channel under `__manual_refetch__`. The keywords that really found it are lost.
+3. The tombstone keeps no name, country, uploads in 30 days, latest upload, sponsors or found addresses.
+4. Deferred channels (auto-clean `delay`) wait for the backlog (`search/backfill.py`, a slice after each keyword). Unproven end to end that none stays empty for good.
+
+**Decisions, 5d-2**
+- **D42. One rule: archiving never makes us know less.** The tombstone keeps every fact the channel row and its links hold that a later step reads: name, handle, subscribers, country, first seen, every keyword that found it with its `discovered_at` (from `channel_keywords`, merged with any `found_via` passed in, deduped by keyword, earliest time kept), uploads in 30 days, latest upload, median views with its basis, the number of videos we had, sponsors seen, found addresses and their sources. `pipeline.db` schema version 4 adds the missing columns to `channel_archive` (additive `ALTER TABLE`, nullable: `name`, `country`, `videos_last_30`, `latest_upload_at`, `seen_brands`, `found_emails`, `found_email_sources`). After review (F1), version 4 also adds to `channels`: `read_failures` (D45 give-up), and `median_known`, `median_known_basis`, `videos_last_30_known` (what the tombstone knew, kept beside the row after a bring back, so archiving again never says less). A file already at version 4 runs the version-4 step again on open (every step only adds missing columns). One helper builds the tombstone for every path that archives (the 7-day sweep, the rules' sweep, refetch's sweep, the import), so no path can forget a field. A null means "never known", never "zero".
+- **D43. Archiving again never says less.** When a channel already has a tombstone (a re-sweep, a re-find, another path), each fact merges: keywords are a union, numbers keep the larger video count with its median (as `merge_archive_numbers`), text facts keep the known value over null. Nothing is overwritten with null or with a smaller count. ("Smaller" is about the videos we had, `videos_found_count`; uploads in 30 days is a window, so a fresher read may be smaller and wins.)
+- **D44. Bring back puts the facts back.** `archive.restore` recreates, in one transaction, the `channels` row from the tombstone (handle, name, subscribers, country, first seen, uploads in 30 days, latest upload, median, sponsors, addresses; `videos_fetched_at` null and `force_refetch` 1 so the next read refreshes it and the backlog picks it up), the `channel_keywords` rows from `found_via` with their original times, then deletes the tombstone. The catalog shows the channel at once on live and example data, with its last known numbers. On live data the refetch still runs to refresh it; its `__manual_refetch__` link is not counted as a keyword that found the channel (keyword analytics and the catalog's "found by" skip that keyword).
+- **D45. Deferred channels get filled.** The backlog must reach every channel still missing its uploads, deferred ones included, until it is read or archived; and a channel with no uploads read shows "not read yet" in Find, never 0 views. Proven by tests (a delayed channel is a backlog candidate, is read on the next keyword's slice, and leaves the backlog once read). Any gap found is fixed here.
+- **D46. "Archived for good" shows what is kept:** name (else handle), country, subscribers, median views, uploads in 30 days, and the keywords that found it (up to 3, "+N more"); unknowns read "not known".
+
+**Contracts, 5d-2**
+```ts
+// core: find/types.ts — ArchivedChannel gains (all from the tombstone; null = never known)
+country: string | null; medianViews: number | null; uploads30: number | null;
+latestUploadAt: number | null; videos: number | null;          // videos we had when it was archived
+keywords: { keyword: string; at: number | null }[];             // ≤ 50, earliest first, __manual_refetch__ left out
+```
+Pipeline: schema 4 (above). Python helper in `store.py`: `archive_channel_locally` builds the full tombstone itself from the channel row and links (callers may pass extra `found_via`), and merges into an existing one (D43); `restore_channel_locally(conn, channel_id)` does D44 and returns the handle. `jobs/archive.py` uses both. Main's readers (`catalog.ts`, `runs.ts`, `toolbox.ts`) tolerate a schema-3 file (missing columns read null).
+
+| id | tier | depends | files (about) | done-check |
+|---|---|---|---|---|
+| A1 | H | – | `store.py` (schema 4, the tombstone helper, merge, restore), `jobs/archive.py`, `search/auto_clean.py` and `jobs/refetch.py` callers, `import_legacy.py` if it writes tombstones, tests | D42–D44: every archive path keeps every fact; re-archive never says less; restore brings the row and links back; a schema-3 file migrates; legacy flakiness cases from `legacy/lib/features/archive/` and `legacy/pipeline/gratovo/store.py` turned into tests. pytest, pyright |
+| A2 | N | A1 | `search/backfill.py`, `store.py` backlog queries, tests | D45: tests prove deferred channels are filled; fix any gap | pytest |
+| A3 | N | A1 | core `ArchivedChannel` fields and `CatalogItem.uploadsRead`, ipc schemas, `main/find/toolbox.ts` and other readers (tolerate schema 3, skip `__manual_refetch__`), tests | D44 main side | vitest |
+| A4 | N | A3 | renderer: Find shows "Not read yet" where `uploadsRead` is false (card, table, triage, record, compare; fit notes in core), the Archived-for-good rows (D46), restore words now that a channel shows at once | D45 page side, D46 | vitest; look at 1440 dark |
+| R5 | H | all | – | review of the diff against D42–D46 | – |
+| F1 | H | R5 | `store.py`, `jobs/backfill.py`, `search/keyword.py`, `search/discover.py`, `jobs/import_legacy.py`, `jobs/refetch.py`, tests | R5 findings 1–9, Python side: the median with its basis and a known 0 uploads survive bring back then archive again; read failures counted (`channels.read_failures`), back-off 1, 3, 7 days, out of the backlog after 3 (`READ_GIVE_UP`); a pause after every failed read; the import merges an old tombstone into an existing one; tombstone read inside the transaction; `force_refetch` on bring back over an existing unread row; `__manual_refetch__` never written into a tombstone; backfill keeps the ids read before a later page failed. pytest, pyright |
+| F2 | N | F1 contract | core `CatalogItem.readFailed`, ipc schema, `catalog.ts` (tolerant read of `read_failures`), `toolbox.ts` (`keywordsTotal`), `ArchivedChannel.keywordsTotal`, Find pages, strings, tests incl. `results.ts` skipping the refetch keyword | "Couldn't read" where "Not read yet" shows once a channel gave up; "+N more" counts every keyword. vitest; look at 1440 dark |
+| L5 | lead | R5 | – | checks, e2e, status table, PR, CI, merge | CI |
+
 ## 5e: the flow suite and the record of decisions (outline)
 
 The Find flow suite (D18), ADR 0017 (step 5's decisions), architecture and parity notes, the status table, `.router/` removed.

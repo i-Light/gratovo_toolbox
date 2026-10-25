@@ -3,6 +3,8 @@ import { DatabaseSync } from "node:sqlite";
 
 import type { FindState } from "@gratovo/ipc";
 
+import { refetchKeyword } from "../pipeline/protocol";
+
 /**
  * The channels a search kept, newest first, read from `pipeline.db` (which Python writes). The store
  * also holds channels the backlog read for other reasons (one auto-clean left for later, one outside
@@ -27,7 +29,7 @@ interface Row {
 
 const query = `SELECT c.channel_id, c.name, c.handle, c.subscribers, c.median_views_last_30, c.country,
   (SELECT k.keyword FROM channel_keywords k WHERE k.channel_id = c.channel_id
-   ORDER BY k.discovered_at DESC LIMIT 1) AS keyword
+   AND k.keyword <> ? ORDER BY k.discovered_at DESC LIMIT 1) AS keyword
 FROM channels c WHERE c.videos_fetched_at IS NOT NULL
 ORDER BY c.videos_fetched_at DESC LIMIT ?`;
 
@@ -72,7 +74,7 @@ export function readKept(dbPath: string, rules: Rules, limit = 100): Kept[] {
   }
   const db = new DatabaseSync(dbPath, { readOnly: true });
   try {
-    const rows = db.prepare(query).all(scanned) as unknown as Row[];
+    const rows = db.prepare(query).all(refetchKeyword, scanned) as unknown as Row[];
     const all = rows.map((row): Kept => {
       const handle = text(row.handle);
       const views = row.median_views_last_30;

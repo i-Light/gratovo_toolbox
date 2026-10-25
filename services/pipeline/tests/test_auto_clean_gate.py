@@ -138,9 +138,29 @@ def test_a_swept_tombstone_carries_the_count_label_and_keyword(conn: sqlite3.Con
     assert (row["label"], row["subscribers"]) == ("irrelevant", "1200")
     assert row["found_at"] is not None
     found_via = json.loads(row["found_via"])
-    assert len(found_via) == 1
-    assert (found_via[0]["keyword"], found_via[0]["limit"]) == ("ai video tools", 10)
-    assert found_via[0]["discovered_at"]
+    # The keyword in hand, and the one that found the channel before it (plan D42): the old app
+    # kept only the first.
+    assert [(e["keyword"], e["limit"]) for e in found_via] == [
+        ("ai agents", None),
+        ("ai video tools", 10),
+    ]
+    assert all(e["discovered_at"] for e in found_via)
+
+
+def test_the_gate_keeps_a_keywords_first_time_and_its_limit(conn: sqlite3.Connection) -> None:
+    seed(conn, "@tiny", "UC_tiny", "1200")
+    conn.execute(
+        "UPDATE channel_keywords SET discovered_at='2026-03-01T00:00:00Z' "
+        "WHERE channel_id='UC_tiny'"
+    )
+    conn.commit()
+    gate(conn, {"@tiny": "UC_tiny"}, {"@tiny": "1200"}, keyword="ai agents")
+    row = conn.execute(
+        "SELECT found_via FROM channel_archive WHERE channel_id='UC_tiny'"
+    ).fetchone()
+    assert json.loads(row["found_via"]) == [
+        {"keyword": "ai agents", "limit": 10, "discovered_at": "2026-03-01T00:00:00Z"}
+    ]
 
 
 def test_above_the_maximum_is_delayed_not_archived(conn: sqlite3.Connection) -> None:
