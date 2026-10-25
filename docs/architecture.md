@@ -47,6 +47,8 @@ The app reads and writes a local SQLite database first, so every click answers a
 
 **Built in 3e-1** ([decisions/0013-pipeline.md](decisions/0013-pipeline.md)): a search runs as a child process. Main's supervisor (`apps/desktop/src/main/pipeline/`) starts one `python -I -u -m gratovo_pipeline` job at a time, with a bare environment, and talks to it in JSON lines on stdin and stdout. The line schemas are zod in main, checked on every line, and mirrored in Python. The find service (`main/find/`) keeps the queue and the rules in `find.json` beside `pipeline.db`, and reads the kept channels from `pipeline.db` read-only. Secrets (the YouTube key, the proxy and gateway URLs) arrive only in the start message. Every request the pipeline makes goes through its own host check (`net.check_url`: HTTPS, YouTube, Google's API, AWS gateway hosts, the configured proxies), because main's allowlist can't see those requests.
 
+**Built in step 5** ([ADR 0017](decisions/0017-find.md)): Find's reads and pictures run in main. The catalog read model (`main/find/catalog.ts`) reads `pipeline.db` read-only through `node:sqlite`, joins it with `channel_state` and rebuilds at most every 500 ms. Queries run in main with the pure filter, sort and facet logic from `packages/core/src/find/`; the page asks for pages of at most 120 items. The picture service (`main/find/images.ts`) is the only thing that fetches pictures: main fetches from `i.ytimg.com` and the two `yt3` hosts only, caches the files under `<userData>/image-cache/`, and the page loads `app://gratovo/img/<key>`. The packaged CSP is unchanged. The email finder (`main/find/email-finder.ts`) and the archive service (`main/find/archive-service.ts`, with the sweep and Bring back jobs `archive.sweep` and `archive.restore`) run on the pipeline's store lane, so each gives way to a search. `pipeline.db` is at schema version 4 and Python owns its schema.
+
 ### One data source switch: live or example
 
 All reads and writes go through a `DataSource` interface. The **live** implementation is SQLite plus sync. The **example** implementation is `example.db`, seeded from fixtures and kept across restarts (so changes behave like real data), with stand-in adapters for Gmail, Gemini, YouTube and R2, so nothing leaves the machine. Prototype mode chooses between them at runtime. The UI code is the same in both, so what the owner sees in prototype mode *is* the app. See [decisions/0004-prototype-mode.md](decisions/0004-prototype-mode.md).
@@ -81,7 +83,7 @@ gratovo_toolbox/
 │   └── desktop/              Electron app
 │       ├── src/main/         main process: windows, IPC handlers, data, sync, secrets, jobs, updates
 │       ├── src/preload/      the typed bridge
-│       ├── src/renderer/     React UI: app/ (frame), features/<screen>/, lib/
+│       ├── src/renderer/     React UI: app/ (frame), find/, record/, toolbox/, settings/, overlays/, lib/
 │       ├── resources/        icons, installer assets
 │       └── e2e/              Playwright tests for Electron
 ├── packages/
