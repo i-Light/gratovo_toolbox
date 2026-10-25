@@ -32,7 +32,7 @@ const tabId = (key: string): string => `find-tab-${key}`;
 /**
  * The Find tabs that may show, with the Review new count. Nothing shows while there is one tab.
  * The arrow keys move between the tabs (the ARIA tabs pattern): only the selected tab is in the
- * Tab order.
+ * Tab order. A mouse click hands focus to the panel, so the arrows then step through the screen.
  */
 function FindTabs({ reviewCount }: { readonly reviewCount: number | null }) {
   const contactsCount = useContactsCount();
@@ -83,8 +83,14 @@ function FindTabs({ reviewCount }: { readonly reviewCount: number | null }) {
           aria-controls={panelId}
           tabIndex={tab === t.key ? 0 : -1}
           onKeyDown={move}
-          onClick={() => {
+          onClick={(event) => {
             go("find", t.key);
+            // detail is 0 for Enter and Space, which keep focus on the tab.
+            if (event.detail > 0) {
+              requestAnimationFrame(() => {
+                document.getElementById(panelId)?.focus({ preventScroll: true });
+              });
+            }
           }}
         >
           {t.name}
@@ -109,7 +115,7 @@ function SearchTabs() {
 function Panel({ children }: { readonly children: ReactNode }) {
   const tab = useApp((s) => selectRoute(s).tab);
   return (
-    <div id={panelId} role="tabpanel" aria-labelledby={tabId(tab ?? "")}>
+    <div id={panelId} role="tabpanel" aria-labelledby={tabId(tab ?? "")} tabIndex={-1}>
       {children}
     </div>
   );
