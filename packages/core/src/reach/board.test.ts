@@ -103,6 +103,18 @@ describe("boardLanes", () => {
     expect(lane(input, "signed")).toEqual(["i"]);
   });
 
+  it("shows a scheduled email with the sequence, not in Waiting", () => {
+    const input = base({
+      creators: [creator("a", "contact"), creator("b", "emailed")],
+      drafts: [
+        draft("q1", "a", { state: "scheduled", sendAt: 5 }),
+        draft("q2", "b", { kind: "followUp", followUp: 1, state: "scheduled", sendAt: 6 }),
+      ],
+    });
+    expect(lane(input, "waiting")).toEqual([]);
+    expect(lane(input, "seq").sort()).toEqual(["a", "b"]);
+  });
+
   it("orders In sequence by the next step due, and Replied by the newest reply", () => {
     const seq = (who: string, dueAt: number): Sequence => ({
       creator: who,

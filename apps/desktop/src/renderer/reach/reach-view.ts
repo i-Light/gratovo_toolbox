@@ -123,6 +123,14 @@ export function cardInfo(
     if (draft?.state === "drafting") {
       return { sub: sub.drafting, need: false, chip: null, action: "writing" };
     }
+    if (draft?.state === "scheduled" && draft.sendAt !== null) {
+      return {
+        sub: `${kindLabel(draft)} · ${sub.scheduled}`,
+        need: false,
+        chip: { kind: "due", at: draft.sendAt },
+        action: null,
+      };
+    }
     if (sequence?.stopped != null) {
       return { sub: sub.stopped[sequence.stopped], need: false, chip: null, action: null };
     }

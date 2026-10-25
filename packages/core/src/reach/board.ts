@@ -68,6 +68,10 @@ function laneOf(item: BoardItem): BoardLaneKey | null {
     if (draft.kind === "reply") {
       return "replied";
     }
+    // A scheduled email waits for its time, not for the person: it shows with the sequence.
+    if (draft.state === "scheduled") {
+      return "seq";
+    }
     if (draft.kind === "followUp") {
       return draft.state === "drafting" ? "seq" : "waiting";
     }

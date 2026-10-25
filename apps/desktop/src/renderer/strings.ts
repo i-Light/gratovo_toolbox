@@ -1973,6 +1973,7 @@ export const strings = {
         todraft: "Address confirmed, no email written yet",
         drafting: "Gemini is writing the email",
         readyToSend: "ready to send",
+        scheduled: "scheduled",
         replied: "Replied",
         answered: "Answered, waiting for them",
         emailed: (when: string): string => `Emailed ${when}`,

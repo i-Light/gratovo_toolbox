@@ -32,7 +32,11 @@ test.describe("Reach › Board", () => {
 
     // The peek opens the creator on Emails, with the draft card and its Send button.
     await expect(draft(page)).toBeVisible();
-    const send = draft(page).getByRole("button", { name: new RegExp(`^${reach.card.send}`) });
+    // "Send", not the arrow beside it ("Send later").
+    const later = reach.later.menu.slice(reach.card.send.length);
+    const send = draft(page).getByRole("button", {
+      name: new RegExp(`^${reach.card.send}(?!${later})`),
+    });
     await expect(send).toBeEnabled();
 
     // Send, then Undo from the toast inside the hold: the draft is back and nothing went.
