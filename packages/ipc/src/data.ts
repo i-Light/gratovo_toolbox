@@ -16,6 +16,7 @@ import {
   notesMax,
   notificationIcons,
   rejectReasons,
+  replyFactKeys,
   type Brand,
   type Creator,
   type DataWrite,
@@ -317,4 +318,5 @@ export const dataWriteSchema: z.ZodType<DataWrite> = z.discriminatedUnion("kind"
     mailbox: emailAddressSchema.nullable(),
   }),
   z.strictObject({ kind: z.literal("draft.gate"), id, gate: id, ok: z.boolean() }),
+  z.strictObject({ kind: z.literal("reply.fact"), messageId: id, key: z.enum(replyFactKeys) }),
 ]);

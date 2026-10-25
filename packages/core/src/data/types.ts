@@ -6,7 +6,7 @@
  */
 
 import type { OutreachStore } from "./outreach-store";
-import type { PersonDraftState, ReachData } from "./reach-types";
+import type { PersonDraftState, ReachData, ReplyFactKey } from "./reach-types";
 
 /** What a person may do in the app; the only roles Supabase's `profiles.role` knows. */
 export type AppRole = "unauthorized" | "basic" | "full";
@@ -427,7 +427,12 @@ export type DataWrite =
       readonly id: string;
       readonly gate: string;
       readonly ok: boolean;
-    };
+    }
+  /**
+   * A fact read from a reply (D18, D23), saved to the creator's record: main merges it into
+   * `channel_state.provided_data` and marks it saved on the message.
+   */
+  | { readonly kind: "reply.fact"; readonly messageId: string; readonly key: ReplyFactKey };
 
 /** Where the app's data lives: one read and one write, both async so the database can move. */
 export interface DataSource {
