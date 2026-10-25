@@ -531,7 +531,8 @@ describe("the sweep stores a reply and what it brings", () => {
     expect(await sweep.check()).toEqual({ ok: true, stored: 1 });
     expect((await creator("c8"))?.stage).toBe("never");
     expect(answers("c8")).toEqual([]);
-    expect(real.outreach.sequence("c8")?.stopped).toBeNull();
+    // The sequence still stops, so no follow-up goes out to someone who must not be written to.
+    expect(real.outreach.sequence("c8")?.stopped).toBe("replied");
     expect((await real.frame()).notifications.some((n) => n.id.startsWith("reply-"))).toBe(false);
     expect(acked()).toEqual(["gm-r1"]);
   });
@@ -994,7 +995,10 @@ describe("That's not it", () => {
 
   it("sets the reading at once, marked corrected, keeping the summary and the facts, and writes the answer again", async () => {
     const { messageId, draftId } = await aReply();
-    expect(await sweep.reclassify(messageId, "inf.not_interested")).toEqual({ ok: true });
+    expect(await sweep.reclassify(messageId, "inf.not_interested")).toEqual({
+      ok: true,
+      rewritten: true,
+    });
     expect(real.outreach.message(messageId)?.reading).toEqual({
       replyType: "inf.not_interested",
       label: "Not interested / no partnerships",
@@ -1009,7 +1013,10 @@ describe("That's not it", () => {
 
   it("accepts a type that fits either side", async () => {
     const { messageId } = await aReply();
-    expect(await sweep.reclassify(messageId, "any.out_of_office")).toEqual({ ok: true });
+    expect(await sweep.reclassify(messageId, "any.out_of_office")).toEqual({
+      ok: true,
+      rewritten: true,
+    });
     expect(real.outreach.message(messageId)?.reading).toMatchObject({
       replyType: "any.out_of_office",
       corrected: true,
@@ -1019,7 +1026,10 @@ describe("That's not it", () => {
   it("changes only the reading when no answer is open", async () => {
     const { messageId, draftId } = await aReply();
     real.outreach.updateDraft(draftId, { state: "skipped" }, clock);
-    expect(await sweep.reclassify(messageId, "inf.gives_rate")).toEqual({ ok: true });
+    expect(await sweep.reclassify(messageId, "inf.gives_rate")).toEqual({
+      ok: true,
+      rewritten: false,
+    });
     expect(rereads).toEqual([]);
     expect(real.outreach.message(messageId)?.reading).toMatchObject({
       replyType: "inf.gives_rate",
@@ -1048,12 +1058,18 @@ describe("That's not it", () => {
     });
     // A draft that vanished in between is no reason to refuse.
     rereadAnswer = { ok: false, problem: "not_found" };
-    expect(await sweep.reclassify(messageId, "inf.gives_rate")).toEqual({ ok: true });
+    expect(await sweep.reclassify(messageId, "inf.gives_rate")).toEqual({
+      ok: true,
+      rewritten: false,
+    });
   });
 
   it("reading a reply as a bounce is a bounce: the open answer is set aside and nothing is rewritten", async () => {
     const { messageId, draftId } = await aReply();
-    expect(await sweep.reclassify(messageId, "any.bounce")).toEqual({ ok: true });
+    expect(await sweep.reclassify(messageId, "any.bounce")).toEqual({
+      ok: true,
+      rewritten: false,
+    });
     expect(rereads).toEqual([]);
     expect(real.outreach.draft(draftId)?.state).toBe("skipped");
     expect(real.outreach.sequence("c9")?.stopped).toBe("bounced");
@@ -1073,5 +1089,186 @@ describe("the situations", () => {
     });
     open = null;
     expect(await sweep.situations()).toEqual({ ok: false, problem: "no_data" });
+  });
+});
+
+describe("review fixes (6d)", () => {
+  const daemon = (over: Partial<ReplyMessage> = {}): ReplyMessage =>
+    reply({
+      from: "mailer-daemon@googlemail.com",
+      subject: "Delivery Status Notification (Failure)",
+      body: "The address was not found.",
+      messageId: "gm-d1",
+      ...over,
+    });
+
+  function park(id: string): void {
+    const sequence = real.outreach.sequence(id);
+    if (sequence === null) throw new Error("no sequence");
+    real.outreach.commit({
+      at: clock,
+      sequences: [{ ...sequence, parkUntil: clock + 5 * 24 * hour }],
+    });
+  }
+
+  it("clears parkUntil when a parked creator replies (sweep and paste)", async () => {
+    park("c8");
+    replies = [reply()];
+    await sweep.check();
+    expect(real.outreach.sequence("c8")).toMatchObject({ stopped: "replied", parkUntil: null });
+    park("c9");
+    await sweep.paste("c9", "Thanks!");
+    expect(real.outreach.sequence("c9")).toMatchObject({ stopped: "replied", parkUntil: null });
+  });
+
+  it("clears parkUntil when a reading turns a reply into a bounce", async () => {
+    await sweep.paste("c9", "Undeliverable.");
+    const draft = answers("c9").at(-1);
+    if (draft === undefined) throw new Error("no answer");
+    park("c9");
+    await sweep.reading(draft, {
+      status: "ready",
+      why: "",
+      rules: [],
+      findings: [],
+      gates: [],
+      situation: { side: "any", stage: "replied", replyType: "any.bounce", summary: "Bounced." },
+      model: "gemini",
+    });
+    expect(real.outreach.sequence("c9")).toMatchObject({ stopped: "bounced", parkUntil: null });
+  });
+
+  it("puts the stage back to emailed and swaps the replied notice for the bounce one when a reading finds a bounce", async () => {
+    replies = [reply()];
+    await sweep.check();
+    expect((await creator("c8"))?.stage).toBe("replied");
+    const draft = answers("c8")[0];
+    if (draft === undefined) throw new Error("no answer");
+    await sweep.reclassify(draft.replyTo ?? noDraft, "any.bounce");
+    expect((await creator("c8"))?.stage).toBe("emailed");
+    const notices = (await real.frame()).notifications;
+    expect(notices.filter((n) => n.text === "Ship AI replied")).toEqual([]);
+    expect(notices.filter((n) => n.text === "Ship AI's email bounced")).toHaveLength(1);
+  });
+
+  it("keeps the stage replied when another real reply is in", async () => {
+    replies = [
+      reply({ messageId: "gm-a", receivedAt: new Date(contractNow - 2 * hour).toISOString() }),
+    ];
+    await sweep.check();
+    replies = [reply({ messageId: "gm-b" })];
+    await sweep.check();
+    const bounced = real.outreach.thread("c8", 10).filter((m) => m.direction === "in")[1];
+    await sweep.reclassify(bounced?.id ?? noDraft, "any.bounce");
+    expect((await creator("c8"))?.stage).toBe("replied");
+  });
+
+  it("keeps the address's source and confidence when a bounce unconfirms it", async () => {
+    await real.write([
+      {
+        kind: "creator.contact",
+        id: "c8",
+        email: "team@shipai.dev",
+        confirmed: true,
+        contactName: null,
+        source: "about",
+        confidence: 0.8,
+        handle: "@shipai",
+        name: "Ship AI",
+      },
+    ]);
+    replies = [daemon()];
+    await sweep.check();
+    expect(await creator("c8")).toMatchObject({
+      emailConfirmed: false,
+      contactSource: "about",
+      contactConfidence: 0.8,
+    });
+  });
+
+  it("stops the sequence and skips follow-ups of a rejected creator who replies, with no stage, notice or answer", async () => {
+    followUp("c8");
+    await real.write([
+      { kind: "creator.stage", id: "c8", stage: "rejected", handle: "@shipai", name: "Ship AI" },
+    ]);
+    replies = [reply()];
+    await sweep.check();
+    expect(real.outreach.sequence("c8")).toMatchObject({ stopped: "replied", parkUntil: null });
+    expect(real.outreach.draft("fu-c8")?.state).toBe("skipped");
+    expect((await creator("c8"))?.stage).toBe("rejected");
+    expect(answers("c8")).toEqual([]);
+    expect((await real.frame()).notifications.some((n) => n.id.startsWith("reply-"))).toBe(false);
+  });
+
+  it("says rewritten false when the answer is still drafting", async () => {
+    await sweep.paste("c9", "Maybe later.");
+    const messageId = answers("c9")[0]?.replyTo ?? noDraft;
+    expect(await sweep.reclassify(messageId, "inf.gives_rate")).toEqual({
+      ok: true,
+      rewritten: false,
+    });
+    expect(rereads).toEqual([]);
+  });
+
+  it("acknowledges a stored reply that no longer matches, and logs an unmatched one once per run", async () => {
+    replies = [reply()];
+    await sweep.check();
+    replies = [
+      reply({ channelId: "UCgone", conversationKey: "x", from: "z@z.example" }),
+      reply({
+        messageId: "gm-lost",
+        channelId: "UCgone",
+        conversationKey: "x",
+        from: "z@z.example",
+      }),
+    ];
+    await sweep.check();
+    await sweep.check();
+    expect(acked()).toEqual(["gm-r1", "gm-r1", "gm-r1"]);
+    expect(lines.filter((l) => l.includes("gm-lost"))).toHaveLength(1);
+  });
+
+  it("leaves a reply from an address two creators share unmatched", async () => {
+    await real.write([
+      {
+        kind: "creator.contact",
+        id: "c9",
+        email: "team@shipai.dev",
+        confirmed: false,
+        contactName: null,
+        source: null,
+        confidence: null,
+        handle: "@diffusiondiaries",
+        name: "Diffusion Diaries",
+      },
+    ]);
+    replies = [reply({ channelId: null, conversationKey: "other" })];
+    expect(await sweep.check()).toEqual({ ok: true, stored: 0 });
+    expect(lines).toEqual(["Reach: a reply wasn't matched to a creator (gm-r1)."]);
+    expect(acked()).toEqual([]);
+  });
+
+  it("stores and acknowledges a reply older than 30 days with no stage, notice or answer", async () => {
+    replies = [reply({ receivedAt: new Date(contractNow - 31 * 24 * hour).toISOString() })];
+    expect(await sweep.check()).toEqual({ ok: true, stored: 1 });
+    expect((await creator("c8"))?.stage).toBe("emailed");
+    expect(answers("c8")).toEqual([]);
+    expect(real.outreach.sequence("c8")?.stopped).toBeNull();
+    expect((await real.frame()).notifications.some((n) => n.id.startsWith("reply-"))).toBe(false);
+    expect(lines.join("")).toContain("gm-r1");
+    expect(acked()).toEqual(["gm-r1"]);
+  });
+
+  it("answers situations with none when the playbook file is missing, and a reclassify unknown_type", async () => {
+    const bare = make({
+      situations: { list: () => Promise.resolve([]), labelOf: () => Promise.resolve(null) },
+    });
+    expect(await bare.situations()).toEqual({ ok: true, situations: [] });
+    await sweep.paste("c9", "Hello");
+    const messageId = answers("c9")[0]?.replyTo ?? noDraft;
+    expect(await bare.reclassify(messageId, "inf.gives_rate")).toEqual({
+      ok: false,
+      problem: "unknown_type",
+    });
   });
 });

@@ -346,8 +346,12 @@ export const reachReclassifyRequestSchema = z.strictObject({
   messageId: id,
   replyType: situationId,
 });
+/**
+ * `rewritten` says whether the open answer is being written again: false when there is none, when
+ * it can't be (it is drafting, approved or scheduled), or for a bounce, which needs no answer.
+ */
 export const reachReclassifyResultSchema = z.union([
-  done,
+  z.strictObject({ ok: z.literal(true), rewritten: z.boolean() }),
   z.strictObject({
     ok: z.literal(false),
     problem: z.enum(["not_found", "unknown_type", "bridge_off", "paused", "busy", "no_data"]),

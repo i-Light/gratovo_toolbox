@@ -1342,6 +1342,8 @@ export function describeDataSourceContract(
           email: c11?.email,
           emailConfirmed: false,
           contactName: null,
+          contactSource: null,
+          contactConfidence: null,
           rejectReason: "ai",
           rejectedAt: contractNow - 500,
           neverReason: null,

@@ -16,6 +16,8 @@ import {
   isFinished,
   isRunning,
   parked,
+  repliesToAnswer,
+  replyItems,
   resumed,
   stopped,
   wakeDue,
@@ -114,14 +116,35 @@ export const exampleTestMs = 600;
 /** How often the mailbox numbers are read again while live data is open. */
 export const mailRefreshMs = 10 * 60_000;
 
-/** A draft the rail counts: first emails and follow-ups waiting for a person, replies not done. */
+/**
+ * What the rail counts (D16): first emails and follow-ups waiting for a person, and the replies
+ * to answer, which is the number the Replies page's sub line shows.
+ */
 function countsForRail(frame: Frame): number {
-  return frame.reach.drafts.filter((draft) => {
-    if (draft.kind === "reply") {
-      return draft.state !== "sent" && draft.state !== "skipped";
-    }
-    return draft.state === "ready" || draft.state === "failed";
-  }).length;
+  const waiting = frame.reach.drafts.filter(
+    (draft) => draft.kind !== "reply" && (draft.state === "ready" || draft.state === "failed"),
+  ).length;
+  return (
+    waiting + repliesToAnswer(replyItems(frame.creators, frame.reach.threads, frame.reach.drafts))
+  );
+}
+
+/** A member without money sees no rate a reply named (D14): its reading keeps the other facts. */
+function withoutRates(threads: Frame["reach"]["threads"]): Frame["reach"]["threads"] {
+  return threads.map((thread) =>
+    thread.lastIn?.reading == null
+      ? thread
+      : {
+          ...thread,
+          lastIn: {
+            ...thread.lastIn,
+            reading: {
+              ...thread.lastIn.reading,
+              facts: thread.lastIn.reading.facts.filter((fact) => fact.key !== "rate"),
+            },
+          },
+        },
+  );
 }
 
 export function createReachService(deps: ReachServiceDeps): ReachServiceHandle {
@@ -888,6 +911,7 @@ export function createReachService(deps: ReachServiceDeps): ReachServiceHandle {
         counts: { ...frame.counts, reach: countsForRail(frame) },
         reach: {
           ...frame.reach,
+          threads: frame.seesMoney ? frame.reach.threads : withoutRates(frame.reach.threads),
           mailboxes,
           gemini: state.gemini,
           geminiPausedUntil: state.pausedUntil,

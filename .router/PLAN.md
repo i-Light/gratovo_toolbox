@@ -409,6 +409,7 @@ Each fact has **Save to record**. It sends the DataWrite `reply.fact {messageId,
 
 **The page:**
 - **Reach › Replies** (`inbox`, now in the live rail) lists every creator whose last message is theirs, or who has an open answer draft, newest first. Each row shows the reading's tag and the first line, with "Draft ready", "Answered" or "Your move".
+  - *As built (deviation, review of 6d):* the list also keeps creators whose reply was answered, marked "Answered", so a conversation doesn't disappear from Replies the moment it is answered. A never-contact or rejected creator's reply shows as "Not contacting", with nothing waiting on the person. The rail's count counts only "Draft ready" and "Your move".
 - **The detail** shows the thread, then Gemini's reading (the intent, the summary, the facts with Save to record, and That's not it), then the answer's draft card. Check now sits in the header.
 - **The record's Emails tab** gets the reading under their last message, and **Paste a reply by hand** under the thread once there is an outbound email.
 - **The Sequences empty state** says again that follow-ups "stop on their own when someone replies".

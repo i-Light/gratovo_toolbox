@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import {
   draftSubjectMax,
   messageBodyMax,
+  threadMessagesMax,
   type CreatorState,
   type DataSource,
   type DataWrite,
@@ -42,6 +43,12 @@ export const firstSweepMs = 30_000;
 export const sweepEveryMs = 10 * 60_000;
 /** How many ids one `mail.ack` carries (the job's own limit). */
 const ackMax = 500;
+/**
+ * A swept reply received longer ago than this, and never stored, is an old one (the mailbox may
+ * have been imported, step 6e): it is stored and acknowledged, but moves no stage and raises no
+ * notice or answer.
+ */
+export const oldReplyMs = 30 * 24 * 60 * 60_000;
 /** The words of a notification's name, cut so it fits. */
 const nameMax = 100;
 
@@ -206,6 +213,7 @@ export function createReplySweep(deps: ReplySweepDeps): ReplySweep {
     messageId: string,
     at: number,
     notify: boolean,
+    noticeId: string = `bounce-${messageId}`,
   ): Change {
     const change = emptyChange();
     const sequence = source.outreach.sequence(creator.id);
@@ -213,20 +221,42 @@ export function createReplySweep(deps: ReplySweepDeps): ReplySweep {
       return change;
     }
     if (sequence !== null && (sequence.stopped === null || sequence.stopped === "replied")) {
-      change.sequences.push({ ...stopped(sequence), stopped: "bounced" });
+      change.sequences.push({ ...stopped(sequence), stopped: "bounced", parkUntil: null });
     }
     change.drafts.push(...skipOpenFollowUps(source, creator.id));
+    // A reply that turns out to be a bounce was not a reply: with no other real message in, the
+    // creator is back to emailed.
+    if (
+      creator.stage === "replied" &&
+      !source.outreach
+        .thread(creator.id, threadMessagesMax)
+        .some(
+          (m) =>
+            m.direction === "in" &&
+            m.id !== messageId &&
+            !isDaemon(m.peer) &&
+            m.reading?.replyType !== "any.bounce",
+        )
+    ) {
+      change.writes.push({
+        kind: "creator.stage",
+        id: creator.id,
+        stage: "emailed",
+        handle: creator.handle,
+        name: creator.name ?? creator.handle,
+      });
+    }
     if (creator.emailConfirmed && creator.email !== null) {
-      // The label stays (a null name keeps what is stored); the source and confidence are the
-      // confirm's own, which an unconfirmed address no longer needs.
+      // The label stays (a null name keeps what is stored), and so do the address's source and
+      // confidence: a person who confirms it again should still see where it came from.
       change.writes.push({
         kind: "creator.contact",
         id: creator.id,
         email: creator.email,
         confirmed: false,
         contactName: null,
-        source: null,
-        confidence: null,
+        source: creator.contactSource ?? null,
+        confidence: creator.contactConfidence ?? null,
         handle: creator.handle,
         name: creator.name ?? creator.handle,
       });
@@ -235,7 +265,7 @@ export function createReplySweep(deps: ReplySweepDeps): ReplySweep {
     if (notify) {
       change.notifications.push(
         notice(
-          `bounce-${messageId}`,
+          noticeId,
           "alert",
           replyStrings.bounced(nameOf(creator)),
           replyStrings.bouncedSub,
@@ -271,7 +301,7 @@ export function createReplySweep(deps: ReplySweepDeps): ReplySweep {
     }
     const sequence = source.outreach.sequence(creator.id);
     if (sequence !== null && sequence.stopped === null) {
-      change.sequences.push({ ...stopped(sequence), stopped: "replied" });
+      change.sequences.push({ ...stopped(sequence), stopped: "replied", parkUntil: null });
     }
     change.drafts.push(...skipOpenFollowUps(source, creator.id));
     const name = nameOf(creator);
@@ -320,13 +350,23 @@ export function createReplySweep(deps: ReplySweepDeps): ReplySweep {
     at: number,
     o: { notify: boolean; pasted: boolean },
   ): Change {
-    // A creator who must not be written to, or who was set aside, gets the message stored and
-    // nothing more: no stage, no draft, no notice.
-    if (creator.stage === "never" || creator.stage === "rejected") {
-      return emptyChange();
-    }
     const real = messages.filter((m) => !isDaemon(m.peer));
     const newest = real[real.length - 1];
+    // A creator who must not be written to, or who was set aside, gets the message stored and its
+    // sequence stopped (so no follow-up goes out): no stage, no draft, no notice.
+    if (creator.stage === "never" || creator.stage === "rejected") {
+      const quiet = emptyChange();
+      const sequence = source.outreach.sequence(creator.id);
+      if (sequence !== null && sequence.stopped === null) {
+        quiet.sequences.push({
+          ...stopped(sequence),
+          stopped: newest === undefined ? "bounced" : "replied",
+          parkUntil: null,
+        });
+      }
+      quiet.drafts.push(...skipOpenFollowUps(source, creator.id));
+      return quiet;
+    }
     if (newest === undefined) {
       const bounce = messages[messages.length - 1];
       return bounce === undefined
@@ -339,6 +379,8 @@ export function createReplySweep(deps: ReplySweepDeps): ReplySweep {
   // --- the sweep ---
 
   let sweeping = false;
+  /** The unmatched replies already logged in this run. */
+  const unmatchedLogged = new Set<string>();
   let timer: unknown = null;
   let running = false;
   /** Bumped by every start and stop: a tick from an older run arms nothing. */
@@ -372,7 +414,7 @@ export function createReplySweep(deps: ReplySweepDeps): ReplySweep {
   function match(
     reply: ReplyMessage,
     byId: ReadonlyMap<string, CreatorState>,
-    byEmail: ReadonlyMap<string, CreatorState>,
+    byEmail: ReadonlyMap<string, CreatorState | null>,
   ): CreatorState | null {
     const channel = reply.channelId === null ? undefined : byId.get(reply.channelId);
     if (channel !== undefined) {
@@ -463,19 +505,23 @@ export function createReplySweep(deps: ReplySweepDeps): ReplySweep {
     }
     // From here to the commit nothing waits: what is read is what is written.
     const byId = new Map(states.map((c) => [c.id, c]));
-    const byEmail = new Map<string, CreatorState>();
+    // An address two creators share belongs to neither (null): the reply stays unmatched.
+    const byEmail = new Map<string, CreatorState | null>();
     for (const c of states) {
       const email = c.email?.trim().toLowerCase();
-      if (email !== undefined && email !== "" && !byEmail.has(email)) {
-        byEmail.set(email, c);
+      if (email !== undefined && email !== "") {
+        byEmail.set(email, byEmail.has(email) ? null : c);
       }
     }
     const matched: { reply: ReplyMessage; creator: CreatorState }[] = [];
     for (const reply of replies) {
       const creator = match(reply, byId, byEmail);
       if (creator === null) {
-        // Not stored and not acknowledged: the next sweep offers it again.
-        log(`Reach: a reply wasn't matched to a creator (${reply.messageId}).`);
+        // Not stored and not acknowledged: the next sweep offers it again (logged once).
+        if (!unmatchedLogged.has(reply.messageId)) {
+          unmatchedLogged.add(reply.messageId);
+          log(`Reach: a reply wasn't matched to a creator (${reply.messageId}).`);
+        }
       } else {
         matched.push({ reply, creator });
       }
@@ -491,6 +537,11 @@ export function createReplySweep(deps: ReplySweepDeps): ReplySweep {
       const received = reply.receivedAt === null ? Number.NaN : Date.parse(reply.receivedAt);
       const message = incoming(reply, creator, Number.isNaN(received) ? at : received);
       messages.push(message);
+      if (message.at < at - oldReplyMs) {
+        // An old one (an imported mailbox): kept and acknowledged, and nothing else.
+        log(`Reach: an old reply was stored without action (${reply.messageId}).`);
+        continue;
+      }
       const entry = perCreator.get(creator.id) ?? { creator, messages: [] };
       entry.messages.push(message);
       perCreator.set(creator.id, entry);
@@ -510,8 +561,10 @@ export function createReplySweep(deps: ReplySweepDeps): ReplySweep {
     }
     // Only what is in the table is acknowledged: this sweep's new replies, and any an earlier
     // sweep stored but could not acknowledge.
-    const stored = source.outreach.storedGmailIds(matched.map((m) => m.reply.messageId));
-    const ids = matched.map((m) => m.reply.messageId).filter((id) => stored.has(id));
+    // Every reply of the sweep counts, matched or not: one stored earlier that no longer matches
+    // anyone is acknowledged too.
+    const stored = source.outreach.storedGmailIds(replies.map((r) => r.messageId));
+    const ids = replies.map((r) => r.messageId).filter((id) => stored.has(id));
     const newCount = fresh.filter((m) => stored.has(m.reply.messageId)).length;
     if (newCount > 0) {
       deps.changed(["log", "creators", "notify"]);
@@ -676,7 +729,7 @@ export function createReplySweep(deps: ReplySweepDeps): ReplySweep {
     const creator = states.find((c) => c.id === message.creator) ?? null;
     const change =
       bounce && creator !== null && creator.stage !== "never" && creator.stage !== "rejected"
-        ? bounceChange(source, creator, message.id, at, true)
+        ? bounceChange(source, creator, message.id, at, true, `reply-${message.id}`)
         : emptyChange();
     source.outreach.commit({ at, readings: [{ id: message.id, reading: next }], ...change });
     deps.changed(bounce ? ["log", "creators", "notify"] : []);
@@ -727,7 +780,7 @@ export function createReplySweep(deps: ReplySweepDeps): ReplySweep {
     const bounce = entry.id === "any.bounce";
     const change =
       bounce && creator !== null && creator.stage !== "never" && creator.stage !== "rejected"
-        ? bounceChange(source, creator, message.id, at, true)
+        ? bounceChange(source, creator, message.id, at, true, `reply-${message.id}`)
         : emptyChange();
     const answers = source.outreach
       .draftsIn([...openStates, "sending"])
@@ -744,16 +797,23 @@ export function createReplySweep(deps: ReplySweepDeps): ReplySweep {
     deps.changed(bounce ? ["log", "creators", "notify"] : []);
     if (bounce) {
       deps.afterWrite();
-      return { ok: true };
+      return { ok: true, rewritten: false };
     }
-    // The newest open answer is written again with the person's reading as its steer.
+    // The newest answer, when it is open (ready, or failed with nothing sent), is written again
+    // with the person's reading as its steer; one being written, approved or scheduled is not.
     const answer = answers[answers.length - 1];
-    if (answer === undefined) {
-      return { ok: true };
+    if (
+      answer === undefined ||
+      !(answer.state === "ready" || (answer.state === "failed" && answer.problem !== "maybe_sent"))
+    ) {
+      return { ok: true, rewritten: false };
     }
     const result = await deps.reread(answer.id, entry.label);
-    if (result.ok || result.problem === "not_found") {
-      return { ok: true };
+    if (result.ok) {
+      return { ok: true, rewritten: true };
+    }
+    if (result.problem === "not_found") {
+      return { ok: true, rewritten: false };
     }
     // The reading is changed already; the answer could not be written again for this reason.
     return { ok: false, problem: result.problem === "no_sender" ? "bridge_off" : result.problem };

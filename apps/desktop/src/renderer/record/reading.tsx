@@ -32,7 +32,7 @@ export function factWords(fact: ReplyFact): string {
  * Gemini's reading of a creator's last reply (D23; prototype W.AiRead): the intent, the summary,
  * the facts to save to the record, and "That's not it". The page's own thread summary is read
  * first, so a save or a correction shows at once; `message.reading` is what the loaded thread had.
- * A reading still to come shows a line while an answer is being written, else nothing.
+ * A reading still to come says Gemini is reading it, or hasn't yet; a bounce shows nothing.
  */
 export function Reading({
   creatorId,
@@ -50,6 +50,9 @@ export function Reading({
       (d) => d.creator === creatorId && d.kind === "reply" && d.state === "drafting",
     ),
   );
+  const bounce = useApp(
+    (s) => s.data.reach.threads.find((t) => t.creator === creatorId)?.lastIn?.bounce === true,
+  );
   const reading = live ?? message.reading;
   const has = reading !== null;
   // Fetched once for the session, so the menu opens at once.
@@ -59,21 +62,23 @@ export function Reading({
     }
   }, [has]);
   if (reading === null) {
-    return writing ? (
+    // A mail server's bounce has nothing to read; its own callout says what happened.
+    return bounce ? null : (
       <div className="rd-read" role="status" data-ui="record.reading">
         <div className="row">
           <Icon name="sparkle" size={14} />
-          <span className="small muted">{text.reading}</span>
+          <span className="small muted">{writing ? text.reading : text.notRead}</span>
         </div>
       </div>
-    ) : null;
+    );
   }
   const side = reading.side === "brand" ? "brand" : "influencer";
   const notIt = (event: MouseEvent<HTMLButtonElement>): void => {
     const box = event.currentTarget.getBoundingClientRect();
     void loadSituations().then((list) => {
-      if (list === null) {
-        openMenu(box, [{ kind: "heading", label: text.situationsFailed }], text.menu, "start");
+      if (list === null || list.length === 0) {
+        const why = list === null ? text.situationsFailed : text.situationsNone;
+        openMenu(box, [{ kind: "heading", label: why }], text.menu, "start");
         return;
       }
       const pick = (s: Situation): MenuItem => ({

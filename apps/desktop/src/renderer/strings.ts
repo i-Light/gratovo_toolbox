@@ -2120,6 +2120,8 @@ export const strings = {
         hint: "Gemini reads it like any other reply.",
         added: (name: string): string => `Reply added to ${name}`,
         addedSub: "Follow-ups stopped. An answer is being drafted.",
+        addedClosed: "Kept on their record. Nothing more goes to them.",
+        addedAnswering: "Follow-ups stopped. Your open answer stays as it is.",
         problems: {
           not_found: "That creator isn't here any more.",
           no_outbound: "You haven't emailed them yet, so there is no thread to add to.",
@@ -2152,7 +2154,10 @@ export const strings = {
         answered: "Answered",
         your_move: "Your move",
         bounced: "Bounced",
+        closed: "Not contacting",
       },
+      closedTitle: "You aren't contacting them.",
+      closedText: "They are marked never contact or rejected, so no answer is drafted.",
       noReading: "Reply",
       bouncedTitle: "The email bounced.",
       bouncedText: "It never reached them. Check the address on the record.",
@@ -2177,6 +2182,7 @@ export const strings = {
       label: "Gemini’s reading of their reply",
       group: "Gemini’s reading",
       reading: "Gemini is reading it…",
+      notRead: "Gemini hasn’t read it yet.",
       corrected: "Corrected by you",
       save: "Save to record",
       saved: "Saved",
@@ -2198,6 +2204,7 @@ export const strings = {
       saveFailed: "Couldn’t save that. Try again.",
       reread: (label: string): string => `Reading it as ${label}`,
       rereadSub: "Writing the answer again.",
+      rereadKept: "Reading changed; the answer was not written again.",
       rereadOnly: "The answer isn’t drafted yet.",
       problems: {
         not_found: "That reply isn’t here any more.",
@@ -2208,6 +2215,7 @@ export const strings = {
         no_data: "Couldn’t change the reading. Try again in a moment.",
       },
       situationsFailed: "Couldn’t load the list. Try again in a moment.",
+      situationsNone: "This copy of the app has no list of reply kinds yet.",
     },
     card: {
       label: (kind: string): string => `${kind} draft`,

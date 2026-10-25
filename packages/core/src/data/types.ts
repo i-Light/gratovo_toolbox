@@ -222,6 +222,9 @@ export interface CreatorState {
   readonly emailConfirmed: boolean;
   /** As `Creator.contactName`. */
   readonly contactName: string | null;
+  /** As `Creator.contactSource` and `contactConfidence`; a bounce passes them through. */
+  readonly contactSource?: ContactSource | null;
+  readonly contactConfidence?: number | null;
   readonly rejectReason: RejectReason | null;
   readonly rejectedAt: number | null;
   /** As `Creator.neverReason`. */

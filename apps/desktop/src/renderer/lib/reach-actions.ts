@@ -810,11 +810,21 @@ export async function checkReplies(): Promise<number | null> {
  * True when it was added.
  */
 export async function pasteReply(creatorId: string, text: string): Promise<boolean> {
-  const name = creatorOf(creatorId)?.name ?? "";
+  const creator = creatorOf(creatorId);
+  const name = creator?.name ?? "";
+  // What the second line can promise depends on where the creator stands now (review of 6d).
+  const closed = creator?.stage === "never" || creator?.stage === "rejected";
+  const answering = reachNow().drafts.some(
+    (d) => d.creator === creatorId && d.kind === "reply" && isOpenDraft(d),
+  );
   try {
     const result = await window.gratovo.invoke("reach:paste-reply", { creatorId, text });
     if (result.ok && result.value.ok) {
-      toast({ msg: paste.added(name), sub: paste.addedSub, icon: "paste" });
+      toast({
+        msg: paste.added(name),
+        sub: closed ? paste.addedClosed : answering ? paste.addedAnswering : paste.addedSub,
+        icon: "paste",
+      });
       return true;
     }
     toast({
@@ -842,14 +852,18 @@ export async function saveReplyFact(
   key: ReplyFactKey,
 ): Promise<boolean> {
   const name = creatorOf(creatorId)?.name ?? "";
-  adoptServerData((data) => {
-    const fact = data.reach.threads
-      .find((x) => x.creator === creatorId)
-      ?.lastIn?.reading?.facts.find((f) => f.key === key);
-    if (fact !== undefined) {
-      (fact as { saved: boolean }).saved = true;
-    }
-  });
+  const mark = (saved: boolean): void => {
+    adoptServerData((data) => {
+      const lastIn = data.reach.threads.find((x) => x.creator === creatorId)?.lastIn;
+      // Only the reply the fact came from: a newer one may have the same kind of fact.
+      const fact =
+        lastIn?.id === messageId ? lastIn.reading?.facts.find((f) => f.key === key) : undefined;
+      if (fact !== undefined) {
+        (fact as { saved: boolean }).saved = saved;
+      }
+    });
+  };
+  mark(true);
   try {
     const result = await window.gratovo.invoke("data:write", {
       writes: [{ kind: "reply.fact", messageId, key }],
@@ -869,14 +883,7 @@ export async function saveReplyFact(
   } catch (reason) {
     console.error("A change wasn't saved:", reason);
   }
-  adoptServerData((data) => {
-    const fact = data.reach.threads
-      .find((x) => x.creator === creatorId)
-      ?.lastIn?.reading?.facts.find((f) => f.key === key);
-    if (fact !== undefined) {
-      (fact as { saved: boolean }).saved = false;
-    }
-  });
+  mark(false);
   toast({ msg: rd.saveFailed, icon: "alert" });
   return false;
 }
@@ -888,6 +895,8 @@ export interface Situation {
   readonly side: "influencer" | "brand" | "any";
 }
 let situationsCache: Promise<readonly Situation[] | null> | null = null;
+/** The situation that says the reply was a mail server's bounce. */
+const bounceSituation = "any.bounce";
 
 /** The situations for "That's not it": one fetch for the whole session; a failure is tried again. */
 export function loadSituations(): Promise<readonly Situation[] | null> {
@@ -921,9 +930,14 @@ export async function reclassifyReply(
   messageId: string,
   situation: Pick<Situation, "id" | "label">,
 ): Promise<boolean> {
-  const draft = reachNow().drafts.find(
-    (d) => d.creator === creatorId && d.kind === "reply" && d.rewriting === null && isOpenDraft(d),
-  );
+  // A bounce has nobody to answer, so main sets the answer aside rather than writing it again.
+  const draft =
+    situation.id === bounceSituation
+      ? undefined
+      : reachNow().drafts.find(
+          (d) =>
+            d.creator === creatorId && d.kind === "reply" && d.rewriting === null && isOpenDraft(d),
+        );
   if (draft !== undefined) {
     rewrites.set(draft.id, {
       how: "redo",
@@ -938,9 +952,17 @@ export async function reclassifyReply(
       replyType: situation.id,
     });
     if (result.ok && result.value.ok) {
+      const { rewritten } = result.value;
+      if (!rewritten && draft !== undefined) {
+        rewrites.delete(draft.id);
+      }
       toast({
         msg: rd.reread(situation.label),
-        ...(draft === undefined ? {} : { sub: rd.rereadSub }),
+        ...(rewritten
+          ? { sub: rd.rereadSub }
+          : draft === undefined && situation.id !== bounceSituation
+            ? {}
+            : { sub: rd.rereadKept }),
         icon: "sparkle",
         tone: "info",
         ms: 4000,

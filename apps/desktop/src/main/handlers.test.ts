@@ -577,7 +577,7 @@ describe("Reach channels", () => {
       wake: vi.fn(() => Promise.resolve({ ok: true as const })),
       checkReplies: vi.fn(() => Promise.resolve({ ok: true as const, stored: 2 })),
       pasteReply: vi.fn(() => Promise.resolve({ ok: true as const })),
-      reclassify: vi.fn(() => Promise.resolve({ ok: true as const })),
+      reclassify: vi.fn(() => Promise.resolve({ ok: true as const, rewritten: false })),
       situations: vi.fn(() => Promise.resolve({ ok: true as const, situations: [] })),
     };
     const mine = handlersWith(accountWith(), [], findWith(), { reach });

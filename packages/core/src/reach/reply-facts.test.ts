@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { readAgeBand, readCountries, readRate, readReplyFacts } from "./reply-facts";
+import { ownWords, readAgeBand, readCountries, readRate, readReplyFacts } from "./reply-facts";
 
 describe("readRate", () => {
   it("reads a dollar amount, with commas, cents or a k", () => {
@@ -77,5 +77,48 @@ describe("readReplyFacts", () => {
       { key: "age", band: "25-34", saved: false },
     ]);
     expect(readReplyFacts("Sounds good, tell me more.")).toEqual([]);
+  });
+});
+
+describe("what the review of 6d found", () => {
+  it("never reads our own quoted email as theirs", () => {
+    const reply = [
+      "Sounds interesting, tell me more.",
+      "",
+      "On Mon, 26 Oct 2026 at 10:00, Moustafa <outreach1@gratovo.example> wrote:",
+      "> Brands pay $5,000 for an integration. Your US audience is a great fit.",
+    ].join("\n");
+    expect(ownWords(reply)).toBe("Sounds interesting, tell me more.\n");
+    expect(readReplyFacts(reply)).toEqual([]);
+    expect(readRate("Fine by me.\n> We pay $3,000\n")).toBeNull();
+  });
+
+  it("reads US and UK only as written, and never from America or a lower-case 'us'", () => {
+    expect(readCountries("Let us know which brand. My subscribers love tools.")).toEqual([]);
+    expect(readCountries("My audience is mostly South America and Latin America")).toEqual([]);
+    expect(readCountries("Top viewers: the US and the UK").map((c) => c.code)).toEqual([
+      "US",
+      "GB",
+    ]);
+  });
+
+  it("reads a share written as '40% of viewers in Germany'", () => {
+    expect(readCountries("About 40% of viewers in Germany, the rest US")).toEqual([
+      { code: "DE", share: 40 },
+      { code: "US", share: null },
+    ]);
+  });
+
+  it("never reads a percentage or an engagement rate as a price, and reads 'Rate: 900'", () => {
+    expect(readRate("My engagement rate is 30%")).toBeNull();
+    expect(readRate("My engagement rate is 30 percent")).toBeNull();
+    expect(readRate("My fee is 50% upfront")).toBeNull();
+    expect(readRate("Open rate 45, click rate 20")).toBeNull();
+    expect(readRate("Rate: 900")).toBe(900);
+  });
+
+  it("reads no age band from a length of time", () => {
+    expect(readAgeBand("My videos are 20-30 minutes long and top viewers stay")).toBeNull();
+    expect(readAgeBand("Viewers: aged 18-24 mostly")).toBe("18-24");
   });
 });

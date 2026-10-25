@@ -245,6 +245,10 @@ export interface SeqRow {
  * always there to put it right (review of 6c, finding 4).
  */
 export function seqState(sequence: Sequence, now: number, stage?: CreatorStage): SeqState {
+  // A reply or a bounce ends the sequence, whatever park day it still has (review of 6d).
+  if (sequence.stopped === "replied" || sequence.stopped === "bounced") {
+    return "stopped";
+  }
   if (sequence.parkUntil !== null || stage === "parked") {
     return "parked";
   }

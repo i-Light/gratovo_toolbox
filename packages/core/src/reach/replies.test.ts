@@ -86,4 +86,17 @@ describe("replyItems", () => {
     expect(items.find((i) => i.creator.id === "b")?.draft?.id).toBe("q1");
     expect(repliesToAnswer(items)).toBe(2);
   });
+
+  it("closes a reply from a creator marked never contact or rejected: nothing waits on you", () => {
+    const items = replyItems(
+      [
+        { ...creator("n"), stage: "never" },
+        { ...creator("r"), stage: "rejected" },
+      ],
+      [thread("n", 10), thread("r", 20)],
+      [],
+    );
+    expect(items.map((i) => i.state)).toEqual(["closed", "closed"]);
+    expect(repliesToAnswer(items)).toBe(0);
+  });
 });

@@ -7,7 +7,7 @@ import { isOpenDraft } from "./board";
  */
 
 /** Where a reply stands for the person. */
-export type ReplyState = "writing" | "draft" | "your_move" | "answered" | "bounced";
+export type ReplyState = "writing" | "draft" | "your_move" | "answered" | "bounced" | "closed";
 
 export interface ReplyItem {
   readonly creator: Creator;
@@ -32,7 +32,11 @@ function answerOf(drafts: readonly OutreachDraft[], creator: string): OutreachDr
   return best;
 }
 
-function stateOf(thread: ThreadSummary, draft: OutreachDraft | null): ReplyState {
+function stateOf(creator: Creator, thread: ThreadSummary, draft: OutreachDraft | null): ReplyState {
+  // Never contact or rejected: their reply is kept, but nothing waits on the person (review of 6d).
+  if (creator.stage === "never" || creator.stage === "rejected") {
+    return "closed";
+  }
   if (thread.lastIn?.bounce === true) {
     return "bounced";
   }
@@ -56,7 +60,13 @@ export function replyItems(
       continue;
     }
     const draft = answerOf(drafts, creator.id);
-    items.push({ creator, thread, draft, state: stateOf(thread, draft), at: thread.lastIn.at });
+    items.push({
+      creator,
+      thread,
+      draft,
+      state: stateOf(creator, thread, draft),
+      at: thread.lastIn.at,
+    });
   }
   return items.sort((a, b) => b.at - a.at || a.creator.name.localeCompare(b.creator.name));
 }

@@ -1271,6 +1271,28 @@ describe("the drafter", () => {
         expect(reading).toHaveBeenCalledOnce();
       });
 
+      it("carries a correction's steer into later rewrites of the answer", async () => {
+        const m9 = store.messages.find((m) => m.message.id === "m9");
+        if (m9 === undefined) throw new Error("no m9");
+        m9.message = {
+          ...m9.message,
+          reading: {
+            replyType: "inf.not_interested",
+            label: "Not interested",
+            summary: "No.",
+            side: "influencer",
+            corrected: true,
+            facts: [],
+          },
+        };
+        propose.mockResolvedValue(answered(replyProposal("inf.not_interested")));
+        expect(await drafter.rewrite("a", "warmer")).toEqual({ ok: true });
+        await drafter.idle();
+        expect(propose.mock.calls[0]?.[0].request).toMatchObject({
+          steer: { note: "Make it warmer, without flattery. Read their reply as: Not interested" },
+        });
+      });
+
       it("shares the rewrite's refusals", async () => {
         bridge = { ready: false, pausedUntil: null };
         expect(await drafter.reread("a", "x")).toEqual({ ok: false, problem: "bridge_off" });

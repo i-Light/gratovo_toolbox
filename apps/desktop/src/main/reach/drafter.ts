@@ -502,6 +502,26 @@ export function createDrafter(deps: DrafterDeps): Drafter {
     };
   }
 
+  /**
+   * A person's correction ("That's not it") steers every later proposal for the answer: its note
+   * joins whatever note the call has (a rewrite's, or none), unless it is that note already.
+   */
+  function withCorrection(
+    source: DrafterSource,
+    draft: StoredDraft,
+    note: string | null,
+  ): string | null {
+    const reading =
+      draft.kind === "reply" && draft.replyTo !== null
+        ? source.outreach.message(draft.replyTo)?.reading
+        : null;
+    if (reading?.corrected !== true) {
+      return note;
+    }
+    const steer = reachStrings.readAs(reading.label);
+    return note === null || note === steer ? steer : `${note} ${steer}`;
+  }
+
   /** One call to the engine, its answer mapped. Logs the code only, never text. */
   async function ask(
     source: DrafterSource,
@@ -513,7 +533,10 @@ export function createDrafter(deps: DrafterDeps): Drafter {
     let call: GeminiCall<"action.comms_propose">;
     try {
       const facts = await buildCommsFacts({ source, creatorId: draft.creator, sender, now: now() });
-      call = await deps.propose({ request: requestFor(draft, creator, note), facts });
+      call = await deps.propose({
+        request: requestFor(draft, creator, withCorrection(source, draft, note)),
+        facts,
+      });
     } catch {
       console.error("Reach: drafting failed.");
       return { ok: false, problem: "engine_failed", proposal: null };

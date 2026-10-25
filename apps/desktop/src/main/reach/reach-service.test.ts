@@ -93,6 +93,63 @@ describe("the Reach service", () => {
     expect(out.reach.mailboxes).toEqual([]);
   });
 
+  it("counts the replies the Replies page counts, and no others", async () => {
+    const { service } = make();
+    const thread = (creator: string, answered: boolean) => ({
+      creator,
+      count: 2,
+      lastOutAt: 1,
+      answered,
+      lastIn: { id: `m-${creator}`, at: 2, reading: null, preview: "Hi", bounce: false },
+    });
+    const [first, second] = frame.creators;
+    if (first === undefined || second === undefined) throw new Error("no creators");
+    const base = withDrafts([draft({ id: "a", kind: "first", state: "ready" })]);
+    const out = await service.overlay({
+      ...base,
+      reach: { ...base.reach, threads: [thread(first.id, false), thread(second.id, true)] },
+    });
+    // One draft waiting, one reply that is their move; the answered one is not counted.
+    expect(out.counts.reach).toBe(2);
+  });
+
+  it("strips a reply's rate from the readings when the member can't see money", async () => {
+    const { service } = make();
+    const creator = frame.creators[0]?.id ?? "c1";
+    const reading = {
+      replyType: "inf.gives_rate",
+      label: "Rate",
+      summary: "s",
+      side: "influencer",
+      corrected: false,
+      facts: [
+        { key: "rate", rate: 900, saved: false },
+        { key: "age", band: "25-34", saved: false },
+      ],
+    } as const;
+    const withRate = {
+      ...frame,
+      reach: {
+        ...frame.reach,
+        threads: [
+          {
+            creator,
+            count: 1,
+            lastOutAt: null,
+            answered: false,
+            lastIn: { id: "m", at: 1, reading, preview: "", bounce: false },
+          },
+        ],
+      },
+    };
+    const hidden = await service.overlay({ ...withRate, seesMoney: false });
+    expect(hidden.reach.threads[0]?.lastIn?.reading?.facts).toEqual([
+      { key: "age", band: "25-34", saved: false },
+    ]);
+    const shown = await service.overlay({ ...withRate, seesMoney: true });
+    expect(shown.reach.threads[0]?.lastIn?.reading?.facts).toHaveLength(2);
+  });
+
   it("signs with the profile name once a frame has been read", async () => {
     const { service } = make();
     const out = await service.overlay({ ...frame, myName: "  Sara  " });

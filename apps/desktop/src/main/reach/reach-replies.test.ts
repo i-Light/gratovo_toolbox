@@ -210,6 +210,7 @@ describe("replies on example data", () => {
       .at(-1);
     expect(await service.reclassify(message?.id ?? "none", "inf.not_interested")).toEqual({
       ok: true,
+      rewritten: true,
     });
     expect(source.outreach.message(message?.id ?? "none")?.reading).toMatchObject({
       replyType: "inf.not_interested",

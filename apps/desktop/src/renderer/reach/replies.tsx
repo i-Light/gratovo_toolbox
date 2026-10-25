@@ -28,6 +28,7 @@ const stateClass: Record<ReplyState, string | undefined> = {
   answered: undefined,
   your_move: undefined,
   bounced: undefined,
+  closed: undefined,
 };
 
 function ReplyRow({
@@ -154,6 +155,13 @@ function ReplyDetail({ item, ids }: { readonly item: ReplyItem; readonly ids: re
           <Icon name="alert" />
           <span>
             <b>{text.bouncedTitle}</b> {text.bouncedText}
+          </span>
+        </div>
+      ) : item.state === "closed" ? (
+        <div className="callout" role="status">
+          <Icon name="ban" />
+          <span>
+            <b>{text.closedTitle}</b> {text.closedText}
           </span>
         </div>
       ) : item.state === "answered" ? (
