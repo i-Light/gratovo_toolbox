@@ -380,6 +380,49 @@ describe("log:for", () => {
   });
 });
 
+describe("log:page", () => {
+  const line = {
+    id: "l1",
+    at: 1,
+    who: "u1",
+    text: "Rejected Prompt Lab",
+    ref: "UC1",
+    action: "creator.reject",
+    detail: "views",
+  };
+  const request = { before: null, limit: 30, who: null };
+
+  it("takes where to start, a limit of 1 to 100 and one person, and nothing else", () => {
+    const parse = (value: unknown) => channels["log:page"].request.safeParse(value).success;
+    expect(parse(request)).toBe(true);
+    expect(parse({ before: { at: 5, id: "l9" }, limit: 100, who: "u1" })).toBe(true);
+    expect(parse({ ...request, limit: 0 })).toBe(false);
+    expect(parse({ ...request, limit: 101 })).toBe(false);
+    expect(parse({ ...request, who: "x".repeat(101) })).toBe(false);
+    expect(parse({ ...request, before: { at: 5 } })).toBe(false);
+    expect(parse({ ...request, before: { at: 5, id: "x".repeat(101) } })).toBe(false);
+    expect(parse({ ...request, before: { at: 5, id: "l9", extra: 1 } })).toBe(false);
+    expect(parse({ ...request, ref: "UC1" })).toBe(false);
+  });
+
+  it("answers at most 100 lines and 50 people", () => {
+    const parse = (value: unknown) => channels["log:page"].response.safeParse(value).success;
+    const person = { who: "u1", name: "Ada", count: 3 };
+    const ok = { lines: [line], more: true, people: [person], total: 3 };
+    expect(parse(ok)).toBe(true);
+    expect(parse({ ...ok, lines: Array(100).fill(line) })).toBe(true);
+    expect(parse({ ...ok, lines: Array(101).fill(line) })).toBe(false);
+    expect(parse({ ...ok, people: Array(50).fill(person) })).toBe(true);
+    expect(parse({ ...ok, people: Array(51).fill(person) })).toBe(false);
+    expect(parse({ ...ok, people: [{ ...person, who: "x".repeat(101) }] })).toBe(false);
+    expect(parse({ ...ok, people: [{ ...person, count: -1 }] })).toBe(false);
+    expect(parse({ ...ok, total: -1 })).toBe(false);
+    expect(parse({ ...ok, total: 1.5 })).toBe(false);
+    expect(parse({ lines: [line], more: true, people: [person] })).toBe(false);
+    expect(parse({ ...ok, extra: 1 })).toBe(false);
+  });
+});
+
 describe("data:write request", () => {
   const request = channels["data:write"].request;
   const write = { kind: "log.remove", id: "l1" };
@@ -487,6 +530,12 @@ describe("the data channels through the dispatcher", () => {
       "find:views-set": () => ({ ok: true as const }),
       "find:ideas": () => ({ ok: false as const, problem: "bridge_off" as const }),
       "log:for": () => ({ lines: [] }),
+      "log:page": () => ({ lines: [], more: false, people: [], total: 0 }),
+      "toolbox:list": () => ({ version: 0, total: 0, items: [] }),
+      "toolbox:archived": () => ({ total: 0, items: [] }),
+      "toolbox:restore": () => ({ ok: false as const, problem: "no_python" as const }),
+      "toolbox:sweep": () => ({}),
+      "toolbox:counts": () => ({ archive: 0, never: 0, archived: 0, logToday: 0 }),
       "rules:set": () => ({}),
       "import:candidates": () => ({ candidates: [] }),
       "import:pick": () => ({ path: null }),

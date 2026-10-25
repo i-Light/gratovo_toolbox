@@ -41,6 +41,7 @@ describe("creatorSub and brandSub", () => {
       contactConfidence: null,
       rejectReason: null,
       rejectedAt: null,
+      neverReason: null,
       archiveDueAt: null,
     } as const;
     expect(creatorSub(creator)).toBe(`@promptdaily · ${strings.record.stages.new}`);

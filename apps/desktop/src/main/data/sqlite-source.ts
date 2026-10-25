@@ -35,7 +35,7 @@ import {
   setNotificationRead,
   setNotify,
 } from "./repositories";
-import { linesFor } from "./repositories/activity-log";
+import { linesFor, linesSince, logPage, peopleInLog } from "./repositories/activity-log";
 import {
   creatorStates,
   parseTags,
@@ -218,6 +218,18 @@ export function createSqliteSource(db: DatabaseSync, options: SqliteSourceOption
           seesMoney: seesMoney(listMemberAccess(db).get(me) ?? noAccess),
           limit,
         }),
+      ),
+    logPage: ({ before, limit, who }) =>
+      settle(() => {
+        const sees = seesMoney(listMemberAccess(db).get(me) ?? noAccess);
+        return {
+          ...logPage(db, { seesMoney: sees, before, limit, who }),
+          ...peopleInLog(db, { seesMoney: sees }),
+        };
+      }),
+    logSince: (since) =>
+      settle(() =>
+        linesSince(db, { seesMoney: seesMoney(listMemberAccess(db).get(me) ?? noAccess), since }),
       ),
     write: (writes) =>
       settle(() => {

@@ -13,7 +13,14 @@ import {
   mailConnectResultSchema,
   pickFolderRequestSchema,
 } from "./connections";
-import { dataWriteSchema, frameSchema, logForRequestSchema, logForResultSchema } from "./data";
+import {
+  dataWriteSchema,
+  frameSchema,
+  logForRequestSchema,
+  logForResultSchema,
+  logPageRequestSchema,
+  logPageResultSchema,
+} from "./data";
 import {
   findAddRequestSchema,
   findAddResultSchema,
@@ -43,6 +50,15 @@ import {
 } from "./import";
 import { presenceSetSchema } from "./presence";
 import { syncStatusSchema } from "./sync";
+import {
+  toolboxArchivedRequestSchema,
+  toolboxArchivedResultSchema,
+  toolboxCountsSchema,
+  toolboxListRequestSchema,
+  toolboxListResultSchema,
+  toolboxRestoreRequestSchema,
+  toolboxRestoreResultSchema,
+} from "./toolbox";
 import { writingRulesSchema } from "./writing";
 
 /**
@@ -182,6 +198,36 @@ export const channels = {
   "log:for": {
     request: logForRequestSchema,
     response: logForResultSchema,
+  },
+  /** The whole activity log, a page at a time, with each person's line count (D40). */
+  "log:page": {
+    request: logPageRequestSchema,
+    response: logPageResultSchema,
+  },
+  /** One page of Toolbox's archive countdown or never-contact list (plan step 5d, D36, D39). */
+  "toolbox:list": {
+    request: toolboxListRequestSchema,
+    response: toolboxListResultSchema,
+  },
+  /** The channels archived for good, newest first, searchable (D36). */
+  "toolbox:archived": {
+    request: toolboxArchivedRequestSchema,
+    response: toolboxArchivedResultSchema,
+  },
+  /** Brings channels back from "Archived for good" (D38); `busy` while a search runs. */
+  "toolbox:restore": {
+    request: toolboxRestoreRequestSchema,
+    response: toolboxRestoreResultSchema,
+  },
+  /** Archives for good the rejected channels past their date (D37); answers at once. */
+  "toolbox:sweep": {
+    request: z.strictObject({}),
+    response: z.strictObject({}),
+  },
+  /** The numbers beside the Toolbox tools (D34). */
+  "toolbox:counts": {
+    request: z.strictObject({}),
+    response: toolboxCountsSchema,
   },
   /** Replaces the search rules (Settings › Search rules); `find:changed` follows. */
   "rules:set": {

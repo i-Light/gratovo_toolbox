@@ -56,6 +56,10 @@ export {
   logForMax,
   logForRequestSchema,
   logForResultSchema,
+  logPageMax,
+  logPageRequestSchema,
+  logPageResultSchema,
+  logPeopleMax,
   mateRunSchema,
   notifySettingsSchema,
   railCountsSchema,
@@ -121,6 +125,20 @@ export type { ImportCandidates, ImportReport, ImportResult, PickedPath } from ".
 export { presenceMembersSchema, presenceScreens, presenceSetSchema } from "./presence";
 export type { PresenceScreen } from "./presence";
 export { syncStatusSchema, syncStates } from "./sync";
+export {
+  archivedChannelSchema,
+  archivedPageMax,
+  restoreMax,
+  toolboxArchivedRequestSchema,
+  toolboxArchivedResultSchema,
+  toolboxCountsSchema,
+  toolboxItemSchema,
+  toolboxListRequestSchema,
+  toolboxListResultSchema,
+  toolboxRestoreProblems,
+  toolboxRestoreRequestSchema,
+  toolboxRestoreResultSchema,
+} from "./toolbox";
 export type { SyncState, SyncStatus } from "./sync";
 export { writingRuleLevels, writingRuleSchema, writingRulesSchema } from "./writing";
 export type { WritingRules } from "./writing";

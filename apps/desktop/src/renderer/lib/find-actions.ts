@@ -45,7 +45,8 @@ export function ensureCreators(items: readonly CatalogItem[]): void {
         contactSource: null,
         contactConfidence: null,
         rejectReason: item.rejectReason,
-        rejectedAt: null,
+        rejectedAt: item.rejectedAt,
+        neverReason: item.neverReason,
         archiveDueAt: item.archiveDueAt,
       });
     }
@@ -139,6 +140,7 @@ export function reject(items: readonly CatalogItem[], reason: RejectReason): boo
       c.stage = "rejected";
       c.rejectReason = reason;
       c.rejectedAt = now;
+      c.neverReason = null;
     },
     line: t.rejected,
     detail: reason,
@@ -148,8 +150,8 @@ export function reject(items: readonly CatalogItem[], reason: RejectReason): boo
   });
 }
 
-/** Takes a rejected channel back to Review new. */
-export function bringBack(item: CatalogItem): boolean {
+/** Takes a rejected channel back to Review new; `sub` is the toast's second line, if the caller has words for it. */
+export function bringBack(item: CatalogItem, sub = ""): boolean {
   return change([item], {
     from: ["rejected"],
     action: "creator.restore",
@@ -157,11 +159,12 @@ export function bringBack(item: CatalogItem): boolean {
       c.stage = "new";
       c.rejectReason = null;
       c.rejectedAt = null;
+      c.neverReason = null;
     },
     line: t.broughtBack,
     detail: null,
     msg: t.broughtBack,
-    sub: "",
+    sub,
   });
 }
 
@@ -174,6 +177,7 @@ export function neverContact(item: CatalogItem, reasonText: string): boolean {
       c.stage = "never";
       c.rejectReason = null;
       c.rejectedAt = now;
+      c.neverReason = reasonText;
     },
     line: t.never,
     detail: reasonText,
@@ -191,6 +195,7 @@ export function allowAgain(item: CatalogItem): boolean {
       c.stage = "new";
       c.rejectReason = null;
       c.rejectedAt = null;
+      c.neverReason = null;
     },
     line: t.allowed,
     detail: null,

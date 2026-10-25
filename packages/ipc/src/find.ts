@@ -3,6 +3,7 @@ import {
   creatorStages,
   emailMax,
   emailPattern,
+  neverReasonMax,
   notesMax,
   rejectReasons,
 } from "@gratovo/core/data";
@@ -189,8 +190,9 @@ export const fitSchema: z.ZodType<Fit> = z.strictObject({
   parts: z.array(fitPartSchema).max(5),
 });
 
-// The item's fields as a plain shape, so the query and the detail can each add theirs.
-const catalogItemShape = {
+// The item's fields as a plain shape, so the query, the detail and Toolbox's rows can each add
+// theirs.
+export const catalogItemShape = {
   id: catalogId,
   name: catalogText,
   handle: catalogText,
@@ -213,7 +215,10 @@ const catalogItemShape = {
   engagement: z.number().nullable(),
   emailedBefore: z.strictObject({ at: time.nullable(), who: catalogText.nullable() }).nullable(),
   rejectReason: z.enum(rejectReasons).nullable(),
+  rejectedAt: time.nullable(),
+  neverReason: z.string().max(neverReasonMax).nullable(),
   archiveDueAt: time.nullable(),
+  archivedAt: time.nullable(),
   hasNumbers: z.boolean(),
 };
 

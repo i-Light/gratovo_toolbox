@@ -620,6 +620,73 @@
                   "backupDir"
                 ],
                 "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "archive.sweep"
+                  },
+                  "channels": {
+                    "minItems": 1,
+                    "maxItems": 2000,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "channelId": {
+                          "type": "string",
+                          "pattern": "^UC[A-Za-z0-9_-]{22}$"
+                        },
+                        "handle": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "pattern": "^@[A-Za-z0-9._-]{1,100}$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "channelId",
+                        "handle"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "kind",
+                  "channels"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "archive.restore"
+                  },
+                  "channelIds": {
+                    "minItems": 1,
+                    "maxItems": 2000,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^UC[A-Za-z0-9_-]{22}$"
+                    }
+                  }
+                },
+                "required": [
+                  "kind",
+                  "channelIds"
+                ],
+                "additionalProperties": false
               }
             ]
           },
@@ -2338,6 +2405,96 @@
                   "settingsFiles",
                   "dryRun",
                   "backup"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "type",
+              "kind",
+              "data"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "result"
+              },
+              "kind": {
+                "type": "string",
+                "const": "archive.sweep"
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "archived": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100000000
+                  }
+                },
+                "required": [
+                  "archived"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "type",
+              "kind",
+              "data"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "result"
+              },
+              "kind": {
+                "type": "string",
+                "const": "archive.restore"
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "restored": {
+                    "maxItems": 2000,
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "channelId": {
+                          "type": "string",
+                          "pattern": "^UC[A-Za-z0-9_-]{22}$"
+                        },
+                        "handle": {
+                          "anyOf": [
+                            {
+                              "type": "string",
+                              "pattern": "^@[A-Za-z0-9._-]{1,100}$"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "channelId",
+                        "handle"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "restored"
                 ],
                 "additionalProperties": false
               }

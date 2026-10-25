@@ -199,9 +199,65 @@ interface CatalogItem { ...; emails: FoundEmail[] /* ≤10, most sure first */; 
 | R3 | H | all | review | – |
 | L3 | lead | R3 | checks, look, PR, merge | CI |
 
-## 5d: Toolbox (outline; detailed when 5c merges)
+## 5d: Toolbox (Archive, Never contact, Activity log)
 
-A Toolbox screen listing only built tools (live and example). **Archive:** rejected creators with the countdown (`archiveDueAt + (archiveDays − 7) days`, D6) and Bring back; below, "Archived for good" from `channel_archive` (paged, searchable by handle; `toolbox:archived {q, offset, limit}`), where Bring back is `refetch {handles}` (refetch already lifts a tombstone when a handle is named) plus stage `new`. The sweep: a store-lane job `archive.sweep {channelIds}` tombstoning rejected channels past their due date, run at start, hourly and when Archive opens, on live and example data (it is local). The reject toast gains the archive wording. **Never contact:** the list, add a channel (search the catalog) with a reason, Allow again with the confirm. **Activity log:** `log:page {before?, limit ≤ 100, who?}`, grouped by day, person chips (you and anyone in the log), 30 then "Show more". Live `toolbox` wired. One smoke test.
+Detailed 2026-10-25 (lead, Opus) on `main` at f3d9883. Prototype: `more.js` l.426-607 (`TOOLS`, `ArchiveTool`, `NeverTool`, `LogTool`) and l.744-802 (`Toolbox`). Already built: the acts `bringBack`, `neverContact` and `allowAgain` (`renderer/lib/find-actions.ts`), `log:for`, the catalog, the store-lane pattern in `main/find/email-finder.ts`, and Python's `store.archive_channel_locally` (the tombstone goes in first, then the channel, its keywords and its videos are deleted) and `store.unarchive`.
+
+**Decisions, 5d**
+- **D34. Toolbox is a screen with route tabs.** Its tools are the route's tabs: `archive` "Archive", `never` "Never contact", `log` "Activity log" (strings `screens.toolbox.tabs`), so the URL, the palette, G then X and the live gate work as they do for Find. Live: `liveWired.toolbox = ["archive", "never", "log"]`. The page draws the prototype's two columns: the tool list (groups "Tools" and "History", each row with its icon, name, one-line description and a count) and the open tool's pane (icon, name, the long description, a divider, the tool). Only built tools are listed, on live and example data alike: the price calculator, Scheduled emails and Notifications come with their steps (8, 6, 7), and the "Moved" group and the Settings link are not drawn. J and K step through the tools (letters switch, never while typing). Counts: Archive is the countdown list's total, Never contact its total, Activity log the lines since local midnight ("Changes today"). They come from `toolbox:counts`, read again on each `find:catalog` and whenever the frame's newest log line changes.
+- **D35. When a channel is archived for good.** Pure in core: `archiveDate({archiveDueAt, rejectedAt}, archiveDays)` = `archiveDueAt + (archiveDays − 7)` days (D6); with no due date, `rejectedAt + archiveDays` days; with neither (an old app's reject that never got a tag), null. A null date is never swept: the list says "No archive date" and Bring back still works (the old app never archived these either).
+- **D36. The countdown list** (`toolbox:list {list:"archive"}`): creators at `rejected` that aren't archived for good yet (`archivedAt` null), soonest date first (null last, then by name). Each row as the prototype: picture, name, handle, the reason (`rejectReason` words, else "Rejected"), how long ago (`rejectedAt`), "archived for good in N days" or "archived today" with a meter (days left of `archiveDays`, warn at ≤ 1), and Bring back (the `bringBack` act, undoable). Clicking a row opens the peek over the list. Empty state as the prototype. Below it, **"Archived for good"** (`toolbox:archived`): every tombstone in `channel_archive` (from the 7-day sweep, the search rules and the import), newest first, 50 a page with "Show more", and a search box matching handle or name. Each row: handle (the name when known), the label (`rejected` reads "Rejected"; any other label is shown as written, since it is the search rules' label), when, subscribers, and Bring back.
+- **D37. The sweep.** Main's archive service (`main/find/archive-service.ts`) picks the creators at `rejected` with `archivedAt` null whose `archiveDate` has passed, and runs the store-lane job `archive.sweep {channels:[{channelId, handle}]}` (at most 2,000 a job; more means several jobs). Python tombstones each one with label `rejected` through `archive_channel_locally`, which deletes its pipeline rows as the search rules' sweep does. A channel with no pipeline row still gets a tombstone, so searches skip it and the sweep never picks it again. The `channel_state` row stays `rejected` (history kept, nothing goes to the server). It runs once after the first catalog build, hourly, and on `toolbox:sweep` (the Archive tool calls it when it opens), on live and example data (it is local). When the lane is busy it waits behind a search, the import or the finder, trying again every 5 s, and it gives way when Start is pressed (`yieldLane`, as the finder does). One sweep at a time; a request while one runs or waits is folded into it.
+- **D38. Bring back from "Archived for good"** (`toolbox:restore {ids ≤ 50}`). When the creator is at `rejected`, the page first runs the `bringBack` act (an undoable stage change). Then main runs `archive.restore {channelIds}` on the store lane: Python deletes those tombstones and answers with each one's handle. It waits for the finder or a sweep to finish (up to 60 s) but not for a search: during a search the answer is `{ok:false, problem:"busy"}` and the toast says to try again when it pauses or ends. On live data main then refetches the restored handles in the background (no auto-clean, at most 50 a job; the refetch gives way to a search as the finder's does), so their numbers come back and they show in Review new. Example data has no refetch: the channel returns when a search finds it again, and the toast says so. A tombstone with no handle can't be refetched and gets the same words as example data. The record's "Bring back" (`creator-next.tsx`) does the same when the item is archived for good.
+- **D39. Never contact.** `toolbox:list {list:"never"}`: creators at `never`, newest first by `rejectedAt` (null last, then by name). Each row: picture, name, the reason the person wrote (`neverReason`, else "No reason saved") · how long ago, a "Never" tag, and "Allow again", which turns in place into "Yes, allow emails" (primary) and "Keep blocked" (ghost); yes runs `allowAgain`. "Add a channel": a search box over the catalog (`find:query` with `q`, every stage but `never`, sort `fit`, limit 8) showing name, handle and stage, where picking one fills it in; a reason field ("Why (optional), for example: asked us to stop", at most 500); and Never contact, which runs `neverContact(item, reason || "Owner chose never contact")`. A creator's `neverReason` is the `detail` of its newest visible `creator.never` line while its stage is `never`, else null (read where `rejectReason` is read). The acts set it: `neverContact` to the text; `allowAgain`, `bringBack` and `reject` to null.
+- **D40. Activity log** (`log:page`). The whole local `activity_log`, newest first, hidden and mapped exactly as `newestLog` does (undo markers, the money rule for a member without money), 30 a page; "Show more" loads the next 30 after the last line (`before` = its `{at, id}`). Person chips: "Everyone" with the total, then each person who has lines (`people`: the member id, else the old app's name; the name from `profiles`, else the line's `actor_name`; at most 50, most lines first; you read "You"). Grouped by local day ("Today", "Yesterday", else the date) with "N changes". Each line: avatar, text, who · time, and the creator's name when it has a `ref`. Such a line is a button that opens the creator's peek (the catalog item, as the gallery does). The first page is read again when the frame's newest line changes, so a change shows at once.
+- **D41. The reject toast** reads "<reason>. Bring it back from Toolbox › Archive before it is archived for good." (`strings.toasts.rejectSub`). No other copy changes.
+
+**Contracts, 5d**
+```ts
+// core: data/types.ts
+interface Creator { ...; neverReason: string | null }        // ≤ 500, D39
+interface CreatorState { ...; neverReason: string | null }
+// core: find/types.ts
+interface CatalogItem { ...;
+  rejectedAt: number | null;      // ms, as Creator.rejectedAt
+  neverReason: string | null;     // as Creator.neverReason
+  archivedAt: number | null;      // ms, channel_archive.archived_at when the channel has a tombstone, else null
+}
+type ToolboxList = "archive" | "never";
+interface ToolboxItem extends CatalogItem { dueAt: number | null }   // archive: archiveDate(); never: null
+interface ArchivedChannel {
+  id: string; handle: string | null; name: string | null;   // name from the app's channels table when known
+  label: string | null; archivedAt: number | null; subscribers: number | null;
+  stage: CreatorStage | null;     // the creator's stage when a channel_state row exists
+}
+// core: find/archive.ts (pure)
+function archiveDate(c: { archiveDueAt: number | null; rejectedAt: number | null }, archiveDays: number): number | null;
+// ipc (zod strictObject, bounded)
+"toolbox:list":     { list: ToolboxList; offset: 0..100000; limit: 1..120 } -> { version: number; total: number; items: ToolboxItem[] }
+"toolbox:archived": { q: string /* ≤ 100 */; offset: 0..100000; limit: 1..100 } -> { total: number; items: ArchivedChannel[] }
+"toolbox:restore":  { ids: channelId[] /* 1..50, unique */ } -> { ok: true; restored: number; refetch: boolean } | { ok: false; problem: "busy" | "no_python" }
+"toolbox:sweep":    {} -> {}
+"toolbox:counts":   {} -> { archive: number; never: number; archived: number; logToday: number }
+"log:page": { before: { at: number; id: string } | null; limit: 1..100; who: string | null /* ≤ 100 */ }
+         -> { lines: LogEntry[]; more: boolean; people: { who: string; name: string; count: number }[] /* ≤ 50 */ }
+// pipeline protocol (protocol.ts, protocol.schema.json, protocol.py together), store lane
+archive.sweep   { channels: { channelId: UC…; handle: string | null }[] /* 1..2000, unique ids */ } -> result { kind: "archive.sweep"; archived: number }
+archive.restore { channelIds: UC…[] /* 1..2000, unique */ } -> result { kind: "archive.restore"; restored: { channelId: string; handle: string | null }[] }
+```
+
+| id | tier | depends | files (about) | done-check |
+|---|---|---|---|---|
+| C4 | H | – | core types (`neverReason`, catalog fields, `ToolboxItem`, `ArchivedChannel`), `core/find/archive.ts` + test, ipc channels + schemas + tests, protocol jobs and results (TS, JSON schema, Python types), `laneFor`, handler stubs, fixtures and fakes | `pnpm typecheck`, `pnpm test` |
+| B13 | N | C4 | `services/pipeline/.../jobs/archive.py` + the job dispatch + tests | D37, D38 Python side: sweep (tombstone with label `rejected`, a channel with no row too, idempotent), restore (deletes tombstones, returns handles; unknown ids skipped). pytest, pyright |
+| B14 | N | C4 | `main/data/repositories/creators.ts` (neverReason), `main/find/catalog.ts` (`rejectedAt`, `neverReason`, `archivedAt` from `channel_archive`), `main/find/toolbox.ts` + test (list, counts, the archived reader: read-only `node:sqlite`, LIKE escaped), handlers for list, archived and counts | vitest on the files, contract suite |
+| B15 | H | B13, B14 | `main/find/archive-service.ts` + test, `main/index.ts`, handlers `toolbox:sweep` and `toolbox:restore`, the `find-service` yield hook | D37, D38 main side with a fake supervisor: waits, yields to a search, chunks, folds requests, live refetch only, none on example data. vitest |
+| B16 | N | C4 | `main/data/repositories/activity-log.ts` (`logPage`, the people counts, lines since a time), handler `log:page` + tests | D40 main side: paging by `(at_ms, id)`, the same hiding and money rule, people counts. vitest |
+| B17 | N | B14 | `renderer/toolbox/toolbox-screen.tsx`, `toolbox-list.tsx`, `archive-tool.tsx` + tests, `lib/toolbox.ts` (hooks), `lib/wired.ts`, `app/app.tsx`, `strings.ts`, css | D34, D35 words, D36 (countdown and "Archived for good" with paging and search, Bring back both ways, the sweep call on open), D38 page side, D41. vitest; look at 1440 dark |
+| B18 | N | B16, B17 | `renderer/toolbox/never-tool.tsx`, `log-tool.tsx` + tests, `lib/find-actions.ts` (`neverReason`), `record/creator-next.tsx` (bring back when archived), `strings.ts` | D39, D40 page side. vitest; look at 1440 dark |
+| W4 | N | B15-B18 | `e2e/toolbox.spec.ts` | One smoke test on example data: reject one in Review new, Toolbox › Archive lists it with its countdown, Bring back takes it out, the Activity log shows both lines. Windows e2e |
+| R4 | H | all | – | `router-reviewer` on the diff; findings become tasks |
+| L4 | lead | R4 | – | checks, look, status table, PR, CI, merge |
 
 ## 5e: the flow suite and the record of decisions (outline)
 

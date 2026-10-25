@@ -215,6 +215,50 @@ const jobCases: { good: Job; bad: Record<string, unknown>[] }[] = [
       { kind: "import.legacy", source: "C:\\old\\gratovo.db", dryRun: false, backupDir: "bk" },
     ],
   },
+  {
+    good: {
+      kind: "archive.sweep",
+      channels: [
+        { channelId: "UCaaaaaaaaaaaaaaaaaaaaaa", handle: "@aitoolsweekly" },
+        { channelId: "UCbbbbbbbbbbbbbbbbbbbbbb", handle: null },
+      ],
+    },
+    bad: [
+      { kind: "archive.sweep", channels: [] },
+      { kind: "archive.sweep", channels: [{ channelId: "UCabc", handle: null }] },
+      {
+        kind: "archive.sweep",
+        channels: [{ channelId: "UCaaaaaaaaaaaaaaaaaaaaaa", handle: "aitoolsweekly" }],
+      },
+      { kind: "archive.sweep", channels: [{ channelId: "UCaaaaaaaaaaaaaaaaaaaaaa" }] },
+      {
+        kind: "archive.sweep",
+        channels: [
+          { channelId: "UCaaaaaaaaaaaaaaaaaaaaaa", handle: null },
+          { channelId: "UCaaaaaaaaaaaaaaaaaaaaaa", handle: "@aitoolsweekly" },
+        ],
+      },
+      {
+        kind: "archive.sweep",
+        channels: Array.from({ length: 2001 }, (_, i) => ({
+          channelId: `UC${String(i).padStart(22, "0")}`,
+          handle: null,
+        })),
+      },
+    ],
+  },
+  {
+    good: { kind: "archive.restore", channelIds: ["UCaaaaaaaaaaaaaaaaaaaaaa"] },
+    bad: [
+      { kind: "archive.restore", channelIds: [] },
+      { kind: "archive.restore", channelIds: ["@aitoolsweekly"] },
+      {
+        kind: "archive.restore",
+        channelIds: ["UCaaaaaaaaaaaaaaaaaaaaaa", "UCaaaaaaaaaaaaaaaaaaaaaa"],
+      },
+      { kind: "archive.restore", channelIds: ["UCaaaaaaaaaaaaaaaaaaaaaa"], label: "rejected" },
+    ],
+  },
 ];
 
 describe("the jobs other than search", () => {
@@ -227,9 +271,17 @@ describe("the jobs other than search", () => {
     });
   }
 
-  it("runs only a search on example data", () => {
+  it("runs only a search and the archive jobs on example data", () => {
     expect(startSchema.safeParse({ ...start, job: { kind: "mail.status" } }).success).toBe(false);
     expect(startSchema.safeParse({ ...start, source: "live" }).success).toBe(true);
+    // The archive jobs only touch the open source's own pipeline.db (plan step 5d, D37).
+    const restore = { kind: "archive.restore", channelIds: ["UCaaaaaaaaaaaaaaaaaaaaaa"] };
+    expect(startSchema.safeParse({ ...start, job: restore }).success).toBe(true);
+    const sweep = {
+      kind: "archive.sweep",
+      channels: [{ channelId: "UCaaaaaaaaaaaaaaaaaaaaaa", handle: null }],
+    };
+    expect(startSchema.safeParse({ ...start, job: sweep }).success).toBe(true);
   });
 
   it("takes a dry run with no backup folder, and refuses an import on example data", () => {
@@ -439,6 +491,17 @@ describe("parseLine", () => {
           results: [
             { region: "eu-west-1", status: 204, ok: true, message: null },
             { region: null, status: null, ok: false, message: "The gateway didn't answer." },
+          ],
+        },
+      },
+      { type: "result", kind: "archive.sweep", data: { archived: 2 } },
+      {
+        type: "result",
+        kind: "archive.restore",
+        data: {
+          restored: [
+            { channelId: "UCaaaaaaaaaaaaaaaaaaaaaa", handle: "@aitoolsweekly" },
+            { channelId: "UCbbbbbbbbbbbbbbbbbbbbbb", handle: null },
           ],
         },
       },

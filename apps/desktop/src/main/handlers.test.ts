@@ -12,8 +12,16 @@ import {
   type ImportReport,
   type SyncStatus,
 } from "@gratovo/ipc";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { describe, expect, it, vi } from "vitest";
 
+import { createSqliteSource } from "./data/sqlite-source";
+import { openDatabase } from "./db/open-database";
+import { createCatalog } from "./find/catalog";
+import { channelId, writePipelineDb } from "./find/catalog-fixture";
 import { createStubCatalog, type FindCatalog } from "./find/catalog-types";
 import { createStubIdeas, type FindIdeas } from "./find/ideas";
 import { createHandlers, type HandlerContext } from "./handlers";
@@ -80,6 +88,8 @@ function sourceWith(overrides: Partial<DataSource> = {}): DataSource {
     creatorStates: () => Promise.resolve([]),
     creatorNotes: () => Promise.resolve(null),
     logFor: () => Promise.resolve([]),
+    logPage: () => Promise.resolve({ lines: [], more: false, people: [], total: 0 }),
+    logSince: () => Promise.resolve(0),
     write: () => Promise.resolve(),
     close: () => undefined,
     readSetting: () => undefined,
@@ -275,6 +285,165 @@ describe("the find handlers", () => {
   });
 });
 
+describe("the toolbox handlers", () => {
+  const rejected = channelId("rejected");
+  const gone = channelId("gone");
+
+  function toolbox() {
+    const folder = mkdtempSync(join(tmpdir(), "handlers-toolbox-"));
+    writePipelineDb(join(folder, "pipeline.db"), {
+      archive: [{ id: gone, at: "2026-10-02 00:00:00", handle: "@gone_ai", label: "rejected" }],
+    });
+    // Only the fields the Toolbox reads; the real rows come from the catalog.
+    const row = (id: string, name: string, archivedAt: number | null) =>
+      ({ id, name, stage: "rejected", archivedAt, archiveDueAt: 1, rejectedAt: 1 }) as never;
+    const catalog: FindCatalog = {
+      ...createStubCatalog(),
+      snapshot: () =>
+        Promise.resolve({
+          version: 4,
+          rows: [row(rejected, "R", null), row(gone, "Gone AI", 2)],
+        }),
+    };
+    // The archived page takes its names from the catalog: reading every creator's state on each
+    // keystroke is too slow.
+    const source = sourceWith({
+      creatorStates: () => Promise.reject(new Error("not read by the toolbox")),
+    });
+    const mine = handlersWith(
+      accountWith({}, source),
+      [],
+      findWith({ folder: () => folder }),
+      {},
+      catalog,
+    );
+    return { folder, mine };
+  }
+
+  it("lists the countdown with the owner's archive days, and counts", async () => {
+    const { folder, mine } = toolbox();
+    try {
+      const page = await mine["toolbox:list"]({ list: "archive", offset: 0, limit: 10 });
+      expect(page).toMatchObject({ version: 4, total: 1 });
+      expect(page.items[0]).toMatchObject({ id: rejected, dueAt: 1 });
+      expect(await mine["toolbox:counts"]({})).toEqual({
+        archive: 1,
+        never: 0,
+        archived: 1,
+        logToday: 0,
+      });
+    } finally {
+      rmSync(folder, { recursive: true, force: true });
+    }
+  });
+
+  it("reads the archived channels with the app's name and stage", async () => {
+    const { folder, mine } = toolbox();
+    try {
+      const page = await mine["toolbox:archived"]({ q: "gone ai", offset: 0, limit: 10 });
+      expect(page.total).toBe(1);
+      expect(page.items[0]).toMatchObject({ id: gone, name: "Gone AI", stage: "rejected" });
+      expect(channels["toolbox:archived"].response.safeParse(page).success).toBe(true);
+    } finally {
+      rmSync(folder, { recursive: true, force: true });
+    }
+  });
+
+  it("answers empty with no data folder", async () => {
+    const mine = handlersWith(accountWith());
+    expect(await mine["toolbox:archived"]({ q: "", offset: 0, limit: 10 })).toEqual({
+      total: 0,
+      items: [],
+    });
+  });
+
+  function withArchive(archive: HandlerContext["archive"]) {
+    return createHandlers({
+      version: "1.2.3",
+      secrets: storeWith([]),
+      account: accountWith(),
+      find: findWith(),
+      catalog: createStubCatalog(),
+      ideas: createStubIdeas(),
+      ...(archive === undefined ? {} : { archive }),
+      ...createStubServices(),
+    });
+  }
+
+  it("starts a sweep and answers at once, without waiting for it", async () => {
+    const sweep = vi.fn();
+    const restore = vi.fn(() => new Promise<never>(() => undefined));
+    const mine = withArchive({ sweep, restore });
+    expect(await mine["toolbox:sweep"]({})).toEqual({});
+    expect(sweep).toHaveBeenCalledTimes(1);
+  });
+
+  it("hands Bring back to the archive service and answers with its result", async () => {
+    const restore = vi.fn(() => Promise.resolve({ ok: true as const, restored: 1, refetch: true }));
+    const mine = withArchive({ sweep: vi.fn(), restore });
+    const answer = await mine["toolbox:restore"]({ ids: [gone] });
+    expect(answer).toEqual({ ok: true, restored: 1, refetch: true });
+    expect(restore).toHaveBeenCalledWith([gone]);
+    expect(channels["toolbox:restore"].response.safeParse(answer).success).toBe(true);
+  });
+
+  it("lists a creator in Never contact once the stage write lands and the catalog rebuilds", async () => {
+    const folder = mkdtempSync(join(tmpdir(), "handlers-never-"));
+    const db = openDatabase(join(folder, "app.db"));
+    try {
+      const pipeline = join(folder, "pipeline.db");
+      const ai = channelId("ai_news");
+      writePipelineDb(pipeline, { channels: [{ id: ai, name: "AI News Daily" }] });
+      const source = createSqliteSource(db, {
+        source: "example",
+        me: "u1",
+        extras: {
+          presence: () => ({ status: "away", doing: "" }),
+          counts: () => ({ today: 0, find: 0, reach: 0, close: 0, deliver: 0, plannedMinutes: 0 }),
+          mateRun: () => null,
+        },
+      });
+      const catalog = createCatalog({
+        pipelineDbPath: () => pipeline,
+        source: () => source,
+        debounceMs: 0,
+      });
+      const mine = handlersWith(accountWith({}, source), [], findWith(), {}, catalog, () => {
+        catalog.invalidate();
+      });
+      const never = () => mine["toolbox:list"]({ list: "never", offset: 0, limit: 10 });
+      expect((await never()).items).toEqual([]);
+      await mine["data:write"]({
+        writes: [
+          {
+            kind: "creator.stage",
+            id: ai,
+            stage: "never",
+            handle: "@ai_news",
+            name: "AI News Daily",
+          },
+        ],
+      });
+      const page = await never();
+      expect(page.items.map((item) => item.id)).toEqual([ai]);
+      expect(page.items[0]).toMatchObject({ stage: "never", dueAt: null });
+      catalog.close();
+    } finally {
+      db.close();
+      rmSync(folder, { recursive: true, force: true });
+    }
+  });
+
+  it("answers no_python for Bring back without the archive service", async () => {
+    const mine = withArchive(undefined);
+    expect(await mine["toolbox:restore"]({ ids: [gone] })).toEqual({
+      ok: false,
+      problem: "no_python",
+    });
+    expect(await mine["toolbox:sweep"]({})).toEqual({});
+  });
+});
+
 describe("the find catalog handlers", () => {
   it("answer empty from the stub catalog, and each answer fits its channel", async () => {
     const mine = handlersWith(accountWith());
@@ -437,6 +606,7 @@ describe("data:write and the email finder (plan D30)", () => {
           contactName: null,
           rejectReason: null,
           rejectedAt: null,
+          neverReason: null,
           archiveDueAt: null,
           engagement: null,
           legacyPipelineStage: "",

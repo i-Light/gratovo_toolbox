@@ -33,15 +33,13 @@ test.describe("the live gate, against a fake Supabase", () => {
         name: railName(screens.find.name, screens.find.subLive),
       }),
     ).toBeVisible();
-    for (const key of [
-      "today",
-      "reach",
-      "close",
-      "deliver",
-      "insights",
-      "toolbox",
-      "team",
-    ] as const) {
+    // Toolbox is wired too (plan D34): Archive, Never contact and the Activity log.
+    await expect(
+      rail(page).getByRole("button", {
+        name: railName(screens.toolbox.name, screens.toolbox.sub),
+      }),
+    ).toBeVisible();
+    for (const key of ["today", "reach", "close", "deliver", "insights", "team"] as const) {
       await expect(
         rail(page).getByRole("button", { name: railName(screens[key].name, screens[key].sub) }),
       ).toHaveCount(0);

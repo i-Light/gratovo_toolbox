@@ -1,9 +1,12 @@
 export {
   addLogEntry,
   insertLogRow,
+  linesSince,
   logCap,
+  logPage,
   logRowFor,
   newestLog,
+  peopleInLog,
   removeLogEntry,
 } from "./activity-log";
 export type { ActivityRow } from "./activity-log";

@@ -1,12 +1,33 @@
 # Progress: step 5 (Find)
 
-Started 2026-10-24. The plan is `.router/PLAN.md` (decisions D1 to D18, contracts, tasks), the recon `.router/CONTEXT.md`, the agent rules `.router/specs/rules.md`. Step 5 is four pull requests: 5a, 5b, 5c, 5d.
+Started 2026-10-24. The plan is `.router/PLAN.md` (decisions D1 to D18, contracts, tasks), the recon `.router/CONTEXT.md`, the agent rules `.router/specs/rules.md`. Step 5 is five pull requests: 5a to 5e.
 
 **5a done:** PR #20, merged 2026-10-24 as 835a404. **5b done:** PR #21, merged 2026-10-24 as 19ad4d3.
 
 **Step 5 is now five pull requests** (lead, after 5b): 5c contacts and keyword ideas, 5d Toolbox, 5e the flow suite and ADR 0017 (PLAN.md "The rest of step 5").
 
-**Now: 5c** (contacts, the email finder, keyword ideas) on branch `feat/5c-find-contacts` from `main` at 19ad4d3, in its pull request (L3). Plan: PLAN.md "5c" (D27 to D33). After it merges: detail 5d in PLAN.md (its outline is there) in a fresh session.
+**5c done:** PR #22, merged 2026-10-25 as f3d9883.
+
+**5d done:** PR #23 (Toolbox: Archive, Never contact, Activity log; D34 to D41).
+
+**Next: 5e** in a fresh session: the Find flow suite (D18), ADR 0017 (step 5's decisions D1 to D41), architecture and parity notes, the docs/workflow.md lessons below, the status table, and `.router/` removed (step 5 complete).
+
+## Tasks, 5d
+
+| id | tier | state | note |
+|---|---|---|---|
+| C4 | H | done | c91f8e7. neverReason read in creators.ts (contract suite). Example data accepts the two archive jobs (D37). Results carry `data: {...}` as others. Restore handles must match `^@[A-Za-z0-9._-]{1,100}$` else null |
+| B13 | N | done | 5736f75. `jobs/archive.py`; null handle falls back to the row's, else ""; stop between channels → result + `stopped` |
+| B14 | N | done | 8531b81. `catalog.snapshot()`, `find/toolbox.ts` (`toolboxList`, `toolboxCounts`, `countArchived`, `readArchived`). Lead: `log:page` and `logSince` added to the DataSource (contract test), context hook dropped |
+| B15 | H | done | `archive-service.ts`: first sweep 30 s after start, then hourly; search told apart by `find.state().run.state`; a waiting restore goes before its own next job; a running restore isn't stopped by Start; a failed restore job throws (generic failure on the page: review) |
+| B16 | N | done | e51c1a9. `logPage`, `peopleInLog`, `linesSince`; counts skip the money-text filter (money-field rule kept) |
+| B17 | N | done | Toolbox screen, list, Archive tool, `lib/toolbox.ts` (`restoreForGood`), `useCatalogTick`; reject sub lives in `findActions.rejectSub`; looked at in dark at 1440 (empty states). Bring back from for-good gave two toasts: B18 fixes |
+| B18 | N | done | Never contact and Activity log tools; one toast on bring back from for-good (the act's, its sub swapped); record's Bring back restores when archived. Page overlays held `never` creators main's list lacks (main lagged after a block on example data: R4 checks why). Looked at in dark at 1440 |
+| W4 | N | done | `e2e/toolbox.spec.ts`; `live-gate.spec.ts` now expects Toolbox in the live rail (D34). Full suite to re-run in L4 |
+| R4 | H | done | review: 1 blocker (sweep used a stale due list after waiting), 4 important, 15 minor. Lead: restore first, then the act on success (fixes 3 and 8); J/K skipped while a peek is open; `failed` restore problem added to ipc. Fixes: R4a (main), R4b (renderer) |
+| R4a | H | done | sweep re-reads the due list per job after any wait; a start throw frees the lane; refetch handles deduped; restore `failed` as a value; `peopleInLog` → `{people,total}` in one query, `log:page` gains `total`; blank handle null; unreadable tombstone time → `archivedAt: 0`; archived names from the snapshot; never-list follows a write (test) |
+| R4b | N | done | restore first, then `bringBack(item, sub)` on ok; never overlay only this page's blocks since the last tick; avatar real name, `total`, `now` per minute; drafts dropped from copy; record Bring back disabled while running; non-UC rows hide Bring back; J/K off under a peek. Lead: `page.total` read plainly |
+| L4 | lead | done | checks green (lint, typecheck, 2,459 + 1,512 unit tests, 68 Electron tests); looked at in dark at 1440; status table; PR #23. CI caught a stub-era test (the archive jobs "fail until built") that passed locally by accident: dropped |
 
 ## Tasks, 5c
 
@@ -20,7 +41,7 @@ Started 2026-10-24. The plan is `.router/PLAN.md` (decisions D1 to D18, contract
 | B12 | N | done | `KeywordIdeas` picker; `kind=""` workaround on the closed button: tidy |
 | W3 | N | done | live `find` gains `contacts` (tab with its count, palette action, subtitles), Contacts pages through `useGalleryPages` (120 a page), `installEmailJobs` shows `find:emails` in the tray (a finished row carries its note), the B12 `kind` tidy; `e2e/find-contacts.spec.ts` green. Lead: the gallery test's "today's search" run started an hour back, so it failed just after midnight |
 | R3 | H | done | review: 0 blockers, 7 important, 14 minor. Fixed as R3a (main, ipc, Python: odd old address on undo, other contacts kept, v3 migration safe to re-run, no lookup on an undone confirm, finder can't wedge) and R3b (renderer: Confirm all skips confirmed channels, looked-up last, focus after a card leaves, failed tray icon, e2e wait, a11y). Lead: Contacts cards one across with the peek open; D31/D33 notes |
-| L3 | lead | running | checks green (lint, typecheck, 2,331 + 1,488 unit tests, 67 Electron tests), looked at in dark at 1440 px; `Btn` gained `expanded` and `ref` (lead, R3b); PR |
+| L3 | lead | done | checks green (lint, typecheck, 2,331 + 1,488 unit tests, 67 Electron tests), looked at in dark at 1440 px; `Btn` gained `expanded` and `ref` (lead, R3b); PR |
 
 ## Tasks, 5b
 
@@ -54,6 +75,9 @@ Started 2026-10-24. The plan is `.router/PLAN.md` (decisions D1 to D18, contract
 | L1 | lead | done | PR #20, CI green, merged |
 
 ## Notes for 5c and later
+
+- For docs/workflow.md lessons (5e): a contracts task that stubs a job should not add a test asserting the stub's failure; the build task replaces the stub, and such a test can pass locally by accident (the job crashed on this machine's environment) and fail on CI. 5d's C4 did; CI caught it.
+- For the owner (5d): the first live sweep archives, at once, every old-app reject whose server date has passed (local pipeline rows only; each can be brought back).
 
 - For docs/workflow.md lessons (5e): never park files in `git stash` around a commit. When the pre-commit hook fails, lint-staged leaves its own backup stash, and a later pop takes the wrong entry.
 

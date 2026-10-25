@@ -16,6 +16,7 @@ import { Toasts } from "../overlays/toasts";
 import { Tooltip } from "../overlays/tooltip";
 import { Trays } from "../overlays/trays";
 import { FindScreen } from "../find/find-screen";
+import { ToolboxScreen } from "../toolbox/toolbox-screen";
 import { PlaceholderScreen } from "./placeholder-screen";
 import { ProblemsBar } from "./problems-bar";
 import { RecordPage } from "./record-page";
@@ -67,6 +68,8 @@ const Content = memo(function Content() {
         <SettingsScreen key={screen} />
       ) : screen === "find" ? (
         <FindScreen key={screen} />
+      ) : screen === "toolbox" ? (
+        <ToolboxScreen key={screen} />
       ) : (
         <PlaceholderScreen key={screen} screen={screen} />
       )}

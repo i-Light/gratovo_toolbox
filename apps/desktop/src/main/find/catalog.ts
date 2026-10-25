@@ -200,6 +200,8 @@ function build(dbPath: string | null, states: readonly CreatorState[], now: numb
   const channels: ChannelRow[] = [];
   const videos = new Map<string, CatalogVideo[]>();
   const keywords = new Map<string, KeywordRow>();
+  /** `channel_archive.archived_at` as ms, by channel (D36); 0 for text that isn't a time. */
+  const archived = new Map<string, number>();
   let windows: RunWindow[] = [];
   if (dbPath !== null && existsSync(dbPath)) {
     const db = new DatabaseSync(dbPath, { readOnly: true });
@@ -243,6 +245,18 @@ function build(dbPath: string | null, states: readonly CreatorState[], now: numb
         keywords.set(row.channel_id, row);
       }
       windows = readRunWindows(db);
+      try {
+        const tombstones = db
+          .prepare("SELECT channel_id, archived_at FROM channel_archive")
+          .all() as unknown as { channel_id: string; archived_at: string | null }[];
+        for (const row of tombstones) {
+          // A tombstone whose time can't be read is still one: as null it would sit in the
+          // countdown and be swept again every pass.
+          archived.set(row.channel_id, parseTime(row.archived_at) ?? 0);
+        }
+      } catch {
+        // A file with no such table has no tombstones.
+      }
     } finally {
       db.close();
     }
@@ -287,7 +301,10 @@ function build(dbPath: string | null, states: readonly CreatorState[], now: numb
       engagement: state?.engagement ?? null,
       emailedBefore: emailedBefore(state),
       rejectReason: state?.rejectReason ?? null,
+      rejectedAt: state?.rejectedAt ?? null,
+      neverReason: state?.neverReason ?? null,
       archiveDueAt: state?.archiveDueAt ?? null,
+      archivedAt: archived.get(id) ?? null,
       hasNumbers: true,
     });
   }
@@ -319,7 +336,10 @@ function build(dbPath: string | null, states: readonly CreatorState[], now: numb
       engagement: state.engagement,
       emailedBefore: emailedBefore(state),
       rejectReason: state.rejectReason,
+      rejectedAt: state.rejectedAt,
+      neverReason: state.neverReason,
       archiveDueAt: state.archiveDueAt,
+      archivedAt: archived.get(state.id) ?? null,
       hasNumbers: false,
     });
   }
@@ -407,6 +427,10 @@ export function createCatalog(deps: CatalogDeps): Catalog {
       const { rows } = await ready();
       const page = queryCatalog(rows, filter, sort, offset, limit, { facets: facets !== false });
       return { version, total: page.total, items: [...page.items], facets: page.facets };
+    },
+    async snapshot() {
+      const { rows } = await ready();
+      return { version, rows };
     },
     async item(id: string) {
       const { rows } = await ready();

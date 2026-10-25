@@ -650,6 +650,7 @@ export function describeDataSourceContract(
           contactConfidence: null,
           rejectReason: null,
           rejectedAt: null,
+          neverReason: null,
           archiveDueAt: null,
         });
         expect(frame.creators).toHaveLength(exampleFrame(contractNow).creators.length + 1);
@@ -769,21 +770,24 @@ export function describeDataSourceContract(
           rejectReason: null,
           rejectedAt: null,
         });
-        // A newer never line wins: its time, and no reason.
+        // A newer never line wins: its time, and no reject reason.
         frame = await writeAll(source, line(idB, contractNow - 1000, "c11", "creator.never", null));
         expect(frame.creators.find((c) => c.id === "c11")).toMatchObject({
           rejectReason: null,
           rejectedAt: contractNow - 1000,
+          neverReason: null,
         });
         // A brought-back creator carries no old reason or time.
         frame = await writeAll(source, stage("c11", "new"));
         expect(frame.creators.find((c) => c.id === "c11")).toMatchObject({
           rejectReason: null,
           rejectedAt: null,
+          neverReason: null,
         });
         expect((await source.creatorStates()).find((c) => c.id === "c11")).toMatchObject({
           rejectReason: null,
           rejectedAt: null,
+          neverReason: null,
         });
         await source.write([stage("c11", "rejected", "views")]);
         // An undo hides the never line, so the reject line is the newest visible one again.
@@ -1273,6 +1277,36 @@ export function describeDataSourceContract(
         expect((await source.logFor("c11", 10)).map((l) => l.id)).toEqual(["m1"]);
       });
 
+      it("pages the whole log, with its people and the lines since a time", async () => {
+        const source = start();
+        withDb(file, (db) => {
+          for (const [id, at] of [
+            ["p1", "2026-10-20T10:00:00Z"],
+            ["p2", "2026-10-20T10:01:00Z"],
+            ["p3", "2026-10-20T10:02:00Z"],
+          ] as const) {
+            insertLogRow(
+              db,
+              logRow(id, at, { actor_id: null, actor_name: "Sara", detail: { text: id } }),
+            );
+          }
+        });
+        const first = await source.logPage({ before: null, limit: 2, who: "Sara" });
+        expect(first.lines.map((l) => l.id)).toEqual(["p3", "p2"]);
+        expect(first.more).toBe(true);
+        expect(first.people).toContainEqual({ who: "Sara", name: "Sara", count: 3 });
+        expect(first.total).toBeGreaterThanOrEqual(3);
+        const last = first.lines[1];
+        const rest = await source.logPage({
+          before: last === undefined ? null : { at: last.at, id: last.id },
+          limit: 2,
+          who: "Sara",
+        });
+        expect(rest.lines.map((l) => l.id)).toEqual(["p1"]);
+        expect(rest.more).toBe(false);
+        expect(await source.logSince(Date.parse("2026-10-20T10:01:00Z"))).toBeGreaterThanOrEqual(2);
+      });
+
       it("gives the catalog every creator's state with its fields", async () => {
         const source = start();
         withDb(file, (db) => {
@@ -1309,6 +1343,7 @@ export function describeDataSourceContract(
           contactName: null,
           rejectReason: "ai",
           rejectedAt: contractNow - 500,
+          neverReason: null,
           archiveDueAt: contractNow + 7 * day,
           engagement: 0.042,
           legacyPipelineStage: "new",
@@ -1318,15 +1353,19 @@ export function describeDataSourceContract(
         // A creator with no line of its own has no activity; the old app's lines count.
         const c12 = states.find((c) => c.id === "c12");
         expect(c12).toMatchObject({ engagement: null, lastActivity: null, archiveDueAt: null });
-        // Never reports its time; a reject line on a creator now at another stage reports nothing.
-        await source.write([
+        // Never reports its time and the reason the person wrote (D39); a reject line on a
+        // creator now at another stage reports nothing.
+        const frame = await writeAll(
+          source,
           stage("c12", "never"),
-          line(idB, contractNow - 400, "c12", "creator.never", null),
-        ]);
+          line(idB, contractNow - 400, "c12", "creator.never", "Asked us to stop"),
+        );
         expect((await source.creatorStates()).find((c) => c.id === "c12")).toMatchObject({
           rejectReason: null,
           rejectedAt: contractNow - 400,
+          neverReason: "Asked us to stop",
         });
+        expect(frame.creators.find((c) => c.id === "c12")?.neverReason).toBe("Asked us to stop");
         withDb(file, (db) => {
           db.prepare("DELETE FROM activity_log WHERE id = ?").run(idA);
         });

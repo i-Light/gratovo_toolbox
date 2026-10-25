@@ -38,7 +38,10 @@ function item(id: string, name: string): CatalogItem {
     engagement: null,
     emailedBefore: null,
     rejectReason: null,
+    rejectedAt: null,
+    neverReason: null,
     archiveDueAt: null,
+    archivedAt: null,
     hasNumbers: true,
   };
 }

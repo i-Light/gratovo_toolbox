@@ -1,11 +1,21 @@
+import { join } from "node:path";
+
 import type { CreatorStage, DataSource, DataWrite } from "@gratovo/core/data";
 import type { Handlers } from "@gratovo/ipc";
 
 import type { Account } from "./account/account";
+import type { ArchiveService } from "./find/archive-service";
 import type { FindCatalog } from "./find/catalog-types";
 import type { FindIdeas } from "./find/ideas";
 import type { FindService } from "./find/find-service";
 import { readViews, writeViews } from "./find/saved-views";
+import {
+  countArchived,
+  readArchived,
+  toolboxCounts,
+  toolboxList,
+  type ArchivedNames,
+} from "./find/toolbox";
 import type { SecretStore } from "./secret-store";
 import type { HandlerServices } from "./services";
 
@@ -33,6 +43,11 @@ export interface HandlerContext extends HandlerServices {
    * email finder can look for their addresses (plan step 5c, D30).
    */
   onShortlisted?: (ids: readonly string[]) => void;
+  /**
+   * The archive service (plan step 5d, D37 and D38): the sweep and Bring back from "Archived for
+   * good". Without it a restore answers `no_python`, as no job can run.
+   */
+  archive?: Pick<ArchiveService, "sweep" | "restore">;
   account: Pick<
     Account,
     | "status"
@@ -73,6 +88,30 @@ export function createHandlers(context: HandlerContext): Handlers {
       throw new Error("No data is open: the account is signed out or waiting for access.");
     }
     return source;
+  }
+
+  /** `pipeline.db` in the open data folder; null with none. */
+  function pipelineDb(): string | null {
+    const folder = find.folder();
+    return folder === null ? null : join(folder, "pipeline.db");
+  }
+
+  /**
+   * The app's name and stage for each creator, for the archived search and rows, from the catalog's
+   * rows: the page asks on every keystroke, page and tick, too often to read every creator's state.
+   * A name that is only the handle or the id (the rows' fallback) is no name.
+   */
+  async function archivedNames(): Promise<ArchivedNames> {
+    const { rows } = await catalog.snapshot();
+    return new Map(
+      rows.map((row) => [
+        row.id,
+        {
+          name: row.name === row.id || row.name === row.handle ? null : row.name,
+          stage: row.stage,
+        },
+      ]),
+    );
   }
 
   return {
@@ -138,6 +177,36 @@ export function createHandlers(context: HandlerContext): Handlers {
     "find:views-set": ({ views }) => writeViews(openSource(), views),
     "find:ideas": ({ count }) => ideas.suggest(count),
     "log:for": async ({ ref, limit }) => ({ lines: [...(await openSource().logFor(ref, limit))] }),
+    "log:page": async (request) => {
+      const page = await openSource().logPage(request);
+      return {
+        lines: [...page.lines],
+        more: page.more,
+        people: [...page.people],
+        total: page.total,
+      };
+    },
+    // Plan step 5d: the Toolbox (D34 to D40).
+    "toolbox:list": async ({ list, offset, limit }) =>
+      toolboxList(await catalog.snapshot(), list, find.state().rules.archiveDays, offset, limit),
+    "toolbox:archived": async (request) =>
+      readArchived(pipelineDb(), request, await archivedNames()),
+    "toolbox:restore": ({ ids }) =>
+      context.archive?.restore(ids) ?? { ok: false as const, problem: "no_python" as const },
+    // The sweep runs in the background; the list reads again on the catalog's change.
+    "toolbox:sweep": () => {
+      context.archive?.sweep();
+      return {};
+    },
+    "toolbox:counts": async () => {
+      const midnight = new Date();
+      midnight.setHours(0, 0, 0, 0);
+      return toolboxCounts(
+        (await catalog.snapshot()).rows,
+        countArchived(pipelineDb()),
+        await openSource().logSince(midnight.getTime()),
+      );
+    },
     "rules:set": ({ rules }) => {
       find.setRules(rules);
       return {};

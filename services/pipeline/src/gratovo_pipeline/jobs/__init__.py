@@ -36,6 +36,10 @@ def run(start: Start, emitter: Emitter) -> None:
         from gratovo_pipeline.jobs import import_legacy
 
         import_legacy.run(start, emitter)
+    elif kind in ("archive.sweep", "archive.restore"):
+        from gratovo_pipeline.jobs import archive
+
+        archive.run(start, emitter)
     else:  # gateways.deploy, gateways.destroy, gateways.test
         from gratovo_pipeline.jobs import gateways
 

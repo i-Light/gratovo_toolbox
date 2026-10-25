@@ -150,11 +150,11 @@ describe("the rail's slices", () => {
 });
 
 describe("the live gate", () => {
-  it("lists only Find and Settings access on live data", () => {
+  it("lists only Find, Toolbox and Settings access on live data", () => {
     initAppStore({ ...exampleData(Date.now()), source: "live" }, { screen: "find", tab: "search" });
     render(<Rail />);
     expect(within(rail()).getByRole("button", { name: /^Find/ })).toBeTruthy();
-    for (const name of ["Today", "Reach", "Close", "Deliver", "Insights", "Toolbox", "Team"]) {
+    for (const name of ["Today", "Reach", "Close", "Deliver", "Insights", "Team"]) {
       expect(within(rail()).queryByRole("button", { name: new RegExp(`^${name}`) })).toBeNull();
     }
   });

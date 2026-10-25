@@ -72,10 +72,49 @@ export interface CatalogItem {
   /** Set when someone emailed the creator before (D12), with who and when if known. */
   readonly emailedBefore: { readonly at: number | null; readonly who: string | null } | null;
   readonly rejectReason: RejectReason | null;
+  /** In ms, as `Creator.rejectedAt`. */
+  readonly rejectedAt: number | null;
+  /** As `Creator.neverReason` (D39). */
+  readonly neverReason: string | null;
   /** In ms. */
   readonly archiveDueAt: number | null;
+  /**
+   * In ms: `channel_archive.archived_at` when the channel has a tombstone (archived for good),
+   * else null (D36). A tombstone whose time can't be read gives 0: archived, time unknown. Test
+   * "archived" with `!== null`, never by truthiness.
+   */
+  readonly archivedAt: number | null;
   /** False for a creator the team works on that has no pipeline channel on this computer. */
   readonly hasNumbers: boolean;
+}
+
+/** The lists Toolbox shows from the catalog (plan step 5, D36 and D39). */
+export const toolboxLists = ["archive", "never"] as const;
+
+export type ToolboxList = (typeof toolboxLists)[number];
+
+/** A row in a Toolbox list. */
+export interface ToolboxItem extends CatalogItem {
+  /** In ms. Archive: when it is archived for good (`archiveDate`); never contact: null. */
+  readonly dueAt: number | null;
+}
+
+/**
+ * A tombstone in `pipeline.db`'s `channel_archive`: a channel archived for good, which searches
+ * skip (D36).
+ */
+export interface ArchivedChannel {
+  readonly id: string;
+  readonly handle: string | null;
+  /** From the app's channels table when known. */
+  readonly name: string | null;
+  /** `rejected` from the 7-day sweep, else the search rules' own label. */
+  readonly label: string | null;
+  /** In ms. */
+  readonly archivedAt: number | null;
+  readonly subscribers: number | null;
+  /** The creator's stage when a `channel_state` row exists. */
+  readonly stage: CreatorStage | null;
 }
 
 /** The parts of the fit score, each with its points out of its share. */

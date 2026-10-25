@@ -771,6 +771,7 @@ describe("adoptServerData", () => {
         contactConfidence: null,
         rejectReason: null,
         rejectedAt: null,
+        neverReason: null,
         archiveDueAt: null,
       });
     });

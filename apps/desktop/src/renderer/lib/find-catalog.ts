@@ -27,7 +27,7 @@ type ItemDetail = NonNullable<ChannelResponse<"find:item">["item"]>;
 export type CatalogLoad = "loading" | "ready" | "failed";
 
 /** Counts up each time main says the catalog was rebuilt, so the hooks ask again. */
-function useCatalogTick(): number {
+export function useCatalogTick(): number {
   const [tick, setTick] = useState(0);
   useEffect(
     () =>

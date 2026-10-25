@@ -20,6 +20,7 @@ export {
   frameSources,
   logActions,
   nameMax,
+  neverReasonMax,
   notesMax,
   notificationIcons,
   notifyKind,

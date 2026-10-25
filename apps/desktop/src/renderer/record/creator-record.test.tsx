@@ -50,6 +50,8 @@ interface Fixture {
   lines?: LogEntry[];
   writeOk?: boolean;
   itemFails?: boolean;
+  /** `toolbox:restore` answers only after this settles. */
+  holdRestore?: Promise<unknown>;
 }
 type Call = [string, unknown];
 let handlers: ((event: string) => void)[] = [];
@@ -68,6 +70,11 @@ function bridge(fixture: Fixture): void {
       }
       case "log:for":
         return Promise.resolve({ ok: true, value: { lines: fixture.lines ?? [] } });
+      case "toolbox:restore":
+        return (fixture.holdRestore ?? Promise.resolve()).then(() => ({
+          ok: true,
+          value: { ok: true, restored: 1, refetch: false },
+        }));
       case "data:write":
         return Promise.resolve(fixture.writeOk === false ? { ok: false } : { ok: true, value: {} });
       default:
@@ -223,6 +230,47 @@ describe("the next step", () => {
     expect(screen.getByText(t.next.rejectedLine(strings.findActions.reasons.ai))).toBeTruthy();
     await click(screen.getByRole("button", { name: t.bringBack }));
     expect(creatorOf("UC-a")?.stage).toBe("new");
+  });
+
+  it("rejected and archived for good: Bring back also restores the channel", async () => {
+    await show("UC-a", {
+      items: {
+        "UC-a": detail("UC-a", { stage: "rejected", rejectReason: "ai", archivedAt: 1_000 }),
+      },
+    });
+    await click(screen.getByRole("button", { name: t.bringBack }));
+    expect(creatorOf("UC-a")?.stage).toBe("new");
+    expect(calls.filter(([c]) => c === "toolbox:restore")).toEqual([
+      ["toolbox:restore", { ids: ["UC-a"] }],
+    ]);
+  });
+
+  it("rejected and archived for good: Bring back waits while the restore runs", async () => {
+    let release: () => void = () => undefined;
+    const holdRestore = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await show("UC-a", {
+      items: {
+        "UC-a": detail("UC-a", { stage: "rejected", rejectReason: "ai", archivedAt: 1_000 }),
+      },
+      holdRestore,
+    });
+    const button = screen.getByRole("button", { name: t.bringBack });
+    await click(button);
+    expect(button.hasAttribute("disabled")).toBe(true);
+    await click(button);
+    expect(calls.filter(([c]) => c === "toolbox:restore")).toHaveLength(1);
+    release();
+    await act(async () => {
+      await holdRestore;
+    });
+  });
+
+  it("rejected, not archived: Bring back never asks main to restore", async () => {
+    await show("UC-a", { items: { "UC-a": detail("UC-a", { stage: "rejected" }) } });
+    await click(screen.getByRole("button", { name: t.bringBack }));
+    expect(calls.filter(([c]) => c === "toolbox:restore")).toHaveLength(0);
   });
 
   it("never: Allow again needs a yes, and Keep blocked changes nothing", async () => {

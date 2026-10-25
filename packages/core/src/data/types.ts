@@ -103,6 +103,9 @@ export const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 /** The longest name of the person who reads a creator's inbox (plan step 5, D31). */
 export const contactNameMax = 80;
 
+/** The longest reason a person can write for never contacting a creator (plan step 5, D39). */
+export const neverReasonMax = 500;
+
 /**
  * Where a confirmed address came from (plan step 5, D27 and D31): the channel's About text, its
  * video descriptions, or typed by hand.
@@ -193,6 +196,11 @@ export interface Creator {
   readonly rejectReason: RejectReason | null;
   /** In ms: the time of the newest reject or never line; null when there is none. */
   readonly rejectedAt: number | null;
+  /**
+   * While the stage is `never`, the `detail` of the newest `creator.never` line (the reason the
+   * person wrote), at most `neverReasonMax`; null otherwise (D39).
+   */
+  readonly neverReason: string | null;
   /** In ms: the local `channel_state.archive_due_at` (the server's 7-day value). */
   readonly archiveDueAt: number | null;
 }
@@ -213,6 +221,8 @@ export interface CreatorState {
   readonly contactName: string | null;
   readonly rejectReason: RejectReason | null;
   readonly rejectedAt: number | null;
+  /** As `Creator.neverReason`. */
+  readonly neverReason: string | null;
   readonly archiveDueAt: number | null;
   /** `manual_engagement_rate`, the only engagement figure there is. */
   readonly engagement: number | null;
@@ -401,6 +411,24 @@ export interface DataSource {
    * way the frame reads its log (plan step 5, D17 and D23).
    */
   logFor(ref: string, limit: number): Promise<readonly LogEntry[]>;
+  /**
+   * A page of the whole log for Toolbox › Activity log (plan step 5d, D40): the visible lines
+   * older than `before` (none: from the newest), at most `limit`, by one person when `who` is
+   * set; whether more follow; and each person with lines, most lines first.
+   */
+  logPage(o: {
+    before: { at: number; id: string } | null;
+    limit: number;
+    who: string | null;
+  }): Promise<{
+    lines: readonly LogEntry[];
+    more: boolean;
+    people: readonly { who: string; name: string; count: number }[];
+    /** Every visible line, for "Everyone": the people stop at 50, the total doesn't. */
+    total: number;
+  }>;
+  /** How many visible lines are at or after `since` (ms): Toolbox's "Changes today". */
+  logSince(since: number): Promise<number>;
   /** In order, in one transaction: all or none. */
   write(writes: readonly DataWrite[]): Promise<void>;
   /** A local setting (`local_settings`), parsed from its JSON; undefined when it is not set. */
