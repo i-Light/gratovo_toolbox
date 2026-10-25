@@ -26,7 +26,7 @@ import sys
 import traceback
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Final
+from typing import Any, Final
 
 from gratovo_pipeline import store
 from gratovo_pipeline.protocol import (
@@ -189,6 +189,16 @@ def _columns(conn: sqlite3.Connection, schema: str, table: str) -> list[tuple[st
     """(name, primary-key position) of each column in order; empty when there is no such table."""
     rows = conn.execute(f"PRAGMA {schema}.table_info({_q(table)})").fetchall()
     return [(str(r[1]), int(r[5])) for r in rows]
+
+
+def _old_rows(conn: sqlite3.Connection, table: str) -> list[dict[str, Any]]:
+    """Every row of the old file's table, by column name; none when it has no such table."""
+    names = [name for name, _ in _columns(conn, "old", table)]
+    if not names:
+        return []
+    picked = ", ".join(_q(name) for name in names)
+    rows = conn.execute(f"SELECT {picked} FROM old.{_q(table)}").fetchall()
+    return [dict(zip(names, row, strict=True)) for row in rows]
 
 
 def _count(conn: sqlite3.Connection, schema: str, table: str) -> int:
@@ -400,6 +410,9 @@ def _import(
             tables.append(_copy_table(conn, table, dry_run=dry_run, have_dst=have_dst))
             emitter.progress(table=table, done=done, total=len(COPIED))
         if not dry_run:
+            # A tombstone already here was skipped by the copy: what the old file's copy knew
+            # (other keywords, its numbers, facts blank here) is merged into it (plan D43).
+            store.merge_archive_copies(conn, _old_rows(conn, "channel_archive"))
             # An old file can hold a channel and its own tombstone: the tombstone keeps the
             # channel's facts and keywords too (plan D42). Nothing is deleted or announced.
             store.fill_archive_from_channels(conn)

@@ -25,7 +25,14 @@ class SearchBlockedError(RuntimeError):
 
 class ChannelUnreadableError(RuntimeError):
     """One channel's uploads could not be read (its page failed, not a block). The channel is
-    not "read, zero uploads": the caller leaves it unstamped, so a later slice tries again."""
+    not "read, zero uploads": the caller leaves it unstamped, so a later slice tries again.
+
+    `partial` holds the ids read before a later page failed. A search must not take them as a
+    read (the window may be short); the backfill job, which only adds older uploads, uses them."""
+
+    def __init__(self, handle: str, *, partial: Sequence[str] = ()) -> None:
+        super().__init__(handle)
+        self.partial: list[str] = list(partial)
 
 
 class Sweep(Protocol):

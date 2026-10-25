@@ -12,9 +12,11 @@ import pytest
 from fakes import Events, FakeSource, channel_info, make_search
 
 from gratovo_pipeline import run_control, store
+from gratovo_pipeline.config import DelayKey
 from gratovo_pipeline.protocol import Emitter
 from gratovo_pipeline.search import keyword
-from gratovo_pipeline.search.context import Search, SearchBlockedError
+from gratovo_pipeline.search.context import ChannelUnreadableError, Search, SearchBlockedError
+from gratovo_pipeline.search.pacing import Pacer
 from gratovo_pipeline.youtube import ChannelInfo, YouTubeError
 
 KW = "best ai video editor 2026"
@@ -300,3 +302,32 @@ def test_an_empty_skip_changes_nothing(conn: sqlite3.Connection) -> None:
 
     assert (result.found, result.kept) == (1, 1)
     assert not any("never-contact" in text for _, text in events_of(search).lines)
+
+
+class CountingPacer(Pacer):
+    """No waits; remembers each pause asked for."""
+
+    def __init__(self) -> None:
+        super().__init__(None)
+        self.pauses: list[str] = []
+
+    def pause(self, key: DelayKey, reason: str | None = None) -> None:
+        self.pauses.append(key)
+
+
+def test_a_failed_upload_read_is_paced_like_one_that_works(conn: sqlite3.Connection) -> None:
+    other = channel_info("@llm-explained", "UC_other", "300000", "US")
+    source = source_with(MID, other)
+
+    def mid_fails(handle: str) -> None:
+        if handle == "@ai-tools-weekly":
+            raise ChannelUnreadableError(handle)
+
+    source.on_read = mid_fails
+    pacer = CountingPacer()
+    search = dataclasses.replace(make_search(conn, source), pacer=pacer)
+
+    keyword.process_keyword(search, KW)
+
+    assert source.read == ["@llm-explained"]
+    assert pacer.pauses.count("recent_videos_delay") == 2  # one per page request, failed or not

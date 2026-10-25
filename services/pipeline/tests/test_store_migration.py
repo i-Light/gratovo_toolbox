@@ -218,8 +218,8 @@ def test_a_version_4_file_from_before_the_read_columns_gains_them(tmp_path: Path
     path = tmp_path / "pipeline.db"
     conn = store.get_connection(path)
     store.init_db(conn)
-    for column in store.CHANNEL_READ_STATE:
-        conn.execute(f"ALTER TABLE channels DROP COLUMN {column[0]}")
+    for column in ("read_failures", "median_known", "median_known_basis", "videos_last_30_known"):
+        conn.execute(f"ALTER TABLE channels DROP COLUMN {column}")
     conn.execute(
         "INSERT INTO channels (channel_id, handle, first_seen_at) VALUES ('UC_a', '@aitools', 'T')"
     )

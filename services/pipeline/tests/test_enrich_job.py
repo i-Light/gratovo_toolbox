@@ -13,9 +13,11 @@ from fakes import FakeSource, channel_info
 from helpers import start_with
 
 from gratovo_pipeline import run_control, store
+from gratovo_pipeline.config import DelayKey
 from gratovo_pipeline.jobs import backfill as backfill_job
 from gratovo_pipeline.protocol import Emitter, Start
-from gratovo_pipeline.search.context import SearchBlockedError
+from gratovo_pipeline.search.context import ChannelUnreadableError, SearchBlockedError
+from gratovo_pipeline.search.pacing import Pacer
 from gratovo_pipeline.youtube import ChannelInfo, YouTubeError
 
 
@@ -336,6 +338,60 @@ def test_backfill_is_limited_to_the_named_handles(
 
     assert source.read == ["@two"]
     assert source.video_calls == [["t1"]]
+
+
+class CountingPacer(Pacer):
+    """No waits; remembers each pause asked for."""
+
+    def __init__(self) -> None:
+        super().__init__(None)
+        self.pauses: list[str] = []
+
+    def pause(self, key: DelayKey, reason: str | None = None) -> None:
+        self.pauses.append(key)
+
+
+def test_backfill_pauses_after_a_failed_read_as_after_one_that_works(
+    tmp_path: Path, db: sqlite3.Connection, run: Run, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    add_channel(db, "one", seen=1)
+    add_channel(db, "two", seen=2)
+    add_channel(db, "three", seen=3)
+    pacer = CountingPacer()
+    monkeypatch.setattr(backfill_job.Pacer, "off", lambda: pacer)
+    source = FakeSource(uploads={"@one": ["o1"], "@three": ["t1"]})
+
+    def two_fails(handle: str) -> None:
+        if handle == "@two":
+            raise ChannelUnreadableError(handle)
+
+    source.on_read = two_fails
+
+    go(run, start_for(tmp_path, ["backfill"]), source)
+
+    assert source.read == ["@one", "@three"]  # @two raised before it was recorded
+    # One page request each, failed or not: a run of failures is still a burst of requests.
+    assert pacer.pauses == ["recent_videos_delay"] * 3
+
+
+def test_backfill_keeps_the_ids_read_before_a_later_page_failed(
+    tmp_path: Path, db: sqlite3.Connection, run: Run
+) -> None:
+    channel_id = add_channel(db, "partial")
+    source = FakeSource()
+
+    def later_page_fails(handle: str) -> None:
+        raise ChannelUnreadableError(handle, partial=["p1", "p2"])
+
+    source.on_read = later_page_fails
+
+    go(run, start_for(tmp_path, ["backfill"]), source)
+
+    assert run.end()["state"] == "done"
+    assert source.video_calls == [["p1", "p2"]]
+    assert run.result()["backfill"] == {"channels": 1, "saved": 2}
+    stored = db.execute("SELECT COUNT(*) FROM videos WHERE channel_id=?", (channel_id,))
+    assert stored.fetchone()[0] == 2
 
 
 # --- handles ---

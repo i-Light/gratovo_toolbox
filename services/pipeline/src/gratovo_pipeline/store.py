@@ -68,8 +68,18 @@ CREATE TABLE IF NOT EXISTS channels (
     -- Version 4: how many videos we had when it came back from a tombstone (its rows were
     -- deleted when it was archived). NULL otherwise. See measure_archive_numbers.
     videos_known INTEGER,
-    -- Version 4: a failed read of its uploads steps the channel out of the backlog until then.
+    -- Version 4: a failed read of its uploads steps the channel out of the backlog until then,
+    -- and counts in `read_failures`; READ_GIVE_UP failures in a row take it out for good, until
+    -- a person asks for it again (force_refetch_by_handle, bring back). A read that works resets
+    -- both.
     unreadable_until TEXT,
+    read_failures INTEGER NOT NULL DEFAULT 0,
+    -- Version 4: what its tombstone knew, brought back with the row (restore_channel_locally) and
+    -- read back if it is archived again before its uploads are read: the median with its basis,
+    -- and the 30-day uploads count (the row's own reads 0 when unread). NULL = never known.
+    median_known INTEGER,
+    median_known_basis TEXT,
+    videos_last_30_known INTEGER,
     -- R2 bookkeeping; each stamp equals a `videos_fetched_at`:
     --   blob_uploaded_at        the version THIS machine last uploaded
     --   blob_version            the newest version the catalog says exists
@@ -224,19 +234,30 @@ ARCHIVE_FACTS: Final = (
 )
 
 
+# Version 4: the columns `channels` gained (see SCHEMA). An old row reads NULL, or no failures.
+_CHANNEL_COLUMNS_V4: Final = (
+    ("videos_known", "INTEGER"),
+    ("unreadable_until", "TEXT"),
+    ("read_failures", "INTEGER NOT NULL DEFAULT 0"),
+    ("median_known", "INTEGER"),
+    ("median_known_basis", "TEXT"),
+    ("videos_last_30_known", "INTEGER"),
+)
+
+
 def _add_archive_facts(conn: sqlite3.Connection) -> None:
-    """Version 4. Each missing fact column on `channel_archive`, and `channels.videos_known`; an
-    old row reads NULL ("never known") in each. Only missing ones are added, as version 3 does,
-    so a crash between the columns and the version can't make the next open fail."""
+    """Version 4. Each missing fact column on `channel_archive`, and the new `channels` columns;
+    an old row reads NULL ("never known") in each, and no read failures. Only missing ones are
+    added, as version 3 does, so a crash between the columns and the version can't make the next
+    open fail."""
     columns = {row[1] for row in conn.execute("PRAGMA table_info(channel_archive)").fetchall()}
     for name, kind in ARCHIVE_FACTS:
         if name not in columns:
             conn.execute(f"ALTER TABLE channel_archive ADD COLUMN {name} {kind}")
     columns = {row[1] for row in conn.execute("PRAGMA table_info(channels)").fetchall()}
-    if "videos_known" not in columns:
-        conn.execute("ALTER TABLE channels ADD COLUMN videos_known INTEGER")
-    if "unreadable_until" not in columns:
-        conn.execute("ALTER TABLE channels ADD COLUMN unreadable_until TEXT")
+    for name, kind in _CHANNEL_COLUMNS_V4:
+        if name not in columns:
+            conn.execute(f"ALTER TABLE channels ADD COLUMN {name} {kind}")
 
 
 # What each version adds to the one before it, run in order on a file older than it. Version 1 is
@@ -258,8 +279,12 @@ BOOTSTRAP_CURSOR: Final = "__r2_bootstrapped"  # set once this store's first sha
 
 # How long a channel a teammate read stays out of the backlog while its object hasn't arrived.
 AWAITING_PEER_DAYS: Final = 30
-# How long a channel whose uploads failed to read steps aside before the backlog tries again.
-READ_RETRY_DAYS: Final = 1
+# How long a channel whose uploads failed to read steps aside before the backlog tries again:
+# after the first failure, the second, the third. At READ_GIVE_UP failures in a row the backlog
+# stops asking (a deleted or terminated channel fails every time) and Find says it couldn't be
+# read; main reads "given up" as `read_failures >= READ_GIVE_UP` too.
+READ_BACKOFF_DAYS: Final = (1, 3, 7)
+READ_GIVE_UP: Final = 3
 ROLLUP_WINDOW_DAYS: Final = 30
 BLOB_SCHEMA: Final = 1
 
@@ -318,7 +343,11 @@ def init_db(conn: sqlite3.Connection) -> None:
             f"pipeline.db is version {version}; this pipeline knows {SCHEMA_VERSION}"
         )
     conn.executescript(SCHEMA)
-    for step in range(max(version, 1) + 1, SCHEMA_VERSION + 1):
+    # A file already at the newest version runs that version's step again (each step is safe to
+    # run twice): a version can still grow before it ships, and a file a development build
+    # stamped with it then gains the columns added since. It costs two table_info reads an open.
+    first = SCHEMA_VERSION if version == SCHEMA_VERSION else max(version, 1) + 1
+    for step in range(first, SCHEMA_VERSION + 1):
         MIGRATIONS[step](conn)
     conn.execute(f"PRAGMA user_version={SCHEMA_VERSION}")
     conn.commit()
@@ -376,7 +405,8 @@ def is_archived(conn: sqlite3.Connection, channel_id: str) -> bool:
 
 
 def unarchive(conn: sqlite3.Connection, channel_id: str) -> None:
-    """Drops the local tombstone so the channel can be found again (a manual refetch)."""
+    """Drops the local tombstone so the channel can be found again. No caller today: it loses
+    the tombstone's facts and keywords, which `restore_channel_locally` puts back (D44)."""
     conn.execute("DELETE FROM channel_archive WHERE channel_id=?", (channel_id,))
     conn.commit()
 
@@ -459,6 +489,8 @@ def record_keyword_links(conn: sqlite3.Connection, discovered: Discovered, keywo
 
 
 def _add_found_via(entries: list[Any], keyword: str, handles_limit: int | None, at: str) -> bool:
+    if keyword == REFETCH_KEYWORD:  # a manual refetch is not a keyword that found it (D44)
+        return False
     if any(
         isinstance(e, dict) and cast("dict[str, object]", e).get("keyword") == keyword
         for e in entries
@@ -587,9 +619,12 @@ def get_channels_needing_videos(conn: sqlite3.Connection, discovered: Discovered
 
 
 def force_refetch_by_handle(conn: sqlite3.Connection, handle: str) -> str | None:
-    """Flags a known channel for a full refresh. Returns its id, or None if never discovered."""
+    """Flags a known channel for a full refresh; a person asking is also a fresh start for one
+    the backlog gave up on. Returns its id, or None if never discovered."""
     conn.execute(
-        "UPDATE channels SET force_refetch=1, videos_fetched_at=NULL WHERE handle=?", (handle,)
+        "UPDATE channels SET force_refetch=1, videos_fetched_at=NULL, read_failures=0, "
+        "  unreadable_until=NULL WHERE handle=?",
+        (handle,),
     )
     conn.commit()
     row = conn.execute("SELECT channel_id FROM channels WHERE handle=?", (handle,)).fetchone()
@@ -619,14 +654,15 @@ def _video_backlog_where(country: str | None, now: float | None = None) -> tuple
     """The predicate the backlog query and its count share, so the number a run reports and the
     slice it works never answer different questions. A channel waiting for a teammate's object,
     or backed off after a failed read (`defer_unreadable_channel`), is left out until its wait
-    passes."""
+    passes; one that failed READ_GIVE_UP times in a row is left out for good."""
     where = (
         "(((videos_fetched_at IS NULL "
         "   AND (awaiting_peer_since IS NULL OR awaiting_peer_since < ?)) "
         "  OR force_refetch = 1) "
-        " AND (unreadable_until IS NULL OR unreadable_until < ?))"
+        " AND (unreadable_until IS NULL OR unreadable_until < ?) "
+        " AND read_failures < ?)"
     )
-    params: list[Any] = [_awaiting_peer_cutoff(now), _iso(now)]
+    params: list[Any] = [_awaiting_peer_cutoff(now), _iso(now), READ_GIVE_UP]
     if country:
         where += " AND country = ?"
         params.append(country)
@@ -642,12 +678,26 @@ def count_channels_awaiting_peers(conn: sqlite3.Connection, now: float | None = 
     return int(row["n"])
 
 
-def defer_unreadable_channel(conn: sqlite3.Connection, channel_id: str) -> None:
-    """A channel whose uploads could not be read stays unstamped and in the backlog, but steps
-    aside for READ_RETRY_DAYS (`unreadable_until`), so a channel that always fails can't fill
-    every slice and starve the ones behind it. A successful read clears it."""
-    until = _iso(time.time() + READ_RETRY_DAYS * 86400)
-    conn.execute("UPDATE channels SET unreadable_until=? WHERE channel_id=?", (until, channel_id))
+def defer_unreadable_channel(
+    conn: sqlite3.Connection, channel_id: str, now: float | None = None
+) -> None:
+    """A channel whose uploads could not be read stays unstamped (never "read, zero uploads"),
+    counts the failure and steps aside for longer each time (READ_BACKOFF_DAYS, in
+    `unreadable_until`), so a channel that always fails can't fill every slice and starve the
+    ones behind it. At READ_GIVE_UP failures it leaves the backlog for good, rather than costing
+    a request every few days forever. A successful read clears both."""
+    row = conn.execute(
+        "SELECT read_failures FROM channels WHERE channel_id=?", (channel_id,)
+    ).fetchone()
+    if row is None:
+        return
+    failures = int(row["read_failures"] or 0) + 1
+    days = READ_BACKOFF_DAYS[min(failures, len(READ_BACKOFF_DAYS)) - 1]
+    stamp = now if now is not None else time.time()
+    conn.execute(
+        "UPDATE channels SET read_failures=?, unreadable_until=? WHERE channel_id=?",
+        (failures, _iso(stamp + days * 86400), channel_id),
+    )
     conn.commit()
 
 
@@ -684,7 +734,7 @@ def mark_channels_videos_fetched(conn: sqlite3.Connection, channel_ids: Iterable
         return
     conn.execute(
         "UPDATE channels SET videos_fetched_at=?, force_refetch=0, awaiting_peer_since=NULL, "
-        f"unreadable_until=NULL WHERE channel_id IN ({_placeholders(ids)})",
+        f"unreadable_until=NULL, read_failures=0 WHERE channel_id IN ({_placeholders(ids)})",
         [utc_now(), *ids],
     )
     compute_channel_rollups(conn, ids)
@@ -1030,7 +1080,8 @@ def _atomic(conn: sqlite3.Connection) -> Generator[None]:
 def _merge_found_via(*sources: Iterable[object]) -> list[Any]:
     """The `found_via` lists as one, in order of first sight: one entry per keyword, with the
     earliest known `discovered_at` and a known `limit` kept over an unknown one. An entry it
-    can't read is kept as it is, never dropped."""
+    can't read is kept as it is, never dropped. A manual refetch's entry is dropped: it is not a
+    keyword that found the channel (D44), and tombstones are shared with the team."""
     out: list[Any] = []
     by_keyword: dict[str, dict[str, object]] = {}
     for entries in sources:
@@ -1042,6 +1093,8 @@ def _merge_found_via(*sources: Iterable[object]) -> list[Any]:
             keyword = item.get("keyword")
             if not isinstance(keyword, str):
                 out.append(item)
+                continue
+            if keyword == REFETCH_KEYWORD:
                 continue
             known = by_keyword.get(keyword)
             if known is None:
@@ -1058,13 +1111,14 @@ def _merge_found_via(*sources: Iterable[object]) -> list[Any]:
 
 
 def _channel_links(conn: sqlite3.Connection, channel_id: str) -> list[dict[str, object]]:
-    """Every keyword that found the channel here, as `found_via` entries, oldest first."""
+    """Every keyword that found the channel here, as `found_via` entries, oldest first. The
+    refetch job's own link is not one of them (D44)."""
     return [
         {"keyword": r["keyword"], "limit": None, "discovered_at": r["discovered_at"]}
         for r in conn.execute(
             "SELECT keyword, discovered_at FROM channel_keywords WHERE channel_id=? "
-            "ORDER BY discovered_at, keyword",
-            (channel_id,),
+            "  AND keyword <> ? ORDER BY discovered_at, keyword",
+            (channel_id, REFETCH_KEYWORD),
         )
     ]
 
@@ -1089,9 +1143,10 @@ def _union_json(old: object, new: object) -> str | None:
 
 def _row_facts(conn: sqlite3.Connection, row: sqlite3.Row | None) -> dict[str, Any]:
     """The facts a tombstone keeps from the channel row; all None without a row. The 30-day
-    count is 0 by default on a row whose uploads were never read, so a 0 is kept only when they
-    were: a NULL on the tombstone means "never known", never "zero". (A row brought back from the
-    archive holds its old count before it is read again, and keeps it.)"""
+    count is 0 by default on a row whose uploads were never read, so the row's count is kept only
+    when they were: a NULL on the tombstone means "never known", never "zero". A row brought back
+    from the archive and not read since keeps the count its tombstone knew, a known 0 included
+    (`videos_last_30_known`)."""
     if row is None:
         return {name: None for name, _ in ARCHIVE_FACTS}
     read = row["videos_fetched_at"] is not None or (
@@ -1101,8 +1156,9 @@ def _row_facts(conn: sqlite3.Connection, row: sqlite3.Row | None) -> dict[str, A
         is not None
     )
     facts: dict[str, Any] = {name: row[name] for name, _ in ARCHIVE_FACTS}
-    if not read and not facts["videos_last_30"]:
-        facts["videos_last_30"] = None
+    if not read:
+        known = row["videos_last_30_known"]
+        facts["videos_last_30"] = known if known is not None else (facts["videos_last_30"] or None)
     return facts
 
 
@@ -1149,10 +1205,13 @@ def _write_tombstone(
     links = _channel_links(conn, channel_id)
     facts = _row_facts(conn, row)
     median, basis, count = measure_archive_numbers(conn, channel_id)
-    if median is None and row is not None and row["median_views_last_30"] is not None:
-        # No videos held, yet a 30-day median on the row: a channel brought back from the archive
-        # (D44) and not read since. Its count comes from `videos_known`; its median from here.
-        median, basis = row["median_views_last_30"], "window30"
+    if median is None and row is not None:
+        # No videos held: a channel brought back from the archive (D44) and not read since. Its
+        # count comes from `videos_known`, its median and basis from what the tombstone knew.
+        if row["median_known"] is not None:
+            median, basis = row["median_known"], row["median_known_basis"]
+        elif row["median_views_last_30"] is not None:
+            median, basis = row["median_views_last_30"], "window30"
     subs = str(subscribers) if subscribers is not None else None
     fact_names = [name for name, _ in ARCHIVE_FACTS]
     if old is None:
@@ -1251,29 +1310,111 @@ def fill_archive_from_channels(conn: sqlite3.Connection) -> int:
     return len(ids)
 
 
+def _fill_facts(here: Mapping[str, Any], other: Mapping[str, Any]) -> dict[str, Any]:
+    """D43 for the facts, the other way round from `_merge_facts`: the value here is kept and
+    the other copy only fills a NULL; the lists keep everything either held, this copy's first;
+    the latest upload keeps the later time."""
+    out: dict[str, Any] = {}
+    for name, _ in ARCHIVE_FACTS:
+        mine, theirs = here.get(name), other.get(name)
+        if name in ("seen_brands", "found_emails", "found_email_sources"):
+            out[name] = _union_json(mine, theirs)
+        elif name == "latest_upload_at" and mine is not None and theirs is not None:
+            out[name] = max(str(mine), str(theirs))
+        else:
+            out[name] = mine if mine is not None else theirs
+    return out
+
+
+def merge_archive_copies(conn: sqlite3.Connection, copies: Iterable[Mapping[str, Any]]) -> int:
+    """Folds other copies of tombstones already here (an imported old file's) into them (D43),
+    announcing nothing: keywords a union with the earliest time (a manual refetch left out), the
+    numbers through merge_archive_numbers, every value here kept and each blank filled from the
+    copy, the earliest find kept. A copy with no tombstone here is skipped (the import copies
+    those as they are). One transaction. Returns how many tombstones it merged into. Commits."""
+    factory = conn.row_factory  # the import's connection reads plain tuples
+    conn.row_factory = sqlite3.Row
+    merged_into = 0
+    try:
+        with _atomic(conn):
+            for copy in copies:
+                channel_id = copy.get("channel_id")
+                if not isinstance(channel_id, str):
+                    continue
+                old = conn.execute(
+                    "SELECT * FROM channel_archive WHERE channel_id=?", (channel_id,)
+                ).fetchone()
+                if old is None:
+                    continue
+                merged_into += 1
+                subscribers = copy.get("subscribers")
+                known_at = [t for t in (old["found_at"], copy.get("found_at")) if t]
+                merged: dict[str, Any] = {
+                    "handle": old["handle"] or copy.get("handle"),
+                    "label": old["label"] if old["label"] is not None else copy.get("label"),
+                    "archived_at": old["archived_at"] or copy.get("archived_at"),
+                    "subscribers": old["subscribers"]
+                    if old["subscribers"] is not None
+                    else (str(subscribers) if subscribers is not None else None),
+                    "found_at": min(known_at) if known_at else None,
+                    **_fill_facts(dict(old), copy),
+                }
+                changed = {k: v for k, v in merged.items() if v != old[k]}
+                entries = _merge_found_via(
+                    _json_list(old["found_via"]), _json_list(copy.get("found_via"))
+                )
+                if entries != _json_list(old["found_via"]):
+                    changed["found_via"] = json.dumps(entries)
+                if changed:
+                    conn.execute(
+                        "UPDATE channel_archive SET "
+                        + ", ".join(f"{k}=?" for k in changed)
+                        + " WHERE channel_id=?",
+                        (*changed.values(), channel_id),
+                    )
+                median = _int_or_none(copy.get("median_views_last_30"))
+                merge_archive_numbers(
+                    conn,
+                    channel_id,
+                    median,
+                    copy.get("median_basis") if median is not None else None,
+                    _int_or_none(copy.get("videos_found_count")),
+                    announce=False,
+                )
+        conn.commit()
+    finally:
+        conn.row_factory = factory
+    return merged_into
+
+
 def restore_channel_locally(conn: sqlite3.Connection, channel_id: str) -> str | None:
     """Bring back (D44): the channel row comes back from the tombstone with its last known facts,
-    flagged so the next read refreshes it and the backlog picks it up; its keyword links come
-    back with their original times (a manual refetch is not a keyword that found it); and the
-    tombstone goes, in one transaction. A channel row already there only has its blanks filled
-    and its missing links added. Returns the tombstone's handle ('' when it had none), or None
+    flagged so the next read refreshes it and the backlog picks it up (a fresh start for one the
+    backlog gave up on); its keyword links come back with their original times (a manual refetch
+    is not a keyword that found it); and the tombstone goes, in one transaction. A channel row
+    already there only has its blanks filled and its missing links added, and is flagged too
+    when it was never read. What the tombstone knew that the row can't hold as a fact before it
+    is read (the median with its basis, the 30-day count, how many videos) is kept beside it, so
+    archiving it again says no less. Returns the tombstone's handle ('' when it had none), or None
     when there is no tombstone. Commits."""
-    tomb = conn.execute(
-        "SELECT * FROM channel_archive WHERE channel_id=?", (channel_id,)
-    ).fetchone()
-    if tomb is None:
-        return None
-    handle = str(tomb["handle"] or "").strip()
-    first_seen: str = tomb["found_at"] or utc_now()
-    median = tomb["median_views_last_30"] if tomb["median_basis"] == "window30" else None
     with _atomic(conn):
+        tomb = conn.execute(
+            "SELECT * FROM channel_archive WHERE channel_id=?", (channel_id,)
+        ).fetchone()
+        if tomb is None:
+            return None
+        handle = str(tomb["handle"] or "").strip()
+        first_seen: str = tomb["found_at"] or utc_now()
+        median = tomb["median_views_last_30"]
+        basis = tomb["median_basis"] if median is not None else None
         conn.execute(
             """INSERT INTO channels (channel_id, handle, name, subscribers, country,
                                       first_seen_at, videos_last_30, median_views_last_30,
                                       latest_upload_at, seen_brands, found_emails,
-                                      found_email_sources, videos_known, videos_fetched_at,
-                                      force_refetch)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 1)
+                                      found_email_sources, videos_known, median_known,
+                                      median_known_basis, videos_last_30_known,
+                                      videos_fetched_at, force_refetch)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 1)
                ON CONFLICT(channel_id) DO UPDATE SET
                    name=COALESCE(channels.name, excluded.name),
                    subscribers=COALESCE(channels.subscribers, excluded.subscribers),
@@ -1286,7 +1427,19 @@ def restore_channel_locally(conn: sqlite3.Connection, channel_id: str) -> str | 
                    found_email_sources=COALESCE(channels.found_email_sources,
                                                 excluded.found_email_sources),
                    videos_known=MAX(COALESCE(channels.videos_known, -1),
-                                    COALESCE(excluded.videos_known, -1))""",
+                                    COALESCE(excluded.videos_known, -1)),
+                   median_known_basis=CASE WHEN channels.median_known IS NULL
+                                           THEN excluded.median_known_basis
+                                           ELSE channels.median_known_basis END,
+                   median_known=COALESCE(channels.median_known, excluded.median_known),
+                   videos_last_30_known=COALESCE(channels.videos_last_30_known,
+                                                 excluded.videos_last_30_known),
+                   force_refetch=CASE WHEN channels.videos_fetched_at IS NULL
+                                      THEN 1 ELSE channels.force_refetch END,
+                   read_failures=CASE WHEN channels.videos_fetched_at IS NULL
+                                      THEN 0 ELSE channels.read_failures END,
+                   unreadable_until=CASE WHEN channels.videos_fetched_at IS NULL
+                                         THEN NULL ELSE channels.unreadable_until END""",
             (
                 channel_id,
                 handle or channel_id,  # the column can't be empty; as the `unarchived` op does
@@ -1295,12 +1448,15 @@ def restore_channel_locally(conn: sqlite3.Connection, channel_id: str) -> str | 
                 tomb["country"],
                 first_seen,
                 tomb["videos_last_30"] or 0,  # with videos_fetched_at NULL this reads "not read"
-                median,
+                median if basis == "window30" else None,  # a lifetime median isn't a 30-day one
                 tomb["latest_upload_at"],
                 tomb["seen_brands"],
                 tomb["found_emails"],
                 tomb["found_email_sources"],
                 tomb["videos_found_count"],  # how many videos we had (measure reads it back)
+                median,  # any basis, read back by _write_tombstone
+                basis,
+                tomb["videos_last_30"],  # NULL when never known; a known 0 stays 0
             ),
         )
         # MAX(..., -1) above leaves -1 where neither knew.
@@ -1812,7 +1968,7 @@ def apply_channel_blob(conn: sqlite3.Connection, blob: Mapping[str, Any], versio
                blob_version=MAX(COALESCE(channels.blob_version, ''), excluded.blob_version),
                blob_applied_version=excluded.blob_applied_version,
                announced_at=COALESCE(channels.announced_at, excluded.announced_at),
-               awaiting_peer_since=NULL""",
+               awaiting_peer_since=NULL, unreadable_until=NULL, read_failures=0""",
         (
             channel_id,
             channel.get("handle") or "",
@@ -2119,11 +2275,17 @@ def apply_catalog_archive_link(
 
 def apply_catalog_unarchived(conn: sqlite3.Connection, channel_id: str, handle: str | None) -> None:
     """An `unarchived` op: the tombstone goes, and the channel returns as a bare row flagged for a
-    full re-fetch (its object was deleted when it was archived)."""
+    full re-fetch (its object was deleted when it was archived).
+
+    Step T, before anything calls this or `unarchive_locally` (nothing does today): they delete
+    the tombstone without putting its facts and keyword links back, and leave its
+    `archive_keyword_pending` rows behind. Build them on `restore_channel_locally`, which does
+    both halves of D44, and clear the pending rows there too."""
     conn.execute("DELETE FROM channel_archive WHERE channel_id=?", (channel_id,))
     conn.execute(
         "INSERT INTO channels (channel_id, handle, first_seen_at, force_refetch, announced_at) "
-        "VALUES (?, ?, ?, 1, ?) ON CONFLICT(channel_id) DO UPDATE SET force_refetch=1",
+        "VALUES (?, ?, ?, 1, ?) ON CONFLICT(channel_id) DO UPDATE SET force_refetch=1, "
+        "  read_failures=0, unreadable_until=NULL",
         (channel_id, handle or channel_id, utc_now(), utc_now()),
     )
 
@@ -2131,7 +2293,8 @@ def apply_catalog_unarchived(conn: sqlite3.Connection, channel_id: str, handle: 
 def unarchive_locally(
     conn: sqlite3.Connection, channel_ids: Iterable[str]
 ) -> list[tuple[str, str]]:
-    """This machine's own un-archive. Returns [(channel_id, handle)] for the segment. Commits."""
+    """This machine's own un-archive. Returns [(channel_id, handle)] for the segment. Commits.
+    No caller yet (step T); see `apply_catalog_unarchived` for what it must do first."""
     out: list[tuple[str, str]] = []
     for channel_id in channel_ids:
         row = conn.execute(

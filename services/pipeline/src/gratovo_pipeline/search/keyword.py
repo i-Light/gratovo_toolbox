@@ -167,6 +167,8 @@ def _read_uploads(
                     video_ids = sweep.recent_video_ids(handle)
                 except ChannelUnreadableError:
                     store.defer_unreadable_channel(search.conn, channel_id)  # the backlog's
+                    # A failed read was still a page request: paced like one that worked.
+                    search.pacer.pause("recent_videos_delay")
                     continue
                 search.pacer.pause("recent_videos_delay")
                 collector.add(channel_id, video_ids)

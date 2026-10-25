@@ -29,6 +29,10 @@ def add_channels(conn: sqlite3.Connection, names: str) -> None:
     conn.commit()
 
 
+def iso(at: float) -> str:
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(at))
+
+
 def row(conn: sqlite3.Connection, channel_id: str) -> sqlite3.Row:
     found = conn.execute("SELECT * FROM channels WHERE channel_id=?", (channel_id,)).fetchone()
     assert found is not None
@@ -189,3 +193,94 @@ def test_a_dropped_video_batch_leaves_its_channels_unstamped(conn: sqlite3.Conne
 
     assert row(conn, "UC_a")["videos_fetched_at"] is None
     assert store.get_video_backfill_candidates(conn, 10) == {"@a": "UC_a"}
+
+
+# --- a channel that never reads (review R5): counted, backed off, then given up ---
+
+
+def test_each_failed_read_backs_off_longer_and_the_third_gives_up(
+    conn: sqlite3.Connection,
+) -> None:
+    add_channels(conn, "a")
+    now = time.time()
+    for failures, days in enumerate(store.READ_BACKOFF_DAYS, 1):
+        store.defer_unreadable_channel(conn, "UC_a", now=now)
+        channel = row(conn, "UC_a")
+        assert channel["read_failures"] == failures
+        assert channel["unreadable_until"] == iso(now + days * 86400)
+        just_after = now + days * 86400 + 60
+        expected = {} if failures >= store.READ_GIVE_UP else {"@a": "UC_a"}
+        assert store.get_video_backfill_candidates(conn, 10, now=just_after) == expected
+    assert store.READ_BACKOFF_DAYS == (1, 3, 7)
+    assert store.READ_GIVE_UP == 3
+    a_year_on = now + 365 * 86400
+    assert store.get_video_backfill_candidates(conn, 10, now=a_year_on) == {}
+    assert store.count_channels_needing_videos(conn, now=a_year_on) == 0
+    assert row(conn, "UC_a")["videos_fetched_at"] is None  # given up, not "read, zero uploads"
+
+
+def test_an_always_failing_channel_is_asked_three_times_then_never_again(
+    conn: sqlite3.Connection,
+) -> None:
+    add_channels(conn, "a")
+    source = FakeSource()
+    asked: list[str] = []
+
+    def always_fails(handle: str) -> None:
+        asked.append(handle)
+        raise ChannelUnreadableError(handle)
+
+    source.on_read = always_fails
+    search = make_search(conn, source)
+    for _ in range(6):
+        backfill.backfill_missing_videos(search, limit=10)
+        conn.execute("UPDATE channels SET unreadable_until='2020-01-01T00:00:00Z'")  # time passes
+        conn.commit()
+
+    assert asked == ["@a"] * 3
+    assert row(conn, "UC_a")["read_failures"] == 3
+
+
+def test_a_read_that_works_clears_the_failures(conn: sqlite3.Connection) -> None:
+    add_channels(conn, "a")
+    store.defer_unreadable_channel(conn, "UC_a")
+    store.defer_unreadable_channel(conn, "UC_a")
+
+    store.mark_channels_videos_fetched(conn, ["UC_a"])
+
+    channel = row(conn, "UC_a")
+    assert (channel["read_failures"], channel["unreadable_until"]) == (0, None)
+
+
+def test_a_manual_refetch_gives_a_given_up_channel_another_try(conn: sqlite3.Connection) -> None:
+    add_channels(conn, "a")
+    for _ in range(store.READ_GIVE_UP):
+        store.defer_unreadable_channel(conn, "UC_a")
+    later = time.time() + 30 * 86400
+    assert store.get_video_backfill_candidates(conn, 10, now=later) == {}
+
+    assert store.force_refetch_by_handle(conn, "@a") == "UC_a"
+
+    channel = row(conn, "UC_a")
+    assert (channel["read_failures"], channel["unreadable_until"]) == (0, None)
+    assert store.get_video_backfill_candidates(conn, 10) == {"@a": "UC_a"}
+
+
+def test_bring_back_gives_a_given_up_channel_another_try(conn: sqlite3.Connection) -> None:
+    add_channels(conn, "ab")
+    for _ in range(store.READ_GIVE_UP):
+        store.defer_unreadable_channel(conn, "UC_a")
+        store.defer_unreadable_channel(conn, "UC_b")
+    store.archive_channel_locally(conn, "UC_a", "@a", "inactive")
+    store.restore_channel_locally(conn, "UC_a")
+    # UC_b: a tombstone beside its own given-up row (as an import can leave it).
+    conn.execute(
+        "INSERT INTO channel_archive (channel_id, handle, label) VALUES ('UC_b', '@b', 'inactive')"
+    )
+    conn.commit()
+    store.restore_channel_locally(conn, "UC_b")
+
+    for channel_id in ("UC_a", "UC_b"):
+        channel = row(conn, channel_id)
+        assert (channel["read_failures"], channel["unreadable_until"]) == (0, None), channel_id
+    assert store.get_video_backfill_candidates(conn, 10) == {"@a": "UC_a", "@b": "UC_b"}

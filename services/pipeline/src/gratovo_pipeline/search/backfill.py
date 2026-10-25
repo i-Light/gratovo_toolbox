@@ -57,7 +57,8 @@ def backfill_missing_videos(search: Search, limit: int | None = None) -> int:
             try:
                 video_ids = sweep.recent_video_ids(handle)
             except ChannelUnreadableError:
-                # Not stamped, so still in the backlog; it steps aside for a day, not for good.
+                # Not stamped: it steps aside for longer each failure, and leaves the backlog
+                # after store.READ_GIVE_UP of them in a row.
                 store.defer_unreadable_channel(conn, channel_id)
                 search.pacer.pause("recent_videos_delay")
                 continue

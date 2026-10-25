@@ -243,10 +243,12 @@ def _refetch_one(
         try:
             video_ids = sweep.recent_video_ids(handle)
         except ChannelUnreadableError:
-            # Left unstamped for the backlog, which tries again after a day.
+            # Left unstamped for the backlog, which tries again later (store.READ_BACKOFF_DAYS).
             store.defer_unreadable_channel(conn, channel_id)
             search.warn(f"Could not read {handle}'s uploads. The backlog will try again.")
             tally.failed.append(handle)
+            # A failed read was still a page request: paced like one that worked.
+            search.pacer.pause("recent_videos_delay")
             return
         collector.add(channel_id, video_ids)
         search.pacer.pause("recent_videos_delay")

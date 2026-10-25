@@ -241,3 +241,20 @@ def test_a_sweep_read_that_fails_is_unreadable_not_empty_and_a_block_stops(
     monkeypatch.setattr(scrapetube, "get_channel", blocked)
     with pytest.raises(SearchBlockedError):
         live(rec).sweep().recent_video_ids("@ai-tools-weekly")
+
+
+def test_a_later_page_failing_keeps_the_ids_already_read_on_the_error(
+    monkeypatch: pytest.MonkeyPatch, rec: Recorder
+) -> None:
+    monkeypatch.setattr(scrapetube, "get_session", FakeSession)
+
+    def first_page_then_broken(**_kwargs: Any) -> Iterator[dict[str, Any]]:
+        yield {"videoId": "a"}
+        yield {"videoId": "b"}
+        raise ValueError("bad second page")
+
+    monkeypatch.setattr(scrapetube, "get_channel", first_page_then_broken)
+    with pytest.raises(ChannelUnreadableError) as caught:
+        live(rec).sweep().recent_video_ids("@ai-tools-weekly", limit=120)
+    # Still unreadable for a search (a part read is not "read"); the backfill job uses the part.
+    assert caught.value.partial == ["a", "b"]

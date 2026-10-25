@@ -313,8 +313,11 @@ def _backfill(work: _Work) -> None:
             # be another request to an address YouTube has stopped answering.
             try:
                 scraped = sweep.recent_video_ids(handle, limit=wanted)
-            except ChannelUnreadableError:
-                continue  # nothing is stamped here, so the next backfill asks again
+            except ChannelUnreadableError as error:
+                # The ids read before a later page failed are still new uploads to save (the old
+                # enrich kept them); the next backfill asks again for what the window still
+                # lacks. Only this job uses them: a search takes a part read as no read at all.
+                scraped = error.partial
             fresh = [v for v in dict.fromkeys(scraped) if v not in known and v not in owner]
             if fresh:
                 result["channels"] += 1
@@ -322,7 +325,8 @@ def _backfill(work: _Work) -> None:
                     owner[video_id] = channel_id
                     pending.append(video_id)
                 work.info(f"Backfill: {len(fresh)} new upload(s) found for a channel.")
-            # These are page requests: a burst from one address is what gets a machine blocked.
+            # These are page requests, failed or not: a burst from one address is what gets a
+            # machine blocked.
             work.pacer.pause("recent_videos_delay")
     finally:
         sweep.close()

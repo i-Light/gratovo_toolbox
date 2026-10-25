@@ -700,3 +700,157 @@ def test_a_teammates_tombstone_keeps_this_machines_facts(conn: sqlite3.Connectio
     assert (row["name"], row["country"], row["found_emails"]) == ("AI Agents Lab", "US", EMAILS)
     assert row["found_via"] is None, "the sender's keywords stay as sent"
     assert row["label"] == "irrelevant"
+
+
+# --- bring back, then archive again (review R5) ---
+
+
+def numbers(row: dict[str, object]) -> tuple[object, object, object]:
+    return (row["median_views_last_30"], row["median_basis"], row["videos_found_count"])
+
+
+def test_a_lifetime_median_survives_bring_back_then_archive_again(
+    conn: sqlite3.Connection,
+) -> None:
+    store.record_channel_discovery(conn, "@aiagentslab", FULL, "ai agents")
+    conn.execute(
+        "INSERT INTO videos (video_id, channel_id, view_count) VALUES ('v1', ?, '700')", (FULL,)
+    )
+    conn.commit()
+    store.archive_channel_locally(conn, FULL, "@aiagentslab", "inactive")
+    assert numbers(tomb(conn)) == (700, "lifetime", 1)
+
+    store.restore_channel_locally(conn, FULL)
+    store.archive_channel_locally(conn, FULL, "@aiagentslab", "inactive")
+
+    assert numbers(tomb(conn)) == (700, "lifetime", 1)
+
+
+def test_a_30_day_median_survives_bring_back_even_when_the_rollups_run_again(
+    conn: sqlite3.Connection,
+) -> None:
+    full_channel(conn)
+    store.archive_channel_locally(conn, FULL, "@aiagentslab", "rejected")
+    store.restore_channel_locally(conn, FULL)
+    # The rollups run over every row (no ids): an unread row's numbers fall to 0 and NULL.
+    store.compute_channel_rollups(conn)
+
+    store.archive_channel_locally(conn, FULL, "@aiagentslab", "rejected")
+
+    assert numbers(tomb(conn)) == (12000, "window30", 3)
+    assert tomb(conn)["videos_last_30"] == 2
+
+
+def test_a_known_zero_uploads_survives_bring_back_then_archive_again(
+    conn: sqlite3.Connection,
+) -> None:
+    store.record_channel_discovery(conn, "@promptdigest", "UC_quiet", "ai agents")
+    store.mark_channels_videos_fetched(conn, ["UC_quiet"])  # read: nothing in 30 days
+    store.archive_channel_locally(conn, "UC_quiet", "@promptdigest", "inactive")
+    assert tomb(conn, "UC_quiet")["videos_last_30"] == 0
+
+    store.restore_channel_locally(conn, "UC_quiet")
+    store.archive_channel_locally(conn, "UC_quiet", "@promptdigest", "inactive")
+
+    assert tomb(conn, "UC_quiet")["videos_last_30"] == 0, "a known 0 stays 0"
+
+    # And a count never known stays unknown through the same round trip.
+    store.record_channel_discovery(conn, "@llmnotes", "UC_unread", "ai agents")
+    store.archive_channel_locally(conn, "UC_unread", "@llmnotes", "inactive")
+    store.restore_channel_locally(conn, "UC_unread")
+    store.archive_channel_locally(conn, "UC_unread", "@llmnotes", "inactive")
+    assert tomb(conn, "UC_unread")["videos_last_30"] is None
+
+
+def test_bring_back_reads_the_tombstone_inside_its_transaction(conn: sqlite3.Connection) -> None:
+    full_channel(conn)
+    store.archive_channel_locally(conn, FULL, "@aiagentslab", "rejected")
+    statements: list[str] = []
+    conn.set_trace_callback(statements.append)
+    try:
+        store.restore_channel_locally(conn, FULL)
+    finally:
+        conn.set_trace_callback(None)
+    opened = statements.index("SAVEPOINT tombstone")
+    first_read = next(i for i, s in enumerate(statements) if "FROM channel_archive" in s)
+    assert opened < first_read
+
+
+def test_bring_back_over_an_unread_row_flags_it_for_a_read(conn: sqlite3.Connection) -> None:
+    full_channel(conn)
+    store.archive_channel_locally(conn, FULL, "@aiagentslab", "rejected")
+    # A bare row beside the tombstone, never read (as an import can leave it).
+    conn.execute(
+        "INSERT INTO channels (channel_id, handle, first_seen_at) VALUES (?, '@aiagentslab', ?)",
+        (FULL, FIRST_SEEN),
+    )
+    conn.commit()
+
+    store.restore_channel_locally(conn, FULL)
+
+    row = store.get_channel_row(conn, FULL)
+    assert row is not None
+    assert row["force_refetch"] == 1
+    assert FULL in store.get_video_backfill_candidates(conn, 10).values()
+
+
+def test_bring_back_over_a_read_row_leaves_its_read_alone(conn: sqlite3.Connection) -> None:
+    full_channel(conn)
+    store.archive_channel_locally(conn, FULL, "@aiagentslab", "rejected")
+    conn.execute(
+        "INSERT INTO channels (channel_id, handle, first_seen_at, videos_fetched_at) "
+        "VALUES (?, '@aiagentslab', ?, '2026-10-01T00:00:00Z')",
+        (FULL, FIRST_SEEN),
+    )
+    conn.commit()
+
+    store.restore_channel_locally(conn, FULL)
+
+    row = store.get_channel_row(conn, FULL)
+    assert row is not None
+    assert (row["force_refetch"], row["videos_fetched_at"]) == (0, "2026-10-01T00:00:00Z")
+
+
+def keywords_of(entries: object) -> list[object]:
+    return [e["keyword"] for e in json.loads(str(entries))]
+
+
+def test_a_manual_refetch_is_never_written_into_a_tombstone(conn: sqlite3.Connection) -> None:
+    full_channel(conn)
+    # The refetch job links the channel under its own keyword; it isn't one that found it.
+    conn.execute(
+        "INSERT INTO channel_keywords (channel_id, keyword, discovered_at) "
+        "VALUES (?, ?, '2026-05-01T00:00:00Z')",
+        (FULL, REFETCH_KEYWORD),
+    )
+    conn.commit()
+    refetch = {"keyword": REFETCH_KEYWORD, "limit": 0, "discovered_at": "2026-05-01T00:00:00Z"}
+
+    store.archive_channel_locally(conn, FULL, "@aiagentslab", "rejected", found_via=[refetch])
+
+    assert keywords_of(tomb(conn)["found_via"]) == [k for k, _ in LINKS]
+    assert store.record_archive_keyword_links(conn, {"@aiagentslab": FULL}, REFETCH_KEYWORD) == 0
+    assert store.get_archive_keyword_pending(conn) == []
+    store.apply_catalog_archive_link(conn, FULL, REFETCH_KEYWORD, 0, "2026-05-02T00:00:00Z")
+    (shared,) = store.get_unannounced_archives(conn)
+    assert REFETCH_KEYWORD not in keywords_of(shared["found_via"])
+
+
+def test_a_refetch_keyword_an_older_build_left_on_a_tombstone_goes_on_the_next_archive(
+    conn: sqlite3.Connection,
+) -> None:
+    conn.execute(
+        "INSERT INTO channel_archive (channel_id, handle, label, archived_at, found_via) "
+        "VALUES (?, '@aiagentslab', 'rejected', '2026-05-01T00:00:00Z', ?)",
+        (
+            FULL,
+            json.dumps(
+                [{"keyword": REFETCH_KEYWORD, "limit": 0, "discovered_at": "2026-05-01T00:00:00Z"}]
+            ),
+        ),
+    )
+    full_channel(conn)
+
+    store.archive_channel_locally(conn, FULL, "@aiagentslab", "rejected")
+
+    assert keywords_of(tomb(conn)["found_via"]) == [k for k, _ in LINKS]
