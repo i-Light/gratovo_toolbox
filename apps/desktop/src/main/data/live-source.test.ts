@@ -2,7 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { exampleSeed } from "@gratovo/core/data";
+import { emptyReach, exampleSeed } from "@gratovo/core/data";
 import type { DataSource } from "@gratovo/core/data";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -94,6 +94,7 @@ describe("live source", () => {
       mateRun: null,
       notify: {},
       seesMoney: false,
+      reach: emptyReach,
     });
   });
 

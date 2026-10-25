@@ -28,17 +28,31 @@ import type {
  */
 export function upsertCreator(
   db: DatabaseSync,
-  creator: Pick<Creator, "id" | "name" | "handle" | "stage" | "email">,
+  creator: Pick<Creator, "id" | "name" | "handle" | "stage" | "email"> &
+    Partial<
+      Pick<Creator, "emailConfirmed" | "contactName" | "contactSource" | "contactConfidence">
+    >,
   now: number,
 ): void {
   const fields = legacyCreatorFields(creator.stage);
   const existing = db
     .prepare("SELECT contacts FROM channel_state WHERE channel_id = ?")
     .get(creator.id);
-  const contacts = contactsWithEmail(
-    existing === undefined ? "[]" : String(existing["contacts"]),
-    creator.email,
-  );
+  const existingJson = existing === undefined ? "[]" : String(existing["contacts"]);
+  // A confirmed address (the example seed's) is stored as a person's confirm would store it.
+  const contacts =
+    creator.emailConfirmed === true && creator.email !== null
+      ? contactsWithPrimary(existingJson, {
+          id: creator.id,
+          email: creator.email,
+          confirmed: true,
+          contactName: creator.contactName ?? null,
+          source: creator.contactSource ?? null,
+          confidence: creator.contactConfidence ?? null,
+          handle: creator.handle,
+          name: creator.name,
+        })
+      : contactsWithEmail(existingJson, creator.email);
   db.prepare(
     `INSERT INTO channels (channel_id, name) VALUES (?, ?)
      ON CONFLICT (channel_id) DO UPDATE SET name = excluded.name`,

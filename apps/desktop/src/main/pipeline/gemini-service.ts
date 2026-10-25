@@ -140,10 +140,18 @@ const bridgeDefaultS: Partial<Record<TypedGeminiMethod, number>> = {
 };
 
 /**
+ * The bridge keeps at least this long between two prompts (the owner's pacing, plan D6a,
+ * `gemini/client.py`), so each prompt a call may send can wait that long before it goes.
+ */
+export const promptGapS = 60;
+
+/**
  * A draft first reads the latest video's subtitles (up to three yt-dlp runs of 120 s each) and its
  * moments (one Gemini answer), then asks Gemini for the draft and up to two repairs.
  */
 const commsProposeExtraS = 3 * 120 + 300;
+/** The prompts a draft may send: the moments, the draft, two format turns, two repairs. */
+const commsProposePrompts = 6;
 
 function positive(value: unknown): number | undefined {
   return typeof value === "number" && value > 0 ? value : undefined;
@@ -162,14 +170,21 @@ export function callTimeoutMs(method: TypedGeminiMethod, params: unknown): numbe
   if (seconds === undefined) {
     return defaultCallTimeoutMs;
   }
+  // The methods that send prompts (`PROMPT_METHODS` in gemini/pause.py) also wait out the gap
+  // before each one. The gem and skill methods only drive their pages and send none.
   switch (method) {
     case "action.generate_keywords": {
-      // `timeoutS` is for each chat of a batch (DAEMON.md "batches").
+      // `timeoutS` is for each chat of a batch (DAEMON.md "batches"), one prompt per chat.
       const chats = positive(fields.chats) ?? 1;
-      return (seconds * chats + 60) * 1000 + callSlackMs;
+      return ((seconds + promptGapS) * chats + 60) * 1000 + callSlackMs;
     }
     case "action.comms_propose":
-      return (seconds * 3 + commsProposeExtraS) * 1000 + callSlackMs;
+      return (
+        (seconds * 3 + commsProposeExtraS + commsProposePrompts * promptGapS) * 1000 + callSlackMs
+      );
+    case "bridge.ask":
+    case "action.classify_channel":
+      return (seconds + promptGapS) * 1000 + callSlackMs;
     default:
       return seconds * 1000 + callSlackMs;
   }

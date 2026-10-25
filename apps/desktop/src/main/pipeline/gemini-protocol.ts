@@ -120,6 +120,9 @@ export const geminiErrorCodes = [
   "ADDON_INSTALL_FAILED",
   "BROWSER_LAUNCH_FAILED",
   "NOT_IMPLEMENTED",
+  // the bridge held a prompt back: Gemini refused, or showed three page errors in 15 minutes
+  // (gemini/pause.py); `details.until` is when it sends again
+  "PAUSED",
   // the actions'
   "ACTION_PARSE_FAILED",
   "ACTION_REFUSED",
@@ -463,6 +466,9 @@ export const geminiResultSchemas = {
     hello: details.nullable(),
     status: details.nullable(),
     statusError: z.looseObject({ code: z.string(), message: z.string() }).optional(),
+    // When the bridge's pause ends (ISO 8601 UTC), null while prompts may go. Optional: a bridge
+    // from before the pause sends none.
+    pausedUntil: z.string().nullable().optional(),
   }),
   "bridge.browser_info": z.looseObject({
     selected: z.string(),

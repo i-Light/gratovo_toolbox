@@ -43,6 +43,22 @@ describe("parseGeminiLine", () => {
     expect(event.ok).toBe(true);
   });
 
+  it("reads a prompt the bridge held back while paused", () => {
+    const paused = parseGeminiLine(
+      JSON.stringify({
+        type: "response",
+        id: "p1",
+        ok: false,
+        error: {
+          code: "PAUSED",
+          message: "Gemini is paused",
+          details: { until: "2026-10-25T14:32:00Z" },
+        },
+      }),
+    );
+    expect(paused.ok).toBe(true);
+  });
+
   it("answers a bad-JSON request with a null id", () => {
     const line = JSON.stringify({
       type: "response",
@@ -221,6 +237,22 @@ describe("readGeminiResult", () => {
         blocking: true,
       }),
     ).toBeNull();
+  });
+
+  it("reads when the bridge's pause ends, and a status from a bridge without one", () => {
+    const status = {
+      listening: true,
+      port: 8765,
+      extensionConnected: true,
+      hello: null,
+      status: null,
+    };
+    expect(
+      readGeminiResult("bridge.status", { ...status, pausedUntil: "2026-10-25T14:32:00Z" }),
+    ).toMatchObject({ pausedUntil: "2026-10-25T14:32:00Z" });
+    expect(readGeminiResult("bridge.status", { ...status, pausedUntil: null })).not.toBeNull();
+    expect(readGeminiResult("bridge.status", status)).not.toBeNull();
+    expect(readGeminiResult("bridge.status", { ...status, pausedUntil: 1800 })).toBeNull();
   });
 
   it("returns null for one that doesn't", () => {

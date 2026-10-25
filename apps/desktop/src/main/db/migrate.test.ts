@@ -45,6 +45,25 @@ describe("migrate", () => {
     expect(migrations.map((m) => m.version)).toEqual(migrations.map((_, i) => i + 1));
   });
 
+  it("creates Reach's three outreach tables (migration 4)", () => {
+    migrate(db);
+    expect(tables()).toEqual(
+      expect.arrayContaining(["outreach_drafts", "outreach_messages", "outreach_sequences"]),
+    );
+    expect(migrations[3]?.name).toBe("outreach");
+    // The gmail id is unique, a state outside the list is refused.
+    const message = db.prepare(
+      "INSERT INTO outreach_messages (id, channel_id, direction, body, at, gmail_message_id) VALUES (?, 'UCa', 'in', 'hi', 1, 'g1')",
+    );
+    message.run("m1");
+    expect(() => message.run("m2")).toThrow(/UNIQUE/);
+    expect(() => {
+      db.exec(
+        "INSERT INTO outreach_drafts (id, channel_id, kind, state, created_at, updated_at) VALUES ('d', 'UCa', 'first', 'bogus', 1, 1)",
+      );
+    }).toThrow(/CHECK/);
+  });
+
   it("builds a fresh database at the latest version", () => {
     migrate(db);
     expect(version()).toBe(migrations.length);

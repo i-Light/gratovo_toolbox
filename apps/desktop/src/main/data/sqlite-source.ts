@@ -37,6 +37,13 @@ import {
 } from "./repositories";
 import { linesFor, linesSince, logPage, peopleInLog } from "./repositories/activity-log";
 import {
+  createOutreachStore,
+  writeDraftGate,
+  writeDraftMailbox,
+  writeDraftState,
+  writeDraftText,
+} from "./repositories/outreach";
+import {
   creatorStates,
   parseTags,
   readNotes,
@@ -92,6 +99,14 @@ function settle<T>(fn: () => T): Promise<T> {
 export function createSqliteSource(db: DatabaseSync, options: SqliteSourceOptions): DataSource {
   const { me, extras } = options;
   const clock = options.now ?? Date.now;
+  const outreach = createOutreachStore(db, {
+    transaction: (fn) => {
+      inTransaction(db, fn);
+    },
+    applyWrites: (writes) => {
+      applyAll(writes);
+    },
+  });
 
   function readFrame(): Frame {
     const access = listMemberAccess(db);
@@ -129,6 +144,15 @@ export function createSqliteSource(db: DatabaseSync, options: SqliteSourceOption
       mateRun: extras.mateRun(),
       notify: getNotify(db),
       seesMoney: money,
+      // The stored parts only. Main's Reach service overlays the runtime fields later: the
+      // mailboxes (settings and Gmail's numbers), Gemini's state and the sender's name.
+      reach: {
+        ...outreach.reachParts(clock()),
+        mailboxes: [],
+        gemini: "off",
+        geminiPausedUntil: null,
+        sender: null,
+      },
     };
   }
 
@@ -172,6 +196,18 @@ export function createSqliteSource(db: DatabaseSync, options: SqliteSourceOption
       case "deal.step":
         setDealStep(db, write.id, write.step);
         return;
+      case "draft.state":
+        writeDraftState(db, write, me, clock());
+        return;
+      case "draft.text":
+        writeDraftText(db, write, clock());
+        return;
+      case "draft.mailbox":
+        writeDraftMailbox(db, write, clock());
+        return;
+      case "draft.gate":
+        writeDraftGate(db, write, clock());
+        return;
       case "conflict.resolve": {
         const settled = markResolved(db, write.id);
         // Keeping yours puts your stage, your tags, your notes or your contacts back; keeping
@@ -206,7 +242,24 @@ export function createSqliteSource(db: DatabaseSync, options: SqliteSourceOption
     }
   }
 
+  /**
+   * Applies writes in the caller's transaction, the one path for `write()` and for the outreach
+   * store's `commit()`. Draft writes stay local (nothing syncs yet, D1), so they skip the hook.
+   */
+  function applyAll(writes: readonly DataWrite[]): void {
+    for (const write of writes) {
+      if (options.onWrite === undefined || write.kind.startsWith("draft.")) {
+        apply(write);
+      } else {
+        options.onWrite(db, write, () => {
+          apply(write);
+        });
+      }
+    }
+  }
+
   return {
+    outreach,
     // The database is synchronous; the promises keep callers ready for it to move elsewhere.
     frame: () => settle(readFrame),
     creatorStates: () => settle(() => creatorStates(db)),
@@ -234,15 +287,7 @@ export function createSqliteSource(db: DatabaseSync, options: SqliteSourceOption
     write: (writes) =>
       settle(() => {
         inTransaction(db, () => {
-          for (const write of writes) {
-            if (options.onWrite === undefined) {
-              apply(write);
-            } else {
-              options.onWrite(db, write, () => {
-                apply(write);
-              });
-            }
-          }
+          applyAll(writes);
         });
       }),
     readSetting: (key) => getSetting(db, key),
