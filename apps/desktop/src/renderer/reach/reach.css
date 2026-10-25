@@ -65,6 +65,15 @@
   font-weight: 500;
   font-size: 13px;
 }
+/* A card's time chip: "in 2 h" with its clock, or an age. */
+.kcard .due {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.kcard .due.late {
+  color: var(--warn);
+}
 .lane .empty {
   padding: 14px 8px;
   font-size: 12px;

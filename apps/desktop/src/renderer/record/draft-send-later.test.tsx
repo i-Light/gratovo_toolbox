@@ -62,7 +62,7 @@ describe("Send later", () => {
     fireEvent.click(arrow());
     expect(menu()?.label).toBe(later.menu);
     expect(items().map((i) => i.label)).toEqual([later.theirMorning, later.tomorrow, later.monday]);
-    expect(items()[0]?.hint).toMatch(/09:00 their time$/);
+    expect(items()[0]?.hint).toMatch(/^\w{3} \d{1,2} \w{3}, \d{2}:\d{2} yours · 09:00 theirs$/);
     expect(items()[1]?.hint).toBe("Sun 25 Oct");
     expect(items()[2]?.hint).toBe("Mon 26 Oct");
   });

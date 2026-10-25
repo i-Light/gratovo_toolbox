@@ -1356,7 +1356,7 @@ export const strings = {
     insights: { name: "Insights", sub: "Analytics, keywords, funnel", tabs: {} },
     toolbox: {
       name: "Toolbox",
-      sub: "Archive, never contact, log",
+      sub: "Archive, scheduled, never contact, log",
       tabs: {
         archive: "Archive",
         never: "Never contact",
@@ -1811,7 +1811,8 @@ export const strings = {
       menuTip: "Send later",
       menuBlocked: "Clear the warning above first",
       theirMorning: "Their morning",
-      theirHint: (day: string): string => `${day} · 09:00 their time`,
+      /** `when` is in the sender's time, which may fall on another day than theirs. */
+      theirHint: (when: string): string => `${when} yours · 09:00 theirs`,
       yoursHint: (day: string): string => `${day} · 09:00 your time`,
       tomorrow: "Tomorrow, 09:00",
       monday: "Monday, 09:00",
@@ -1865,9 +1866,13 @@ export const strings = {
       atLeast: (n: number): string => `${String(n)} a day is the least`,
       atMost: (n: number): string => `${String(n)} a day is the most`,
       warmingHint: (cap: number): string =>
-        `Sends 20 a day until warm-up ends, then ${String(cap)}.`,
+        cap > 20
+          ? `Sends 20 a day until warm-up ends, then ${String(cap)}.`
+          : "Warm-up keeps it at 20 a day or less.",
       slowedHint: (cap: number): string =>
-        `Held at 20 until bounces are under 2%, then ${String(cap)}.`,
+        cap > 20
+          ? `Held at 20 until bounces are under 2%, then ${String(cap)}.`
+          : "Slowed until bounces are under 2%.",
       test: "Send a test",
       testTipPaused: "Resume sending first",
       testTipSignedOut: "Sign in again first",

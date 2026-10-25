@@ -303,7 +303,8 @@ export function Mailboxes() {
     <div className="col" data-ui="reach.mailboxes">
       <div className="callout info" role="note">
         <Icon name="gauge" />
-        <div className="grow">
+        {/* A zero basis keeps the long text beside the icon instead of wrapping under it. */}
+        <div className="grow" style={{ flexBasis: 0 }}>
           <b style={{ fontWeight: 600 }}>{text.ruleLead}</b>
           {text.ruleBody}
           {slowed.length > 0 ? text.rightNow(slowed) : ""}

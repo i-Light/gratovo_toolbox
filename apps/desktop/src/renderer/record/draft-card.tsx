@@ -17,6 +17,7 @@ import { openMenu } from "../lib/actions";
 import { ago } from "../lib/format";
 import {
   dayWords,
+  whenWords,
   kindLabel,
   rewriteDraft,
   scheduleDraft,
@@ -81,7 +82,7 @@ function Card({ draft }: { readonly draft: OutreachDraft }) {
           kind: "item",
           label: later.theirMorning,
           hint: morning.theirs
-            ? later.theirHint(dayWords(morning.at))
+            ? later.theirHint(whenWords(morning.at))
             : later.yoursHint(dayWords(morning.at)),
           icon: "sun",
           run: pick(morning.at),
