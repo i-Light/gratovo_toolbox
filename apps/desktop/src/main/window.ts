@@ -1,6 +1,6 @@
 import { join } from "node:path";
 
-import { BrowserWindow, app } from "electron";
+import { BrowserWindow, app, screen } from "electron";
 
 import { builtPageUrl, localDevServer } from "./app-page";
 
@@ -17,8 +17,26 @@ const devServerUrl = app.isPackaged
 /** The one page the app shows. The guards in security.ts refuse to navigate anywhere else. */
 export const appPageUrl = devServerUrl ?? builtPageUrl;
 
+/**
+ * A test run: unpackaged, with its own data folder (the Electron tests and the lead's screenshot
+ * scripts set GRATOVO_USER_DATA). `pnpm dev` and the installed app never are.
+ */
+const testRun = !app.isPackaged && (process.env["GRATOVO_USER_DATA"] ?? "") !== "";
+
+/**
+ * A test run opens at the top-left corner of the second screen, out of the way of whoever is
+ * working on the main one (owner, 2026-10-25). With one screen, Windows places it as usual.
+ */
+function testPlace(): { x: number; y: number } | Record<string, never> {
+  if (!testRun) return {};
+  const primary = screen.getPrimaryDisplay();
+  const other = screen.getAllDisplays().find((display) => display.id !== primary.id);
+  return other === undefined ? {} : { x: other.workArea.x, y: other.workArea.y };
+}
+
 export function createMainWindow(): BrowserWindow {
   const window = new BrowserWindow({
+    ...testPlace(),
     width: 1440,
     height: 900,
     minWidth: 400,
@@ -39,7 +57,13 @@ export function createMainWindow(): BrowserWindow {
   });
 
   window.once("ready-to-show", () => {
-    window.show();
+    // A test run doesn't take the keyboard from the person working; the tests drive the page
+    // directly, without the system's focus.
+    if (testRun) {
+      window.showInactive();
+    } else {
+      window.show();
+    }
   });
 
   // With no menu there is no shortcut for the developer tools, so unpackaged runs open them with F12.
