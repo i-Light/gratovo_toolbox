@@ -269,3 +269,57 @@ Tiers per plan §10. Each task: edit only the listed files; never `git add`, `gi
 | A8 | N | A7 | `renderer/reach/reach-screen.tsx`, `board.tsx`, `reach.css`, `renderer/record/creator-emails.tsx`, `draft-card.tsx`, `thread.tsx`, `creator-record.tsx`, `app/app.tsx`, `lib/wired.ts` | The screen with Board only in live; the Emails tab; the draft card per the prototype (`records.js` DraftCard), keyboard (Ctrl Enter, O, J/K). Component tests. | vitest; screenshot at 1440 px |
 | A9 | N | A6, A8 | `apps/desktop/e2e/reach-board.spec.ts` | One smoke: example data, Reach › Board shows lanes; open a Waiting card; Send; the toast; Undo; send again and the card leaves the lane. | e2e on Windows |
 | A10 | H | all | review (router-reviewer) | Diff vs. this plan, security (no send without approval, no secret or mail body in logs). | findings fixed |
+
+## Decisions added for 6b (2026-10-25)
+
+**D20. The Mailboxes tab, in detail** (prototype `reach.js` MailCard and Mailboxes, parity 123–125).
+- **Pause and the slowdown state** live in a local setting of the open source, `reach.mailboxes`: `{[address in lower case]: {paused: boolean, slowed: boolean}}`, read with zod and safe fallbacks. Not synced (D1).
+- **The cap stepper** writes the `mail.settings` row's `dailyCap`, as Settings › Connections' `mailbox.update` does: 10 to 50 in steps of 5 (the pipeline's bounds). It is the normal cap. While warming or slowed the effective cap is at most 20, and the card says so ("20 a day until warm-up ends, then 30").
+- **Not undo steps.** `reach:mailbox-set {address, dailyCap?, paused?}` writes at once, like Settings › Connections. The mailboxes come from main, and an undo step would need a field merge like 6a's drafts (finding 1). The stepper and Pause/Resume reverse themselves. The toast has no Undo.
+- **Rates**, per mailbox, from the app's own messages:
+  - `bounceRate`: the last 7 days. In-messages on that mailbox read as `any.bounce`, divided by out-messages from it, in %, one decimal. Null under 10 sends.
+  - `replyRate`: the last 30 days. Creators who got a first email from the mailbox and later sent a message that is not a bounce, divided by creators who got one. Null under 10.
+  - On live data the rates stay mostly null until 6d's sweep stores replies. The example seed gives outreach3 enough bounces to be slowed.
+- **The slowdown rule** (core, pure, `slowedNext(was, rate)`): a rate over 3 slows the mailbox. A slowed mailbox stays slowed until the rate is under 2. A null rate keeps the last state.
+  - Main applies it after each mailbox refresh, on live and example data.
+  - It writes the setting only when the state changes, and adds an activity log line: "outreach3 slowed to 20 sends a day: 4.2% bounced this week" or "outreach3 is back to 30 a day".
+  - The notification waits for 6d's notification path.
+- **Status order:** signed_out, then paused, then slowed, then warming, then good.
+- **Test email:** `reach:send-test {address}`.
+  - Live: `mail.send` through the quick queue: `{to: address, mailbox: address, subject: "Gratovo test email", body: <a short fixed text from main's strings>, newThread: true, sendKey: "test-<uuid>", approvedBy: me}`. It is not stored in `outreach_messages`.
+  - A paused or signed-out mailbox is refused.
+  - Example data: a fake success after 0.6 s.
+  - The toast: "Test email sent to <address>. Check that it reached the main inbox, not Promotions."
+  - **Inbox placement** ("8/10") is not built: the app can't tell where a test landed without reading the mailbox. Recorded in the parity notes.
+- **Warnings before a connection lapses (row 123)** need the token's age, which is not stored. The card shows "Signed out" with **Sign in again** (to Settings › Connections). Recorded as partial.
+- The header's capacity summary becomes a button to the tab once `mailboxes` is in `liveWired.reach`. It is already built.
+
+**D21. Send later and Toolbox › Scheduled, in detail** (D12; prototype `records.js` schedule and `more.js` ScheduledTool).
+- **Core `reach/send-later.ts`** (pure):
+  - `countryZones`: ISO-2 code to one IANA zone (the main city), for about 40 countries.
+  - `morningIn(zone, now)`: the next 09:00 in that zone, at least 15 minutes away.
+  - `tomorrowAt9(now)` and `mondayAt9(now)`: in the local zone. `mondayAt9` is next Monday, or a week on when today is Monday.
+- **The creator's zone:** `ReachData.zones: Record<creatorId, zone>`, for creators with an open draft. Main's overlay fills it from the Find catalog's channel country through `countryZones`. With no zone, "Their morning" is 09:00 the sender's time, and the menu says so.
+- **The page:**
+  - The Send button gets an arrow (a split button). It opens a menu with the three choices and the time each one gives.
+  - `canSchedule` (core) gates it.
+  - `scheduleDraft(id, at)` is an `act` that writes `draft.state scheduled` with `sendAt`. The toast says "Scheduled for Tue 27 Oct, 09:00", with Undo.
+  - Main already keeps `sendAt` at least now plus the hold, and sends at the time (D11, D12).
+- **Toolbox › Scheduled:**
+  - It lists scheduled drafts, soonest first: the creator, the first line, when, and from which mailbox.
+  - **Cancel** sends the draft back to `ready`. It is an `act`, so it can be undone.
+  - The empty state follows the prototype.
+  - The count beside the tool comes from the store.
+- **Live gate:** `liveWired.reach` adds `mailboxes`; `liveWired.toolbox` adds `scheduled`.
+
+## Tasks for 6b
+
+Same rules as 6a's tasks.
+
+| id | tier | depends | files | spec | done-check |
+|---|---|---|---|---|---|
+| B1 | H (lead) | – | `packages/core/src/reach/send-later.ts`, `mailbox-health.ts` (new, + tests), `reach/index.ts`, `data/reach-types.ts` (`zones`), `packages/ipc/src/reach.ts`, `channels.ts`, `index.ts` (+ tests) | D20 and D21 contracts: `slowedNext`, `mailboxStatus`, cap bounds and steps, the send-later times, `reach:mailbox-set`, `reach:send-test`, `ReachData.zones`. | typecheck; core and ipc tests |
+| B2 | N | B1 | `main/reach/mail-state.ts`, `main/reach/reach-service.ts`, `main/reach/strings.ts`, `main/data/repositories/outreach.ts` (`mailboxCounts`), `core/src/data/outreach-store.ts`, `sqlite-source.ts`/`example-source.ts` if needed, `handlers.ts`, `services.ts`, `stub-services.ts`, `packages/core/src/data/example.ts` (outreach3's bounces), the tests | D20 in main: the setting, the rates, the slowdown rule and its log line, mailbox-set, send-test (fake supervisor; never a real send), the zones overlay. | vitest; the contract tests |
+| B3 | N | B1 | `renderer/reach/mailboxes.tsx` (new), `reach-screen.tsx`, `reach.css`, `renderer/record/draft-card.tsx` (Send later), `renderer/lib/reach-actions.ts` (`scheduleDraft`, `cancelScheduled`, `setMailbox`, `sendTest`), `renderer/toolbox/scheduled-tool.tsx` (new), `toolbox-screen.tsx`, `toolbox-list.tsx`, `lib/routes.ts` if needed, `lib/wired.ts`, `renderer/strings.ts`, the tests | D20 and D21 in the page, per the prototype. | vitest; screenshot at 1440 px |
+| B4 | N | B2, B3 | `apps/desktop/e2e/reach-later.spec.ts` | One smoke on example data: a waiting draft, Send later › Tomorrow, the toast, Toolbox › Scheduled lists it, Cancel, the draft is back in Waiting. | e2e on Windows |
+| B5 | H | all | review (router-reviewer) | The diff against this plan. Security: a test email or a scheduled send only on a person's click; no secret and no mail body in logs. | findings fixed |
