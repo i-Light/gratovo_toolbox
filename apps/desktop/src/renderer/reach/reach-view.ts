@@ -1,9 +1,18 @@
-import type { MailboxView, OutreachDraft, ReachData } from "@gratovo/core/data";
-import { nextStep } from "@gratovo/core/reach";
+import type {
+  Creator,
+  MailboxView,
+  OutreachDraft,
+  ReachData,
+  Sequence,
+  SequenceStep,
+  ThreadSummary,
+} from "@gratovo/core/data";
+import { isFinished, isRunning, nextStep } from "@gratovo/core/reach";
 import type { BoardItem, BoardLaneKey } from "@gratovo/core/reach";
+import type { IconName } from "@gratovo/ui";
 
 import { ago } from "../lib/format";
-import { kindLabel } from "../lib/reach-actions";
+import { dayWords, kindLabel, whenWords } from "../lib/reach-actions";
 import { strings } from "../strings";
 
 const t = strings.reach;
@@ -131,8 +140,24 @@ export function cardInfo(
         action: null,
       };
     }
+    if (sequence?.parkUntil != null) {
+      return {
+        sub: sub.parked(dayWords(sequence.parkUntil)),
+        need: false,
+        chip: null,
+        action: null,
+      };
+    }
     if (sequence?.stopped != null) {
-      return { sub: sub.stopped[sequence.stopped], need: false, chip: null, action: null };
+      return {
+        sub: sub.stopped[sequence.stopped],
+        need: false,
+        chip: sequence.stopped === "finished" ? { kind: "finished" } : null,
+        action: null,
+      };
+    }
+    if (sequence !== null && isFinished(sequence, now)) {
+      return { sub: sub.stopped.finished, need: false, chip: { kind: "finished" }, action: null };
     }
     if (sequence === null) {
       // No sequence (none before step 6c, or an old email): say when the email went, and
@@ -170,4 +195,190 @@ export function cardInfo(
     };
   }
   return { sub: strings.record.stages[item.creator.stage], need: false, chip: null, action: null };
+}
+
+const dayMs = 86_400_000;
+const seq = t.sequences;
+
+/** Local midnight of the day `at` falls on. */
+function midnight(at: number): number {
+  const d = new Date(at);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
+/** Whole days from `now`'s day to `at`'s day (local); negative for a day gone. */
+export function dayDiff(at: number, now: number): number {
+  return Math.round((midnight(at) - midnight(now)) / dayMs);
+}
+
+/** How many days the timeline shows on each side of today. */
+export const timelineSpan = 14;
+
+/** Where a sequence stands. */
+export type SeqState = "running" | "parked" | "stopped" | "finished" | "done";
+
+export interface SeqRow {
+  readonly creator: Creator;
+  readonly sequence: Sequence;
+  readonly thread: ThreadSummary | null;
+  readonly next: SequenceStep | null;
+  readonly state: SeqState;
+  /** Running: its next step is waiting. Everything else counts as stopped in the filter. */
+  readonly running: boolean;
+}
+
+/** The sequence's state: parked, stopped (by whom), finished, done (last step sent, waiting), or running. */
+export function seqState(sequence: Sequence, now: number): SeqState {
+  if (sequence.parkUntil !== null) {
+    return "parked";
+  }
+  if (sequence.stopped === "finished" || isFinished(sequence, now)) {
+    return "finished";
+  }
+  if (sequence.stopped !== null) {
+    return "stopped";
+  }
+  return nextStep(sequence) === null ? "done" : "running";
+}
+
+/** One row per creator with a sequence: running ones first by next step, then the rest by last activity. */
+export function sequenceRows(
+  creators: readonly Creator[],
+  sequences: readonly Sequence[],
+  threads: readonly ThreadSummary[],
+  now: number,
+): SeqRow[] {
+  const byCreator = new Map(creators.map((c) => [c.id, c]));
+  const byThread = new Map(threads.map((th) => [th.creator, th]));
+  const rows: SeqRow[] = [];
+  for (const sequence of sequences) {
+    const creator = byCreator.get(sequence.creator);
+    if (creator === undefined) {
+      continue;
+    }
+    const state = seqState(sequence, now);
+    rows.push({
+      creator,
+      sequence,
+      thread: byThread.get(sequence.creator) ?? null,
+      next: state === "running" ? nextStep(sequence) : null,
+      state,
+      running: state === "running",
+    });
+  }
+  const activity = (r: SeqRow): number =>
+    Math.max(r.thread?.lastIn?.at ?? 0, r.thread?.lastOutAt ?? 0, r.sequence.startedAt);
+  return rows.sort((a, b) => {
+    if (a.running !== b.running) {
+      return a.running ? -1 : 1;
+    }
+    if (a.running) {
+      return (a.next?.dueAt ?? 0) - (b.next?.dueAt ?? 0);
+    }
+    return activity(b) - activity(a);
+  });
+}
+
+/** The words for when a step is due: "due today", "tomorrow", "in 3 days", "on Nov 12". */
+export function whenWord(at: number, now: number): string {
+  const n = dayDiff(at, now);
+  if (n === 0) {
+    return seq.next.dueToday;
+  }
+  if (n < 0) {
+    return seq.next.wasDue(-n);
+  }
+  if (n === 1) {
+    return seq.next.tomorrow;
+  }
+  return n < 7 ? seq.next.inDays(n) : seq.next.on(dayWords(at));
+}
+
+/** The "Next step" column: words, an icon, and whether the step is due. */
+export function nextWords(
+  row: Pick<SeqRow, "sequence" | "state" | "next">,
+  now: number,
+): { readonly text: string; readonly icon: IconName; readonly due: boolean } {
+  const { sequence, state, next } = row;
+  if (state === "parked") {
+    return {
+      text: seq.next.parked(dayWords(sequence.parkUntil ?? now)),
+      icon: "alarm",
+      due: false,
+    };
+  }
+  if (state === "finished") {
+    return { text: seq.next.finished, icon: "check", due: false };
+  }
+  if (state === "stopped") {
+    const how = sequence.stopped ?? "you";
+    return {
+      text: seq.next[how === "finished" ? "finished" : how],
+      icon: how === "replied" ? "reply" : "pause",
+      due: false,
+    };
+  }
+  if (next === null) {
+    return { text: seq.next.last, icon: "check", due: false };
+  }
+  const due = dayDiff(next.dueAt, now) <= 0;
+  return {
+    text: seq.next.step(next.n, whenWord(next.dueAt, now)),
+    icon: due ? "alarm" : "clock",
+    due,
+  };
+}
+
+export interface SeqDot {
+  readonly type: "sent" | "due" | "plan" | "skip" | "reply";
+  /** Also the dot's accessible name. */
+  readonly text: string;
+}
+
+/** The dots of one row, by day column (0 is 14 days back), and the first and last event's columns. */
+export function sequenceEvents(
+  row: SeqRow,
+  now: number,
+): { readonly days: SeqDot[][]; readonly lo: number; readonly hi: number } {
+  const { sequence, thread } = row;
+  const days: SeqDot[][] = Array.from({ length: 2 * timelineSpan + 1 }, () => []);
+  const raw: { readonly col: number; readonly dot: SeqDot }[] = [];
+  const add = (at: number, dot: SeqDot): void => {
+    raw.push({ col: dayDiff(at, now) + timelineSpan, dot });
+  };
+  const running = isRunning(sequence);
+  add(sequence.startedAt, { type: "sent", text: seq.dots.first(whenWords(sequence.startedAt)) });
+  for (const s of sequence.steps) {
+    if (s.state === "sent") {
+      const at = s.sentAt ?? s.dueAt;
+      add(at, { type: "sent", text: seq.dots.sent(s.n, whenWords(at)) });
+    } else if (s.state === "skipped") {
+      add(s.dueAt, { type: "skip", text: seq.dots.skipped(s.n, dayWords(s.dueAt)) });
+    } else if (s.state === "drafted" || (running && dayDiff(s.dueAt, now) <= 0)) {
+      add(s.dueAt, {
+        type: "due",
+        text: seq.dots.due(s.n, dayWords(s.dueAt), dayDiff(s.dueAt, now) < 0),
+      });
+    } else {
+      add(s.dueAt, { type: "plan", text: seq.dots.planned(s.n, dayWords(s.dueAt)) });
+    }
+  }
+  if (thread?.lastIn != null) {
+    add(thread.lastIn.at, { type: "reply", text: seq.dots.reply(whenWords(thread.lastIn.at)) });
+  }
+  for (const { col, dot } of raw) {
+    days[col]?.push(dot);
+  }
+  const cols = raw.map((r) => r.col);
+  return { days, lo: Math.min(...cols), hi: Math.max(...cols) };
+}
+
+/** The timeline's days: 14 back to 14 ahead, as local midnights. */
+export function timelineDays(now: number): number[] {
+  return Array.from({ length: 2 * timelineSpan + 1 }, (_, i) => {
+    const d = new Date(midnight(now));
+    d.setDate(d.getDate() + i - timelineSpan);
+    return d.getTime();
+  });
 }

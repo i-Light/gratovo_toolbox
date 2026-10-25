@@ -11,6 +11,7 @@ import { adoptServerData, diffData, installPersistence, persistenceIdle } from "
 import {
   cancelScheduled,
   confirmGate,
+  dayWords,
   draftNow,
   loadThread,
   markSent,
@@ -23,7 +24,11 @@ import {
   sendTest,
   setDraftMailbox,
   setMailbox,
+  parkCreator,
+  resumeSequence,
   skipDraft,
+  stopSequence,
+  wakeCreator,
   typeDraft,
   undoRewrite,
 } from "./reach-actions";
@@ -260,7 +265,7 @@ describe("sendDraft", () => {
     const shown = toasts().at(-1);
     expect(shown).toMatchObject({
       msg: t.sentTo(name),
-      sub: t.sentSub(address),
+      sub: `${t.nextFollowUp(1, dayWords(now + 10_000 + 3 * 86_400_000))}. ${t.sentSub(address)}`,
       ms: 10_000,
     });
     expect(shown?.actions.map((a) => a.label)).toEqual([strings.actions.undo]);
@@ -561,5 +566,101 @@ describe("Send later and mailbox settings", () => {
     install({ "reach:send-test": { ok: false, problem: "signed_out" } });
     expect(await sendTest(address)).toBe(false);
     expect(toasts().at(-1)?.msg).toBe(t.mailboxes.testProblems.signed_out);
+  });
+});
+
+describe("the sequence commands", () => {
+  const day = 86_400_000;
+  const toastUndo = async () => {
+    toasts().at(-1)?.actions[0]?.run();
+    await settle();
+  };
+
+  it("stops, and Undo resumes", async () => {
+    install();
+    const id = id0();
+    const name = data().creators[0]?.name ?? "";
+    expect(await stopSequence(id)).toBe(true);
+    expect(bridge.calls.at(-1)).toEqual(["reach:sequence-stop", { creatorId: id }]);
+    expect(toasts().at(-1)?.msg).toBe(t.sequences.toasts.stopped(name));
+    await toastUndo();
+    expect(bridge.calls.at(-1)).toEqual(["reach:sequence-resume", { creatorId: id }]);
+    expect(toasts().at(-1)?.actions).toEqual([]);
+  });
+
+  it("resumes, and Undo stops", async () => {
+    install();
+    expect(await resumeSequence("c")).toBe(true);
+    await toastUndo();
+    expect(bridge.calls.at(-1)).toEqual(["reach:sequence-stop", { creatorId: "c" }]);
+  });
+
+  it("parks, and Undo wakes", async () => {
+    install();
+    const until = Date.now() + 14 * day;
+    expect(await parkCreator("c", until)).toBe(true);
+    expect(bridge.calls.at(-1)).toEqual(["reach:park", { creatorId: "c", until }]);
+    expect(toasts().at(-1)?.msg).toContain(dayWords(until));
+    await toastUndo();
+    expect(bridge.calls.at(-1)).toEqual(["reach:wake", { creatorId: "c" }]);
+  });
+
+  it("wakes, and Undo parks again until the old day", async () => {
+    install();
+    const until = Date.now() + 5 * day;
+    setReach(
+      reachWith({
+        sequences: [
+          {
+            creator: "c",
+            mailbox: address,
+            startedAt: 1,
+            steps: [],
+            stopped: null,
+            parkUntil: until,
+          },
+        ],
+      }),
+    );
+    expect(await wakeCreator("c")).toBe(true);
+    await toastUndo();
+    expect(bridge.calls.at(-1)).toEqual(["reach:park", { creatorId: "c", until }]);
+  });
+
+  it("toasts a refusal plainly, with no Undo", async () => {
+    install({ "reach:park": { ok: false, problem: "wrong_state" } });
+    expect(await parkCreator("c", Date.now() + day)).toBe(false);
+    expect(toasts().at(-1)).toMatchObject({ msg: t.sequences.problems.wrong_state, actions: [] });
+  });
+});
+
+describe("the send toast names what follows", () => {
+  it("says the last follow-up was the last, or names the next", () => {
+    const id = id0();
+    const sequence = {
+      creator: id,
+      mailbox: address,
+      startedAt: now,
+      steps: [
+        { n: 1, dueAt: now, state: "planned" as const, sentAt: null },
+        { n: 2, dueAt: now + 4 * 86_400_000, state: "planned" as const, sentAt: null },
+      ],
+      stopped: null,
+      parkUntil: null,
+    };
+    setReach(
+      reachWith({
+        drafts: [
+          aiDraft("f1", id, { kind: "followUp", followUp: 1 }),
+          aiDraft("f2", id, { kind: "followUp", followUp: 2 }),
+        ],
+        mailboxes: [goodMailbox(address)],
+        sequences: [sequence],
+      }),
+    );
+    sendDraft("f1");
+    expect(toasts().at(-1)?.sub).toContain(t.nextFollowUp(2, dayWords(now + 4 * 86_400_000)));
+    sendDraft("f2");
+    expect(toasts().at(-1)?.sub).toContain(t.lastFollowUp);
   });
 });

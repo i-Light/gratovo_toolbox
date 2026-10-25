@@ -69,10 +69,14 @@ describe("on live data", () => {
     expect(isTabShown("find", "search", "live")).toBe(true);
     expect(isTabShown("find", null, "live")).toBe(true);
     expect(firstShownTab("find", "live")).toBe("search");
-    expect(shownTabs("reach", "live").map((t) => t.key)).toEqual(["board", "mailboxes"]);
+    expect(shownTabs("reach", "live").map((t) => t.key)).toEqual([
+      "board",
+      "sequences",
+      "mailboxes",
+    ]);
     expect(firstShownTab("reach", "live")).toBe("board");
     expect(isTabShown("reach", "mailboxes", "live")).toBe(true);
-    expect(isTabShown("reach", "sequences", "live")).toBe(false);
+    expect(isTabShown("reach", "sequences", "live")).toBe(true);
     expect(isTabShown("reach", "inbox", "live")).toBe(false);
     expect(isTabShown("toolbox", "scheduled", "live")).toBe(true);
     expect(firstShownTab("close", "live")).toBeNull();

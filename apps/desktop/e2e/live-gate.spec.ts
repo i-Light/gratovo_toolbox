@@ -39,7 +39,7 @@ test.describe("the live gate, against a fake Supabase", () => {
         name: railName(screens.toolbox.name, screens.toolbox.sub),
       }),
     ).toBeVisible();
-    // Reach is wired from plan step 6a (the board) and 6b (Mailboxes), named for what is wired.
+    // Reach is wired from plan step 6a (the board), 6b (Mailboxes) and 6c (Sequences), named for what is wired.
     await expect(
       rail(page).getByRole("button", {
         name: railName(screens.reach.name, screens.reach.subLive),

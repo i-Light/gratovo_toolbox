@@ -226,11 +226,12 @@ describe("the banner", () => {
 });
 
 describe("the live gate", () => {
-  it("shows the Board and Mailboxes: four lanes and two tabs", () => {
+  it("shows the Board, Sequences and Mailboxes: four lanes and three tabs", () => {
     seed("live");
     render(<ReachScreen />);
     expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
       strings.screens.reach.tabs.board,
+      strings.screens.reach.tabs.sequences,
       strings.screens.reach.tabs.mailboxes,
     ]);
     expect(screen.getAllByRole("region")).toHaveLength(4);

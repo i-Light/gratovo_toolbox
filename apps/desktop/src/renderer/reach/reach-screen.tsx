@@ -10,6 +10,7 @@ import { Board } from "./board";
 import { CapSummary } from "./cap-summary";
 import { GeminiBanner } from "./gemini-banner";
 import { Mailboxes } from "./mailboxes";
+import { Sequences } from "./sequences";
 import { subLine } from "./reach-view";
 
 const text = strings.reach.screen;
@@ -87,6 +88,8 @@ export function ReachScreen() {
       <div id={panelId} role="tabpanel" aria-labelledby={tabId(tab)}>
         {tab === "board" ? (
           <Board />
+        ) : tab === "sequences" ? (
+          <Sequences />
         ) : tab === "mailboxes" ? (
           <Mailboxes />
         ) : (
