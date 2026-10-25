@@ -9,6 +9,12 @@ export const strings = {
     label: "Not read yet",
     lastKnown: (value: string): string => `Not read yet (last known: ${value})`,
     lastKnownShort: (value: string): string => `last known ${value}`,
+    /** A channel the pipeline gave up on after three failed reads. */
+    failed: {
+      label: "Couldn't read",
+      lastKnown: (value: string): string => `Couldn't read (last known: ${value})`,
+      lastKnownShort: (value: string): string => `last known ${value}`,
+    },
     /** A creator with no pipeline row at all: nothing was ever measured. */
     noNumbers: "No numbers yet",
   },

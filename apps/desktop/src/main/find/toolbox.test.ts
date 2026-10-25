@@ -42,6 +42,7 @@ function row(id: string, over: Partial<CatalogItem> = {}): CatalogItem {
     archivedAt: null,
     hasNumbers: true,
     uploadsRead: true,
+    readFailed: false,
     ...over,
   };
 }
@@ -238,6 +239,7 @@ describe("readArchived", () => {
     });
     const [item] = readArchived(other, { q: "", offset: 0, limit: 10 }, none).items;
     expect(item?.keywords).toHaveLength(50);
+    expect(item?.keywordsTotal).toBe(60);
     expect(item?.keywords[0]?.keyword).toBe("ai topic 00");
   });
 

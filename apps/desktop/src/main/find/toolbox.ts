@@ -156,17 +156,26 @@ function wholeOf(value: unknown): number | null {
  * the refetch keyword are skipped (D44); a repeat keeps its earliest time.
  */
 export function keywordsOf(text: string | null): ArchivedChannel["keywords"] {
+  return keywordsWithTotal(text).keywords;
+}
+
+/** The capped keyword list and the count of every keyword before the cap ("+N more"). */
+export function keywordsWithTotal(text: string | null): {
+  keywords: ArchivedChannel["keywords"];
+  total: number;
+} {
+  const none = { keywords: [], total: 0 };
   if (text === null) {
-    return [];
+    return none;
   }
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
   } catch {
-    return [];
+    return none;
   }
   if (!Array.isArray(parsed)) {
-    return [];
+    return none;
   }
   const byKeyword = new Map<string, number | null>();
   for (const entry of parsed as unknown[]) {
@@ -184,10 +193,10 @@ export function keywordsOf(text: string | null): ArchivedChannel["keywords"] {
       byKeyword.set(word, at);
     }
   }
-  return [...byKeyword]
+  const keywords = [...byKeyword]
     .map(([keyword, at]) => ({ keyword, at }))
-    .sort((a, b) => (a.at ?? Infinity) - (b.at ?? Infinity) || a.keyword.localeCompare(b.keyword))
-    .slice(0, keywordsMax);
+    .sort((a, b) => (a.at ?? Infinity) - (b.at ?? Infinity) || a.keyword.localeCompare(b.keyword));
+  return { keywords: keywords.slice(0, keywordsMax), total: keywords.length };
 }
 
 /** "48200" is a number; "Hidden" and anything else is none. */
@@ -280,21 +289,25 @@ export function readArchived(
         .all(...args, request.limit, request.offset) as unknown as ArchiveRow[];
       return {
         total,
-        items: rows.map((row) => ({
-          id: row.channel_id,
-          handle: handleOf(row.handle),
-          name: nameOf(row.name) ?? names.get(row.channel_id)?.name ?? null,
-          label: row.label,
-          archivedAt: parseTime(row.archived_at),
-          subscribers: subscribersOf(row.subscribers),
-          stage: names.get(row.channel_id)?.stage ?? null,
-          country: countryOf(row.country),
-          medianViews: wholeOf(row.median_views_last_30),
-          uploads30: wholeOf(row.videos_last_30),
-          latestUploadAt: parseTime(row.latest_upload_at),
-          videos: wholeOf(row.videos_found_count),
-          keywords: keywordsOf(row.found_via),
-        })),
+        items: rows.map((row) => {
+          const found = keywordsWithTotal(row.found_via);
+          return {
+            id: row.channel_id,
+            handle: handleOf(row.handle),
+            name: nameOf(row.name) ?? names.get(row.channel_id)?.name ?? null,
+            label: row.label,
+            archivedAt: parseTime(row.archived_at),
+            subscribers: subscribersOf(row.subscribers),
+            stage: names.get(row.channel_id)?.stage ?? null,
+            country: countryOf(row.country),
+            medianViews: wholeOf(row.median_views_last_30),
+            uploads30: wholeOf(row.videos_last_30),
+            latestUploadAt: parseTime(row.latest_upload_at),
+            videos: wholeOf(row.videos_found_count),
+            keywords: found.keywords,
+            keywordsTotal: found.total,
+          };
+        }),
       };
     } finally {
       db.close();

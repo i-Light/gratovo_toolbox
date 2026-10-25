@@ -209,7 +209,9 @@ export function Contacts() {
                     : text.subscribers(formatCount(item.subscribers))}{" "}
                   ·{" "}
                   {uploadsUnread(item)
-                    ? strings.unread.label
+                    ? item.readFailed
+                      ? strings.unread.failed.label
+                      : strings.unread.label
                     : text.median(formatCount(item.medianViews))}
                 </span>
               </div>

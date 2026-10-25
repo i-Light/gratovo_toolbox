@@ -53,7 +53,10 @@ export function CreatorOverview({ item }: { readonly item: CreatorDetail }) {
           <Stat
             value={
               unread
-                ? unreadWords(item.medianViews > 0 ? formatCount(item.medianViews) : null)
+                ? unreadWords(
+                    item.medianViews > 0 ? formatCount(item.medianViews) : null,
+                    item.readFailed,
+                  )
                 : formatCount(item.medianViews)
             }
             label={numbers.median}
@@ -62,7 +65,7 @@ export function CreatorOverview({ item }: { readonly item: CreatorDetail }) {
           <Stat
             value={
               unread
-                ? unreadWords(item.uploads30 > 0 ? String(item.uploads30) : null)
+                ? unreadWords(item.uploads30 > 0 ? String(item.uploads30) : null, item.readFailed)
                 : String(item.uploads30)
             }
             label={numbers.uploads}
@@ -72,7 +75,10 @@ export function CreatorOverview({ item }: { readonly item: CreatorDetail }) {
           <Stat
             value={
               unread
-                ? unreadWords(item.latestUploadAt === null ? null : ago(item.latestUploadAt, now))
+                ? unreadWords(
+                    item.latestUploadAt === null ? null : ago(item.latestUploadAt, now),
+                    item.readFailed,
+                  )
                 : item.latestUploadAt === null
                   ? numbers.unknown
                   : ago(item.latestUploadAt, now)

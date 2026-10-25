@@ -35,6 +35,7 @@ const item = {
   archivedAt: null,
   hasNumbers: true,
   uploadsRead: true,
+  readFailed: false,
   dueAt: null,
 };
 
@@ -55,6 +56,7 @@ const archived = {
     { keyword: "ai coding tools", at: 3 },
     { keyword: "agent news", at: null },
   ],
+  keywordsTotal: 2,
 };
 
 describe("toolboxItemSchema", () => {
@@ -90,6 +92,7 @@ describe("archivedChannelSchema", () => {
       latestUploadAt: null,
       videos: null,
       keywords: [],
+      keywordsTotal: 0,
     };
     expect(archivedChannelSchema.safeParse(bare).success).toBe(true);
   });

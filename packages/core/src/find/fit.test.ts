@@ -34,6 +34,7 @@ function makeItem(patch: Partial<CatalogItem> = {}): CatalogItem {
     archivedAt: null,
     hasNumbers: true,
     uploadsRead: true,
+    readFailed: false,
     ...patch,
   };
 }
@@ -130,6 +131,14 @@ describe("fitOf", () => {
     expect(fitOf(makeItem(unread)).score).toBeLessThan(
       fitOf(makeItem({ medianViews: 80000, uploads30: 8 })).score,
     );
+  });
+
+  it("says the uploads couldn't be read once the pipeline gave up", () => {
+    const failed = { uploadsRead: false, readFailed: true, medianViews: 80000, uploads30: 8 };
+    expect(part(failed, "median")).toMatchObject({ points: 0, note: "Uploads couldn't be read" });
+    expect(part(failed, "posting")).toMatchObject({ points: 0, note: "Uploads couldn't be read" });
+    // A read channel never says it, whatever the flag.
+    expect(part({ readFailed: true }, "median").note).not.toContain("couldn't");
   });
 
   it("is never gold when the uploads were never read", () => {

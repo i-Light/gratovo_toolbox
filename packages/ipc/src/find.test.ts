@@ -150,6 +150,7 @@ describe("the catalog channels", () => {
     archivedAt: null,
     hasNumbers: true,
     uploadsRead: true,
+    readFailed: false,
   };
   const fit = {
     score: 70,

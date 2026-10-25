@@ -134,7 +134,10 @@ export function TriageCard({
           <Stat
             value={
               unread
-                ? unreadWords(item.medianViews > 0 ? formatCount(item.medianViews) : null)
+                ? unreadWords(
+                    item.medianViews > 0 ? formatCount(item.medianViews) : null,
+                    item.readFailed,
+                  )
                 : numbers
                   ? formatCount(item.medianViews)
                   : text.unknown
@@ -145,7 +148,7 @@ export function TriageCard({
           <Stat
             value={
               unread
-                ? unreadWords(item.uploads30 > 0 ? String(item.uploads30) : null)
+                ? unreadWords(item.uploads30 > 0 ? String(item.uploads30) : null, item.readFailed)
                 : numbers
                   ? String(item.uploads30)
                   : text.unknown
@@ -157,7 +160,10 @@ export function TriageCard({
           <Stat
             value={
               unread
-                ? unreadWords(item.latestUploadAt === null ? null : ago(item.latestUploadAt, now))
+                ? unreadWords(
+                    item.latestUploadAt === null ? null : ago(item.latestUploadAt, now),
+                    item.readFailed,
+                  )
                 : item.latestUploadAt === null
                   ? text.unknown
                   : ago(item.latestUploadAt, now)

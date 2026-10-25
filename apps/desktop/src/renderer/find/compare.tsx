@@ -59,7 +59,10 @@ function rowsOf(items: readonly CatalogItem[]): Row[] {
       cells: cells((i) =>
         uploadsUnread(i)
           ? {
-              shown: unreadWords(i.medianViews > 0 ? formatCount(i.medianViews) : null),
+              shown: unreadWords(
+                i.medianViews > 0 ? formatCount(i.medianViews) : null,
+                i.readFailed,
+              ),
               rank: null,
               muted: true,
             }
@@ -72,7 +75,7 @@ function rowsOf(items: readonly CatalogItem[]): Row[] {
       cells: cells((i) => {
         if (uploadsUnread(i)) {
           return {
-            shown: unreadWords(i.uploads30 > 0 ? String(i.uploads30) : null),
+            shown: unreadWords(i.uploads30 > 0 ? String(i.uploads30) : null, i.readFailed),
             rank: null,
             muted: true,
           };

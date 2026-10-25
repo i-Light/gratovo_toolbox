@@ -221,6 +221,7 @@ export const catalogItemShape = {
   archivedAt: time.nullable(),
   hasNumbers: z.boolean(),
   uploadsRead: z.boolean(),
+  readFailed: z.boolean(),
 };
 
 export const catalogItemSchema: z.ZodType<CatalogItem> = z.strictObject(catalogItemShape);

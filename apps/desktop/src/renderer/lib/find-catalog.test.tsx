@@ -44,6 +44,7 @@ function item(id: string, name: string): CatalogItem {
     archivedAt: null,
     hasNumbers: true,
     uploadsRead: true,
+    readFailed: false,
   };
 }
 

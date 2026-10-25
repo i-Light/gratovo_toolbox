@@ -33,6 +33,7 @@ function makeItem(patch: Partial<CatalogItem> = {}): CatalogItem {
     archivedAt: null,
     hasNumbers: true,
     uploadsRead: true,
+    readFailed: false,
     ...patch,
   };
 }

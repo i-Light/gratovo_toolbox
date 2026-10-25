@@ -87,7 +87,8 @@ export function fitOf(item: CatalogItem): Fit {
   const numbers = item.hasNumbers && item.uploadsRead;
   const noteFor = (read: string): string => {
     if (!item.hasNumbers) return fitWords.noNumbers;
-    return item.uploadsRead ? read : fitWords.uploadsUnread;
+    if (item.uploadsRead) return read;
+    return item.readFailed ? fitWords.uploadsFailed : fitWords.uploadsUnread;
   };
   const parts: FitPart[] = [
     {

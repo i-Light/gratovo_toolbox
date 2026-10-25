@@ -137,6 +137,7 @@ function row(id: string, over: Partial<CatalogItem> = {}): CatalogItem {
     archivedAt: null,
     hasNumbers: true,
     uploadsRead: true,
+    readFailed: false,
     ...over,
   };
 }

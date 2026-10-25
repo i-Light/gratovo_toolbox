@@ -56,6 +56,7 @@ const tomb = (n: number, over: Partial<ArchivedChannel> = {}): ArchivedChannel =
   latestUploadAt: null,
   videos: null,
   keywords: [],
+  keywordsTotal: 0,
   ...over,
 });
 
@@ -178,6 +179,17 @@ describe("Toolbox › Archived for good", () => {
     ).toContain(50);
   });
 
+  it("counts every keyword in +N more, not just the 50 sent", async () => {
+    const keywords = Array.from({ length: 50 }, (_, n) => ({
+      keyword: `ai topic ${String(n)}`,
+      at: n,
+    }));
+    stubToolboxBridge({ archived: [tomb(1, { name: "Agent Lab", keywords, keywordsTotal: 60 })] });
+    await show();
+    const section = within(screen.getByRole("region", { name: t.forGoodTitle }));
+    expect(section.getByText(/ai topic 0, ai topic 1, ai topic 2 \+57 more/)).toBeTruthy();
+  });
+
   it("shows what the tombstone kept, and not known for the rest", async () => {
     const rows = [
       tomb(1, {
@@ -192,6 +204,7 @@ describe("Toolbox › Archived for good", () => {
           { keyword: "rag", at: 4 },
           { keyword: "mcp", at: 5 },
         ],
+        keywordsTotal: 5,
       }),
       tomb(2),
     ];

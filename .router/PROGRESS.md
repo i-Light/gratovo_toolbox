@@ -18,7 +18,9 @@ Started 2026-10-24. The plan is `.router/PLAN.md` (decisions D1 to D18, contract
 | A2 | N | done | a failed upload read was stamped "zero uploads" and dropped for good: now `ChannelUnreadableError`, the channel stays a candidate and steps aside 1 day (`channels.unreadable_until`, schema 4); oldest-first starvation fixed by that back-off; delayed, restored and zero-upload channels proven. Open for the owner: the backlog doesn't apply the median and uploads bounds after reading a deferred channel (old behaviour too) |
 | A3 | N | done | `ArchivedChannel` facts, `CatalogItem.uploadsRead`, `refetchKeyword` in protocol.ts, readers tolerate schema 3 and skip the refetch keyword (catalog, results, toolbox). `results.ts` skip untested |
 | A4 | N | done | Find says "Not read yet" (last known under it) where uploads were never read, never 0; unread go last on median and latest sorts, score 0 on median and posting, never gold. A creator with no pipeline row says "No numbers yet" (card) or "–" (table). "Archived for good" rows show country, subscribers, median, uploads, found by (3 + N more), "not known" otherwise. Lead fixed the row layout (text ran together) and the table cell wrap; looked at 1440 dark |
-| R5 | H | todo | |
+| R5 | H | done | no blockers; 5 should-fix, 7 nits: lifetime median and a known 0 lost on restore then re-archive, endless daily retry of a channel that never reads, no pause after a failed read, import skips an existing tombstone, plus nits. Became F1, F2 |
+| F1 | H | running | |
+| F2 | N | done | `CatalogItem.readFailed` (`read_failures >= 3`, tolerant read), "Couldn't read" everywhere "Not read yet" shows; `ArchivedChannel.keywordsTotal` for "+N more"; test that results.ts skips the refetch keyword |
 | L5 | lead | todo | |
 
 **Then: 5e** in a fresh session: the Find flow suite (D18), ADR 0017 (step 5's decisions D1 to D41), architecture and parity notes, the docs/workflow.md lessons below, the status table, and `.router/` removed (step 5 complete).

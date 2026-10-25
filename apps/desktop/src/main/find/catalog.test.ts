@@ -262,6 +262,35 @@ describe("the catalog", () => {
     expect(items.find((item) => item.id === c)).toMatchObject({ uploadsRead: false });
   });
 
+  it("marks a channel the pipeline gave up on after three failed reads", async () => {
+    const catalog = open({
+      channels: [
+        { id: a, fetched: null, failures: 2 },
+        { id: b, fetched: null, failures: 3, median: 52_000 },
+        { id: c, fetched: "2026-10-02 00:00:00" },
+      ],
+    });
+    const items = await all(catalog);
+    expect(items.find((item) => item.id === a)).toMatchObject({ readFailed: false });
+    expect(items.find((item) => item.id === b)).toMatchObject({
+      readFailed: true,
+      uploadsRead: false,
+      medianViews: 52_000,
+    });
+    expect(items.find((item) => item.id === c)).toMatchObject({ readFailed: false });
+  });
+
+  it.each([
+    ["schema 3", { schema3: true }],
+    ["schema 2", { schema2: true }],
+  ] as const)(
+    "reads readFailed as false from a %s file with no read_failures column",
+    async (_name, flag) => {
+      const catalog = open({ channels: [{ id: a, fetched: null }], ...flag });
+      expect((await all(catalog))[0]).toMatchObject({ readFailed: false, uploadsRead: false });
+    },
+  );
+
   it("works out emailedBefore from the old stage, the stage and the last activity", async () => {
     const ids = ["e1", "e2", "e3", "e4", "e5", "e6", "e7", "e8"].map(channelId);
     const catalog = open({ channels: ids.map((id) => ({ id })) });

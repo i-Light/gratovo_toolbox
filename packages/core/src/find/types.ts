@@ -91,6 +91,11 @@ export interface CatalogItem {
    * (deferred, restored, failed) and for a state-only row: the page says "not read yet" (D45).
    */
   readonly uploadsRead: boolean;
+  /**
+   * True when uploads are not read and the pipeline gave up (three failed reads): the page says
+   * "Couldn't read". Only means something while `uploadsRead` is false.
+   */
+  readonly readFailed: boolean;
 }
 
 /** The lists Toolbox shows from the catalog (plan step 5, D36 and D39). */
@@ -131,6 +136,8 @@ export interface ArchivedChannel {
   readonly videos: number | null;
   /** Every keyword that found it, earliest first, at most 50; `__manual_refetch__` is left out. */
   readonly keywords: readonly { readonly keyword: string; readonly at: number | null }[];
+  /** All the keywords that found it (`__manual_refetch__` left out), for "+N more". */
+  readonly keywordsTotal: number;
 }
 
 /** The parts of the fit score, each with its points out of its share. */

@@ -52,6 +52,7 @@ export const archivedChannelSchema: z.ZodType<ArchivedChannel, ArchivedChannel> 
   keywords: z
     .array(z.strictObject({ keyword: archivedText, at: time.nullable() }))
     .max(archivedKeywordsMax),
+  keywordsTotal: count,
 });
 
 /** `toolbox:list`: one page of the countdown or the never-contact list (D36, D39). */

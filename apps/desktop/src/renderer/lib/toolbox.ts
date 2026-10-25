@@ -345,6 +345,7 @@ function itemFromCreator(c: Creator): CatalogItem {
     archivedAt: null,
     hasNumbers: false,
     uploadsRead: false,
+    readFailed: false,
   };
 }
 

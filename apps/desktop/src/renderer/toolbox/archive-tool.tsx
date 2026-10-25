@@ -145,7 +145,7 @@ function ArchivedRow({
     text.keptUploads(row.uploads30 === null ? null : String(row.uploads30)),
     text.keptFoundBy(
       row.keywords.slice(0, keywordsShown).map((k) => k.keyword),
-      Math.max(0, row.keywords.length - keywordsShown),
+      Math.max(0, row.keywordsTotal - keywordsShown),
     ),
   ];
   return (

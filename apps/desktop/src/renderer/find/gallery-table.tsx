@@ -19,11 +19,18 @@ interface RowProps {
 }
 
 /** "Not read yet" on one line, the last known figure under it: a column stays narrow (D45). */
-function Unread({ lastKnown }: { readonly lastKnown: string | null }) {
+function Unread({
+  lastKnown,
+  failed,
+}: {
+  readonly lastKnown: string | null;
+  readonly failed: boolean;
+}) {
+  const words = failed ? strings.unread.failed : strings.unread;
   return (
     <span className="tbl-unread">
-      <span>{strings.unread.label}</span>
-      {lastKnown === null ? null : <small>{strings.unread.lastKnownShort(lastKnown)}</small>}
+      <span>{words.label}</span>
+      {lastKnown === null ? null : <small>{words.lastKnownShort(lastKnown)}</small>}
     </span>
   );
 }
@@ -91,7 +98,10 @@ const Row = memo(function Row({ item, selected, now, onOpen, onPick }: RowProps)
       </td>
       <td className="n">
         {unread ? (
-          <Unread lastKnown={item.medianViews > 0 ? formatCount(item.medianViews) : null} />
+          <Unread
+            lastKnown={item.medianViews > 0 ? formatCount(item.medianViews) : null}
+            failed={item.readFailed}
+          />
         ) : item.hasNumbers ? (
           formatCount(item.medianViews)
         ) : (
@@ -101,7 +111,10 @@ const Row = memo(function Row({ item, selected, now, onOpen, onPick }: RowProps)
       <td className="n">{item.subscribers === null ? text.none : formatCount(item.subscribers)}</td>
       <td className="n">
         {unread ? (
-          <Unread lastKnown={item.latestUploadAt === null ? null : ago(item.latestUploadAt, now)} />
+          <Unread
+            lastKnown={item.latestUploadAt === null ? null : ago(item.latestUploadAt, now)}
+            failed={item.readFailed}
+          />
         ) : (
           latest
         )}

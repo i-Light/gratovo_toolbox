@@ -130,6 +130,59 @@ def test_a_channel_beside_its_own_tombstone_gives_the_tombstone_its_facts(run: R
     conn.close()
 
 
+def test_an_old_tombstone_merges_into_one_already_here(run: Run) -> None:
+    # This app archived the channel under one keyword; the old file's tombstone for it knew two
+    # others, its subscribers and its numbers. Nothing of either is lost (plan D43).
+    run.data_dir.mkdir(parents=True)
+    conn = store.get_connection(run.data_dir / "pipeline.db")
+    store.init_db(conn)
+    store.record_channel_discovery(conn, "@agentbuilds", "UCai0042", "ai agent builder")
+    store.archive_channel_locally(conn, "UCai0042", "@agentbuilds", "inactive")
+    store.mark_archives_announced(conn, ["UCai0042"])
+    conn.commit()
+    conn.close()
+    old = sqlite3.connect(run.source)
+    old.execute(
+        "INSERT INTO channel_archive (channel_id, handle, label, archived_at, subscribers, "
+        " found_at, found_via, median_views_last_30, median_basis, videos_found_count) "
+        "VALUES ('UCai0042', '@agentbuilds', 'rejected', '2026-03-01T00:00:00Z', '61000', "
+        " '2026-01-15T00:00:00Z', ?, 9100, 'window30', 14)",
+        (
+            json.dumps(
+                [
+                    {"keyword": "ai agents news", "limit": 50, "discovered_at": "2026-01-15"},
+                    {"keyword": "n8n ai agent", "limit": 50, "discovered_at": "2026-02-02"},
+                    {"keyword": "__manual_refetch__", "limit": 0, "discovered_at": "2026-02-09"},
+                ]
+            ),
+        ),
+    )
+    old.commit()
+    old.close()
+
+    run.go()
+
+    assert run.end()["state"] == "done"
+    conn = run.dest()
+    conn.row_factory = sqlite3.Row
+    row = conn.execute("SELECT * FROM channel_archive WHERE channel_id = 'UCai0042'").fetchone()
+    assert [e["keyword"] for e in json.loads(row["found_via"])] == [
+        "ai agent builder",
+        "ai agents news",
+        "n8n ai agent",
+    ]
+    assert (row["median_views_last_30"], row["median_basis"], row["videos_found_count"]) == (
+        9100,
+        "window30",
+        14,
+    )
+    assert row["subscribers"] == "61000", "a blank here is filled"
+    assert row["found_at"] == "2026-01-15T00:00:00Z", "the earliest find"
+    assert row["label"] == "inactive", "this app's decision stays"
+    assert row["announced"] == 1, "an import announces nothing"
+    conn.close()
+
+
 def test_dry_run_counts_against_an_existing_store_without_touching_it(run: Run) -> None:
     run.go()
     dest = run.data_dir / "pipeline.db"

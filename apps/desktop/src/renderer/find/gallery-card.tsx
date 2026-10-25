@@ -157,6 +157,7 @@ export const GalleryCard = memo(function GalleryCard({
             <span className="muted">
               {unreadWords(
                 item.medianViews > 0 ? `${formatCount(item.medianViews)} ${text.median}` : null,
+                item.readFailed,
               )}
             </span>
           ) : !item.hasNumbers ? (

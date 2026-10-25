@@ -7,6 +7,9 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import type { FindState } from "@gratovo/ipc";
 
+import { refetchKeyword } from "../pipeline/protocol";
+
+import { channelId, writePipelineDb } from "./catalog-fixture";
 import { readKept } from "./results";
 
 /** No country rule and auto-clean off: every fetched channel counts. */
@@ -105,6 +108,26 @@ describe("readKept", () => {
     expect(readKept(path, rules).map((c) => c.channelId)).toEqual(["UC_a"]);
     const offAbove = { ...rules, autoClean: { ...rules.autoClean, aboveMax: "off" as const } };
     expect(readKept(path, offAbove).map((c) => c.channelId)).toEqual(["UC_big", "UC_a"]);
+  });
+
+  it("never names the refetch keyword as the keyword that found a channel", () => {
+    const file = join(folder, "refetch.db");
+    const id = channelId("refetch");
+    writePipelineDb(file, {
+      channels: [{ id, name: "Agent Lab", handle: "@agentlab" }],
+      keywords: [
+        { channel: id, keyword: "ai agents", at: "2026-10-18 10:00:00" },
+        // Newer than the real keyword: it would win if it were not skipped.
+        { channel: id, keyword: refetchKeyword, at: "2026-10-22 10:00:00" },
+      ],
+    });
+    expect(readKept(file, open)[0]).toMatchObject({ channelId: id, keyword: "ai agents" });
+    const only = join(folder, "refetch-only.db");
+    writePipelineDb(only, {
+      channels: [{ id }],
+      keywords: [{ channel: id, keyword: refetchKeyword, at: "2026-10-22 10:00:00" }],
+    });
+    expect(readKept(only, open)[0]).toMatchObject({ channelId: id, keyword: null });
   });
 
   it("honours the limit", () => {

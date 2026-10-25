@@ -22,7 +22,8 @@ CREATE TABLE channels (
     sponsored_ratio REAL,
     seen_brands TEXT,
     found_emails TEXT,
-    found_email_sources TEXT
+    found_email_sources TEXT,
+    read_failures INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE channel_keywords (
     channel_id TEXT NOT NULL REFERENCES channels(channel_id),
@@ -63,13 +64,18 @@ CREATE TABLE runs (
 `;
 
 /** The archive as schema 3 had it: none of the facts schema 4 added (D42). */
-const ddlSchema3Archive = ddl.replace(
-  /subscribers TEXT,\n {4}median_views_last_30 INTEGER,[\s\S]*?latest_upload_at TEXT\n\);\nCREATE TABLE runs/,
-  "subscribers TEXT\n);\nCREATE TABLE runs",
-);
+const ddlSchema3Archive = ddl
+  .replace(",\n    read_failures INTEGER NOT NULL DEFAULT 0", "")
+  .replace(
+    /subscribers TEXT,\n {4}median_views_last_30 INTEGER,[\s\S]*?latest_upload_at TEXT\n\);\nCREATE TABLE runs/,
+    "subscribers TEXT\n);\nCREATE TABLE runs",
+  );
 
 /** The tables as schema 2 had them: no `found_email_sources` column. */
-const ddlSchema2 = ddl.replace(",\n    found_email_sources TEXT", "");
+const ddlSchema2 = ddl.replace(
+  ",\n    found_email_sources TEXT,\n    read_failures INTEGER NOT NULL DEFAULT 0",
+  "",
+);
 
 export interface FixtureChannel {
   id: string;
@@ -89,6 +95,8 @@ export interface FixtureChannel {
   sources?: string | null;
   /** `videos_fetched_at`; a read channel by default, null for one never read (D45). */
   fetched?: string | null;
+  /** `read_failures` (schema 4+); 3 or more means the pipeline gave up on it. */
+  failures?: number;
 }
 
 export interface FixtureVideo {
@@ -130,13 +138,14 @@ export function writePipelineDb(path: string, data: FixtureData = {}): void {
   const db = new DatabaseSync(path);
   try {
     const old = data.schema2 === true;
+    const hasFailures = !old && data.schema3 !== true;
     db.exec(old ? ddlSchema2 : data.schema3 === true ? ddlSchema3Archive : ddl);
     db.exec("BEGIN");
     const channel = db.prepare(
       `INSERT INTO channels (channel_id, handle, name, description, subscribers, profile_picture,
          country, first_seen_at, videos_fetched_at, videos_last_30, median_views_last_30, latest_upload_at,
-         seen_brands, found_emails${old ? "" : ", found_email_sources"})
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?${old ? "" : ",?"})`,
+         seen_brands, found_emails${old ? "" : ", found_email_sources"}${hasFailures ? ", read_failures" : ""})
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?${old ? "" : ",?"}${hasFailures ? ",?" : ""})`,
     );
     for (const c of data.channels ?? []) {
       channel.run(
@@ -155,6 +164,7 @@ export function writePipelineDb(path: string, data: FixtureData = {}): void {
         c.brands ?? null,
         c.emails ?? null,
         ...(old ? [] : [c.sources ?? null]),
+        ...(hasFailures ? [c.failures ?? 0] : []),
       );
     }
     const video = db.prepare(

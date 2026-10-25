@@ -212,6 +212,34 @@ def test_a_version_3_file_gains_the_tombstone_facts_and_loses_nothing(tmp_path: 
     conn.close()
 
 
+def test_a_version_4_file_from_before_the_read_columns_gains_them(tmp_path: Path) -> None:
+    """Version 4 grew while unreleased: a development file already at 4 can lack its newest
+    columns, and gets them on the next open, its rows as they were."""
+    path = tmp_path / "pipeline.db"
+    conn = store.get_connection(path)
+    store.init_db(conn)
+    for column in store.CHANNEL_READ_STATE:
+        conn.execute(f"ALTER TABLE channels DROP COLUMN {column[0]}")
+    conn.execute(
+        "INSERT INTO channels (channel_id, handle, first_seen_at) VALUES ('UC_a', '@aitools', 'T')"
+    )
+    conn.commit()
+    assert _version(conn) == 4
+    conn.close()
+
+    conn = store.get_connection(path)
+    store.init_db(conn)
+
+    assert _version(conn) == 4
+    columns = {r[1] for r in conn.execute("PRAGMA table_info(channels)").fetchall()}
+    assert {"read_failures", "median_known", "median_known_basis", "videos_last_30_known"} <= (
+        columns
+    )
+    row = conn.execute("SELECT * FROM channels").fetchone()
+    assert (row["handle"], row["read_failures"], row["median_known"]) == ("@aitools", 0, None)
+    conn.close()
+
+
 def test_a_version_3_file_that_already_has_some_facts_opens(tmp_path: Path) -> None:
     """A crash part way through the version-4 columns leaves some in a version-3 file."""
     path = tmp_path / "pipeline.db"

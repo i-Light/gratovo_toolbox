@@ -226,6 +226,32 @@ describe("cards", () => {
     expect(card("Agent Lab").textContent).not.toContain(strings.unread.label);
   });
 
+  it("says Couldn't read on a card the pipeline gave up on, with the last known figure", async () => {
+    const gaveUp = aiChannel("UC-gaveup", "Dead Digest", {
+      medianViews: 0,
+      uploads30: 0,
+      uploadsRead: false,
+      readFailed: true,
+    });
+    const carried = aiChannel("UC-carried", "Restored Rewind", {
+      medianViews: 12_000,
+      uploadsRead: false,
+      readFailed: true,
+    });
+    await show([agentLab, gaveUp, carried]);
+    expect(within(card("Dead Digest")).getByText(strings.unread.failed.label)).toBeTruthy();
+    expect(card("Dead Digest").textContent).not.toContain(strings.unread.label);
+    expect(card("Restored Rewind").textContent).toContain(
+      strings.unread.failed.lastKnown("12K median"),
+    );
+    act(() => {
+      setGalleryView("table");
+    });
+    const row = screen.getByText("Dead Digest").closest("tr");
+    expect(row?.textContent.match(/Couldn't read/g)).toHaveLength(2);
+    expect(row?.textContent).not.toContain("Not read yet");
+  });
+
   it("says Not read yet in the table's median and latest columns", async () => {
     const unread = aiChannel("UC-unread", "Deferred Digest", {
       medianViews: 0,
