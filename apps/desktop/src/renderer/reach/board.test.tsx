@@ -226,14 +226,17 @@ describe("the banner", () => {
 });
 
 describe("the live gate", () => {
-  it("shows only the Board: four lanes and no tab strip", () => {
+  it("shows the Board and Mailboxes: four lanes and two tabs", () => {
     seed("live");
     render(<ReachScreen />);
-    expect(screen.queryByRole("tablist")).toBeNull();
+    expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
+      strings.screens.reach.tabs.board,
+      strings.screens.reach.tabs.mailboxes,
+    ]);
     expect(screen.getAllByRole("region")).toHaveLength(4);
     expect(screen.queryByRole("region", { name: t.board.lanes.kit.name })).toBeNull();
-    // No Mailboxes tab yet: the capacity summary is plain text.
-    expect(screen.queryByRole("button", { name: new RegExp(t.cap.left) })).toBeNull();
+    // The Mailboxes tab is wired: the capacity summary is a button to it.
+    expect(screen.getByRole("button", { name: new RegExp(t.cap.left) })).toBeTruthy();
   });
 
   it("shows every tab on example data", () => {

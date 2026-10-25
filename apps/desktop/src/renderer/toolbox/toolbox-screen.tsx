@@ -7,6 +7,7 @@ import { strings } from "../strings";
 import { ArchiveTool } from "./archive-tool";
 import { LogTool } from "./log-tool";
 import { NeverTool } from "./never-tool";
+import { ScheduledTool } from "./scheduled-tool";
 import { ToolboxList, useCurrentTool, useShownTools, type ToolKey } from "./toolbox-list";
 
 const text = strings.toolbox;
@@ -18,6 +19,8 @@ function ToolView({ tool }: { readonly tool: ToolKey }) {
       return <ArchiveTool />;
     case "never":
       return <NeverTool />;
+    case "scheduled":
+      return <ScheduledTool />;
     case "log":
       return <LogTool />;
   }

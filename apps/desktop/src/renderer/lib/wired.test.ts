@@ -56,7 +56,12 @@ describe("on live data", () => {
       "gallery",
       "contacts",
     ]);
-    expect(shownTabs("toolbox", "live").map((t) => t.key)).toEqual(["archive", "never", "log"]);
+    expect(shownTabs("toolbox", "live").map((t) => t.key)).toEqual([
+      "archive",
+      "never",
+      "scheduled",
+      "log",
+    ]);
     expect(firstShownTab("toolbox", "live")).toBe("archive");
     expect(isTabShown("find", "triage", "live")).toBe(true);
     expect(isTabShown("find", "gallery", "live")).toBe(true);
@@ -64,9 +69,12 @@ describe("on live data", () => {
     expect(isTabShown("find", "search", "live")).toBe(true);
     expect(isTabShown("find", null, "live")).toBe(true);
     expect(firstShownTab("find", "live")).toBe("search");
-    expect(shownTabs("reach", "live").map((t) => t.key)).toEqual(["board"]);
+    expect(shownTabs("reach", "live").map((t) => t.key)).toEqual(["board", "mailboxes"]);
     expect(firstShownTab("reach", "live")).toBe("board");
-    expect(isTabShown("reach", "mailboxes", "live")).toBe(false);
+    expect(isTabShown("reach", "mailboxes", "live")).toBe(true);
+    expect(isTabShown("reach", "sequences", "live")).toBe(false);
+    expect(isTabShown("reach", "inbox", "live")).toBe(false);
+    expect(isTabShown("toolbox", "scheduled", "live")).toBe(true);
     expect(firstShownTab("close", "live")).toBeNull();
     expect(shownTabs("settings", "live").map((t) => t.key)).toEqual(liveWired.settings);
   });
