@@ -72,12 +72,13 @@ describe("on live data", () => {
     expect(shownTabs("reach", "live").map((t) => t.key)).toEqual([
       "board",
       "sequences",
+      "inbox",
       "mailboxes",
     ]);
     expect(firstShownTab("reach", "live")).toBe("board");
     expect(isTabShown("reach", "mailboxes", "live")).toBe(true);
     expect(isTabShown("reach", "sequences", "live")).toBe(true);
-    expect(isTabShown("reach", "inbox", "live")).toBe(false);
+    expect(isTabShown("reach", "inbox", "live")).toBe(true);
     expect(isTabShown("toolbox", "scheduled", "live")).toBe(true);
     expect(firstShownTab("close", "live")).toBeNull();
     expect(shownTabs("settings", "live").map((t) => t.key)).toEqual(liveWired.settings);

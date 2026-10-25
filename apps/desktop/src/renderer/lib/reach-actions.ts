@@ -3,6 +3,7 @@ import {
   canSend,
   draftGates,
   findMailbox,
+  isOpenDraft,
   parkChoices,
   planSteps,
 } from "@gratovo/core/reach";
@@ -12,6 +13,7 @@ import type {
   MailboxView,
   OutreachDraft,
   ReachData,
+  ReplyFactKey,
   RewriteHow,
   ThreadMessage,
 } from "@gratovo/core/data";
@@ -773,4 +775,186 @@ export function openParkMenu(
   creatorId: string,
 ): void {
   openMenu(anchor, parkItems(creatorId), t.sequences.parkHead, "end");
+}
+
+const rr = strings.reach.replies;
+const rd = strings.reach.reading;
+const paste = strings.reach.emails.paste;
+
+/**
+ * Reads new replies now (Reach › Replies, D23) and says what came of it. Returns how many replies
+ * came in, or null when the check did not run.
+ */
+export async function checkReplies(): Promise<number | null> {
+  try {
+    const result = await window.gratovo.invoke("reach:check-replies", {});
+    if (result.ok && result.value.ok) {
+      const n = result.value.stored;
+      toast(
+        n === 0
+          ? { msg: rr.toasts.none, icon: "inbox", tone: "info" }
+          : { msg: rr.toasts.some(n), icon: "reply", tone: "good" },
+      );
+      return n;
+    }
+    const problem = result.ok && !result.value.ok ? result.value.problem : "failed";
+    toast({ msg: rr.toasts.problems[problem], icon: "alert" });
+  } catch {
+    toast({ msg: rr.toasts.problems.failed, icon: "alert" });
+  }
+  return null;
+}
+
+/**
+ * Pastes a reply the person got elsewhere into a creator's thread. A command with no Undo (D23).
+ * True when it was added.
+ */
+export async function pasteReply(creatorId: string, text: string): Promise<boolean> {
+  const name = creatorOf(creatorId)?.name ?? "";
+  try {
+    const result = await window.gratovo.invoke("reach:paste-reply", { creatorId, text });
+    if (result.ok && result.value.ok) {
+      toast({ msg: paste.added(name), sub: paste.addedSub, icon: "paste" });
+      return true;
+    }
+    toast({
+      msg:
+        result.ok && !result.value.ok
+          ? paste.problems[result.value.problem]
+          : paste.problems.failed,
+      icon: "alert",
+    });
+  } catch {
+    toast({ msg: paste.problems.failed, icon: "alert" });
+  }
+  return false;
+}
+
+/**
+ * Saves one fact of a reply to the creator's record. It goes straight through as `reply.fact`, like
+ * `takeBack`, not as an undo step: the write only ever adds a fact to the record, and an Undo
+ * could not take it out again (main merges it into the synced channel data). The page shows
+ * "Saved" at once (`adoptServerData`), which main's next frame confirms.
+ */
+export async function saveReplyFact(
+  creatorId: string,
+  messageId: string,
+  key: ReplyFactKey,
+): Promise<boolean> {
+  const name = creatorOf(creatorId)?.name ?? "";
+  adoptServerData((data) => {
+    const fact = data.reach.threads
+      .find((x) => x.creator === creatorId)
+      ?.lastIn?.reading?.facts.find((f) => f.key === key);
+    if (fact !== undefined) {
+      (fact as { saved: boolean }).saved = true;
+    }
+  });
+  try {
+    const result = await window.gratovo.invoke("data:write", {
+      writes: [{ kind: "reply.fact", messageId, key }],
+    });
+    if (result.ok) {
+      toast({
+        msg: rd.savedAct(rd.factName[key], name),
+        sub: rd.savedSub[key],
+        icon: "check",
+        tone: "good",
+        ms: 3500,
+        actions: [],
+      });
+      return true;
+    }
+    console.error("A change wasn't saved:", result.reason);
+  } catch (reason) {
+    console.error("A change wasn't saved:", reason);
+  }
+  adoptServerData((data) => {
+    const fact = data.reach.threads
+      .find((x) => x.creator === creatorId)
+      ?.lastIn?.reading?.facts.find((f) => f.key === key);
+    if (fact !== undefined) {
+      (fact as { saved: boolean }).saved = false;
+    }
+  });
+  toast({ msg: rd.saveFailed, icon: "alert" });
+  return false;
+}
+
+/** The reply situations of both sides, fetched once and kept. */
+export interface Situation {
+  readonly id: string;
+  readonly label: string;
+  readonly side: "influencer" | "brand" | "any";
+}
+let situationsCache: Promise<readonly Situation[] | null> | null = null;
+
+/** The situations for "That's not it": one fetch for the whole session; a failure is tried again. */
+export function loadSituations(): Promise<readonly Situation[] | null> {
+  if (situationsCache === null) {
+    situationsCache = window.gratovo
+      .invoke("reach:situations", {})
+      .then((result) => (result.ok && result.value.ok ? result.value.situations : null))
+      .catch(() => null)
+      .then((list) => {
+        if (list === null) {
+          situationsCache = null;
+        }
+        return list;
+      });
+  }
+  return situationsCache;
+}
+
+/** Forgets the kept situations (tests). */
+export function resetSituationsForTests(): void {
+  situationsCache = null;
+}
+
+/**
+ * "That's not it": reads a reply as another situation. Main marks the reading corrected and, if an
+ * answer draft is open, writes it again; that draft's new text gets the same toast and Undo as any
+ * rewrite (`noticeReachChange`).
+ */
+export async function reclassifyReply(
+  creatorId: string,
+  messageId: string,
+  situation: Pick<Situation, "id" | "label">,
+): Promise<boolean> {
+  const draft = reachNow().drafts.find(
+    (d) => d.creator === creatorId && d.kind === "reply" && d.rewriting === null && isOpenDraft(d),
+  );
+  if (draft !== undefined) {
+    rewrites.set(draft.id, {
+      how: "redo",
+      subject: draft.subject,
+      body: draft.body,
+      at: Date.now(),
+    });
+  }
+  try {
+    const result = await window.gratovo.invoke("reach:reclassify", {
+      messageId,
+      replyType: situation.id,
+    });
+    if (result.ok && result.value.ok) {
+      toast({
+        msg: rd.reread(situation.label),
+        ...(draft === undefined ? {} : { sub: rd.rereadSub }),
+        icon: "sparkle",
+        tone: "info",
+        ms: 4000,
+      });
+      return true;
+    }
+    if (result.ok && !result.value.ok) {
+      toast({ msg: rd.problems[result.value.problem], icon: "alert" });
+    }
+  } catch {
+    toast({ msg: rd.problems.no_data, icon: "alert" });
+  }
+  if (draft !== undefined) {
+    rewrites.delete(draft.id);
+  }
+  return false;
 }

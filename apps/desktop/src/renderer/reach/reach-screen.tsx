@@ -10,6 +10,7 @@ import { Board } from "./board";
 import { CapSummary } from "./cap-summary";
 import { GeminiBanner } from "./gemini-banner";
 import { Mailboxes } from "./mailboxes";
+import { Replies } from "./replies";
 import { Sequences } from "./sequences";
 import { subLine } from "./reach-view";
 
@@ -74,6 +75,7 @@ function ReachTabs({ tab }: { readonly tab: string }) {
 /** The Reach screen. 6a builds the Board; the other tabs show on example data only, as stand-ins. */
 export function ReachScreen() {
   const reach = useApp((s) => s.data.reach);
+  const creators = useApp((s) => s.data.creators);
   const source = useApp((s) => s.data.source);
   const routeTab = useApp((s) => selectRoute(s).tab);
   const tab = routeTab ?? "board";
@@ -82,7 +84,7 @@ export function ReachScreen() {
   }
   return (
     <div className="page" data-ui="reach">
-      <PageHead title={text.title} sub={subLine(reach)} right={<CapSummary />} />
+      <PageHead title={text.title} sub={subLine(reach, creators)} right={<CapSummary />} />
       <ReachTabs tab={tab} />
       <GeminiBanner />
       <div id={panelId} role="tabpanel" aria-labelledby={tabId(tab)}>
@@ -90,6 +92,8 @@ export function ReachScreen() {
           <Board />
         ) : tab === "sequences" ? (
           <Sequences />
+        ) : tab === "inbox" ? (
+          <Replies />
         ) : tab === "mailboxes" ? (
           <Mailboxes />
         ) : (
