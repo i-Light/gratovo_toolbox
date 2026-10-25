@@ -424,6 +424,8 @@ export interface DataSource {
     lines: readonly LogEntry[];
     more: boolean;
     people: readonly { who: string; name: string; count: number }[];
+    /** Every visible line, for "Everyone": the people stop at 50, the total doesn't. */
+    total: number;
   }>;
   /** How many visible lines are at or after `since` (ms): Toolbox's "Changes today". */
   logSince(since: number): Promise<number>;

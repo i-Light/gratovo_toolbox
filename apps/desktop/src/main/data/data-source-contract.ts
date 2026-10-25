@@ -1295,6 +1295,7 @@ export function describeDataSourceContract(
         expect(first.lines.map((l) => l.id)).toEqual(["p3", "p2"]);
         expect(first.more).toBe(true);
         expect(first.people).toContainEqual({ who: "Sara", name: "Sara", count: 3 });
+        expect(first.total).toBeGreaterThanOrEqual(3);
         const last = first.lines[1];
         const rest = await source.logPage({
           before: last === undefined ? null : { at: last.at, id: last.id },

@@ -14,6 +14,8 @@ const shared = strings.toolbox;
 /** Lines per page (plan D40). */
 const pageSize = 30;
 const dayMs = 86_400_000;
+/** How often the clock is read again. */
+const clockMs = 60_000;
 const idLike = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type Page = ChannelResponse<"log:page">;
@@ -53,10 +55,13 @@ function useLog(who: string | null): {
   readonly more: boolean;
   readonly moreFailed: boolean;
   readonly people: readonly Person[];
+  /** Everyone's lines, as main counts them; null until the first page has come. */
+  readonly total: number | null;
   readonly loadMore: () => void;
 } {
   const newest = useApp((s) => s.data.log[0]?.id ?? "");
   const [people, setPeople] = useState<readonly Person[]>([]);
+  const [total, setTotal] = useState<number | null>(null);
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const busy = useRef(false);
@@ -75,6 +80,7 @@ function useLog(who: string | null): {
         const page = result.value;
         setFailed(null);
         setPeople(page.people);
+        setTotal(page.total);
         setLoaded((cur) => {
           const last = page.lines.at(-1);
           const at =
@@ -144,6 +150,7 @@ function useLog(who: string | null): {
     more: mine?.more ?? false,
     moreFailed: mine?.moreFailed ?? false,
     people,
+    total,
     loadMore,
   };
 }
@@ -158,7 +165,25 @@ export function LogTool() {
   const creators = useApp((s) => s.data.creators);
   const [who, setWho] = useState<string | null>(null);
   const log = useLog(who);
-  const [now] = useState(() => Date.now());
+  // Read again each minute so Today and Yesterday stay right past midnight.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNow(Date.now());
+    }, clockMs);
+    return () => {
+      clearInterval(timer);
+    };
+  }, []);
+  const myName = useApp((s) => s.data.myName);
+  // The real name, for the avatar: the people main counted, then the team, then the profile.
+  const realName = (id: string): string => {
+    const found =
+      log.people.find((p) => p.who === id)?.name ??
+      team.find((m) => m.id === id)?.name ??
+      (id === me ? myName : null);
+    return found !== null && found !== "" ? found : "?";
+  };
   const nameOf = (id: string): string => {
     if (id === me) {
       return text.you;
@@ -166,7 +191,7 @@ export function LogTool() {
     const found = log.people.find((p) => p.who === id)?.name ?? team.find((m) => m.id === id)?.name;
     return found !== undefined && found !== "" ? found : idLike.test(id) ? text.someone : id;
   };
-  const total = log.people.reduce((sum, p) => sum + p.count, 0);
+  const total = log.total ?? 0;
   const days = useMemo(() => {
     const out: { key: string; at: number; lines: LogEntry[] }[] = [];
     for (const line of log.lines) {
@@ -224,10 +249,11 @@ export function LogTool() {
             </div>
             {day.lines.map((line) => {
               const person = nameOf(line.who);
+              const avatar = realName(line.who);
               const about = line.ref === null ? null : creatorName(line.ref);
               const inner = (
                 <>
-                  <Avatar name={person} color={avatarColor(person)} size="s" decorative />
+                  <Avatar name={avatar} color={avatarColor(avatar)} size="s" decorative />
                   <span className="lt">
                     <b className="tb-line">{line.text}</b>
                     <small>

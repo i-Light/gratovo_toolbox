@@ -159,6 +159,21 @@ describe("readArchived", () => {
     expect(readArchived(path, { q: "alpha", offset: 0, limit: 10 }, names).total).toBe(1);
   });
 
+  it("reads a blank handle as none", () => {
+    const blank = channelId("blank");
+    const spaces = channelId("spaces");
+    const other = join(folder, "blank.db");
+    writePipelineDb(other, {
+      archive: [
+        { id: blank, at: "2026-10-06 00:00:00", handle: "" },
+        { id: spaces, at: "2026-10-07 00:00:00", handle: "   " },
+      ],
+    });
+    const page = readArchived(other, { q: "", offset: 0, limit: 10 }, none);
+    expect(page.items.find((i) => i.id === blank)?.handle).toBeNull();
+    expect(page.items.find((i) => i.id === spaces)?.handle).toBeNull();
+  });
+
   it("answers empty for a missing file or table, and counts", () => {
     const empty = { total: 0, items: [] };
     expect(readArchived(join(folder, "none.db"), { q: "", offset: 0, limit: 5 }, none)).toEqual(

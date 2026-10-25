@@ -2,7 +2,7 @@ import { Icon, PageHead } from "@gratovo/ui";
 
 import { useKeys } from "../lib/keys";
 import { screens } from "../lib/routes";
-import { go } from "../lib/store";
+import { go, useApp } from "../lib/store";
 import { strings } from "../strings";
 import { ArchiveTool } from "./archive-tool";
 import { LogTool } from "./log-tool";
@@ -31,6 +31,7 @@ export function ToolboxScreen() {
   const shown = useShownTools();
   const current = useCurrentTool();
   const sub = screens.toolbox.sub;
+  const peeking = useApp((s) => s.ui.peek !== null);
   const step = (by: number): void => {
     const at = shown.findIndex((t) => t.key === current?.key);
     const next = shown[at + by];
@@ -39,14 +40,18 @@ export function ToolboxScreen() {
     }
   };
   // Single letters: the key stack leaves them out while typing and when the letters switch is off.
-  useKeys({
-    j: () => {
-      step(1);
+  // While a peek is open, J and K belong to the peek, not to the tool list.
+  useKeys(
+    {
+      j: () => {
+        step(1);
+      },
+      k: () => {
+        step(-1);
+      },
     },
-    k: () => {
-      step(-1);
-    },
-  });
+    { active: !peeking },
+  );
   if (current === undefined) {
     return null;
   }

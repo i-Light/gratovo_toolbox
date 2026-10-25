@@ -16,6 +16,8 @@ const shared = strings.toolbox;
 const dayMs = 86_400_000;
 /** How often the countdown looks at the clock again. */
 const clockMs = 60_000;
+/** The ids main will restore; a tombstone with any other id can't be brought back. */
+const channelIdLike = /^UC[A-Za-z0-9_-]{22}$/;
 /** The archive window when the rules haven't loaded: the default (plan D6). */
 const defaultDays = 7;
 
@@ -140,17 +142,19 @@ function ArchivedRow({
         <b>{title}</b>
         <small className="muted">{details.join(" · ")}</small>
       </span>
-      <Btn
-        size="sm"
-        icon="undo"
-        disabled={busy}
-        label={text.bringBackLabel(title)}
-        onClick={() => {
-          onRestore(row);
-        }}
-      >
-        {text.bringBack}
-      </Btn>
+      {channelIdLike.test(row.id) ? (
+        <Btn
+          size="sm"
+          icon="undo"
+          disabled={busy}
+          label={text.bringBackLabel(title)}
+          onClick={() => {
+            onRestore(row);
+          }}
+        >
+          {text.bringBack}
+        </Btn>
+      ) : null}
     </div>
   );
 }

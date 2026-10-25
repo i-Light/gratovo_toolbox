@@ -1405,7 +1405,7 @@ export const strings = {
       },
       never: {
         sub: "Channels that must not be emailed again",
-        long: "Searches skip these channels and any draft to them is deleted. Add one here or from any draft.",
+        long: "Searches skip these channels. Add one here.",
       },
       log: {
         sub: "Who did what, newest first",
@@ -1413,7 +1413,6 @@ export const strings = {
       },
     },
     countTips: { log: "Changes today" },
-    soon: "This tool comes next.",
     loadFailed: "Couldn’t load this list.",
     showMore: "Show more",
     moreFailed: "Couldn’t load more. Try again",

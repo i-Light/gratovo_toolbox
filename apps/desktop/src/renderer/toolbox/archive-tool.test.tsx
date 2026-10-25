@@ -226,15 +226,16 @@ describe("Toolbox › Archived for good", () => {
     expect(toast()?.msg).toBe(strings.findSearch.startProblems.no_python);
   });
 
-  it("runs the Bring back act first for a creator still at Rejected", async () => {
+  it("runs the Bring back act after the restore worked, its toast saying how it went", async () => {
     const detail = toolboxItem("UC-rej", "Agent Lab", null);
     const id = "UC".concat("r".repeat(22));
-    stubToolboxBridge({
+    const bridge = stubToolboxBridge({
       archived: [tomb(1, { id, name: "Agent Lab", stage: "rejected" })],
       detail: { ...detail, id },
     });
     await show();
     await click(screen.getByRole("button", { name: t.bringBackLabel("Agent Lab") }));
+    expect(bridge.calls.findIndex(([c]) => c === "toolbox:restore")).toBeGreaterThan(-1);
     expect(creatorOf(id)).toMatchObject({ stage: "new" });
     // One toast: the act's (it carries Undo), its second line saying how the restore went.
     const toasts = appStore().getState().ui.toasts;
@@ -246,7 +247,7 @@ describe("Toolbox › Archived for good", () => {
     expect(toasts[0]?.actions.map((a) => a.label)).toContain(strings.actions.undo);
   });
 
-  it("puts the refetch words in the same toast, and a busy restore adds its own problem toast", async () => {
+  it("puts the refetch words in the act's toast on live data", async () => {
     const detail = toolboxItem("UC-rej", "Agent Lab", null);
     const id = "UC".concat("r".repeat(22));
     stubToolboxBridge({
@@ -261,19 +262,38 @@ describe("Toolbox › Archived for good", () => {
         .getState()
         .ui.toasts.map((x) => x.sub),
     ).toEqual([r.comingBackSub]);
-    cleanup();
-    resetAppStoreForTests({ screen: "toolbox", tab: "archive" });
+  });
+
+  it.each([
+    ["busy", r.busy],
+    ["failed", r.failed],
+    ["no_python", strings.findSearch.startProblems.no_python],
+  ])("a %s restore leaves the stage alone and shows one problem toast", async (problem, words) => {
+    const detail = toolboxItem("UC-rej", "Agent Lab", null);
+    const id = "UC".concat("r".repeat(22));
     stubToolboxBridge({
       archived: [tomb(1, { id, name: "Agent Lab", stage: "rejected" })],
       detail: { ...detail, id },
-      restore: { ok: false, problem: "busy" },
+      restore: { ok: false, problem },
     });
     await show();
     await click(screen.getByRole("button", { name: t.bringBackLabel("Agent Lab") }));
+    expect(creatorOf(id)?.stage).not.toBe("new");
     expect(
       appStore()
         .getState()
         .ui.toasts.map((x) => x.msg),
-    ).toEqual([strings.findActions.broughtBack("Agent Lab"), r.busy]);
+    ).toEqual([words]);
+  });
+
+  it("offers no Bring back for a tombstone whose id is not a channel id", async () => {
+    stubToolboxBridge({
+      archived: [tomb(1, { id: "UC-short", name: "Odd One" }), tomb(2, { name: "Agent Lab" })],
+    });
+    await show();
+    const section = within(screen.getByRole("region", { name: t.forGoodTitle }));
+    expect(section.getByText("Odd One")).toBeTruthy();
+    expect(section.queryByRole("button", { name: t.bringBackLabel("Odd One") })).toBeNull();
+    expect(section.getByRole("button", { name: t.bringBackLabel("Agent Lab") })).toBeTruthy();
   });
 });

@@ -23,10 +23,10 @@ async function show(): Promise<void> {
   await settle();
 }
 const route = () => selectRoute(appStore().getState());
-const press = (key: string, typing = false): boolean =>
+const press = (key: string, typing = false, lettersOff = false): boolean =>
   keyStack.dispatch(new KeyboardEvent("keydown", { key, cancelable: true }), {
     typing,
-    lettersOff: false,
+    lettersOff,
   });
 
 beforeEach(() => {
@@ -91,10 +91,25 @@ describe("Toolbox", () => {
     expect(route().tab).toBe("log");
   });
 
-  it("leaves the letters alone while typing", async () => {
+  it("leaves J and K alone while typing and with the letters switched off", async () => {
     stubToolboxBridge();
     await show();
     expect(press("j", true)).toBe(false);
+    expect(press("k", true)).toBe(false);
+    expect(press("j", false, true)).toBe(false);
+    expect(press("k", false, true)).toBe(false);
+    expect(route().tab).toBe("archive");
+  });
+
+  it("does not switch tools with J while a peek is open", async () => {
+    stubToolboxBridge();
+    await show();
+    act(() => {
+      appStore().ui((ui) => {
+        ui.peek = { record: { kind: "creator", id: "UC-a" }, list: ["UC-a"] };
+      });
+    });
+    expect(press("j")).toBe(false);
     expect(route().tab).toBe("archive");
   });
 

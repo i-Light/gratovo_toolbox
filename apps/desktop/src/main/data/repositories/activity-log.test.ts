@@ -1,3 +1,4 @@
+import { channels } from "@gratovo/ipc";
 import type { DatabaseSync } from "node:sqlite";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -154,33 +155,54 @@ describe("peopleInLog", () => {
     raw("z", t0 + 7, { actor_id: null, actor_name: "Ali" });
     raw("z2", t0 + 8, { actor_id: null, actor_name: "Ali" });
     undo("m1", "e", t0 + 9);
-    expect(peopleInLog(db, { seesMoney: true })).toEqual([
-      { who: "Ali", name: "Ali", count: 2 },
-      { who: "u1", name: "Maya", count: 2 },
-      { who: "Omar", name: "Omar", count: 2 },
-      { who: "u2", name: "Sara", count: 2 },
-    ]);
+    expect(peopleInLog(db, { seesMoney: true })).toEqual({
+      people: [
+        { who: "Ali", name: "Ali", count: 2 },
+        { who: "u1", name: "Maya", count: 2 },
+        { who: "Omar", name: "Omar", count: 2 },
+        { who: "u2", name: "Sara", count: 2 },
+      ],
+      total: 8,
+    });
   });
 
   it("uses the newest actor name when the profile is gone, and drops money-field lines from the count", () => {
     raw("a", t0, { actor_id: "ghost", actor_name: "Old name" });
     raw("b", t0 + 1, { actor_id: "ghost", actor_name: "New name", field: "budget" });
-    expect(peopleInLog(db, { seesMoney: true })).toEqual([
-      { who: "ghost", name: "New name", count: 2 },
-    ]);
-    expect(peopleInLog(db, { seesMoney: false })).toEqual([
-      { who: "ghost", name: "New name", count: 1 },
-    ]);
+    expect(peopleInLog(db, { seesMoney: true })).toEqual({
+      people: [{ who: "ghost", name: "New name", count: 2 }],
+      total: 2,
+    });
+    expect(peopleInLog(db, { seesMoney: false })).toEqual({
+      people: [{ who: "ghost", name: "New name", count: 1 }],
+      total: 1,
+    });
   });
 
-  it("returns at most 50 people", () => {
+  it("returns at most 50 people, and every visible line in the total", () => {
     for (let i = 0; i < 60; i += 1) {
       raw(`p${i.toString()}`, t0 + i, {
         actor_id: null,
         actor_name: `Person ${i.toString().padStart(2, "0")}`,
       });
     }
-    expect(peopleInLog(db, { seesMoney: true })).toHaveLength(50);
+    const { people, total } = peopleInLog(db, { seesMoney: true });
+    expect(people).toHaveLength(50);
+    expect(total).toBe(60);
+  });
+
+  it("gives no chip to a name too long to ask for, cuts a long profile name, and still counts their lines", () => {
+    const long = "A".repeat(101);
+    raw("x1", t0, { actor_id: null, actor_name: long });
+    raw("x2", t0 + 1, { actor_id: null, actor_name: long });
+    upsertProfile(db, { id: "u3", displayName: "B".repeat(600), role: "full" }, t0);
+    raw("y1", t0 + 2, { actor_id: "u3", actor_name: "Bea" });
+    const { people, total } = peopleInLog(db, { seesMoney: true });
+    expect(people).toEqual([{ who: "u3", name: "B".repeat(500), count: 1 }]);
+    expect(total).toBe(3);
+    expect(
+      channels["log:page"].response.safeParse({ lines: [], more: false, people, total }),
+    ).toMatchObject({ success: true });
   });
 });
 

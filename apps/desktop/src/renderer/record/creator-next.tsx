@@ -21,6 +21,8 @@ export function CreatorNext({ item }: { readonly item: CreatorDetail }) {
   const [picking, setPicking] = useState(false);
   const [asking, setAsking] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  // A restore from "Archived for good" is running: Bring back waits so it can't start twice.
+  const [restoring, setRestoring] = useState(false);
   // After a confirm the block goes; focus lands on the next-step line, not on the page.
   const line_ = useRef<HTMLElement>(null);
   const refocus = useRef(false);
@@ -104,16 +106,20 @@ export function CreatorNext({ item }: { readonly item: CreatorDetail }) {
       <Btn
         size="sm"
         icon="undo"
+        disabled={restoring}
         onClick={() => {
           // Archived for good: the tombstone goes too, and its numbers are read again (D38).
           if (item.archivedAt === null) {
             bringBack(item);
           } else {
+            setRestoring(true);
             void restoreForGood({
               id: item.id,
               name: item.name,
               handle: item.handle,
               stage: item.stage,
+            }).finally(() => {
+              setRestoring(false);
             });
           }
         }}

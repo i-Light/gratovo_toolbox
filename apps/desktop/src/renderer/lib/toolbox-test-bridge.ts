@@ -135,6 +135,7 @@ export function stubToolboxBridge(fixture: ToolboxFixture = {}): ToolboxBridge {
           value: {
             lines: mine.slice(from, from + q.limit),
             more: from + q.limit < mine.length,
+            total: sorted.length,
             people: [...counts].map(([who, count]) => ({
               who,
               name: fixture.names?.[who] ?? who,

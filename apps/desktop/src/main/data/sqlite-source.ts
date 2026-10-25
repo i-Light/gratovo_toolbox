@@ -224,7 +224,7 @@ export function createSqliteSource(db: DatabaseSync, options: SqliteSourceOption
         const sees = seesMoney(listMemberAccess(db).get(me) ?? noAccess);
         return {
           ...logPage(db, { seesMoney: sees, before, limit, who }),
-          people: peopleInLog(db, { seesMoney: sees }),
+          ...peopleInLog(db, { seesMoney: sees }),
         };
       }),
     logSince: (since) =>

@@ -1,4 +1,4 @@
-import { creatorStages } from "@gratovo/core/data";
+import { creatorStages, neverReasonMax } from "@gratovo/core/data";
 import { emptyFindFilter, type CatalogItem, type ToolboxItem } from "@gratovo/core/find";
 import { Btn, Empty, Icon, Tag } from "@gratovo/ui";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -18,8 +18,6 @@ const shared = strings.toolbox;
 const searchWaitMs = 250;
 /** How many channels the search shows. */
 const searchLimit = 8;
-/** The longest reason (plan D39). */
-const reasonMax = 500;
 /** The stages the search offers: every one but the one it adds to. */
 const searchStages = creatorStages.filter((s) => s !== "never");
 
@@ -160,7 +158,7 @@ function AddChannel() {
           }}
           placeholder={text.reasonPlaceholder}
           aria-label={text.reasonLabel}
-          maxLength={reasonMax}
+          maxLength={neverReasonMax}
         />
         <Btn icon="ban" disabled={chosen === null} onClick={add}>
           {text.add}

@@ -141,13 +141,17 @@ export const logPageRequestSchema = z.strictObject({
   who: z.string().max(100).nullable(),
 });
 
-/** The page, whether more lines follow, and each person who has lines, most lines first. */
+/**
+ * The page, whether more lines follow, each person who has lines (most lines first), and `total`:
+ * every visible line, for "Everyone", past the first 50 people too.
+ */
 export const logPageResultSchema = z.strictObject({
   lines: z.array(logEntrySchema).max(logPageMax),
   more: z.boolean(),
   people: z
     .array(z.strictObject({ who: z.string().max(100), name: text, count }))
     .max(logPeopleMax),
+  total: count,
 });
 
 export const creatorSchema: z.ZodType<Creator, Creator> = z.strictObject({

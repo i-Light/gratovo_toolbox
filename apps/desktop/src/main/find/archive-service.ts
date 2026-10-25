@@ -209,23 +209,33 @@ export function createArchiveService(deps: ArchiveServiceDeps): ArchiveService {
     const done = new Promise<Ran>((resolve) => {
       settle = resolve;
     });
+    function release(exit: PipelineExit): void {
+      held = null;
+      // A search waiting on Start goes first; the caller then waits `laneRetryMs`, so it can't
+      // take the lane back before the search starts.
+      const gaveWay = yielders;
+      yielders = null;
+      for (const resolve of gaveWay ?? []) {
+        resolve();
+      }
+      settle({ exit, yielded: gaveWay !== null });
+    }
     held = kind;
-    const started = supervisor.start(start, {
-      onMessage(message) {
-        onMessage?.(message);
-      },
-      onExit(exit) {
-        held = null;
-        // A search waiting on Start goes first; the caller then waits `laneRetryMs`, so it can't
-        // take the lane back before the search starts.
-        const gaveWay = yielders;
-        yielders = null;
-        for (const resolve of gaveWay ?? []) {
-          resolve();
-        }
-        settle({ exit, yielded: gaveWay !== null });
-      },
-    });
+    let started: ReturnType<typeof supervisor.start>;
+    try {
+      started = supervisor.start(start, {
+        onMessage(message) {
+          onMessage?.(message);
+        },
+        onExit: release,
+      });
+    } catch {
+      // A start message that fails its schema throws before any process exists. Left held, the
+      // lane would look taken for good: no sweep, every restore busy, and Start never gets it.
+      // The two sides disagree, so it ends as a failed job.
+      release({ kind: "failed", reason: "protocol" });
+      return { ok: true, done };
+    }
     if (!started.ok) {
       held = null;
       return started;
@@ -258,26 +268,43 @@ export function createArchiveService(deps: ArchiveServiceDeps): ArchiveService {
     }
   }
 
-  /** One pass: the creators due now, `sweepMax` a job, one job after another. */
+  /**
+   * One pass: the creators due now, `sweepMax` a job, one job after another. The list is read again
+   * for each job, after any wait for the lane: a wait can last hours behind a search, and a creator
+   * brought back or shortlisted meanwhile must not be archived for good.
+   */
   async function sweepPass(): Promise<void> {
     const first = deps.context();
     if (first === null) {
       return;
     }
     const owner = ownerOf(first);
-    const snapshot = await deps.snapshot();
-    const days = archiveDays();
-    if (days === null) {
-      return;
-    }
-    const due = dueChannels(snapshot.rows, days, now());
-    let at = 0;
-    while (at < due.length) {
-      const context = await waitLane("sweep", owner);
-      if (context === null) {
+    // The channels this pass archived, in case the catalog hasn't caught up with a job yet.
+    const sent = new Set<string>();
+    for (;;) {
+      const snapshot = await deps.snapshot();
+      const days = archiveDays();
+      if (days === null) {
         return;
       }
-      const channels = due.slice(at, at + sweepMax);
+      const channels = dueChannels(snapshot.rows, days, now())
+        .filter((channel) => !sent.has(channel.channelId))
+        .slice(0, sweepMax);
+      if (channels.length === 0) {
+        return;
+      }
+      // The snapshot may have waited for a rebuild: look at the data and the lane again right
+      // before starting. After a wait for the lane the list is stale, so it is read again first.
+      const context = disposed ? null : deps.context();
+      if (context === null || ownerOf(context) !== owner) {
+        return;
+      }
+      if (!laneFree("sweep")) {
+        if ((await waitLane("sweep", owner)) === null) {
+          return;
+        }
+        continue;
+      }
       const started = run("sweep", startOf(context, { kind: "archive.sweep", channels }));
       if (!started.ok) {
         if (started.problem === "running") {
@@ -290,13 +317,15 @@ export function createArchiveService(deps: ArchiveServiceDeps): ArchiveService {
       const { exit, yielded } = await started.done;
       deps.onPipelineChanged?.();
       const failure = failureOf(exit);
-      if (yielded) {
-        // It gave way to a search: a stopped job is sent again once the lane is free (the sweep is
-        // idempotent), and either way the search starts first.
-        await sleep(laneRetryMs);
-        if (failure === null) {
-          at += sweepMax;
+      if (failure === null) {
+        for (const channel of channels) {
+          sent.add(channel.channelId);
         }
+      }
+      if (yielded) {
+        // It gave way to a search: a stopped job's channels are still due, so they go again once
+        // the lane is free (the sweep is idempotent), and either way the search starts first.
+        await sleep(laneRetryMs);
         continue;
       }
       if (failure !== null) {
@@ -304,7 +333,6 @@ export function createArchiveService(deps: ArchiveServiceDeps): ArchiveService {
         console.error(`Archive: a sweep failed (${failure}).`);
         return;
       }
-      at += sweepMax;
     }
   }
 
@@ -350,7 +378,18 @@ export function createArchiveService(deps: ArchiveServiceDeps): ArchiveService {
         dropRefetch();
         return;
       }
-      const batch = refetchPending.slice(0, refetchMax);
+      // The refetch job takes each handle once, and two channels may share one: the first goes.
+      const batch: { id: string; handle: string }[] = [];
+      const batchHandles = new Set<string>();
+      for (const item of refetchPending) {
+        if (batch.length >= refetchMax) {
+          break;
+        }
+        if (!batchHandles.has(item.handle)) {
+          batchHandles.add(item.handle);
+          batch.push(item);
+        }
+      }
       let youtubeKey: string | null;
       try {
         youtubeKey = await deps.youtubeKey();
@@ -401,8 +440,7 @@ export function createArchiveService(deps: ArchiveServiceDeps): ArchiveService {
         dropRefetch();
         return;
       }
-      const taken = new Set(batch.map((item) => item.id));
-      refetchPending = refetchPending.filter((item) => !taken.has(item.id));
+      refetchPending = refetchPending.filter((item) => !batchHandles.has(item.handle));
       const { exit, yielded } = await started.done;
       deps.onPipelineChanged?.();
       const failure = failureOf(exit);
@@ -434,10 +472,12 @@ export function createArchiveService(deps: ArchiveServiceDeps): ArchiveService {
       dropRefetch();
       refetchOwner = owner;
     }
-    const known = new Set(refetchPending.map((item) => item.id));
+    // Each channel and each handle once: one handle refetches one channel.
+    const known = new Set(refetchPending.flatMap((item) => [item.id, item.handle]));
     for (const item of items) {
-      if (!known.has(item.id)) {
+      if (!known.has(item.id) && !known.has(item.handle)) {
         known.add(item.id);
+        known.add(item.handle);
         refetchPending.push(item);
       }
     }
@@ -505,9 +545,15 @@ export function createArchiveService(deps: ArchiveServiceDeps): ArchiveService {
     const { exit, yielded } = await job.done;
     deps.onPipelineChanged?.();
     const failure = failureOf(exit);
-    if (failure !== null || exit.kind !== "ended" || exit.result?.kind !== "archive.restore") {
-      // Not a state the page can act on: the dispatcher logs it and the page says it failed.
-      throw new Error(`Archive: a restore failed (${failure ?? "no_result"}).`);
+    if (failure !== null) {
+      // It failed, or was stopped (sign-out, another data source): expected in normal use, so a
+      // value the page can say "try again" for. The kind only in the log.
+      console.error(`Archive: a restore failed (${failure}).`);
+      return { ok: false, problem: "failed" };
+    }
+    if (exit.kind !== "ended" || exit.result?.kind !== "archive.restore") {
+      // Done with no restore result: the two sides disagree. The dispatcher logs it.
+      throw new Error("Archive: a restore ended with no result.");
     }
     const restored = exit.result.data.restored;
     // Example data has no refetch: a channel returns when a search finds it again (D38).

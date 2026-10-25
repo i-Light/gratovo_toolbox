@@ -293,7 +293,8 @@ describe("the archive service", () => {
       await vi.advanceTimersByTimeAsync(0);
       expect(lane.starts).toHaveLength(3);
       expect(changed).toBe(3);
-      expect(snapshots).toBe(1);
+      // The list is read again for each job, and once more to find none left.
+      expect(snapshots).toBe(4);
     });
 
     it("folds requests made while one runs into one more pass after it", async () => {
@@ -303,14 +304,71 @@ describe("the archive service", () => {
       service.sweep();
       service.sweep();
       service.sweep();
-      rows = [due("b")];
+      // As the catalog after the job: a is archived for good, and b came due meanwhile.
+      rows = [due("a", { archivedAt: t0 }), due("b")];
       lane.finish(swept(1));
       await vi.advanceTimersByTimeAsync(0);
       expect(sweptChannels(lane.starts[1])).toEqual([{ channelId: channelId("b"), handle: "@b" }]);
+      rows = [due("a", { archivedAt: t0 }), due("b", { archivedAt: t0 })];
       lane.finish(swept(1));
       await vi.advanceTimersByTimeAsync(0);
       expect(lane.starts).toHaveLength(2);
-      expect(snapshots).toBe(2);
+      // Two reads in the first pass and its last one, then a single read for the folded pass.
+      expect(snapshots).toBe(4);
+    });
+
+    it("reads the due list again after waiting for the lane, so a creator brought back meanwhile stays", async () => {
+      rows = [due("a"), due("b"), due("c")];
+      lane.running = true;
+      service.sweep();
+      await vi.advanceTimersByTimeAsync(5000);
+      expect(lane.starts).toEqual([]);
+      // During the wait a was brought back to Review new and b was shortlisted.
+      rows = [due("a", { stage: "new" }), due("b", { stage: "shortlisted" }), due("c")];
+      lane.running = false;
+      await vi.advanceTimersByTimeAsync(5000);
+      expect(sweptChannels(lane.starts[0])).toEqual([{ channelId: channelId("c"), handle: "@c" }]);
+    });
+
+    it("checks the lane again after reading the list, and waits when a job took it meanwhile", async () => {
+      rows = [due("a")];
+      let release: () => void = () => undefined;
+      const slow = make({
+        snapshot: () =>
+          new Promise((resolve) => {
+            release = () => {
+              resolve({ version: 1, rows });
+            };
+          }),
+      });
+      slow.sweep();
+      await vi.advanceTimersByTimeAsync(0);
+      // The finder took the lane while the catalog rebuilt.
+      lane.running = true;
+      release();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(lane.starts).toEqual([]);
+      slow.dispose();
+    });
+
+    it("frees the lane when the start message fails its schema, and logs a failed sweep", async () => {
+      const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+      rows = [due("a")];
+      const start = lane.start.bind(lane);
+      lane.start = () => {
+        throw new Error("the start message failed its schema");
+      };
+      service.sweep();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(logged).toHaveBeenCalledWith("Archive: a sweep failed (protocol).");
+      // Nothing holds the lane: Start gets it at once, and a restore runs.
+      await expect(service.yieldLane()).resolves.toBeUndefined();
+      lane.start = start;
+      const answer = service.restore([channelId("b")]);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(lane.starts[0]?.job.kind).toBe("archive.restore");
+      lane.finish(restoredExit([]));
+      expect(await answer).toEqual({ ok: true, restored: 0, refetch: false });
     });
 
     it("waits behind a busy lane, trying again every 5 s, and folds requests meanwhile", async () => {
@@ -554,11 +612,77 @@ describe("the archive service", () => {
       expect(lane.starts).toHaveLength(1);
     });
 
-    it("fails the call when the restore job fails", async () => {
+    it("answers failed when the restore job fails or is stopped, and logs the kind only", async () => {
+      const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
       const answer = service.restore([a]);
       await vi.advanceTimersByTimeAsync(0);
       lane.finish({ kind: "failed", reason: "crash" });
-      await expect(answer).rejects.toThrow("Archive: a restore failed (crash).");
+      const failed = await answer;
+      expect(failed).toEqual({ ok: false, problem: "failed" });
+      expect(channels["toolbox:restore"].response.safeParse(failed).success).toBe(true);
+      expect(logged).toHaveBeenCalledWith("Archive: a restore failed (crash).");
+      // Signing out stops the job.
+      const stopped = service.restore([a]);
+      await vi.advanceTimersByTimeAsync(0);
+      lane.finish(plainEnd({ state: "stopped" }));
+      expect(await stopped).toEqual({ ok: false, problem: "failed" });
+    });
+
+    it("answers failed when the start message fails its schema, and the lane is free after", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => undefined);
+      const start = lane.start.bind(lane);
+      lane.start = () => {
+        throw new Error("the start message failed its schema");
+      };
+      expect(await service.restore([a])).toEqual({ ok: false, problem: "failed" });
+      lane.start = start;
+      const again = service.restore([a]);
+      await vi.advanceTimersByTimeAsync(0);
+      lane.finish(restoredExit([{ channelId: a, handle: null }]));
+      expect(await again).toEqual({ ok: true, restored: 1, refetch: false });
+    });
+
+    it("throws only when a done job has no restore result", async () => {
+      const answer = service.restore([a]);
+      await vi.advanceTimersByTimeAsync(0);
+      lane.finish(plainEnd());
+      await expect(answer).rejects.toThrow("Archive: a restore ended with no result.");
+    });
+
+    it("refetches a handle two restored channels share once", async () => {
+      const answer = service.restore([a, b]);
+      await vi.advanceTimersByTimeAsync(0);
+      lane.finish(
+        restoredExit([
+          { channelId: a, handle: "@ai_tools" },
+          { channelId: b, handle: "@ai_tools" },
+        ]),
+      );
+      await answer;
+      await vi.advanceTimersByTimeAsync(0);
+      expect(handlesOf(lane.starts[1])).toEqual(["@ai_tools"]);
+      lane.finish(plainEnd());
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(lane.starts).toHaveLength(2);
+    });
+
+    it("skips a channel brought back whose handle already waits for a refetch", async () => {
+      const first = service.restore([a]);
+      await vi.advanceTimersByTimeAsync(0);
+      lane.finish(restoredExit([{ channelId: a, handle: "@ai_tools" }]));
+      await first;
+      await vi.advanceTimersByTimeAsync(0);
+      expect(handlesOf(lane.starts[1])).toEqual(["@ai_tools"]);
+      // While that refetch runs, another channel with the same handle is brought back.
+      const yielding = service.yieldLane();
+      lane.finish(plainEnd({ state: "stopped" }));
+      await yielding;
+      const second = service.restore([b]);
+      await vi.advanceTimersByTimeAsync(0);
+      lane.finish(restoredExit([{ channelId: b, handle: "@ai_tools" }]));
+      await second;
+      await vi.advanceTimersByTimeAsync(10_000);
+      expect(handlesOf(lane.starts[3])).toEqual(["@ai_tools"]);
     });
   });
 });

@@ -80,7 +80,8 @@ export interface CatalogItem {
   readonly archiveDueAt: number | null;
   /**
    * In ms: `channel_archive.archived_at` when the channel has a tombstone (archived for good),
-   * else null (D36).
+   * else null (D36). A tombstone whose time can't be read gives 0: archived, time unknown. Test
+   * "archived" with `!== null`, never by truthiness.
    */
   readonly archivedAt: number | null;
   /** False for a creator the team works on that has no pipeline channel on this computer. */

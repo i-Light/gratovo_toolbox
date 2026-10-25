@@ -200,8 +200,8 @@ function build(dbPath: string | null, states: readonly CreatorState[], now: numb
   const channels: ChannelRow[] = [];
   const videos = new Map<string, CatalogVideo[]>();
   const keywords = new Map<string, KeywordRow>();
-  /** `channel_archive.archived_at` as ms, by channel (D36); null for text that isn't a time. */
-  const archived = new Map<string, number | null>();
+  /** `channel_archive.archived_at` as ms, by channel (D36); 0 for text that isn't a time. */
+  const archived = new Map<string, number>();
   let windows: RunWindow[] = [];
   if (dbPath !== null && existsSync(dbPath)) {
     const db = new DatabaseSync(dbPath, { readOnly: true });
@@ -250,7 +250,9 @@ function build(dbPath: string | null, states: readonly CreatorState[], now: numb
           .prepare("SELECT channel_id, archived_at FROM channel_archive")
           .all() as unknown as { channel_id: string; archived_at: string | null }[];
         for (const row of tombstones) {
-          archived.set(row.channel_id, parseTime(row.archived_at));
+          // A tombstone whose time can't be read is still one: as null it would sit in the
+          // countdown and be swept again every pass.
+          archived.set(row.channel_id, parseTime(row.archived_at) ?? 0);
         }
       } catch {
         // A file with no such table has no tombstones.

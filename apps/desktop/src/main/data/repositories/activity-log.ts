@@ -235,41 +235,57 @@ export function logPage(
   return { lines: read.slice(0, limit), more: read.length > limit };
 }
 
+/** The longest `who` a person chip carries: the `log:page` request's `who` bound in the ipc package. */
+export const whoMax = 100;
+
+/** The longest name a person chip carries (`textMax` in the ipc package). */
+export const personNameMax = 500;
+
 /**
  * Who has lines in the log, with how many, most lines first and then by name, at most
- * `peopleCap`. Counts use the same undo-hiding as the pages. For a member without money they drop
- * rows with a money field but skip the text test (`mentionsMoney`), so a count can run a little
- * high; the chips are a guide, the page itself is exact. The name is the profile's display name,
- * else the newest line's `actor_name`.
+ * `peopleCap`, and `total`: every visible line, for "Everyone", past the 50 people too. Counts use
+ * the same undo-hiding as the pages. For a member without money they drop rows with a money field
+ * but skip the text test (`mentionsMoney`), so a count can run a little high; the chips are a
+ * guide, the page itself is exact. The name is the profile's display name, else the newest line's
+ * `actor_name`, cut to `personNameMax`. A person whose `who` is longer than `whoMax` (an old app's
+ * odd `actor_name`) gets no chip, since the page could not ask for their lines; their lines still
+ * count in `total`.
  */
 export function peopleInLog(
   db: DatabaseSync,
   o: { seesMoney: boolean },
-): { who: string; name: string; count: number }[] {
+): { people: { who: string; name: string; count: number }[]; total: number } {
   const visible = visibleSql(o.seesMoney);
+  // One pass over the log: each person's newest line (for the name) and their visible lines.
   const rows = db
     .prepare(
-      `SELECT ${whoSql} AS who, COUNT(*) AS n, MAX(a.at_ms) AS newest,
-              (SELECT p.display_name FROM profiles p WHERE p.id = a.actor_id) AS profile_name,
-              (SELECT l.actor_name FROM activity_log l
-               WHERE ${whoSql.replaceAll("a.", "l.")} = ${whoSql}
-               ORDER BY l.at_ms DESC, l.id DESC LIMIT 1) AS latest_name
-       FROM activity_log a
-       WHERE ${visible.sql}
-       GROUP BY who`,
+      `SELECT x.who, x.n, x.actor_name, p.display_name AS profile_name
+       FROM (
+         SELECT ${whoSql} AS who, a.actor_id, a.actor_name,
+                SUM(CASE WHEN ${visible.sql} THEN 1 ELSE 0 END)
+                  OVER (PARTITION BY ${whoSql}) AS n,
+                ROW_NUMBER() OVER (PARTITION BY ${whoSql} ORDER BY a.at_ms DESC, a.id DESC) AS r
+         FROM activity_log a
+       ) x
+       LEFT JOIN profiles p ON p.id = x.actor_id
+       WHERE x.r = 1 AND x.n > 0`,
     )
     .all(...visible.params);
-  return rows
-    .map((row) => {
-      const profile = optional(row["profile_name"]);
-      return {
-        who: String(row["who"]),
-        name: profile !== null && profile !== "" ? profile : String(row["latest_name"] ?? ""),
-        count: Number(row["n"]),
-      };
-    })
-    .sort((x, y) => y.count - x.count || x.name.localeCompare(y.name))
-    .slice(0, peopleCap);
+  let total = 0;
+  const people: { who: string; name: string; count: number }[] = [];
+  for (const row of rows) {
+    const count = Number(row["n"]);
+    total += count;
+    const who = optional(row["who"]);
+    if (who === null || who.length > whoMax) {
+      continue;
+    }
+    const profile = optional(row["profile_name"]);
+    const name = profile !== null && profile !== "" ? profile : (optional(row["actor_name"]) ?? "");
+    people.push({ who, name: name.slice(0, personNameMax), count });
+  }
+  people.sort((x, y) => y.count - x.count || x.name.localeCompare(y.name));
+  return { people: people.slice(0, peopleCap), total };
 }
 
 /** How many visible lines were written at or after `since` (ms). Money text is not tested, as in `peopleInLog`. */

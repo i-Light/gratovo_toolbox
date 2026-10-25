@@ -18,7 +18,10 @@ import { join } from "node:path";
 
 import { describe, expect, it, vi } from "vitest";
 
-import { channelId, creatorState, writePipelineDb } from "./find/catalog-fixture";
+import { createSqliteSource } from "./data/sqlite-source";
+import { openDatabase } from "./db/open-database";
+import { createCatalog } from "./find/catalog";
+import { channelId, writePipelineDb } from "./find/catalog-fixture";
 import { createStubCatalog, type FindCatalog } from "./find/catalog-types";
 import { createStubIdeas, type FindIdeas } from "./find/ideas";
 import { createHandlers, type HandlerContext } from "./handlers";
@@ -85,7 +88,7 @@ function sourceWith(overrides: Partial<DataSource> = {}): DataSource {
     creatorStates: () => Promise.resolve([]),
     creatorNotes: () => Promise.resolve(null),
     logFor: () => Promise.resolve([]),
-    logPage: () => Promise.resolve({ lines: [], more: false, people: [] }),
+    logPage: () => Promise.resolve({ lines: [], more: false, people: [], total: 0 }),
     logSince: () => Promise.resolve(0),
     write: () => Promise.resolve(),
     close: () => undefined,
@@ -297,11 +300,15 @@ describe("the toolbox handlers", () => {
     const catalog: FindCatalog = {
       ...createStubCatalog(),
       snapshot: () =>
-        Promise.resolve({ version: 4, rows: [row(rejected, "R", null), row(gone, "G", 2)] }),
+        Promise.resolve({
+          version: 4,
+          rows: [row(rejected, "R", null), row(gone, "Gone AI", 2)],
+        }),
     };
+    // The archived page takes its names from the catalog: reading every creator's state on each
+    // keystroke is too slow.
     const source = sourceWith({
-      creatorStates: () =>
-        Promise.resolve([creatorState(gone, { name: "Gone AI", stage: "rejected" })]),
+      creatorStates: () => Promise.reject(new Error("not read by the toolbox")),
     });
     const mine = handlersWith(
       accountWith({}, source),
@@ -378,6 +385,53 @@ describe("the toolbox handlers", () => {
     expect(answer).toEqual({ ok: true, restored: 1, refetch: true });
     expect(restore).toHaveBeenCalledWith([gone]);
     expect(channels["toolbox:restore"].response.safeParse(answer).success).toBe(true);
+  });
+
+  it("lists a creator in Never contact once the stage write lands and the catalog rebuilds", async () => {
+    const folder = mkdtempSync(join(tmpdir(), "handlers-never-"));
+    const db = openDatabase(join(folder, "app.db"));
+    try {
+      const pipeline = join(folder, "pipeline.db");
+      const ai = channelId("ai_news");
+      writePipelineDb(pipeline, { channels: [{ id: ai, name: "AI News Daily" }] });
+      const source = createSqliteSource(db, {
+        source: "example",
+        me: "u1",
+        extras: {
+          presence: () => ({ status: "away", doing: "" }),
+          counts: () => ({ today: 0, find: 0, reach: 0, close: 0, deliver: 0, plannedMinutes: 0 }),
+          mateRun: () => null,
+        },
+      });
+      const catalog = createCatalog({
+        pipelineDbPath: () => pipeline,
+        source: () => source,
+        debounceMs: 0,
+      });
+      const mine = handlersWith(accountWith({}, source), [], findWith(), {}, catalog, () => {
+        catalog.invalidate();
+      });
+      const never = () => mine["toolbox:list"]({ list: "never", offset: 0, limit: 10 });
+      expect((await never()).items).toEqual([]);
+      await mine["data:write"]({
+        writes: [
+          {
+            kind: "creator.stage",
+            id: ai,
+            stage: "never",
+            handle: "@ai_news",
+            name: "AI News Daily",
+          },
+        ],
+      });
+      const page = await never();
+      expect(page.items.map((item) => item.id)).toEqual([ai]);
+      expect(page.items[0]).toMatchObject({ stage: "never", dueAt: null });
+      catalog.close();
+    } finally {
+      db.close();
+      rmSync(folder, { recursive: true, force: true });
+    }
   });
 
   it("answers no_python for Bring back without the archive service", async () => {

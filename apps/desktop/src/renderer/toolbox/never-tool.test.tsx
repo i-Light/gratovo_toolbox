@@ -104,6 +104,45 @@ describe("Toolbox > Never contact", () => {
     expect(screen.getAllByRole("button", { name: /^Allow .* again$/ })).toHaveLength(130);
   });
 
+  it("with more than 120 blocked, later pages keep their place and the total is not counted twice", async () => {
+    const many = Array.from({ length: 130 }, (_, i) =>
+      blocked(`UC-${String(i)}`, `Channel ${String(i)}`),
+    );
+    stubToolboxBridge({ never: many, catalog: [aiChannel("UC-lab", "Agent Lab")] });
+    // The frame holds every one of them as a creator, as it does once they were acted on.
+    act(() => {
+      appStore().bg((data) => {
+        for (const item of many) {
+          data.creators.push({
+            id: item.id,
+            name: item.name,
+            handle: item.handle,
+            stage: "never",
+            email: null,
+            emailConfirmed: false,
+            contactName: null,
+            contactSource: null,
+            contactConfidence: null,
+            rejectReason: null,
+            rejectedAt: item.rejectedAt,
+            neverReason: "Asked us to stop",
+            archiveDueAt: null,
+          });
+        }
+      });
+    });
+    await show();
+    const names = () =>
+      screen
+        .getAllByRole("button", { name: /^Allow .* again$/ })
+        .map((b) => b.getAttribute("aria-label"));
+    expect(names()).toHaveLength(120);
+    await click(screen.getByRole("button", { name: strings.toolbox.showMore }));
+    expect(names()).toHaveLength(130);
+    expect(names()[0]).toBe(t.allowLabel("Channel 0"));
+    expect(names()[129]).toBe(t.allowLabel("Channel 129"));
+  });
+
   it("asks before allowing; Keep blocked changes nothing and Esc backs out", async () => {
     stubToolboxBridge({ never: [blocked("UC-a", "Agent Lab")] });
     await show();

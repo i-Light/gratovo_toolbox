@@ -150,8 +150,8 @@ export function reject(items: readonly CatalogItem[], reason: RejectReason): boo
   });
 }
 
-/** Takes a rejected channel back to Review new. */
-export function bringBack(item: CatalogItem): boolean {
+/** Takes a rejected channel back to Review new; `sub` is the toast's second line, if the caller has words for it. */
+export function bringBack(item: CatalogItem, sub = ""): boolean {
   return change([item], {
     from: ["rejected"],
     action: "creator.restore",
@@ -164,7 +164,7 @@ export function bringBack(item: CatalogItem): boolean {
     line: t.broughtBack,
     detail: null,
     msg: t.broughtBack,
-    sub: "",
+    sub,
   });
 }
 

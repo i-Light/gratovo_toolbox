@@ -9,7 +9,13 @@ import type { FindCatalog } from "./find/catalog-types";
 import type { FindIdeas } from "./find/ideas";
 import type { FindService } from "./find/find-service";
 import { readViews, writeViews } from "./find/saved-views";
-import { countArchived, readArchived, toolboxCounts, toolboxList } from "./find/toolbox";
+import {
+  countArchived,
+  readArchived,
+  toolboxCounts,
+  toolboxList,
+  type ArchivedNames,
+} from "./find/toolbox";
 import type { SecretStore } from "./secret-store";
 import type { HandlerServices } from "./services";
 
@@ -90,10 +96,22 @@ export function createHandlers(context: HandlerContext): Handlers {
     return folder === null ? null : join(folder, "pipeline.db");
   }
 
-  /** The app's name and stage for each creator, for the archived search and rows. */
-  async function archivedNames() {
-    const states = await openSource().creatorStates();
-    return new Map(states.map((s) => [s.id, { name: s.name, stage: s.stage }]));
+  /**
+   * The app's name and stage for each creator, for the archived search and rows, from the catalog's
+   * rows: the page asks on every keystroke, page and tick, too often to read every creator's state.
+   * A name that is only the handle or the id (the rows' fallback) is no name.
+   */
+  async function archivedNames(): Promise<ArchivedNames> {
+    const { rows } = await catalog.snapshot();
+    return new Map(
+      rows.map((row) => [
+        row.id,
+        {
+          name: row.name === row.id || row.name === row.handle ? null : row.name,
+          stage: row.stage,
+        },
+      ]),
+    );
   }
 
   return {
@@ -161,7 +179,12 @@ export function createHandlers(context: HandlerContext): Handlers {
     "log:for": async ({ ref, limit }) => ({ lines: [...(await openSource().logFor(ref, limit))] }),
     "log:page": async (request) => {
       const page = await openSource().logPage(request);
-      return { lines: [...page.lines], more: page.more, people: [...page.people] };
+      return {
+        lines: [...page.lines],
+        more: page.more,
+        people: [...page.people],
+        total: page.total,
+      };
     },
     // Plan step 5d: the Toolbox (D34 to D40).
     "toolbox:list": async ({ list, offset, limit }) =>

@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import type { LogEntry } from "@gratovo/core/data";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { clock, shortDate } from "../lib/format";
 import { resetFindForTests } from "../lib/find";
@@ -53,7 +53,10 @@ beforeEach(() => {
   d.setHours(12, 0, 0, 0);
   noon = d.getTime();
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
 
 describe("Toolbox > Activity log", () => {
   it("says so when nothing was logged", async () => {
@@ -154,5 +157,47 @@ describe("Toolbox > Activity log", () => {
     await settle();
     expect(bridge.calls.filter(([c]) => c === "log:page").length).toBe(before + 1);
     expect(screen.getAllByText(/^Change \d+$/)).toHaveLength(45);
+  });
+
+  it("gives the avatar the real name, not the word You", async () => {
+    stubToolboxBridge({
+      log: [line(1, noon, me()), line(2, noon - hour, "someone-else")],
+      names: { [me()]: "Moe Khaled" },
+    });
+    await show();
+    const mine = screen.getByText("Change 1").closest(".li") as HTMLElement;
+    expect(within(mine).getByText("MK")).toBeTruthy();
+    expect(within(mine).queryByText("YO")).toBeNull();
+    // The text still says You.
+    expect(within(mine).getByText(t.by(t.you, clock(noon)))).toBeTruthy();
+    // A person with no name anywhere gets the placeholder, not a made-up one.
+    const other = screen.getByText("Change 2").closest(".li") as HTMLElement;
+    expect(within(other).queryByText("YO")).toBeNull();
+  });
+
+  it("uses the total main reports for Everyone", async () => {
+    const bridge = stubToolboxBridge({ log: [line(1, noon, me())] });
+    const invoke = window.gratovo.invoke;
+    (window.gratovo as { invoke: unknown }).invoke = (channel: string, input: unknown) =>
+      invoke(channel as never, input as never).then((r) =>
+        channel === "log:page" && r.ok ? { ...r, value: { ...(r.value as object), total: 77 } } : r,
+      );
+    await show();
+    expect(bridge.calls.length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: `${t.everyone} 77` })).toBeTruthy();
+  });
+
+  it("moves Today to Yesterday when midnight passes", async () => {
+    stubToolboxBridge({ log: [line(1, noon, me())] });
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval", "Date"] });
+    vi.setSystemTime(noon);
+    await show();
+    expect(screen.getByRole("region", { name: t.today })).toBeTruthy();
+    await act(async () => {
+      vi.setSystemTime(noon + 13 * hour);
+      vi.advanceTimersByTime(60_000);
+      await Promise.resolve();
+    });
+    expect(screen.getByRole("region", { name: t.yesterday })).toBeTruthy();
   });
 });

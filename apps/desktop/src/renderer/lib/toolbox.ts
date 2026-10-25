@@ -219,17 +219,33 @@ export function useToolboxList(
     }
     return { items: out, dropped: gone };
   }, [pages.items, creators, list]);
-  // A channel just blocked here is at `never` on the page before main's list has it: it leads.
+  // A channel this page blocked since main's last catalog build is at `never` here before main's
+  // list has it: it leads. Older ones are main's to list (they sit on later pages), so they are
+  // left out, and the next build clears this overlay.
+  const [since, setSince] = useState(() => Date.now());
+  useEffect(
+    () =>
+      window.gratovo.on("find:catalog", () => {
+        setSince(Date.now());
+      }),
+    [],
+  );
   const fresh = useMemo(() => {
     if (list !== "never") {
       return [];
     }
     const listed = new Set(pages.items.map((i) => i.id));
     return creators
-      .filter((c) => c.stage === "never" && !listed.has(c.id))
+      .filter(
+        (c) =>
+          c.stage === "never" &&
+          !listed.has(c.id) &&
+          c.rejectedAt !== null &&
+          c.rejectedAt >= since,
+      )
       .sort((a, b) => (b.rejectedAt ?? 0) - (a.rejectedAt ?? 0))
       .map((c): ToolboxItem => ({ ...itemFromCreator(c), dueAt: null }));
-  }, [pages.items, creators, list]);
+  }, [pages.items, creators, list, since]);
   const shown = fresh.length === 0 ? items : [...fresh, ...items];
   return {
     ...pages,
@@ -344,38 +360,12 @@ export interface RestoreTarget {
 export type RestoreOutcome = "restored" | "busy" | "failed";
 
 /**
- * Brings a channel back from "Archived for good" (D38). A creator still at Rejected goes to
- * Review new first (the undoable `bringBack` act); then main deletes the tombstone and, on live
- * data, reads the channel's numbers again. A toast says how it went.
+ * Brings a channel back from "Archived for good" (D38). Main deletes the tombstone first (and, on
+ * live data, reads the channel's numbers again). Only when that worked does a creator still at
+ * Rejected go to Review new, with the undoable `bringBack` act; its toast says how the restore went.
+ * A problem leaves the stage alone and shows one problem toast.
  */
 export async function restoreForGood(target: RestoreTarget): Promise<RestoreOutcome> {
-  const held = appStore()
-    .getState()
-    .data.creators.find((c) => c.id === target.id);
-  let actToast: string | null = null;
-  if ((held?.stage ?? target.stage) === "rejected") {
-    let item: CatalogItem | null = held === undefined ? null : itemFromCreator(held);
-    if (item === null) {
-      const found = await window.gratovo.invoke("find:item", { id: target.id }).catch(() => null);
-      item = found?.ok === true ? (found.value.item ?? null) : null;
-    }
-    if (item !== null) {
-      const shown = new Set(
-        appStore()
-          .getState()
-          .ui.toasts.map((x) => x.id),
-      );
-      if (bringBack(item)) {
-        // The act's own toast (it carries Undo) is the one the person sees; the restore outcome
-        // goes into its second line instead of a toast of its own.
-        actToast =
-          appStore()
-            .getState()
-            .ui.toasts.find((x) => !shown.has(x.id))?.id ?? null;
-      }
-    }
-  }
-  const name = target.name ?? target.handle ?? text.restore.fallbackName;
   const result = await window.gratovo
     .invoke("toolbox:restore", { ids: [target.id] })
     .catch(() => null);
@@ -387,22 +377,33 @@ export async function restoreForGood(target: RestoreTarget): Promise<RestoreOutc
   if (!answer.ok) {
     toast({
       msg:
-        answer.problem === "busy" ? text.restore.busy : strings.findSearch.startProblems.no_python,
+        answer.problem === "busy"
+          ? text.restore.busy
+          : answer.problem === "failed"
+            ? text.restore.failed
+            : strings.findSearch.startProblems.no_python,
       icon: "alert",
     });
     return answer.problem === "busy" ? "busy" : "failed";
   }
   const refetch = answer.refetch && answer.restored > 0 && target.handle !== null;
   const sub = refetch ? text.restore.comingBackSub : text.restore.returnsLater;
-  const open = appStore()
+  const held = appStore()
     .getState()
-    .ui.toasts.some((x) => x.id === actToast);
-  if (actToast !== null && open) {
-    const id = actToast;
-    appStore().ui((ui) => {
-      ui.toasts = ui.toasts.map((x) => (x.id === id ? { ...x, sub } : x));
-    });
-  } else if (refetch) {
+    .data.creators.find((c) => c.id === target.id);
+  if ((held?.stage ?? target.stage) === "rejected") {
+    let item: CatalogItem | null = held === undefined ? null : itemFromCreator(held);
+    if (item === null) {
+      const found = await window.gratovo.invoke("find:item", { id: target.id }).catch(() => null);
+      item = found?.ok === true ? (found.value.item ?? null) : null;
+    }
+    if (item !== null && bringBack(item, sub)) {
+      return "restored";
+    }
+  }
+  // No creator row to move (a rules-swept channel), so one plain toast.
+  const name = target.name ?? target.handle ?? text.restore.fallbackName;
+  if (refetch) {
     toast({ msg: text.restore.comingBack(name), sub, tone: "good" });
   } else {
     toast({ msg: sub, tone: "info" });

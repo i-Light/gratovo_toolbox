@@ -408,7 +408,7 @@ describe("log:page", () => {
   it("answers at most 100 lines and 50 people", () => {
     const parse = (value: unknown) => channels["log:page"].response.safeParse(value).success;
     const person = { who: "u1", name: "Ada", count: 3 };
-    const ok = { lines: [line], more: true, people: [person] };
+    const ok = { lines: [line], more: true, people: [person], total: 3 };
     expect(parse(ok)).toBe(true);
     expect(parse({ ...ok, lines: Array(100).fill(line) })).toBe(true);
     expect(parse({ ...ok, lines: Array(101).fill(line) })).toBe(false);
@@ -416,6 +416,9 @@ describe("log:page", () => {
     expect(parse({ ...ok, people: Array(51).fill(person) })).toBe(false);
     expect(parse({ ...ok, people: [{ ...person, who: "x".repeat(101) }] })).toBe(false);
     expect(parse({ ...ok, people: [{ ...person, count: -1 }] })).toBe(false);
+    expect(parse({ ...ok, total: -1 })).toBe(false);
+    expect(parse({ ...ok, total: 1.5 })).toBe(false);
+    expect(parse({ lines: [line], more: true, people: [person] })).toBe(false);
     expect(parse({ ...ok, extra: 1 })).toBe(false);
   });
 });
@@ -527,7 +530,7 @@ describe("the data channels through the dispatcher", () => {
       "find:views-set": () => ({ ok: true as const }),
       "find:ideas": () => ({ ok: false as const, problem: "bridge_off" as const }),
       "log:for": () => ({ lines: [] }),
-      "log:page": () => ({ lines: [], more: false, people: [] }),
+      "log:page": () => ({ lines: [], more: false, people: [], total: 0 }),
       "toolbox:list": () => ({ version: 0, total: 0, items: [] }),
       "toolbox:archived": () => ({ total: 0, items: [] }),
       "toolbox:restore": () => ({ ok: false as const, problem: "no_python" as const }),

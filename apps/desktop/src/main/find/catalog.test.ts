@@ -138,7 +138,7 @@ describe("the catalog", () => {
     });
   });
 
-  it("fills archivedAt from channel_archive, for a swept channel with no channels row too", async () => {
+  it("fills archivedAt from channel_archive, for a swept channel with no channels row too, and 0 for a time it can't read", async () => {
     const swept = channelId("swept");
     const odd = channelId("odd");
     const catalog = open({
@@ -153,7 +153,8 @@ describe("the catalog", () => {
     const items = await all(catalog);
     expect(items.find((item) => item.id === a)?.archivedAt).toBe(Date.UTC(2026, 9, 2));
     expect(items.find((item) => item.id === b)?.archivedAt).toBeNull();
-    expect(items.find((item) => item.id === odd)?.archivedAt).toBeNull();
+    // Still archived for good: it must leave the countdown and the sweep.
+    expect(items.find((item) => item.id === odd)?.archivedAt).toBe(0);
     expect(items.find((item) => item.id === swept)).toMatchObject({
       hasNumbers: false,
       archivedAt: Date.UTC(2026, 9, 3, 12),

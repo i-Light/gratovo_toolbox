@@ -142,6 +142,11 @@ function subscribersOf(value: string | number | null): number | null {
   return value !== null && /^\d{1,12}$/.test(value.trim()) ? Number(value.trim()) : null;
 }
 
+/** A stored handle, or null for none: the sweep stores a channel with no handle as "". */
+function handleOf(value: string | null): string | null {
+  return value === null || value.trim() === "" ? null : value;
+}
+
 /** Makes text safe in a LIKE pattern that says `ESCAPE '\'`. */
 function likeEscape(text: string): string {
   return text.replace(/[\\%_]/g, (c) => `\\${c}`);
@@ -203,7 +208,7 @@ export function readArchived(
         total,
         items: rows.map((row) => ({
           id: row.channel_id,
-          handle: row.handle,
+          handle: handleOf(row.handle),
           name: names.get(row.channel_id)?.name ?? null,
           label: row.label,
           archivedAt: parseTime(row.archived_at),
