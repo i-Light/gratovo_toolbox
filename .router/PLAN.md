@@ -259,6 +259,38 @@ archive.restore { channelIds: UC…[] /* 1..2000, unique */ } -> result { kind: 
 | R4 | H | all | – | `router-reviewer` on the diff; findings become tasks |
 | L4 | lead | R4 | – | checks, look, status table, PR, CI, merge |
 
+## 5d-2: the archive keeps its data (owner, 2026-10-25, after 5d merged)
+
+The owner: what found a channel and when, its subscribers and the videos we had must survive archiving, because keyword analytics needs them. In the old app the archive was flaky: data went missing, and it was never filled for channels that were deferred or archived. Gaps found by the lead on `main` at 2c2bbb9:
+1. The 7-day sweep (`jobs/archive.py`) calls `archive_channel_locally` without `found_via`, so the tombstone's keyword list is empty. (The search rules' sweep passes only the one keyword in hand, not the channel's earlier ones.)
+2. Restore (`store.unarchive`) deletes the tombstone and its `found_via`; refetch then files the channel under `__manual_refetch__`. The keywords that really found it are lost.
+3. The tombstone keeps no name, country, uploads in 30 days, latest upload, sponsors or found addresses.
+4. Deferred channels (auto-clean `delay`) wait for the backlog (`search/backfill.py`, a slice after each keyword). Unproven end to end that none stays empty for good.
+
+**Decisions, 5d-2**
+- **D42. One rule: archiving never makes us know less.** The tombstone keeps every fact the channel row and its links hold that a later step reads: name, handle, subscribers, country, first seen, every keyword that found it with its `discovered_at` (from `channel_keywords`, merged with any `found_via` passed in, deduped by keyword, earliest time kept), uploads in 30 days, latest upload, median views with its basis, the number of videos we had, sponsors seen, found addresses and their sources. `pipeline.db` schema version 4 adds the missing columns to `channel_archive` (additive `ALTER TABLE`, nullable: `name`, `country`, `videos_last_30`, `latest_upload_at`, `seen_brands`, `found_emails`, `found_email_sources`). One helper builds the tombstone for every path that archives (the 7-day sweep, the rules' sweep, refetch's sweep, the import), so no path can forget a field. A null means "never known", never "zero".
+- **D43. Archiving again never says less.** When a channel already has a tombstone (a re-sweep, a re-find, another path), each fact merges: keywords are a union, numbers keep the larger video count with its median (as `merge_archive_numbers`), text facts keep the known value over null. Nothing is overwritten with null or with a smaller count.
+- **D44. Bring back puts the facts back.** `archive.restore` recreates, in one transaction, the `channels` row from the tombstone (handle, name, subscribers, country, first seen, uploads in 30 days, latest upload, median, sponsors, addresses; `videos_fetched_at` null and `force_refetch` 1 so the next read refreshes it and the backlog picks it up), the `channel_keywords` rows from `found_via` with their original times, then deletes the tombstone. The catalog shows the channel at once on live and example data, with its last known numbers. On live data the refetch still runs to refresh it; its `__manual_refetch__` link is not counted as a keyword that found the channel (keyword analytics and the catalog's "found by" skip that keyword).
+- **D45. Deferred channels get filled.** The backlog must reach every channel still missing its uploads, deferred ones included, until it is read or archived; and a channel with no uploads read shows "not read yet" in Find, never 0 views. Proven by tests (a delayed channel is a backlog candidate, is read on the next keyword's slice, and leaves the backlog once read). Any gap found is fixed here.
+- **D46. "Archived for good" shows what is kept:** name (else handle), country, subscribers, median views, uploads in 30 days, and the keywords that found it (up to 3, "+N more"); unknowns read "not known".
+
+**Contracts, 5d-2**
+```ts
+// core: find/types.ts — ArchivedChannel gains (all from the tombstone; null = never known)
+country: string | null; medianViews: number | null; uploads30: number | null;
+latestUploadAt: number | null; videos: number | null;          // videos we had when it was archived
+keywords: { keyword: string; at: number | null }[];             // ≤ 50, earliest first, __manual_refetch__ left out
+```
+Pipeline: schema 4 (above). Python helper in `store.py`: `archive_channel_locally` builds the full tombstone itself from the channel row and links (callers may pass extra `found_via`), and merges into an existing one (D43); `restore_channel_locally(conn, channel_id)` does D44 and returns the handle. `jobs/archive.py` uses both. Main's readers (`catalog.ts`, `runs.ts`, `toolbox.ts`) tolerate a schema-3 file (missing columns read null).
+
+| id | tier | depends | files (about) | done-check |
+|---|---|---|---|---|
+| A1 | H | – | `store.py` (schema 4, the tombstone helper, merge, restore), `jobs/archive.py`, `search/auto_clean.py` and `jobs/refetch.py` callers, `import_legacy.py` if it writes tombstones, tests | D42–D44: every archive path keeps every fact; re-archive never says less; restore brings the row and links back; a schema-3 file migrates; legacy flakiness cases from `legacy/lib/features/archive/` and `legacy/pipeline/gratovo/store.py` turned into tests. pytest, pyright |
+| A2 | N | A1 | `search/backfill.py`, `store.py` backlog queries, tests | D45: tests prove deferred channels are filled; fix any gap | pytest |
+| A3 | N | A1 | core `ArchivedChannel`, ipc schema, `main/find/toolbox.ts` (+ tolerate schema 3), catalog/keyword readers skip `__manual_refetch__`, `renderer/toolbox/archive-tool.tsx`, restore toast words for example data, strings, tests | D44 page side, D46 | vitest; look at 1440 dark |
+| R5 | H | all | – | review of the diff against D42–D46 | – |
+| L5 | lead | R5 | – | checks, e2e, status table, PR, CI, merge | CI |
+
 ## 5e: the flow suite and the record of decisions (outline)
 
 The Find flow suite (D18), ADR 0017 (step 5's decisions), architecture and parity notes, the status table, `.router/` removed.

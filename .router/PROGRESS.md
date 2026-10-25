@@ -10,7 +10,17 @@ Started 2026-10-24. The plan is `.router/PLAN.md` (decisions D1 to D18, contract
 
 **5d done:** PR #23 (Toolbox: Archive, Never contact, Activity log; D34 to D41).
 
-**Next: 5e** in a fresh session: the Find flow suite (D18), ADR 0017 (step 5's decisions D1 to D41), architecture and parity notes, the docs/workflow.md lessons below, the status table, and `.router/` removed (step 5 complete).
+**Now: 5d-2** (the archive keeps its data, owner 2026-10-25) on branch `feat/5d-archive-data`. Plan: PLAN.md "5d-2" (D42 to D46).
+
+| id | tier | state | note |
+|---|---|---|---|
+| A1 | H | todo | |
+| A2 | N | todo | |
+| A3 | N | todo | |
+| R5 | H | todo | |
+| L5 | lead | todo | |
+
+**Then: 5e** in a fresh session: the Find flow suite (D18), ADR 0017 (step 5's decisions D1 to D41), architecture and parity notes, the docs/workflow.md lessons below, the status table, and `.router/` removed (step 5 complete).
 
 ## Tasks, 5d
 
