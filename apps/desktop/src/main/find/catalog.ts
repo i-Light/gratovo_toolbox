@@ -19,6 +19,7 @@ import {
   type FoundEmail,
 } from "@gratovo/core/find";
 
+import { refetchKeyword } from "../pipeline/protocol";
 import type { Catalog, CatalogDeps } from "./catalog-types";
 import { parseTime, readRunWindows, readRuns, runAt, type RunWindow } from "./runs";
 
@@ -68,6 +69,8 @@ interface ChannelRow {
   profile_picture: string | null;
   country: string | null;
   first_seen_at: string | null;
+  /** Set once the channel's uploads have been read (D45). */
+  videos_fetched_at: string | null;
   videos_last_30: number | null;
   median_views_last_30: number | null;
   latest_upload_at: string | null;
@@ -214,7 +217,7 @@ function build(dbPath: string | null, states: readonly CreatorState[], now: numb
         ...(db
           .prepare(
             `SELECT channel_id, handle, name, subscribers, profile_picture, country, first_seen_at,
-               videos_last_30, median_views_last_30, latest_upload_at, seen_brands, found_emails,
+               videos_fetched_at, videos_last_30, median_views_last_30, latest_upload_at, seen_brands, found_emails,
                ${hasSources ? "found_email_sources" : "NULL AS found_email_sources"}
              FROM channels`,
           )
@@ -238,9 +241,10 @@ function build(dbPath: string | null, states: readonly CreatorState[], now: numb
           `SELECT channel_id, keyword, discovered_at FROM (
              SELECT channel_id, keyword, discovered_at, ROW_NUMBER() OVER
                (PARTITION BY channel_id ORDER BY discovered_at, keyword) AS n FROM channel_keywords
+             WHERE keyword <> ?
            ) WHERE n = 1`,
         )
-        .all() as unknown as KeywordRow[];
+        .all(refetchKeyword) as unknown as KeywordRow[];
       for (const row of keywordRows) {
         keywords.set(row.channel_id, row);
       }
@@ -306,6 +310,7 @@ function build(dbPath: string | null, states: readonly CreatorState[], now: numb
       archiveDueAt: state?.archiveDueAt ?? null,
       archivedAt: archived.get(id) ?? null,
       hasNumbers: true,
+      uploadsRead: channel.videos_fetched_at !== null && channel.videos_fetched_at.trim() !== "",
     });
   }
 
@@ -341,6 +346,7 @@ function build(dbPath: string | null, states: readonly CreatorState[], now: numb
       archiveDueAt: state.archiveDueAt,
       archivedAt: archived.get(state.id) ?? null,
       hasNumbers: false,
+      uploadsRead: false,
     });
   }
   return { rows, pictures };

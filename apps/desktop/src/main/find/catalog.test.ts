@@ -223,6 +223,45 @@ describe("the catalog", () => {
     expect(item?.foundAt).toBe(Date.parse("2026-10-02T00:00:00Z"));
   });
 
+  it("never names the refetch link as the keyword that found a channel", async () => {
+    const catalog = open({
+      channels: [{ id: a }, { id: b, firstSeen: "2026-10-04 00:00:00" }],
+      keywords: [
+        { channel: a, keyword: "__manual_refetch__", at: "2026-10-01 00:00:00" },
+        { channel: a, keyword: "agent news", at: "2026-10-05 00:00:00" },
+        { channel: b, keyword: "__manual_refetch__", at: "2026-10-06 00:00:00" },
+      ],
+    });
+    const items = await all(catalog);
+    const first = items.find((item) => item.id === a);
+    expect(first?.keyword).toBe("agent news");
+    expect(first?.foundAt).toBe(Date.parse("2026-10-05T00:00:00Z"));
+    // Only the refetch link: no keyword, and the first-seen time stands in for the found time.
+    const second = items.find((item) => item.id === b);
+    expect(second?.keyword).toBeNull();
+    expect(second?.foundAt).toBe(Date.parse("2026-10-04T00:00:00Z"));
+  });
+
+  it("says whether the uploads were read, and keeps a restored channel's last known numbers", async () => {
+    const catalog = open({
+      channels: [
+        { id: a, fetched: "2026-10-02 00:00:00", median: 9_000, uploads30: 4 },
+        // Restored from the archive: not read yet, but its numbers carry over (D44).
+        { id: b, fetched: null, median: 52_000, uploads30: 6, subscribers: "48200" },
+      ],
+    });
+    states = [creatorState(c, { stage: "signed" })];
+    const items = await all(catalog);
+    expect(items.find((item) => item.id === a)).toMatchObject({ uploadsRead: true });
+    expect(items.find((item) => item.id === b)).toMatchObject({
+      uploadsRead: false,
+      medianViews: 52_000,
+      uploads30: 6,
+      subscribers: 48_200,
+    });
+    expect(items.find((item) => item.id === c)).toMatchObject({ uploadsRead: false });
+  });
+
   it("works out emailedBefore from the old stage, the stage and the last activity", async () => {
     const ids = ["e1", "e2", "e3", "e4", "e5", "e6", "e7", "e8"].map(channelId);
     const catalog = open({ channels: ids.map((id) => ({ id })) });

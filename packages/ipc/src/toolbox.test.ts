@@ -34,6 +34,7 @@ const item = {
   archiveDueAt: null,
   archivedAt: null,
   hasNumbers: true,
+  uploadsRead: true,
   dueAt: null,
 };
 
@@ -45,6 +46,15 @@ const archived = {
   archivedAt: 6,
   subscribers: 40_000,
   stage: "rejected",
+  country: "US",
+  medianViews: 52_000,
+  uploads30: 6,
+  latestUploadAt: 9,
+  videos: 31,
+  keywords: [
+    { keyword: "ai coding tools", at: 3 },
+    { keyword: "agent news", at: null },
+  ],
 };
 
 describe("toolboxItemSchema", () => {
@@ -74,6 +84,12 @@ describe("archivedChannelSchema", () => {
       archivedAt: null,
       subscribers: null,
       stage: null,
+      country: null,
+      medianViews: null,
+      uploads30: null,
+      latestUploadAt: null,
+      videos: null,
+      keywords: [],
     };
     expect(archivedChannelSchema.safeParse(bare).success).toBe(true);
   });
@@ -85,6 +101,24 @@ describe("archivedChannelSchema", () => {
     expect(parse({ ...archived, label: "x".repeat(501) })).toBe(false);
     expect(parse({ ...archived, stage: "gone" })).toBe(false);
     expect(parse({ ...archived, extra: 1 })).toBe(false);
+  });
+
+  it("bounds what the tombstone kept", () => {
+    const parse = (value: unknown) => archivedChannelSchema.safeParse(value).success;
+    const word = (n: number) => ({ keyword: `ai tools ${String(n)}`, at: n });
+    expect(parse({ ...archived, keywords: Array.from({ length: 50 }, (_, n) => word(n)) })).toBe(
+      true,
+    );
+    expect(parse({ ...archived, keywords: Array.from({ length: 51 }, (_, n) => word(n)) })).toBe(
+      false,
+    );
+    expect(parse({ ...archived, keywords: [{ keyword: "x".repeat(501), at: null }] })).toBe(false);
+    expect(parse({ ...archived, country: "usa" })).toBe(false);
+    expect(parse({ ...archived, medianViews: -1 })).toBe(false);
+    expect(parse({ ...archived, videos: 1.5 })).toBe(false);
+    const noKeywords: Record<string, unknown> = { ...archived };
+    delete noKeywords.keywords;
+    expect(parse(noKeywords)).toBe(false);
   });
 });
 

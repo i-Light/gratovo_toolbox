@@ -38,6 +38,7 @@ function item(over: Partial<CatalogItem>): CatalogItem {
     archiveDueAt: null,
     archivedAt: null,
     hasNumbers: true,
+    uploadsRead: true,
     ...over,
   };
 }

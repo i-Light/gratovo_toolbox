@@ -287,7 +287,8 @@ Pipeline: schema 4 (above). Python helper in `store.py`: `archive_channel_locall
 |---|---|---|---|---|
 | A1 | H | – | `store.py` (schema 4, the tombstone helper, merge, restore), `jobs/archive.py`, `search/auto_clean.py` and `jobs/refetch.py` callers, `import_legacy.py` if it writes tombstones, tests | D42–D44: every archive path keeps every fact; re-archive never says less; restore brings the row and links back; a schema-3 file migrates; legacy flakiness cases from `legacy/lib/features/archive/` and `legacy/pipeline/gratovo/store.py` turned into tests. pytest, pyright |
 | A2 | N | A1 | `search/backfill.py`, `store.py` backlog queries, tests | D45: tests prove deferred channels are filled; fix any gap | pytest |
-| A3 | N | A1 | core `ArchivedChannel`, ipc schema, `main/find/toolbox.ts` (+ tolerate schema 3), catalog/keyword readers skip `__manual_refetch__`, `renderer/toolbox/archive-tool.tsx`, restore toast words for example data, strings, tests | D44 page side, D46 | vitest; look at 1440 dark |
+| A3 | N | A1 | core `ArchivedChannel` fields and `CatalogItem.uploadsRead`, ipc schemas, `main/find/toolbox.ts` and other readers (tolerate schema 3, skip `__manual_refetch__`), tests | D44 main side | vitest |
+| A4 | N | A3 | renderer: Find shows "Not read yet" where `uploadsRead` is false (card, table, triage, record, compare; fit notes in core), the Archived-for-good rows (D46), restore words now that a channel shows at once | D45 page side, D46 | vitest; look at 1440 dark |
 | R5 | H | all | – | review of the diff against D42–D46 | – |
 | L5 | lead | R5 | – | checks, e2e, status table, PR, CI, merge | CI |
 

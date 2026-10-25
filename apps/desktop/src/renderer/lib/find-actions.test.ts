@@ -50,6 +50,7 @@ function item(id: string, name: string, stage: CatalogItem["stage"] = "new"): Ca
     archiveDueAt: null,
     archivedAt: null,
     hasNumbers: true,
+    uploadsRead: true,
   };
 }
 

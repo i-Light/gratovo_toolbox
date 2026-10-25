@@ -50,6 +50,12 @@ const tomb = (n: number, over: Partial<ArchivedChannel> = {}): ArchivedChannel =
   archivedAt: Date.UTC(2026, 9, 1),
   subscribers: 120_000,
   stage: null,
+  country: null,
+  medianViews: null,
+  uploads30: null,
+  latestUploadAt: null,
+  videos: null,
+  keywords: [],
   ...over,
 });
 

@@ -32,6 +32,7 @@ function makeItem(patch: Partial<CatalogItem> = {}): CatalogItem {
     archiveDueAt: null,
     archivedAt: null,
     hasNumbers: true,
+    uploadsRead: true,
     ...patch,
   };
 }

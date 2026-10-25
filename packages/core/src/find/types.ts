@@ -86,6 +86,11 @@ export interface CatalogItem {
   readonly archivedAt: number | null;
   /** False for a creator the team works on that has no pipeline channel on this computer. */
   readonly hasNumbers: boolean;
+  /**
+   * True when the channel's uploads have been read. False for a pipeline channel never read
+   * (deferred, restored, failed) and for a state-only row: the page says "not read yet" (D45).
+   */
+  readonly uploadsRead: boolean;
 }
 
 /** The lists Toolbox shows from the catalog (plan step 5, D36 and D39). */
@@ -115,6 +120,17 @@ export interface ArchivedChannel {
   readonly subscribers: number | null;
   /** The creator's stage when a `channel_state` row exists. */
   readonly stage: CreatorStage | null;
+  /** ISO-2 when the tombstone kept one (D42); null = never known. */
+  readonly country: string | null;
+  readonly medianViews: number | null;
+  /** Uploads in the 30 days before it was archived. */
+  readonly uploads30: number | null;
+  /** In ms. */
+  readonly latestUploadAt: number | null;
+  /** The videos we had when it was archived. */
+  readonly videos: number | null;
+  /** Every keyword that found it, earliest first, at most 50; `__manual_refetch__` is left out. */
+  readonly keywords: readonly { readonly keyword: string; readonly at: number | null }[];
 }
 
 /** The parts of the fit score, each with its points out of its share. */

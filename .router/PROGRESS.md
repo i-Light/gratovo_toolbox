@@ -15,8 +15,9 @@ Started 2026-10-24. The plan is `.router/PLAN.md` (decisions D1 to D18, contract
 | id | tier | state | note |
 |---|---|---|---|
 | A1 | H | done | schema 4 (tombstone facts + `channels.videos_known`), one tombstone builder with merge, `restore_channel_locally`, refetch and import use it; old-app failure modes as tests (no keywords, INSERT OR REPLACE blanking, unarchive losing keywords, 0 for unknown, half-written tombstone). Newer known fact wins on merge |
-| A2 | N | todo | |
-| A3 | N | todo | |
+| A2 | N | running | |
+| A3 | N | done | `ArchivedChannel` facts, `CatalogItem.uploadsRead`, `refetchKeyword` in protocol.ts, readers tolerate schema 3 and skip the refetch keyword (catalog, results, toolbox). `results.ts` skip untested |
+| A4 | N | todo | |
 | R5 | H | todo | |
 | L5 | lead | todo | |
 

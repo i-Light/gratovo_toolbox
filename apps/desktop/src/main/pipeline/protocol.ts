@@ -159,6 +159,9 @@ const videoStatsJob = z.strictObject({
   videoUrl: z.string().min(1).max(2000),
 });
 
+/** The keyword a refetch files its channels under when none is given; not a keyword that found them. */
+export const refetchKeyword = "__manual_refetch__";
+
 const refetchJob = z
   .strictObject({
     kind: z.literal("refetch"),

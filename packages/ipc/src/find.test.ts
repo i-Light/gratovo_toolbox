@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { channels, parseRequest } from "./channels";
 import { appEvents } from "./events";
-import { findQueryResultSchema, findStateSchema } from "./find";
+import { catalogItemSchema, findQueryResultSchema, findStateSchema } from "./find";
 
 const state = {
   queue: [
@@ -149,6 +149,7 @@ describe("the catalog channels", () => {
     archiveDueAt: null,
     archivedAt: null,
     hasNumbers: true,
+    uploadsRead: true,
   };
   const fit = {
     score: 70,
@@ -164,6 +165,14 @@ describe("the catalog channels", () => {
       parseRequest("find:query", { ...request, filter: { ...emptyFindFilter, q: "x".repeat(201) } })
         .ok,
     ).toBe(false);
+  });
+
+  it("an item must say whether its uploads were read, as a boolean", () => {
+    expect(catalogItemSchema.safeParse({ ...item, uploadsRead: false }).success).toBe(true);
+    expect(catalogItemSchema.safeParse({ ...item, uploadsRead: "yes" }).success).toBe(false);
+    const missing: Record<string, unknown> = { ...item };
+    delete missing.uploadsRead;
+    expect(catalogItemSchema.safeParse(missing).success).toBe(false);
   });
 
   it("find:query may skip the facets, and nothing else rides along", () => {

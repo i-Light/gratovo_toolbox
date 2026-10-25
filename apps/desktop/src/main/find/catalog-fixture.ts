@@ -43,7 +43,14 @@ CREATE TABLE channel_archive (
     handle TEXT,
     label TEXT,
     archived_at TEXT,
-    subscribers TEXT
+    subscribers TEXT,
+    median_views_last_30 INTEGER,
+    videos_found_count INTEGER,
+    found_via TEXT,
+    name TEXT,
+    country TEXT,
+    videos_last_30 INTEGER,
+    latest_upload_at TEXT
 );
 CREATE TABLE runs (
     run_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -54,6 +61,12 @@ CREATE TABLE runs (
     kind TEXT NOT NULL DEFAULT 'search'
 );
 `;
+
+/** The archive as schema 3 had it: none of the facts schema 4 added (D42). */
+const ddlSchema3Archive = ddl.replace(
+  /subscribers TEXT,\n {4}median_views_last_30 INTEGER,[\s\S]*?latest_upload_at TEXT\n\);\nCREATE TABLE runs/,
+  "subscribers TEXT\n);\nCREATE TABLE runs",
+);
 
 /** The tables as schema 2 had them: no `found_email_sources` column. */
 const ddlSchema2 = ddl.replace(",\n    found_email_sources TEXT", "");
@@ -74,6 +87,8 @@ export interface FixtureChannel {
   emails?: string | null;
   /** The JSON in `found_email_sources` (D27). */
   sources?: string | null;
+  /** `videos_fetched_at`; a read channel by default, null for one never read (D45). */
+  fetched?: string | null;
 }
 
 export interface FixtureVideo {
@@ -95,7 +110,17 @@ export interface FixtureData {
     handle?: string | null;
     label?: string | null;
     subscribers?: string | null;
+    /** What schema 4 keeps (D42); ignored in a schema-3 file. */
+    median?: number | null;
+    videos?: number | null;
+    foundVia?: string | null;
+    name?: string | null;
+    country?: string | null;
+    uploads30?: number | null;
+    latestUpload?: string | null;
   }[];
+  /** Build the archive as schema 3 had it, without the facts schema 4 added. */
+  schema3?: boolean;
   /** Build the file as schema 2 had it, without `found_email_sources`. */
   schema2?: boolean;
 }
@@ -105,13 +130,13 @@ export function writePipelineDb(path: string, data: FixtureData = {}): void {
   const db = new DatabaseSync(path);
   try {
     const old = data.schema2 === true;
-    db.exec(old ? ddlSchema2 : ddl);
+    db.exec(old ? ddlSchema2 : data.schema3 === true ? ddlSchema3Archive : ddl);
     db.exec("BEGIN");
     const channel = db.prepare(
       `INSERT INTO channels (channel_id, handle, name, description, subscribers, profile_picture,
-         country, first_seen_at, videos_last_30, median_views_last_30, latest_upload_at,
+         country, first_seen_at, videos_fetched_at, videos_last_30, median_views_last_30, latest_upload_at,
          seen_brands, found_emails${old ? "" : ", found_email_sources"})
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?${old ? "" : ",?"})`,
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?${old ? "" : ",?"})`,
     );
     for (const c of data.channels ?? []) {
       channel.run(
@@ -123,6 +148,7 @@ export function writePipelineDb(path: string, data: FixtureData = {}): void {
         c.picture ?? null,
         c.country ?? null,
         c.firstSeen ?? "2026-10-01 00:00:00",
+        c.fetched === undefined ? "2026-10-02 00:00:00" : c.fetched,
         c.uploads30 ?? 0,
         c.median ?? null,
         c.latestUpload ?? null,
@@ -155,8 +181,13 @@ export function writePipelineDb(path: string, data: FixtureData = {}): void {
     for (const r of data.runs ?? []) {
       run.run(r.start, r.end, r.status ?? "done", r.keywords ?? 0, r.kind ?? "search");
     }
+    const wide = data.schema3 !== true;
     const archive = db.prepare(
-      "INSERT INTO channel_archive (channel_id, handle, label, archived_at, subscribers) VALUES (?,?,?,?,?)",
+      `INSERT INTO channel_archive (channel_id, handle, label, archived_at, subscribers${
+        wide
+          ? ", median_views_last_30, videos_found_count, found_via, name, country, videos_last_30, latest_upload_at"
+          : ""
+      }) VALUES (?,?,?,?,?${wide ? ",?,?,?,?,?,?,?" : ""})`,
     );
     for (const a of data.archive ?? []) {
       archive.run(
@@ -165,6 +196,17 @@ export function writePipelineDb(path: string, data: FixtureData = {}): void {
         a.label ?? null,
         a.at,
         a.subscribers ?? null,
+        ...(wide
+          ? [
+              a.median ?? null,
+              a.videos ?? null,
+              a.foundVia ?? null,
+              a.name ?? null,
+              a.country ?? null,
+              a.uploads30 ?? null,
+              a.latestUpload ?? null,
+            ]
+          : []),
       );
     }
     db.exec("COMMIT");
