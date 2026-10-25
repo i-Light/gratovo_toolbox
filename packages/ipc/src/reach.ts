@@ -277,3 +277,16 @@ export const reachSendTestResultSchema = z.union([
     ]),
   }),
 ]);
+
+/** `reach:sequence-stop`, `reach:sequence-resume`, `reach:wake` (D22): one creator's sequence. */
+export const reachCreatorRequestSchema = z.strictObject({ creatorId: id });
+/** `reach:park` (D22): until the local midnight of `until`'s day, which must be ahead. */
+export const reachParkRequestSchema = z.strictObject({ creatorId: id, until: time });
+/** The answer of the four sequence commands; each is a command, not an undo step. */
+export const reachSequenceResultSchema = z.union([
+  done,
+  z.strictObject({
+    ok: z.literal(false),
+    problem: z.enum(["not_found", "wrong_state", "no_data"]),
+  }),
+]);

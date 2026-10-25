@@ -90,4 +90,14 @@ describe("the reach schemas", () => {
     expect(zones({ UCabc: "UTC; drop" })).toBe(false);
     expect(zones({ UCabc: "" })).toBe(false);
   });
+
+  it("checks the sequence commands' requests", () => {
+    expect(parseRequest("reach:sequence-stop", { creatorId: "UCabc" }).ok).toBe(true);
+    expect(parseRequest("reach:wake", { creatorId: "" }).ok).toBe(false);
+    expect(parseRequest("reach:park", { creatorId: "UCabc", until: 1_800_000_000_000 }).ok).toBe(
+      true,
+    );
+    expect(parseRequest("reach:park", { creatorId: "UCabc" }).ok).toBe(false);
+    expect(parseRequest("reach:sequence-resume", { creatorId: "UCabc", extra: 1 }).ok).toBe(false);
+  });
 });

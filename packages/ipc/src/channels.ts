@@ -22,17 +22,20 @@ import {
   logPageResultSchema,
 } from "./data";
 import {
+  reachCreatorRequestSchema,
   reachDraftActionResultSchema,
   reachDraftIdRequestSchema,
   reachDraftNowRequestSchema,
   reachDraftNowResultSchema,
   reachMailboxSetRequestSchema,
   reachMailboxSetResultSchema,
+  reachParkRequestSchema,
   reachRefreshResultSchema,
   reachRewriteRequestSchema,
   reachRewriteResultSchema,
   reachSendTestRequestSchema,
   reachSendTestResultSchema,
+  reachSequenceResultSchema,
   reachThreadRequestSchema,
   reachThreadResultSchema,
 } from "./reach";
@@ -353,6 +356,26 @@ export const channels = {
   "reach:send-test": {
     request: reachSendTestRequestSchema,
     response: reachSendTestResultSchema,
+  },
+  /** Stops a creator's follow-ups (D22); its open follow-up drafts are skipped. */
+  "reach:sequence-stop": {
+    request: reachCreatorRequestSchema,
+    response: reachSequenceResultSchema,
+  },
+  /** Runs a sequence the person stopped again (D22); due steps are drafted, never sent. */
+  "reach:sequence-resume": {
+    request: reachCreatorRequestSchema,
+    response: reachSequenceResultSchema,
+  },
+  /** Parks a creator until a day (D22): the stage `parked`, the follow-ups waiting. */
+  "reach:park": {
+    request: reachParkRequestSchema,
+    response: reachSequenceResultSchema,
+  },
+  /** Wakes a parked creator now (D22): back to `emailed`, the steps re-timed. */
+  "reach:wake": {
+    request: reachCreatorRequestSchema,
+    response: reachSequenceResultSchema,
   },
   /** Starts the Gemini bridge. Sends no prompt. */
   "gemini:start": {
