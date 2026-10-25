@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 
-import { BrowserWindow, Menu, app, dialog, session, shell } from "electron";
+import { BrowserWindow, Menu, app, dialog, powerMonitor, session, shell } from "electron";
 
 import { createAccount } from "./account/account";
 import { builtPageUrl } from "./app-page";
@@ -482,11 +482,17 @@ function start(): void {
           }
           return found;
         },
-        emit: () => {
-          emit("frame:changed", { parts: ["reach"] });
+        emit: (more) => {
+          emit("frame:changed", { parts: ["reach", ...(more ?? [])] });
         },
       });
       reachService = reach;
+      // After the computer sleeps the midnight timer may have been late: run the day check again.
+      powerMonitor.on("resume", () => {
+        reach.dayTick().catch((error: unknown) => {
+          console.error("Reach's day check failed after the computer woke:", error);
+        });
+      });
       // Settings saved for the mail (sender name, mailboxes) change what Reach may do.
       const connectionsForPage: typeof connections = {
         ...connections,

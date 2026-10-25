@@ -10,9 +10,17 @@ import {
   type DraftProblem,
   type DraftState,
   type MailboxView,
+  type Sequence,
   type StoredDraft,
 } from "@gratovo/core/data";
-import { canSend, draftGates, findMailbox, type Gate } from "@gratovo/core/reach";
+import {
+  canSend,
+  draftGates,
+  findMailbox,
+  planSteps,
+  withStep,
+  type Gate,
+} from "@gratovo/core/reach";
 
 import { textHash } from "../data/repositories/outreach";
 import type { JobOutcome } from "../pipeline/jobs";
@@ -314,6 +322,33 @@ export function createSender(deps: SenderDeps): Sender {
     ];
   }
 
+  /**
+   * The sequence a sent email brings (D22): a first email starts one, from the mailbox it went
+   * from, unless the creator has one; a follow-up marks its step sent. Nothing for a reply.
+   */
+  function sequenceWrites(source: DataSource, draft: StoredDraft, sent: Sent): Sequence[] {
+    const have = source.outreach.sequence(draft.creator);
+    if (draft.kind === "first") {
+      const mailbox = sent.mailbox ?? draft.mailbox;
+      return have !== null || mailbox === null
+        ? []
+        : [
+            {
+              creator: draft.creator,
+              mailbox,
+              startedAt: sent.at,
+              steps: planSteps(sent.at),
+              stopped: null,
+              parkUntil: null,
+            },
+          ];
+    }
+    if (draft.kind === "followUp" && draft.followUp !== null && have !== null) {
+      return [withStep(have, draft.followUp, "sent", sent.at)];
+    }
+    return [];
+  }
+
   /** One commit: the message out, the draft `sent`, and the stage move of a first email. */
   async function recordSent(
     source: DataSource,
@@ -350,6 +385,7 @@ export function createSender(deps: SenderDeps): Sender {
           reading: null,
         },
       ],
+      sequences: sequenceWrites(source, draft, sent),
       writes: sentWrites(draft, creator, sent.at, unchecked),
     });
   }

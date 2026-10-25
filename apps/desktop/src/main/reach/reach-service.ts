@@ -4,12 +4,32 @@ import {
   exampleCountries,
   reachDraftsMax,
   threadMessagesMax,
+  type CreatorState,
   type DataSource,
+  type DataWrite,
+  type DraftState,
   type Frame,
   type MailboxView,
+  type Sequence,
 } from "@gratovo/core/data";
-import { zoneOf } from "@gratovo/core/reach";
-import type { ChannelInput, ChannelResponse, GeminiStatus } from "@gratovo/ipc";
+import {
+  isFinished,
+  isRunning,
+  parked,
+  resumed,
+  stopped,
+  wakeDue,
+  withStep,
+  woken,
+  zoneOf,
+} from "@gratovo/core/reach";
+import {
+  sequenceRestoreMax,
+  type ChannelInput,
+  type ChannelResponse,
+  type FramePart,
+  type GeminiStatus,
+} from "@gratovo/ipc";
 
 import type { JobOutcome } from "../pipeline/jobs";
 import type { GeminiParams } from "../pipeline/gemini-protocol";
@@ -26,7 +46,7 @@ import { createMailState, type MailState } from "./mail-state";
 import { mailboxKey, noFlags, readMailboxFlags, writeMailboxFlags } from "./mailbox-settings";
 import { createQuickQueue, type QuickQueue } from "./quick-queue";
 import { createSender, type CheckOutcome, type Sender, type SendOutcome } from "./sender";
-import { mailboxStrings } from "./strings";
+import { mailboxStrings, sequenceStrings } from "./strings";
 
 /**
  * Reach in the main process (plan step 6, A6): one quick queue, the mail state, the sender and the
@@ -46,6 +66,8 @@ export interface ReachServiceHandle extends ReachService {
   geminiChanged(): void;
   /** The mail settings (sender name, mailboxes) were saved. */
   mailSettingsChanged(): void;
+  /** The day check: finish what ran out, wake what is due. Run at midnight and after a sleep. */
+  dayTick(): Promise<void>;
   /** At quit: stops every timer. */
   dispose(): void;
 }
@@ -69,8 +91,8 @@ export interface ReachServiceDeps {
   connected(): Promise<readonly string[]>;
   /** The country (two letters) of each channel the Find catalog knows; unknown ones are left out. */
   countries?(ids: readonly string[]): Promise<ReadonlyMap<string, string>>;
-  /** Tells the page the frame's `reach` part changed. */
-  emit(): void;
+  /** Tells the page the frame's `reach` part changed, and `more` parts besides it. */
+  emit(more?: readonly FramePart[]): void;
   now?: () => number;
   setTimer?: (run: () => void, ms: number) => unknown;
   clearTimer?: (handle: unknown) => void;
@@ -120,20 +142,33 @@ export function createReachService(deps: ReachServiceDeps): ReachServiceHandle {
   // --- the page is told at most once per changedGapMs ---
   let lastEmit = Number.NEGATIVE_INFINITY;
   let emitTimer: unknown = null;
-  function changed(): void {
+  // Parts besides `reach` asked for while a send waits its turn.
+  const pendingMore = new Set<FramePart>();
+  function flush(): void {
+    lastEmit = now();
+    const more = [...pendingMore];
+    pendingMore.clear();
+    if (more.length === 0) {
+      deps.emit();
+    } else {
+      deps.emit(more);
+    }
+  }
+  function changed(more: readonly FramePart[] = []): void {
+    for (const part of more) {
+      pendingMore.add(part);
+    }
     if (emitTimer !== null) {
       return;
     }
     const wait = lastEmit + changedGapMs - now();
     if (wait <= 0) {
-      lastEmit = now();
-      deps.emit();
+      flush();
       return;
     }
     emitTimer = setTimer(() => {
       emitTimer = null;
-      lastEmit = now();
-      deps.emit();
+      flush();
     }, wait);
   }
 
@@ -480,7 +515,330 @@ export function createReachService(deps: ReachServiceDeps): ReachServiceHandle {
     return zones;
   }
 
+  // --- the follow-up sequences (D22) ---
+
+  /** The follow-up drafts a Stop or a Park skips; one being sent is left. */
+  const openFollowUp: readonly DraftState[] = [
+    "drafting",
+    "ready",
+    "failed",
+    "approved",
+    "scheduled",
+  ];
+
+  const nameOf = (creator: CreatorState): string => creator.name ?? creator.handle;
+
+  const logLine = (creator: CreatorState, text: string, at: number): DataWrite => ({
+    kind: "log.add",
+    id: randomUUID(),
+    at,
+    text,
+    ref: creator.id,
+    action: null,
+    detail: null,
+  });
+
+  const stageWrite = (creator: CreatorState, stage: "emailed" | "parked"): DataWrite => ({
+    kind: "creator.stage",
+    id: creator.id,
+    stage,
+    handle: creator.handle,
+    name: nameOf(creator),
+  });
+
+  /** The creator's open follow-up drafts, as skip patches. */
+  function skipOpen(
+    source: DataSource,
+    creatorId: string,
+  ): { id: string; patch: { state: "skipped"; problem: null } }[] {
+    return source.outreach
+      .draftsIn(openFollowUp)
+      .filter((d) => d.creator === creatorId && d.kind === "followUp")
+      .map((d) => ({ id: d.id, patch: { state: "skipped" as const, problem: null } }));
+  }
+
+  type SequenceAnswer = ChannelResponse<"reach:sequence-resume">;
+  type SkipAnswer = ChannelResponse<"reach:sequence-stop">;
+
+  /** What each command needs: the open source, the creator and its sequence. */
+  async function sequenceOf(
+    creatorId: string,
+  ): Promise<
+    | { source: DataSource; creator: CreatorState; sequence: Sequence }
+    | Extract<SequenceAnswer, { ok: false }>
+  > {
+    const source = deps.source();
+    if (source === null || deps.mode() === null) {
+      return { ok: false, problem: "no_data" };
+    }
+    const creator = (await source.creatorStates()).find((c) => c.id === creatorId) ?? null;
+    // Read after the await: the sequence is what it is now, not what it was when asked.
+    const sequence = source.outreach.sequence(creatorId);
+    if (creator === null || sequence === null) {
+      return { ok: false, problem: "not_found" };
+    }
+    return { source, creator, sequence };
+  }
+
+  /** The page hears of the change, and of the log line and the stage the command wrote. */
+  function afterCommand(): SequenceAnswer {
+    changed(["log", "creators"]);
+    theSender.afterWrite();
+    return { ok: true };
+  }
+
+  const localMidnight = (at: number): number => {
+    const d = new Date(at);
+    d.setHours(0, 0, 0, 0);
+    return d.getTime();
+  };
+
+  // How many times each creator has been woken: a Wake that waited on a read while another one
+  // (a double click, or the day timer) went through finds the count moved and refuses.
+  const wakes = new Map<string, number>();
+  const wakesOf = (id: string): number => wakes.get(id) ?? 0;
+
+  /**
+   * An Undo of a Stop or a Park: the follow-up draft it skipped (this creator's, still skipped)
+   * comes back and its step goes back to drafted. A draft with no text yet goes back to drafting,
+   * any other to `ready`: approved and scheduled ones are never put back as such, so an Undo
+   * can't send. At most one comes back, and none when the creator has another open draft now.
+   */
+  function restoreDrafts(
+    source: DataSource,
+    creatorId: string,
+    restore: readonly string[],
+    sequence: Sequence,
+  ): { drafts: { id: string; patch: { state: DraftState; problem: null } }[]; sequence: Sequence } {
+    const none = { drafts: [], sequence };
+    if (source.outreach.openDraft(creatorId) !== null) {
+      return none;
+    }
+    for (const id of restore.slice(0, sequenceRestoreMax)) {
+      const draft = source.outreach.draft(id);
+      if (
+        draft === null ||
+        draft.creator !== creatorId ||
+        draft.kind !== "followUp" ||
+        draft.followUp === null ||
+        draft.state !== "skipped"
+      ) {
+        continue;
+      }
+      const step = sequence.steps.find((x) => x.n === draft.followUp);
+      if (step?.state !== "planned") {
+        continue;
+      }
+      return {
+        drafts: [{ id, patch: { state: draft.body === "" ? "drafting" : "ready", problem: null } }],
+        sequence: withStep(sequence, draft.followUp, "drafted"),
+      };
+    }
+    return none;
+  }
+
+  async function stopSequence(creatorId: string): Promise<SkipAnswer> {
+    const found = await sequenceOf(creatorId);
+    if (!("source" in found)) {
+      return found;
+    }
+    const { source, creator, sequence } = found;
+    if (sequence.stopped !== null) {
+      return { ok: false, problem: "wrong_state" };
+    }
+    const at = now();
+    const skip = skipOpen(source, creatorId);
+    source.outreach.commit({
+      at,
+      drafts: skip,
+      sequences: [stopped(sequence)],
+      writes: [logLine(creator, sequenceStrings.stopped(nameOf(creator)), at)],
+    });
+    afterCommand();
+    return { ok: true, skipped: skip.map((d) => d.id).slice(0, sequenceRestoreMax) };
+  }
+
+  async function resumeSequence(
+    creatorId: string,
+    restore?: readonly string[],
+  ): Promise<SequenceAnswer> {
+    const found = await sequenceOf(creatorId);
+    if (!("source" in found)) {
+      return found;
+    }
+    const { source, creator, sequence } = found;
+    if (sequence.stopped !== "you") {
+      return { ok: false, problem: "wrong_state" };
+    }
+    const at = now();
+    // An Undo brings back what the Stop skipped as it was; the steps are not re-timed then.
+    const back =
+      restore === undefined
+        ? { drafts: [], sequence: resumed(sequence, at) }
+        : restoreDrafts(source, creatorId, restore, resumed(sequence, null));
+    source.outreach.commit({
+      at,
+      drafts: back.drafts,
+      sequences: [back.sequence],
+      writes: [logLine(creator, sequenceStrings.resumed(nameOf(creator)), at)],
+    });
+    drafter.kick();
+    return afterCommand();
+  }
+
+  async function parkCreator(creatorId: string, until: number): Promise<SkipAnswer> {
+    const found = await sequenceOf(creatorId);
+    if (!("source" in found)) {
+      return found;
+    }
+    const { source, creator, sequence } = found;
+    const at = now();
+    if (
+      !Number.isFinite(until) ||
+      creator.stage !== "emailed" ||
+      !isRunning(sequence) ||
+      localMidnight(until) <= localMidnight(at)
+    ) {
+      return { ok: false, problem: "wrong_state" };
+    }
+    const next = parked(sequence, until);
+    const skip = skipOpen(source, creatorId);
+    source.outreach.commit({
+      at,
+      drafts: skip,
+      sequences: [next],
+      writes: [
+        stageWrite(creator, "parked"),
+        logLine(creator, sequenceStrings.parked(nameOf(creator), next.parkUntil ?? until), at),
+      ],
+    });
+    afterCommand();
+    return { ok: true, skipped: skip.map((d) => d.id).slice(0, sequenceRestoreMax) };
+  }
+
+  async function wakeCreator(
+    creatorId: string,
+    restore?: readonly string[],
+  ): Promise<SequenceAnswer> {
+    const before = wakesOf(creatorId);
+    const found = await sequenceOf(creatorId);
+    if (!("source" in found)) {
+      return found;
+    }
+    const { source, creator, sequence } = found;
+    // The stage and the date can drift apart: either one says it is parked. A wake that went
+    // through while this one waited on its read leaves nothing to wake.
+    if (
+      wakesOf(creatorId) !== before ||
+      (creator.stage !== "parked" && sequence.parkUntil === null)
+    ) {
+      return { ok: false, problem: "wrong_state" };
+    }
+    const at = now();
+    const back =
+      restore === undefined
+        ? { drafts: [], sequence: woken(sequence, at) }
+        : restoreDrafts(source, creatorId, restore, woken(sequence, null));
+    wakes.set(creatorId, before + 1);
+    source.outreach.commit({
+      at,
+      drafts: back.drafts,
+      sequences: [back.sequence],
+      writes: [
+        ...(creator.stage === "parked" ? [stageWrite(creator, "emailed")] : []),
+        logLine(creator, sequenceStrings.woke(nameOf(creator)), at),
+      ],
+    });
+    drafter.kick();
+    return afterCommand();
+  }
+
+  // --- the day timer: at start and at each local midnight ---
+  let dayTimer: unknown = null;
+
+  function stopDayTimer(): void {
+    if (dayTimer !== null) {
+      clearTimer(dayTimer);
+      dayTimer = null;
+    }
+  }
+
+  function armDayTimer(): void {
+    stopDayTimer();
+    const at = now();
+    const next = new Date(at);
+    next.setHours(24, 0, 0, 0);
+    dayTimer = setTimer(
+      () => {
+        dayTimer = null;
+        void dayTick();
+        armDayTimer();
+      },
+      Math.max(1000, next.getTime() - at),
+    );
+  }
+
+  /** Finishes the sequences that ran out and wakes the parked creators whose day came. */
+  async function dayTick(): Promise<void> {
+    const source = deps.source();
+    if (source === null || deps.mode() === null) {
+      return;
+    }
+    let wrote = false;
+    try {
+      const at = now();
+      const states = await source.creatorStates();
+      if (deps.source() !== source) {
+        return;
+      }
+      // The sequences as they are after the await, not before it.
+      for (const sequence of source.outreach.runningSequences()) {
+        const creator = states.find((c) => c.id === sequence.creator);
+        // A creator now never contact is left alone: no wake, no line.
+        if (creator === undefined || creator.stage === "never") {
+          continue;
+        }
+        if (wakeDue(sequence, at)) {
+          wakes.set(creator.id, wakesOf(creator.id) + 1);
+          source.outreach.commit({
+            at,
+            sequences: [woken(sequence, at)],
+            writes: [
+              ...(creator.stage === "parked" ? [stageWrite(creator, "emailed")] : []),
+              logLine(creator, sequenceStrings.woke(nameOf(creator)), at),
+            ],
+          });
+          wrote = true;
+        } else if (sequence.parkUntil === null && isFinished(sequence, at)) {
+          source.outreach.commit({
+            at,
+            sequences: [{ ...sequence, stopped: "finished" }],
+            writes: [logLine(creator, sequenceStrings.finished(nameOf(creator)), at)],
+          });
+          wrote = true;
+        }
+      }
+    } catch {
+      log("Reach: the day's sequence check failed.");
+    }
+    changed(wrote ? ["log", "creators"] : []);
+    drafter.kick();
+  }
+
   return {
+    sequenceStop: stopSequence,
+    sequenceResume: resumeSequence,
+    park: parkCreator,
+    wake: wakeCreator,
+    async dayTick() {
+      // After a sleep the timer may have been late or lost: run the check and set it again.
+      if (deps.source() === null || deps.mode() === null) {
+        return;
+      }
+      armDayTimer();
+      await dayTick();
+    },
+
     thread(creatorId) {
       const source = deps.source();
       if (source === null || deps.mode() === null) {
@@ -545,6 +903,8 @@ export function createReachService(deps: ReachServiceDeps): ReachServiceHandle {
       await refreshAndTell();
       theSender.start();
       drafter.kick();
+      void dayTick();
+      armDayTimer();
       if (deps.mode() === "live") {
         armRefreshTimer();
       }
@@ -553,6 +913,7 @@ export function createReachService(deps: ReachServiceDeps): ReachServiceHandle {
       drafter.drop();
       theSender.drop();
       stopRefreshTimer();
+      stopDayTimer();
     },
     geminiChanged() {
       drafter.kick();
@@ -563,6 +924,7 @@ export function createReachService(deps: ReachServiceDeps): ReachServiceHandle {
     },
     dispose() {
       stopRefreshTimer();
+      stopDayTimer();
       if (emitTimer !== null) {
         clearTimer(emitTimer);
         emitTimer = null;

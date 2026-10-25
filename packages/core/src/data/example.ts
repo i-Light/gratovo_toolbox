@@ -6,6 +6,7 @@ import type {
   DraftState,
   OutreachDraft,
   ReachData,
+  Sequence,
   ThreadSummary,
 } from "./reach-types";
 import type {
@@ -28,7 +29,7 @@ import type {
  */
 
 /** Bump it when the fixtures change: an older example database is then seeded again. */
-export const exampleSeedVersion = 5;
+export const exampleSeedVersion = 6;
 
 /** What the example database is seeded from, and the extras (presence, counts, a run) it serves. */
 export interface ExampleSeed {
@@ -67,6 +68,8 @@ export interface ExampleSeed {
   readonly outreach: {
     readonly drafts: readonly ExampleDraft[];
     readonly messages: readonly NewMessage[];
+    /** The follow-up sequences of the emailed creators (D22). */
+    readonly sequences: readonly Sequence[];
   };
   /** A teammate's search in progress, as seen at `now`. */
   mateRun(now: number): MateRun;
@@ -110,7 +113,11 @@ export function exampleSeed(now: number): ExampleSeed {
     notifications: notifications(now),
     mailSettings: mailSettings(now),
     reachMailboxes: { "outreach3@gratovo.example": { paused: false, slowed: true } },
-    outreach: { drafts: drafts(now), messages: [...messages(now), ...history(now)] },
+    outreach: {
+      drafts: drafts(now),
+      messages: [...messages(now), ...history(now)],
+      sequences: sequences(now),
+    },
     mateRun: (at) => mateRun(dayTime(at, 0, 9, 2)),
   };
 }
@@ -607,6 +614,27 @@ function messages(now: number): readonly NewMessage[] {
       'Hi Noor,\n\nYour "Vector Databases in 10 Minutes" cleared up what three other videos had not.\n\nWe work with AI tool brands and think one fits your channel. Would you be open to hearing about a sponsorship?\n\nMoustafa',
     ),
     {
+      id: "msg5",
+      creator: "c9",
+      direction: "out",
+      kind: "followUp",
+      followUp: 1,
+      subject: "Your image model comparison",
+      body: 'Hi Theo,\n\nA short follow-up on my note about "Four Image Models, One Prompt". Would you like to hear which AI tool brand I had in mind?\n\nMoustafa',
+      bodyCut: false,
+      at: now - 2 * dayMs,
+      mailbox: "outreach3@gratovo.example",
+      peer: "biz@diffusiondiaries.com",
+      peerName: "Theo",
+      conversationKey: "c:c9",
+      gmailMessageId: "gm-msg5",
+      gmailThreadId: "gt-c9",
+      draftId: null,
+      by: me,
+      source: "app",
+      reading: null,
+    },
+    {
       id: "msg4",
       creator: "c10",
       direction: "in",
@@ -631,9 +659,51 @@ function messages(now: number): readonly NewMessage[] {
 }
 
 /**
+ * The sequences of the two emailed creators (D22). No step is due at load, so the stand-in
+ * drafter writes nothing by itself. Ship AI's first email went 2 days ago (step 1 is in a day);
+ * Diffusion Diaries' went 5 days ago and its first follow-up went with it 3 days after (msg5).
+ * Parked and stopped sequences are not seeded: every other creator's stage is pinned by a test.
+ */
+function sequences(now: number): readonly Sequence[] {
+  const step = (n: number, dueAt: number, state: "planned" | "sent", sentAt: number | null) => ({
+    n,
+    dueAt,
+    state,
+    sentAt,
+  });
+  return [
+    {
+      creator: "c8",
+      mailbox: "outreach1@gratovo.example",
+      startedAt: now - 2 * dayMs,
+      steps: [
+        step(1, now + dayMs, "planned", null),
+        step(2, now + 5 * dayMs, "planned", null),
+        step(3, now + 12 * dayMs, "planned", null),
+      ],
+      stopped: null,
+      parkUntil: null,
+    },
+    {
+      creator: "c9",
+      mailbox: "outreach3@gratovo.example",
+      startedAt: now - 5 * dayMs,
+      steps: [
+        step(1, now - 2 * dayMs, "sent", now - 2 * dayMs),
+        step(2, now + 2 * dayMs, "planned", null),
+        step(3, now + 9 * dayMs, "planned", null),
+      ],
+      stopped: null,
+      parkUntil: null,
+    },
+  ];
+}
+
+/**
  * outreach3's week, imported: 30 first emails to channels that belong to no creator in the
- * example, five of them answered, and one bounce. With the one real send from outreach3 that is
- * 31 sends and 1 bounce (3.2%), over the 3% line, so outreach3 is slowed (D20). The sends sit on
+ * example, five of them answered, and one bounce. With the two real sends from outreach3 (a first
+ * email and a follow-up) that is 32 sends and 1 bounce (3.1%), over the 3% line, so outreach3 is
+ * slowed (D20). The sends sit on
  * the six days before today, so today's count is unchanged. No creator owns these channel ids, so
  * the board, the rail and the record never list them.
  */
@@ -763,7 +833,10 @@ function exampleReach(outreach: ExampleSeed["outreach"]): ReachData {
     .map(({ summary }) => summary);
   return {
     drafts,
-    sequences: [],
+    // Newest first, as the database lists them.
+    sequences: [...outreach.sequences].sort(
+      (a, b) => b.startedAt - a.startedAt || (a.creator < b.creator ? -1 : 1),
+    ),
     threads,
     mailboxes: [],
     gemini: "off",

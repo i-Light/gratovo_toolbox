@@ -122,8 +122,19 @@ class FakeOutreach implements OutreachStore {
   sequence(creator: string): Sequence | null {
     return this.sequences.get(creator) ?? null;
   }
-  commit(): never {
-    throw new Error("not the drafter's");
+  runningSequences(): Sequence[] {
+    return [...this.sequences.values()].filter((q) => q.stopped === null);
+  }
+  commit(change: Parameters<OutreachStore["commit"]>[0]): void {
+    for (const draft of change.newDrafts ?? []) {
+      this.insertDraft(draft);
+    }
+    for (const { id, patch } of change.drafts ?? []) {
+      this.updateDraft(id, patch, change.at);
+    }
+    for (const sequence of change.sequences ?? []) {
+      this.sequences.set(sequence.creator, sequence);
+    }
   }
 }
 
@@ -372,6 +383,77 @@ describe("the drafter", () => {
         timeoutS: 240,
       });
       expect(propose.mock.calls[0]?.[0].facts.agency?.sender).toBe("Moustafa");
+    });
+
+    describe("follow-ups (D22)", () => {
+      const day = 86_400_000;
+      const running = (creator: string, over: Partial<Sequence> = {}): Sequence => ({
+        creator,
+        mailbox: "lina@gratovo.example",
+        startedAt: start - 8 * day,
+        steps: [
+          { n: 1, dueAt: start - 5 * day, state: "sent", sentAt: start - 5 * day },
+          { n: 2, dueAt: start - day, state: "planned", sentAt: null },
+          { n: 3, dueAt: start + 6 * day, state: "planned", sentAt: null },
+        ],
+        stopped: null,
+        parkUntil: null,
+        ...over,
+      });
+
+      it("drafts the lowest due step once, from the sequence's mailbox, and never approves it", async () => {
+        states = [confirmed(sam, { stage: "emailed" })];
+        store.sequences.set(sam, running(sam));
+        await kicked();
+        await kicked();
+        expect(drafts()).toHaveLength(1);
+        expect(only()).toMatchObject({
+          kind: "followUp",
+          followUp: 2,
+          mailbox: "lina@gratovo.example",
+        });
+        expect(["drafting", "ready"]).toContain(only().state);
+        expect(store.sequences.get(sam)?.steps.map((x) => x.state)).toEqual([
+          "sent",
+          "drafted",
+          "planned",
+        ]);
+        expect(propose.mock.calls[0]?.[0].request).toMatchObject({
+          kind: "followUp",
+          followUpNumber: 2,
+        });
+        expect(drafts().every((d) => d.state !== "approved" && d.state !== "scheduled")).toBe(true);
+      });
+
+      it("drafts nothing while stopped or parked, or for a creator who is not emailed", async () => {
+        const a = channelId("stopped");
+        const b = channelId("parked");
+        const c = channelId("replied");
+        const d = channelId("future");
+        states = [
+          confirmed(a, { stage: "emailed" }),
+          confirmed(b, { stage: "parked" }),
+          confirmed(c, { stage: "replied" }),
+          confirmed(d, { stage: "emailed" }),
+        ];
+        store.sequences.set(a, running(a, { stopped: "you" }));
+        store.sequences.set(b, running(b, { parkUntil: start + 10 * day }));
+        store.sequences.set(c, running(c));
+        store.sequences.set(
+          d,
+          running(d, { steps: [{ n: 1, dueAt: start + day, state: "planned", sentAt: null }] }),
+        );
+        await kicked();
+        expect(drafts()).toEqual([]);
+      });
+
+      it("drafts nothing while the creator has an open draft", async () => {
+        states = [confirmed(sam, { stage: "emailed" })];
+        store.sequences.set(sam, running(sam));
+        seed("open", sam, { state: "ready", kind: "reply" });
+        await kicked();
+        expect(drafts().map((x) => x.id)).toEqual(["open"]);
+      });
     });
 
     it("waits 2 s after the last kick, and looks once", async () => {

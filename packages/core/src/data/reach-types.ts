@@ -264,6 +264,8 @@ export type ReachGeminiState = (typeof reachGeminiStates)[number];
 
 export const reachDraftsMax = 1000;
 export const reachThreadsMax = 5000;
+/** The sequences the frame carries: those running, parked or stopped by you, and recent ones. */
+export const reachSequencesMax = 2000;
 export const reachMailboxesMax = 20;
 
 /** Reach in the frame (D4). */

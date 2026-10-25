@@ -323,3 +323,53 @@ Same rules as 6a's tasks.
 | B3 | N | B1 | `renderer/reach/mailboxes.tsx` (new), `reach-screen.tsx`, `reach.css`, `renderer/record/draft-card.tsx` (Send later), `renderer/lib/reach-actions.ts` (`scheduleDraft`, `cancelScheduled`, `setMailbox`, `sendTest`), `renderer/toolbox/scheduled-tool.tsx` (new), `toolbox-screen.tsx`, `toolbox-list.tsx`, `lib/routes.ts` if needed, `lib/wired.ts`, `renderer/strings.ts`, the tests | D20 and D21 in the page, per the prototype. | vitest; screenshot at 1440 px |
 | B4 | N | B2, B3 | `apps/desktop/e2e/reach-later.spec.ts` | One smoke on example data: a waiting draft, Send later › Tomorrow, the toast, Toolbox › Scheduled lists it, Cancel, the draft is back in Waiting. | e2e on Windows |
 | B5 | H | all | review (router-reviewer) | The diff against this plan. Security: a test email or a scheduled send only on a person's click; no secret and no mail body in logs. | findings fixed |
+
+## Decisions added for 6c (2026-10-25)
+
+**D22. Sequences, in detail** (D13; prototype `reach.js` Sequences, `seqRows`, `seqEvents`, `seqNext`, `seqMenu`).
+- **Core `reach/sequence.ts`** (pure, the one place the rules live):
+  - `planSteps(sentAt)`: steps 1, 2 and 3 due at +3, +7 and +14 days, `planned`.
+  - `dueSteps(sequence, now)`: the planned steps whose due day has begun (local midnight on), while the sequence runs (not stopped, not parked).
+  - `isFinished(sequence, now)`: no step left planned or drafted, and 7 days since the last one sent.
+  - `stopped(sequence, how)`, `resumed(sequence)`, `parked(sequence, until)`, `woken(sequence, now)`.
+  - Waking re-times the steps still planned: when the first of them is due before `now`, all of them move by the same amount so the first is due now and the gaps stay.
+- **Starting one:** when a first email is sent, the sender's one commit also writes the sequence: `planSteps(sentAt)`, the mailbox the email went from, key `c:<id>`. An old creator with old mail and no sequence gets none (D19).
+- **Drafting a step:** the drafter's scan also writes a follow-up draft (`kind: followUp`, `followUp: n`, the sequence's mailbox) for each due step whose creator is `emailed`, has no open draft and is not never contact. The step becomes `drafted`. The draft is `drafting`, then `ready`: never `approved` (no automatic send).
+- **Sending a step** marks it `sent` with `sentAt`, in the sender's commit. Skipping its draft marks it `skipped`, in the same write transaction (the repository's `draft.state` path).
+- **The day timer:** reach-service wakes at each local midnight (and at start).
+  - It kicks the drafter.
+  - It stops finished sequences (`stopped: "finished"`, one log line each).
+  - It wakes parked creators whose date came: the stage goes `parked` → `emailed` through the normal `creator.stage` write, and the steps are re-timed.
+- **Stop, Resume, Park, Wake: commands, not undo steps.** These are `reach:sequence-stop`, `reach:sequence-resume`, `reach:park {creatorId, until}` and `reach:wake`. Each is one main commit, with its log line and any stage write.
+  - The sequences come from main, and an undo step would need a field merge like 6a's drafts (finding 1). So, as with mailboxes (D20), each toast has an **Undo** button that runs the opposite command; Ctrl Z does not cover them.
+  - **Stop:** `stopped: "you"`. Open follow-up drafts (`drafting`, `ready`, `failed`, `approved`, `scheduled`; not `sending`) are skipped, and their steps go back to `planned`, so Resume can draft them again.
+  - **Resume:** clears `stopped` when it is `"you"`. Steps already due are drafted on the next scan (drafted only, never sent).
+  - **Park until:** stage `parked`, `park_until` = local midnight of the chosen day. The choices are 2 weeks, 1 month and 3 months. Open follow-up drafts are skipped, as on Stop.
+  - **Wake:** stage `emailed`, `park_until` cleared, the steps re-timed.
+- **The page:**
+  - **Reach › Sequences:** the timeline, 14 days back and 14 days ahead, one row per creator with a sequence, per the prototype.
+    - Dots: sent, due, planned, skipped, and their reply (6d fills replies).
+    - A "Next step" column, and the filter All, Running and Stopped.
+    - A row's menu: Open, Stop (or Resume), Park until, Wake.
+  - **Board cards:** In sequence says "Parked until <date>" and "Stopped by you". "Finished" shows when the sequence is finished.
+  - **The send toast** names the next follow-up date ("Follow-up 1 on Wed 28 Oct"), from `planSteps` for a first email, or from the sequence for a follow-up.
+  - **The record's Emails tab** shows the next step under the thread, with Stop and Park.
+  - **Live gate:** `liveWired.reach` adds `sequences`.
+- **Example data:** the seed gives the emailed creators c8 and c9 sequences (one with step 1 sent). No step is due at load, so the stand-in drafter writes nothing by itself. *As built:* no parked or stopped-by-you creator is seeded. Every other seed creator is held at its stage by a draft, a deal, a reply or Find's tests, and a new one would shift many counts. Park and Stop can be tried on c8 and c9.
+- **Review of 6c:**
+  - Stop and Park answer with the follow-up drafts they skipped, and their Undo brings exactly those back. An approved or scheduled draft comes back as `ready`, so an Undo never sends.
+  - A step sent late moves the later ones, so the gaps between follow-ups stay.
+  - A stage of `parked` with no day counts as parked, so Wake is always offered.
+  - Park is offered only on a running sequence.
+
+## Tasks for 6c
+
+Same rules as 6a's tasks.
+
+| id | tier | depends | files | spec | done-check |
+|---|---|---|---|---|---|
+| C1 | H (lead) | – | `packages/core/src/reach/sequence.ts` (+ test), `reach/index.ts`, `packages/ipc/src/reach.ts`, `channels.ts` (+ tests) | D22's pure rules; the four channels' schemas. | typecheck; core and ipc tests |
+| C2 | N | C1 | `main/reach/sender.ts`, `drafter.ts`, `reach-service.ts`, `strings.ts`, `main/data/repositories/outreach.ts`, `sqlite-source.ts`/`example-source.ts` if needed, `handlers.ts`, `services.ts`, `stub-services.ts`, `packages/core/src/data/example.ts`, the tests | D22 in main: start, draft, send and skip a step, the day timer, finish, wake on the date, the four commands, the seed. | vitest; contract tests |
+| C3 | N | C1 | `renderer/reach/sequences.tsx` (new, + test), `reach-screen.tsx`, `reach.css`, `reach-view.ts`, `renderer/record/creator-emails.tsx`, `renderer/lib/reach-actions.ts` (+ test), `lib/wired.ts` (+ test), `renderer/strings.ts`, `e2e/live-gate.spec.ts` expectations | D22 in the page, per the prototype. | vitest; screenshot at 1440 px |
+| C4 | N | C2, C3 | `apps/desktop/e2e/reach-sequences.spec.ts` | One smoke on example data: Send a first email and let it go; Sequences shows its row with follow-up 1 in 3 days; Stop; the toast's Undo resumes it. | e2e on Windows |
+| C5 | H | all | review (router-reviewer) | The diff against this plan. No automatic send (a follow-up is only ever drafted). The timer and wake paths. | findings fixed |

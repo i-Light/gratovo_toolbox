@@ -21,7 +21,7 @@ import {
   type RewriteHow,
   type StoredDraft,
 } from "@gratovo/core/data";
-import { pickMailbox } from "@gratovo/core/reach";
+import { dueSteps, pickMailbox, withStep } from "@gratovo/core/reach";
 import type { ChannelResponse } from "@gratovo/ipc";
 
 import type { GeminiParams, GeminiResult } from "../pipeline/gemini-protocol";
@@ -666,6 +666,14 @@ export function createDrafter(deps: DrafterDeps): Drafter {
     ])) {
       if (never.has(draft.creator) && !inFlight.has(draft.id)) {
         any = source.outreach.updateDraft(draft.id, { state: "skipped", problem: null }, at) || any;
+        // A skipped follow-up leaves its step skipped too, so the sequence can finish.
+        const sequence = source.outreach.sequence(draft.creator);
+        if (draft.kind === "followUp" && draft.followUp !== null && sequence !== null) {
+          source.outreach.commit({
+            at,
+            sequences: [withStep(sequence, draft.followUp, "skipped")],
+          });
+        }
       }
     }
     const mailbox = pickMailbox(deps.mailboxes());
@@ -682,6 +690,36 @@ export function createDrafter(deps: DrafterDeps): Drafter {
         });
         any = true;
       }
+    }
+    // The follow-ups (D22): the lowest due step of each emailed creator with no open draft. The
+    // step becomes drafted in the same commit as its draft's row. Only ever drafted: nothing here
+    // approves or schedules a draft.
+    for (const creator of states) {
+      if (creator.stage !== "emailed" || source.outreach.openDraft(creator.id) !== null) {
+        continue;
+      }
+      const sequence = source.outreach.sequence(creator.id);
+      const step = sequence === null ? undefined : dueSteps(sequence, at)[0];
+      if (sequence === null || step === undefined) {
+        continue;
+      }
+      // One transaction: a row with no step drafted (or the reverse) would draft the step twice.
+      source.outreach.commit({
+        at,
+        newDrafts: [
+          {
+            id: newId(),
+            creator: creator.id,
+            kind: "followUp",
+            followUp: step.n,
+            mailbox: sequence.mailbox,
+            replyTo: null,
+            at,
+          },
+        ],
+        sequences: [withStep(sequence, step.n, "drafted")],
+      });
+      any = true;
     }
     if (any) {
       deps.changed();

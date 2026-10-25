@@ -9,13 +9,14 @@ import {
   draftSubjectMax,
   messageBodyMax,
   reachDraftsMax,
+  reachSequencesMax,
   reachThreadsMax,
   replyFactKeys,
   rewriteHows,
   sequenceStops,
   threadPreviewMax,
 } from "@gratovo/core/data";
-import { bounceWindowMs, replyWindowMs } from "@gratovo/core/reach";
+import { bounceWindowMs, replyWindowMs, withStep } from "@gratovo/core/reach";
 import type {
   DataWrite,
   DraftFinding,
@@ -43,6 +44,8 @@ import type {
 
 /** A day, in ms: the time a sent or skipped draft stays in the frame. */
 const day = 24 * 60 * 60 * 1000;
+/** How long a sequence that ended (not stopped by the person) stays in the frame. */
+const recentSequenceMs = 30 * day;
 
 type Row = Record<string, SQLOutputValue>;
 
@@ -376,6 +379,11 @@ export function writeDraftState(
     refused(write.kind);
     return;
   }
+  // A follow-up's step follows its draft (D22): an Undo that brings a skipped one back puts the
+  // step back to drafted, whatever state the draft goes to, before any early return below.
+  if (from === "skipped") {
+    markStep(db, write.id, "drafted", now);
+  }
   if (to === "scheduled" && (write.sendAt ?? 0) < now - scheduleGraceMs) {
     // A Redo of a Send later, or an Undo of its Cancel, can carry a time long past. Sending it at
     // once is not what the person chose: the draft stays as it was and says why (review of 6b).
@@ -407,6 +415,46 @@ export function writeDraftState(
       to === "ready" ? ", problem = NULL" : ""
     } WHERE id = ?`,
   ).run(to, now, write.id);
+  // Skipping a follow-up skips its step too. Same transaction as the write.
+  if (to === "skipped") {
+    markStep(db, write.id, "skipped", now);
+  }
+}
+
+/** Sets the sequence step a follow-up draft is for; nothing for any other draft. */
+export function markStep(
+  db: DatabaseSync,
+  draftId: string,
+  state: "drafted" | "skipped",
+  now: number,
+): void {
+  const draft = db
+    .prepare("SELECT channel_id, kind, follow_up FROM outreach_drafts WHERE id = ?")
+    .get(draftId);
+  if (
+    draft === undefined ||
+    draft["kind"] !== "followUp" ||
+    typeof draft["follow_up"] !== "number"
+  ) {
+    return;
+  }
+  const row = db
+    .prepare("SELECT * FROM outreach_sequences WHERE channel_id = ?")
+    .get(String(draft["channel_id"]));
+  if (row === undefined) {
+    return;
+  }
+  const sequence = sequenceFrom(row);
+  const step = sequence.steps.find((s) => s.n === draft["follow_up"]);
+  // A sent step stays sent; a skip only moves a drafted step, an Undo only a skipped one.
+  if (step === undefined || step.state !== (state === "skipped" ? "drafted" : "skipped")) {
+    return;
+  }
+  db.prepare("UPDATE outreach_sequences SET steps = ?, updated_at = ? WHERE channel_id = ?").run(
+    JSON.stringify(withStep(sequence, step.n, state).steps),
+    now,
+    sequence.creator,
+  );
 }
 
 /** `draft.text`: stores the text and marks it edited; not on a draft that is going or gone. */
@@ -539,6 +587,23 @@ export function createOutreachStore(db: DatabaseSync, deps: OutreachDeps): Outre
     return true;
   }
 
+  function insertDraft(draft: NewDraft): void {
+    db.prepare(
+      `INSERT INTO outreach_drafts
+         (id, channel_id, kind, follow_up, state, mailbox, reply_to, created_at, updated_at)
+       VALUES (?, ?, ?, ?, 'drafting', ?, ?, ?, ?)`,
+    ).run(
+      draft.id,
+      draft.creator,
+      draft.kind,
+      draft.followUp,
+      draft.mailbox,
+      draft.replyTo,
+      draft.at,
+      draft.at,
+    );
+  }
+
   function insertMessage(message: NewMessage): void {
     db.prepare(
       `INSERT OR IGNORE INTO outreach_messages
@@ -645,9 +710,16 @@ export function createOutreachStore(db: DatabaseSync, deps: OutreachDeps): Outre
         now - day,
         reachDraftsMax,
       ).map(frameDraft);
+      // Only what the page needs: running, parked and stopped by you, and those that ended any
+      // other way in the last 30 days, newest first; a long-lived app can't outgrow the frame's
+      // cap (review of 6c, finding 1).
       const sequences = db
-        .prepare("SELECT * FROM outreach_sequences ORDER BY started_at, channel_id")
-        .all()
+        .prepare(
+          `SELECT * FROM outreach_sequences
+           WHERE stopped IS NULL OR stopped = 'you' OR updated_at >= ?
+           ORDER BY started_at DESC, channel_id LIMIT ?`,
+        )
+        .all(now - recentSequenceMs, reachSequencesMax)
         .map(sequenceFrom);
       return { drafts, sequences, threads: threads() };
     },
@@ -668,22 +740,7 @@ export function createOutreachStore(db: DatabaseSync, deps: OutreachDeps): Outre
          ORDER BY created_at DESC, rowid DESC LIMIT 1`,
         creator,
       )[0] ?? null,
-    insertDraft(draft: NewDraft) {
-      db.prepare(
-        `INSERT INTO outreach_drafts
-           (id, channel_id, kind, follow_up, state, mailbox, reply_to, created_at, updated_at)
-         VALUES (?, ?, ?, ?, 'drafting', ?, ?, ?, ?)`,
-      ).run(
-        draft.id,
-        draft.creator,
-        draft.kind,
-        draft.followUp,
-        draft.mailbox,
-        draft.replyTo,
-        draft.at,
-        draft.at,
-      );
-    },
+    insertDraft,
     updateDraft,
     thread(creator, limit) {
       const rows = db
@@ -776,12 +833,20 @@ export function createOutreachStore(db: DatabaseSync, deps: OutreachDeps): Outre
       }
       return counts;
     },
+    runningSequences: () =>
+      db
+        .prepare("SELECT * FROM outreach_sequences WHERE stopped IS NULL ORDER BY started_at")
+        .all()
+        .map(sequenceFrom),
     sequence: (creator) => {
       const row = db.prepare("SELECT * FROM outreach_sequences WHERE channel_id = ?").get(creator);
       return row === undefined ? null : sequenceFrom(row);
     },
     commit(change) {
       deps.transaction(() => {
+        for (const draft of change.newDrafts ?? []) {
+          insertDraft(draft);
+        }
         for (const { id, patch } of change.drafts ?? []) {
           updateDraft(id, patch, change.at);
         }

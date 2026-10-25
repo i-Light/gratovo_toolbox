@@ -1,4 +1,11 @@
-import { canSchedule, canSend, draftGates, findMailbox } from "@gratovo/core/reach";
+import {
+  canSchedule,
+  canSend,
+  draftGates,
+  findMailbox,
+  parkChoices,
+  planSteps,
+} from "@gratovo/core/reach";
 import type { Gate } from "@gratovo/core/reach";
 import type {
   DraftState,
@@ -10,9 +17,10 @@ import type {
 } from "@gratovo/core/data";
 
 import { strings } from "../strings";
-import { act } from "./actions";
+import { act, openMenu } from "./actions";
 import { adoptServerData } from "./persist";
 import { appStore } from "./store";
+import type { MenuItem } from "./store";
 import { toast } from "./toast";
 
 const t = strings.reach;
@@ -76,6 +84,21 @@ function sentLabel(draft: OutreachDraft): string {
     : t.sentLabel.reply(name);
 }
 
+/** The send toast's line on what follows (D13): the next follow-up's day, or that it was the last. */
+function nextLine(draft: OutreachDraft, sendAt: number): string | null {
+  if (draft.kind === "first") {
+    const first = planSteps(sendAt)[0];
+    return first === undefined ? null : t.nextFollowUp(first.n, dayWords(first.dueAt));
+  }
+  if (draft.kind === "followUp") {
+    const sequence = reachNow().sequences.find((s) => s.creator === draft.creator);
+    const after = (sequence?.steps ?? []).find(
+      (s) => s.n > (draft.followUp ?? 0) && (s.state === "planned" || s.state === "drafted"),
+    );
+    return after === undefined ? t.lastFollowUp : t.nextFollowUp(after.n, dayWords(after.dueAt));
+  }
+  return null;
+}
 /**
  * Sends a draft: refuses, with a toast, while a gate holds it; else it becomes `approved` with the
  * 10 s hold, and the toast carries Undo. Main sends at `sendAt` (D11).
@@ -111,7 +134,12 @@ export function sendDraft(id: string): boolean {
       log: false,
       toast: {
         msg: t.sentTo(nameOf(draft)),
-        sub: draft.mailbox === null ? t.sentSubNoMailbox : t.sentSub(draft.mailbox),
+        sub: [
+          nextLine(draft, sendAt),
+          draft.mailbox === null ? t.sentSubNoMailbox : t.sentSub(draft.mailbox),
+        ]
+          .filter((line) => line !== null)
+          .join(". "),
         icon: "send",
         ms: holdMs,
       },
@@ -565,4 +593,184 @@ export async function sendTest(address: string): Promise<boolean> {
     ms: 5500,
   });
   return true;
+}
+
+type SequenceChannel =
+  "reach:sequence-stop" | "reach:sequence-resume" | "reach:park" | "reach:wake";
+
+/**
+ * Runs one sequence command in main (D22). Commands, not undo steps: the toast carries an Undo
+ * button that runs the opposite command. A refusal gets a plain toast. Gives the follow-up drafts
+ * a Stop or Park skipped (none for Resume and Wake), or null when it didn't run.
+ */
+async function sequenceCommand(
+  channel: SequenceChannel,
+  input: {
+    readonly creatorId: string;
+    readonly until?: number;
+    readonly restore?: readonly string[];
+  },
+): Promise<readonly string[] | null> {
+  let result;
+  try {
+    result = await window.gratovo.invoke(channel, input);
+  } catch {
+    toast({ msg: t.sequences.problems.no_data, icon: "alert" });
+    return null;
+  }
+  if (!result.ok) {
+    toast({ msg: t.sequences.problems.no_data, icon: "alert" });
+    return null;
+  }
+  const value = result.value as {
+    readonly ok: boolean;
+    readonly problem?: string;
+    readonly skipped?: readonly string[];
+  };
+  if (!value.ok) {
+    const problem = (value.problem ?? "no_data") as keyof typeof t.sequences.problems;
+    toast({ msg: t.sequences.problems[problem], icon: "alert" });
+    return null;
+  }
+  return value.skipped ?? [];
+}
+
+const sequenceOf = (creatorId: string) =>
+  reachNow().sequences.find((s) => s.creator === creatorId) ?? null;
+const undoAction = (run: () => void) => [{ label: strings.actions.undo, run }];
+
+/**
+ * Stops a creator's sequence. Undo resumes it and brings back the follow-up drafts the stop
+ * skipped, as they were (review of 6c, finding 3).
+ */
+export async function stopSequence(creatorId: string, withUndo = true): Promise<boolean> {
+  const name = creatorOf(creatorId)?.name ?? "";
+  const skipped = await sequenceCommand("reach:sequence-stop", { creatorId });
+  if (skipped === null) {
+    return false;
+  }
+  toast({
+    msg: t.sequences.toasts.stopped(name),
+    sub: t.sequences.toasts.stoppedSub,
+    icon: "pause",
+    ...(withUndo
+      ? {
+          actions: undoAction(() => {
+            void resumeSequence(creatorId, false, skipped);
+          }),
+        }
+      : {}),
+  });
+  return true;
+}
+
+/** Runs a sequence that the person stopped; `restore` is a Stop's skipped drafts. Undo stops it again. */
+export async function resumeSequence(
+  creatorId: string,
+  withUndo = true,
+  restore: readonly string[] = [],
+): Promise<boolean> {
+  const name = creatorOf(creatorId)?.name ?? "";
+  const input = restore.length > 0 ? { creatorId, restore } : { creatorId };
+  if ((await sequenceCommand("reach:sequence-resume", input)) === null) {
+    return false;
+  }
+  toast({
+    msg: t.sequences.toasts.resumed(name),
+    sub: t.sequences.toasts.resumedSub,
+    icon: "play",
+    ...(withUndo
+      ? {
+          actions: undoAction(() => {
+            void stopSequence(creatorId, false);
+          }),
+        }
+      : {}),
+  });
+  return true;
+}
+
+/** Parks a creator until the day `until` falls on. Undo wakes them, with the drafts it skipped. */
+export async function parkCreator(
+  creatorId: string,
+  until: number,
+  withUndo = true,
+): Promise<boolean> {
+  const name = creatorOf(creatorId)?.name ?? "";
+  const skipped = await sequenceCommand("reach:park", { creatorId, until });
+  if (skipped === null) {
+    return false;
+  }
+  toast({
+    msg: t.sequences.toasts.parked(name, dayWords(until)),
+    sub: t.sequences.toasts.parkedSub,
+    icon: "alarm",
+    ...(withUndo
+      ? {
+          actions: undoAction(() => {
+            void wakeCreator(creatorId, false, skipped);
+          }),
+        }
+      : {}),
+  });
+  return true;
+}
+
+/**
+ * Wakes a parked creator now; `restore` is a Park's skipped drafts. Undo parks them again, to the
+ * day they were parked until.
+ */
+export async function wakeCreator(
+  creatorId: string,
+  withUndo = true,
+  restore: readonly string[] = [],
+): Promise<boolean> {
+  const name = creatorOf(creatorId)?.name ?? "";
+  const was = sequenceOf(creatorId)?.parkUntil ?? null;
+  const input = restore.length > 0 ? { creatorId, restore } : { creatorId };
+  if ((await sequenceCommand("reach:wake", input)) === null) {
+    return false;
+  }
+  const back = was !== null && was > Date.now() ? was : null;
+  toast({
+    msg: t.sequences.toasts.woke(name),
+    sub: t.sequences.toasts.wokeSub,
+    icon: "alarm",
+    ...(withUndo && back !== null
+      ? {
+          actions: undoAction(() => {
+            void parkCreator(creatorId, back, false);
+          }),
+        }
+      : {}),
+  });
+  return true;
+}
+
+/** The park choices as menu rows: a heading, then 2 weeks, 1 month and 3 months. */
+export function parkItems(creatorId: string): MenuItem[] {
+  const choices = parkChoices(Date.now());
+  const item = (label: string, at: number): MenuItem => ({
+    kind: "item",
+    label,
+    icon: "alarm",
+    hint: dayWords(at),
+    run: () => {
+      void parkCreator(creatorId, at);
+    },
+  });
+  return [
+    { kind: "heading", label: t.sequences.parkHead },
+    item(t.sequences.parkChoices.weeks2, choices.weeks2),
+    item(t.sequences.parkChoices.month1, choices.month1),
+    item(t.sequences.parkChoices.months3, choices.months3),
+  ];
+}
+
+/** Opens the menu of park choices under `anchor`. */
+export function openParkMenu(
+  anchor: { left: number; right: number; top: number; bottom: number },
+  creatorId: string,
+): void {
+  openMenu(anchor, parkItems(creatorId), t.sequences.parkHead, "end");
 }

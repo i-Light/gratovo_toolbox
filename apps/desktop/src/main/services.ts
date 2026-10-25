@@ -87,6 +87,15 @@ export interface ReachService {
   ): Promise<ChannelResponse<"reach:mailbox-set">>;
   /** A test email from a mailbox to its own address; only a person's click calls it (D20). */
   sendTest(address: string): Promise<ChannelResponse<"reach:send-test">>;
+  /** Stop, resume, park and wake a creator's follow-up sequence (D22): commands, not undo steps. */
+  sequenceStop(creatorId: string): Promise<ChannelResponse<"reach:sequence-stop">>;
+  /** With `restore` (an Undo): those drafts come back as they were, and nothing is re-timed. */
+  sequenceResume(
+    creatorId: string,
+    restore?: readonly string[],
+  ): Promise<ChannelResponse<"reach:sequence-resume">>;
+  park(creatorId: string, until: number): Promise<ChannelResponse<"reach:park">>;
+  wake(creatorId: string, restore?: readonly string[]): Promise<ChannelResponse<"reach:wake">>;
   /** The frame with the runtime parts of `reach` and the rail count filled in. */
   overlay(frame: Frame): Promise<Frame>;
   /** Called after a `data:write` batch has been stored. */

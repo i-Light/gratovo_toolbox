@@ -1,13 +1,13 @@
 import { DatabaseSync } from "node:sqlite";
 
-import { threadPreviewMax } from "@gratovo/core/data";
+import { reachSequencesMax, threadPreviewMax } from "@gratovo/core/data";
 import type { NewMessage, OutreachStore, Sequence } from "@gratovo/core/data";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { migrate } from "../../db/migrate";
 import { inTransaction } from "../sqlite-source";
 
-import { createOutreachStore, textHash } from "./outreach";
+import { createOutreachStore, textHash, writeDraftState } from "./outreach";
 
 const hour = 60 * 60 * 1000;
 const now = Date.UTC(2026, 9, 20, 12, 0, 0);
@@ -482,6 +482,171 @@ describe("sequences", () => {
     db.exec("UPDATE outreach_sequences SET steps = '{oops'");
     expect(store.sequence("UCa")?.steps).toEqual([]);
     expect(store.sequence("UCz")).toBeNull();
+  });
+});
+
+describe("the sequences in the frame", () => {
+  const day = 24 * hour;
+  const at = (creator: string, over: Partial<Sequence> = {}): Sequence => ({
+    creator,
+    mailbox: "outreach1@gratovo.example",
+    startedAt: now - 5 * day,
+    steps: [{ n: 1, dueAt: now + hour, state: "planned", sentAt: null }],
+    stopped: null,
+    parkUntil: null,
+    ...over,
+  });
+  const ids = (): string[] => store.reachParts(now).sequences.map((q) => q.creator);
+
+  it("lists the running, parked and stopped-by-you, and recent endings, newest first", () => {
+    store.commit({ at: now - 60 * day, sequences: [at("old-replied", { stopped: "replied" })] });
+    store.commit({ at: now - 60 * day, sequences: [at("old-you", { stopped: "you" })] });
+    store.commit({
+      at: now - 60 * day,
+      sequences: [at("old-running", { startedAt: now - 70 * day })],
+    });
+    store.commit({ at: now - 60 * day, sequences: [at("old-parked", { parkUntil: now + day })] });
+    store.commit({ at: now - 2 * day, sequences: [at("new-bounced", { stopped: "bounced" })] });
+    store.commit({ at: now - 2 * day, sequences: [at("new-finished", { stopped: "finished" })] });
+    store.commit({ at: now, sequences: [at("fresh", { startedAt: now - day })] });
+    expect(ids()).toEqual([
+      "fresh",
+      "new-bounced",
+      "new-finished",
+      "old-parked",
+      "old-you",
+      "old-running",
+    ]);
+  });
+
+  it("is capped at reachSequencesMax, and the day timer's own list is not", () => {
+    const many = Array.from({ length: reachSequencesMax + 50 }, (_, i) =>
+      at(`UC${String(i)}`, { startedAt: now - i }),
+    );
+    store.commit({ at: now, sequences: many });
+    const listed = store.reachParts(now).sequences;
+    expect(listed).toHaveLength(reachSequencesMax);
+    // Newest first: the cap drops the oldest.
+    expect(listed[0]?.creator).toBe("UC0");
+    expect(store.runningSequences()).toHaveLength(reachSequencesMax + 50);
+  });
+
+  it("inserts a new draft and the sequence in one transaction", () => {
+    store.commit({
+      at: now,
+      newDrafts: [
+        {
+          id: "n1",
+          creator: "UCa",
+          kind: "followUp",
+          followUp: 1,
+          mailbox: null,
+          replyTo: null,
+          at: now,
+        },
+      ],
+      sequences: [at("UCa")],
+    });
+    expect(store.draft("n1")?.state).toBe("drafting");
+    expect(store.sequence("UCa")).not.toBeNull();
+    // A draft row that can't go in takes the sequence with it.
+    expect(() => {
+      store.commit({
+        at: now,
+        newDrafts: [
+          {
+            id: "n1",
+            creator: "UCb",
+            kind: "followUp",
+            followUp: 1,
+            mailbox: null,
+            replyTo: null,
+            at: now,
+          },
+        ],
+        sequences: [at("UCb")],
+      });
+    }).toThrow();
+    expect(store.sequence("UCb")).toBeNull();
+  });
+});
+
+describe("skipping a follow-up's draft", () => {
+  const steps = (): string[] => (store.sequence("UCa")?.steps ?? []).map((x) => x.state);
+  function followUp(id: string, n: number): void {
+    store.insertDraft({
+      id,
+      creator: "UCa",
+      kind: "followUp",
+      followUp: n,
+      mailbox: "outreach1@gratovo.example",
+      replyTo: null,
+      at: now,
+    });
+    store.updateDraft(id, { state: "ready" }, now);
+  }
+
+  it("marks its step skipped in the same write, and an Undo puts it back to drafted", () => {
+    store.commit({
+      at: now,
+      sequences: [
+        {
+          creator: "UCa",
+          mailbox: "outreach1@gratovo.example",
+          startedAt: now - 5 * 24 * hour,
+          steps: [
+            { n: 1, dueAt: now - hour, state: "sent", sentAt: now - hour },
+            { n: 2, dueAt: now, state: "drafted", sentAt: null },
+            { n: 3, dueAt: now + 24 * hour, state: "planned", sentAt: null },
+          ],
+          stopped: null,
+          parkUntil: null,
+        },
+      ],
+    });
+    followUp("f2", 2);
+    inTransaction(db, () => {
+      writeDraftState(
+        db,
+        { kind: "draft.state", id: "f2", state: "skipped", sendAt: null },
+        "u1",
+        now,
+      );
+    });
+    expect(store.draft("f2")?.state).toBe("skipped");
+    expect(steps()).toEqual(["sent", "skipped", "planned"]);
+    inTransaction(db, () => {
+      writeDraftState(
+        db,
+        { kind: "draft.state", id: "f2", state: "ready", sendAt: null },
+        "u1",
+        now,
+      );
+    });
+    expect(steps()).toEqual(["sent", "drafted", "planned"]);
+  });
+
+  it("leaves the sequence alone for a first email, a missing sequence and a sent step", () => {
+    draft("first");
+    store.updateDraft("first", { state: "ready" }, now);
+    inTransaction(db, () => {
+      writeDraftState(
+        db,
+        { kind: "draft.state", id: "first", state: "skipped", sendAt: null },
+        "u1",
+        now,
+      );
+    });
+    followUp("f1", 1);
+    inTransaction(db, () => {
+      writeDraftState(
+        db,
+        { kind: "draft.state", id: "f1", state: "skipped", sendAt: null },
+        "u1",
+        now,
+      );
+    });
+    expect(store.sequence("UCa")).toBeNull();
   });
 });
 

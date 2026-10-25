@@ -45,3 +45,18 @@ export {
   tomorrowAt9,
   zoneOf,
 } from "./send-later";
+export {
+  dueSteps,
+  finishAfterMs,
+  followUpDays,
+  isFinished,
+  isRunning,
+  parkChoices,
+  parked,
+  planSteps,
+  resumed,
+  stopped,
+  wakeDue,
+  withStep,
+  woken,
+} from "./sequence";
