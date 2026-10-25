@@ -27,12 +27,12 @@ async function shown(page: Page): Promise<string> {
   return ((await card(page).getAttribute("aria-label")) ?? "").trim();
 }
 
-/** Opens Review new and clicks the card, so the keys go to the page and not to the tab button. */
+/** Opens Review new with a click on its tab, which hands the keys to the page. */
 async function openReview(page: Page): Promise<void> {
   await railButton(page, screens.find.name).click();
   await triageTab(page).click();
   await expect(card(page)).toBeVisible(run);
-  await card(page).getByRole("heading", { level: 2 }).click();
+  await expect(page.getByRole("tabpanel")).toBeFocused();
 }
 
 /** Runs the example search and opens Review new; returns how many channels wait. */
