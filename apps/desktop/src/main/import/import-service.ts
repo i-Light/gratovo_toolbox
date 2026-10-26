@@ -22,7 +22,7 @@ import {
   type Start,
 } from "../pipeline/protocol";
 import type { ImporterService } from "../services";
-import { copyOldMailbox, readOldEmails, type OldMailbox } from "./old-mail";
+import { readOldEmails, type OldEmails } from "./old-mail";
 
 /**
  * Importing the old app's `gratovo.db` (plan step 4, D2 to D6). Main checks the path, runs the
@@ -131,11 +131,13 @@ export interface ImporterDeps {
   importOldEmails(messages: readonly NewMessage[]): number;
   /** Old emails came in: Reach reads its threads again. */
   oldMailChanged(): void;
-  /** Defaults to `old-mail.ts`. */
-  oldMail?: {
-    copyMailbox(oldDir: string, dataDir: string): OldMailbox;
-    readEmails(oldDb: string): NewMessage[];
-  };
+  /**
+   * Merges the old `mailbox.db` into the pipeline's own through the quick lane's `mail.import`
+   * job, in turn with the mail jobs. False when the job failed.
+   */
+  mergeOldMailbox(source: string, dataDir: string): Promise<boolean>;
+  /** Defaults to `readOldEmails`. */
+  readOldEmails?(oldDb: string): OldEmails;
   /** Defaults to `readPipelineChannels`. */
   readPipelineChannels?(dataDir: string): { channelId: string; name: string }[];
   emitProgress(event: AppEventPayload<"import:progress">): void;
@@ -328,6 +330,37 @@ export function createImporter(deps: ImporterDeps): ImporterService {
     }
   }
 
+  /**
+   * The old `mailbox.db` beside the old `gratovo.db`, when there is one, held to the same rules as
+   * the picked file (review of 6e, finding 10); null when there is none or it fails them.
+   */
+  function oldMailboxOf(source: string, dataDir: string): string | null {
+    const path = join(dirname(source), "mailbox.db");
+    const stat = fs.stat(path);
+    if (stat === null || !stat.isFile()) {
+      return null;
+    }
+    const real = fs.realpath(path);
+    if (real === null || isNamespacePath(real) || isNetworkPath(real)) {
+      return null;
+    }
+    const own = fs.realpath(deps.userDataDir) ?? deps.userDataDir;
+    if (sameOrInside(own, real) || sameOrInside(dataDir, real)) {
+      return null;
+    }
+    const chosen = fs.fileId(real);
+    const target = fs.fileId(join(dataDir, "mailbox.db"));
+    if (
+      chosen !== null &&
+      target !== null &&
+      chosen.dev === target.dev &&
+      chosen.ino === target.ino
+    ) {
+      return null; // a hard link to the pipeline's own mailbox.db
+    }
+    return isOwnDatabase(real, dataDir) ? null : real;
+  }
+
   function applyOldRules(path: string, dataDir: string): void {
     const oldDir = dirname(dirname(path));
     const read = (name: string): unknown => {
@@ -430,16 +463,37 @@ export function createImporter(deps: ImporterDeps): ImporterService {
         step("channel_names", () => {
           deps.seedChannelNames((deps.readPipelineChannels ?? readPipelineChannels)(dataDir));
         });
-        // The old mail history (D19): its emails first, then its mailbox.db, only where none is.
-        const oldMail = deps.oldMail ?? { copyMailbox: copyOldMailbox, readEmails: readOldEmails };
-        const mail: { messages: number; mailbox: OldMailbox } = { messages: 0, mailbox: "none" };
+        // The old mail history (D19), in two steps with their own warnings: its email log, then
+        // its mailbox.db (the conversations, so replies to old emails are found).
+        const mail: { messages: number; capped: boolean; mailbox: "merged" | "none" } = {
+          messages: 0,
+          capped: false,
+          mailbox: "none",
+        };
         step("old_mail", () => {
-          mail.messages = deps.importOldEmails(oldMail.readEmails(source));
+          const old = (deps.readOldEmails ?? readOldEmails)(source);
+          mail.capped = old.capped;
+          mail.messages = deps.importOldEmails(old.messages);
           if (mail.messages > 0) {
             deps.oldMailChanged();
           }
-          mail.mailbox = oldMail.copyMailbox(dirname(source), dataDir);
         });
+        const oldMailbox = oldMailboxOf(source, dataDir);
+        if (oldMailbox !== null) {
+          try {
+            if (await deps.mergeOldMailbox(oldMailbox, dataDir)) {
+              mail.mailbox = "merged";
+            } else {
+              warnings.push("old_mailbox");
+            }
+          } catch (error) {
+            console.warn(
+              "Import: the old_mailbox step failed:",
+              error instanceof Error ? error.name : "unexpected error",
+            );
+            warnings.push("old_mailbox");
+          }
+        }
         // `old_rules` means "your old search rules weren't applied": it is pushed whenever the
         // owner asked for them and they weren't, whatever the reason. `find_backup` says only
         // that the copy failed, so the dialog never says the same thing twice.

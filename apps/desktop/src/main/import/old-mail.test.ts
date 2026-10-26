@@ -1,22 +1,19 @@
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { copyOldMailbox, readOldEmails } from "./old-mail";
+import { oldMessagesMax, readOldEmails } from "./old-mail";
 
 let root: string;
 let oldDir: string;
-let dataDir: string;
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "gratovo-old-mail-"));
-  oldDir = join(root, "old");
-  dataDir = join(root, "pipeline");
+  oldDir = join(root, "old data");
   mkdirSync(oldDir);
-  mkdirSync(dataDir);
 });
 
 afterEach(() => {
@@ -54,7 +51,10 @@ function oldDatabase(): string {
 
 describe("readOldEmails", () => {
   it("reads the old email log oldest first, leaving out DMs, rows with no creator and bad times", () => {
-    const messages = readOldEmails(oldDatabase());
+    const file = oldDatabase();
+    const before = readFileSync(file);
+    const { messages, capped } = readOldEmails(file);
+    expect(capped).toBe(false);
     expect(messages.map((m) => [m.id, m.creator, m.direction, m.source])).toEqual([
       ["imported-m1", "UCagent", "out", "imported"],
       ["imported-m2", "UCagent", "in", "imported"],
@@ -67,6 +67,9 @@ describe("readOldEmails", () => {
       mailbox: null,
       reading: null,
     });
+    // Opened immutable: the old file is unchanged and nothing is written beside it.
+    expect(readFileSync(file).equals(before)).toBe(true);
+    expect(readdirSync(oldDir)).toEqual(["gratovo.db"]);
   });
 
   it("reads nothing from an old database without the outreach tables", () => {
@@ -74,37 +77,53 @@ describe("readOldEmails", () => {
     const db = new DatabaseSync(file);
     db.exec("CREATE TABLE channels (channel_id TEXT)");
     db.close();
-    expect(readOldEmails(file)).toEqual([]);
+    expect(readOldEmails(file)).toEqual({ messages: [], capped: false });
   });
 });
 
-describe("copyOldMailbox", () => {
-  function oldMailbox(): void {
-    const db = new DatabaseSync(join(oldDir, "mailbox.db"));
-    db.exec("CREATE TABLE inbound_messages (gmail_message_id TEXT PRIMARY KEY)");
-    db.exec("INSERT INTO inbound_messages VALUES ('g1')");
+describe("readOldEmails, its limits (review of 6e)", () => {
+  it("cuts a long subject and address, skips ids and creators the frame can't take", () => {
+    const file = oldDatabase();
+    const db = new DatabaseSync(file);
+    db.prepare(
+      `INSERT INTO outreach_threads (id, channel_id) VALUES ('t3', ?), ('t4', 'UCagent')`,
+    ).run("x".repeat(65));
+    db.prepare(
+      `INSERT INTO outreach_messages (id, thread_id, direction, method, subject, body, peer_email, at)
+       VALUES ('m6', 't4', 'outbound', 'email', ?, 'Hi', ?, '2025-03-05T10:00:00.000Z'),
+              (?, 't4', 'outbound', 'email', 'Long id', 'x', NULL, '2025-03-06T10:00:00.000Z'),
+              ('m8', 't3', 'outbound', 'email', 'Long creator', 'x', NULL, '2025-03-07T10:00:00.000Z')`,
+    ).run("s".repeat(1200), `${"p".repeat(400)}@ai.test`, "i".repeat(92));
     db.close();
-  }
-
-  it("copies the old mailbox.db when the pipeline has none, and leaves no temporary file", () => {
-    oldMailbox();
-    expect(copyOldMailbox(oldDir, dataDir)).toBe("copied");
-    const db = new DatabaseSync(join(dataDir, "mailbox.db"), { readOnly: true });
-    expect(db.prepare("SELECT gmail_message_id AS id FROM inbound_messages").all()).toEqual([
-      { id: "g1" },
-    ]);
-    db.close();
-    expect(readdirSync(dataDir)).toEqual(["mailbox.db"]);
+    const { messages } = readOldEmails(file);
+    expect(messages.map((m) => m.id)).toEqual(["imported-m1", "imported-m2", "imported-m6"]);
+    expect(messages[2]?.subject).toHaveLength(998);
+    expect(messages[2]?.peer).toHaveLength(320);
   });
 
-  it("keeps a mailbox.db the pipeline has already", () => {
-    oldMailbox();
-    writeFileSync(join(dataDir, "mailbox.db"), "in use");
-    expect(copyOldMailbox(oldDir, dataDir)).toBe("kept");
-  });
-
-  it("does nothing when the old app had no mailbox.db", () => {
-    expect(copyOldMailbox(oldDir, dataDir)).toBe("none");
-    expect(existsSync(join(dataDir, "mailbox.db"))).toBe(false);
+  it(`keeps the newest ${String(oldMessagesMax)} when the log is longer, and says so`, () => {
+    const file = oldDatabase();
+    const db = new DatabaseSync(file);
+    // A row whose time isn't one sorts as text among the newest; this test counts only good rows.
+    db.exec("DELETE FROM outreach_messages WHERE id = 'm5'");
+    const insert = db.prepare(
+      `INSERT INTO outreach_messages (id, thread_id, direction, method, subject, body, at)
+       VALUES (?, 't1', 'outbound', 'email', 'AI tools', 'Hi', ?)`,
+    );
+    db.exec("BEGIN");
+    for (let i = 0; i < oldMessagesMax; i += 1) {
+      insert.run(
+        `n${String(i).padStart(6, "0")}`,
+        new Date(Date.UTC(2026, 0, 1) + i * 1000).toISOString(),
+      );
+    }
+    db.exec("COMMIT");
+    db.close();
+    const { messages, capped } = readOldEmails(file);
+    expect(capped).toBe(true);
+    expect(messages).toHaveLength(oldMessagesMax);
+    // The oldest (m1, m2 in 2025) are the ones left out; oldest first in what is kept.
+    expect(messages[0]?.id).toBe("imported-n000000");
+    expect(messages.at(-1)?.id).toBe(`imported-n${String(oldMessagesMax - 1).padStart(6, "0")}`);
   });
 });

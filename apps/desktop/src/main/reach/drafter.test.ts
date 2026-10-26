@@ -120,8 +120,13 @@ class FakeOutreach implements OutreachStore {
   importMessages(): number {
     return 0;
   }
-  hasOutbound(creator: string): boolean {
-    return this.messages.some((m) => m.creator === creator && m.message.direction === "out");
+  hasOutbound(creator: string, withImported: boolean): boolean {
+    return this.messages.some(
+      (m) =>
+        m.creator === creator &&
+        m.message.direction === "out" &&
+        (withImported || m.message.source !== "imported"),
+    );
   }
   recentOutbound(limit: number): { creator: string; body: string }[] {
     return this.messages
@@ -339,7 +344,7 @@ describe("the drafter", () => {
   });
 
   describe("the kick", () => {
-    it("drafts for exactly the creators at contact with a confirmed address and nothing sent", async () => {
+    it("drafts for exactly the creators at contact with a confirmed address and nothing sent from this app", async () => {
       const unconfirmed = channelId("unconfirmed");
       const noEmail = channelId("noemail");
       const never = channelId("never");
@@ -347,6 +352,8 @@ describe("the drafter", () => {
       const drafted = channelId("drafted");
       const inSequence = channelId("sequence");
       const emailedBefore = channelId("emailed");
+      // Mailed only by the old app (D19), then shortlisted again: Find promises a fresh start.
+      const oldOnly = channelId("oldonly");
       states = [
         confirmed(sam),
         confirmed(unconfirmed, { emailConfirmed: false }),
@@ -356,6 +363,7 @@ describe("the drafter", () => {
         confirmed(drafted),
         confirmed(inSequence),
         confirmed(emailedBefore),
+        confirmed(oldOnly),
       ];
       seed("old", drafted, { state: "ready", subject: "s", body: "b" });
       store.sequences.set(inSequence, {
@@ -381,26 +389,38 @@ describe("the drafter", () => {
           peer: null,
           peerName: null,
           by: "u1",
-          source: "imported",
+          source: "app",
           reading: null,
         },
+      });
+      const sent = store.messages[0]?.message;
+      if (sent === undefined) {
+        throw new Error("the message out is missing");
+      }
+      store.messages.push({
+        creator: oldOnly,
+        message: { ...sent, id: "m2", mailbox: null, source: "imported" },
       });
 
       await kicked();
 
       const made = drafts().filter((d) => d.id !== "old");
-      expect(made.map((d) => d.creator)).toEqual([sam]);
+      expect(made.map((d) => d.creator).sort()).toEqual([sam, oldOnly].sort());
       // The mailbox with the most sends left today.
-      expect(made[0]).toMatchObject({ kind: "first", mailbox: "moustafa@gratovo.example" });
-      expect(propose).toHaveBeenCalledOnce();
-      expect(propose.mock.calls[0]?.[0].request).toEqual({
+      expect(made.find((d) => d.creator === sam)).toMatchObject({
+        kind: "first",
+        mailbox: "moustafa@gratovo.example",
+      });
+      expect(propose).toHaveBeenCalledTimes(2);
+      const call = propose.mock.calls.find((c) => c[0].request.channelId === sam)?.[0];
+      expect(call?.request).toEqual({
         kind: "first",
         channelId: sam,
         contactEmail: confirmed(sam).email,
         threadId: `c:${sam}`,
         timeoutS: 240,
       });
-      expect(propose.mock.calls[0]?.[0].facts.agency?.sender).toBe("Moustafa");
+      expect(call?.facts.agency?.sender).toBe("Moustafa");
     });
 
     describe("follow-ups (D22)", () => {

@@ -761,7 +761,7 @@ export function createDrafter(deps: DrafterDeps): Drafter {
       creator.email !== "" &&
       source.outreach.openDraft(creator.id) === null &&
       source.outreach.sequence(creator.id) === null &&
-      !source.outreach.hasOutbound(creator.id)
+      !source.outreach.hasOutbound(creator.id, false)
     );
   }
 

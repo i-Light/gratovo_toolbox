@@ -818,9 +818,9 @@ export const strings = {
         n === 1
           ? "1 old email added to the creators’ threads"
           : `${n.toLocaleString("en-US")} old emails added to the creators’ threads`,
+      resultCapped: "The old log was very long, so only its newest 50,000 emails came across.",
       resultMailbox: {
-        copied: "The old mailbox memory came across, so replies to old emails are found.",
-        kept: "The mailbox memory this app already has was kept.",
+        merged: "The old mailbox memory came across, so replies to old emails are found.",
         none: null,
       },
       backup: (path: string): string => `Your search data was copied first, to ${path}.`,
@@ -833,7 +833,9 @@ export const strings = {
         import_state:
           "The app couldn't note that the import is done, so it may offer it again. Bringing it in twice adds nothing.",
         old_mail:
-          "Some old emails didn't come across. Bring the old data in again to try once more.",
+          "The old emails didn't come across. Bring the old data in again to try once more.",
+        old_mailbox:
+          "The old mailbox memory didn't come across, so replies to old emails may not be found. Bring the old data in again to try once more.",
       },
       untouched: "The old file was not changed.",
       doneToast: "Old data brought in",

@@ -51,6 +51,7 @@ describe("the importer", () => {
   let release: (() => void) | null;
   let imported: (readonly NewMessage[])[];
   let mailChanged: number;
+  let merged: [string, string][];
 
   function make(over: Partial<ImporterDeps> = {}) {
     return createImporter({
@@ -87,7 +88,11 @@ describe("the importer", () => {
       oldMailChanged: () => {
         mailChanged += 1;
       },
-      oldMail: { copyMailbox: () => "none", readEmails: () => [] },
+      readOldEmails: () => ({ messages: [], capped: false }),
+      mergeOldMailbox: (from, to) => {
+        merged.push([from, to]);
+        return Promise.resolve(true);
+      },
       emitProgress: (event) => events.push(event),
       now: () => new Date("2026-10-24T10:00:00.000Z"),
       ...over,
@@ -106,6 +111,7 @@ describe("the importer", () => {
     starts = [];
     imported = [];
     mailChanged = 0;
+    merged = [];
     seeded = [];
     settings = {};
     events = [];
@@ -328,7 +334,7 @@ describe("the importer", () => {
       expect(result).toEqual({
         ok: true,
         report: report(backup(), false),
-        mail: { messages: 0, mailbox: "none" },
+        mail: { messages: 0, capped: false, mailbox: "none" },
       });
       expect(starts[0]?.job).toMatchObject({
         dryRun: false,
@@ -380,27 +386,41 @@ describe("the importer", () => {
       expect(settings["import"]).toMatchObject({ backup: null });
     });
 
-    it("brings in the old emails and the old mailbox.db from beside the old database (D19)", async () => {
+    it("brings in the old emails, and merges the old mailbox.db from beside the old database (D19)", async () => {
       const email = { id: "imported-m1", creator: "UCa" } as NewMessage;
-      const copied: [string, string][] = [];
       const read: string[] = [];
+      const oldMailbox = join(oldDir, "database", "mailbox.db");
+      writeFileSync(oldMailbox, "x");
       const result = await make({
-        oldMail: {
-          copyMailbox: (from, to) => {
-            copied.push([from, to]);
-            return "copied";
-          },
-          readEmails: (path) => {
-            read.push(path);
-            return [email];
-          },
+        readOldEmails: (path) => {
+          read.push(path);
+          return { messages: [email], capped: true };
         },
       }).run(oldDb, false);
-      expect(result).toMatchObject({ ok: true, mail: { messages: 1, mailbox: "copied" } });
-      expect(read).toEqual([oldDb]);
+      expect(result).toMatchObject({
+        ok: true,
+        mail: { messages: 1, capped: true, mailbox: "merged" },
+      });
+      expect(read).toEqual([realpathSync.native(oldDb)]);
       expect(imported).toEqual([[email]]);
-      expect(copied).toEqual([[join(oldDir, "database"), dataDir]]);
+      expect(merged).toEqual([[realpathSync.native(oldMailbox), dataDir]]);
       expect(mailChanged).toBe(1);
+    });
+
+    it("merges no mailbox when the old app had none", async () => {
+      const result = await make().run(oldDb, false);
+      expect(result).toMatchObject({ ok: true, mail: { mailbox: "none" } });
+      expect(merged).toEqual([]);
+    });
+
+    it("never merges the pipeline's own mailbox.db, whatever the old folder", async () => {
+      // An old database picked from inside the app's own data is refused before any job; a
+      // mailbox.db there is never offered to the merge either.
+      writeFileSync(join(dataDir, "mailbox.db"), "x");
+      const inside = join(dataDir, "gratovo.db");
+      writeFileSync(inside, "x");
+      expect(await make().run(inside, false)).toEqual({ ok: false, reason: "own_data" });
+      expect(merged).toEqual([]);
     });
 
     describe("a step after the job fails", () => {
@@ -423,7 +443,7 @@ describe("the importer", () => {
         expect(result).toEqual({
           ok: true,
           report: report(backup(), false),
-          mail: { messages: 0, mailbox: "none" },
+          mail: { messages: 0, capped: false, mailbox: "none" },
           warnings: ["find_backup", "old_rules"],
         });
         expect(settings["import"]).toMatchObject({ counts: { channels: 2 } });
@@ -444,7 +464,7 @@ describe("the importer", () => {
         expect(result).toEqual({
           ok: true,
           report: report(backup(), false),
-          mail: { messages: 0, mailbox: "none" },
+          mail: { messages: 0, capped: false, mailbox: "none" },
           warnings: ["find_backup"],
         });
         expect(readFindFile(dataDir).rules.perKeyword).toBe(77);
@@ -459,7 +479,7 @@ describe("the importer", () => {
         expect(result).toEqual({
           ok: true,
           report: report(backup(), false),
-          mail: { messages: 0, mailbox: "none" },
+          mail: { messages: 0, capped: false, mailbox: "none" },
           warnings: ["channel_names"],
         });
         expect(settings["import"]).toMatchObject({ backup: backup() });
@@ -472,7 +492,7 @@ describe("the importer", () => {
         expect(result).toEqual({
           ok: true,
           report: report(backup(), false),
-          mail: { messages: 0, mailbox: "none" },
+          mail: { messages: 0, capped: false, mailbox: "none" },
           warnings: ["old_rules"],
         });
         expect(settings["import"]).toMatchObject({ counts: { channels: 2 } });
@@ -481,21 +501,34 @@ describe("the importer", () => {
 
       it("the old mail: a warning, and the rest still happens", async () => {
         const result = await make({
-          oldMail: {
-            copyMailbox: () => "none",
-            readEmails: () => {
-              throw new Error("not a database");
-            },
+          readOldEmails: () => {
+            throw new Error("not a database");
           },
         }).run(oldDb, false);
         expect(result).toEqual({
           ok: true,
           report: report(backup(), false),
-          mail: { messages: 0, mailbox: "none" },
+          mail: { messages: 0, capped: false, mailbox: "none" },
           warnings: ["old_mail"],
         });
         expect(settings["import"]).toMatchObject({ backup: backup() });
         expect(mailChanged).toBe(0);
+      });
+
+      it("the old mailbox: its own warning, and the old emails still came in", async () => {
+        writeFileSync(join(oldDir, "database", "mailbox.db"), "x");
+        const email = { id: "imported-m1", creator: "UCa" } as NewMessage;
+        const result = await make({
+          readOldEmails: () => ({ messages: [email], capped: false }),
+          mergeOldMailbox: () => Promise.resolve(false),
+        }).run(oldDb, false);
+        expect(result).toEqual({
+          ok: true,
+          report: report(backup(), false),
+          mail: { messages: 1, capped: false, mailbox: "none" },
+          warnings: ["old_mailbox"],
+        });
+        expect(imported).toEqual([[email]]);
       });
 
       it("the import state: a warning, and the rest still happens", async () => {
@@ -507,7 +540,7 @@ describe("the importer", () => {
         expect(result).toEqual({
           ok: true,
           report: report(backup(), false),
-          mail: { messages: 0, mailbox: "none" },
+          mail: { messages: 0, capped: false, mailbox: "none" },
           warnings: ["import_state"],
         });
         expect(seeded).toHaveLength(1);

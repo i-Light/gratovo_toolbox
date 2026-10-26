@@ -23,6 +23,7 @@ import {
 } from "./gemini/gemini-control";
 import { createImporter, storeOutcomeOf } from "./import/import-service";
 import { readMailSecrets } from "./pipeline/pipeline-secrets";
+import { createQuickQueue } from "./reach/quick-queue";
 import { createReachService, type ReachServiceHandle } from "./reach/reach-service";
 import { createSituations, situationsFile } from "./reach/situations";
 import { registerBridge } from "./ipc-bridge";
@@ -31,7 +32,7 @@ import { createNetwork } from "./net/network";
 import { createGeminiService } from "./pipeline/gemini-service";
 import { runJob } from "./pipeline/jobs";
 import { openPipelineLog } from "./pipeline/logs";
-import { startSchema } from "./pipeline/protocol";
+import { protocolVersion, startSchema } from "./pipeline/protocol";
 import { findPython, pipelineEnv } from "./pipeline/python-path";
 import { createPipelineSupervisor } from "./pipeline/supervisor";
 import type { SecretStore } from "./secret-store";
@@ -400,6 +401,8 @@ function start(): void {
         },
         generate: (params) => gemini.call("action.generate_keywords", params),
       });
+      // The old mailbox merge (D19) waits its turn on the quick lane, like the mail jobs.
+      const importQueue = createQuickQueue({ run: (start) => runJob(quickLane, start) });
       const importer = createImporter({
         userDataDir: userData,
         localAppData: process.env["LOCALAPPDATA"] ?? null,
@@ -418,6 +421,23 @@ function start(): void {
         importOldEmails: (messages) => account.source()?.outreach.importMessages(messages) ?? 0,
         oldMailChanged: () => {
           emit("frame:changed", { parts: ["reach"] });
+        },
+        mergeOldMailbox: async (source, dataDir) => {
+          const context = liveJobContext();
+          if (context === null || context.dataDir !== dataDir) {
+            return false;
+          }
+          const outcome = await importQueue.enqueue({
+            type: "start",
+            protocol: protocolVersion,
+            source: "live",
+            dataDir,
+            worker: context.worker,
+            job: { kind: "mail.import", source },
+            settings: {},
+            secrets: { youtubeKey: null, proxyUrls: [], gatewayUrls: [] },
+          });
+          return outcome.ok && outcome.exit.kind === "ended" && outcome.exit.end.state === "done";
         },
         writeSetting: (key, value) => {
           account.source()?.writeSetting(key, value);

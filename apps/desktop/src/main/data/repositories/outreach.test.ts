@@ -300,7 +300,9 @@ describe("reachParts", () => {
       ["imported-1", "imported"],
       ["imported-2", "imported"],
     ]);
-    expect(store.hasOutbound("UCa")).toBe(true);
+    // Paste a reply counts the old mail; the drafter's "no message out" rule doesn't.
+    expect(store.hasOutbound("UCa", true)).toBe(true);
+    expect(store.hasOutbound("UCa", false)).toBe(false);
     expect(store.reachParts(now).threads[0]).toMatchObject({ count: 2, lastIn: null });
     // A reply that comes in later is a reply like any other.
     store.commit({
@@ -360,8 +362,8 @@ describe("messages", () => {
         message("m4", { creator: "UCa", at: now - 30 * hour, body: "old" }),
       ],
     });
-    expect(store.hasOutbound("UCa")).toBe(true);
-    expect(store.hasOutbound("UCc")).toBe(false);
+    expect(store.hasOutbound("UCa", false)).toBe(true);
+    expect(store.hasOutbound("UCc", false)).toBe(false);
     expect(store.recentOutbound(2)).toEqual([
       { creator: "UCb", body: "two" },
       { creator: "UCa", body: "one" },
@@ -701,7 +703,7 @@ describe("commit", () => {
     });
     expect(store.draft("d1")?.state).toBe("sent");
     expect(store.draft("d1")?.updatedAt).toBe(now);
-    expect(store.hasOutbound("UCa")).toBe(true);
+    expect(store.hasOutbound("UCa", false)).toBe(true);
     expect(applied).toEqual([write]);
   });
 
@@ -728,7 +730,7 @@ describe("commit", () => {
     }).toThrow("boom");
     expect(db.isTransaction).toBe(false);
     expect(store.draft("d1")?.state).toBe("drafting");
-    expect(store.hasOutbound("UCa")).toBe(false);
+    expect(store.hasOutbound("UCa", false)).toBe(false);
     expect(store.sequence("UCa")).toBeNull();
   });
 });

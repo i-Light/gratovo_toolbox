@@ -115,8 +115,11 @@ export interface OutreachStore {
   storedGmailIds(ids: readonly string[]): Set<string>;
   /** The creator's newest messages, oldest first, at most `limit`. */
   thread(creator: string, limit: number): ThreadMessage[];
-  /** Whether any message went out to the creator. */
-  hasOutbound(creator: string): boolean;
+  /**
+   * Whether any message went out to the creator. `withImported` false leaves out the old app's
+   * emails (D19), so a creator it mailed can still get a first email from this one.
+   */
+  hasOutbound(creator: string, withImported: boolean): boolean;
   /**
    * The old app's emails (D19), in one transaction; a message stored already (same id) is left
    * as it is. Answers how many were new.

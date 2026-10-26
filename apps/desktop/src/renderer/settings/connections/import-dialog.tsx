@@ -279,6 +279,7 @@ export function ImportDialog({ onClose }: { readonly onClose: () => void }) {
                 {mail === null || mail.messages === 0 ? null : (
                   <span className="small">{text.resultMail(mail.messages)}</span>
                 )}
+                {mail?.capped === true ? <span className="small">{text.resultCapped}</span> : null}
                 {mail === null || text.resultMailbox[mail.mailbox] === null ? null : (
                   <span className="small">{text.resultMailbox[mail.mailbox]}</span>
                 )}
