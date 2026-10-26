@@ -415,6 +415,10 @@ function start(): void {
             ],
           }),
         seedChannelNames: (rows) => account.source()?.seedChannelNames(rows) ?? 0,
+        importOldEmails: (messages) => account.source()?.outreach.importMessages(messages) ?? 0,
+        oldMailChanged: () => {
+          emit("frame:changed", { parts: ["reach"] });
+        },
         writeSetting: (key, value) => {
           account.source()?.writeSetting(key, value);
         },

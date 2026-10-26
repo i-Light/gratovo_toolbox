@@ -117,6 +117,9 @@ class FakeOutreach implements OutreachStore {
       .slice(-limit)
       .map((m) => m.message);
   }
+  importMessages(): number {
+    return 0;
+  }
   hasOutbound(creator: string): boolean {
     return this.messages.some((m) => m.creator === creator && m.message.direction === "out");
   }

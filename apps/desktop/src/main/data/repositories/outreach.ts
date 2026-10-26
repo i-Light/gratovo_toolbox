@@ -755,7 +755,8 @@ export function createOutreachStore(db: DatabaseSync, deps: OutreachDeps): Outre
         .all();
       return new Map(rows.map((row) => [String(row["channel_id"]), row]));
     };
-    const lastIn = newest("WHERE direction = 'in'");
+    // An old app's reply (D19) stays in the thread but never waits in Replies as "Your move".
+    const lastIn = newest("WHERE direction = 'in' AND source != 'imported'");
     const last = newest("");
     return heads.map((head) => {
       const id = String(head["channel_id"]);
@@ -853,6 +854,17 @@ export function createOutreachStore(db: DatabaseSync, deps: OutreachDeps): Outre
           "SELECT 1 AS found FROM outreach_messages WHERE channel_id = ? AND direction = 'out' LIMIT 1",
         )
         .get(creator) !== undefined,
+    importMessages(messages) {
+      let added = 0;
+      const changes = db.prepare("SELECT changes() AS n");
+      deps.transaction(() => {
+        for (const message of messages) {
+          insertMessage(message);
+          added += num(changes.get()?.["n"]);
+        }
+      });
+      return added;
+    },
     recentOutbound: (limit) =>
       db
         .prepare(

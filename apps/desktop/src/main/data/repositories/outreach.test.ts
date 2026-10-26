@@ -287,6 +287,29 @@ describe("reachParts", () => {
     expect(d).toMatchObject({ count: 1, lastIn: null, answered: true });
   });
 
+  it("brings the old app's emails in once, and never counts an old reply as one to answer (D19)", () => {
+    const old = (id: string, over: Partial<NewMessage> = {}): NewMessage =>
+      message(id, { source: "imported", kind: null, mailbox: null, by: null, ...over });
+    const batch = [
+      old("imported-1", { at: now - 5 * hour }),
+      old("imported-2", { direction: "in", at: now - 4 * hour }),
+    ];
+    expect(store.importMessages(batch)).toBe(2);
+    expect(store.importMessages(batch)).toBe(0);
+    expect(store.thread("UCa", 10).map((m) => [m.id, m.source])).toEqual([
+      ["imported-1", "imported"],
+      ["imported-2", "imported"],
+    ]);
+    expect(store.hasOutbound("UCa")).toBe(true);
+    expect(store.reachParts(now).threads[0]).toMatchObject({ count: 2, lastIn: null });
+    // A reply that comes in later is a reply like any other.
+    store.commit({
+      at: now,
+      messages: [message("m3", { direction: "in", kind: null, source: "sweep", at: now })],
+    });
+    expect(store.reachParts(now).threads[0]?.lastIn?.id).toBe("m3");
+  });
+
   it("reads a bad reading as none", () => {
     store.commit({ at: now, messages: [message("m1", { direction: "in", kind: null })] });
     db.exec("UPDATE outreach_messages SET reading = '{oops'");

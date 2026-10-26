@@ -239,6 +239,21 @@ Main builds it from `mail.settings` plus the last `mail.status` result (run when
 
 **D19.** On live data, with the owner's click in Settings › Connections › Old data ("Bring in my old emails"): copy the old `mailbox.db` beside the old `gratovo.db` into `<userData>/mail/mailbox.db` only when none exists (read-only open of the source, `immutable=1`), and read the old `outreach_threads`/`outreach_messages` mirror tables from the old `gratovo.db` into `outreach_messages` (`source: "imported"`) by channel. Creators with old outbound mail and no sequence get none (old sequences are not resumed); "emailed before" reads them.
 
+*As built (6e):*
+- **No second button.** The old mail comes in as one more step of the existing import (Settings › Connections › Old data), after the pipeline's job has committed. A person who imported before 6e uses "Bring it in again", which adds nothing twice. A failure is the warning `old_mail`, and the rest of the import still stands.
+- **The target is the pipeline's own `mailbox.db`** (`<dataDir>/mailbox.db`, where `mail.py` reads it), not `<userData>/mail/`. The copy is a `VACUUM INTO` from a read-only open to a temporary file, then put in place only if the path is still free. A mailbox already in use is kept.
+- **The old email log:** only `method` email (DMs are not built, parity 32), only threads with a creator. Ids are `imported-<old id>`, so a second import adds nothing. Old messages have no mailbox, so they never count in a mailbox's sends or rates.
+- **Old replies never wait in Replies:** a thread's `lastIn` ignores imported messages, so an old reply shows in the thread only. A reply in the old `mailbox.db` that was never reported comes in through the next sweep, where the 30-day rule (`oldReplyMs`) stores an old one with no effects.
+- **Limit:** a reply logged by hand in the old app and also found by the sweep in the old `mailbox.db` shows twice in the thread.
+
+## Tasks for 6e
+
+| id | tier | what | done-check |
+|---|---|---|---|
+| E1 | H (lead) | D19 as built above: `main/import/old-mail.ts`, the import step, `importMessages`, the result's `mail` and the dialog lines. | vitest |
+| E2 | N | The Reach flow suite: one Playwright file per flow, on example data. | e2e on Windows |
+| E3 | H (lead) | ADR 0018, the architecture and parity notes, the status table; `.router/` removed. | docs read through |
+
 ## Contracts: IPC (packages/ipc/src/reach.ts)
 
 Channels (request → response):

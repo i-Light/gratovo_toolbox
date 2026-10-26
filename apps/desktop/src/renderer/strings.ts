@@ -814,6 +814,15 @@ export const strings = {
       resultTitle: "Done. Your old data is here.",
       resultAdded: (n: number): string => `${n.toLocaleString("en-US")} rows added`,
       resultAlready: (n: number): string => `${n.toLocaleString("en-US")} were already here`,
+      resultMail: (n: number): string =>
+        n === 1
+          ? "1 old email added to the creators’ threads"
+          : `${n.toLocaleString("en-US")} old emails added to the creators’ threads`,
+      resultMailbox: {
+        copied: "The old mailbox memory came across, so replies to old emails are found.",
+        kept: "The mailbox memory this app already has was kept.",
+        none: null,
+      },
       backup: (path: string): string => `Your search data was copied first, to ${path}.`,
       noBackup: "There was nothing to copy first, so no backup was made.",
       warningsTitle: "Your data is in. A few small steps after it didn't finish:",
@@ -823,6 +832,8 @@ export const strings = {
         old_rules: "Your old search rules weren't applied. Set them in Settings › Search rules.",
         import_state:
           "The app couldn't note that the import is done, so it may offer it again. Bringing it in twice adds nothing.",
+        old_mail:
+          "Some old emails didn't come across. Bring the old data in again to try once more.",
       },
       untouched: "The old file was not changed.",
       doneToast: "Old data brought in",

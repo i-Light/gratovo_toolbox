@@ -181,6 +181,7 @@ function fakeSource(clock: () => number) {
     storedGmailIds: () => new Set(),
     thread: () => [],
     hasOutbound: () => false,
+    importMessages: () => 0,
     recentOutbound: () => [],
     sentSince: () => [],
     mailboxCounts: () => new Map(),

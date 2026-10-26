@@ -117,6 +117,11 @@ export interface OutreachStore {
   thread(creator: string, limit: number): ThreadMessage[];
   /** Whether any message went out to the creator. */
   hasOutbound(creator: string): boolean;
+  /**
+   * The old app's emails (D19), in one transaction; a message stored already (same id) is left
+   * as it is. Answers how many were new.
+   */
+  importMessages(messages: readonly NewMessage[]): number;
   /** Our newest bodies out, newest first, each with its creator (the templated check, D7). */
   recentOutbound(limit: number): { readonly creator: string; readonly body: string }[];
   /** How many messages each mailbox sent at or after `since` (ms). */

@@ -10,6 +10,7 @@ import {
 import { basename, dirname, extname, isAbsolute, join, relative, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
+import type { NewMessage } from "@gratovo/core/data";
 import type { AppEventPayload, ImportCandidates, ImportResult, PickedPath } from "@gratovo/ipc";
 
 import { findFileName, readFindFile, rulesFromOldFiles, writeFindFile } from "../find/find-store";
@@ -21,6 +22,7 @@ import {
   type Start,
 } from "../pipeline/protocol";
 import type { ImporterService } from "../services";
+import { copyOldMailbox, readOldEmails, type OldMailbox } from "./old-mail";
 
 /**
  * Importing the old app's `gratovo.db` (plan step 4, D2 to D6). Main checks the path, runs the
@@ -125,6 +127,15 @@ export interface ImporterDeps {
   /** Gives the local channel names to the data source; returns how many were new. */
   seedChannelNames(rows: { channelId: string; name: string }[]): number;
   writeSetting(key: string, value: unknown): void;
+  /** Stores the old app's emails in the open data source (D19): how many were new. */
+  importOldEmails(messages: readonly NewMessage[]): number;
+  /** Old emails came in: Reach reads its threads again. */
+  oldMailChanged(): void;
+  /** Defaults to `old-mail.ts`. */
+  oldMail?: {
+    copyMailbox(oldDir: string, dataDir: string): OldMailbox;
+    readEmails(oldDb: string): NewMessage[];
+  };
   /** Defaults to `readPipelineChannels`. */
   readPipelineChannels?(dataDir: string): { channelId: string; name: string }[];
   emitProgress(event: AppEventPayload<"import:progress">): void;
@@ -419,6 +430,16 @@ export function createImporter(deps: ImporterDeps): ImporterService {
         step("channel_names", () => {
           deps.seedChannelNames((deps.readPipelineChannels ?? readPipelineChannels)(dataDir));
         });
+        // The old mail history (D19): its emails first, then its mailbox.db, only where none is.
+        const oldMail = deps.oldMail ?? { copyMailbox: copyOldMailbox, readEmails: readOldEmails };
+        const mail: { messages: number; mailbox: OldMailbox } = { messages: 0, mailbox: "none" };
+        step("old_mail", () => {
+          mail.messages = deps.importOldEmails(oldMail.readEmails(source));
+          if (mail.messages > 0) {
+            deps.oldMailChanged();
+          }
+          mail.mailbox = oldMail.copyMailbox(dirname(source), dataDir);
+        });
         // `old_rules` means "your old search rules weren't applied": it is pushed whenever the
         // owner asked for them and they weren't, whatever the reason. `find_backup` says only
         // that the copy failed, so the dialog never says the same thing twice.
@@ -432,7 +453,9 @@ export function createImporter(deps: ImporterDeps): ImporterService {
             warnings.push("old_rules");
           }
         }
-        return warnings.length > 0 ? { ok: true, report, warnings } : { ok: true, report };
+        return warnings.length > 0
+          ? { ok: true, report, mail, warnings }
+          : { ok: true, report, mail };
       });
     },
   };

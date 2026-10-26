@@ -106,6 +106,7 @@ function sourceWith(overrides: Partial<DataSource> = {}): DataSource {
       storedGmailIds: () => new Set(),
       thread: () => [],
       hasOutbound: () => false,
+      importMessages: () => 0,
       recentOutbound: () => [],
       sentSince: () => [],
       mailboxCounts: () => new Map(),

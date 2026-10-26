@@ -12,6 +12,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
+import type { NewMessage } from "@gratovo/core/data";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { defaultFindFile, readFindFile, writeFindFile } from "../find/find-store";
@@ -48,6 +49,8 @@ describe("the importer", () => {
   let outcome: StoreJobOutcome;
   let progress: { table: string; done: number; total: number }[];
   let release: (() => void) | null;
+  let imported: (readonly NewMessage[])[];
+  let mailChanged: number;
 
   function make(over: Partial<ImporterDeps> = {}) {
     return createImporter({
@@ -77,6 +80,14 @@ describe("the importer", () => {
         settings[key] = value;
       },
       readPipelineChannels,
+      importOldEmails: (messages) => {
+        imported.push(messages);
+        return messages.length;
+      },
+      oldMailChanged: () => {
+        mailChanged += 1;
+      },
+      oldMail: { copyMailbox: () => "none", readEmails: () => [] },
       emitProgress: (event) => events.push(event),
       now: () => new Date("2026-10-24T10:00:00.000Z"),
       ...over,
@@ -93,6 +104,8 @@ describe("the importer", () => {
     mkdirSync(join(oldDir, "database"), { recursive: true });
     writeFileSync(oldDb, "x");
     starts = [];
+    imported = [];
+    mailChanged = 0;
     seeded = [];
     settings = {};
     events = [];
@@ -312,7 +325,11 @@ describe("the importer", () => {
 
     it("backs up find.json, seeds the names and writes the import state", async () => {
       const result = await make().run(oldDb, false);
-      expect(result).toEqual({ ok: true, report: report(backup(), false) });
+      expect(result).toEqual({
+        ok: true,
+        report: report(backup(), false),
+        mail: { messages: 0, mailbox: "none" },
+      });
       expect(starts[0]?.job).toMatchObject({
         dryRun: false,
         backupDir: join(userData, "backups"),
@@ -363,6 +380,29 @@ describe("the importer", () => {
       expect(settings["import"]).toMatchObject({ backup: null });
     });
 
+    it("brings in the old emails and the old mailbox.db from beside the old database (D19)", async () => {
+      const email = { id: "imported-m1", creator: "UCa" } as NewMessage;
+      const copied: [string, string][] = [];
+      const read: string[] = [];
+      const result = await make({
+        oldMail: {
+          copyMailbox: (from, to) => {
+            copied.push([from, to]);
+            return "copied";
+          },
+          readEmails: (path) => {
+            read.push(path);
+            return [email];
+          },
+        },
+      }).run(oldDb, false);
+      expect(result).toMatchObject({ ok: true, mail: { messages: 1, mailbox: "copied" } });
+      expect(read).toEqual([oldDb]);
+      expect(imported).toEqual([[email]]);
+      expect(copied).toEqual([[join(oldDir, "database"), dataDir]]);
+      expect(mailChanged).toBe(1);
+    });
+
     describe("a step after the job fails", () => {
       beforeEach(() => {
         vi.spyOn(console, "warn").mockImplementation(() => undefined);
@@ -383,6 +423,7 @@ describe("the importer", () => {
         expect(result).toEqual({
           ok: true,
           report: report(backup(), false),
+          mail: { messages: 0, mailbox: "none" },
           warnings: ["find_backup", "old_rules"],
         });
         expect(settings["import"]).toMatchObject({ counts: { channels: 2 } });
@@ -403,6 +444,7 @@ describe("the importer", () => {
         expect(result).toEqual({
           ok: true,
           report: report(backup(), false),
+          mail: { messages: 0, mailbox: "none" },
           warnings: ["find_backup"],
         });
         expect(readFindFile(dataDir).rules.perKeyword).toBe(77);
@@ -417,6 +459,7 @@ describe("the importer", () => {
         expect(result).toEqual({
           ok: true,
           report: report(backup(), false),
+          mail: { messages: 0, mailbox: "none" },
           warnings: ["channel_names"],
         });
         expect(settings["import"]).toMatchObject({ backup: backup() });
@@ -429,10 +472,30 @@ describe("the importer", () => {
         expect(result).toEqual({
           ok: true,
           report: report(backup(), false),
+          mail: { messages: 0, mailbox: "none" },
           warnings: ["old_rules"],
         });
         expect(settings["import"]).toMatchObject({ counts: { channels: 2 } });
         expect(seeded).toHaveLength(1);
+      });
+
+      it("the old mail: a warning, and the rest still happens", async () => {
+        const result = await make({
+          oldMail: {
+            copyMailbox: () => "none",
+            readEmails: () => {
+              throw new Error("not a database");
+            },
+          },
+        }).run(oldDb, false);
+        expect(result).toEqual({
+          ok: true,
+          report: report(backup(), false),
+          mail: { messages: 0, mailbox: "none" },
+          warnings: ["old_mail"],
+        });
+        expect(settings["import"]).toMatchObject({ backup: backup() });
+        expect(mailChanged).toBe(0);
       });
 
       it("the import state: a warning, and the rest still happens", async () => {
@@ -444,6 +507,7 @@ describe("the importer", () => {
         expect(result).toEqual({
           ok: true,
           report: report(backup(), false),
+          mail: { messages: 0, mailbox: "none" },
           warnings: ["import_state"],
         });
         expect(seeded).toHaveLength(1);
