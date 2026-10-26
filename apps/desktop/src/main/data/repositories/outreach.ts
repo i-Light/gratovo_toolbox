@@ -32,15 +32,19 @@ import type {
   OutreachDraft,
   OutreachStore,
   ReplyFact,
+  ReplyFactKey,
   ReplyReading,
   RewriteHow,
   Sequence,
   SequenceStep,
   StoredDraft,
+  StoredMessage,
   ThreadLastIn,
   ThreadMessage,
   ThreadSummary,
 } from "@gratovo/core/data";
+
+import { upsertNotification } from "./notifications";
 
 /** A day, in ms: the time a sent or skipped draft stays in the frame. */
 const day = 24 * 60 * 60 * 1000;
@@ -136,14 +140,28 @@ function parseProposal(text: unknown): DraftProposal | null {
   };
 }
 
-function parseFacts(value: unknown): ReplyFact[] {
+/** The keys in a `facts_saved` column (a JSON list); a bad value reads as none. */
+function savedKeys(text: unknown): Set<ReplyFactKey> {
+  const keys = new Set<ReplyFactKey>();
+  for (const key of strings(parseJson(text))) {
+    const known = oneOf(replyFactKeys, key);
+    if (known !== null) {
+      keys.add(known);
+    }
+  }
+  return keys;
+}
+
+function parseFacts(value: unknown, saved: ReadonlySet<string>): ReplyFact[] {
   const facts: ReplyFact[] = [];
   for (const item of Array.isArray(value) ? (value as unknown[]) : []) {
-    if (!isRecord(item) || oneOf(replyFactKeys, item["key"]) === null) {
+    const key = isRecord(item) ? oneOf(replyFactKeys, item["key"]) : null;
+    if (!isRecord(item) || key === null) {
       continue;
     }
-    // Facts are written by main from a checked source; keep the shape that is there.
-    facts.push(item as unknown as ReplyFact);
+    // Facts are written by main from a checked source; keep the shape that is there. Whether one
+    // is saved is the message's `facts_saved`, not what the reading was stored with.
+    facts.push({ ...item, saved: saved.has(key) } as unknown as ReplyFact);
   }
   return facts;
 }
@@ -159,7 +177,7 @@ function isBounce(reading: ReplyReading | null, peer: unknown): boolean {
   );
 }
 
-function parseReading(text: unknown): ReplyReading | null {
+function parseReading(text: unknown, saved: ReadonlySet<string> = new Set()): ReplyReading | null {
   const value = parseJson(text);
   if (!isRecord(value)) {
     return null;
@@ -170,7 +188,7 @@ function parseReading(text: unknown): ReplyReading | null {
     summary: typeof value["summary"] === "string" ? value["summary"] : "",
     side: typeof value["side"] === "string" ? value["side"] : "",
     corrected: value["corrected"] === true,
-    facts: parseFacts(value["facts"]),
+    facts: parseFacts(value["facts"], saved),
   };
 }
 
@@ -317,7 +335,16 @@ function messageFrom(row: Row): ThreadMessage {
     peerName: optStr(row["peer_name"]),
     by: optStr(row["by"]),
     source: oneOf(["app", "sweep", "pasted", "imported"] as const, row["source"]) ?? "app",
-    reading: parseReading(row["reading"]),
+    reading: parseReading(row["reading"], savedKeys(row["facts_saved"])),
+  };
+}
+
+function storedMessage(row: Row): StoredMessage {
+  return {
+    ...messageFrom(row),
+    creator: String(row["channel_id"]),
+    gmailMessageId: optStr(row["gmail_message_id"]),
+    factsSaved: [...savedKeys(row["facts_saved"])],
   };
 }
 
@@ -522,6 +549,59 @@ export function writeDraftGate(
   );
 }
 
+/** What a fact adds to `channel_state.provided_data` (D18): `{rate}`, `{countries}` or `{age}`. */
+function providedFact(fact: ReplyFact): Record<string, unknown> {
+  switch (fact.key) {
+    case "rate":
+      return { rate: fact.rate };
+    case "countries":
+      return { countries: fact.countries };
+    case "age":
+      return { age: fact.band };
+  }
+}
+
+/**
+ * `reply.fact` (D18, D23): merges a fact the reply gave into the creator's `provided_data` (the
+ * other keys stay) and marks it saved on the message. Only a fact the message's reading holds, and
+ * only for a creator with a row; anything else is a no-op. Saving it again changes nothing.
+ */
+export function writeReplyFact(
+  db: DatabaseSync,
+  write: Extract<DataWrite, { kind: "reply.fact" }>,
+): void {
+  const message = db
+    .prepare(
+      "SELECT channel_id, direction, reading, facts_saved FROM outreach_messages WHERE id = ?",
+    )
+    .get(write.messageId);
+  if (message === undefined || message["direction"] !== "in") {
+    refused(write.kind);
+    return;
+  }
+  const saved = savedKeys(message["facts_saved"]);
+  const fact = parseReading(message["reading"])?.facts.find((f) => f.key === write.key);
+  const creator = String(message["channel_id"]);
+  const row = db
+    .prepare("SELECT provided_data FROM channel_state WHERE channel_id = ?")
+    .get(creator);
+  if (fact === undefined || row === undefined) {
+    refused(write.kind);
+    return;
+  }
+  const had = parseJson(row["provided_data"]);
+  const merged = { ...(isRecord(had) ? had : {}), ...providedFact(fact) };
+  db.prepare("UPDATE channel_state SET provided_data = ? WHERE channel_id = ?").run(
+    JSON.stringify(merged),
+    creator,
+  );
+  saved.add(write.key);
+  db.prepare("UPDATE outreach_messages SET facts_saved = ? WHERE id = ?").run(
+    JSON.stringify([...saved]),
+    write.messageId,
+  );
+}
+
 /** How the store reaches the source's transaction and its one write path. */
 export interface OutreachDeps {
   /** Runs `fn` in one transaction (commits on return, rolls back on a throw). */
@@ -667,7 +747,7 @@ export function createOutreachStore(db: DatabaseSync, deps: OutreachDeps): Outre
       const rows = db
         .prepare(
           `SELECT * FROM (
-             SELECT id, channel_id, direction, at, reading, peer, substr(body, 1, 2000) AS body,
+             SELECT id, channel_id, direction, at, reading, facts_saved, peer, substr(body, 1, 2000) AS body,
                     ROW_NUMBER() OVER (PARTITION BY channel_id ORDER BY at DESC, rowid DESC) AS n
              FROM outreach_messages ${where}
            ) WHERE n = 1`,
@@ -682,7 +762,7 @@ export function createOutreachStore(db: DatabaseSync, deps: OutreachDeps): Outre
       const incoming = lastIn.get(id);
       let incomingSummary: ThreadLastIn | null = null;
       if (incoming !== undefined) {
-        const reading = parseReading(incoming["reading"]);
+        const reading = parseReading(incoming["reading"], savedKeys(incoming["facts_saved"]));
         incomingSummary = {
           id: String(incoming["id"]),
           at: num(incoming["at"]),
@@ -742,6 +822,22 @@ export function createOutreachStore(db: DatabaseSync, deps: OutreachDeps): Outre
       )[0] ?? null,
     insertDraft,
     updateDraft,
+    message(id) {
+      const row = db.prepare("SELECT * FROM outreach_messages WHERE id = ?").get(id);
+      return row === undefined ? null : storedMessage(row);
+    },
+    storedGmailIds(ids) {
+      const found = new Set<string>();
+      const lookup = db.prepare(
+        "SELECT 1 AS found FROM outreach_messages WHERE gmail_message_id = ?",
+      );
+      for (const id of ids) {
+        if (lookup.get(id) !== undefined) {
+          found.add(id);
+        }
+      }
+      return found;
+    },
     thread(creator, limit) {
       const rows = db
         .prepare(
@@ -852,6 +948,15 @@ export function createOutreachStore(db: DatabaseSync, deps: OutreachDeps): Outre
         }
         for (const message of change.messages ?? []) {
           insertMessage(message);
+        }
+        for (const { id, reading } of change.readings ?? []) {
+          db.prepare("UPDATE outreach_messages SET reading = ? WHERE id = ?").run(
+            JSON.stringify(reading),
+            id,
+          );
+        }
+        for (const notification of change.notifications ?? []) {
+          upsertNotification(db, notification, { money: false });
         }
         for (const sequence of change.sequences ?? []) {
           upsertSequence(sequence, change.at);

@@ -371,6 +371,7 @@ export function creatorStates(db: DatabaseSync): CreatorState[] {
       handle: String(row["handle"]),
       name: row["name"] === null ? null : String(row["name"]),
       ...storedFields(row),
+      ...contactFacts(String(row["contacts"])),
       engagement: typeof engagement === "number" ? engagement : null,
       legacyPipelineStage: String(row["pipeline_stage"]),
       hasAppStage: isAppStage(row["creator_stage"]),

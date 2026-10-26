@@ -309,3 +309,70 @@ export const reachSequenceSkipResultSchema = z.union([
   z.strictObject({ ok: z.literal(true), skipped: z.array(id).max(sequenceRestoreMax) }),
   sequenceRefused,
 ]);
+
+/** `reach:check-replies` (D23): reads new replies now; `stored` is how many came in. */
+export const reachCheckRepliesResultSchema = z.union([
+  z.strictObject({ ok: z.literal(true), stored: count }),
+  z.strictObject({
+    ok: z.literal(false),
+    problem: z.enum(["busy", "no_mail", "example", "failed", "no_data"]),
+  }),
+]);
+
+/** The longest reply a person can paste. */
+export const pastedReplyMax = 20_000;
+/** `reach:paste-reply` (D23): a reply the person pastes by hand, for a creator already emailed. */
+export const reachPasteReplyRequestSchema = z.strictObject({
+  creatorId: id,
+  text: z.string().trim().min(1).max(pastedReplyMax),
+});
+export const reachPasteReplyResultSchema = z.union([
+  done,
+  z.strictObject({
+    ok: z.literal(false),
+    problem: z.enum(["not_found", "no_outbound", "no_data"]),
+  }),
+]);
+
+/** A situation id, as `situations.json` writes them ("inf.interested_vague"). */
+const situationId = z
+  .string()
+  .min(3)
+  .max(80)
+  .regex(/^[a-z]+\.[a-z0-9_]+$/);
+
+/** `reach:reclassify` (D23): "That's not it": read the reply as this situation instead. */
+export const reachReclassifyRequestSchema = z.strictObject({
+  messageId: id,
+  replyType: situationId,
+});
+/**
+ * `rewritten` says whether the open answer is being written again: false when there is none, when
+ * it can't be (it is drafting, approved or scheduled), or for a bounce, which needs no answer.
+ */
+export const reachReclassifyResultSchema = z.union([
+  z.strictObject({ ok: z.literal(true), rewritten: z.boolean() }),
+  z.strictObject({
+    ok: z.literal(false),
+    problem: z.enum(["not_found", "unknown_type", "bridge_off", "paused", "busy", "no_data"]),
+  }),
+]);
+
+/** The most situations `reach:situations` lists (47 today). */
+export const situationsMax = 200;
+/** `reach:situations` (D23): the reply situations of each side, for the picker. */
+export const reachSituationsResultSchema = z.union([
+  z.strictObject({
+    ok: z.literal(true),
+    situations: z
+      .array(
+        z.strictObject({
+          id: situationId,
+          label: z.string().min(1).max(300),
+          side: z.enum(["influencer", "brand", "any"]),
+        }),
+      )
+      .max(situationsMax),
+  }),
+  z.strictObject({ ok: z.literal(false), problem: z.literal("no_data") }),
+]);

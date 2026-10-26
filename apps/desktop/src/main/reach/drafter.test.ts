@@ -6,12 +6,14 @@ import type {
   CreatorState,
   DataSource,
   DraftPatch,
+  DraftProposal,
   DraftState,
   MailboxView,
   NewDraft,
   OutreachStore,
   Sequence,
   StoredDraft,
+  StoredMessage,
   ThreadMessage,
 } from "@gratovo/core/data";
 import { draftProposalSchema, outreachDraftSchema } from "@gratovo/ipc";
@@ -29,8 +31,11 @@ import {
   kickDelayMs,
   mapProposal,
   standInMs,
+  standInReply,
   standInRewrite,
+  standInSituation,
   type Drafter,
+  type DrafterDeps,
   type DrafterSource,
 } from "./drafter";
 import { reachStrings } from "./strings";
@@ -96,6 +101,15 @@ class FakeOutreach implements OutreachStore {
     }
     this.drafts.set(id, { ...draft, ...patch, updatedAt: at });
     return true;
+  }
+  message(id: string): StoredMessage | null {
+    const found = this.messages.find((m) => m.message.id === id);
+    return found === undefined
+      ? null
+      : { ...found.message, creator: found.creator, gmailMessageId: null, factsSaved: [] };
+  }
+  storedGmailIds(): Set<string> {
+    return new Set();
   }
   thread(creator: string, limit: number): ThreadMessage[] {
     return this.messages
@@ -247,7 +261,7 @@ describe("the drafter", () => {
     outreach: store,
   });
 
-  function make(options: { realTimers?: boolean } = {}): Drafter {
+  function make(options: { realTimers?: boolean; reading?: DrafterDeps["reading"] } = {}): Drafter {
     return createDrafter({
       mode: () => mode,
       source: () => (mode === null ? null : source()),
@@ -256,6 +270,7 @@ describe("the drafter", () => {
         return Promise.resolve(bridge);
       },
       propose,
+      ...(options.reading === undefined ? {} : { reading: options.reading }),
       sender: () => sender,
       mailboxes: () => mailboxes,
       changed,
@@ -1021,6 +1036,319 @@ describe("the drafter", () => {
         body: "old body",
         rewriting: null,
       });
+    });
+  });
+
+  describe("answers to replies (D23)", () => {
+    const replyProposal = (type: string | null, status: Result["status"] = "ready"): Result => {
+      const base = engineResult({ status });
+      const data = base.proposal as Record<string, unknown>;
+      return {
+        ...base,
+        status,
+        proposal: {
+          ...data,
+          situation: {
+            side: "influencer",
+            stage: "replied",
+            reply_type: type,
+            summary: "They gave a rate.",
+          },
+          ...(status === "no_message" ? { message: null } : {}),
+        },
+      };
+    };
+
+    const incoming = (body: string): void => {
+      store.messages.push({
+        creator: sam,
+        message: {
+          id: "m9",
+          direction: "in",
+          kind: null,
+          followUp: null,
+          subject: "Re: Hello",
+          body,
+          bodyCut: false,
+          at: clock,
+          mailbox: null,
+          peer: "sam@x.example",
+          peerName: "Sam",
+          by: null,
+          source: "sweep",
+          reading: null,
+        },
+      });
+    };
+
+    const answerRow = (id = "r1"): void => {
+      store.insertDraft({
+        id,
+        creator: sam,
+        kind: "reply",
+        followUp: null,
+        mailbox: "moustafa@gratovo.example",
+        replyTo: "m9",
+        at: clock,
+      });
+    };
+
+    let reading: ReturnType<
+      typeof vi.fn<(draft: StoredDraft, proposal: DraftProposal) => Promise<{ bounce: boolean }>>
+    >;
+
+    beforeEach(() => {
+      states = [
+        creatorState(sam, {
+          stage: "replied",
+          email: "sam@x.example",
+          emailConfirmed: true,
+          contactName: "Sam",
+        }),
+      ];
+      reading = vi.fn(() => Promise.resolve({ bounce: false }));
+      drafter = make({ reading });
+    });
+
+    it("asks for a reply, hands the engine's reading to the hook, and leaves the answer ready", async () => {
+      propose.mockResolvedValue(answered(replyProposal("inf.gives_rate")));
+      answerRow();
+      await kicked();
+      expect(propose.mock.calls[0]?.[0].request).toMatchObject({
+        kind: "reply",
+        channelId: sam,
+        threadId: `c:${sam}`,
+      });
+      expect(reading).toHaveBeenCalledOnce();
+      expect(reading.mock.calls[0]?.[0]).toMatchObject({ id: "r1", replyTo: "m9", kind: "reply" });
+      expect(reading.mock.calls[0]?.[1].situation).toEqual({
+        side: "influencer",
+        stage: "replied",
+        replyType: "inf.gives_rate",
+        summary: "They gave a rate.",
+      });
+      expect(store.draft("r1")).toMatchObject({ state: "ready", approvedBy: null, sendAt: null });
+    });
+
+    it("sets the answer aside when the reading says bounce, keeping the proposal", async () => {
+      propose.mockResolvedValue(answered(replyProposal("any.bounce")));
+      reading.mockResolvedValue({ bounce: true });
+      answerRow();
+      await kicked();
+      expect(store.draft("r1")).toMatchObject({
+        state: "skipped",
+        problem: null,
+        proposal: { situation: { replyType: "any.bounce" } },
+      });
+    });
+
+    it("reads a bounce even when the engine wrote no message for it", async () => {
+      propose.mockResolvedValue(answered(replyProposal("any.bounce", "no_message")));
+      reading.mockResolvedValue({ bounce: true });
+      answerRow();
+      await kicked();
+      expect(reading).toHaveBeenCalledOnce();
+      expect(store.draft("r1")?.state).toBe("skipped");
+    });
+
+    it("still fails an answer with no message when it was not a bounce, after the reading is stored", async () => {
+      propose.mockResolvedValue(answered(replyProposal("any.unclear", "no_message")));
+      answerRow();
+      await kicked();
+      expect(reading).toHaveBeenCalledOnce();
+      expect(store.draft("r1")).toMatchObject({ state: "failed", problem: "engine_blocked" });
+    });
+
+    it("does not call the hook for a first email, a follow-up or an answer with no situation", async () => {
+      states = [confirmed(sam)];
+      seed("first", sam);
+      await kicked();
+      expect(reading).not.toHaveBeenCalled();
+      store.drafts.clear();
+      states = [
+        creatorState(sam, { stage: "replied", email: "sam@x.example", emailConfirmed: true }),
+      ];
+      propose.mockResolvedValue(
+        answered(engineResult({ proposal: { message: { subject: "S", body: "B" } } })),
+      );
+      answerRow();
+      await kicked();
+      expect(reading).not.toHaveBeenCalled();
+      expect(store.draft("r1")?.state).toBe("ready");
+    });
+
+    it("keeps the answer when storing the reading throws, logging no text", async () => {
+      const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+      reading.mockRejectedValue(new Error("SECRET BODY"));
+      propose.mockResolvedValue(answered(replyProposal("inf.gives_rate")));
+      answerRow();
+      await kicked();
+      expect(store.draft("r1")?.state).toBe("ready");
+      expect(JSON.stringify(error.mock.calls)).not.toContain("SECRET");
+    });
+
+    it("never leaves an answer approved", async () => {
+      propose.mockResolvedValue(answered(replyProposal("inf.gives_rate")));
+      answerRow();
+      await kicked();
+      expect(
+        drafts().filter((d) => ["approved", "scheduled", "sending"].includes(d.state)),
+      ).toEqual([]);
+    });
+
+    describe("on the example data", () => {
+      beforeEach(() => {
+        mode = "example";
+      });
+
+      it("writes a stand-in answer in the reply's own words and reads it, without Gemini", async () => {
+        incoming("My rate is $900 per video. Audience mostly US.");
+        answerRow();
+        await kicked();
+        const draft = store.draft("r1");
+        expect(draft).toMatchObject({ state: "ready", subject: "Re: Hello", problem: null });
+        expect(draft?.body.startsWith("Hi Sam,\n\n")).toBe(true);
+        expect(draft?.body).toContain("rate and the audience numbers");
+        expect(draft?.body.endsWith("\n\nMoustafa")).toBe(true);
+        expect(draft?.proposal?.situation).toMatchObject({
+          replyType: "inf.gives_rate",
+          side: "influencer",
+          summary: reachStrings.standInReply.summaries["inf.gives_rate"],
+        });
+        expect(reading).toHaveBeenCalledOnce();
+        expect(reading.mock.calls[0]?.[1].situation?.replyType).toBe("inf.gives_rate");
+        expect(propose).not.toHaveBeenCalled();
+        expect(bridgeChecks).toBe(0);
+      });
+
+      it("sets a stand-in answer aside when the stand-in read a bounce", async () => {
+        incoming("Delivery Status Notification: address not found");
+        reading.mockResolvedValue({ bounce: true });
+        answerRow();
+        await kicked();
+        expect(store.draft("r1")?.state).toBe("skipped");
+      });
+
+      it("works without a hook too", async () => {
+        incoming("Not interested, thanks.");
+        drafter = make();
+        answerRow();
+        await kicked();
+        expect(store.draft("r1")).toMatchObject({ state: "ready" });
+        expect(store.draft("r1")?.proposal?.situation?.replyType).toBe("inf.not_interested");
+      });
+    });
+
+    describe("reading a reply another way (That's not it)", () => {
+      beforeEach(() => {
+        incoming("Maybe later.");
+        answerRow("a");
+        store.updateDraft(
+          "a",
+          { state: "ready", subject: "Re: Hello", body: "Hi\n\nOld\n\nMoustafa" },
+          clock,
+        );
+      });
+
+      it("writes the answer again with the steer note, and puts the new text in", async () => {
+        propose.mockResolvedValue(answered(replyProposal("inf.not_interested")));
+        expect(await drafter.reread("a", "Not interested / no partnerships")).toEqual({ ok: true });
+        expect(store.draft("a")).toMatchObject({
+          rewriting: "redo",
+          steer: { how: "redo", note: "Read their reply as: Not interested / no partnerships" },
+        });
+        await drafter.idle();
+        expect(propose.mock.calls[0]?.[0].request).toMatchObject({
+          kind: "reply",
+          steer: { note: "Read their reply as: Not interested / no partnerships" },
+        });
+        expect(store.draft("a")).toMatchObject({
+          state: "ready",
+          rewriting: null,
+          body: SAM_BODY,
+          edited: false,
+        });
+        expect(reading).toHaveBeenCalledOnce();
+      });
+
+      it("carries a correction's steer into later rewrites of the answer", async () => {
+        const m9 = store.messages.find((m) => m.message.id === "m9");
+        if (m9 === undefined) throw new Error("no m9");
+        m9.message = {
+          ...m9.message,
+          reading: {
+            replyType: "inf.not_interested",
+            label: "Not interested",
+            summary: "No.",
+            side: "influencer",
+            corrected: true,
+            facts: [],
+          },
+        };
+        propose.mockResolvedValue(answered(replyProposal("inf.not_interested")));
+        expect(await drafter.rewrite("a", "warmer")).toEqual({ ok: true });
+        await drafter.idle();
+        expect(propose.mock.calls[0]?.[0].request).toMatchObject({
+          steer: { note: "Make it warmer, without flattery. Read their reply as: Not interested" },
+        });
+      });
+
+      it("shares the rewrite's refusals", async () => {
+        bridge = { ready: false, pausedUntil: null };
+        expect(await drafter.reread("a", "x")).toEqual({ ok: false, problem: "bridge_off" });
+        bridge = { ready: true, pausedUntil: start + 60_000 };
+        expect(await drafter.reread("a", "x")).toEqual({ ok: false, problem: "paused" });
+        bridge = { ready: true, pausedUntil: null };
+        store.updateDraft("a", { state: "drafting" }, clock);
+        expect(await drafter.reread("a", "x")).toEqual({ ok: false, problem: "busy" });
+        expect(await drafter.reread("zz", "x")).toEqual({ ok: false, problem: "not_found" });
+        sender = null;
+        store.updateDraft("a", { state: "ready" }, clock);
+        expect(await drafter.reread("a", "x")).toEqual({ ok: false, problem: "no_sender" });
+        expect(propose).not.toHaveBeenCalled();
+      });
+
+      it("uses a stand-in edit on example data, never calling Gemini", async () => {
+        mode = "example";
+        expect(await drafter.reread("a", "Not interested")).toEqual({ ok: true });
+        await drafter.idle();
+        expect(store.draft("a")).toMatchObject({ rewriting: null, state: "ready" });
+        expect(propose).not.toHaveBeenCalled();
+      });
+
+      it("sets the answer aside when the new reading is a bounce", async () => {
+        propose.mockResolvedValue(answered(replyProposal("any.bounce")));
+        reading.mockResolvedValue({ bounce: true });
+        await drafter.reread("a", "Bounce");
+        await drafter.idle();
+        expect(store.draft("a")).toMatchObject({ state: "skipped", rewriting: null });
+      });
+    });
+  });
+
+  describe("the stand-in's reading of a reply", () => {
+    it("reads a bounce, a no, a rate, a manager, a later and the rest", () => {
+      expect(standInSituation("Undeliverable: address not found")).toBe("any.bounce");
+      expect(standInSituation("We are not interested, sorry.")).toBe("inf.not_interested");
+      expect(standInSituation("My rate is $900")).toBe("inf.gives_rate");
+      expect(standInSituation("Please write to my manager.")).toBe("inf.has_manager");
+      expect(standInSituation("Busy this month, ask me later.")).toBe("inf.later");
+      expect(standInSituation("Which brand is it?")).toBe("inf.interested_vague");
+    });
+
+    it("answers a type it has no words for with a plain question", () => {
+      const reply = standInReply(
+        { contactName: null },
+        "Moustafa",
+        { subject: "Hi", body: "x" },
+        "brd.yes",
+      );
+      expect(reply.subject).toBe("Re: Hi");
+      expect(reply.body.startsWith("Hi there,\n\n")).toBe(true);
+      expect(reply.proposal.situation).toMatchObject({ side: "brand", replyType: "brd.yes" });
+      expect(
+        standInReply({ contactName: null }, "M", { subject: "Re: Hi", body: "" }).subject,
+      ).toBe("Re: Hi");
     });
   });
 

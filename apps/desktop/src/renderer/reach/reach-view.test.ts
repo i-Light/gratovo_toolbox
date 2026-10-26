@@ -2,10 +2,10 @@ import type { Sequence, ThreadSummary } from "@gratovo/core/data";
 import { describe, expect, it } from "vitest";
 
 import { strings } from "../strings";
-import { aiDraft } from "../lib/reach-test-bridge";
+import { aiDraft, reachWith } from "../lib/reach-test-bridge";
 import { aiCreator } from "./reach-fixtures";
 import { dayWords } from "../lib/reach-actions";
-import { cardInfo, nextWords, sequenceEvents, sequenceRows } from "./reach-view";
+import { cardInfo, nextWords, sequenceEvents, sequenceRows, subLine } from "./reach-view";
 
 const now = Date.UTC(2026, 9, 25, 12, 0, 0);
 const day = 86_400_000;
@@ -204,5 +204,22 @@ describe("the Sequences words and dots", () => {
       now,
     );
     expect(rows.map((r) => r.creator.id)).toEqual(["c2", "c1"]);
+  });
+});
+
+describe("subLine with the creators", () => {
+  it("counts replies the way Replies does: an answer to send, or nothing written yet", () => {
+    const creators = [aiCreator("c1", "Prompt Lab"), aiCreator("c2", "Neural Notes")];
+    const lastIn = { id: "m", at: 1, reading: null, preview: "Hi", bounce: false };
+    const threads = ["c1", "c2"].map((creator) => ({
+      creator,
+      count: 2,
+      lastOutAt: 0,
+      lastIn,
+      answered: false,
+    }));
+    const reach = reachWith({ threads });
+    expect(subLine(reach, creators)).toContain("2 replies to answer");
+    expect(subLine(reach)).not.toContain("replies to answer");
   });
 });

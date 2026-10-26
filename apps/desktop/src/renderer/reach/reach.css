@@ -449,3 +449,85 @@ button.rc-cap:hover {
   height: 0;
   border-top: 2px dashed var(--line-2);
 }
+
+/* Reach › Replies (prototype reach.js .rc-in): the list on the left, the reply open on the right. */
+/* A row's name comes first: the reading's tag gives way, not the name. */
+.rp-who {
+  min-width: 0;
+  flex-wrap: nowrap;
+}
+.rp-who > b {
+  flex: 0 0 auto;
+  max-width: 65%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rp-who > .tag {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.rp-split {
+  display: grid;
+  grid-template-columns: minmax(280px, 380px) minmax(0, 1fr);
+  gap: var(--gap);
+  align-items: start;
+}
+.rp-split > .queue {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  position: sticky;
+  top: 8px;
+  max-height: calc(100vh - 160px);
+  overflow-y: auto;
+}
+.rp-work {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  min-width: 0;
+}
+.rp-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.rp-head h2 {
+  font-size: 18px;
+  font-weight: 600;
+}
+.queue .li {
+  align-items: flex-start;
+  padding: 9px 10px;
+}
+.queue .li .lt small {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.queue .li .rt {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  flex: none;
+  text-align: end;
+}
+.queue .li .rt small {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+.queue .li .rt small.go {
+  color: var(--accent-strong);
+  font-weight: 500;
+}
+.queue .li .rt .due {
+  font-size: 11.5px;
+  color: var(--muted);
+}

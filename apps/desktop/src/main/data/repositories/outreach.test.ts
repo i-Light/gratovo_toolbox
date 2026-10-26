@@ -2,12 +2,13 @@ import { DatabaseSync } from "node:sqlite";
 
 import { reachSequencesMax, threadPreviewMax } from "@gratovo/core/data";
 import type { NewMessage, OutreachStore, Sequence } from "@gratovo/core/data";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { migrate } from "../../db/migrate";
 import { inTransaction } from "../sqlite-source";
 
-import { createOutreachStore, textHash, writeDraftState } from "./outreach";
+import { listNotifications } from "./notifications";
+import { createOutreachStore, textHash, writeDraftState, writeReplyFact } from "./outreach";
 
 const hour = 60 * 60 * 1000;
 const now = Date.UTC(2026, 9, 20, 12, 0, 0);
@@ -706,5 +707,216 @@ describe("commit", () => {
     expect(store.draft("d1")?.state).toBe("drafting");
     expect(store.hasOutbound("UCa")).toBe(false);
     expect(store.sequence("UCa")).toBeNull();
+  });
+});
+
+// --- replies (plan step 6d, D23) ---
+
+const readingWithFacts = {
+  replyType: "inf.gives_rate",
+  label: "Gives their rate or rate card",
+  summary: "They gave a price.",
+  side: "influencer",
+  corrected: false,
+  facts: [
+    { key: "rate" as const, rate: 1200, saved: false },
+    {
+      key: "countries" as const,
+      countries: [
+        { code: "US", share: 55 },
+        { code: "GB", share: null },
+      ],
+      saved: false,
+    },
+    { key: "age" as const, band: "25-34", saved: false },
+  ],
+};
+
+function channel(id: string, provided: string | null = null): void {
+  db.prepare(
+    "INSERT INTO channel_state (channel_id, handle, provided_data, updated_at) VALUES (?, ?, ?, ?)",
+  ).run(id, `@${id}`, provided, new Date(now).toISOString());
+}
+
+const providedOf = (id: string): unknown => {
+  const row = db.prepare("SELECT provided_data FROM channel_state WHERE channel_id = ?").get(id);
+  return row?.["provided_data"] === null ? null : JSON.parse(String(row?.["provided_data"]));
+};
+
+describe("one message and the Gmail ids", () => {
+  it("reads a message by id with its creator, Gmail id and saved facts", () => {
+    store.commit({
+      at: now,
+      messages: [
+        message("m1", {
+          direction: "in",
+          kind: null,
+          gmailMessageId: "g-1",
+          reading: readingWithFacts,
+        }),
+      ],
+    });
+    expect(store.message("m1")).toMatchObject({
+      id: "m1",
+      creator: "UCa",
+      direction: "in",
+      gmailMessageId: "g-1",
+      factsSaved: [],
+      reading: { replyType: "inf.gives_rate", corrected: false },
+    });
+    expect(store.message("nope")).toBeNull();
+  });
+
+  it("says which Gmail ids are stored", () => {
+    store.commit({
+      at: now,
+      messages: [
+        message("m1", { gmailMessageId: "g-1" }),
+        message("m2", { gmailMessageId: "g-2" }),
+      ],
+    });
+    expect(store.storedGmailIds(["g-1", "g-3", "g-2", "g-4"])).toEqual(new Set(["g-1", "g-2"]));
+    expect(store.storedGmailIds([])).toEqual(new Set());
+  });
+});
+
+describe("a reading and a notification in a commit", () => {
+  it("sets a reading, and adds a notification by id that is never about money", () => {
+    store.commit({ at: now, messages: [message("m1", { direction: "in", kind: null })] });
+    const notification = {
+      id: "reply-m1",
+      at: now,
+      icon: "reply" as const,
+      text: "Vector Vlog replied",
+      sub: "Re: Your video",
+      go: { screen: "reach", tab: "inbox" },
+      read: false,
+    };
+    store.commit({
+      at: now,
+      readings: [{ id: "m1", reading: readingWithFacts }],
+      notifications: [notification],
+    });
+    expect(store.message("m1")?.reading).toMatchObject({ label: "Gives their rate or rate card" });
+    expect(listNotifications(db)).toEqual([notification]);
+    // The same id replaces: a second commit is not a second notification.
+    store.commit({ at: now, notifications: [{ ...notification, text: "Again" }] });
+    expect(listNotifications(db).map((n) => n.text)).toEqual(["Again"]);
+  });
+
+  it("rolls the reading and the notification back with a failing write", () => {
+    store.commit({ at: now, messages: [message("m1", { direction: "in", kind: null })] });
+    failWrites = true;
+    expect(() => {
+      store.commit({
+        at: now,
+        readings: [{ id: "m1", reading: readingWithFacts }],
+        notifications: [
+          {
+            id: "n1",
+            at: now,
+            icon: "alert",
+            text: "x",
+            sub: "",
+            go: { screen: "reach", tab: null },
+            read: false,
+          },
+        ],
+        writes: [{ kind: "notify.set", notify: {} }],
+      });
+    }).toThrow("boom");
+    expect(store.message("m1")?.reading).toBeNull();
+    expect(listNotifications(db)).toEqual([]);
+  });
+});
+
+describe("reply.fact", () => {
+  const sweepIn = (): void => {
+    store.commit({
+      at: now,
+      messages: [
+        message("m1", { direction: "in", kind: null, source: "sweep", reading: readingWithFacts }),
+      ],
+    });
+  };
+  const fact = (key: "rate" | "countries" | "age") =>
+    ({ kind: "reply.fact", messageId: "m1", key }) as const;
+
+  it("merges each fact into provided_data and keeps the other keys", () => {
+    channel("UCa", JSON.stringify({ gender: "f", rate: 900 }));
+    sweepIn();
+    writeReplyFact(db, fact("rate"));
+    expect(providedOf("UCa")).toEqual({ gender: "f", rate: 1200 });
+    writeReplyFact(db, fact("countries"));
+    writeReplyFact(db, fact("age"));
+    expect(providedOf("UCa")).toEqual({
+      gender: "f",
+      rate: 1200,
+      countries: [
+        { code: "US", share: 55 },
+        { code: "GB", share: null },
+      ],
+      age: "25-34",
+    });
+  });
+
+  it("starts from nothing, and from a provided_data that is not an object", () => {
+    channel("UCa", null);
+    sweepIn();
+    writeReplyFact(db, fact("age"));
+    expect(providedOf("UCa")).toEqual({ age: "25-34" });
+    db.prepare("UPDATE channel_state SET provided_data = '[1,2]' WHERE channel_id = 'UCa'").run();
+    writeReplyFact(db, fact("rate"));
+    expect(providedOf("UCa")).toEqual({ rate: 1200 });
+  });
+
+  it("marks the fact saved on the message, in the thread and the frame, once", () => {
+    channel("UCa");
+    sweepIn();
+    writeReplyFact(db, fact("rate"));
+    writeReplyFact(db, fact("rate"));
+    expect(store.message("m1")?.factsSaved).toEqual(["rate"]);
+    const saved = (facts: readonly { key: string; saved: boolean }[] | undefined) =>
+      facts?.map((f) => [f.key, f.saved]);
+    const expected = [
+      ["rate", true],
+      ["countries", false],
+      ["age", false],
+    ];
+    expect(saved(store.thread("UCa", 10)[0]?.reading?.facts)).toEqual(expected);
+    expect(saved(store.reachParts(now).threads[0]?.lastIn?.reading?.facts)).toEqual(expected);
+  });
+
+  it("is a no-op for an unknown message, an out message, a fact it does not hold and a channel with no row", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    channel("UCa");
+    store.commit({
+      at: now,
+      messages: [
+        message("m1", { direction: "in", kind: null, reading: readingWithFacts }),
+        message("out1", { direction: "out" }),
+        message("m2", {
+          direction: "in",
+          kind: null,
+          reading: { ...readingWithFacts, facts: [] },
+        }),
+        message("m3", {
+          creator: "UCnone",
+          direction: "in",
+          kind: null,
+          reading: readingWithFacts,
+        }),
+      ],
+    });
+    writeReplyFact(db, { kind: "reply.fact", messageId: "nope", key: "rate" });
+    writeReplyFact(db, { kind: "reply.fact", messageId: "out1", key: "rate" });
+    writeReplyFact(db, { kind: "reply.fact", messageId: "m2", key: "rate" });
+    writeReplyFact(db, { kind: "reply.fact", messageId: "m3", key: "rate" });
+    expect(providedOf("UCa")).toBeNull();
+    expect(store.message("m3")?.factsSaved).toEqual([]);
+    expect(warn).toHaveBeenCalledTimes(4);
+    // The log carries the kind only.
+    expect(JSON.stringify(warn.mock.calls)).not.toContain("1200");
+    warn.mockRestore();
   });
 });

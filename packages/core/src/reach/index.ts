@@ -60,3 +60,12 @@ export {
   withStep,
   woken,
 } from "./sequence";
+export {
+  readAgeBand,
+  readCountries,
+  readRate,
+  readReplyFacts,
+  replyCountriesMax,
+} from "./reply-facts";
+export { repliesToAnswer, replyItems } from "./replies";
+export type { ReplyItem, ReplyState } from "./replies";

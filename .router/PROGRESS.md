@@ -2,19 +2,43 @@
 
 Plan: `.router/PLAN.md` (decisions D1–D22, D6a). Map: `.router/CONTEXT.md`.
 
-## Where it stands (2026-10-25)
+## Where it stands (2026-10-26)
 
-- **6a** and **6b** are done and merged (pull requests #29 and #30).
-- **6c done** on branch `feat/6c-reach-sequences`: D22 (the sequences: planned on a first send, drafted when due, the day timer, Stop, Resume, Park, Wake, Reach › Sequences). Lint, typecheck and Vitest 2854 pass. The new smoke test `e2e/reach-sequences.spec.ts` passes. I looked at it in the built app at 1440 px: the timeline, the row menu, the Emails tab's next step and the board.
-- **Next: 6d** (D17, D18): replies.
-  - The background sweep and ack.
-  - The thread, Gemini's reading, and the 47-situation correction.
-  - Facts saved to the record, and Paste a reply.
-  - Notifications and stage moves.
-  - Reach › Replies.
-  - A reply stops the sequence (`stopped: "replied"`, open follow-ups skipped). Put back the Sequences empty state's "stop on their own when someone replies".
-  - The slowdown's notification (6b).
-  - Plan its tasks in PLAN.md first.
+- **6a**, **6b** and **6c** are done and merged (pull requests #29, #30 and #31).
+- **6d done** on branch `feat/6d-reach-replies`: D23 (replies). The background sweep and ack, Gemini's reading with its facts and That's not it, Save to record, Paste a reply, notifications and stage moves, a reply or a bounce stopping the sequence, Reach › Replies in the live rail, and the slowdown's notification. Lint, typecheck and Vitest 3000 pass. The new smoke test `e2e/reach-replies.spec.ts` passes, with the other Reach smoke tests. I looked at Replies in the built app at 1440 px.
+- **Next: 6e**, the last part of step 6:
+  - The old mail history (D19): import the old `mailbox.db` and outreach rows; old replies come in with no effects (the sweep's 30-day rule, `oldReplyMs`).
+  - The full Reach flow suite (two-tier testing: the end of a major step).
+  - ADR 0018, from the review sections below.
+  - The architecture and parity notes (rows 24–48 and 123–125; 32 DMs and 39 not built).
+  - The status table; remove `.router/` once step 6 is complete.
+
+## What 6d's review found and how it was fixed (keep for ADR 0018 in 6e)
+
+The `router-reviewer` found no automatic send and no way to read the connected mailbox beyond the pipeline's own replies job, and fifteen points, all handled:
+
+1. The facts reader read our own quoted email as theirs, and was loose. `ownWords` cuts the quoted history first. US and UK match only as written (never "us" or "America"). A rate is never a percentage or an engagement, open or click rate. An age band is never a length of time and needs an age or viewer word nearby. Shares like "40% of viewers in Germany" read.
+2. A parked creator who replied kept a park day. Replies, bounces and the never-contact stop clear `parkUntil`; the page shows a sequence stopped by a reply or bounce as stopped whatever its park day.
+3. A reply later read as a bounce left the creator at `replied`. With no other real reply in, the stage goes back to `emailed`, and the bounce notice replaces the "replied" one.
+4. The rail's Reach count used its own rule. It uses `repliesToAnswer(replyItems(...))`, the same as the page.
+5. A never-contact or rejected creator who replied kept getting follow-ups. Their sequence stops and open follow-ups are skipped, with no stage move, notice or answer. Replies shows them as "Not contacting".
+6. Unconfirming a bounced address lost its source and confidence. Kept.
+7. Reclassify always said "Writing the answer again". It answers `rewritten`; the toast says "Reading changed; the answer was not written again" when it wasn't, and a bounce leaves no stale undo entry.
+8. A correction was lost on the next rewrite (Shorter and the like). Every proposal for that answer carries "Read their reply as: <label>".
+9. Unmatched replies were never acked and logged every sweep. Ack covers every swept id; each unmatched id is logged once per run.
+10. An address shared by two creators matched the first. It stays unmatched. A reply over 30 days old is stored and acked with no effects.
+11. Rate facts reached a viewer who doesn't see money. Stripped from the frame.
+12. No line when Gemini hadn't read a reply. It says "Gemini hasn't read it yet" (not for a bounce).
+13. The paste toast promised an answer that wouldn't come. Its second line follows the creator's stage and any open answer.
+14. Save to record could mark a newer reply's fact. It checks the message id. With no situations file the picker says so.
+15. This file and the status table, updated in this commit.
+
+## Known limits after 6d
+
+- A pasted reply can't be undone, and a sequence stopped by a reply can't be resumed (Resume takes only the person's own stop).
+- Replies keeps answered creators listed, marked "Answered" (a deviation from D23, recorded there).
+- `reach:thread` still sends a reply's rate fact to a viewer who doesn't see money; only the frame strips it. It matters only for teammates, so it is fixed with step T.
+- A packaged build has no situations file until step T ships it, so That's not it has nothing to pick there.
 
 ## What 6c's review found and how it was fixed (keep for ADR 0018 in 6e)
 

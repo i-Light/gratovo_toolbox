@@ -8,7 +8,7 @@ import type {
   SequenceStep,
   ThreadSummary,
 } from "@gratovo/core/data";
-import { isFinished, isRunning, nextStep } from "@gratovo/core/reach";
+import { isFinished, isRunning, nextStep, repliesToAnswer, replyItems } from "@gratovo/core/reach";
 import type { BoardItem, BoardLaneKey } from "@gratovo/core/reach";
 import type { IconName } from "@gratovo/ui";
 
@@ -23,15 +23,22 @@ export function waitingDrafts(reach: ReachData): OutreachDraft[] {
   return reach.drafts.filter((d) => d.state === "ready" || d.state === "failed");
 }
 
-/** The page's sub line: what is waiting, in the prototype's words. */
-export function subLine(reach: ReachData): string {
+/**
+ * The page's sub line: what is waiting, in the prototype's words. With the creators, the replies to
+ * answer are counted as Replies counts them (D14, D16): an answer draft to send, or a reply nobody
+ * has answered yet.
+ */
+export function subLine(reach: ReachData, creators?: readonly Creator[]): string {
   const waiting = waitingDrafts(reach);
   const count = (kind: OutreachDraft["kind"]): number =>
     waiting.filter((d) => d.kind === kind).length;
   const parts: string[] = [];
   const first = count("first");
   const followUps = count("followUp");
-  const replies = count("reply");
+  const replies =
+    creators === undefined
+      ? count("reply")
+      : repliesToAnswer(replyItems(creators, reach.threads, reach.drafts));
   if (first > 0) {
     parts.push(t.screen.emailsToApprove(first));
   }
@@ -238,6 +245,10 @@ export interface SeqRow {
  * always there to put it right (review of 6c, finding 4).
  */
 export function seqState(sequence: Sequence, now: number, stage?: CreatorStage): SeqState {
+  // A reply or a bounce ends the sequence, whatever park day it still has (review of 6d).
+  if (sequence.stopped === "replied" || sequence.stopped === "bounced") {
+    return "stopped";
+  }
   if (sequence.parkUntil !== null || stage === "parked") {
     return "parked";
   }
@@ -392,4 +403,39 @@ export function timelineDays(now: number): number[] {
     d.setDate(d.getDate() + i - timelineSpan);
     return d.getTime();
   });
+}
+
+/** The tag colour of a reply's reading, by its type (D23; prototype `intentTone`). */
+export function replyTone(
+  type: string | null,
+  bounce: boolean,
+): "good" | "warn" | "crit" | "info" | undefined {
+  if (bounce || type === "any.bounce") {
+    return "crit";
+  }
+  switch (type?.split(".")[1]) {
+    case "interested_vague":
+    case "gives_rate":
+    case "media_kit":
+    case "agrees":
+      return "good";
+    case "asks_price_from_us":
+    case "counter":
+    case "has_manager":
+      return "info";
+    case "later":
+    case "not_interested":
+    case "out_of_office":
+      return "warn";
+    case "angry":
+    case "unsubscribe":
+      return "crit";
+    default:
+      return undefined;
+  }
+}
+
+/** The part of a reading's label before " · ", for the list's tag. */
+export function shortReading(label: string): string {
+  return label.split(" · ")[0] ?? label;
 }

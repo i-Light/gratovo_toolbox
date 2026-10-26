@@ -70,3 +70,101 @@ describe("the Emails tab next step", () => {
     expect(screen.queryByRole("group", { name: t.record.label })).toBeNull();
   });
 });
+
+describe("paste a reply by hand", () => {
+  const p = strings.reach.emails.paste;
+  const out = {
+    id: "o1",
+    direction: "out",
+    kind: "first",
+    followUp: null,
+    subject: "Hi",
+    body: "Hi there",
+    bodyCut: false,
+    at: now - day,
+    mailbox: null,
+    peer: null,
+    peerName: null,
+    by: null,
+    source: "app",
+    reading: null,
+  } as const;
+  const showThread = (
+    messages: readonly unknown[],
+    answers: Record<string, unknown> = {},
+  ): void => {
+    bridge = stubReachBridge({ "reach:thread": { ok: true, messages }, ...answers });
+    show(null);
+  };
+  const toasts = () => appStore().getState().ui.toasts;
+
+  it("is offered only once the thread has an email out", async () => {
+    showThread([]);
+    await screen.findByText(strings.reach.emails.none);
+    expect(screen.queryByRole("button", { name: p.open })).toBeNull();
+    cleanup();
+    showThread([out]);
+    expect(await screen.findByRole("button", { name: p.open })).toBeTruthy();
+  });
+
+  it("adds the reply on Ctrl Enter, says so and loads the thread again", async () => {
+    showThread([out], { "reach:paste-reply": { ok: true } });
+    fireEvent.click(await screen.findByRole("button", { name: p.open }));
+    const box = screen.getByRole("textbox", { name: p.label });
+    expect(screen.getByText(p.hint)).toBeTruthy();
+    fireEvent.change(box, { target: { value: "Sounds good, my rate is $900." } });
+    await act(async () => {
+      fireEvent.keyDown(box, { key: "Enter", ctrlKey: true });
+      await Promise.resolve();
+    });
+    expect(bridge.calls).toContainEqual([
+      "reach:paste-reply",
+      { creatorId: "c1", text: "Sounds good, my rate is $900." },
+    ]);
+    expect(toasts().at(-1)?.msg).toBe(p.added("Prompt Lab"));
+    expect(toasts().at(-1)?.sub).toBe(p.addedSub);
+    expect(screen.queryByRole("textbox", { name: p.label })).toBeNull();
+    expect(bridge.calls.filter((c) => c[0] === "reach:thread")).toHaveLength(2);
+  });
+
+  it("closes on Esc without sending", async () => {
+    showThread([out]);
+    fireEvent.click(await screen.findByRole("button", { name: p.open }));
+    fireEvent.keyDown(screen.getByRole("textbox", { name: p.label }), { key: "Escape" });
+    expect(screen.queryByRole("textbox", { name: p.label })).toBeNull();
+    expect(bridge.calls.some((c) => c[0] === "reach:paste-reply")).toBe(false);
+  });
+
+  it("says plainly why a reply was refused and keeps the box open", async () => {
+    showThread([out], { "reach:paste-reply": { ok: false, problem: "no_outbound" } });
+    fireEvent.click(await screen.findByRole("button", { name: p.open }));
+    const box = screen.getByRole("textbox", { name: p.label });
+    fireEvent.change(box, { target: { value: "Hello" } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /Add reply/ }));
+      await Promise.resolve();
+    });
+    expect(toasts().at(-1)?.msg).toBe(p.problems.no_outbound);
+    expect(screen.getByRole("textbox", { name: p.label })).toBeTruthy();
+  });
+
+  it("shows Gemini's reading under their last reply", async () => {
+    const inMsg = {
+      ...out,
+      id: "i1",
+      direction: "in",
+      kind: null,
+      reading: {
+        replyType: "inf.gives_rate",
+        label: "Gives their rate",
+        summary: "They quote a rate.",
+        side: "creator",
+        corrected: false,
+        facts: [{ key: "rate", rate: 900, saved: false }],
+      },
+    };
+    showThread([out, inMsg]);
+    expect(await screen.findByText("Rate $900")).toBeTruthy();
+    expect(screen.getByRole("button", { name: strings.reach.reading.save })).toBeTruthy();
+  });
+});

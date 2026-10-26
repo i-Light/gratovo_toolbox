@@ -196,6 +196,36 @@ describe("exampleSeed", () => {
     expect(new Set(messages.map((m) => m.gmailMessageId)).size).toBe(messages.length);
   });
 
+  it("gives Vector Vlog's reply a reading with a rate, countries and an age band (6d)", () => {
+    const reply = seed.outreach.messages.find((m) => m.id === "msg4");
+    expect(reply).toMatchObject({ creator: "c10", direction: "in" });
+    // The facts are the ones the reply's own words give, none saved yet.
+    expect(reply?.reading).toMatchObject({
+      replyType: "inf.gives_rate",
+      label: "Gives their rate or rate card",
+      side: "influencer",
+      corrected: false,
+    });
+    expect(reply?.reading?.facts).toEqual([
+      { key: "rate", rate: 1200, saved: false },
+      {
+        key: "countries",
+        countries: [
+          { code: "US", share: null },
+          { code: "GB", share: null },
+        ],
+        saved: false,
+      },
+      { key: "age", band: "25-34", saved: false },
+    ]);
+    expect(
+      exampleFrame(now).reach.threads.find((t) => t.creator === "c10")?.lastIn?.reading,
+    ).toEqual(reply?.reading);
+    // The stage stays replied and no answer draft is seeded.
+    expect(seed.creators.find((c) => c.id === "c10")?.stage).toBe("replied");
+    expect(seed.outreach.drafts.some((d) => d.creator === "c10")).toBe(false);
+  });
+
   it("derives the frame's Reach from those rows", () => {
     const reach = exampleFrame(now).reach;
     expect(reach.drafts.map((d) => d.id)).toEqual(["dr3", "dr2", "dr1"]);

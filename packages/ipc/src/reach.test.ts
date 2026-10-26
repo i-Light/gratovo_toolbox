@@ -109,4 +109,24 @@ describe("the reach schemas", () => {
     ).toBe(false);
     expect(parseRequest("reach:sequence-resume", { creatorId: "UCabc", extra: 1 }).ok).toBe(false);
   });
+
+  it("checks the replies channels' requests and the fact write", () => {
+    expect(parseRequest("reach:paste-reply", { creatorId: "UCabc", text: "Sounds good!" }).ok).toBe(
+      true,
+    );
+    expect(parseRequest("reach:paste-reply", { creatorId: "UCabc", text: "   " }).ok).toBe(false);
+    expect(
+      parseRequest("reach:paste-reply", { creatorId: "UCabc", text: "x".repeat(20_001) }).ok,
+    ).toBe(false);
+    expect(
+      parseRequest("reach:reclassify", { messageId: "m1", replyType: "inf.interested_vague" }).ok,
+    ).toBe(true);
+    expect(parseRequest("reach:reclassify", { messageId: "m1", replyType: "DROP TABLE" }).ok).toBe(
+      false,
+    );
+    expect(parseRequest("reach:check-replies", {}).ok).toBe(true);
+    const fact = (w: object) => dataWriteSchema.safeParse(w).success;
+    expect(fact({ kind: "reply.fact", messageId: "m1", key: "rate" })).toBe(true);
+    expect(fact({ kind: "reply.fact", messageId: "m1", key: "email" })).toBe(false);
+  });
 });

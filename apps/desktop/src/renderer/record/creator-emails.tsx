@@ -143,7 +143,14 @@ export function CreatorEmails({ creatorId }: { readonly creatorId: string }) {
           </div>
         </div>
       ) : (
-        <Thread messages={mine.messages} theirName={creator?.contactName ?? creator?.name ?? ""} />
+        <Thread
+          messages={mine.messages}
+          theirName={creator?.contactName ?? creator?.name ?? ""}
+          creatorId={creatorId}
+          onPasted={() => {
+            setTick((n) => n + 1);
+          }}
+        />
       )}
       <SequenceLine creatorId={creatorId} />
       {drafts.map((draft) => (

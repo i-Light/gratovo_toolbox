@@ -24,6 +24,7 @@ interface Fake {
   /** The local settings as written. */
   settings: Map<string, unknown>;
   write: ReturnType<typeof vi.fn>;
+  commit: ReturnType<typeof vi.fn>;
 }
 
 function fakeSource(
@@ -43,13 +44,14 @@ function fakeSource(
     settings.set("reach.mailboxes", flags);
   }
   const write = vi.fn(() => Promise.resolve());
+  const commit = vi.fn();
   const fake = {
     readSetting: (key: string) => settings.get(key),
     writeSetting: (key: string, value: unknown) => settings.set(key, value),
     write,
-    outreach: { sentSince, mailboxCounts: () => new Map(Object.entries(counts)) },
+    outreach: { sentSince, mailboxCounts: () => new Map(Object.entries(counts)), commit },
   };
-  return { source: fake as unknown as DataSource, settings, write };
+  return { source: fake as unknown as DataSource, settings, write, commit };
 }
 
 function source(
@@ -403,6 +405,67 @@ describe("pause, slowdown and the rates", () => {
     // The state did not change, so a second refresh writes nothing.
     await state.refresh();
     expect(fake.write).toHaveBeenCalledTimes(1);
+  });
+
+  it("also tells the person: one notification when it slows, none when it recovers", async () => {
+    const fake = fakeSource([open], [], counts(31, 1));
+    const notified = vi.fn();
+    const { state } = setup({
+      source: () => fake.source,
+      mode: () => "example",
+      newId: () => "n-1",
+      notified,
+    });
+    await state.refresh();
+    expect(fake.commit).toHaveBeenCalledTimes(1);
+    expect(fake.commit).toHaveBeenCalledWith({
+      at: clock,
+      notifications: [
+        {
+          id: "slowed-n-1",
+          at: clock,
+          icon: "alert",
+          text: "outreach3 slowed to 20 sends a day",
+          sub: "3.2% bounced this week",
+          go: { screen: "reach", tab: "mailboxes" },
+          read: false,
+        },
+      ],
+    });
+    expect(notified).toHaveBeenCalledTimes(1);
+    // Nothing changed: no second notification.
+    await state.refresh();
+    expect(fake.commit).toHaveBeenCalledTimes(1);
+    // Recovering is told in the log only.
+    const better = fakeSource([open], [], counts(60, 1), {
+      "outreach3@gratovo.example": { paused: false, slowed: true },
+    });
+    const again = setup({ source: () => better.source, mode: () => "example", notified });
+    await again.state.refresh();
+    expect(better.write).toHaveBeenCalled();
+    expect(better.commit).not.toHaveBeenCalled();
+    expect(notified).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the slowdown when its notification can't be stored", async () => {
+    const fake = fakeSource([open], [], counts(31, 1));
+    fake.commit.mockImplementation(() => {
+      throw new Error("disk full");
+    });
+    const lines: string[] = [];
+    const notified = vi.fn();
+    const { state } = setup({
+      source: () => fake.source,
+      mode: () => "example",
+      notified,
+      log: (line) => lines.push(line),
+    });
+    await state.refresh();
+    expect(fake.settings.get("reach.mailboxes")).toEqual({
+      "outreach3@gratovo.example": { paused: false, slowed: true },
+    });
+    expect(notified).not.toHaveBeenCalled();
+    expect(lines).toEqual(["Reach: the notice of a slowed mailbox couldn't be stored."]);
   });
 
   it("keeps a slowed mailbox slowed until bounces are under 2%, then says so", async () => {

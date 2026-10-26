@@ -11,12 +11,13 @@ import type {
   DraftState,
   OutreachDraft,
   ReachData,
+  ReplyFactKey,
   ReplyReading,
   RewriteHow,
   Sequence,
   ThreadMessage,
 } from "./reach-types";
-import type { DataWrite } from "./types";
+import type { DataWrite, FrameNotification } from "./types";
 
 /** A draft with what only main needs. */
 export interface StoredDraft extends OutreachDraft {
@@ -77,6 +78,14 @@ export interface NewMessage {
   readonly reading: ReplyReading | null;
 }
 
+/** A stored message with what only main needs: its creator, its Gmail id and the facts saved. */
+export interface StoredMessage extends ThreadMessage {
+  readonly creator: string;
+  readonly gmailMessageId: string | null;
+  /** The keys of the facts a person saved to the record from this message (D18). */
+  readonly factsSaved: readonly ReplyFactKey[];
+}
+
 /** What a mailbox's bounce and reply rates are built from (D20). */
 export interface MailboxCounts {
   /** Messages sent from the mailbox in the last 7 days. */
@@ -100,6 +109,10 @@ export interface OutreachStore {
   insertDraft(draft: NewDraft): void;
   /** Changes a draft and its `updated_at`; false when there is no such draft. */
   updateDraft(id: string, patch: DraftPatch, at: number): boolean;
+  /** One message by id; null when there is none. */
+  message(id: string): StoredMessage | null;
+  /** Which of these Gmail message ids are stored already (D23: a reply is stored once). */
+  storedGmailIds(ids: readonly string[]): Set<string>;
   /** The creator's newest messages, oldest first, at most `limit`. */
   thread(creator: string, limit: number): ThreadMessage[];
   /** Whether any message went out to the creator. */
@@ -118,8 +131,9 @@ export interface OutreachStore {
   runningSequences(): Sequence[];
   /**
    * In one transaction: the new drafts, the drafts' patches, the new messages (one whose Gmail id is already
-   * stored is skipped), the sequences, then `writes` applied as the person's own would be (so a
-   * stage change syncs and its log line is the person's).
+   * stored is skipped), the readings of messages (Gemini's or a person's), the sequences, the
+   * notifications (added or replaced by id, never about money), then `writes` applied as the
+   * person's own would be (so a stage change syncs and its log line is the person's).
    */
   commit(change: {
     readonly at: number;
@@ -127,6 +141,8 @@ export interface OutreachStore {
     readonly newDrafts?: readonly NewDraft[];
     readonly drafts?: readonly { readonly id: string; readonly patch: DraftPatch }[];
     readonly messages?: readonly NewMessage[];
+    readonly readings?: readonly { readonly id: string; readonly reading: ReplyReading }[];
+    readonly notifications?: readonly FrameNotification[];
     readonly sequences?: readonly Sequence[];
     readonly writes?: readonly DataWrite[];
   }): void;

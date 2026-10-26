@@ -177,6 +177,8 @@ function fakeSource(clock: () => number) {
       );
     },
     updateDraft: patch,
+    message: () => null,
+    storedGmailIds: () => new Set(),
     thread: () => [],
     hasOutbound: () => false,
     recentOutbound: () => [],

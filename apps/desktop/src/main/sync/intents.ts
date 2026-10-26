@@ -285,6 +285,34 @@ export function recordIntent(
       }
       return;
     }
+    case "reply.fact": {
+      // A fact from a reply goes into the creator's `provided_data` (D18). The base is the stored
+      // value before the write, null when it was never set. Saving a fact already there changes
+      // nothing, so nothing is sent.
+      const channel = db
+        .prepare("SELECT channel_id FROM outreach_messages WHERE id = ?")
+        .get(write.messageId)?.["channel_id"];
+      const provided = (id: string): unknown => {
+        const row = db
+          .prepare("SELECT provided_data FROM channel_state WHERE channel_id = ?")
+          .get(id);
+        return row === undefined ? undefined : parseValue(row["provided_data"]);
+      };
+      if (typeof channel !== "string") {
+        applyLocal();
+        return;
+      }
+      const base = provided(channel);
+      applyLocal();
+      const next = provided(channel);
+      const label = handleOf(channel);
+      if (label !== null && base !== undefined && next !== undefined) {
+        if (canonical(base) !== canonical(next)) {
+          queueEdit(channel, label, "provided_data", base, next);
+        }
+      }
+      return;
+    }
     case "brand.set":
       applyLocal();
       enqueue(db, {

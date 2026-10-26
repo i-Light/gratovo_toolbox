@@ -49,6 +49,8 @@ export interface MailStateDeps {
   runStatus(): Promise<JobOutcome | null>;
   /** The addresses with a stored refresh token. */
   connected(): Promise<readonly string[]>;
+  /** A notification was added (a mailbox slowed down): the page should read the frame again. */
+  notified?: () => void;
   now?: () => number;
   newId?: () => string;
   log?: (line: string) => void;
@@ -276,6 +278,30 @@ export function createMailState(deps: MailStateDeps): MailState {
         },
       ]);
       writeMailboxFlags(source, row.address, { ...was, slowed });
+      if (slowed) {
+        // The person hears of it too (D23): Reach › Mailboxes shows the card. A failed
+        // notification doesn't undo the slowdown, which is written and told in the log already.
+        const cap = capFor(row.dailyCap, false, true);
+        try {
+          source.outreach.commit({
+            at: now(),
+            notifications: [
+              {
+                id: `slowed-${newId()}`,
+                at: now(),
+                icon: "alert",
+                text: mailboxStrings.slowedNotice(name, cap),
+                sub: mailboxStrings.slowedSub(bounceRate ?? 0),
+                go: { screen: "reach", tab: "mailboxes" },
+                read: false,
+              },
+            ],
+          });
+          deps.notified?.();
+        } catch {
+          log("Reach: the notice of a slowed mailbox couldn't be stored.");
+        }
+      }
     }
   }
 

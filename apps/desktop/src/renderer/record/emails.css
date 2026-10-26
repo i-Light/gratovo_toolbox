@@ -149,3 +149,51 @@
   background: var(--sunk-2);
   animation: pulse 1.4s ease-in-out infinite;
 }
+
+/* Gemini's reading of a reply (prototype .ai-read and .fact). */
+.rd-read {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--r-s);
+  background: var(--panel);
+}
+.rd-read b {
+  font-weight: 600;
+}
+.rd-corrected {
+  color: var(--accent-strong);
+}
+.fact {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 4px 0 10px;
+  border: 1px solid var(--line-2);
+  border-radius: 13px;
+  background: var(--panel);
+  font-size: 12.5px;
+}
+.fact button {
+  height: 20px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 11.5px;
+  font-weight: 500;
+}
+.fact button:disabled {
+  cursor: default;
+}
+.fact.saved {
+  border-color: var(--good);
+}
+.fact.saved button {
+  background: var(--good-soft);
+  color: var(--good);
+}

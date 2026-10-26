@@ -113,4 +113,5 @@ export type {
   NewMessage,
   OutreachStore,
   StoredDraft,
+  StoredMessage,
 } from "./outreach-store";

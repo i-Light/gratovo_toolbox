@@ -782,5 +782,77 @@ describe("recordIntent", () => {
         { id: "c1", resolution: "theirs", value: "replied" },
       ]);
     });
+
+    describe("reply.fact (plan step 6d, D18)", () => {
+      /** A swept reply from the creator whose reading holds a rate and an age band. */
+      function seedReply(): void {
+        db.prepare(
+          `INSERT INTO outreach_messages (id, channel_id, direction, body, at, source, reading)
+           VALUES ('m1', ?, 'in', 'Rate is $900', ?, 'sweep', ?)`,
+        ).run(
+          ch,
+          t0,
+          JSON.stringify({
+            replyType: "inf.gives_rate",
+            label: "Gives their rate or rate card",
+            summary: "A price.",
+            side: "influencer",
+            corrected: false,
+            facts: [
+              { key: "rate", rate: 900, saved: false },
+              { key: "age", band: "25-34", saved: false },
+            ],
+          }),
+        );
+      }
+
+      const provided = (): unknown =>
+        db.prepare("SELECT provided_data FROM channel_state WHERE channel_id = ?").get(ch)?.[
+          "provided_data"
+        ];
+
+      it("writes the fact and queues provided_data with its base, null the first time", async () => {
+        seedCreator("replied");
+        seedReply();
+        await source.write([{ kind: "reply.fact", messageId: "m1", key: "rate" }]);
+        expect(JSON.parse(String(provided()))).toEqual({ rate: 900 });
+        expect(entries()).toEqual([
+          {
+            kind: "channel.edit",
+            payload: {
+              channelId: ch,
+              field: "provided_data",
+              base: null,
+              next: { rate: 900 },
+              label: "@aiweekly",
+            },
+            target: { table: "channel_state", key: ch },
+          },
+        ]);
+        // The next fact is an edit from what the first left, other keys kept.
+        await source.write([{ kind: "reply.fact", messageId: "m1", key: "age" }]);
+        expect(edits().at(-1)).toEqual({
+          field: "provided_data",
+          base: { rate: 900 },
+          next: { rate: 900, age: "25-34" },
+          label: "@aiweekly",
+        });
+      });
+
+      it("saving a fact already there queues nothing, and a fact it does not hold writes nothing", async () => {
+        seedCreator("replied");
+        seedReply();
+        await source.write([{ kind: "reply.fact", messageId: "m1", key: "rate" }]);
+        const queued = pendingCount(db);
+        await source.write([{ kind: "reply.fact", messageId: "m1", key: "rate" }]);
+        expect(pendingCount(db)).toBe(queued);
+        await source.write([
+          { kind: "reply.fact", messageId: "m1", key: "countries" },
+          { kind: "reply.fact", messageId: "zz", key: "rate" },
+        ]);
+        expect(pendingCount(db)).toBe(queued);
+        expect(JSON.parse(String(provided()))).toEqual({ rate: 900 });
+      });
+    });
   });
 });

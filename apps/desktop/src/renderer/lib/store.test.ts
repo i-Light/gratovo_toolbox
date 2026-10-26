@@ -415,6 +415,8 @@ describe("the live gate", () => {
     go("close");
     expect(route()).toEqual({ screen: "find", tab: "search" });
     go("reach", "inbox");
+    expect(route()).toEqual({ screen: "reach", tab: "inbox" });
+    go("today");
     expect(route()).toEqual({ screen: "find", tab: "search" });
     go("reach", "mailboxes");
     expect(route()).toEqual({ screen: "reach", tab: "mailboxes" });

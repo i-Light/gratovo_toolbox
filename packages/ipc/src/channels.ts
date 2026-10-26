@@ -22,6 +22,7 @@ import {
   logPageResultSchema,
 } from "./data";
 import {
+  reachCheckRepliesResultSchema,
   reachCreatorRequestSchema,
   reachDraftActionResultSchema,
   reachDraftIdRequestSchema,
@@ -30,6 +31,10 @@ import {
   reachMailboxSetRequestSchema,
   reachMailboxSetResultSchema,
   reachParkRequestSchema,
+  reachPasteReplyRequestSchema,
+  reachPasteReplyResultSchema,
+  reachReclassifyRequestSchema,
+  reachReclassifyResultSchema,
   reachRefreshResultSchema,
   reachRewriteRequestSchema,
   reachRewriteResultSchema,
@@ -38,6 +43,7 @@ import {
   reachRestoreRequestSchema,
   reachSequenceResultSchema,
   reachSequenceSkipResultSchema,
+  reachSituationsResultSchema,
   reachThreadRequestSchema,
   reachThreadResultSchema,
 } from "./reach";
@@ -378,6 +384,26 @@ export const channels = {
   "reach:wake": {
     request: reachRestoreRequestSchema,
     response: reachSequenceResultSchema,
+  },
+  /** Reads new replies from Gmail now (`mail.replies`, then `mail.ack` for those stored; D23). */
+  "reach:check-replies": {
+    request: z.strictObject({}),
+    response: reachCheckRepliesResultSchema,
+  },
+  /** Adds a reply the person pasted; it is read and answered like a swept one (D23). */
+  "reach:paste-reply": {
+    request: reachPasteReplyRequestSchema,
+    response: reachPasteReplyResultSchema,
+  },
+  /** "That's not it": reads the reply as another situation and drafts the answer again (D23). */
+  "reach:reclassify": {
+    request: reachReclassifyRequestSchema,
+    response: reachReclassifyResultSchema,
+  },
+  /** The reply situations of each side, for the "That's not it" picker (D23). */
+  "reach:situations": {
+    request: z.strictObject({}),
+    response: reachSituationsResultSchema,
   },
   /** Starts the Gemini bridge. Sends no prompt. */
   "gemini:start": {
