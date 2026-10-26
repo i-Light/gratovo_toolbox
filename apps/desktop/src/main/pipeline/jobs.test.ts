@@ -65,6 +65,8 @@ describe("laneFor", () => {
     ["mail.replies", "quick"],
     ["mail.ack", "quick"],
     ["mail.cancel", "quick"],
+    // It writes mailbox.db, which only the quick lane touches, one job at a time.
+    ["mail.import", "quick"],
     ["video_stats", "quick"],
     ["gateways.deploy", "quick"],
     ["gateways.destroy", "quick"],

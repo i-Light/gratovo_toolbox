@@ -1,4 +1,4 @@
-"""The mail jobs: mail.status, mail.send, mail.replies, mail.ack and mail.cancel (plan D17).
+"""The mail jobs: mail.status, mail.send, mail.replies, mail.ack, mail.cancel and mail.import.
 
 The policy between Gmail (`mail/gmail.py`) and the mailbox's own memory (`mail/mailbox.py`),
 ported from the old `tools/email_send.py`. What has to stay true:
@@ -15,6 +15,10 @@ ported from the old `tools/email_send.py`. What has to stay true:
 - **The daily cap** (house choice HC-02): each mailbox sends at most its cap of cold email a day
   (35 unless Settings says otherwise, always 10 to 50). A message to somebody who has written back
   is never held.
+- **An old mailbox comes in quiet** (`mail.import`, step 6e, D19). The old app's mailbox.db is
+  merged in read-only, its rows never replacing ours. Its queued follow-ups are left out, and the
+  conversations it adds are stamped checked (and closed when nothing came back in 60 days), so the
+  sweep never stalls on them.
 
 How a job ends: `done` after its `result`; a mail error ends `failed` with its code (plan "Mail
 error mapping"); anything else ends `failed` with `crash`, naming the error's kind only, since an
@@ -27,6 +31,7 @@ from __future__ import annotations
 
 import sqlite3
 import sys
+import time
 from collections.abc import Collection, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
@@ -40,6 +45,7 @@ from gratovo_pipeline.protocol import (
     MailAccountStatus,
     MailAccountSweep,
     MailCancelData,
+    MailImportData,
     MailRepliesJob,
     MailSecrets,
     MailSendData,
@@ -675,6 +681,135 @@ def _cancel(mail: _Mail, conversation_key: str, emitter: Emitter) -> None:
     emitter.result("mail.cancel", data)
 
 
+# --- mail.import: the old app's mailbox.db merged in (step 6e, D19); no secrets, no request ---
+
+# The tables merged. `sequence_steps` is left out: nothing old may ever be sent, and a follow-up
+# that isn't there can't be. `mailbox_state` is this mailbox's own bookkeeping (when it last swept).
+IMPORTED_TABLES: Final = ("conversations", "sent_messages", "inbound_messages", "send_keys")
+# A conversation the merge adds is closed when nothing came back and its last email is older than
+# this: nobody is waiting on it, so the sweep shouldn't spend its 60 a run asking Gmail about it.
+STALE_AFTER_DAYS: Final = 60
+
+
+def _q(name: str) -> str:
+    return '"' + name.replace('"', '""') + '"'
+
+
+def _open_for_import(path: Path) -> sqlite3.Connection:
+    """mailbox.db as `_open` gives it, on a connection that reads URIs (so the old file can be
+    attached read-only and immutable) and leaves the transaction to the caller."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    # With uri=True a plain path still opens as a path; only a `file:` name is read as a URI.
+    conn = sqlite3.connect(path, uri=True, isolation_level=None)
+    try:
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute(f"PRAGMA busy_timeout={mailbox.BUSY_TIMEOUT_MS}")
+        conn.row_factory = sqlite3.Row
+        mailbox.init_db(conn)
+    except mailbox.MailboxTooNewError:
+        conn.close()
+        raise _EndError("crash", "mailbox.db was written by a newer version of the app.") from None
+    except BaseException:
+        conn.close()
+        raise
+    return conn
+
+
+def _columns(conn: sqlite3.Connection, schema: str, table: str) -> list[tuple[str, int]]:
+    """(name, primary-key position) of each column; empty when there is no such table."""
+    rows = conn.execute(f"PRAGMA {schema}.table_info({_q(table)})").fetchall()
+    return [(str(row[1]), int(row[5])) for row in rows]
+
+
+def _merge_table(conn: sqlite3.Connection, table: str) -> int:
+    """Adds the old file's rows of `table` that this one hasn't got, column by column for the
+    columns both have; a row already here wins. Returns how many were added."""
+    old = {name for name, _ in _columns(conn, "old", table)}
+    mine = _columns(conn, "main", table)
+    keys = [name for name, position in mine if position]
+    # Without its whole key a row can't be told from one already here, so it can't come in once.
+    if not old or not set(keys) <= old:
+        return 0
+    shared = ", ".join(_q(name) for name, _ in mine if name in old)
+    # SQLite lets a TEXT primary key be NULL: such a row would come in again on every run.
+    present = " AND ".join(f"{_q(key)} IS NOT NULL" for key in keys)
+    cursor = conn.execute(
+        f"INSERT OR IGNORE INTO main.{_q(table)} ({shared}) "  # noqa: S608 - names quoted, from PRAGMA
+        f"SELECT {shared} FROM old.{_q(table)} WHERE {present}"
+    )
+    return max(cursor.rowcount, 0)
+
+
+def _import(mail: _Mail, source: str, emitter: Emitter) -> None:
+    """Merges the old app's mailbox.db into this one in one transaction. The old file is opened
+    read-only and immutable, so it is never written and gets no -wal or -shm beside it."""
+    # The import's own checks of an old file (`import.legacy`), so both refuse the same files.
+    from gratovo_pipeline.jobs import import_legacy as legacy  # only this job needs it
+
+    try:
+        old_file = legacy._check_source(Path(source), mail.db_path.parent)  # pyright: ignore[reportPrivateUsage]
+    except legacy._EndError as error:  # pyright: ignore[reportPrivateUsage]
+        raise _EndError(error.code, error.message) from None
+    conn = _open_for_import(mail.db_path)
+    try:
+        try:
+            old_uri = legacy._old_uri(old_file)  # pyright: ignore[reportPrivateUsage]
+            conn.execute("ATTACH DATABASE ? AS old", (old_uri,))
+            tables = {
+                str(row[0])
+                for row in conn.execute("SELECT name FROM old.sqlite_master WHERE type = 'table'")
+            }
+            version = int(conn.execute("PRAGMA old.user_version").fetchone()[0])
+        except sqlite3.DatabaseError:
+            raise _EndError("not_sqlite", "That file isn't a SQLite database.") from None
+        if "conversations" not in tables:
+            raise _EndError(
+                "no_conversations_table", "That file isn't a mailbox: it has no conversations."
+            )
+        if version > mailbox.SCHEMA_VERSION:
+            raise _EndError(
+                "source_too_new", "The old mailbox.db was written by a newer version of the app."
+            )
+        data = _merge(conn)
+    finally:
+        conn.close()
+    emitter.result("mail.import", data)
+
+
+def _merge(conn: sqlite3.Connection) -> MailImportData:
+    stamp = mailbox.now()
+    cutoff = time.strftime(
+        "%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - STALE_AFTER_DAYS * 86_400)
+    )
+    conn.execute("BEGIN IMMEDIATE")
+    try:
+        # A new row's rowid is past every old one's, so this tells the rows the merge adds.
+        before = int(
+            conn.execute("SELECT COALESCE(MAX(rowid), 0) FROM conversations").fetchone()[0]
+        )
+        added = {table: _merge_table(conn, table) for table in IMPORTED_TABLES}
+        # The sweep asks about never-checked conversations first: without a stamp, hundreds of old
+        # ones would hold the front of the queue for days.
+        conn.execute("UPDATE conversations SET checked_at = ? WHERE rowid > ?", (stamp, before))
+        closed = conn.execute(
+            "UPDATE conversations SET closed_at = ? "
+            " WHERE rowid > ? AND closed_at IS NULL AND reply_seen_at IS NULL "
+            "   AND (last_sent_at IS NULL OR last_sent_at < ?)",
+            (stamp, before, cutoff),
+        ).rowcount
+        conn.execute("COMMIT")
+    except BaseException:
+        if conn.in_transaction:
+            conn.execute("ROLLBACK")
+        raise
+    return {
+        "conversations": added["conversations"],
+        "sent": added["sent_messages"],
+        "inbound": added["inbound_messages"],
+        "closed": max(closed, 0),
+    }
+
+
 # --- the job ---
 
 
@@ -704,6 +839,8 @@ def run(
             _ack(mail, job["messageIds"], emitter)
         elif job["kind"] == "mail.cancel":
             _cancel(mail, job["conversationKey"], emitter)
+        elif job["kind"] == "mail.import":
+            _import(mail, job["source"], emitter)
         else:
             raise _EndError("crash", "This is not a mail job.")
     except _EndError as error:

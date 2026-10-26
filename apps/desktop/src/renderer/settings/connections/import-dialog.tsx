@@ -1,4 +1,10 @@
-import type { Bridge, ImportCandidates, ImportReport, importWarnings } from "@gratovo/ipc";
+import type {
+  Bridge,
+  ImportCandidates,
+  ImportReport,
+  ImportResult,
+  importWarnings,
+} from "@gratovo/ipc";
 import { Btn, Icon, IconBtn } from "@gratovo/ui";
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
@@ -16,6 +22,7 @@ import { ask, loadConnections } from "./use-connections";
 
 /** A step after the copy that didn't finish; the data itself was brought in. */
 type ImportWarning = (typeof importWarnings)[number];
+type OldMail = NonNullable<Extract<ImportResult, { ok: true }>["mail"]>;
 
 const text = strings.settings.importDialog;
 
@@ -38,6 +45,7 @@ export function ImportDialog({ onClose }: { readonly onClose: () => void }) {
   const [busy, setBusy] = useState(false);
   const [report, setReport] = useState<ImportReport | null>(null);
   const [warnings, setWarnings] = useState<readonly ImportWarning[]>([]);
+  const [mail, setMail] = useState<OldMail | null>(null);
   const [useRules, setUseRules] = useState(false);
   const [progress, setProgress] = useState<Progress | null>(null);
   const alive = useRef(true);
@@ -149,6 +157,7 @@ export function ImportDialog({ onClose }: { readonly onClose: () => void }) {
         } else {
           setReport(answer.report);
           setWarnings(answer.warnings ?? []);
+          setMail(answer.mail ?? null);
           setStep("result");
         }
       },
@@ -267,6 +276,13 @@ export function ImportDialog({ onClose }: { readonly onClose: () => void }) {
                 <b>{text.resultTitle}</b>
                 <span className="small">{text.resultAdded(added)}</span>
                 <span className="small">{text.resultAlready(already)}</span>
+                {mail === null || mail.messages === 0 ? null : (
+                  <span className="small">{text.resultMail(mail.messages)}</span>
+                )}
+                {mail?.capped === true ? <span className="small">{text.resultCapped}</span> : null}
+                {mail === null || text.resultMailbox[mail.mailbox] === null ? null : (
+                  <span className="small">{text.resultMailbox[mail.mailbox]}</span>
+                )}
               </div>
             </div>
             {warnings.length > 0 ? (

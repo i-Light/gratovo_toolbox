@@ -357,6 +357,26 @@
                 "properties": {
                   "kind": {
                     "type": "string",
+                    "const": "mail.import"
+                  },
+                  "source": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1024,
+                    "pattern": "^(?:[A-Za-z]:[\\\\/]|[\\\\/])[^\\x00]*$"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "source"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
                     "const": "video_stats"
                   },
                   "videoUrl": {
@@ -1778,6 +1798,57 @@
               },
               "kind": {
                 "type": "string",
+                "const": "mail.import"
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "conversations": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100000000
+                  },
+                  "sent": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100000000
+                  },
+                  "inbound": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100000000
+                  },
+                  "closed": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100000000
+                  }
+                },
+                "required": [
+                  "conversations",
+                  "sent",
+                  "inbound",
+                  "closed"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "type",
+              "kind",
+              "data"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "result"
+              },
+              "kind": {
+                "type": "string",
                 "const": "video_stats"
               },
               "data": {
@@ -2564,7 +2635,9 @@
                   "no_channels_table",
                   "source_in_data_dir",
                   "old_app_open",
-                  "store_too_new"
+                  "store_too_new",
+                  "no_conversations_table",
+                  "source_too_new"
                 ]
               },
               "message": {

@@ -88,12 +88,23 @@ export const importWarnings = [
   "channel_names",
   "old_rules",
   "import_state",
+  "old_mail",
+  "old_mailbox",
 ] as const;
 
 export const importResultSchema = z.discriminatedUnion("ok", [
   z.strictObject({
     ok: z.literal(true),
     report: importReportSchema,
+    /** The old mail history (plan step 6, D19): emails brought in, and the old mailbox.db. */
+    mail: z
+      .strictObject({
+        messages: z.number().int().min(0).max(1_000_000),
+        /** The old log held more than the import brings in; the oldest were left out. */
+        capped: z.boolean(),
+        mailbox: z.enum(["merged", "none"]),
+      })
+      .optional(),
     warnings: z.array(z.enum(importWarnings)).max(importWarnings.length).optional(),
   }),
   z.strictObject({ ok: z.literal(false), reason: z.enum(importProblems) }),

@@ -1255,7 +1255,7 @@ describe("review fixes (6d)", () => {
     expect(answers("c8")).toEqual([]);
     expect(real.outreach.sequence("c8")?.stopped).toBeNull();
     expect((await real.frame()).notifications.some((n) => n.id.startsWith("reply-"))).toBe(false);
-    expect(lines.join("")).toContain("gm-r1");
+    expect(lines).toEqual(["Reach: 1 old replies were stored without action."]);
     expect(acked()).toEqual(["gm-r1"]);
   });
 

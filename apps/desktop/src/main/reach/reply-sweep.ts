@@ -533,18 +533,23 @@ export function createReplySweep(deps: ReplySweepDeps): ReplySweep {
     const messages: NewMessage[] = [];
     const change = emptyChange();
     const perCreator = new Map<string, { creator: CreatorState; messages: NewMessage[] }>();
+    let old = 0;
     for (const { reply, creator } of fresh) {
       const received = reply.receivedAt === null ? Number.NaN : Date.parse(reply.receivedAt);
       const message = incoming(reply, creator, Number.isNaN(received) ? at : received);
       messages.push(message);
       if (message.at < at - oldReplyMs) {
         // An old one (an imported mailbox): kept and acknowledged, and nothing else.
-        log(`Reach: an old reply was stored without action (${reply.messageId}).`);
+        old += 1;
         continue;
       }
       const entry = perCreator.get(creator.id) ?? { creator, messages: [] };
       entry.messages.push(message);
       perCreator.set(creator.id, entry);
+    }
+    if (old > 0) {
+      // One line for them all: an imported mailbox can hold thousands (review of 6e, finding 14).
+      log(`Reach: ${String(old)} old replies were stored without action.`);
     }
     for (const { creator, messages: list } of perCreator.values()) {
       list.sort((a, b) => a.at - b.at);
@@ -644,7 +649,7 @@ export function createReplySweep(deps: ReplySweepDeps): ReplySweep {
     if (creator === null) {
       return { ok: false, problem: "not_found" };
     }
-    if (!source.outreach.hasOutbound(creatorId)) {
+    if (!source.outreach.hasOutbound(creatorId, true)) {
       return { ok: false, problem: "no_outbound" };
     }
     // From the mailbox the creator was written from: the sequence's, else the newest email out.

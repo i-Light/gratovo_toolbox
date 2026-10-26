@@ -617,6 +617,7 @@ describe("the import dialog", () => {
       "import:run": {
         ok: true,
         report: report({ dryRun: false, backup: "C:\\data\\backup.db" }),
+        mail: { messages: 12, capped: true, mailbox: "merged" },
         warnings: ["channel_names"],
       },
     });
@@ -643,6 +644,9 @@ describe("the import dialog", () => {
     expect(within(dialog).getByText(imp.resultAdded(105))).toBeTruthy();
     expect(within(dialog).getByText(imp.warningsTitle)).toBeTruthy();
     expect(within(dialog).getByText(imp.warnings.channel_names)).toBeTruthy();
+    expect(within(dialog).getByText(imp.resultMail(12))).toBeTruthy();
+    expect(within(dialog).getByText(imp.resultMailbox.merged)).toBeTruthy();
+    expect(within(dialog).getByText(imp.resultCapped)).toBeTruthy();
   });
 
   it("says a failed settings copy and unapplied old rules once each", async () => {

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { DatabaseSync, SQLInputValue, SQLOutputValue } from "node:sqlite";
+import type { DatabaseSync, SQLInputValue, SQLOutputValue, StatementSync } from "node:sqlite";
 
 import {
   draftBodyMax,
@@ -684,14 +684,18 @@ export function createOutreachStore(db: DatabaseSync, deps: OutreachDeps): Outre
     );
   }
 
-  function insertMessage(message: NewMessage): void {
-    db.prepare(
+  // Prepared once: the old app's log (D19) inserts tens of thousands in one go.
+  let insertMessageStatement: StatementSync | null = null;
+  /** Stores a message; a stored id (or Gmail id) is left as it is. Answers 1 when it was new. */
+  function insertMessage(message: NewMessage): number {
+    insertMessageStatement ??= db.prepare(
       `INSERT OR IGNORE INTO outreach_messages
          (id, channel_id, direction, kind, follow_up, subject, body, body_cut, at, mailbox, peer,
           peer_name, conversation_key, gmail_message_id, gmail_thread_id, draft_id, by, source,
           reading)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    ).run(
+    );
+    const done = insertMessageStatement.run(
       message.id,
       message.creator,
       message.direction,
@@ -712,6 +716,7 @@ export function createOutreachStore(db: DatabaseSync, deps: OutreachDeps): Outre
       message.source,
       message.reading === null ? null : JSON.stringify(message.reading),
     );
+    return Number(done.changes);
   }
 
   function upsertSequence(sequence: Sequence, at: number): void {
@@ -743,19 +748,26 @@ export function createOutreachStore(db: DatabaseSync, deps: OutreachDeps): Outre
          FROM outreach_messages GROUP BY channel_id ORDER BY newest DESC, channel_id LIMIT ?`,
       )
       .all(reachThreadsMax);
+    // The newest row per creator is found over small columns only, and its body is read after:
+    // an imported old log can hold tens of thousands of rows (review of 6e, finding 3).
     const newest = (where: string): Map<string, Row> => {
       const rows = db
         .prepare(
-          `SELECT * FROM (
-             SELECT id, channel_id, direction, at, reading, facts_saved, peer, substr(body, 1, 2000) AS body,
+          `WITH ranked AS (
+             SELECT rowid AS r,
                     ROW_NUMBER() OVER (PARTITION BY channel_id ORDER BY at DESC, rowid DESC) AS n
              FROM outreach_messages ${where}
-           ) WHERE n = 1`,
+           )
+           SELECT m.id, m.channel_id, m.direction, m.at, m.reading, m.facts_saved, m.peer,
+                  substr(m.body, 1, 2000) AS body
+           FROM ranked JOIN outreach_messages m ON m.rowid = ranked.r
+           WHERE ranked.n = 1`,
         )
         .all();
       return new Map(rows.map((row) => [String(row["channel_id"]), row]));
     };
-    const lastIn = newest("WHERE direction = 'in'");
+    // An old app's reply (D19) stays in the thread but never waits in Replies as "Your move".
+    const lastIn = newest("WHERE direction = 'in' AND source != 'imported'");
     const last = newest("");
     return heads.map((head) => {
       const id = String(head["channel_id"]);
@@ -847,12 +859,22 @@ export function createOutreachStore(db: DatabaseSync, deps: OutreachDeps): Outre
         .all(creator, Math.max(0, Math.floor(limit)));
       return rows.map(messageFrom).reverse();
     },
-    hasOutbound: (creator) =>
+    hasOutbound: (creator, withImported) =>
       db
         .prepare(
-          "SELECT 1 AS found FROM outreach_messages WHERE channel_id = ? AND direction = 'out' LIMIT 1",
+          `SELECT 1 AS found FROM outreach_messages WHERE channel_id = ? AND direction = 'out'
+           ${withImported ? "" : "AND source != 'imported'"} LIMIT 1`,
         )
         .get(creator) !== undefined,
+    importMessages(messages) {
+      let added = 0;
+      deps.transaction(() => {
+        for (const message of messages) {
+          added += insertMessage(message);
+        }
+      });
+      return added;
+    },
     recentOutbound: (limit) =>
       db
         .prepare(
@@ -907,7 +929,7 @@ export function createOutreachStore(db: DatabaseSync, deps: OutreachDeps): Outre
       const answersTo = db.prepare(
         `SELECT reading, peer FROM outreach_messages
          WHERE direction = 'in' AND channel_id = ? AND at > ?
-           AND (mailbox IS NULL OR lower(mailbox) = lower(?))`,
+           AND (mailbox IS NULL OR lower(mailbox) = lower(?)) AND source != 'imported'`,
       );
       for (const row of db
         .prepare(

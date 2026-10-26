@@ -54,6 +54,7 @@ function source(
       return [...messages];
     },
     hasOutbound: unused,
+    importMessages: unused,
     recentOutbound: (limit) => {
       asked.recent.push(limit);
       return outbound;

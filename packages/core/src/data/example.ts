@@ -823,7 +823,10 @@ function exampleReach(outreach: ExampleSeed["outreach"]): ReachData {
     .map(([creator, list]) => {
       const sorted = [...list].sort((a, b) => a.at - b.at);
       const newest = sorted[sorted.length - 1];
-      const lastIn = [...sorted].reverse().find((m) => m.direction === "in");
+      // As the store does: an imported reply (D19) never counts as one to answer.
+      const lastIn = [...sorted]
+        .reverse()
+        .find((m) => m.direction === "in" && m.source !== "imported");
       const lastOut = [...sorted].reverse().find((m) => m.direction === "out");
       const summary: ThreadSummary = {
         creator,
