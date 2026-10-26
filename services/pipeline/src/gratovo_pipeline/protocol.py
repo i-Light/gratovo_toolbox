@@ -87,6 +87,10 @@ EndErrorCode = Literal[
     "source_in_data_dir",
     "old_app_open",
     "store_too_new",
+    # mail.import refuses an old mailbox.db as the import does (but for no_channels_table), and
+    # when it has no `conversations` table or a newer app wrote it.
+    "no_conversations_table",
+    "source_too_new",
 ]
 ResultKind = Literal[
     "mail.status",
@@ -94,6 +98,7 @@ ResultKind = Literal[
     "mail.replies",
     "mail.ack",
     "mail.cancel",
+    "mail.import",
     "video_stats",
     "refetch",
     "backfill",
@@ -114,6 +119,7 @@ RESULT_KINDS: Final[tuple[ResultKind, ...]] = (
     "mail.replies",
     "mail.ack",
     "mail.cancel",
+    "mail.import",
     "video_stats",
     "refetch",
     "backfill",
@@ -203,6 +209,13 @@ class MailCancelJob(TypedDict):
     conversationKey: str
 
 
+class MailImportJob(TypedDict):
+    """Merge the old app's mailbox.db (opened read-only) into this one's (plan step 6e, D19)."""
+
+    kind: Literal["mail.import"]
+    source: str  # a full path
+
+
 class VideoStatsJob(TypedDict):
     kind: Literal["video_stats"]
     videoUrl: str
@@ -280,6 +293,7 @@ type Job = (
     | MailRepliesJob
     | MailAckJob
     | MailCancelJob
+    | MailImportJob
     | VideoStatsJob
     | RefetchJob
     | BackfillJob
@@ -439,6 +453,15 @@ class MailAckData(TypedDict):
 class MailCancelData(TypedDict):
     cancelled: int
     closed: bool
+
+
+class MailImportData(TypedDict):
+    """What the merge added: rows new to this mailbox.db, and the conversations it closed."""
+
+    conversations: int
+    sent: int
+    inbound: int
+    closed: int
 
 
 class VideoStatsData(TypedDict):
@@ -903,6 +926,9 @@ def _job(job: object) -> Job:
             "kind": "mail.cancel",
             "conversationKey": _string(raw["conversationKey"], "job.conversationKey", 1, 200),
         }
+    if kind == "mail.import":
+        raw = _object(value, "job", {"kind", "source"})
+        return {"kind": "mail.import", "source": _path(raw["source"], "job.source")}
     if kind == "video_stats":
         raw = _object(value, "job", {"kind", "videoUrl"})
         return {
@@ -1316,6 +1342,8 @@ class Emitter:
     def result(self, kind: Literal["mail.ack"], data: MailAckData) -> None: ...
     @overload
     def result(self, kind: Literal["mail.cancel"], data: MailCancelData) -> None: ...
+    @overload
+    def result(self, kind: Literal["mail.import"], data: MailImportData) -> None: ...
     @overload
     def result(self, kind: Literal["video_stats"], data: VideoStatsData) -> None: ...
     @overload

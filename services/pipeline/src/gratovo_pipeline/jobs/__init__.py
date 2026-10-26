@@ -16,7 +16,14 @@ def run(start: Start, emitter: Emitter) -> None:
         from gratovo_pipeline.jobs import search
 
         search.run(start, emitter)
-    elif kind in ("mail.status", "mail.send", "mail.replies", "mail.ack", "mail.cancel"):
+    elif kind in (
+        "mail.status",
+        "mail.send",
+        "mail.replies",
+        "mail.ack",
+        "mail.cancel",
+        "mail.import",
+    ):
         from gratovo_pipeline.jobs import mail
 
         mail.run(start, emitter)

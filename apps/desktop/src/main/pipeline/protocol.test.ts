@@ -141,6 +141,16 @@ const jobCases: { good: Job; bad: Record<string, unknown>[] }[] = [
     bad: [{ kind: "mail.cancel" }, { kind: "mail.cancel", conversationKey: "x".repeat(201) }],
   },
   {
+    good: { kind: "mail.import", source: "D:\\old\\gratovo_code\\data\\database\\mailbox.db" },
+    bad: [
+      { kind: "mail.import" },
+      { kind: "mail.import", source: "mailbox.db" },
+      { kind: "mail.import", source: "C:\\old\\a\u0000.db" },
+      { kind: "mail.import", source: `C:\\${"x".repeat(1022)}` },
+      { kind: "mail.import", source: "C:\\old\\mailbox.db", dryRun: true },
+    ],
+  },
+  {
     good: { kind: "video_stats", videoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
     bad: [
       { kind: "video_stats", videoUrl: "" },
@@ -497,6 +507,32 @@ describe("parseLine", () => {
       { type: "result", kind: "archive.sweep", data: { archived: 2 } },
       {
         type: "result",
+        kind: "mail.import",
+        data: { conversations: 412, sent: 530, inbound: 61, closed: 377 },
+      },
+      {
+        type: "result",
+        kind: "mail.import",
+        data: { conversations: 0, sent: 0, inbound: 0, closed: 0 },
+      },
+      {
+        type: "end",
+        state: "failed",
+        at: 0,
+        found: 0,
+        kept: 0,
+        error: { code: "no_conversations_table", message: "That file isn't a mailbox." },
+      },
+      {
+        type: "end",
+        state: "failed",
+        at: 0,
+        found: 0,
+        kept: 0,
+        error: { code: "source_too_new", message: "A newer app wrote the old mailbox.db." },
+      },
+      {
+        type: "result",
         kind: "archive.restore",
         data: {
           restored: [
@@ -550,6 +586,17 @@ describe("parseLine", () => {
       { ...sendResult, data: { ...sendResult.data, extra: 1 } },
       { type: "result", kind: "search", data: {} },
       { type: "result", kind: "mail.ack", data: { acknowledged: -1 } },
+      { type: "result", kind: "mail.import", data: { conversations: 1, sent: 1, inbound: 1 } },
+      {
+        type: "result",
+        kind: "mail.import",
+        data: { conversations: 1, sent: 1, inbound: 1, closed: 0, steps: 2 },
+      },
+      {
+        type: "result",
+        kind: "mail.import",
+        data: { conversations: -1, sent: 0, inbound: 0, closed: 0 },
+      },
       { type: "result", kind: "video_stats", data: { videoId: "short", views: 1, fetchedAt: "" } },
       { type: "progress", table: "", done: 0, total: 7 },
       { type: "progress", table: "x".repeat(65), done: 0, total: 7 },

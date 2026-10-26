@@ -154,6 +154,13 @@ const mailAckJob = z.strictObject({
 
 const mailCancelJob = z.strictObject({ kind: z.literal("mail.cancel"), conversationKey });
 
+/**
+ * Step 6e (D19): merge the old app's `mailbox.db` (opened read-only and immutable) into this one's.
+ * Rows already here win; old follow-ups are left out; the conversations it adds are stamped
+ * checked, and closed when nothing came back in 60 days. Quick lane: it writes `mailbox.db`.
+ */
+const mailImportJob = z.strictObject({ kind: z.literal("mail.import"), source: absolutePath });
+
 const videoStatsJob = z.strictObject({
   kind: z.literal("video_stats"),
   videoUrl: z.string().min(1).max(2000),
@@ -255,6 +262,7 @@ export const jobSchema = z.discriminatedUnion("kind", [
   mailRepliesJob,
   mailAckJob,
   mailCancelJob,
+  mailImportJob,
   videoStatsJob,
   refetchJob,
   backfillJob,
@@ -526,6 +534,13 @@ const mailCancelResult = z.strictObject({
   data: z.strictObject({ cancelled: count, closed: z.boolean() }),
 });
 
+/** The rows the merge added (0 each on a second run), and the added conversations it closed. */
+const mailImportResult = z.strictObject({
+  type: z.literal("result"),
+  kind: z.literal("mail.import"),
+  data: z.strictObject({ conversations: count, sent: count, inbound: count, closed: count }),
+});
+
 const videoStatsResult = z.strictObject({
   type: z.literal("result"),
   kind: z.literal("video_stats"),
@@ -658,6 +673,7 @@ const resultSchema = z.discriminatedUnion("kind", [
   mailRepliesResult,
   mailAckResult,
   mailCancelResult,
+  mailImportResult,
   videoStatsResult,
   refetchResult,
   backfillResult,
@@ -694,6 +710,10 @@ export const endErrorCodes = [
   "source_in_data_dir",
   "old_app_open",
   "store_too_new",
+  // mail.import refuses an old mailbox.db as the import does (but for no_channels_table), and when
+  // it has no `conversations` table or a newer app wrote it.
+  "no_conversations_table",
+  "source_too_new",
 ] as const;
 
 /** For a job other than `search`, `at`, `found` and `kept` are 0: its answer is its `result`. */

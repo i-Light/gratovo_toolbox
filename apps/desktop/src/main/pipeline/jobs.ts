@@ -24,6 +24,7 @@ export function laneFor(kind: JobKind): Lane {
     case "mail.replies":
     case "mail.ack":
     case "mail.cancel":
+    case "mail.import":
     case "video_stats":
     case "gateways.deploy":
     case "gateways.destroy":
