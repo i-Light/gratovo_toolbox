@@ -12,3 +12,6 @@ export {
   workingDays,
 } from "./stats";
 export { noKind, readingKind } from "./readings";
+export { biggestDrop, cohorts, creatorFunnel, funnelExits, stepDays } from "./funnel";
+export { batches, diagnose, emailsReport, patterns } from "./emails";
+export { keywordRows, keywordVerdict, liveGroup, searchReport } from "./search";
