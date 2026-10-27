@@ -1,9 +1,11 @@
 import { randomUUID } from "node:crypto";
 
+import { signingStages, wakeStage } from "@gratovo/core/close";
 import {
   exampleCountries,
   reachDraftsMax,
   threadMessagesMax,
+  type CreatorStage,
   type CreatorState,
   type DataSource,
   type DataWrite,
@@ -49,6 +51,7 @@ import { mailboxKey, noFlags, readMailboxFlags, writeMailboxFlags } from "./mail
 import { createQuickQueue, type QuickQueue } from "./quick-queue";
 import { createReplySweep, skipOpenFollowUps, type ReplySweep } from "./reply-sweep";
 import { createSender, type CheckOutcome, type Sender, type SendOutcome } from "./sender";
+import { createSigning, type Signing } from "./signing";
 import { createSituations, type Situations } from "./situations";
 import { mailboxStrings, sequenceStrings } from "./strings";
 
@@ -582,7 +585,7 @@ export function createReachService(deps: ReachServiceDeps): ReachServiceHandle {
     detail: null,
   });
 
-  const stageWrite = (creator: CreatorState, stage: "emailed" | "parked"): DataWrite => ({
+  const stageWrite = (creator: CreatorState, stage: CreatorStage): DataWrite => ({
     kind: "creator.stage",
     id: creator.id,
     stage,
@@ -726,12 +729,12 @@ export function createReachService(deps: ReachServiceDeps): ReachServiceHandle {
     }
     const { source, creator, sequence } = found;
     const at = now();
-    if (
-      !Number.isFinite(until) ||
-      creator.stage !== "emailed" ||
-      !isRunning(sequence) ||
-      localMidnight(until) <= localMidnight(at)
-    ) {
+    // An emailed creator needs a running sequence. One who replied, or whose kit is in, may have
+    // a sequence in any state: a reply stopped it, so nothing is re-timed or drafted from it.
+    const stageOk = signingStages.includes(creator.stage)
+      ? true
+      : creator.stage === "emailed" && isRunning(sequence);
+    if (!Number.isFinite(until) || !stageOk || localMidnight(until) <= localMidnight(at)) {
       return { ok: false, problem: "wrong_state" };
     }
     const next = parked(sequence, until);
@@ -770,7 +773,7 @@ export function createReachService(deps: ReachServiceDeps): ReachServiceHandle {
     const at = now();
     const back =
       restore === undefined
-        ? { drafts: [], sequence: woken(sequence, at) }
+        ? { drafts: [], sequence: woken(sequence, sequence.stopped === null ? at : null) }
         : restoreDrafts(source, creatorId, restore, woken(sequence, null));
     wakes.set(creatorId, before + 1);
     source.outreach.commit({
@@ -778,13 +781,28 @@ export function createReachService(deps: ReachServiceDeps): ReachServiceHandle {
       drafts: back.drafts,
       sequences: [back.sequence],
       writes: [
-        ...(creator.stage === "parked" ? [stageWrite(creator, "emailed")] : []),
+        ...(creator.stage === "parked"
+          ? [stageWrite(creator, wakeStage(sequence.stopped, creator.kit))]
+          : []),
         logLine(creator, sequenceStrings.woke(nameOf(creator)), at),
       ],
     });
     drafter.kick();
     return afterCommand();
   }
+
+  const signing: Signing = createSigning({
+    mode: () => deps.mode(),
+    source: () => deps.source(),
+    now,
+    afterCommand: () => {
+      afterCommand();
+    },
+    kick: () => {
+      drafter.kick();
+    },
+    restoreDrafts,
+  });
 
   // --- the day timer: at start and at each local midnight ---
   let dayTimer: unknown = null;
@@ -835,9 +853,11 @@ export function createReachService(deps: ReachServiceDeps): ReachServiceHandle {
           wakes.set(creator.id, wakesOf(creator.id) + 1);
           source.outreach.commit({
             at,
-            sequences: [woken(sequence, at)],
+            sequences: [woken(sequence, sequence.stopped === null ? at : null)],
             writes: [
-              ...(creator.stage === "parked" ? [stageWrite(creator, "emailed")] : []),
+              ...(creator.stage === "parked"
+                ? [stageWrite(creator, wakeStage(sequence.stopped, creator.kit))]
+                : []),
               logLine(creator, sequenceStrings.woke(nameOf(creator)), at),
             ],
           });
@@ -863,6 +883,9 @@ export function createReachService(deps: ReachServiceDeps): ReachServiceHandle {
     sequenceResume: resumeSequence,
     park: parkCreator,
     wake: wakeCreator,
+    decline: (creatorId) => signing.decline(creatorId),
+    undoDecline: (request) => signing.undoDecline(request),
+    ask: (creatorId) => signing.ask(creatorId),
     async dayTick() {
       // After a sleep the timer may have been late or lost: run the check and set it again.
       if (deps.source() === null || deps.mode() === null) {
@@ -927,6 +950,10 @@ export function createReachService(deps: ReachServiceDeps): ReachServiceHandle {
         // A write main ignored (an Undo after the send started) must reach the page as main has
         // it, so it shows the draft going rather than `ready` (D5; review of 6a, finding 5).
         changed();
+      }
+      if (writes.some((write) => write.kind === "creator.kit" || write.kind === "reply.fact")) {
+        // A replied creator may have moved to kit in main: the page reads it again.
+        changed(["creators", "log"]);
       }
       if (
         writes.some((write) => write.kind === "creator.stage" || write.kind === "creator.contact")

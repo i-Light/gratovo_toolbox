@@ -74,7 +74,7 @@ class FakeOutreach implements OutreachStore {
       id: d.id,
       creator: d.creator,
       kind: d.kind,
-      goal: null,
+      goal: d.goal ?? null,
       followUp: d.followUp,
       state: "drafting",
       subject: "",
@@ -863,6 +863,90 @@ describe("the drafter", () => {
       // The next kick picks the row up again.
       await kicked();
       expect(only()).toMatchObject({ state: "ready", body: SAM_BODY });
+    });
+  });
+
+  describe("draft goals (step 8)", () => {
+    const kit = {
+      countries: [{ code: "US", share: 40 }],
+      ageBand: null,
+      engagement: null,
+      rate: 900,
+      link: null,
+      fromReply: true,
+    };
+    const goalDraft = (goal: "decline" | "ask_kit"): void => {
+      store.insertDraft({
+        id: "g1",
+        creator: sam,
+        kind: "reply",
+        goal,
+        followUp: null,
+        mailbox: "moustafa@gratovo.example",
+        replyTo: null,
+        at: clock,
+      });
+    };
+
+    it("sends a decline as a reply with the decline goal and no missing list", async () => {
+      states = [confirmed(sam, { stage: "audience", kit })];
+      goalDraft("decline");
+      await kicked();
+      const request = propose.mock.calls[0]?.[0].request;
+      expect(request).toMatchObject({ kind: "reply", goal: "decline_audience" });
+      expect(request).not.toHaveProperty("missing");
+    });
+
+    it("sends an ask for the kit with what the kit lacks, and keeps the goal in a rewrite", async () => {
+      states = [confirmed(sam, { stage: "audience", kit })];
+      goalDraft("ask_kit");
+      await kicked();
+      expect(propose.mock.calls[0]?.[0].request).toMatchObject({
+        kind: "reply",
+        goal: "ask_kit",
+        missing: ["age", "engagement"],
+      });
+      store.updateDraft("g1", { state: "ready" }, clock);
+      await drafter.rewrite("g1", "direct");
+      await drafter.idle();
+      expect(propose.mock.calls[1]?.[0].request).toMatchObject({
+        goal: "ask_kit",
+        missing: ["age", "engagement"],
+      });
+      expect(store.draft("g1")?.goal).toBe("ask_kit");
+    });
+
+    it("asks for every row when the creator has no kit", async () => {
+      states = [confirmed(sam, { stage: "audience" })];
+      goalDraft("ask_kit");
+      await kicked();
+      expect(propose.mock.calls[0]?.[0].request).toMatchObject({
+        missing: ["countries", "age", "engagement", "rate"],
+      });
+    });
+
+    it("hands the engine the kit in the facts, for every draft", async () => {
+      states = [confirmed(sam, { kit })];
+      await kicked();
+      expect(propose.mock.calls[0]?.[0].facts.creators[sam]?.mediaKit).toMatchObject({
+        countries: [{ code: "US" }],
+      });
+    });
+
+    it("fills a goal draft with its own stand-in on the example data", async () => {
+      mode = "example";
+      states = [confirmed(sam, { contactName: "Sam", kit })];
+      goalDraft("decline");
+      await kicked();
+      expect(store.draft("g1")?.body).toContain("different audience");
+      expect(store.draft("g1")?.body.endsWith("\n\nMoustafa")).toBe(true);
+      store.drafts.clear();
+      goalDraft("ask_kit");
+      await kicked();
+      const body = store.draft("g1")?.body ?? "";
+      expect(body).toContain("your main age group, your engagement rate");
+      expect(body.endsWith("\n\nMoustafa")).toBe(true);
+      expect(propose).not.toHaveBeenCalled();
     });
   });
 

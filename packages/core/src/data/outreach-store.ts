@@ -5,6 +5,7 @@
  */
 
 import type {
+  DraftGoal,
   DraftKind,
   DraftProblem,
   DraftProposal,
@@ -33,6 +34,8 @@ export interface NewDraft {
   readonly id: string;
   readonly creator: string;
   readonly kind: DraftKind;
+  /** The draft's goal (a decline, an ask for the kit); absent is none. */
+  readonly goal?: DraftGoal | null;
   readonly followUp: number | null;
   readonly mailbox: string | null;
   readonly replyTo: string | null;
@@ -135,7 +138,7 @@ export interface OutreachStore {
    */
   mailboxCounts(now: number): ReadonlyMap<string, MailboxCounts>;
   sequence(creator: string): Sequence | null;
-  /** Every sequence not stopped (running or parked): the day timer's list, which has no cap. */
+  /** Every sequence not stopped (running, or parked after a reply): the day timer list, which has no cap. */
   runningSequences(): Sequence[];
   /**
    * In one transaction: the new drafts, the drafts' patches, the new messages (one whose Gmail id is already

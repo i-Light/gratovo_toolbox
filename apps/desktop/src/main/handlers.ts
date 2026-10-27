@@ -285,10 +285,9 @@ function buildHandlers(context: HandlerContext): Handlers {
     "reach:sequence-resume": ({ creatorId, restore }) => reach.sequenceResume(creatorId, restore),
     "reach:park": ({ creatorId, until }) => reach.park(creatorId, until),
     "reach:wake": ({ creatorId, restore }) => reach.wake(creatorId, restore),
-    // Task M2 wires these three.
-    "close:decline": () => ({ ok: false as const, problem: "no_data" as const }),
-    "close:decline-undo": () => ({ ok: false as const, problem: "no_data" as const }),
-    "close:ask": () => ({ ok: false as const, problem: "no_data" as const }),
+    "close:decline": ({ creatorId }) => reach.decline(creatorId),
+    "close:decline-undo": (request) => reach.undoDecline(request),
+    "close:ask": ({ creatorId }) => reach.ask(creatorId),
     "reach:check-replies": () => reach.checkReplies(),
     "reach:paste-reply": ({ creatorId, text }) => reach.pasteReply(creatorId, text),
     "reach:reclassify": ({ messageId, replyType }) => reach.reclassify(messageId, replyType),

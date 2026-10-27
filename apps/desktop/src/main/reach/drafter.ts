@@ -7,9 +7,11 @@ import {
   draftRulesMax,
   draftSubjectMax,
   engineGateKinds,
+  type CreatorKit,
   type CreatorState,
   type DataSource,
   type DraftFinding,
+  type DraftGoal,
   type DraftKind,
   type DraftPatch,
   type DraftProblem,
@@ -22,6 +24,7 @@ import {
   type RewriteHow,
   type StoredDraft,
 } from "@gratovo/core/data";
+import { checkAudience } from "@gratovo/core/close";
 import { dueSteps, pickMailbox, readReplyFacts, withStep } from "@gratovo/core/reach";
 import type { ChannelResponse } from "@gratovo/ipc";
 
@@ -102,6 +105,14 @@ export interface DrafterDeps {
 export const kickDelayMs = 2000;
 /** How long the example stand-ins take, so the page's waiting state shows. */
 export const standInMs = 900;
+
+/** The engine's name for each audience row it can ask about. */
+const missingOf = {
+  top: "countries",
+  age: "age",
+  engagement: "engagement",
+  rate: "rate",
+} as const;
 /** The engine's own time for one proposal, in seconds (the bridge adds its pacing). */
 export const proposeTimeoutS = 240;
 /** A pause the bridge reported without a time: its own length (D6a). */
@@ -295,10 +306,17 @@ export function standInReply(
   sender: string,
   message: { readonly subject: string; readonly body: string },
   replyType: string | null = null,
+  goal: DraftGoal | null = null,
+  kit: CreatorKit | null = null,
 ): { subject: string; body: string; proposal: DraftProposal } {
   const text = reachStrings.standInReply;
   const type = replyType ?? standInSituation(message.body);
-  const lines = text.answers[type] ?? text.otherAnswer;
+  const lines =
+    goal === "decline"
+      ? text.declineAnswer
+      : goal === "ask_kit"
+        ? text.askKitAnswer(checkAudience(kit).missing.map((key) => text.missingNames[key]))
+        : (text.answers[type] ?? text.otherAnswer);
   return {
     subject: text.subject(message.subject),
     body: [text.greeting(creator.contactName), ...lines, sender].join("\n\n"),
@@ -492,6 +510,26 @@ export function createDrafter(deps: DrafterDeps): Drafter {
     }
   }
 
+  /** The engine's goal for a goal draft (D7), and for an ask the numbers the kit lacks. */
+  function goalFields(
+    draft: StoredDraft,
+    creator: CreatorState,
+  ): {
+    goal?: "decline_audience" | "ask_kit";
+    missing?: ("countries" | "age" | "engagement" | "rate")[];
+  } {
+    if (draft.goal === "decline") {
+      return { goal: "decline_audience" };
+    }
+    if (draft.goal === "ask_kit") {
+      return {
+        goal: "ask_kit",
+        missing: checkAudience(creator.kit).missing.map((key) => missingOf[key]),
+      };
+    }
+    return {};
+  }
+
   function requestFor(
     draft: StoredDraft,
     creator: CreatorState,
@@ -501,6 +539,7 @@ export function createDrafter(deps: DrafterDeps): Drafter {
       kind: draft.kind,
       channelId: draft.creator,
       ...(creator.email === null ? {} : { contactEmail: creator.email }),
+      ...goalFields(draft, creator),
       threadId: threadIdOf(draft.creator),
       ...(draft.followUp === null ? {} : { followUpNumber: draft.followUp }),
       ...(note === null ? {} : { steer: { note } }),
@@ -538,7 +577,13 @@ export function createDrafter(deps: DrafterDeps): Drafter {
   ): Promise<Outcome> {
     let call: GeminiCall<"action.comms_propose">;
     try {
-      const facts = await buildCommsFacts({ source, creatorId: draft.creator, sender, now: now() });
+      const facts = await buildCommsFacts({
+        source,
+        creatorId: draft.creator,
+        sender,
+        now: now(),
+        kit: creator.kit,
+      });
       call = await deps.propose({
         request: requestFor(draft, creator, withCorrection(source, draft, note)),
         facts,
@@ -611,7 +656,14 @@ export function createDrafter(deps: DrafterDeps): Drafter {
         row.kind === "reply" && row.replyTo !== null ? source.outreach.message(row.replyTo) : null;
       const filled =
         row.kind === "reply"
-          ? standInReply(creator, sender, replied ?? { subject: "", body: "" })
+          ? standInReply(
+              creator,
+              sender,
+              replied ?? { subject: "", body: "" },
+              null,
+              row.goal,
+              creator.kit,
+            )
           : standInDraft(creator, sender);
       const bounce = await bounceRead(row, filled.proposal);
       if (mine !== generation || source.outreach.draft(row.id)?.state !== "drafting") {

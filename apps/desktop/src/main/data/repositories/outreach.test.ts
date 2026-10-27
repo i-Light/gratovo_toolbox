@@ -104,6 +104,26 @@ describe("drafts", () => {
     expect(store.draft("nope")).toBeNull();
   });
 
+  it("stores a goal with a new draft, and none by default", () => {
+    draft("d1");
+    store.insertDraft({
+      id: "d2",
+      creator: "UCb",
+      kind: "reply",
+      goal: "ask_kit",
+      followUp: null,
+      mailbox: null,
+      replyTo: null,
+      at: now,
+    });
+    expect(store.draft("d1")?.goal).toBeNull();
+    expect(store.draft("d2")?.goal).toBe("ask_kit");
+    expect(store.reachParts(now).drafts.find((d) => d.id === "d2")?.goal).toBe("ask_kit");
+    expect(() => {
+      db.exec("UPDATE outreach_drafts SET goal = 'weird'");
+    }).toThrow(/CHECK/);
+  });
+
   it("updates the fields given, sets updated_at, and reports a missing draft", () => {
     draft("d1");
     const proposal = {

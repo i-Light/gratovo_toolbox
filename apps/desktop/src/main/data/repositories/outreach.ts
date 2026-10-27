@@ -3,6 +3,7 @@ import type { DatabaseSync, SQLInputValue, SQLOutputValue, StatementSync } from 
 
 import {
   draftBodyMax,
+  draftGoals,
   draftKinds,
   draftProblems,
   draftStates,
@@ -20,6 +21,7 @@ import { bounceWindowMs, replyWindowMs, withStep } from "@gratovo/core/reach";
 import type {
   DataWrite,
   DraftFinding,
+  DraftGoal,
   DraftKind,
   DraftPatch,
   DraftProblem,
@@ -264,7 +266,7 @@ function storedDraft(row: Row): StoredDraft {
     id: String(row["id"]),
     creator: String(row["channel_id"]),
     kind: oneOf(draftKinds, row["kind"]) ?? "first",
-    goal: null, // Task M1 reads the column.
+    goal: oneOf<DraftGoal>(draftGoals, row["goal"]),
     followUp: optNum(row["follow_up"]),
     state: oneOf(draftStates, row["state"]) ?? "failed",
     subject,
@@ -672,12 +674,13 @@ export function createOutreachStore(db: DatabaseSync, deps: OutreachDeps): Outre
   function insertDraft(draft: NewDraft): void {
     db.prepare(
       `INSERT INTO outreach_drafts
-         (id, channel_id, kind, follow_up, state, mailbox, reply_to, created_at, updated_at)
-       VALUES (?, ?, ?, ?, 'drafting', ?, ?, ?, ?)`,
+         (id, channel_id, kind, goal, follow_up, state, mailbox, reply_to, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, 'drafting', ?, ?, ?, ?)`,
     ).run(
       draft.id,
       draft.creator,
       draft.kind,
+      draft.goal ?? null,
       draft.followUp,
       draft.mailbox,
       draft.replyTo,
@@ -955,7 +958,9 @@ export function createOutreachStore(db: DatabaseSync, deps: OutreachDeps): Outre
     },
     runningSequences: () =>
       db
-        .prepare("SELECT * FROM outreach_sequences WHERE stopped IS NULL ORDER BY started_at")
+        .prepare(
+          "SELECT * FROM outreach_sequences WHERE stopped IS NULL OR park_until IS NOT NULL ORDER BY started_at",
+        )
         .all()
         .map(sequenceFrom),
     sequence: (creator) => {
