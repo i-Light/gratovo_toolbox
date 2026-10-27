@@ -9,8 +9,9 @@ Working plan: [PLAN.md](PLAN.md). Gap list and conflicts: [GAPS.md](GAPS.md).
 | Part | What | State |
 |---|---|---|
 | plan | ADR 0021, the plan change, this working plan, the gap map of v6 against the app | **Done** 2026-10-27, branch `feat/full-prototype` |
-| P1 | Foundations | **Next.** Start with P1-0 (the contracts, Tier H) and write them into PLAN.md before building |
-| P8 | Insights | **Designed** 2026-10-27, **redesigned** 2026-10-28 with the owner (`docs/product/insights-design.md`, mockups in `design/insights/`). **Runs right after P1** |
+| P8a | Insights without deals and money, with its example history; Search live | **In progress** 2026-10-28, branch `feat/insights-p8a`. Owner split P8 in two the same day: P8a first, then P1, then P8b |
+| P1 | Foundations | **After P8a.** Start with P1-0 (the contracts, Tier H) and write them into PLAN.md before building |
+| P8b | Insights' deals and money (Money, Funnel › Brands, the deal and money parts of Overview and Goal) | **After P1** |
 | P2 to P7, P9, P10 | See PLAN.md | Not started |
 
 Owner answers so far are in ADR 0021 D6. Still to put to the owner when their part starts: the creator record's tab names beyond Overview, Emails, Deals, Notes and Activity (proposed: Channel, Videos, Sponsors, Contacts, Audience), checked in prototype mode after P2.

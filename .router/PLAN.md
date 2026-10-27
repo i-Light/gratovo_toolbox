@@ -35,7 +35,8 @@ One part per session (plan §10 rule 5). Each part starts by writing its own con
 | P5 | Close: Brands, Match, Pitch, roster columns, media kit packet | L | P1, P2 |
 | P6 | Close: Negotiate, Contracts, Calculator, Agency facts | L | P5 |
 | P7 | Deliver: deal board, deal record, Money | L | P1, P2 |
-| P8 | Insights, as `docs/product/insights-design.md` says. **Runs right after P1** (owner, 2026-10-27) | L | P1 |
+| P8a | Insights without deals and money, and its six-month example history at the real scale; Search live on real data. **Runs first, before P1** (owner, 2026-10-28) | L | — |
+| P8b | Insights' deals and money: Money, Funnel › Brands, the deal and money parts of Overview and Goal. **Runs right after P1** | M | P1, P8a |
 | P9 | Team work on example data, Toolbox › Notifications | M | P4 |
 | P10 | Full prototype flow suite, review, owner walk-through | M | all |
 
@@ -54,7 +55,9 @@ One part per session (plan §10 rule 5). Each part starts by writing its own con
 
 Done-check for P1: `pnpm lint`, `pnpm typecheck`, `pnpm test` pass; prototype mode opens all four scenarios with the larger seed; live mode unchanged (`wired.test.ts`, the existing Electron tests).
 
-For P8: P1-3's seed is a snapshot of today. P8 adds the six-month history on top of it, so build the seed so a later layer can add past records to it (the history must agree with the snapshot's creators, brands and deals).
+Order (owner, 2026-10-28): **P8a, then P1, then P8b**, then P2 onwards.
+
+For P1: P8a builds the six-month history as a layer on today's seed. P1-3 grows the seed to v6's size; the history layer must still agree with the snapshot's creators afterwards (P8a's history tests say what must hold). P8b then adds the brands, deals, invoices and payouts to the history.
 
 ## P8 task outline (its session writes the contracts first)
 
