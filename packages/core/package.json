@@ -9,6 +9,7 @@
     "./data": "./src/data/index.ts",
     "./close": "./src/close/index.ts",
     "./find": "./src/find/index.ts",
+    "./insights": "./src/insights/index.ts",
     "./reach": "./src/reach/index.ts"
   },
   "dependencies": {
