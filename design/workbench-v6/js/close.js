@@ -178,10 +178,10 @@ function Roster(){
       ${rows.length ? html`<div class="tw"><table class="tbl rt">
         <thead><tr><th>Creator</th><th>Model & Warmth (HC-29)</th><th class="n">Rate</th><th class="n">Median / Trimmed</th><th>Audience</th><th>Exclusivity & Slot</th><th>Best next brand</th></tr></thead>
         <tbody>${rows.map(function(r){
-          var c = r.c, mgr = c.managerId ? W.manager(c.managerId) : null;
+          var c = r.c;
           var stale = (c.daysSinceUpdate || 0) >= 21;
           return html`<tr key=${c.id} class="click" aria-selected=${String(peeking("creator", c.id))} onClick=${function(){ W.peek("creator", c.id, ids); }}>
-            <td><button type="button" class="lnk" onClick=${function(e){ e.stopPropagation(); W.peek("creator", c.id, ids); }}><${W.CAv} c=${c} /><span class="clt"><span class="row" style=${{gap:"6px"}}><b>${c.name}</b><${W.Stars} n=${c.starRating || 3} /></span><small>${c.handle} · ${W.fmtK(c.subs)} subs${mgr ? " · " + mgr.agency : ""}</small></span></button></td>
+            <td><button type="button" class="lnk" onClick=${function(e){ e.stopPropagation(); W.peek("creator", c.id, ids); }}><${W.CAv} c=${c} /><span class="clt"><span class="row" style=${{gap:"6px"}}><b>${c.name}</b><${W.Stars} n=${c.starRating || 3} /></span><small>${c.handle} · ${W.fmtK(c.subs)} subs</small></span></button></td>
             <td>
               <div class="row wrap" style=${{gap:"4px"}}>
                 <${Tag} tone=${c.relationshipModel === "exclusive_25" ? "info" : null}>${c.relationshipModel === "exclusive_25" ? "Excl 25%" : "Brokered"}</${Tag}>

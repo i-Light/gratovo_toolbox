@@ -1,5 +1,5 @@
 /* find.js — Find creators: the search console (keywords, rules, live run, history), triage one channel at a time,
-   the gallery (channels as their latest videos, faceted, multi-select, compare, saved views), contacts, and Talent Managers hub. */
+   the gallery (channels as their latest videos, faceted, multi-select, compare, saved views), and contacts. */
 (function(){
 "use strict";
 var W = window.W, html = W.html, Icon = W.Icon, useState = W.useState, useEffect = W.useEffect, useRef = W.useRef;
@@ -49,7 +49,7 @@ W.css(`
 var FIND_DEF = {stages:[], signals:[], countries:[], minMedian:0, maxMedian:null, minUp:0, owners:[], runs:[], q:""};
 var UI_DEF = {sort:"fit", view:"gallery", size:"m", pics:true, latest:true, sig:true, sel:{}, last:null, compare:false, saving:false, viewName:"",
   views:[{name:"US/UK gold mines", f:{signals:["gold"], countries:["US","GB"]}},{name:"New this morning", f:{stages:["new"], runs:["r3"]}},{name:"Sponsored, no email yet", f:{signals:["sponsored"], stages:["shortlisted"]}},{name:"5-Star Priority", f:{signals:["stars5"]}}],
-  kw:"", gen:false, genBusy:false, genPick:{}, rules:false, facetsOpen:false, addingMgr:false};
+  kw:"", gen:false, genBusy:false, genPick:{}, rules:false, facetsOpen:false};
 function F(){ return Object.assign({}, FIND_DEF, W.U().find || {}); }
 function X(){ return Object.assign({}, UI_DEF, W.U().findui || {}); }
 function setF(patch){ W.ui(function(u){ u.find = Object.assign({}, FIND_DEF, u.find || {}, typeof patch === "function" ? patch(Object.assign({}, FIND_DEF, u.find || {})) : patch); }); }
@@ -115,14 +115,6 @@ W.A.confirmMany = function(list){
   }, {toast:{msg:"Confirmed " + W.plural(list.length, "address", "addresses"), sub:"First emails are drafted and waiting in Approve emails.", icon:"at", go:{label:"Review", run:function(){ W.go("today"); }}}});
 };
 W.A.assignMany = function(ids, to){ var m = W.member(to); W.act("Gave " + W.plural(ids.length, "channel") + " to " + m.name, function(d){ d.creators.forEach(function(c){ if (ids.indexOf(c.id) >= 0) c.owner = to; }); }, {toast:{msg:m.name + " has " + W.plural(ids.length, "channel") + " now", sub:"They show up in " + m.name + "'s lists.", icon:"forward", tone:"info"}}); };
-W.A.addManager = function(f){
-  var id = W.uid("mg");
-  W.act("Added talent manager " + f.name + " (" + f.agency + ")", function(d){
-    if (!d.managers) d.managers = [];
-    d.managers.push({id:id, name:f.name, agency:f.agency, email:f.email, phone:f.phone || "", creators:[], commissionSplit:f.commissionSplit || "10% MCN / 15% Gratovo", rosterReceived:false, notes:f.notes || "Newly added talent manager."});
-  }, {toast:{msg:f.name + " added to Talent Managers", sub:"Click Request Full Roster to unlock their creator sheet.", icon:"briefcase", tone:"good"}});
-};
-
 /* ---------- header ---------- */
 function RunStatus(){
   var r = run(), running = r.status === "running", failed = r.status === "failed", ready = r.status === "ready";
@@ -457,66 +449,16 @@ function Contacts(){
   </div>`;
 }
 
-/* ================= System 4: Talent Managers & MCN Hub (INF-MGR-01..03) ================= */
-function Managers(){
-  var d = W.D(), x = X(), mgrs = d.managers || [];
-  var form = useState({name:"", agency:"", email:"", commissionSplit:"10% MCN / 15% Gratovo", notes:""}), f = form[0];
-  function setField(k, v){ var n = Object.assign({}, f); n[k] = v; form[1](n); }
-  return html`<div class="col" data-why="managers-hub">
-    <${W.Callout} tone="info" icon="briefcase" right=${html`<${Btn} size="sm" kind="pri" icon="plus" onClick=${function(){ setX({addingMgr:!x.addingMgr}); }}>Add Talent Manager</${Btn}>`}>
-      <b style=${{fontWeight:600}}>Talent Manager & MCN Roster Multiplier (INF-MGR-01 to 03).</b> One responsive talent manager unlocks 10 to 50 vetted creators at once. When a manager replies on behalf of one creator, request their full roster sheet immediately.
-    </${W.Callout}>
-    ${x.addingMgr ? html`<div class="card">
-      <div class="card-h"><h3>Add a Talent Manager / MCN</h3><${W.IconBtn} icon="x" label="Close" onClick=${function(){ setX({addingMgr:false}); }} /></div>
-      <div class="grid3">
-        <${W.Field} label="Manager name"><input class="inp" placeholder="e.g. Jordan Hayes" value=${f.name} onInput=${function(e){ setField("name", e.target.value); }} /></${W.Field}>
-        <${W.Field} label="Agency / MCN"><input class="inp" placeholder="e.g. Night Media" value=${f.agency} onInput=${function(e){ setField("agency", e.target.value); }} /></${W.Field}>
-        <${W.Field} label="Email"><input class="inp mono" placeholder="jordan@night.co" value=${f.email} onInput=${function(e){ setField("email", e.target.value); }} /></${W.Field}>
-      </div>
-      <div class="grid2">
-        <${W.Field} label="Commission split structure"><input class="inp" value=${f.commissionSplit} onInput=${function(e){ setField("commissionSplit", e.target.value); }} /></${W.Field}>
-        <${W.Field} label="Notes"><input class="inp" placeholder="Niche focus, responsiveness, minimum deal size…" value=${f.notes} onInput=${function(e){ setField("notes", e.target.value); }} /></${W.Field}>
-      </div>
-      <div class="row"><${Btn} kind="pri" icon="check" disabled=${!f.name.trim() || !f.email.trim()} onClick=${function(){ W.A.addManager(f); setX({addingMgr:false}); form[1]({name:"", agency:"", email:"", commissionSplit:"10% MCN / 15% Gratovo", notes:""}); }}>Save Manager</${Btn}><${Btn} kind="ghost" onClick=${function(){ setX({addingMgr:false}); }}>Cancel</${Btn}></div>
-    </div>` : null}
-    <div class="grid2" style=${{alignItems:"start"}}>
-      ${mgrs.map(function(m){
-        var cs = (m.creators || []).map(W.creator).filter(Boolean);
-        return html`<div key=${m.id} class="card">
-          <div class="row top" style=${{gap:"10px"}}>
-            <${W.Av} name=${m.name} seed=${m.agency} size="l" tip=${false} />
-            <div class="grow col t2">
-              <div class="row wrap" style=${{gap:"6px"}}><h3 style=${{fontSize:"15px"}}>${m.name}</h3><${Tag} hue="var(--find)" icon="briefcase">${m.agency}</${Tag}></div>
-              <span class="mono small muted">${m.email}${m.phone ? " · " + m.phone : ""}</span>
-            </div>
-            ${m.rosterReceived ? html`<${Tag} tone="good" icon="check">Full Roster Sheet In</${Tag}>` : html`<${Tag} tone="warn" icon="clock">Roster Sheet Pending</${Tag}>`}
-          </div>
-          <dl class="kv">
-            <dt>Commission split</dt><dd>${m.commissionSplit}</dd>
-            <dt>Represented channels</dt><dd>${cs.length ? cs.map(function(c){ return html`<button key=${c.id} type="button" class="btn ghost sm" style=${{marginInlineEnd:"4px"}} onClick=${function(){ W.peek("creator", c.id); }}>${c.name} (${W.STAGE_LABEL[c.stage]})</button>`; }) : html`<span class="muted">None linked yet</span>`}</dd>
-            <dt>Notes</dt><dd>${m.notes}</dd>
-          </dl>
-          <div class="row wrap" style=${{gap:"6px"}}>
-            <${Btn} size="sm" kind=${m.rosterReceived ? "ghost" : "pri"} icon="mail" onClick=${function(){ W.A.requestManagerRoster(m.id); }}>${m.rosterReceived ? "Request Updated Roster (INF-MGR-03)" : "Request Full Roster Sheet (INF-MGR-03)"}</${Btn}>
-          </div>
-        </div>`;
-      })}
-    </div>
-  </div>`;
-}
-
 /* ================= the screen ================= */
 W.screens.find = function(){
   var st = W.useApp(), u = st.ui, d = st.data, tab = u.route.tab || "search";
   var nNew = d.creators.filter(function(c){ return c.stage === "new"; }).length, nContact = d.creators.filter(function(c){ return c.stage === "shortlisted"; }).length;
-  var nMgr = (d.managers || []).length;
   var baseTabs = W.SCREENS.find.tabs;
-  if (!baseTabs.some(function(t){ return t[0] === "managers"; })) baseTabs = baseTabs.concat([["managers","Talent managers"]]);
-  var tabs = baseTabs.map(function(t){ return [t[0], t[1], t[0] === "triage" ? nNew || null : t[0] === "contacts" ? nContact || null : t[0] === "managers" ? nMgr || null : null]; });
+  var tabs = baseTabs.map(function(t){ return [t[0], t[1], t[0] === "triage" ? nNew || null : t[0] === "contacts" ? nContact || null : null]; });
   return html`<div class="page">
-    <${W.PageHead} title="Find creators" sub="Search YouTube for AI channels, review what your rules kept, confirm a contact, and multiply your roster through Talent Managers." right=${html`<${RunStatus} />`} />
+    <${W.PageHead} title="Find creators" sub="Search YouTube for AI channels, review what your rules kept, and confirm a contact." right=${html`<${RunStatus} />`} />
     <${W.Tabs} tabs=${tabs} cur=${tab} hue="var(--find)" onPick=${W.setTab} />
-    ${tab === "search" ? html`<${Search} />` : tab === "triage" ? html`<${Triage} />` : tab === "gallery" ? html`<${Gallery} />` : tab === "managers" ? html`<${Managers} />` : html`<${Contacts} />`}
+    ${tab === "search" ? html`<${Search} />` : tab === "triage" ? html`<${Triage} />` : tab === "gallery" ? html`<${Gallery} />` : html`<${Contacts} />`}
   </div>`;
 };
 })();

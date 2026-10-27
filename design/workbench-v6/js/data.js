@@ -3,7 +3,6 @@
    - System 1: 12-video outlier-trimmed average (trimmedAvgViews), view stability (viewStability), bot-detection (botRisk), presenter format (format), 1–5 Star Rubric (starRating)
    - System 2: Brokered Markup vs. Exclusive Management (25% Comm) Roster Tiers (relationshipModel)
    - System 3: Signed-Creator Warmth Pulse & 14-Day Retention Guard (daysSinceUpdate, onboarding profile)
-   - System 4: Talent Manager & Multi-Creator Agency Hub (d.managers, managerId)
    - System 5: Category Exclusivity Lock Calendar (exclusivityLocks) & Next Open Upload Slot (nextOpenSlot)
    - System 6: Brand Audit, Paid-Integration Spender Verification (paidSpenderVerified), Company-Size Title Router (headcount, recommendedTitle), Boycott Screen, Phishing Guard
    - System 7–16: Multi-Model Deals, Dual Deadlines, 7-Must-Have Contract Clauses, 6-Clause Redline Scanner, Physical Shipping Guard, 5-Point Video QC Gate, Post-Go-Live Hype Cadence & Make-Good Engine, Official Invoices, Reverse Funnel & 50-Send Batch Diagnostics.
@@ -152,18 +151,11 @@ function C(id, name, handle, subs, median, up30, o){
   };
   return Object.assign({
     id:id, name:name, handle:handle, subs:subs, median:median, trimmedAvgViews:trimmed, viewStability:vs, botRisk:bot, format:fmt, starRating:stars,
-    relationshipModel:relModel, managerId:o.managerId || null, daysSinceUpdate:daysUpd, exclusivityLocks:o.exclusivityLocks || [], nextOpenSlot:nextSlot, onboarding:onb,
+    relationshipModel:relModel, daysSinceUpdate:daysUpd, exclusivityLocks:o.exclusivityLocks || [], nextOpenSlot:nextSlot, onboarding:onb,
     up30:up30, lastUp:2, videos:[], sponsors:[], email:null, emailSrc:null, emailConf:0, confirmed:false, contact:"",
     cands:[], countries:[], age:"", eng:0, stage:"new", owner:null, rate:0, moment:defMom, moments:mList, socials:socials, dmSent:null, run:null, found:at(-1, 8), tags:[], notes:[], seq:null, kit:null, reject:null, before:null, pay:null
   }, o, {moment:defMom, moments:mList, socials:socials, trimmedAvgViews:trimmed, viewStability:vs, botRisk:bot, format:fmt, starRating:stars, relationshipModel:relModel, daysSinceUpdate:daysUpd, nextOpenSlot:nextSlot, onboarding:onb});
 }
-
-/* System 4: Talent Manager & Multi-Creator Agency Hub (INF-MGR-01..16, EX-29) */
-var managers = [
-  {id:"mgr1", name:"Sarah Lin", agency:"Apex Creator Talent", email:"sarah@apextalent.co", phone:"+1 (415) 890-2311", feeNote:"Creator-side 15% (Gratovo adds 25% brand markup on top per INF-MGR-06)", creators:["c3","c8"], unindexedRoster:["@devopswithdan (94K median · US 48%)","@rustweekly (62K median · US 44%)"], lastTouch:at(-2), status:"active_partner", notes:"Prefers multi-creator briefs (EX-29) with target budget range and go-live window in paragraph 1."},
-  {id:"mgr2", name:"Marcus Vance", agency:"Signal Talent Group", email:"marcus@signaltalent.io", phone:"+1 (212) 641-0982", feeNote:"Exclusive 20% agency split or standard brokered net rate", creators:["c4","c7"], unindexedRoster:["@mlopsdaily (78K median · US 41%)"], lastTouch:at(-5), status:"active_partner", notes:"Fastest turnaround on dedicated walkthroughs; requires 50% kill-fee protection in brand IOs."},
-  {id:"mgr3", name:"Elena Rostova", agency:"CreatorBridge EU", email:"elena@creatorbridge.eu", phone:"+44 20 7946 0821", feeNote:"All-in EUR/USD invoicing via Wise (no surprise VAT per BRD-PAY-09)", creators:["c5"], unindexedRoster:["@cloudnativeeu (53K median · GB/US 52%)"], lastTouch:at(-9), status:"warm", notes:"Manages UK/EU developer educators."}
-];
 
 var creators = [
   /* ---- signed ---- */
@@ -175,15 +167,15 @@ var creators = [
     exclusivityLocks:[{cat:"writing", brand:"Lumen AI", until:at(36), days:30}], nextOpenSlot:at(11),
     email:"team@neuralnotes.io", emailSrc:"Video description", emailConf:.94, confirmed:true, contact:"Theo", countries:[["US",36],["GB",14],["AU",6]], age:"18–34", eng:6.3, sponsors:["Lumen AI"], pay:"Wise · theo@neuralnotes.io", found:at(-61),
     videos:[V("Notion vs Obsidian with AI, 30 days later",61000,5,"16:40"),V("My second brain runs on 3 prompts",44000,12,"9:58"),V("AI summaries saved me 4 hours a week",52000,20,"12:05")]}),
-  C("c3","Code with Kai","@codewithkai",240000,88000,5,{stage:"signed", owner:"u1", rate:2400, trimmedAvgViews:85500, viewStability:"stable", starRating:5, relationshipModel:"exclusive_25", managerId:"mgr1", daysSinceUpdate:4,
+  C("c3","Code with Kai","@codewithkai",240000,88000,5,{stage:"signed", owner:"u1", rate:2400, trimmedAvgViews:85500, viewStability:"stable", starRating:5, relationshipModel:"exclusive_25", daysSinceUpdate:4,
     exclusivityLocks:[{cat:"code", brand:"Codewell", until:at(46), days:30}], nextOpenSlot:at(14),
-    email:"kai@codewithkai.dev", cc:"sarah@apextalent.co", emailSrc:"Website", emailConf:.98, confirmed:true, contact:"Kai", countries:[["US",44],["IN",13],["GB",8]], age:"18–34", eng:4.4, sponsors:["Codewell"], pay:"Bank transfer · US (W-9 verified)", found:at(-90),
+    email:"kai@codewithkai.dev", emailSrc:"Website", emailConf:.98, confirmed:true, contact:"Kai", countries:[["US",44],["IN",13],["GB",8]], age:"18–34", eng:4.4, sponsors:["Codewell"], pay:"Bank transfer · US (W-9 verified)", found:at(-90),
     videos:[V("I built a SaaS in a weekend with Cursor",96000,4,"21:17"),V("Claude Code vs Copilot: one real project",83000,11,"18:44"),V("41 minutes to a working login page",77000,19,"13:02")]}),
-  C("c4","Tensor Talk","@tensortalk",310000,120000,3,{stage:"signed", owner:"u1", rate:3100, trimmedAvgViews:116000, viewStability:"stable", starRating:5, relationshipModel:"brokered", managerId:"mgr2", daysSinceUpdate:2,
+  C("c4","Tensor Talk","@tensortalk",310000,120000,3,{stage:"signed", owner:"u1", rate:3100, trimmedAvgViews:116000, viewStability:"stable", starRating:5, relationshipModel:"brokered", daysSinceUpdate:2,
     exclusivityLocks:[], nextOpenSlot:at(12),
-    email:"biz@tensortalk.com", cc:"marcus@signaltalent.io", emailSrc:"About page", emailConf:.99, confirmed:true, contact:"Lena", countries:[["US",39],["GB",10],["CA",8]], age:"25–44", eng:3.8, sponsors:["Clipforge","VoxCraft"], pay:"Wise · DE (W-8BEN verified)", found:at(-120),
+    email:"biz@tensortalk.com", emailSrc:"About page", emailConf:.99, confirmed:true, contact:"Lena", countries:[["US",39],["GB",10],["CA",8]], age:"25–44", eng:3.8, sponsors:["Clipforge","VoxCraft"], pay:"Wise · DE (W-8BEN verified)", found:at(-120),
     videos:[V("Every AI video tool, ranked",146000,6,"24:51"),V("This one cut my edit time in half",112000,14,"15:30"),V("The open-source model nobody talks about",98000,25,"19:12")]}),
-  C("c5","The AI Desk","@theaidesk",150000,58000,8,{stage:"signed", owner:"u2", rate:1500, trimmedAvgViews:57500, viewStability:"stable", starRating:4, relationshipModel:"exclusive_25", managerId:"mgr3", daysSinceUpdate:5,
+  C("c5","The AI Desk","@theaidesk",150000,58000,8,{stage:"signed", owner:"u2", rate:1500, trimmedAvgViews:57500, viewStability:"stable", starRating:4, relationshipModel:"exclusive_25", daysSinceUpdate:5,
     exclusivityLocks:[], nextOpenSlot:at(6),
     email:"desk@theaidesk.news", emailSrc:"About page", emailConf:.96, confirmed:true, contact:"Ruth", countries:[["US",33],["GB",15],["AU",9]], age:"25–44", eng:4.9, sponsors:["Pagewise","Lumen AI"], pay:"PayPal · ruth@theaidesk.news", found:at(-80),
     videos:[V("This week in AI: 9 launches that matter",64000,2,"17:08"),V("The only launch I would actually pay for",59000,9,"12:44"),V("AI news, minus the hype",55000,16,"15:01")]}),
@@ -193,7 +185,7 @@ var creators = [
     videos:[V("5 agents race to build an app",88000,5,"22:10"),V("Which coding agent actually ships?",61000,13,"18:31"),V("I made agents argue about my startup",47000,21,"14:22")]}),
 
   /* ---- media kit in ---- */
-  C("c7","AgentWorks","@agentworks",128000,67000,5,{stage:"kit", owner:"u1", rate:1700, trimmedAvgViews:65000, managerId:"mgr2", email:"partnerships@agentworks.ai", emailSrc:"About page", emailConf:.97, confirmed:true, contact:"Dev", countries:[["US",38],["GB",11],["CA",9]], age:"18–34", eng:4.7, sponsors:["Codewell"], found:at(-30),
+  C("c7","AgentWorks","@agentworks",128000,67000,5,{stage:"kit", owner:"u1", rate:1700, trimmedAvgViews:65000, email:"partnerships@agentworks.ai", emailSrc:"About page", emailConf:.97, confirmed:true, contact:"Dev", countries:[["US",38],["GB",11],["CA",9]], age:"18–34", eng:4.7, sponsors:["Codewell"], found:at(-30),
     kit:{at:at(-3,16,20), rate:1700, countries:[["US",38],["GB",11],["CA",9]], age:"18–34", eng:4.7, file:"AgentWorks media kit 2026.pdf"},
     videos:[V("I gave an agent my inbox for a week",79000,4,"13:48"),V("It unsubscribed me from 212 newsletters",64000,10,"9:02"),V("Agents that actually save time",58000,18,"16:15")]}),
   C("c18","Silicon Sage","@siliconsage",88000,39000,6,{stage:"kit", owner:"u1", rate:700, trimmedAvgViews:38000, starRating:2, email:"sage@siliconsage.in", emailSrc:"Video description", emailConf:.9, confirmed:true, contact:"Arjun", countries:[["IN",31],["US",22],["PK",9]], age:"18–24", eng:3.4, found:at(-26),
@@ -212,7 +204,7 @@ var creators = [
     videos:[V("Copilot vs Cursor: 30 day test",62000,4,"15:12"),V("AI pair programming, honestly",44000,11,"12:50"),V("The settings I change on every AI editor",39000,18,"8:31")]}),
 
   /* ---- in sequence ---- */
-  C("c8","Pixel Diffusion","@pixeldiffusion",205000,73000,4,{stage:"emailed", owner:"u1", managerId:"mgr1", email:"studio@pixeldiffusion.art", emailSrc:"About page", emailConf:.96, confirmed:true, contact:"Ines", countries:[["US",31],["BR",14],["GB",9]], age:"18–34", eng:5.9, sponsors:["Clipforge"], found:at(-9), moment:"14:10 \"the open model won on hands, finally\"",
+  C("c8","Pixel Diffusion","@pixeldiffusion",205000,73000,4,{stage:"emailed", owner:"u1", email:"studio@pixeldiffusion.art", emailSrc:"About page", emailConf:.96, confirmed:true, contact:"Ines", countries:[["US",31],["BR",14],["GB",9]], age:"18–34", eng:5.9, sponsors:["Clipforge"], found:at(-9), moment:"14:10 \"the open model won on hands, finally\"",
     seq:{steps:[{k:"first", at:at(-4,9,30), st:"sent"},{k:"fu1", at:at(0,10,0), st:"due"},{k:"fu2", at:at(4,10,0), st:"planned"},{k:"fu3", at:at(11,10,0), st:"planned"}]},
     videos:[V("Midjourney v8 vs the open models",82000,2,"22:19"),V("Hands, finally solved?",69000,9,"11:44"),V("I trained a style model on my art",61000,16,"17:03")]}),
   C("c21","Token Talks","@tokentalks",67000,45000,5,{stage:"emailed", owner:"u1", email:"tokentalks.yt@gmail.com", emailSrc:"Video description", emailConf:.91, confirmed:true, contact:"Ravi", countries:[["US",35],["GB",12],["CA",8]], age:"25–34", eng:4.8, found:at(-16),
@@ -510,7 +502,7 @@ var vaOnboarding = [
 W.seed = function(){
   return {
     version:"6.0",
-    creators:creators, managers:managers, brands:brands, deals:deals, threads:threads, drafts:drafts, runs:runs, mateRun:mateRun, pool:POOL, poolI:0,
+    creators:creators, brands:brands, deals:deals, threads:threads, drafts:drafts, runs:runs, mateRun:mateRun, pool:POOL, poolI:0,
     notifs:notifs, log:log, team:team, mail:mail, hist:hist, batchDiagnostics:batchDiagnostics, vaOnboarding:vaOnboarding,
     me:"u1", snoozed:{}, handed:{}, done:[], notes:{}, calls:{},
     day:{budget:240, started:null},

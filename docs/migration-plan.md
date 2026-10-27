@@ -168,7 +168,7 @@ Pulled from the old step 9 (the import, the Settings that run the pipeline) and 
 **Work:**
 1. **The search console:** paste and manage keywords, Gemini keyword ideas inline, the search rules inline, the live run panel with Start, Pause and Resume (the `search` job), the progress ring, and the run history with "Review what it found". A teammate's run and the overlap warning wait for step T.
 2. **Triage:** one channel at a time (S shortlist, R reject with the 1–4 reasons), the 7-day archive toast with Undo.
-3. **The gallery and the creator record:** facets with counts, saved views, the fit score with its reasons (`packages/core`), sponsor tags, multi-select bulk actions, and the peek panel and record (videos, numbers, contacts, fit reasons, notes, activity). Compare comes along if it is cheap, or later in this step. **Find › Talent Managers waits for step 8.**
+3. **The gallery and the creator record:** facets with counts, saved views, the fit score with its reasons (`packages/core`), sponsor tags, multi-select bulk actions, and the peek panel and record (videos, numbers, contacts, fit reasons, notes, activity). Compare comes along if it is cheap, or later in this step. Find › Talent Managers was dropped (owner, 2026-10-27).
 4. **Contacts and the archive** (from the old step 9's Toolbox): the email finder in the background (`enrich`, `found_emails`), sources and confidence, an explicit **Confirm address** with the contact's name, plus **Toolbox › Archive** (countdown, Bring back), **Toolbox › Never-contact** and **Toolbox › Activity log**.
 
 **Legacy:** `legacy/lib/features/search/`, `influencers/`, `archive/`; `legacy/pipeline/gratovo/pipeline.py`, `tools/enrich.py`, `found_emails.py`.
@@ -192,7 +192,7 @@ Pulled from the old step 9 (the import, the Settings that run the pipeline) and 
 **Work:**
 1. **Today** (was step 4). Port the next-action engine (`items()` in the prototype's `engine.js`) into `packages/core` with unit tests: buckets, money first, owners, snoozes, quick wins, roles. Then the queue, the day band (the 4-hour budget, mailboxes, done today), the work panel for each item kind, focus mode, wrap-up, the first-day screen and snooze, and **Settings › Your day**. In live mode Today shows only the buckets that have real work behind them (answer replies, approve emails, follow-ups due, confirm contacts, review new finds); the brand, deal and money buckets turn on in steps 8 and 9. The engine keeps owners and roles as inputs, so T adds no rework. Hand-off and the team view of Today wait for step T.
 2. **Prototype mode and the comment tool** (was 3f). Built as in the prototype (`proto.js`, `comments.js`): an owner-only switch in Settings, off by default, and invisible when off.
-   - When on, the live data is set aside and `example.db` is used, and **every screen shows**, including those no step has wired yet (Close, Deliver, Insights, Team, Find › Talent Managers).
+   - When on, the live data is set aside and `example.db` is used, and **every screen shows**, including those no step has wired yet (Today, Close, Deliver, Insights, Team).
    - Scenarios: a normal Monday, the first day, a week later, something broke.
    - ~~See the app as a teammate~~ (step T).
    - The comment tool: press C, click anything, write. Pins anchor to stable `data-ui` ids that components carry.
@@ -208,7 +208,7 @@ Pulled from the old step 9 (the import, the Settings that run the pipeline) and 
 
 **Goal:** creators signed to the roster, brands qualified, and deals pitched, negotiated and contracted with no side spreadsheets.
 **Work:**
-1. **Signing and talent managers:** the media kit attachment, the audience check (US, UK, CA or AU in the top 3, buying age, 3%+ engagement, an agreed rate), the **Sign creator** stage and the roster, and **Find › Talent Managers**.
+1. **Signing:** the media kit attachment, the audience check (US, UK, CA or AU in the top 3, buying age, 3%+ engagement, an agreed rate), the **Sign creator** stage and the roster. (Talent managers were dropped by the owner on 2026-10-27: no Find › Talent Managers, in the app or the prototypes.)
 2. **Brands and pitching:** sponsors found automatically into Found brands, the brands board and qualifying, the pitch picker (1–2 creators ranked by fit, with clash warnings), the price gate, brand follow-up nudges.
 3. **Negotiation and contracts:** the negotiation ladder beside the reply, offer and counter history, the exclusivity and usage checklist, contracts (the creator signs before the agency; an e-signature link, §9 Q6), plus **Toolbox › Calculator** and **Settings › Agency facts**.
 4. Close shows in the live rail, and Today's brand and signing buckets turn on.

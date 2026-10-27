@@ -4,7 +4,7 @@
    - DualDealRoom (F3: Brand Thread ⇄ Agency Margin & Terms Bridge ⇄ Creator / Manager Thread with 1-click Relays)
    - DealChecklist with F4 10-Step DealRibbon, F5 Dual Deadlines & Multi-Model Selector, System 12 Physical Shipping Guard, System 13 5-Point Video QC Gate & Pre-Live Check-ins, System 14 Post-Go-Live Hype Cadence & Proactive Make-Good Engine
    - PitchPicker with P1 Mode A (Cold First Touch HC-14) vs Mode B (Warm 3-Option Priced Offer HC-26), Multi-Format Multipliers, Dual-Buyer Sequencing (HC-25), and Brand Talent Packet trigger
-   - CreatorBody with System 1–5 (12-video trimmed avg, view stability, bot risk, 1–5 star rubric, Brokered vs Exclusive 25%, Talent Manager link, 14d Warmth Pulse, Exclusivity Locks, Onboarding Profile). */
+   - CreatorBody with System 1–5 (12-video trimmed avg, view stability, bot risk, 1–5 star rubric, Brokered vs Exclusive 25%, 14d Warmth Pulse, Exclusivity Locks, Onboarding Profile). */
 (function(){
 "use strict";
 var W = window.W, html = W.html, Icon = W.Icon, useState = W.useState, useRef = W.useRef, useEffect = W.useEffect, useLayoutEffect = W.useLayoutEffect;
@@ -213,7 +213,6 @@ W.AiRead = function(p){
 W.DualDealRoom = function(p){
   var x = p.x, b = W.brand(x.brand), c = W.creator(x.creator);
   if (!b || !c) return null;
-  var mgr = c.managerId ? W.manager(c.managerId) : null;
   var bRef = {t:"brand", id:b.id}, cRef = {t:"creator", id:c.id};
   var bDrafts = W.draftsFor(bRef), cDrafts = W.draftsFor(cRef);
   var margin = x.price - x.payout, marginPct = Math.round(100 * margin / Math.max(1, x.price));
@@ -253,7 +252,7 @@ W.DualDealRoom = function(p){
       </div>
 
       <div class="card tight">
-        <div class="row wrap"><${W.CAv} c=${c} size="s" /><div class="grow col t2"><h4>Creator Side · ${c.name}</h4><span class="tiny muted">${c.contact || c.name} (${c.email})${mgr ? " · Mgr: " + mgr.name : ""} · Payout: <b>${W.money(x.payout)}</b></span></div><${Tag} hue="var(--reach)">${c.relationshipModel === "exclusive_25" ? "Exclusive 25%" : "Brokered"}</${Tag}></div>
+        <div class="row wrap"><${W.CAv} c=${c} size="s" /><div class="grow col t2"><h4>Creator Side · ${c.name}</h4><span class="tiny muted">${c.contact || c.name} (${c.email}) · Payout: <b>${W.money(x.payout)}</b></span></div><${Tag} hue="var(--reach)">${c.relationshipModel === "exclusive_25" ? "Exclusive 25%" : "Brokered"}</${Tag}></div>
         <hr class="divider" />
         <${W.Thread} refx=${cRef} limit=${4} />
         ${cDrafts.map(function(q){ return html`<${W.DraftCard} key=${q.id} q=${q} />`; })}
@@ -708,7 +707,6 @@ W.NextCard = function(p){
 
 function CreatorBody(p){
   var c = p.c, tab = p.tab, ref = {t:"creator", id:c.id}, qs = W.draftsFor(ref);
-  var mgr = c.managerId ? W.manager(c.managerId) : null;
   if (tab === "talk") return html`<div class="col"><${W.Thread} refx=${ref} limit=${6} />${qs.map(function(q){ return html`<${W.DraftCard} key=${q.id} q=${q} />`; })}</div>`;
   if (tab === "deals"){ var ds = W.dealsFor(ref); return ds.length ? html`<div class="col tight">${ds.map(function(x){ return html`<button key=${x.id} type="button" class="kcard" onClick=${function(){ W.peek("deal", x.id); }}><b>${W.dealName(x)}</b><small>${W.DEAL_FLOW[x.step].name} · ${W.money(x.price)} → ${W.money(x.payout)}</small></button>`; })}</div>` : html`<${W.Empty} icon="box" title="No deals yet">${c.stage === "signed" ? "Pitch them to a brand from Close." : "Deals start after they are signed."}</${W.Empty}>`; }
   if (tab === "log") return html`<${W.Timeline} events=${W.eventsFor(ref)} />`;
@@ -728,11 +726,6 @@ function CreatorBody(p){
         <${Btn} size="sm" kind=${c.daysSinceUpdate >= 10 ? "pri" : null} icon="send" onClick=${function(){ W.A.sendWarmthUpdate(c.id); }}>Send 14d Warmth Update</${Btn}>
       </div>
       ${(c.exclusivityLocks && c.exclusivityLocks.length) ? html`<div class="row wrap small"><span class="muted">Active Category Exclusivity Locks (INF-REPLY-32):</span>${c.exclusivityLocks.map(function(lk, i){ return html`<${Tag} key=${i} tone="warn" icon="lock">${lk.cat} (${lk.brand}) until ${W.fmtShort(lk.until)}</${Tag}>`; })}</div>` : html`<span class="tiny muted">No active category exclusivity locks — open for all AI subcategories.</span>`}
-    </div>` : null}
-    ${mgr ? html`<div class="card flat tight">
-      <div class="row wrap"><${Icon} n="briefcase" /><div class="grow col t2"><b>Managed by ${mgr.name} · ${mgr.agency}</b><span class="tiny muted">${mgr.email} · ${mgr.feeNote}</span></div>
-        <${Btn} size="sm" icon="users" onClick=${function(){ W.A.requestManagerRoster(mgr.id); }}>Request Full Roster (INF-MGR-03)</${Btn}>
-      </div>
     </div>` : null}
     ${c.onboarding && c.stage === "signed" ? html`<div class="card flat tight">
       <h4>Creator Onboarding & Preferences Profile (INF-ONB-06/08)</h4>
