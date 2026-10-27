@@ -14,8 +14,7 @@ import type { IconName } from "@gratovo/ui";
 import { useSyncExternalStore } from "react";
 
 import { strings } from "../strings";
-import { screens } from "./routes";
-import type { ScreenKey } from "./routes";
+import { placeWords } from "../prototype/place";
 import { toast } from "./toast";
 
 const text = strings.prototype;
@@ -305,25 +304,6 @@ export async function exportComments(): Promise<CommentsExportResult | null> {
 
 type RefName = (ref: { readonly kind: string; readonly id: string }) => string | null;
 
-/** Where a comment was left, as words: "Find › Review new › Maya Chen", or "Everywhere · Back". */
-function whereText(c: Comment, refName: RefName): string {
-  if (c.place.global) {
-    return text.forClaude.everywhere;
-  }
-  const screen = c.place.screen;
-  const info =
-    screen !== null && Object.hasOwn(screens, screen) ? screens[screen as ScreenKey] : undefined;
-  const tab =
-    info !== undefined && c.place.tab !== null
-      ? (info.tabs.find((t) => t.key === c.place.tab)?.name ?? c.place.tab)
-      : null;
-  const bits = [info?.name ?? screen ?? ""]
-    .concat(tab === null ? [] : [tab])
-    .concat(c.place.record === null ? [] : [refName(c.place.record) ?? text.forClaude.aRecord])
-    .concat(c.place.peek === null ? [] : [refName(c.place.peek) ?? text.forClaude.aRecord]);
-  return bits.filter((b) => b !== "").join(" › ");
-}
-
 /**
  * The open comments as text for Claude: a heading, then each comment numbered by its place in the
  * whole list, with its kind, where it was left, what it was pinned to and what it says.
@@ -345,7 +325,7 @@ export function commentsForClaude(
     const scenario =
       c.scenario === "normal" ? "" : text.forClaude.scenario(text.scenarios[c.scenario].name);
     lines.push(
-      `${String(number)}. [${text.forClaude.kinds[c.kind]}] ${whereText(c, refName)} · ${c.anchor.label}${scenario}`,
+      `${String(number)}. [${text.forClaude.kinds[c.kind]}] ${placeWords(c, refName, text.forClaude.everywhere)} · ${c.anchor.label}${scenario}`,
     );
     lines.push(`   ${c.text.replace(/\n/g, "\n   ")}`);
   }

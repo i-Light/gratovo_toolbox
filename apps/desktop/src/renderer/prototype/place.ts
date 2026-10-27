@@ -60,12 +60,13 @@ export function asRecordRef(ref: CommentRef): RecordRef | null {
     : null;
 }
 
-/** Where a comment was left, as words: "Find › Review new › Maya Chen", or "Everywhere · Back". */
-export function whereText(c: Comment, data: AppData): string {
+/** Names a record a comment points at; null when it is gone or is not a record. */
+export type RefName = (ref: CommentRef) => string | null;
+
+/** The words for a comment's place ("Find › Review new › Maya Chen"); `everywhere` is used for a global one. */
+export function placeWords(c: Comment, refName: RefName, everywhere: string): string {
   if (c.place.global) {
-    return c.anchor.label === ""
-      ? text.forClaude.everywhere
-      : text.cmt.everywhereWith(c.anchor.label);
+    return everywhere;
   }
   const screen = c.place.screen;
   const info =
@@ -80,10 +81,17 @@ export function whereText(c: Comment, data: AppData): string {
   }
   for (const ref of [c.place.record, c.place.peek]) {
     if (ref !== null) {
-      bits.push(refName(data, ref) ?? text.forClaude.aRecord);
+      bits.push(refName(ref) ?? text.forClaude.aRecord);
     }
   }
   return bits.filter((b) => b !== "").join(" › ");
+}
+
+/** Where a comment was left, as words: "Find › Review new › Maya Chen", or "Everywhere · Back". */
+export function whereText(c: Comment, data: AppData): string {
+  const everywhere =
+    c.anchor.label === "" ? text.forClaude.everywhere : text.cmt.everywhereWith(c.anchor.label);
+  return placeWords(c, (ref) => refName(data, ref), everywhere);
 }
 
 /** A comment's number: its place in the whole list, oldest first, from 1. */

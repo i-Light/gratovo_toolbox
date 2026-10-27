@@ -2,8 +2,6 @@ import { Btn, Icon, Switch, cx } from "@gratovo/ui";
 import { scenarioKeys } from "@gratovo/ipc";
 
 import {
-  commentsForClaude,
-  exportComments,
   openCount,
   pickScenario,
   setPanel,
@@ -13,8 +11,7 @@ import {
   toggleCommenting,
   usePrototype,
 } from "../lib/prototype";
-import { appStore, findRecord, recordName } from "../lib/store";
-import { toast } from "../lib/toast";
+import { copyOpenForClaude, exportForClaude } from "../prototype/comment-actions";
 import { strings } from "../strings";
 import { Row } from "./row";
 
@@ -59,39 +56,7 @@ export function PrototypeSection() {
   const open = openCount(proto.comments);
 
   const copy = (): void => {
-    const data = appStore().getState().data;
-    const list = commentsForClaude(proto.comments, {
-      refName: (ref) => {
-        if (ref.kind !== "creator" && ref.kind !== "brand" && ref.kind !== "deal") {
-          return null;
-        }
-        const found = { kind: ref.kind, id: ref.id } as const;
-        return findRecord(data, found) === undefined ? null : recordName(data, found);
-      },
-    });
-    const done = (): void => {
-      toast({ msg: text.copied(open), icon: "copy", tone: "good", ms: 4000 });
-    };
-    const failed = (): void => {
-      toast({ msg: text.copyFailed, icon: "alert", tone: "info" });
-    };
-    try {
-      navigator.clipboard.writeText(list).then(done, failed);
-    } catch {
-      failed();
-    }
-  };
-
-  const exportAll = (): void => {
-    void exportComments().then((result) => {
-      if (result?.ok === true) {
-        toast({ msg: text.exportOk(result.count), icon: "check", tone: "good", ms: 4000 });
-      } else if (result?.ok === false && result.problem === "no_repo") {
-        toast({ msg: text.exportNoRepo, icon: "info", tone: "info" });
-      } else {
-        toast({ msg: text.exportFailed, icon: "alert", tone: "info" });
-      }
-    });
+    copyOpenForClaude(proto.comments);
   };
 
   return (
@@ -175,7 +140,7 @@ export function PrototypeSection() {
                 <Btn size="sm" kind="ghost" icon="copy" disabled={open === 0} onClick={copy}>
                   {text.copyOpen}
                 </Btn>
-                <Btn size="sm" kind="ghost" icon="forward" onClick={exportAll}>
+                <Btn size="sm" kind="ghost" icon="forward" onClick={exportForClaude}>
                   {text.exportAll}
                 </Btn>
               </div>

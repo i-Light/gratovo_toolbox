@@ -65,9 +65,13 @@ function visibleText(el: Element | null): string {
   return raw.replace(/\s+/g, " ").trim();
 }
 
-/** True for the comment tool's own elements, which it never points at. */
+/**
+ * True for the comment tool's own elements, which it never points at. An open menu counts: the
+ * chip's menu is how a person leaves comment mode's neighbours (list, scenario, turn off), and a
+ * click on its items must reach them.
+ */
 export function inCmtUi(el: Element | null): boolean {
-  return el?.closest("[data-cmt-ui]") != null;
+  return el?.closest('[data-cmt-ui], [role="menu"]') != null;
 }
 
 /** The element a pointer at `el` would comment on, or null. */

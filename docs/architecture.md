@@ -55,6 +55,8 @@ The app reads and writes a local SQLite database first, so every click answers a
 
 All reads and writes go through a `DataSource` interface. The **live** implementation is SQLite plus sync. The **example** implementation is `example.db`, seeded from fixtures and kept across restarts (so changes behave like real data), with stand-in adapters for Gmail, Gemini, YouTube and R2, so nothing leaves the machine. Prototype mode chooses between them at runtime. The UI code is the same in both, so what the owner sees in prototype mode *is* the app. See [decisions/0004-prototype-mode.md](decisions/0004-prototype-mode.md).
 
+**Built in step 7, part 2** ([ADR 0019](decisions/0019-prototype-mode-built.md)): prototype mode is a third copy, `prototype.db` with its own `prototype-pipeline` folder, opened by `main/prototype/` and put in front of the account by `withPrototype`, so the source watch, Reach and Find switch to it as for a sign-in. It runs as `mode: "example"`, so every example stand-in applies, and `main/prototype/refused.ts` refuses the channels that could leave the computer while it is on. Scenarios are seed variants in `packages/core` (`exampleSeed(now, scenario)`). Comments live in its `comments` table and export to `docs/feedback/comments.json`; the page's comment layer is in `renderer/prototype/` and mounts only while prototype mode is on.
+
 ## Domain core
 
 `packages/core` holds the pure TypeScript domain: entities (creator, brand, deal, draft, thread, mailbox, run, member), the deal flow and its checklists, and the money rules (Net 30, payout locked until the brand pays). It also holds:
