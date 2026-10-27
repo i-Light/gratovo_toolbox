@@ -99,7 +99,7 @@ export function LiveRun({ state }: { readonly state: FindState }) {
   const working = running || stopping;
 
   return (
-    <section className="card" aria-labelledby="find-live-h">
+    <section className="card" data-ui="find.search.run" aria-labelledby="find-live-h">
       <div className="card-h">
         <h3 id="find-live-h" className="row live-h">
           {working ? (

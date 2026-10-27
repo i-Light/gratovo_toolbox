@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { DEAL_FLOW } from "../deal-flow";
 import { seesMoney } from "./access";
 import { dueSteps } from "../reach/sequence";
-import { exampleFrame, exampleSeed, exampleSeedVersion } from "./example";
+import { exampleFrame, exampleSeed, exampleSeedVersion, scenarios } from "./example";
 import { agencyRoles, creatorStages, notificationIcons } from "./types";
 
 /** 20 October 2026, 10:30 local time. */
@@ -327,5 +327,68 @@ describe("exampleFrame", () => {
 
   it("gives the same frame for the same `now`", () => {
     expect(exampleFrame(now)).toEqual(frame);
+  });
+});
+
+describe("exampleSeed scenarios", () => {
+  const week = 7 * 24 * 3600 * 1000;
+
+  it("lists the four scenarios", () => {
+    expect([...scenarios]).toEqual(["normal", "first", "later", "broke"]);
+  });
+
+  it("normal is the default seed, with nothing broken", () => {
+    const normal = exampleSeed(now, "normal");
+    const plain = exampleSeed(now);
+    expect({ ...normal, mateRun: null }).toEqual({ ...plain, mateRun: null });
+    expect(normal.mateRun(now)).toEqual(plain.mateRun(now));
+    expect(normal.health).toBeNull();
+  });
+
+  it("later is the normal seed a week older", () => {
+    const normal = exampleSeed(now);
+    const later = exampleSeed(now, "later");
+    expect(later.health).toBeNull();
+    expect(later.notifications[0]?.at).toBe((normal.notifications[0]?.at ?? 0) - week);
+    expect(later.outreach.drafts[0]?.at).toBe((normal.outreach.drafts[0]?.at ?? 0) - week);
+  });
+
+  it("first has only you and one new mailbox", () => {
+    const first = exampleSeed(now, "first");
+    expect(first.profiles.map((p) => p.id)).toEqual(["u1"]);
+    expect(first.access.map((a) => a.profileId)).toEqual(["u1"]);
+    expect(Object.keys(first.presence)).toEqual(["u1"]);
+    expect(first.creators).toEqual([]);
+    expect(first.brands).toEqual([]);
+    expect(first.deals).toEqual([]);
+    expect(first.notifications).toEqual([]);
+    expect(first.outreach).toEqual({ drafts: [], messages: [], sequences: [] });
+    expect(Object.values(first.counts)).toEqual([0, 0, 0, 0, 0, 0]);
+    expect(first.mailSettings.mailboxes).toEqual([
+      { address: "outreach1@gratovo.example", dailyCap: 10, warmupStartedOn: "2026-10-20" },
+    ]);
+    expect(first.reachMailboxes).toEqual({});
+    expect(first.health).toBeNull();
+  });
+
+  it("broke signs a mailbox out, silences Gemini and puts three alerts first", () => {
+    const normal = exampleSeed(now);
+    const broke = exampleSeed(now, "broke");
+    expect(broke.health).toEqual({
+      signedOut: ["outreach1@gratovo.example"],
+      geminiOffline: true,
+    });
+    const alerts = broke.notifications.slice(0, 3);
+    expect(alerts.map((n) => n.at)).toEqual([on(0, 9, 40), on(0, 8, 52), on(-1, 18, 5)]);
+    expect(alerts.map((n) => n.go)).toEqual([
+      { screen: "find", tab: "search" },
+      { screen: "settings", tab: "connections" },
+      { screen: "reach", tab: "mailboxes" },
+    ]);
+    expect(alerts[2]?.text).toBe("outreach1 is signed out of Gmail");
+    expect(alerts.every((n) => n.icon === "alert" && !n.read)).toBe(true);
+    expect(broke.notifications.slice(3)).toEqual(normal.notifications);
+    const ids = broke.notifications.map((n) => n.id);
+    expect(new Set(ids).size).toBe(ids.length);
   });
 });

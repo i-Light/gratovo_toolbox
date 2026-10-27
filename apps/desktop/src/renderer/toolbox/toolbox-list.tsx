@@ -55,7 +55,7 @@ export function ToolboxList() {
     return key === "archive" ? counts.archive : key === "never" ? counts.never : counts.logToday;
   };
   return (
-    <nav className="card tight tb-list" aria-label={text.navLabel}>
+    <nav className="card tight tb-list" data-ui="toolbox.list" aria-label={text.navLabel}>
       {(["tools", "history"] as const).map((group) => {
         const inGroup = shown.filter((t) => t.group === group);
         return inGroup.length === 0 ? null : (
@@ -68,6 +68,7 @@ export function ToolboxList() {
                   key={t.key}
                   type="button"
                   className="li"
+                  data-ui={`toolbox.list.${t.key}`}
                   aria-current={current?.key === t.key ? "page" : undefined}
                   onClick={() => {
                     go("toolbox", t.key);

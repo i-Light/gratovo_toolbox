@@ -69,6 +69,7 @@ function FindTabs({ reviewCount }: { readonly reviewCount: number | null }) {
   return (
     <div
       className="tabs find-tabs"
+      data-ui="find.tabs"
       role="tablist"
       aria-label={strings.findTriage.tabsLabel}
       style={{ "--hue": screens.find.hue } as CSSProperties}
@@ -77,6 +78,7 @@ function FindTabs({ reviewCount }: { readonly reviewCount: number | null }) {
         <button
           key={t.key}
           id={tabId(t.key)}
+          data-ui={`find.tab.${t.key}`}
           type="button"
           role="tab"
           aria-selected={tab === t.key}
@@ -127,8 +129,8 @@ function SearchTab() {
   const info = screens.find;
   const sub = useSub();
   return (
-    <div className="page">
-      <PageHead title={info.name} {...(sub === undefined ? {} : { sub })} />
+    <div className="page" data-ui="find.page">
+      <PageHead dataUi="find.head" title={info.name} {...(sub === undefined ? {} : { sub })} />
       <SearchTabs />
       <Panel>
         {state === null ? (
@@ -173,8 +175,8 @@ function TriageTab() {
   const sub = useSub();
   const review = useReview();
   return (
-    <div className="page">
-      <PageHead title={info.name} {...(sub === undefined ? {} : { sub })} />
+    <div className="page" data-ui="find.page">
+      <PageHead dataUi="find.head" title={info.name} {...(sub === undefined ? {} : { sub })} />
       <FindTabs reviewCount={reviewTabCount(review)} />
       <Panel>
         <Triage review={review} />
@@ -187,8 +189,8 @@ function GalleryTab() {
   const info = screens.find;
   const sub = useSub();
   return (
-    <div className="page">
-      <PageHead title={info.name} {...(sub === undefined ? {} : { sub })} />
+    <div className="page" data-ui="find.page">
+      <PageHead dataUi="find.head" title={info.name} {...(sub === undefined ? {} : { sub })} />
       <SearchTabs />
       <Panel>
         <Gallery />
@@ -201,8 +203,8 @@ function ContactsTab() {
   const info = screens.find;
   const sub = useSub();
   return (
-    <div className="page">
-      <PageHead title={info.name} {...(sub === undefined ? {} : { sub })} />
+    <div className="page" data-ui="find.page">
+      <PageHead dataUi="find.head" title={info.name} {...(sub === undefined ? {} : { sub })} />
       <SearchTabs />
       <Panel>
         <Contacts />

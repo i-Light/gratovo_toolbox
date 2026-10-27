@@ -1,7 +1,7 @@
 # 0004. Prototype mode is the real app on example data
 
 - **Date:** 2026-10-19
-- **Status:** accepted (owner's request; shown working in the Workbench prototype)
+- **Status:** accepted (owner's request; shown working in the Workbench prototype). Built in step 7 with three changes, recorded in [ADR 0019](0019-prototype-mode-built.md): its own `prototype.db`, "see the app as a teammate" moved to step T, and the session's undo history goes with the switch.
 
 ## Context
 

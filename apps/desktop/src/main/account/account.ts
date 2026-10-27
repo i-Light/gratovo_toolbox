@@ -93,9 +93,10 @@ export interface Account {
   readonly teamKeys: { youtubeKey(): Promise<string | null> };
   /**
    * Which pipeline data the Find screen works on: the example folder when unconfigured, the live
-   * one (named by the copy's user id) when signed in, else null.
+   * one (named by the copy's user id) when signed in, else null. `folder` is the pipeline folder's
+   * name under the user data folder (prototype mode has its own, ADR 0004).
    */
-  findContext(): { mode: "example" | "live"; workerId: string } | null;
+  findContext(): FindContext | null;
 }
 
 export interface AccountDeps {
@@ -114,6 +115,13 @@ export interface AccountDeps {
   createLive?: (deps: LiveDeps) => Live;
   timers?: Timers;
   log?: (line: string) => void;
+}
+
+/** The pipeline data a source works on: stand-ins (`example`) or the real pipeline (`live`). */
+export interface FindContext {
+  readonly mode: "example" | "live";
+  readonly workerId: string;
+  readonly folder: "example-pipeline" | "prototype-pipeline" | "pipeline";
 }
 
 export const exampleFile = "example.db";
@@ -1022,10 +1030,10 @@ export function createAccount(deps: AccountDeps): Account {
 
     findContext() {
       if (state === "unconfigured") {
-        return { mode: "example", workerId: "example" };
+        return { mode: "example", workerId: "example", folder: "example-pipeline" };
       }
       return state === "signed-in" && live !== null
-        ? { mode: "live", workerId: live.userId }
+        ? { mode: "live", workerId: live.userId, folder: "pipeline" }
         : null;
     },
   };

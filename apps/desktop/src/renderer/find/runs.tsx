@@ -48,7 +48,7 @@ export function Runs() {
     null,
   );
   return (
-    <section className="card" aria-labelledby="find-runs-h">
+    <section className="card" data-ui="find.search.runs" aria-labelledby="find-runs-h">
       <div className="card-h">
         <h3 id="find-runs-h">
           {text.title}{" "}
@@ -85,7 +85,7 @@ export function Runs() {
               {runs.map((r) => {
                 const latest = r.startedAt === newest;
                 return (
-                  <tr key={r.id}>
+                  <tr key={r.id} data-ui="find.search.runs.row">
                     <td>
                       <span className="row wrap" style={{ gap: "6px" }}>
                         <span>{when(r.startedAt, now)}</span>

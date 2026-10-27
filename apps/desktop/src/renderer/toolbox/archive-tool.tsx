@@ -82,7 +82,7 @@ function CountdownRow({
       : strings.findActions.reasons[item.rejectReason];
   const when = item.rejectedAt === null ? null : ago(item.rejectedAt, now);
   return (
-    <div className="row wrap tb-row">
+    <div className="row wrap tb-row" data-ui="toolbox.archive.row">
       <button
         type="button"
         className="li"
@@ -149,7 +149,7 @@ function ArchivedRow({
     ),
   ];
   return (
-    <div className="row tb-gone">
+    <div className="row tb-gone" data-ui="toolbox.archive.gone">
       <span className="lt grow">
         <b>{title}</b>
         <small className="muted">{details.join(" · ")}</small>
@@ -192,7 +192,11 @@ function ArchivedForGood() {
   };
   const searching = archived.asked !== "";
   return (
-    <section className="col tight tb-sec" aria-labelledby="tb-gone-h">
+    <section
+      className="col tight tb-sec"
+      data-ui="toolbox.archive.forgood"
+      aria-labelledby="tb-gone-h"
+    >
       <h3 id="tb-gone-h">{text.forGoodTitle}</h3>
       <p className="hint">{text.forGoodHint}</p>
       <label className="tb-search">
@@ -255,7 +259,7 @@ export function ArchiveTool() {
   }, []);
   const ids = useMemo(() => list.items.map((i) => i.id), [list.items]);
   return (
-    <div className="col">
+    <div className="col" data-ui="toolbox.archive">
       {list.status === "failed" ? (
         <Empty icon="alert" title={shared.loadFailed} />
       ) : list.status === "loading" ? null : list.items.length === 0 ? (

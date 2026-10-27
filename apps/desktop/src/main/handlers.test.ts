@@ -8,8 +8,11 @@ import { emptyFacets, emptyFindFilter } from "@gratovo/core/find";
 import {
   channels,
   type AuthStatus,
+  type Channel,
+  type Comment,
   type FindState,
   type ImportReport,
+  type PrototypeStatus,
   type SyncStatus,
 } from "@gratovo/ipc";
 import { mkdtempSync, rmSync } from "node:fs";
@@ -25,6 +28,8 @@ import { channelId, writePipelineDb } from "./find/catalog-fixture";
 import { createStubCatalog, type FindCatalog } from "./find/catalog-types";
 import { createStubIdeas, type FindIdeas } from "./find/ideas";
 import { createHandlers, type HandlerContext } from "./handlers";
+import type { Prototype } from "./prototype";
+import { prototypeRefused, refusedWhileOn } from "./prototype/refused";
 import type { SecretStore } from "./secret-store";
 import type { HandlerServices } from "./services";
 import { createStubServices, emptyConnectionsStatus } from "./stub-services";
@@ -1050,5 +1055,215 @@ describe("the stub services", () => {
       const answer = await handler(channels[name].request.parse(input));
       expect(channels[name].response.safeParse(answer).success, name).toBe(true);
     }
+  });
+});
+
+const comment: Comment = {
+  id: "cabc1234",
+  at: 1_000,
+  status: "open",
+  doneAt: null,
+  kind: "idea",
+  text: "Show the cap next to the mailbox",
+  scenario: "normal",
+  place: { global: false, screen: "reach", tab: "mailboxes", record: null, peek: null },
+  anchor: {
+    ui: "reach.mailboxes",
+    path: "",
+    tag: "div",
+    text: "Mailboxes",
+    label: "Mailboxes",
+    rx: 0.5,
+    ry: 0.5,
+  },
+};
+
+/** A prototype whose switch is a flag the test sets; every call is a spy. */
+function fakePrototype(on: boolean) {
+  const flag = { on };
+  const status = (): PrototypeStatus => ({ available: true, on: flag.on, scenario: "normal" });
+  const prototype = {
+    status: vi.fn(() => Promise.resolve(status())),
+    set: vi.fn((next: boolean) => {
+      flag.on = next;
+      return Promise.resolve(status());
+    }),
+    setScenario: vi.fn(() => Promise.resolve(status())),
+    isOn: () => flag.on,
+    source: () => null,
+    comments: {
+      list: vi.fn(() => [comment]),
+      add: vi.fn(() => comment),
+      update: vi.fn(() => ({ ...comment, status: "done" as const, doneAt: 2_000 })),
+      remove: vi.fn(() => comment),
+      restore: vi.fn(() => comment),
+      exportTo: vi.fn(() => ({
+        ok: true as const,
+        path: "docs/feedback/comments.json" as const,
+        count: 1,
+      })),
+    },
+    close: vi.fn(),
+  } satisfies Prototype;
+  return { prototype, flag };
+}
+
+/** The step 4 services, each method recording its call before it answers as the stub does. */
+function recordedServices(calls: string[]): HandlerServices {
+  const stub = createStubServices();
+  function record<T extends object>(name: string, service: T): T {
+    return Object.fromEntries(
+      Object.entries(service).map(([key, value]: [string, unknown]) => [
+        key,
+        typeof value === "function"
+          ? (...args: unknown[]) => {
+              calls.push(`${name}.${key}`);
+              return (value as (...a: unknown[]) => unknown)(...args);
+            }
+          : value,
+      ]),
+    ) as T;
+  }
+  return {
+    ...stub,
+    importer: record("importer", stub.importer),
+    connections: record("connections", stub.connections),
+    gemini: record("gemini", stub.gemini),
+    mailConsent: record("mailConsent", stub.mailConsent),
+    reach: record("reach", stub.reach),
+  };
+}
+
+/** One valid request for each refused channel. */
+const refusedInputs: Record<string, unknown> = {
+  "connections:set": { kind: "gateways.enabled", enabled: true },
+  "connections:pick-folder": { purpose: "course" },
+  "mail:connect": {},
+  "mail:check": {},
+  "gateways:deploy": { regions: ["us-east-1"] },
+  "gateways:remove": { region: "us-east-1" },
+  "import:candidates": {},
+  "import:pick": {},
+  "import:dry-run": { path: "C:/old/gratovo.db" },
+  "import:run": { path: "C:/old/gratovo.db", useOldRules: false },
+  "reach:send-test": { address: "outreach1@gratovo.example" },
+  "gemini:start": {},
+  "gemini:open-window": { browser: null },
+};
+
+describe("prototype mode in the handlers", () => {
+  function handlersOn(on: boolean, find: HandlerContext["find"] = findWith()) {
+    const calls: string[] = [];
+    const fake = fakePrototype(on);
+    const handlers = createHandlers({
+      version: "1.2.3",
+      secrets: storeWith([]),
+      account: accountWith(),
+      find,
+      catalog: createStubCatalog(),
+      ideas: createStubIdeas(),
+      ...recordedServices(calls),
+      prototype: fake.prototype,
+      repoRoot: "E:/repo",
+    });
+    return { handlers, calls, ...fake };
+  }
+
+  /** Calls one channel's handler with its parsed request; a throw comes back as a rejection. */
+  function call(handlers: ReturnType<typeof createHandlers>, channel: Channel, input: unknown) {
+    // Each handler takes its own channel's parsed request; the loop can't name that type.
+    const handler = handlers[channel] as (request: unknown) => unknown;
+    return Promise.resolve().then(() => handler(channels[channel].request.parse(input)));
+  }
+
+  it("has a request for every refused channel", () => {
+    expect(Object.keys(refusedInputs).sort()).toEqual([...refusedWhileOn].sort());
+  });
+
+  it("refuses each listed channel while on, before its service is called", async () => {
+    const { handlers, calls } = handlersOn(true);
+    for (const channel of refusedWhileOn) {
+      await expect(call(handlers, channel, refusedInputs[channel]), channel).rejects.toThrow(
+        prototypeRefused,
+      );
+    }
+    expect(calls).toEqual([]);
+  });
+
+  it("calls each listed channel's service while off", async () => {
+    const { handlers, calls } = handlersOn(false);
+    for (const channel of refusedWhileOn) {
+      const before = calls.length;
+      const answer = await call(handlers, channel, refusedInputs[channel]);
+      expect(channels[channel].response.safeParse(answer).success, channel).toBe(true);
+      expect(calls.length, channel).toBe(before + 1);
+    }
+  });
+
+  it("reads the switch at each call", async () => {
+    const { handlers, flag } = handlersOn(false);
+    await expect(call(handlers, "gemini:start", {})).resolves.toBeDefined();
+    flag.on = true;
+    await expect(call(handlers, "gemini:start", {})).rejects.toThrow(prototypeRefused);
+    flag.on = false;
+    await expect(call(handlers, "gemini:start", {})).resolves.toBeDefined();
+  });
+
+  it("lets the other channels through while on", async () => {
+    const { handlers, calls } = handlersOn(true);
+    expect(await handlers["app:ping"]({})).toEqual({ ok: true, version: "1.2.3" });
+    await handlers["gemini:stop"]({});
+    expect(calls).toEqual(["gemini.stop"]);
+    expect(await handlers["presence:set"]({ screen: "find", idle: false })).toEqual({});
+  });
+
+  it("hands status, the switch and the scenario to the prototype", async () => {
+    const shutdown = vi.fn(() => Promise.resolve());
+    const { handlers, prototype } = handlersOn(false, findWith({ shutdown }));
+    expect(await handlers["prototype:status"]({})).toEqual({
+      available: true,
+      on: false,
+      scenario: "normal",
+    });
+    expect(await handlers["prototype:set"]({ on: true })).toMatchObject({ on: true });
+    expect(prototype.set).toHaveBeenCalledWith(true);
+    await handlers["prototype:scenario"]({ scenario: "broke" });
+    expect(prototype.setScenario).toHaveBeenCalledWith("broke");
+    // The prototype stops a search itself, inside its queue (`beforeSwitch`): the handlers don't.
+    expect(shutdown).not.toHaveBeenCalled();
+  });
+
+  it("hands each comment call to the prototype", async () => {
+    const { handlers, prototype } = handlersOn(true);
+    expect(await handlers["comments:list"]({})).toEqual({ comments: [comment] });
+    const fresh = {
+      kind: comment.kind,
+      text: comment.text,
+      place: comment.place,
+      anchor: comment.anchor,
+    };
+    expect(await handlers["comments:add"](fresh)).toEqual(comment);
+    expect(prototype.comments.add).toHaveBeenCalledWith(fresh);
+    expect(await handlers["comments:update"]({ id: comment.id, status: "done" })).toMatchObject({
+      status: "done",
+    });
+    expect(prototype.comments.update).toHaveBeenCalledWith({ id: comment.id, status: "done" });
+    expect(await handlers["comments:delete"]({ id: comment.id })).toEqual({ comment });
+    expect(prototype.comments.remove).toHaveBeenCalledWith(comment.id);
+    expect(await handlers["comments:restore"]({ comment })).toEqual(comment);
+    expect(prototype.comments.restore).toHaveBeenCalledWith(comment);
+    expect(await handlers["comments:export"]({})).toEqual({
+      ok: true,
+      path: "docs/feedback/comments.json",
+      count: 1,
+    });
+    expect(prototype.comments.exportTo).toHaveBeenCalledWith("E:/repo");
+  });
+
+  it("exports with no repository when none is given", async () => {
+    const { prototype } = fakePrototype(true);
+    const handlers = handlersWith(accountWith(), [], findWith(), { prototype });
+    await handlers["comments:export"]({});
+    expect(prototype.comments.exportTo).toHaveBeenCalledWith(null);
   });
 });

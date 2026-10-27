@@ -27,7 +27,7 @@ export type FindMode = "example" | "live";
 export interface FindServiceDeps {
   supervisor: PipelineSupervisor;
   account: {
-    findContext(): { mode: FindMode; workerId: string } | null;
+    findContext(): { mode: FindMode; workerId: string; folder: string } | null;
     teamKeys: { youtubeKey(): Promise<string | null> };
   };
   secrets: Pick<SecretStore, "get">;
@@ -165,9 +165,9 @@ export function createFindService(deps: FindServiceDeps): FindService {
     return starting || searching;
   }
 
-  /** Where a mode's queue and `pipeline.db` live. */
-  function folderFor(mode: FindMode): string {
-    return join(deps.userData, mode === "example" ? "example-pipeline" : "pipeline");
+  /** Where a source's queue and `pipeline.db` live: its own folder under the user data. */
+  function folderFor(context: { folder: string }): string {
+    return join(deps.userData, context.folder);
   }
 
   /** The open session; read again when the data changed (sign-in, sign-out). */
@@ -176,7 +176,7 @@ export function createFindService(deps: FindServiceDeps): FindService {
     if (context === null) {
       throw new Error(noData);
     }
-    const folder = folderFor(context.mode);
+    const folder = folderFor(context);
     if (session?.folder !== folder) {
       session = { folder, ...readFindFile(folder), run: readyRun(), log: [], kept: null };
     }
@@ -356,7 +356,7 @@ export function createFindService(deps: FindServiceDeps): FindService {
     // Read only: asking where the folder is must not switch the session (and drop a run's state).
     folder() {
       const context = account.findContext();
-      return context === null ? null : folderFor(context.mode);
+      return context === null ? null : folderFor(context);
     },
 
     add(keywords) {

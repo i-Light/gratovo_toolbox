@@ -2,6 +2,7 @@ import { Icon, PageHead, cx } from "@gratovo/ui";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { useKeys } from "../lib/keys";
+import { usePrototype } from "../lib/prototype";
 import { meIsOwner, sectionsFor } from "../lib/settings";
 import type { SettingsSection } from "../lib/settings";
 import { appStore, go, selectRoute, useApp } from "../lib/store";
@@ -15,12 +16,13 @@ import {
   ShellSection,
 } from "./sections";
 import { ConnectionsSection } from "./connections-section";
+import { PrototypeSection } from "./prototype-section";
 import { SearchRulesSection } from "./search-rules-section";
 import { WritingRulesSection } from "./writing-rules-section";
 
 const text = strings.settings;
 const { tabs } = strings.screens.settings;
-const groups = ["you", "agency"] as const;
+const groups = ["you", "agency", "owner"] as const;
 
 /** The view of a section: a working one, or the shell that names the step bringing its rows. */
 function SectionView({ section }: { readonly section: SettingsSection }) {
@@ -39,6 +41,8 @@ function SectionView({ section }: { readonly section: SettingsSection }) {
       return <ConnectionsSection />;
     case "writing":
       return <WritingRulesSection />;
+    case "prototype":
+      return <PrototypeSection />;
     default:
       return <ShellSection section={section} />;
   }
@@ -81,6 +85,8 @@ export function SettingsScreen() {
   const tab = useApp((s) => selectRoute(s).tab);
   const owner = useApp((s) => meIsOwner(s.data));
   const source = useApp((s) => s.data.source);
+  // The Prototype section and its rows follow main's answer, so the screen listens to it.
+  const proto = usePrototype().status;
   const available = sectionsFor(owner, source);
   // A section you may not open (an old link, a typed address) lands on Profile.
   const section = available.find((s) => s.key === tab) ?? available[0];
@@ -105,12 +111,13 @@ export function SettingsScreen() {
   }
   const note = text.sections[section.key].note ?? text.sections[section.key].sub;
   return (
-    <div className="page">
+    <div className="page" data-ui="settings.page">
       <PageHead
+        dataUi="settings.head"
         title={text.title}
         sub={text.sub}
         right={
-          <label className="set-search">
+          <label className="set-search" data-ui="settings.search">
             <Icon name="search" />
             <input
               ref={input}
@@ -132,38 +139,48 @@ export function SettingsScreen() {
         }
       />
       <div className="set">
-        <nav className="card tight set-nav" aria-label={text.navLabel}>
-          {groups.map((group) => (
-            <div key={group} className="bucket">
-              <div className="bucket-h">{text.groups[group]}</div>
-              {available
-                .filter((s) => s.group === group)
-                .map((s) => (
-                  <button
-                    key={s.key}
-                    type="button"
-                    className="li"
-                    aria-current={q === "" && s.key === section.key ? "page" : undefined}
-                    onClick={() => {
-                      setQuery("");
-                      go("settings", s.key);
-                    }}
-                  >
-                    <span className="tb-ic">
-                      <Icon name={s.icon} size={15} />
-                    </span>
-                    <span className="lt">
-                      <b>{tabs[s.key]}</b>
-                      <small>{text.sections[s.key].sub}</small>
-                    </span>
-                  </button>
-                ))}
-            </div>
-          ))}
+        <nav className="card tight set-nav" data-ui="settings.nav" aria-label={text.navLabel}>
+          {groups
+            .filter((group) => available.some((s) => s.group === group))
+            .map((group) => (
+              <div key={group} className="bucket">
+                <div className="bucket-h">{text.groups[group]}</div>
+                {available
+                  .filter((s) => s.group === group)
+                  .map((s) => (
+                    <button
+                      key={s.key}
+                      type="button"
+                      className="li"
+                      data-ui={`settings.nav.${s.key}`}
+                      aria-current={q === "" && s.key === section.key ? "page" : undefined}
+                      onClick={() => {
+                        setQuery("");
+                        go("settings", s.key);
+                      }}
+                    >
+                      <span className="tb-ic">
+                        <Icon name={s.icon} size={15} />
+                      </span>
+                      <span className="lt">
+                        <b>{tabs[s.key]}</b>
+                        <small>{text.sections[s.key].sub}</small>
+                      </span>
+                      {s.key === "prototype" && proto?.on === true ? (
+                        <span className="cnt hot">{strings.prototype.on}</span>
+                      ) : null}
+                    </button>
+                  ))}
+              </div>
+            ))}
         </nav>
         <div className="col" style={{ minWidth: 0 }}>
           {q === "" ? (
-            <div className={cx("card", "set-pane")} key={section.key}>
+            <div
+              className={cx("card", "set-pane")}
+              key={section.key}
+              data-ui={`settings.section.${section.key}`}
+            >
               <div className="row top" style={{ gap: "12px" }}>
                 <span
                   className="tb-ic"

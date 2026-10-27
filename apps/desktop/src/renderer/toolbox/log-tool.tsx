@@ -208,8 +208,13 @@ export function LogTool() {
   const creatorName = (ref: string): string | null =>
     creators.find((c) => c.id === ref)?.name ?? null;
   return (
-    <div className="col">
-      <div className="tb-chips" role="group" aria-label={text.peopleLabel}>
+    <div className="col" data-ui="toolbox.log">
+      <div
+        className="tb-chips"
+        data-ui="toolbox.log.people"
+        role="group"
+        aria-label={text.peopleLabel}
+      >
         <button
           type="button"
           className="chip"
@@ -242,7 +247,12 @@ export function LogTool() {
         </Empty>
       ) : (
         days.map((day) => (
-          <section key={day.key} className="bucket" aria-label={dayName(day.at, now)}>
+          <section
+            key={day.key}
+            className="bucket"
+            data-ui="toolbox.log.day"
+            aria-label={dayName(day.at, now)}
+          >
             <div className="bucket-h">
               {dayName(day.at, now)}
               <span className="m">{text.changes(day.lines.length)}</span>

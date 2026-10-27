@@ -53,8 +53,8 @@ export function Peek() {
   const i = list.indexOf(peek.record.id);
   const text = strings.peek;
   return (
-    <aside className="peek" aria-label={text.label} ref={side}>
-      <div className="peek-h">
+    <aside className="peek" data-ui="frame.peek" aria-label={text.label} ref={side}>
+      <div className="peek-h" data-ui="frame.peek.head">
         {list.length > 1 ? (
           <>
             <IconBtn
@@ -91,7 +91,7 @@ export function Peek() {
         </Btn>
         <IconBtn icon="x" label={text.close} kbd={strings.keys.esc} onClick={closePeek} />
       </div>
-      <div className="peek-b">
+      <div className="peek-b" data-ui="frame.peek.body">
         <RecordBody
           key={`${peek.record.kind}${peek.record.id}`}
           record={peek.record}

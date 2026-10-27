@@ -114,7 +114,12 @@ export function GalleryChips({
   const chips = activeChips(filter, labels);
   const active = filterIsActive(filter);
   return (
-    <div className="row wrap gal-chips" role="group" aria-label={text.chips.group}>
+    <div
+      className="row wrap gal-chips"
+      data-ui="find.gallery.chips"
+      role="group"
+      aria-label={text.chips.group}
+    >
       {chips.map((c) => (
         <button
           key={c.key}

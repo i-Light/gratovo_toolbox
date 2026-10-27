@@ -87,7 +87,7 @@ export function CreatorActivity({ id }: { readonly id: string }) {
   const nameOf = (who: string): string =>
     team.find((m) => m.id === who)?.name ?? (idLike.test(who) ? text.someone : who);
   return (
-    <div className="col" aria-label={text.activityLabel}>
+    <div className="col" data-ui="record.activity" aria-label={text.activityLabel}>
       {days.map((day) => (
         <section key={day.key} className="cr-day">
           <h4>{dayName(day.at, now)}</h4>

@@ -39,6 +39,7 @@ describe("settingsSections", () => {
       "writing",
       "team",
       "connections",
+      "prototype",
     ]);
     expect(settingsSections.map((s) => s.group)).toEqual([
       "you",
@@ -51,6 +52,7 @@ describe("settingsSections", () => {
       "agency",
       "agency",
       "agency",
+      "owner",
     ]);
     expect(settingsSections.map((s) => s.icon)).toEqual([
       "user",
@@ -63,6 +65,7 @@ describe("settingsSections", () => {
       "pen",
       "users",
       "gauge",
+      "flask",
     ]);
   });
 
@@ -79,14 +82,16 @@ describe("settingsSections", () => {
       facts: 8,
       team: 9,
       connections: null,
+      prototype: null,
     });
   });
 
-  it("marks facts, team and connections as owner sections", () => {
+  it("marks facts, team, connections and prototype as owner sections", () => {
     expect(settingsSections.filter((s) => s.owner).map((s) => s.key)).toEqual([
       "facts",
       "team",
       "connections",
+      "prototype",
     ]);
   });
 });
@@ -121,6 +126,9 @@ describe("settingsRows", () => {
       "connections/connPacing",
       "connections/connAws",
       "connections/connSync",
+      "prototype/proto",
+      "prototype/scenario",
+      "prototype/comments",
     ]);
   });
 });

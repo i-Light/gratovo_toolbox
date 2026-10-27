@@ -17,6 +17,8 @@ import type {
   WritingRules,
 } from "@gratovo/ipc";
 
+import type { Prototype } from "./prototype";
+
 /**
  * The step 4 services the IPC handlers delegate to (plan step 4, "Contracts"). Each method answers
  * one channel, with that channel's response type, so a service can be built and tested on its own
@@ -110,7 +112,7 @@ export interface ReachService {
   afterWrite(writes: readonly DataWrite[]): void;
 }
 
-/** The step 4 services, as `HandlerContext` holds them. */
+/** The step 4 services and prototype mode, as `HandlerContext` holds them. */
 export interface HandlerServices {
   importer: ImporterService;
   connections: ConnectionsService;
@@ -118,4 +120,6 @@ export interface HandlerServices {
   writingRules: WritingRulesService;
   mailConsent: MailConsentService;
   reach: ReachService;
+  /** Prototype mode and its comments (ADR 0004, step 7). Owned by `main/prototype/`. */
+  prototype: Prototype;
 }

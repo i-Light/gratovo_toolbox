@@ -105,6 +105,7 @@ export function CreatorNotes({ item }: { readonly item: CreatorDetail }) {
     <>
       <textarea
         className="cr-notes"
+        data-ui="record.notes.text"
         aria-label={text.notesLabel}
         value={value}
         maxLength={notesMax}

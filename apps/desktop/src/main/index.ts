@@ -35,6 +35,7 @@ import { openPipelineLog } from "./pipeline/logs";
 import { protocolVersion, startSchema } from "./pipeline/protocol";
 import { findPython, pipelineEnv } from "./pipeline/python-path";
 import { createPipelineSupervisor } from "./pipeline/supervisor";
+import { createPrototype, findRepoRoot, withPrototype } from "./prototype";
 import type { SecretStore } from "./secret-store";
 import { openSecretStore } from "./secrets";
 import {
@@ -166,11 +167,12 @@ function start(): void {
           console.error(line);
         },
       });
+      const userData = app.getPath("userData");
       // Set once the catalog exists (it needs the account and the find service, made after this).
       let invalidateCatalog: () => void = () => undefined;
       const opened = createAccount({
         config,
-        userData: app.getPath("userData"),
+        userData,
         secrets,
         // Every request the main process sends goes through this, to the project's host only.
         network: createNetwork({ allowedOrigins: config === null ? [] : [config.origin] }),
@@ -193,17 +195,40 @@ function start(): void {
           }
         },
       });
+      // Prototype mode (ADR 0004, plan D2): the owner's switch onto a fresh example copy,
+      // `prototype.db`. Off at every start. It asks the raw account who is the owner; everything
+      // else reads the wrapped one, whose source is the copy while it is on. A switch or a scenario
+      // pick reloads the windows and runs the watch, as a sign-in does.
+      const prototype = createPrototype({
+        userData,
+        now: Date.now,
+        base: opened,
+        reloadWindow: () => {
+          reloadWindows();
+          sourceWatch.check();
+        },
+        // Inside the switch's queue, right before the swap: a running search ends (its data folder
+        // is the other data's, and a live search must not go on calling YouTube), and the email
+        // finder and the archive service give up the pipeline lane. Reach is closed and reopened
+        // by the source watch after the swap.
+        beforeSwitch: async () => {
+          await find.shutdown();
+          await yieldLane();
+        },
+      });
+      const wrapped = withPrototype(opened, prototype);
       // The account has no "source changed" callback: the watch checks after each call that can
-      // open or close a source (sign-in, recheck, sign-out) and before each reload. Every user of
-      // the account goes through `account`, so none of those calls skips the check.
+      // open or close a source (sign-in, recheck, sign-out, a prototype switch) and before each
+      // reload. It reads the wrapped source, so turning prototype mode on or off, or picking a
+      // scenario (a new copy), is a switch too. Every user of the account goes through `account`,
+      // so none of those calls skips the check.
       const sourceWatch = createSourceWatch(
-        () => opened.source(),
+        () => wrapped.source(),
         () => {
           onSourceChanged();
         },
       );
-      const account = withSourceChecks(opened, sourceWatch.check);
-      const userData = app.getPath("userData");
+      const account = withSourceChecks(wrapped, sourceWatch.check);
       // Two lanes (plan D14, `laneFor`): the store lane runs the jobs that write `pipeline.db`,
       // the quick lane mail, video stats and gateways, so a Send never waits behind a search.
       const pipelineLane = (kind: "pipeline" | "quick") =>
@@ -247,13 +272,15 @@ function start(): void {
       /** The pipeline folder of the open data source; null when none is open. */
       const pipelineFolder = (): string | null => {
         const context = account.findContext();
-        return context === null
-          ? null
-          : join(userData, context.mode === "example" ? "example-pipeline" : "pipeline");
+        return context === null ? null : join(userData, context.folder);
       };
       const geminiControl = createGeminiControl({
         service: gemini,
         startOptions: () => {
+          // Belt and braces with the refused channels: nothing starts the bridge in prototype mode.
+          if (prototype.isOn()) {
+            return null;
+          }
           const source = account.source();
           const dataDir = pipelineFolder();
           if (source === null || dataDir === null) {
@@ -590,6 +617,7 @@ function start(): void {
         emailFinder.dispose();
         archive.dispose();
         catalog.close();
+        prototype.close();
         account.close();
       });
       // The data opens before the page can ask for it, as the example source did. With a stored
@@ -616,6 +644,13 @@ function start(): void {
           writingRules,
           mailConsent,
           reach,
+          prototype,
+          // The comments' export writes into the repository; a packaged app has none.
+          repoRoot: findRepoRoot({
+            packaged: app.isPackaged,
+            appPath: app.getAppPath(),
+            exists: existsSync,
+          }),
         }),
       );
       // Data that was open at start: mailboxes first, then the senders' timers and the drafter.

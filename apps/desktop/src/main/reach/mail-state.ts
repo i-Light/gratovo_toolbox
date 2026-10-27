@@ -9,6 +9,7 @@ import {
   warmupDays,
 } from "@gratovo/core/reach";
 
+import { readExampleHealth } from "../data/example-source";
 import type { JobOutcome } from "../pipeline/jobs";
 import type { ResultData } from "../pipeline/protocol";
 import { readMailRows, sameAddress, type MailboxRow } from "../settings/connections-store";
@@ -28,8 +29,8 @@ import { mailboxStrings } from "./strings";
  * slowdown rule: a mailbox whose bounces pass 3% is slowed, and the change is written to the
  * setting and to the activity log.
  *
- * Example data runs no job: every mailbox its `mail.settings` lists counts as connected, and the
- * counts are the app's own.
+ * Example data runs no job: every mailbox its `mail.settings` lists counts as connected (except
+ * those the `broke` scenario's health lists as signed out), and the counts are the app's own.
  */
 export interface MailState {
   views(): MailboxView[];
@@ -137,10 +138,14 @@ export function createMailState(deps: MailStateDeps): MailState {
     ours: number,
     flags: { paused: boolean; slowed: boolean },
     rates: { bounceRate: number | null; replyRate: number | null },
+    brokenAccounts: ReadonlySet<string>,
   ): MailboxView {
     const status = example ? undefined : known.get(key(row.address));
-    const connected = example || (tokens.has(key(row.address)) && status?.connected !== false);
-    const signedOut = !example && status?.signedOut === true;
+    // Example data's `broke` scenario lists signed-out addresses (D9); live never reads it.
+    const brokenHere = example && brokenAccounts.has(key(row.address));
+    const connected =
+      !brokenHere && (example || (tokens.has(key(row.address)) && status?.connected !== false));
+    const signedOut = brokenHere || (!example && status?.signedOut === true);
     const day = warmupDay(row.warmupStartedOn, now());
     const effectiveCap = capFor(row.dailyCap, day !== null, flags.slowed);
     const sentToday = Math.max(ours, status?.sentToday ?? 0);
@@ -178,6 +183,10 @@ export function createMailState(deps: MailStateDeps): MailState {
     const sent = source.outreach.sentSince(localMidnight(now()));
     const flags = readMailboxFlags(source);
     const counts = countsNow(source);
+    const broken: ReadonlySet<string> =
+      mode === "example"
+        ? new Set(readExampleHealth(source).signedOut.map(key))
+        : new Set<string>();
     return rows.map((row) => {
       const ours = sent
         .filter((s) => sameAddress(s.mailbox, row.address))
@@ -188,6 +197,7 @@ export function createMailState(deps: MailStateDeps): MailState {
         ours,
         flags.get(key(row.address)) ?? noFlags,
         ratesOf(counts, row.address),
+        broken,
       );
     });
   }

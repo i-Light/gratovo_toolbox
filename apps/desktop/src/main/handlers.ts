@@ -1,7 +1,7 @@
 import { join } from "node:path";
 
 import type { CreatorStage, DataSource, DataWrite } from "@gratovo/core/data";
-import type { Handlers } from "@gratovo/ipc";
+import type { Channel, Handlers } from "@gratovo/ipc";
 
 import type { Account } from "./account/account";
 import type { ArchiveService } from "./find/archive-service";
@@ -16,16 +16,22 @@ import {
   toolboxList,
   type ArchivedNames,
 } from "./find/toolbox";
+import { prototypeRefused, refusedWhileOn } from "./prototype/refused";
 import type { SecretStore } from "./secret-store";
 import type { HandlerServices } from "./services";
 
 /**
  * What the handlers need from the rest of the main process. The step 4 services (`importer`,
- * `connections`, `gemini`, `writingRules`, `mailConsent`) are typed in `services.ts`; their
- * handlers only delegate.
+ * `connections`, `gemini`, `writingRules`, `mailConsent`) and `prototype` are typed in
+ * `services.ts`; their handlers only delegate.
  */
 export interface HandlerContext extends HandlerServices {
   version: string;
+  /**
+   * The repository's root while the app runs from it, for the comments' export (D8). Null or left
+   * out: there is none, and the export answers `no_repo`.
+   */
+  repoRoot?: string | null;
   secrets: SecretStore;
   find: FindService;
   /** The Find catalog: pages, one channel's detail and the run history. */
@@ -76,10 +82,39 @@ function changesCatalog(write: DataWrite): boolean {
   );
 }
 
+/** One channel's handler, made to throw while prototype mode is on (plan D6). */
+function guarded<C extends Channel>(
+  handlers: Handlers,
+  channel: C,
+  isOn: () => boolean,
+): Handlers[C] {
+  const real: Handlers[C] = handlers[channel];
+  const guard = (input: Parameters<Handlers[C]>[0]) => {
+    if (isOn()) {
+      throw new Error(prototypeRefused);
+    }
+    return real(input);
+  };
+  return guard as Handlers[C];
+}
+
+/** The same handlers, with every channel in `refusedWhileOn` refused while prototype mode is on. */
+function refuseWhileOn(handlers: Handlers, isOn: () => boolean): Handlers {
+  const out: Handlers = { ...handlers };
+  for (const channel of refusedWhileOn) {
+    Object.assign(out, { [channel]: guarded(handlers, channel, isOn) });
+  }
+  return out;
+}
+
 /** The main process's answer to each channel in `channels`. */
 export function createHandlers(context: HandlerContext): Handlers {
+  return refuseWhileOn(buildHandlers(context), () => context.prototype.isOn());
+}
+
+function buildHandlers(context: HandlerContext): Handlers {
   const { version, secrets, account, find, catalog, ideas } = context;
-  const { importer, connections, gemini, writingRules, mailConsent, reach } = context;
+  const { importer, connections, gemini, writingRules, mailConsent, reach, prototype } = context;
 
   /** The account's open source. The page never asks for data while none is open. */
   function openSource(): DataSource {
@@ -221,6 +256,18 @@ export function createHandlers(context: HandlerContext): Handlers {
     // The change may carry a secret: it goes to the service and is neither kept nor logged here.
     "connections:set": (change) => connections.set(change),
     "connections:pick-folder": ({ purpose }) => connections.pickFolder(purpose),
+    // Prototype mode (ADR 0004, step 7). The prototype stops a running search itself, inside its
+    // switch queue (`beforeSwitch`), so nothing can start one between the stop and the switch.
+    "prototype:status": () => prototype.status(),
+    "prototype:set": ({ on }) => prototype.set(on),
+    "prototype:scenario": ({ scenario }) => prototype.setScenario(scenario),
+    // Each comment call throws while prototype mode is off (the copy is closed).
+    "comments:list": () => ({ comments: prototype.comments.list() }),
+    "comments:add": (comment) => prototype.comments.add(comment),
+    "comments:update": (patch) => prototype.comments.update(patch),
+    "comments:delete": ({ id }) => ({ comment: prototype.comments.remove(id) }),
+    "comments:restore": ({ comment }) => prototype.comments.restore(comment),
+    "comments:export": () => prototype.comments.exportTo(context.repoRoot ?? null),
     "mail:connect": () => mailConsent.connect(),
     "mail:check": () => connections.checkMailboxes(),
     "gateways:deploy": ({ regions }) => connections.deployGateways(regions),

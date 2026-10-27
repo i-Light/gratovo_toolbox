@@ -127,7 +127,13 @@ export function Compare({ items, onShortlist, onOpen, onClose }: CompareProps) {
   }, []);
   const cols = { gridTemplateColumns: `150px repeat(${String(n)}, minmax(0, 1fr))` };
   return (
-    <div className="card cmp-card" ref={top} role="region" aria-label={text.title(n)}>
+    <div
+      className="card cmp-card"
+      data-ui="find.gallery.compare"
+      ref={top}
+      role="region"
+      aria-label={text.title(n)}
+    >
       <div className="card-h">
         <h3>{text.title(n)}</h3>
         <span className="hint">{text.hint}</span>

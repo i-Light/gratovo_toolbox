@@ -10,7 +10,6 @@ function D(){ return W.D(); }
 /* ---------- lookups ---------- */
 function find(list, id){ if (!list) return null; for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i]; return null; }
 W.creator = function(id){ return find(D().creators, id); };
-W.manager = function(id){ return find(D().managers, id); };
 W.brand = function(id){ return find(D().brands, id); };
 W.deal = function(id){ return find(D().deals, id); };
 W.draft = function(id){ return find(D().drafts, id); };
@@ -22,7 +21,7 @@ W.member = function(id){
 W.canSeeMoney = function(){ var d = D(), r = W.member(d.me).role || ""; return r === "Owner" || /Account/.test(r) || d.settings.vaMoney === "show"; };
 W.isShadowVA = function(){ var d = D(), r = W.member(d.me).role || ""; return /^VA/.test(r) && (d.settings.vaApproval || "shadow") === "shadow"; };
 W.mailbox = function(id){ return find(D().mail, id); };
-W.rec = function(ref){ return !ref ? null : ref.t === "creator" ? W.creator(ref.id) : ref.t === "brand" ? W.brand(ref.id) : ref.t === "deal" ? W.deal(ref.id) : ref.t === "manager" ? W.manager(ref.id) : null; };
+W.rec = function(ref){ return !ref ? null : ref.t === "creator" ? W.creator(ref.id) : ref.t === "brand" ? W.brand(ref.id) : ref.t === "deal" ? W.deal(ref.id) : null; };
 W.dealName = function(x){ var b = W.brand(x.brand), c = W.creator(x.creator); return (b ? b.name : "?") + " × " + (c ? c.name : "?"); };
 W.refName = function(ref){ var r = W.rec(ref); if (!r) return "?"; return ref.t === "deal" ? W.dealName(r) : r.name; };
 W.toName = function(dr){ var r = W.rec(dr.to); return r ? r.name : "?"; };
@@ -780,20 +779,6 @@ A.sendWarmthUpdate = function(cid){
     markDone(d, "warmth:" + cid, "Drafted warmth update to " + c.name, "followups", 1.5);
   }, {ref:{t:"creator", id:cid}, toast:{msg:"14-day warmth update drafted to " + c.name, sub:"Prevents roster churn during the 30–60d brand hunt (HC-29).", icon:"coffee", go:{label:"Composer", run:function(){ W.openQuickDraft(qid); }}}});
   if (W.U().route.s !== "today") W.openQuickDraft(qid);
-};
-
-/* System 4: Talent Manager Roster Request & Multi-Creator Brief (INF-MGR-03, EX-29) */
-A.requestManagerRoster = function(mgrId){
-  var mgr = W.manager(mgrId); if (!mgr) return;
-  var c0 = W.creator(mgr.creators[0]) || D().creators[0];
-  var qid = W.uid("q");
-  W.act("Drafted full roster request to talent manager " + mgr.name + " (" + mgr.agency + ")", function(d){
-    mgr.lastTouch = W.now();
-    d.drafts.push({id:qid, kind:"reply", to:{t:"creator", id:c0.id}, toEmail:mgr.email, toContact:mgr.name, mailbox:"m1", created:W.now(), subject:mgr.agency + " roster × Gratovo Q4 developer briefs",
-      body:"Hi " + mgr.name.split(" ")[0] + ",\n\nWe are locking Q4 developer-tool integrations ($2,500–$6,000 per integration, mid-November go-live window) for Codewell, Inboxly, and Agentic HQ.\n\nAlongside " + mgr.creators.map(function(id){ return (W.creator(id) || {}).name; }).join(" and ") + ", could you send over your full talent roster with current 60–90s rates and US/UK/CA/AU audience splits so we can package multi-creator briefs for your channels (INF-MGR-03, EX-29)?\n\nMoustafa, Gratovo",
-      why:"Multi-creator manager brief (EX-29, INF-MGR-03): leads with budget range and go-live window, and asks for the manager's full roster.", rules:["INF-MGR-03","EX-29"], gates:[]});
-  }, {toast:{msg:"Manager roster request drafted to " + mgr.name, sub:"Uses EX-29 multi-creator brief structure.", icon:"users", go:{label:"Composer", run:function(){ W.openQuickDraft(qid); }}}});
-  W.openQuickDraft(qid);
 };
 
 /* close */

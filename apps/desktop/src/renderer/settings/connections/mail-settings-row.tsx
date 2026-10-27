@@ -26,7 +26,7 @@ export function MailSettingsRow({ status }: { readonly status: ConnectionsStatus
       label={rows.connMailSettings.label}
       scope="team"
       desc={rows.connMailSettings.desc}
-      ui="settings.connections.mailSettings"
+      ui="settings.connections.mail-settings"
     >
       <label className="field" style={{ width: "100%" }}>
         {text.mailSettings.sender}

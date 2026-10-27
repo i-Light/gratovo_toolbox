@@ -27,7 +27,11 @@ export interface RowProps {
 export function Row({ id, label, scope, desc, ui, children }: RowProps) {
   const saved = useApp((s) => s.ui.settingFlash?.id === id);
   return (
-    <div className="set-row" id={`set-${id}`} {...(ui === undefined ? {} : { "data-ui": ui })}>
+    <div
+      className="set-row"
+      id={`set-${id}`}
+      data-ui={ui ?? `settings.row.${id.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`)}`}
+    >
       <div className="set-t">
         <div className="row wrap" style={{ gap: "8px" }}>
           <b>{label}</b>

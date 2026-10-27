@@ -10,6 +10,8 @@ import { installEmailJobs } from "../lib/email-jobs";
 import { installLiveUpdates } from "../lib/live";
 import { installPersistence } from "../lib/persist";
 import { installPresenceReporting } from "../lib/presence";
+import { loadPrototype } from "../lib/prototype";
+import { showSwitchToast } from "../lib/prototype-toast";
 import { initAppStore, installHashSync } from "../lib/store";
 import { startRoute } from "../lib/wired";
 import { strings } from "../strings";
@@ -66,6 +68,8 @@ export async function startApp(root: Root, invoke: Bridge["invoke"]): Promise<vo
         <App />
       </StrictMode>,
     );
+    // Prototype mode: the status once per page load, and the toast that confirms a switch.
+    void loadPrototype(invoke).then(showSwitchToast);
   };
 
   const signIn = async (email: string, password: string): Promise<SignInAnswer> => {

@@ -43,10 +43,10 @@ export function Gallery() {
   );
   const compared = selection.comparing ? items.filter((i) => selection.ids.has(i.id)) : [];
   return (
-    <div className="gal-wrap">
+    <div className="gal-wrap" data-ui="find.gallery">
       <GalleryFacets filter={filter} facets={facets} runs={runs} />
       <div className="col" style={{ minWidth: 0 }}>
-        <div className="card tight">
+        <div className="card tight" data-ui="find.gallery.toolbar">
           <GalleryToolbar q={filter.q} sort={sort} view={view} size={size} show={show} />
           <GalleryChips filter={filter} runs={runs} />
         </div>

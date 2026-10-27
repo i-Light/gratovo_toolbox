@@ -47,6 +47,7 @@ function ReachTabs({ tab }: { readonly tab: string }) {
   return (
     <div
       className="tabs"
+      data-ui="reach.tabs"
       role="tablist"
       aria-label={text.tabsLabel}
       style={{ "--hue": screens.reach.hue } as CSSProperties}
@@ -55,6 +56,7 @@ function ReachTabs({ tab }: { readonly tab: string }) {
         <button
           key={t.key}
           id={tabId(t.key)}
+          data-ui={`reach.tab.${t.key}`}
           type="button"
           role="tab"
           aria-selected={tab === t.key}
@@ -83,11 +85,16 @@ export function ReachScreen() {
     return <PlaceholderScreen screen="reach" />;
   }
   return (
-    <div className="page" data-ui="reach">
-      <PageHead title={text.title} sub={subLine(reach, creators)} right={<CapSummary />} />
+    <div className="page" data-ui="reach.page">
+      <PageHead
+        dataUi="reach.head"
+        title={text.title}
+        sub={subLine(reach, creators)}
+        right={<CapSummary />}
+      />
       <ReachTabs tab={tab} />
       <GeminiBanner />
-      <div id={panelId} role="tabpanel" aria-labelledby={tabId(tab)}>
+      <div id={panelId} data-ui="reach.panel" role="tabpanel" aria-labelledby={tabId(tab)}>
         {tab === "board" ? (
           <Board />
         ) : tab === "sequences" ? (

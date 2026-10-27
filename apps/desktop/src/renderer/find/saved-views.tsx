@@ -128,7 +128,12 @@ export function SavedViews({
   }
 
   return (
-    <div className="row wrap saved-views" role="group" aria-label={text.title}>
+    <div
+      className="row wrap saved-views"
+      data-ui="find.gallery.views"
+      role="group"
+      aria-label={text.title}
+    >
       {views.length > 0 ? <span className="small muted">{text.title}</span> : null}
       {views.map((v, i) => (
         <span key={`${String(i)}:${v.name}`} className="view-chip">

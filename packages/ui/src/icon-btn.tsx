@@ -22,6 +22,8 @@ export interface IconBtnProps {
   readonly size?: number;
   readonly className?: string;
   readonly iconClassName?: string;
+  /** Written as `data-ui`, so the comment tool can anchor to the button. */
+  readonly dataUi?: string;
   readonly onClick: MouseEventHandler<HTMLButtonElement>;
 }
 
@@ -37,6 +39,7 @@ export function IconBtn({
   size = 17,
   className,
   iconClassName,
+  dataUi,
   onClick,
 }: IconBtnProps) {
   return (
@@ -49,6 +52,7 @@ export function IconBtn({
       data-kbd={kbd}
       aria-pressed={pressed === undefined ? undefined : pressed}
       disabled={disabled}
+      data-ui={dataUi}
     >
       <Icon name={icon} size={size} className={iconClassName} />
       {badge ? <span className="badge">{badge}</span> : null}

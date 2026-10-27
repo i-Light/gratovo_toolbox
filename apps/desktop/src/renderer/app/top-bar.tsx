@@ -3,11 +3,22 @@ import { Avatar, Icon, IconBtn, avatarColor, cx } from "@gratovo/ui";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 
 import { ago } from "../lib/format";
-import { setPalette, toggleTray } from "../lib/actions";
+import { openMenu, setPalette, toggleTray } from "../lib/actions";
+import type { MenuItem } from "../lib/store";
+import {
+  openCount,
+  pickScenario,
+  setPanel,
+  setPrototype,
+  toggleCommenting,
+  usePrototype,
+} from "../lib/prototype";
+import { scenarioKeys } from "@gratovo/ipc";
+import type { IconName } from "@gratovo/ui";
 import { screens } from "../lib/routes";
 import { toast } from "../lib/toast";
 import { notifShown } from "../lib/settings";
-import { back, forward, recordName, selectRoute, setRailOpen, useApp } from "../lib/store";
+import { back, forward, go, recordName, selectRoute, setRailOpen, useApp } from "../lib/store";
 import { strings } from "../strings";
 import { railId } from "./rail";
 
@@ -35,7 +46,7 @@ function Crumbs() {
         ? [info.name]
         : [info.name, tabName];
   return (
-    <nav className="crumbs hide-narrow" aria-label={strings.top.crumbs}>
+    <nav className="crumbs hide-narrow" data-ui="frame.top.crumbs" aria-label={strings.top.crumbs}>
       {crumbs.map((name, i) =>
         i === crumbs.length - 1 ? (
           <b key={i}>{name}</b>
@@ -60,6 +71,7 @@ function HistoryButtons() {
         icon="chevL"
         iconClassName="flip"
         label={strings.top.back}
+        dataUi="frame.top.back"
         kbd={strings.keys.altLeft}
         disabled={!canBack}
         onClick={back}
@@ -68,6 +80,7 @@ function HistoryButtons() {
         icon="chevR"
         iconClassName="flip"
         label={strings.top.forward}
+        dataUi="frame.top.forward"
         kbd={strings.keys.altRight}
         disabled={!canForward}
         onClick={forward}
@@ -89,6 +102,7 @@ function Bell() {
       tip={strings.top.notifications}
       {...(unread > 0 ? { badge: unread } : {})}
       pressed={pressed}
+      dataUi="frame.top.bell"
       onClick={() => {
         toggleTray("notifications");
       }}
@@ -111,6 +125,7 @@ function JobsButton() {
     <button
       type="button"
       className="iconbtn"
+      data-ui="frame.top.jobs"
       aria-label={label}
       data-tip={first === undefined ? strings.top.jobsNone : first.label}
       aria-pressed={pressed}
@@ -195,6 +210,7 @@ function SaveState() {
         "hide-narrow",
       )}
       role="status"
+      data-ui="frame.top.save"
       data-tip={tip}
     >
       <i></i>
@@ -241,7 +257,11 @@ function Presence() {
     [team, me],
   );
   return (
-    <span className="avs hide-narrow" style={{ marginInlineStart: "6px" }}>
+    <span
+      className="avs hide-narrow"
+      data-ui="frame.top.presence"
+      style={{ marginInlineStart: "6px" }}
+    >
       {online.map((m) => (
         <Avatar
           key={m.id}
@@ -256,6 +276,100 @@ function Presence() {
   );
 }
 
+/**
+ * Prototype mode's controls: the dashed chip with the scenario menu, and the comment button with
+ * the open count. Drawn only while prototype mode is on; the comment tool ignores them (`data-cmt-ui`).
+ */
+function ProtoControls() {
+  const proto = usePrototype();
+  if (proto.status?.on !== true) {
+    return null;
+  }
+  const t = strings.prototype;
+  const scenario = proto.status.scenario;
+  const open = openCount(proto.comments);
+  const menu = (event: { readonly currentTarget: HTMLElement }): void => {
+    const box = event.currentTarget.getBoundingClientRect();
+    const items: MenuItem[] = [
+      { kind: "heading", label: t.menuHead },
+      ...scenarioKeys.map((key): MenuItem => ({
+        kind: "item",
+        label: t.scenarios[key].name,
+        icon: t.scenarios[key].icon as IconName,
+        checked: key === scenario,
+        run: () => {
+          if (key !== scenario) {
+            void pickScenario(key);
+          }
+        },
+      })),
+      { kind: "separator" },
+      {
+        kind: "item",
+        label: t.commentOn,
+        icon: "chat",
+        hint: t.commentHint,
+        run: () => {
+          toggleCommenting(true);
+        },
+      },
+      {
+        kind: "item",
+        label: t.allComments,
+        icon: "list",
+        ...(open > 0 ? { hint: t.allCommentsOpen(open) } : {}),
+        run: () => {
+          setPanel(true);
+        },
+      },
+      {
+        kind: "item",
+        label: t.settings,
+        icon: "gear",
+        run: () => {
+          go("settings", "prototype");
+        },
+      },
+      {
+        kind: "item",
+        label: t.turnOff,
+        icon: "x",
+        run: () => {
+          void setPrototype(false);
+        },
+      },
+    ];
+    openMenu(box, items, t.chipTip, "end");
+  };
+  return (
+    <span className="row" style={{ gap: "2px" }} data-cmt-ui="1">
+      <button
+        type="button"
+        className="proto-chip"
+        data-ui="frame.top.proto"
+        data-tip={t.chipTip}
+        aria-haspopup="menu"
+        onClick={menu}
+      >
+        <Icon name="flask" size={15} />
+        <span className="hide-narrow">{t.scenarios[scenario].short}</span>
+        <Icon name="chevD" size={13} />
+      </button>
+      <IconBtn
+        icon="chat"
+        label={t.commentOn}
+        kbd={t.commentHint}
+        pressed={proto.commenting}
+        {...(open > 0 ? { badge: open } : {})}
+        dataUi="frame.top.comment"
+        onClick={() => {
+          toggleCommenting();
+        }}
+      />
+    </span>
+  );
+}
+
 /** Opens and closes the rail's drawer at narrow widths. */
 function MenuButton() {
   const railOpen = useApp((s) => s.ui.railOpen);
@@ -264,6 +378,7 @@ function MenuButton() {
       type="button"
       id={menuButtonId}
       className="iconbtn only-narrow"
+      data-ui="frame.top.menu"
       onClick={() => {
         setRailOpen(!railOpen);
       }}
@@ -282,13 +397,14 @@ function MenuButton() {
  */
 export const TopBar = memo(function TopBar() {
   return (
-    <header className="top">
+    <header className="top" data-ui="frame.top">
       <MenuButton />
       <HistoryButtons />
       <Crumbs />
       <button
         type="button"
         className="cmdk"
+        data-ui="frame.top.palette"
         onClick={() => {
           setPalette(true);
         }}
@@ -298,6 +414,7 @@ export const TopBar = memo(function TopBar() {
         <span className="kbd">{strings.keys.ctrlK}</span>
       </button>
       <div className="row" style={{ gap: "2px" }}>
+        <ProtoControls />
         <JobsButton />
         <Bell />
         <SaveState />

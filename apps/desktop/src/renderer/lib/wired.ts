@@ -26,6 +26,7 @@ export const liveWired = {
     "search",
     "writing",
     "connections",
+    "prototype",
   ],
 } as const satisfies Partial<Record<ScreenKey, readonly string[]>>;
 

@@ -1,5 +1,6 @@
-import type { ConnectionsStatus, GeminiStatus } from "@gratovo/ipc";
+import type { ConnectionsStatus, GeminiStatus, PrototypeStatus } from "@gratovo/ipc";
 
+import type { Prototype } from "./prototype";
 import type { HandlerServices } from "./services";
 
 /**
@@ -36,6 +37,30 @@ export function emptyConnectionsStatus(): ConnectionsStatus {
     course: { courseDir: null, videoDir: null, courseFound: false },
     sync: { state: "off" },
     import: { state: "never", at: null, backup: null },
+  };
+}
+
+/** Prototype mode that is off and can't be turned on: no copy, and every comment call throws. */
+export function stubPrototype(): Prototype {
+  const off: PrototypeStatus = { available: false, on: false, scenario: "normal" };
+  const refuse = (): never => {
+    throw new Error("prototype mode is off");
+  };
+  return {
+    status: () => Promise.resolve(off),
+    set: () => Promise.reject(new Error("prototype mode is for the owner")),
+    setScenario: () => Promise.reject(new Error("prototype mode is off")),
+    isOn: () => false,
+    source: () => null,
+    comments: {
+      list: refuse,
+      add: refuse,
+      update: refuse,
+      remove: refuse,
+      restore: refuse,
+      exportTo: refuse,
+    },
+    close: () => undefined,
   };
 }
 
@@ -88,5 +113,6 @@ export function createStubServices(): HandlerServices {
       overlay: (frame) => Promise.resolve(frame),
       afterWrite: () => undefined,
     },
+    prototype: stubPrototype(),
   };
 }

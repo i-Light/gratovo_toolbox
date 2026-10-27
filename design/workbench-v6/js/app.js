@@ -7,7 +7,7 @@ var Btn = W.Btn;
 
 var SCREENS = {
   today:{name:"Today", icon:"sun", hue:"var(--accent)"},
-  find:{name:"Find", icon:"scan", hue:"var(--find)", sub:"Search, triage, contacts, managers", tabs:[["search","Search"],["triage","Review new"],["gallery","Gallery"],["contacts","Contacts"],["managers","Talent managers"]]},
+  find:{name:"Find", icon:"scan", hue:"var(--find)", sub:"Search, triage, contacts", tabs:[["search","Search"],["triage","Review new"],["gallery","Gallery"],["contacts","Contacts"]]},
   reach:{name:"Reach", icon:"send", hue:"var(--reach)", sub:"Emails, replies, sequences", tabs:[["board","Board"],["sequences","Sequences"],["inbox","Replies"],["mailboxes","Mailboxes"]]},
   close:{name:"Close", icon:"pen", hue:"var(--close)", sub:"Audience, brands, pitch, terms", tabs:[["roster","Roster"],["brands","Brands"],["match","Match"],["pitch","Pitch"],["negotiate","Negotiate"],["contracts","Contracts"]]},
   deliver:{name:"Deliver", icon:"box", hue:"var(--deliver)", sub:"Deals and money", tabs:[["board","Deal board"],["money","Money"]]},
@@ -211,7 +211,6 @@ function Palette(){
     {g:"Actions", icon:"coffee", label:"Wrap up the day", run:function(){ W.go("today"); W.ui(function(uu){ uu.wrap = true; }); }},
     {g:"Actions", icon:"play", label:"Resume today's search", run:function(){ W.go("find", "search"); W.A.startRun("r3"); }},
     {g:"Actions", icon:"scan", label:"Review new finds", run:function(){ W.go("find", "triage"); }},
-    {g:"Actions", icon:"briefcase", label:"Open Talent Managers Hub", run:function(){ W.go("find", "managers"); }},
     {g:"Actions", icon:"refresh", label:"Reset Demo to Pristine V6 Seed", run:W.resetDemoState},
     {g:"Actions", icon:"download", label:"Export .json State Snapshot", run:W.exportSnapshot},
     {g:"Actions", icon:"undo", label:"Undo the last change", hint:"Ctrl Z", run:W.undo},

@@ -301,7 +301,7 @@ export function Mailboxes() {
     .map((m) => text.slowedPart(localPart(m.address), m.bounceRate));
   return (
     <div className="col" data-ui="reach.mailboxes">
-      <div className="callout info" role="note">
+      <div className="callout info" data-ui="reach.mailboxes.rule" role="note">
         <Icon name="gauge" />
         {/* A zero basis keeps the long text beside the icon instead of wrapping under it. */}
         <div className="grow" style={{ flexBasis: 0 }}>
@@ -310,7 +310,7 @@ export function Mailboxes() {
           {slowed.length > 0 ? text.rightNow(slowed) : ""}
         </div>
       </div>
-      <div className="rc-mgrid">
+      <div className="rc-mgrid" data-ui="reach.mailboxes.grid">
         {mailboxes.map((m) => (
           <MailCard key={m.address} mailbox={m} />
         ))}

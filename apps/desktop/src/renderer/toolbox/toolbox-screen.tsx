@@ -59,11 +59,15 @@ export function ToolboxScreen() {
     return null;
   }
   return (
-    <div className="page">
-      <PageHead title={screens.toolbox.name} {...(sub === null ? {} : { sub })} />
+    <div className="page" data-ui="toolbox.page">
+      <PageHead
+        dataUi="toolbox.head"
+        title={screens.toolbox.name}
+        {...(sub === null ? {} : { sub })}
+      />
       <div className="tb">
         <ToolboxList />
-        <div className="card tb-pane" key={current.key}>
+        <div className="card tb-pane" key={current.key} data-ui="toolbox.pane">
           <div className="row top" style={{ gap: "12px" }}>
             <span className="tb-ic tb-ic-lg">
               <Icon name={current.icon} size={18} />

@@ -218,6 +218,40 @@ describe("the mailbox views", () => {
     ]);
   });
 
+  it("shows an example mailbox the health lists as signed out, and the others connected", () => {
+    const fake = fakeSource([
+      { address: "kai@gratovo.ai", dailyCap: 30, warmupStartedOn: null },
+      { address: "lina@gratovo.ai", dailyCap: 30, warmupStartedOn: null },
+    ]);
+    fake.settings.set("example.health", { signedOut: ["Kai@Gratovo.ai"], geminiOffline: false });
+    const { state } = setup({ source: () => fake.source, mode: () => "example" });
+    expect(state.views().map((v) => [v.address, v.connected, v.signedOut, v.status])).toEqual([
+      ["kai@gratovo.ai", false, true, "signed_out"],
+      ["lina@gratovo.ai", true, false, "good"],
+    ]);
+  });
+
+  it("leaves example mailboxes alone when there is no health", () => {
+    const fake = fakeSource([{ address: "kai@gratovo.ai", dailyCap: 30, warmupStartedOn: null }]);
+    const { state } = setup({ source: () => fake.source, mode: () => "example" });
+    expect(state.views()[0]).toMatchObject({ connected: true, signedOut: false });
+  });
+
+  it("never reads the health key on live data", async () => {
+    const fake = fakeSource([{ address: "kai@gratovo.ai", dailyCap: 30, warmupStartedOn: null }]);
+    fake.settings.set("example.health", { signedOut: ["kai@gratovo.ai"], geminiOffline: true });
+    const read = vi.fn((k: string) => fake.settings.get(k));
+    const src = { ...fake.source, readSetting: read } as unknown as DataSource;
+    const { state } = setup({
+      source: () => src,
+      connected: () => Promise.resolve(["kai@gratovo.ai"]),
+      runStatus: () => Promise.resolve(status([account("kai@gratovo.ai")])),
+    });
+    await state.refresh();
+    expect(state.views()[0]).toMatchObject({ connected: true, signedOut: false });
+    expect(read).not.toHaveBeenCalledWith("example.health");
+  });
+
   it("is empty with no data open", () => {
     const { state } = setup({ mode: () => null });
     expect(state.views()).toEqual([]);
