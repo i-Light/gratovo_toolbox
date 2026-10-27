@@ -126,6 +126,9 @@ Whole screen is a placeholder. v6 parts:
 
 ---
 ## 8. Insights (MISSING; `more.js:128-476`)
+
+**Superseded (owner, 2026-10-27):** P8 builds `docs/product/insights-design.md`, not v6's Insights. The notes below describe v6 only.
+
 - Period Seg 7/30/90 days; ChartCards each with a data-table toggle: line chart "Emails sent and replies per day" (two scales), channel funnel "Where channels drop out" (steps with % from step above), revenue by month (hidden without money; current month paler), keyword yield for today's run, median-views histogram, audience countries bars.
 - Input-Driven Reverse Funnel Planner (FND-DLV-21): monthly revenue target -> daily inputs (`A.updateFunnelTarget`, `funnelSteps`).
 - 50-Send Batch Ghosting Diagnostics (FND-DLV-22): cohorts of 50 sends.
