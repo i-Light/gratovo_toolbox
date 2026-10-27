@@ -1,0 +1,295 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@400;500;600&amp;display=swap">
+<style>
+:root{--bg:#06131d;--panel:#0c2131;--sunk:#091b29;--sunk-2:#122d41;--line:#1c3a51;--line-2:#29506d;--ink:#e5eff8;--ink-2:#b0c3d6;--muted:#8aa0b5;--faint:#647d93;--accent:#4cb6ef;--accent-ink:#04131d;--accent-soft:#103651;--accent-line:#245a80;--accent-strong:#7cccf5;--find:#4cb6ef;--reach:#3cc3b2;--close:#a98bea;--deliver:#e59a4c;--money:#5fd283;--good:#5fd283;--good-soft:#123522;--warn:#f2b84b;--warn-soft:#3a2b0c;--crit:#ef7d70;--crit-soft:#3e1712;--shadow-1:0 1px 2px rgba(0,0,0,.3);--f-ui:"Readex Pro","Segoe UI",system-ui,sans-serif;--r-s:6px;--r-m:9px;--r-l:13px;--s1:#3a9ad3;--s2:#c8711f;--s3:#8a7ae6;--other:#3d5a72}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 13.5px/1.5 var(--f-ui);-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+::selection{background:var(--accent-soft)}
+a{color:var(--accent);text-decoration:none}a:hover{color:var(--accent-strong)}
+h1,h2,h3{margin:0;letter-spacing:-0.01em;text-wrap:balance}
+h1{font-size:1.55rem;font-weight:600}h2{font-size:1.18rem;font-weight:600}h3{font-size:1rem;font-weight:600}
+p{margin:0}
+b,strong{font-weight:600;color:var(--ink)}
+.ic{flex:none;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+
+/* frame */
+.app{display:grid;grid-template-columns:236px minmax(0,1fr);min-height:100vh}
+.rail{background:var(--panel);border-right:1px solid var(--line);padding:10px;display:flex;flex-direction:column;gap:2px}
+.brand{display:flex;align-items:center;gap:10px;padding:4px 6px 12px;min-height:44px}
+.brand b{font-size:14.5px;letter-spacing:-0.01em}.brand small{display:block;color:var(--muted);font-size:11.5px;font-weight:400}
+.nav{display:flex;align-items:center;gap:10px;padding:7px 8px;min-height:38px;border-radius:var(--r-m);color:var(--ink-2)}
+.nav:hover{background:var(--sunk);color:var(--ink-2)}
+.nav .nic{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;flex:none;color:var(--hue);background:color-mix(in srgb,var(--hue) 12%,transparent)}
+.nav .nl{display:flex;flex-direction:column;min-width:0;flex:1}.nav .nl b{font-weight:500;font-size:13.5px;color:inherit}.nav .nl small{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nav.on{background:color-mix(in srgb,var(--hue) 11%,var(--panel));color:var(--ink)}.nav.on .nic{background:var(--hue);color:var(--panel)}.nav.on .nl b{font-weight:600}
+.nav .cnt{font-size:11px;font-weight:600;color:var(--muted)}
+.nav-h{font-size:12px;font-weight:600;color:var(--muted);padding:14px 10px 6px}
+.main{display:flex;flex-direction:column;min-width:0}
+.top{height:54px;display:flex;align-items:center;gap:10px;padding:0 14px;background:var(--panel);border-bottom:1px solid var(--line)}
+.crumbs{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:13px}.crumbs b{font-weight:500}
+.cmdk{display:flex;align-items:center;gap:8px;height:34px;flex:0 1 380px;margin-inline:auto;padding:0 8px 0 10px;border:1px solid var(--line);background:var(--sunk);border-radius:var(--r-m);color:var(--muted);font-size:13px}
+.cmdk .grow{flex:1;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kbd{font-size:11px;font-weight:500;color:var(--ink-2);background:var(--sunk-2);border-radius:5px;padding:1px 6px}
+.save{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}.save i{width:7px;height:7px;border-radius:50%;background:var(--good)}
+.page{width:100%;max-width:1220px;margin:0 auto;padding:26px 32px 96px;display:flex;flex-direction:column;gap:16px}
+
+/* controls, as packages/ui */
+.iconbtn{width:30px;height:30px;border-radius:var(--r-m);border:1px solid transparent;background:none;display:grid;place-items:center;color:var(--muted);flex:none}
+.iconbtn:hover{background:var(--sunk-2);color:var(--ink)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:34px;padding:0 13px;border-radius:var(--r-m);border:1px solid var(--line-2);background:var(--panel);color:var(--ink);font-weight:500;font-size:13px;white-space:nowrap}
+.btn:hover{background:var(--sunk-2);color:var(--ink)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}.btn.pri:hover{background:var(--accent-strong)}
+.btn.ghost{border-color:transparent;background:none;color:var(--ink-2)}.btn.ghost:hover{background:var(--sunk-2);color:var(--ink)}
+.btn.sm{height:30px;padding:0 10px;font-size:12.5px}
+.tag{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:6px;font-size:11.8px;font-weight:500;background:var(--sunk-2);color:var(--ink-2);white-space:nowrap;flex:none}
+.tag .ic{width:12px;height:12px;stroke-width:2.2}
+.tag.good{background:var(--good-soft);color:var(--good)}.tag.warn{background:var(--warn-soft);color:var(--warn)}.tag.crit{background:var(--crit-soft);color:var(--crit)}
+.vt{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:500;white-space:nowrap}
+.vt::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor;flex:none}
+.vt.good{color:var(--good)}.vt.warn{color:var(--warn)}.vt.crit{color:var(--crit)}.vt.early{color:var(--muted)}
+.seg{display:inline-flex;background:var(--sunk-2);border-radius:var(--r-m);padding:3px;gap:2px;flex:none}
+.seg button{border:0;background:none;border-radius:7px;height:28px;padding:0 11px;font-size:12.5px;font-weight:500;color:var(--ink-2);display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+.seg button:hover{color:var(--ink)}
+.seg button[aria-pressed="true"]{background:var(--panel);color:var(--ink);box-shadow:var(--shadow-1)}
+.seg .c{font-size:11.5px;color:var(--muted);font-weight:500}
+.seg button[aria-pressed="true"] .c{color:var(--ink-2)}
+.sw{display:inline-block;width:9px;height:9px;border-radius:3px;flex:none}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line)}
+.tabs a{padding:9px 12px 10px;font-size:13.5px;font-weight:500;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs a:hover{color:var(--ink)}.tabs a.on{color:var(--ink);border-color:var(--accent)}
+.inp{height:40px;width:100%;border:1px solid var(--line-2);background:var(--sunk);border-radius:var(--r-s);padding:0 12px;color:var(--ink);font:500 17px var(--f-ui);font-variant-numeric:tabular-nums}
+.inp:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+
+/* page structure */
+.ph{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.ph .t{display:flex;flex-direction:column;gap:4px}.ph p{color:var(--ink-2)}
+.ph .r{display:flex;gap:10px;align-items:center}
+.bar-row{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.sec{display:flex;align-items:baseline;gap:12px;margin-top:18px}
+.sec p{color:var(--muted);font-size:13px}
+.grid{display:grid;gap:16px;align-items:start}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.g21{grid-template-columns:minmax(0,1.7fr) minmax(0,1fr)}.g12{grid-template-columns:minmax(0,1fr) minmax(0,1.7fr)}
+.stretch{align-items:stretch}
+
+/* card */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-l);padding:20px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.ch{display:flex;align-items:flex-start;gap:12px}
+.ch .t{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.ch .sub{color:var(--muted);font-size:12.8px;max-width:78ch}
+.ch .a{display:flex;align-items:center;gap:4px;flex:none;margin:-4px -6px 0 0}
+.cf{display:flex;align-items:center;gap:16px;border-top:1px solid var(--line);padding-top:14px;margin-top:auto}
+.cf p{flex:1;color:var(--ink-2);font-size:13.2px;line-height:1.55;max-width:96ch}
+.cf p .tag{margin-right:6px;vertical-align:1px}
+.cf .btns{display:flex;gap:8px;flex:none}
+.legend{display:flex;gap:18px;flex-wrap:wrap;font-size:12.5px;color:var(--ink-2)}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.legend .ln{width:14px;height:2px;border-radius:1px}
+.note{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12.8px;padding:2px 2px}
+.muted{color:var(--muted)}.ink2{color:var(--ink-2)}.small{font-size:12.5px}
+.chart{display:block;overflow:visible}
+.chart text{font-family:var(--f-ui);font-size:11px;fill:var(--muted);font-variant-numeric:tabular-nums}
+.chart text.v{fill:var(--ink-2);font-weight:500}
+.chart text.l{fill:var(--ink);font-size:12px;font-weight:500}
+
+/* numbers */
+.stat{display:flex;flex-direction:column;gap:2px;min-width:0}
+.stat .lab{font-size:12.8px;color:var(--ink-2)}
+.stat .val{font-size:26px;font-weight:500;letter-spacing:-0.02em;line-height:1.2}
+.stat .val small{font-size:14px;color:var(--muted);font-weight:400;letter-spacing:0;margin-left:3px}
+.stat .ctx{font-size:12.5px;color:var(--muted)}
+.big{font-size:34px;font-weight:500;letter-spacing:-0.025em;line-height:1.1}
+.big small{font-size:15px;color:var(--muted);font-weight:400;letter-spacing:0;margin-left:4px}
+
+/* horizontal bars */
+.hb{display:grid;grid-template-columns:var(--lw,150px) minmax(0,1fr) var(--vw,56px);gap:14px;align-items:center;font-size:13px;min-height:26px}
+.hb>span:first-child{color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hb .v{text-align:right;color:var(--ink);font-weight:500}
+.trk{height:8px;border-radius:4px;background:var(--sunk);overflow:hidden;display:flex;gap:2px}
+.trk i{display:block;height:100%;border-radius:4px;background:var(--c,var(--s1));min-width:3px}
+.trk.stack i{border-radius:0}.trk.stack i:first-child{border-radius:4px 0 0 4px}.trk.stack i:last-child{border-radius:0 4px 4px 0}
+a.hb{color:inherit;border-radius:6px;margin:0 -8px;padding:0 8px}a.hb:hover{background:var(--sunk)}
+.grp{display:flex;flex-direction:column;gap:6px}
+.grp-h{display:flex;align-items:baseline;justify-content:space-between;gap:8px;font-size:13px;font-weight:600;margin-bottom:2px}
+.grp-h span{color:var(--muted);font-weight:500}
+
+/* tables */
+.tw{overflow-x:auto;margin:0 -4px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;color:var(--muted);font-weight:500;font-size:12px;padding:0 10px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:11px 10px;border-bottom:1px solid #15304a;vertical-align:middle;color:var(--ink-2)}
+td:first-child,th:first-child{padding-left:4px}td:last-child,th:last-child{padding-right:4px}
+tbody tr:last-child td{border-bottom:0}
+tbody tr:hover td{background:color-mix(in srgb,var(--sunk) 70%,transparent)}
+td.n,th.n{text-align:right}
+td.k{color:var(--ink);font-weight:500}
+tr.sum td{color:var(--ink);font-weight:600;border-top:1px solid var(--line)}
+td .sub2{display:block;font-size:12px;color:var(--muted);font-weight:400}
+.dim{color:var(--faint)}
+
+/* link rows */
+.rows{display:flex;flex-direction:column}
+.lrow{display:flex;align-items:center;gap:10px;padding:6px 8px;margin:0 -8px;border-radius:7px;color:var(--ink-2);font-size:13px}
+.lrow:hover{background:var(--sunk);color:var(--ink)}
+.lrow span:first-child{flex:1}.lrow .v{color:var(--ink);font-weight:500}
+.lrow .ic{color:var(--faint);opacity:0}.lrow:hover .ic{opacity:1}
+
+.pl{display:grid;position:relative;margin:4px 0 0}
+.pl::before{content:"";position:absolute;left:calc(100% / var(--n,9) / 2);right:calc(100% / var(--n,9) / 2);top:39px;height:2px;background:var(--line-2);border-radius:1px}
+.ps{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;padding:6px 4px 8px;border-radius:9px;color:inherit;text-align:center}
+.ps:hover{background:var(--sunk)}
+.ps .pn{font-size:12.5px;color:var(--ink-2);white-space:nowrap}
+.ps .pd{width:12px;height:12px;border-radius:50%;background:var(--panel);border:2px solid var(--s1);position:relative;z-index:1;margin:2px 0}
+.ps:first-child .pd{background:var(--s1)}
+.ps .pv{font-size:20px;font-weight:500;letter-spacing:-0.02em;line-height:1.2}
+.ps .pf{font-size:12px;color:var(--warn);font-weight:500;min-height:18px}
+.ps .pc{position:absolute;left:0;top:32px;transform:translateX(-50%);font-size:11.5px;font-weight:500;color:var(--ink-2);background:var(--sunk-2);border-radius:6px;padding:1px 6px;z-index:2}
+
+.card{border:0;border-radius:16px;padding:22px 24px;gap:18px;background:linear-gradient(180deg,#10293d 0%,#0c2131 56%);box-shadow:inset 0 1px 0 rgba(229,239,248,.06),0 1px 2px rgba(0,0,0,.4),0 18px 40px -18px rgba(0,0,0,.7)}
+.card h3{font-size:18px;letter-spacing:-0.015em;line-height:1.3}
+.card.hero h3{font-size:26px;letter-spacing:-0.025em;line-height:1.2}
+.ch .sub{font-size:13px}
+.cf{border-top-color:rgba(124,204,245,.09)}
+.sec{margin-top:26px}.sec h2{font-size:20px;letter-spacing:-0.02em}
+.mega{font-size:46px;font-weight:600;letter-spacing:-0.035em;line-height:1}
+.mega small{font-size:15px;font-weight:500;color:var(--muted);letter-spacing:0;margin-left:6px}
+.kick{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--ink-2);font-size:13px;font-weight:500}
+.views{display:flex;align-items:stretch;gap:10px}
+.view{display:flex;flex-direction:column;gap:3px;padding:12px 16px 13px;border-radius:12px;background:var(--panel);box-shadow:inset 0 0 0 1px var(--line);min-width:180px;color:var(--ink-2)}
+.view:hover{box-shadow:inset 0 0 0 1px var(--line-2);color:var(--ink-2)}
+.view.on{background:var(--ink);color:var(--bg);box-shadow:none}
+.view .vn{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:500;white-space:nowrap}
+.view b{font-size:20px;font-weight:600;letter-spacing:-0.02em;color:inherit}
+.view small{font-size:11.5px;opacity:.75}
+.view.on .vn,.view.on small{color:var(--bg)}
+.tiles{display:grid;gap:10px}
+.tile{display:flex;flex-direction:column;gap:2px;padding:12px 14px;border-radius:12px;background:rgba(6,19,29,.5);box-shadow:inset 0 0 0 1px var(--line);color:var(--ink-2);min-width:0}
+a.tile:hover{box-shadow:inset 0 0 0 1px var(--accent-line);color:var(--ink-2)}
+.tile b{font-size:22px;font-weight:600;letter-spacing:-0.02em;color:var(--ink)}
+.tile span{font-size:12.5px}
+.tile.dim{opacity:.55}
+.rank{display:grid;grid-template-columns:28px minmax(0,1fr) 120px 90px 110px;gap:14px;align-items:center;padding:10px 0;border-bottom:1px solid rgba(124,204,245,.07);font-size:13px}
+.rank:last-child{border-bottom:0}
+.rank.h{color:var(--muted);font-size:11.5px;padding-top:0}
+.rank .av{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;font-size:11px;font-weight:600;color:#04131d}
+.rank b{font-weight:500;color:var(--ink)}
+.rank small{display:block;color:var(--muted);font-size:12px}
+.searchbox{display:flex;align-items:center;gap:10px;height:46px;padding:0 14px;border-radius:12px;background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line-2);color:var(--muted);font-size:14px}
+.searchbox .grow{flex:1}
+.mult{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:28px}
+.mult .m{display:flex;flex-direction:column;gap:6px}
+.mult .mh{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;color:var(--ink-2)}
+.mult .mh b{font-size:22px;font-weight:600;letter-spacing:-0.02em;color:var(--ink)}
+.mult .md{font-size:12.5px;font-weight:500}
+.state{display:flex;flex-direction:column;gap:6px;padding:16px 16px 14px;border-radius:14px;background:rgba(6,19,29,.5);box-shadow:inset 0 0 0 1px var(--line);color:var(--ink-2);min-width:0}
+a.state:hover{box-shadow:inset 0 0 0 1px var(--accent-line);color:var(--ink-2)}
+.state b{font-size:30px;font-weight:600;letter-spacing:-0.03em;color:var(--ink);line-height:1.1}
+.state .l{font-size:13px;color:var(--ink-2);min-height:38px;line-height:1.4}
+.state .sh{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--muted)}
+.state .sh .trk{flex:1;height:4px}
+.state .go{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:500;color:var(--accent);margin-top:auto;padding-top:4px}
+.state .mk{font-size:12px;font-weight:500;color:var(--warn)}
+.state.hot{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--warn) 50%,transparent);background:color-mix(in srgb,var(--warn-soft) 45%,rgba(6,19,29,.5))}
+.state.day b{font-size:24px}
+.state.dash{background:none;box-shadow:none;border:1px dashed var(--line-2)}
+
+.band{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:32px;padding:28px 32px 24px;border-radius:20px;background:linear-gradient(160deg,#11304a 0%,#0c2131 45%,#0a1c2a 100%);box-shadow:inset 0 1px 0 rgba(229,239,248,.07),0 24px 60px -30px rgba(0,0,0,.9)}
+.band h2{font-size:28px;font-weight:600;letter-spacing:-0.03em;line-height:1.18}
+.band h2 span{color:var(--hl)}
+.band .s{color:var(--ink-2);margin-top:6px;max-width:68ch}
+.band .f{display:flex;justify-content:space-between;align-items:center;gap:16px;color:var(--muted);font-size:13px;border-top:1px solid rgba(124,204,245,.1);padding-top:14px}
+.band .f b{color:var(--ink-2)}
+.vlist{display:flex;flex-direction:column;gap:4px;border-left:1px solid rgba(124,204,245,.12);padding-left:24px}
+.vlist .q{font-size:12px;color:var(--muted);padding:2px 12px 8px}
+.vrow{display:grid;grid-template-columns:10px minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 12px;border-radius:10px;color:var(--ink-2);font-size:13px}
+.vrow:hover{background:rgba(6,19,29,.4);color:var(--ink)}
+.vrow.on{background:rgba(6,19,29,.55);color:var(--ink);box-shadow:inset 0 0 0 1px var(--accent-line)}
+.vrow i{width:9px;height:9px;border-radius:50%}
+.vrow b{font-size:15px;font-weight:600;color:var(--ink)}
+.vrow small{display:block;color:var(--muted);font-size:11.5px}
+</style>
+</head><body>
+
+<div class="app">
+    <nav class="rail" aria-label="Screens">
+      <div class="brand"><svg width="30" height="30" aria-hidden="true" viewBox="0 0 2047 2047" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve"  style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;"><g transform="matrix(1,0,0,1,-503.495577,-598.561096)"><g id="On-Dark"  transform="matrix(4.323186,0,0,6.177886,-3088.886724,-11857.400568)"><rect x="830.957" y="2016.217" width="473.493" height="331.343" style="fill:rgb(17,24,39);fill-opacity:0;"/><clipPath id="_clip1"><rect x="830.957" y="2016.217" width="473.493" height="331.343"/></clipPath><g clip-path="url(#_clip1)"><g transform="matrix(1.036606,0,0,0.7254,-332.645859,1265.478766)"><g transform="matrix(1.087481,0,0,1.087481,533.071259,-775.226094)"><path d="M766.754,1951.542C766.754,1951.542 780.064,1958.686 797.331,1964.495C815.722,1970.681 839.697,1975.268 839.697,1975.268C784.951,2047.181 676.866,2060.583 605.748,2006.881C566.917,1977.56 547.258,1934.152 542.985,1894.405C533.007,1801.598 601.692,1709.859 706.441,1709.454C766.737,1709.221 794.019,1747.544 811.696,1759.244C867.364,1796.09 903.737,1755.088 904.214,1754.877C902.489,1761.751 898.023,1774.079 891.611,1785.223C891.011,1786.264 889.65,1788.66 887.472,1791.987C887.355,1792.165 882.043,1798.993 873.97,1806.167C865.552,1813.648 857.916,1818.221 853.07,1820.839C852.348,1821.229 845.625,1824.216 836.798,1826.493C832.005,1827.729 828.156,1828.361 826.583,1828.611C826.231,1828.667 817.636,1829.596 806.234,1828.483C799.139,1827.79 796.583,1827.049 795.768,1826.812C763.829,1817.545 748.796,1789.411 725.544,1781.04C721.934,1779.74 713.625,1776.874 696.698,1778.543C634.743,1784.652 600.718,1845.669 613.172,1898.812C618.964,1923.53 632.762,1938.55 633.809,1939.757C667.346,1978.388 727.458,1982.249 766.754,1951.542Z" style="fill:url(#_Radial2);"/><clipPath id="_clip3"><path d="M766.754,1951.542C766.754,1951.542 780.064,1958.686 797.331,1964.495C815.722,1970.681 839.697,1975.268 839.697,1975.268C784.951,2047.181 676.866,2060.583 605.748,2006.881C566.917,1977.56 547.258,1934.152 542.985,1894.405C533.007,1801.598 601.692,1709.859 706.441,1709.454C766.737,1709.221 794.019,1747.544 811.696,1759.244C867.364,1796.09 903.737,1755.088 904.214,1754.877C902.489,1761.751 898.023,1774.079 891.611,1785.223C891.011,1786.264 889.65,1788.66 887.472,1791.987C887.355,1792.165 882.043,1798.993 873.97,1806.167C865.552,1813.648 857.916,1818.221 853.07,1820.839C852.348,1821.229 845.625,1824.216 836.798,1826.493C832.005,1827.729 828.156,1828.361 826.583,1828.611C826.231,1828.667 817.636,1829.596 806.234,1828.483C799.139,1827.79 796.583,1827.049 795.768,1826.812C763.829,1817.545 748.796,1789.411 725.544,1781.04C721.934,1779.74 713.625,1776.874 696.698,1778.543C634.743,1784.652 600.718,1845.669 613.172,1898.812C618.964,1923.53 632.762,1938.55 633.809,1939.757C667.346,1978.388 727.458,1982.249 766.754,1951.542Z"/></clipPath><g clip-path="url(#_clip3)"><g transform="matrix(0.919556,0,0,0.919556,-490.188989,712.863971)"><path d="M1348.535,1190.01C1360.325,1211.922 1275.541,1228.562 1258.534,1263.317C1235.857,1309.656 1238.055,1475.828 1212.474,1468.046C1186.893,1460.264 1086.523,1325.483 1105.047,1216.627C1108.671,1195.331 1149.393,1169.367 1149.393,1169.367C1149.393,1169.367 1203.857,1125.279 1255.566,1126.135C1298.274,1126.842 1324.696,1145.704 1348.535,1190.01Z" style="fill:url(#_Linear4);"/></g><g transform="matrix(0.919556,0,0,0.919556,-490.188989,712.863971)"><path d="M1255.566,1126.135C1298.274,1126.842 1314.684,1146.125 1349.582,1182.364C1368.136,1201.631 1388.249,1219.749 1418.379,1219.058C1454.51,1218.229 1469.391,1211.239 1474.655,1206.182C1481.328,1199.771 1544.472,1162.628 1516.387,1128.969C1505.044,1115.375 1482.95,1159.016 1455.747,1151.888C1422.264,1143.115 1374.931,1062.313 1275.885,1080.043C1156.278,1101.454 1149.393,1169.367 1149.393,1169.367C1149.393,1169.367 1203.857,1125.279 1255.566,1126.135Z" style="fill:url(#_Linear5);"/></g></g></g><g transform="matrix(1.833478,0.147117,-0.13599,1.694803,-1154.414096,4094.686055)"><path d="M1306.051,-1774.845L1305.713,-1797.136L1360.584,-1758.213L1305.037,-1709.323L1305.375,-1739.382C1305.375,-1739.382 1273.88,-1726.959 1234.89,-1753.188C1202.66,-1774.87 1184.199,-1755.842 1184.199,-1755.842C1184.199,-1755.842 1193.949,-1805.555 1250.779,-1785.975C1291.814,-1771.836 1306.051,-1774.845 1306.051,-1774.845Z" style="fill:url(#_Linear6);"/></g></g></g></g></g><defs><radialGradient id="_Radial2" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="matrix(-238.206482,57.45609,-57.45609,-238.206482,837.708913,1898.060094)"><stop offset="0" style="stop-color:rgb(0,139,211);stop-opacity:1"/><stop offset="1" style="stop-color:rgb(36,172,242);stop-opacity:1"/></radialGradient><linearGradient id="_Linear4" x1="0" y1="0" x2="1" y2="0" gradientUnits="userSpaceOnUse" gradientTransform="matrix(76.021768,-150.986709,150.986709,76.021768,1172.710625,1277.109726)"><stop offset="0" style="stop-color:rgb(0,140,212);stop-opacity:0"/><stop offset="1" style="stop-color:rgb(15,81,151);stop-opacity:1"/></linearGradient><linearGradient id="_Linear5" x1="0" y1="0" x2="1" y2="0" gradientUnits="userSpaceOnUse" gradientTransform="matrix(-386.430482,0,0,-386.430482,1552.010197,1146.738154)"><stop offset="0" style="stop-color:rgb(252,91,122);stop-opacity:1"/><stop offset="0.2" style="stop-color:rgb(241,89,137);stop-opacity:1"/><stop offset="0.39" style="stop-color:rgb(207,83,184);stop-opacity:1"/><stop offset="1" style="stop-color:rgb(37,176,243);stop-opacity:1"/></linearGradient><linearGradient id="_Linear6" x1="0" y1="0" x2="1" y2="0" gradientUnits="userSpaceOnUse" gradientTransform="matrix(176.384948,0,0,87.812971,1184.199104,-1753.229657)"><stop offset="0" style="stop-color:rgb(0,121,186);stop-opacity:1"/><stop offset="1" style="stop-color:rgb(35,168,242);stop-opacity:1"/></linearGradient></defs></svg>
+<div><b>Gratovo</b><small>Workbench</small></div></div>
+      <a href="#" class="nav" style="--hue: var(--accent)"><span class="nic"><svg class="ic" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path></svg></span><span class="nl"><b>Today</b></span><span class="cnt">14</span></a>
+      <a href="#" class="nav" style="--hue: var(--find)"><span class="nic"><svg class="ic" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M3 7V5a2 2 0 0 1 2-2h2"></path><path d="M17 3h2a2 2 0 0 1 2 2v2"></path><path d="M21 17v2a2 2 0 0 1-2 2h-2"></path><path d="M7 21H5a2 2 0 0 1-2-2v-2"></path><circle cx="11.5" cy="11.5" r="3.2"></circle><path d="m16 16-2.2-2.2"></path></svg></span><span class="nl"><b>Find</b><small>Search, triage, contacts</small></span></a>
+      <a href="#" class="nav" style="--hue: var(--reach)"><span class="nic"><svg class="ic" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M22 2 11 13"></path><path d="M22 2 15 22l-4-9-9-4z"></path></svg></span><span class="nl"><b>Reach</b><small>Emails, replies, sequences</small></span></a>
+      <a href="#" class="nav" style="--hue: var(--close)"><span class="nic"><svg class="ic" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M12.5 22H18a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v9.5"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path><path d="M13.4 15.6a1 1 0 1 0-3-3l-5 5a2 2 0 0 0-.5.9l-.8 2.8a.5.5 0 0 0 .6.6l2.8-.8a2 2 0 0 0 .9-.5z"></path></svg></span><span class="nl"><b>Close</b><small>Audience, brands, pitch, terms</small></span></a>
+      <a href="#" class="nav" style="--hue: var(--deliver)"><span class="nic"><svg class="ic" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="m7.5 4.27 9 5.15"></path><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><path d="m3.3 7 8.7 5 8.7-5"></path><path d="M12 22V12"></path></svg></span><span class="nl"><b>Deliver</b><small>Deals and money</small></span></a>
+      <div class="nav-h">Run the agency</div>
+      <a href="#" class="nav on" style="--hue: var(--ink-2)" aria-current="page"><span class="nic"><svg class="ic" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M3 3v18h18"></path><path d="M18 17V9"></path><path d="M13 17V5"></path><path d="M8 17v-3"></path></svg></span><span class="nl"><b>Insights</b><small>Analytics, keywords, funnel</small></span></a>
+      <a href="#" class="nav" style="--hue: var(--ink-2)"><span class="nic"><svg class="ic" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg></span><span class="nl"><b>Toolbox</b><small>Archive, scheduled, never contact, log</small></span></a>
+      <a href="#" class="nav" style="--hue: var(--ink-2)"><span class="nic"><svg class="ic" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg></span><span class="nl"><b>Settings</b><small>You, this computer, the agency</small></span></a>
+    </nav>
+  <div class="main">
+    <header class="top">
+      <button type="button" class="iconbtn" aria-label="Back"><svg class="ic" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg></button>
+      <button type="button" class="iconbtn" aria-label="Forward"><svg class="ic" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></button>
+      <div class="crumbs">Insights <svg class="ic" viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg> <b>Search</b></div>
+      <button type="button" class="cmdk"><svg class="ic" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.6-3.6"></path></svg><span class="grow">Search or run a command</span><span class="kbd">Ctrl K</span></button>
+      <span class="save"><i></i>Saved</span>
+      <button type="button" class="iconbtn" aria-label="Notifications"><svg class="ic" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg></button>
+    </header>
+    <main class="page">
+      <div class="ph">
+        <div class="t"><h1>Insights</h1><p>How the agency is doing, what needs you, and what to do about it.</p></div>
+        <div class="r"><div class="seg" role="group" aria-label="Period"><button type="button" aria-pressed="false">7 days</button><button type="button" aria-pressed="true">30 days</button><button type="button" aria-pressed="false">90 days</button><button type="button" aria-pressed="false">This month</button></div><button type="button" class="btn"><svg class="ic" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><rect x="8" y="8" width="14" height="14" rx="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg>Copy summary</button></div>
+      </div>
+      <nav class="tabs" aria-label="Insights tabs"><a href="overview.html">Overview</a><a href="funnel.html">Funnel</a><a href="emails.html">Emails</a><a href="#" class="on" aria-current="page">Search</a><a href="money.html">Money</a><a href="goal.html">Goal</a></nav>
+
+      <section class="band" style="--hl: var(--warn)">
+        <div style="display: flex; flex-direction: column; gap: 18px; min-width: 0">
+          <div><h2>2,000 live channels. <span>340 wait for your review.</span></h2><p class="s">Where the work sits right now. Each circle is a step, sized by how many channels are in it.</p></div>
+          <svg class="chart" width="100%" viewBox="0 0 760 222" role="img" aria-label="Live channels by step: 340 not reviewed, 290 shortlisted, 1,180 in outreach, 16 signed"><path d="M70,60 L232,60" fill="none" stroke="#3b5a73" stroke-width="2"></path><path d="M224,55 L232,60 L224,65" fill="none" stroke="#3b5a73" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path><path d="M290,60 L448,60" fill="none" stroke="#3b5a73" stroke-width="2"></path><path d="M440,55 L448,60 L440,65" fill="none" stroke="#3b5a73" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path><path d="M540,60 L676,60" fill="none" stroke="#3b5a73" stroke-width="2"></path><path d="M668,55 L676,60 L668,65" fill="none" stroke="#3b5a73" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path><circle cx="60" cy="60" r="23.61843577535516" fill="#0d2436"></circle><circle cx="60" cy="60" r="23.61843577535516" fill="#f2b84b" fill-opacity="0.2" stroke="#f2b84b" stroke-width="2"></circle><text x="60" y="107.61843577535515" text-anchor="middle" style="fill:#f2b84b;font-size:20px;font-weight:600;letter-spacing:-0.02em">340</text><text x="60" y="125.61843577535515" text-anchor="middle" style="fill:#b0c3d6;font-size:12.5px">Not reviewed</text><text x="60" y="143.61843577535515" text-anchor="middle" style="fill:#4cb6ef;font-size:12px;font-weight:500">Review →</text><circle cx="270" cy="60" r="21.81276255244832" fill="#0d2436"></circle><circle cx="270" cy="60" r="21.81276255244832" fill="#3a9ad3" fill-opacity="0.2" stroke="#3a9ad3" stroke-width="2"></circle><text x="270" y="105.81276255244832" text-anchor="middle" style="fill:#e5eff8;font-size:20px;font-weight:600;letter-spacing:-0.02em">290</text><text x="270" y="123.81276255244832" text-anchor="middle" style="fill:#b0c3d6;font-size:12.5px">Shortlisted</text><text x="270" y="141.8127625524483" text-anchor="middle" style="fill:#4cb6ef;font-size:12px;font-weight:500">Draft emails →</text><circle cx="492" cy="60" r="44" fill="#0d2436"></circle><circle cx="492" cy="60" r="44" fill="#3a9ad3" fill-opacity="0.2" stroke="#3a9ad3" stroke-width="2"></circle><text x="492" y="128" text-anchor="middle" style="fill:#e5eff8;font-size:20px;font-weight:600;letter-spacing:-0.02em">1,180</text><text x="492" y="146" text-anchor="middle" style="fill:#b0c3d6;font-size:12.5px">In outreach</text><text x="492" y="164" text-anchor="middle" style="fill:#4cb6ef;font-size:12px;font-weight:500">Open Reach →</text><circle cx="700" cy="60" r="7" fill="#0d2436"></circle><circle cx="700" cy="60" r="7" fill="#5fd283" fill-opacity="0.2" stroke="#5fd283" stroke-width="2"></circle><text x="700" y="91" text-anchor="middle" style="fill:#e5eff8;font-size:20px;font-weight:600;letter-spacing:-0.02em">16</text><text x="700" y="109" text-anchor="middle" style="fill:#b0c3d6;font-size:12.5px">Signed</text><text x="700" y="127" text-anchor="middle" style="fill:#4cb6ef;font-size:12px;font-weight:500">Roster →</text><text x="760" y="214" text-anchor="end" style="fill:#8aa0b5;font-size:12.5px">Set aside: <tspan style="fill:#e5eff8;font-weight:600">70</tspan> parked · <tspan style="fill:#e5eff8;font-weight:600">104</tspan> never contact</text></svg>
+          <div class="f"><span>This week <b>65</b> joined Live and <b>50</b> left. Searches add about 12 a day more than you review.</span><a href="#" class="btn ghost sm">Open Live in Find<svg class="ic" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg></a></div>
+        </div>
+        <nav class="vlist" aria-label="Which channels"><span class="q">Each view answers its own question</span><a href="#" class="vrow on"><i style="background: #3a9ad3"></i><span>Live<small>Where is the work?</small></span><b>2,000</b></a><a href="#" class="vrow"><i style="background: #c8711f"></i><span>To be archived<small>What leaves, and what to rescue?</small></span><b>10,200</b></a><a href="#" class="vrow"><i style="background: #8a7ae6"></i><span>Archive<small>How did they get here?</small></span><b>150,200</b></a><a href="#" class="vrow"><i style="background: #b0c3d6"></i><span>Everything<small>How does the catalog split?</small></span><b>162,400</b></a></nav>
+      </section>
+      <div class="grid g2 stretch">
+        <section class="card ">
+        <div class="ch"><div class="t"><h3>About 65 channels join Live each week, and 50 leave.</h3><p class="sub">Kept from review (in) against rejected later, parked for good or never contact (out). Last 12 weeks.</p></div><div class="a"><button type="button" class="btn ghost sm"><svg class="ic" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M8 6h13"></path><path d="M8 12h13"></path><path d="M8 18h13"></path><path d="M3 6h.01"></path><path d="M3 12h.01"></path><path d="M3 18h.01"></path></svg>Numbers</button></div></div>
+        <div class="legend"><span><i class="sw" style="background: #3a9ad3"></i>Joined Live</span><span><i class="sw" style="background: #3d5a72"></i>Left Live</span></div>
+          <svg class="chart" width="100%" viewBox="0 0 498 180" role="img" aria-label="Channels joining and leaving Live each week"><line x1="48" x2="490" y1="152" y2="152" stroke="#29506d"></line><text x="38" y="156" text-anchor="end">0</text><line x1="48" x2="490" y1="108.66666666666667" y2="108.66666666666667" stroke="#163248"></line><text x="38" y="112.66666666666667" text-anchor="end">25</text><line x1="48" x2="490" y1="65.33333333333334" y2="65.33333333333334" stroke="#163248"></line><text x="38" y="69.33333333333334" text-anchor="end">50</text><line x1="48" x2="490" y1="22" y2="22" stroke="#163248"></line><text x="38" y="26" text-anchor="end">75</text><path d="M54.41666666666667,152L54.41666666666667,55.46666666666667Q54.41666666666667,51.46666666666667 58.41666666666667,51.46666666666667L61.41666666666667,51.46666666666667Q65.41666666666667,51.46666666666667 65.41666666666667,55.46666666666667L65.41666666666667,152Z" fill="#3a9ad3" opacity="1"></path><path d="M67.41666666666667,152L67.41666666666667,79.73333333333333Q67.41666666666667,75.73333333333333 71.41666666666667,75.73333333333333L74.41666666666667,75.73333333333333Q78.41666666666667,75.73333333333333 78.41666666666667,79.73333333333333L78.41666666666667,152Z" fill="#3d5a72" opacity="1"></path><text x="66.41666666666667" y="170" text-anchor="middle">4 Aug</text><path d="M91.25,152L91.25,50.266666666666666Q91.25,46.266666666666666 95.25,46.266666666666666L98.25,46.266666666666666Q102.25,46.266666666666666 102.25,50.266666666666666L102.25,152Z" fill="#3a9ad3" opacity="1"></path><path d="M104.25,152L104.25,69.33333333333334Q104.25,65.33333333333334 108.25,65.33333333333334L111.25,65.33333333333334Q115.25,65.33333333333334 115.25,69.33333333333334L115.25,152Z" fill="#3d5a72" opacity="1"></path><path d="M128.08333333333334,152L128.08333333333334,34.66666666666667Q128.08333333333334,30.66666666666667 132.08333333333334,30.66666666666667L135.08333333333334,30.66666666666667Q139.08333333333334,30.66666666666667 139.08333333333334,34.66666666666667L139.08333333333334,152Z" fill="#3a9ad3" opacity="1"></path><path d="M141.08333333333334,152L141.08333333333334,65.86666666666666Q141.08333333333334,61.86666666666666 145.08333333333334,61.86666666666666L148.08333333333334,61.86666666666666Q152.08333333333334,61.86666666666666 152.08333333333334,65.86666666666666L152.08333333333334,152Z" fill="#3d5a72" opacity="1"></path><path d="M164.91666666666669,152L164.91666666666669,41.599999999999994Q164.91666666666669,37.599999999999994 168.91666666666669,37.599999999999994L171.91666666666669,37.599999999999994Q175.91666666666669,37.599999999999994 175.91666666666669,41.599999999999994L175.91666666666669,152Z" fill="#3a9ad3" opacity="1"></path><path d="M177.91666666666669,152L177.91666666666669,71.06666666666666Q177.91666666666669,67.06666666666666 181.91666666666669,67.06666666666666L184.91666666666669,67.06666666666666Q188.91666666666669,67.06666666666666 188.91666666666669,71.06666666666666L188.91666666666669,152Z" fill="#3d5a72" opacity="1"></path><text x="176.91666666666669" y="170" text-anchor="middle">25 Aug</text><path d="M201.75,152L201.75,46.8Q201.75,42.8 205.75,42.8L208.75,42.8Q212.75,42.8 212.75,46.8L212.75,152Z" fill="#3a9ad3" opacity="1"></path><path d="M214.75,152L214.75,60.66666666666667Q214.75,56.66666666666667 218.75,56.66666666666667L221.75,56.66666666666667Q225.75,56.66666666666667 225.75,60.66666666666667L225.75,152Z" fill="#3d5a72" opacity="1"></path><path d="M238.58333333333334,152L238.58333333333334,31.200000000000003Q238.58333333333334,27.200000000000003 242.58333333333334,27.200000000000003L245.58333333333334,27.200000000000003Q249.58333333333334,27.200000000000003 249.58333333333334,31.200000000000003L249.58333333333334,152Z" fill="#3a9ad3" opacity="1"></path><path d="M251.58333333333334,152L251.58333333333334,74.53333333333333Q251.58333333333334,70.53333333333333 255.58333333333334,70.53333333333333L258.58333333333337,70.53333333333333Q262.58333333333337,70.53333333333333 262.58333333333337,74.53333333333333L262.58333333333337,152Z" fill="#3d5a72" opacity="1"></path><path d="M275.4166666666667,152L275.4166666666667,36.39999999999999Q275.4166666666667,32.39999999999999 279.4166666666667,32.39999999999999L282.4166666666667,32.39999999999999Q286.4166666666667,32.39999999999999 286.4166666666667,36.39999999999999L286.4166666666667,152Z" fill="#3a9ad3" opacity="1"></path><path d="M288.4166666666667,152L288.4166666666667,64.13333333333334Q288.4166666666667,60.13333333333334 292.4166666666667,60.13333333333334L295.4166666666667,60.13333333333334Q299.4166666666667,60.13333333333334 299.4166666666667,64.13333333333334L299.4166666666667,152Z" fill="#3d5a72" opacity="1"></path><text x="287.4166666666667" y="170" text-anchor="middle">15 Sep</text><path d="M312.25,152L312.25,45.06666666666666Q312.25,41.06666666666666 316.25,41.06666666666666L319.25,41.06666666666666Q323.25,41.06666666666666 323.25,45.06666666666666L323.25,152Z" fill="#3a9ad3" opacity="1"></path><path d="M325.25,152L325.25,67.6Q325.25,63.599999999999994 329.25,63.599999999999994L332.25,63.599999999999994Q336.25,63.599999999999994 336.25,67.6L336.25,152Z" fill="#3d5a72" opacity="1"></path><path d="M349.08333333333337,152L349.08333333333337,39.866666666666674Q349.08333333333337,35.866666666666674 353.08333333333337,35.866666666666674L356.08333333333337,35.866666666666674Q360.08333333333337,35.866666666666674 360.08333333333337,39.866666666666674L360.08333333333337,152Z" fill="#3a9ad3" opacity="1"></path><path d="M362.08333333333337,152L362.08333333333337,72.8Q362.08333333333337,68.8 366.08333333333337,68.8L369.08333333333337,68.8Q373.08333333333337,68.8 373.08333333333337,72.8L373.08333333333337,152Z" fill="#3d5a72" opacity="1"></path><path d="M385.9166666666667,152L385.9166666666667,32.93333333333334Q385.9166666666667,28.933333333333337 389.9166666666667,28.933333333333337L392.9166666666667,28.933333333333337Q396.9166666666667,28.933333333333337 396.9166666666667,32.93333333333334L396.9166666666667,152Z" fill="#3a9ad3" opacity="1"></path><path d="M398.9166666666667,152L398.9166666666667,69.33333333333334Q398.9166666666667,65.33333333333334 402.9166666666667,65.33333333333334L405.9166666666667,65.33333333333334Q409.9166666666667,65.33333333333334 409.9166666666667,69.33333333333334L409.9166666666667,152Z" fill="#3d5a72" opacity="1"></path><text x="397.9166666666667" y="170" text-anchor="middle">6 Oct</text><path d="M422.75,152L422.75,48.53333333333333Q422.75,44.53333333333333 426.75,44.53333333333333L429.75,44.53333333333333Q433.75,44.53333333333333 433.75,48.53333333333333L433.75,152Z" fill="#3a9ad3" opacity="1"></path><path d="M435.75,152L435.75,65.86666666666666Q435.75,61.86666666666666 439.75,61.86666666666666L442.75,61.86666666666666Q446.75,61.86666666666666 446.75,65.86666666666666L446.75,152Z" fill="#3d5a72" opacity="1"></path><path d="M459.58333333333337,152L459.58333333333337,43.33333333333333Q459.58333333333337,39.33333333333333 463.58333333333337,39.33333333333333L466.58333333333337,39.33333333333333Q470.58333333333337,39.33333333333333 470.58333333333337,43.33333333333333L470.58333333333337,152Z" fill="#3a9ad3" opacity="1"></path><path d="M472.58333333333337,152L472.58333333333337,76.26666666666668Q472.58333333333337,72.26666666666668 476.58333333333337,72.26666666666668L479.58333333333337,72.26666666666668Q483.58333333333337,72.26666666666668 483.58333333333337,76.26666666666668L483.58333333333337,152Z" fill="#3d5a72" opacity="1"></path></svg>
+        <div class="cf"><p>Live grows slowly, by about 15 a week. That's healthy: you keep only what's worth emailing.</p></div>
+      </section>
+        <section class="card ">
+        <div class="ch"><div class="t"><h3>340 channels wait for your review.</h3><p class="sub">New finds that passed your rules and that no one has looked at yet.</p></div><div class="a"><span class="tag warn"><svg class="ic" viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>Watch</span></div></div>
+        <div class="mega">340<small>oldest waited 9 days</small></div>
+          <div class="grp" style="gap: 6px">
+            <div class="hb" style="--lw: 120px; --vw: 90px"><span>Found a day</span><div class="trk"><i style="width: 100%"></i></div><span class="v">74</span></div>
+            <div class="hb" style="--lw: 120px; --vw: 90px"><span>You review a day</span><div class="trk"><i style="width: 84%; --c: #3d5a72"></i></div><span class="v">62</span></div>
+          </div>
+        <div class="cf"><p>Searches add about 12 a day more than you review, so the backlog grows. At this pace it lasts <b>5.5 days</b>.</p><div class="btns"><a href="#" class="btn pri sm">Review now</a></div></div>
+      </section>
+      </div>
+      <section class="card ">
+        <div class="ch"><div class="t"><h3>Two keywords bring almost every signing.</h3><p class="sub">The 6 keywords that found the most live channels, of 41. Kept per 1,000 found is the share of a keyword's finds that survived your rules and your review.</p></div><div class="a"><button type="button" class="btn ghost sm"><svg class="ic" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M8 6h13"></path><path d="M8 12h13"></path><path d="M8 18h13"></path><path d="M3 6h.01"></path><path d="M3 12h.01"></path><path d="M3 18h.01"></path></svg>Numbers</button><a href="#" class="btn sm ghost">All 41 keywords</a></div></div>
+        <div class="tw"><table>
+          <thead><tr><th>Keyword</th><th class="n">Found</th><th style="width: 24%">Kept per 1,000 found</th><th class="n">Live now</th><th class="n">Emailed</th><th class="n">Replied</th><th class="n">Signed</th><th>Verdict</th></tr></thead>
+          <tbody><tr><td class="k">local llm setup</td><td class="n">12,400</td><td><div style="display: flex; align-items: center; gap: 10px"><div class="trk" style="flex: 1"><i style="width: 100%"></i></div><span class="k" style="width: 34px; text-align: right">21</span></div></td><td class="n">260</td><td class="n">98</td><td class="n">11</td><td class="n k">3</td><td><span class="vt good">Keep</span></td></tr><tr><td class="k">ai agents tutorial</td><td class="n">18,900</td><td><div style="display: flex; align-items: center; gap: 10px"><div class="trk" style="flex: 1"><i style="width: 76.19047619047619%"></i></div><span class="k" style="width: 34px; text-align: right">16</span></div></td><td class="n">310</td><td class="n">131</td><td class="n">12</td><td class="n k">3</td><td><span class="vt good">Keep</span></td></tr><tr><td class="k">cursor ai coding</td><td class="n">9,800</td><td><div style="display: flex; align-items: center; gap: 10px"><div class="trk" style="flex: 1"><i style="width: 66.66666666666666%"></i></div><span class="k" style="width: 34px; text-align: right">14</span></div></td><td class="n">140</td><td class="n">66</td><td class="n">5</td><td class="n k">1</td><td><span class="vt good">Keep</span></td></tr><tr><td class="k">ai news weekly</td><td class="n">38,600</td><td><div style="display: flex; align-items: center; gap: 10px"><div class="trk" style="flex: 1"><i style="width: 50.476190476190474%"></i></div><span class="k" style="width: 34px; text-align: right">10.6</span></div></td><td class="n">410</td><td class="n">180</td><td class="n">2</td><td class="n k">0</td><td><span class="vt crit">Drop</span><span class="sub2">finds many, nobody answers</span></td></tr><tr><td class="k">ai video tools</td><td class="n">7,100</td><td><div style="display: flex; align-items: center; gap: 10px"><div class="trk" style="flex: 1"><i style="width: 40.476190476190474%"></i></div><span class="k" style="width: 34px; text-align: right">8.5</span></div></td><td class="n">60</td><td class="n">22</td><td class="n">1</td><td class="n k">0</td><td><span class="vt early">Too early</span><span class="sub2">22 of 50 emailed</span></td></tr><tr><td class="k">chatgpt tips</td><td class="n">31,200</td><td><div style="display: flex; align-items: center; gap: 10px"><div class="trk" style="flex: 1"><i style="width: 18.095238095238095%"></i></div><span class="k" style="width: 34px; text-align: right">3.8</span></div></td><td class="n">120</td><td class="n">61</td><td class="n">3</td><td class="n k">0</td><td><span class="vt warn">Watch</span><span class="sub2">worn out</span></td></tr></tbody>
+        </table></div>
+        <div class="cf"><p><b>local llm setup</b> and <b>ai agents tutorial</b> found 6 of the 7 signings. <b>ai news weekly</b> found the most of all, 38,600, but only 2 of its 180 emailed creators replied: news channels rarely take sponsors.</p><div class="btns"><a href="#" class="btn sm">Drop ai news weekly</a></div></div>
+      </section>
+      <div class="grid g2 stretch">
+        <section class="card ">
+        <div class="ch"><div class="t"><h3>85% of shortlisted channels get a confirmed address.</h3><p class="sub">Live view, shortlisted in the last 30 days.</p></div></div>
+        <div class="grp" style="gap: 6px"><div class="hb" style="--lw: 120px"><span>Address found</span><div class="trk"><i style="width: 91%"></i></div><span class="v">91%</span></div>
+<div class="hb" style="--lw: 120px"><span>Confirmed</span><div class="trk"><i style="width: 85%"></i></div><span class="v">85%</span></div></div>
+          <p class="small ink2">From the About page 61%, a video 32%, typed 7%. Usually 1.4 days from shortlist to confirmed.</p>
+        <div class="cf"><p><b>24</b> addresses wait for you to confirm them: about a day of sending.</p><div class="btns"><a href="#" class="btn sm">Confirm 24</a></div></div>
+      </section>
+        <section class="card ">
+        <div class="ch"><div class="t"><h3>172 live channels have numbers we couldn't read.</h3><p class="sub">Unknown is shown as unknown, never as 0.</p></div></div>
+        <div class="rows"><a href="#" class="lrow"><span>Not read yet</span><span class="v">120</span><svg class="ic" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></a><a href="#" class="lrow"><span>Couldn't read, retrying</span><span class="v">34</span><svg class="ic" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></a><a href="#" class="lrow"><span>Gave up after 3 tries</span><span class="v">18</span><svg class="ic" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></a><a href="#" class="lrow"><span>No audience country</span><span class="v">410</span><svg class="ic" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></a></div>
+        <div class="cf"><p>The 18 that gave up won't be tried again on their own.</p><div class="btns"><a href="#" class="btn sm">Read the 18 again</a></div></div>
+      </section>
+      </div>
+    </main>
+  </div>
+</div>
+</body></html>
