@@ -32,6 +32,7 @@ These come from the owner and hold until the owner changes them. The detail and 
 - **Language:** English only for now. Keep every user-facing string in one place so other languages can come later.
 - **Dark only, for now:** the app always runs dark, with no theme switch. Don't build, test or check the light theme until the owner asks. The light tokens stay in `tokens.css`.
 - **Prototype mode** is owner-only and off by default. When off it leaves no trace: no buttons, keys, pins, bars or network calls.
+- **The full prototype** (2026-10-27): prototype mode shows the whole app, built and planned (step P, ADR 0021). Every piece is built once, as the real screen on example data, and never as a copy. No screen reads the prototype-mode state. The spec is `design/workbench-v6/`: question it, and ask the owner where it differs from what is built on a matter of taste.
 
 ## How to work
 

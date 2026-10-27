@@ -53,7 +53,7 @@ Every check CI used to run, on this computer, in this order (`tooling/verify.ts`
 
 ## The prototype
 
-`design/workbench-prototype/` stays runnable until step 11. Changes to the design are tried there first when that is faster than in the real app. The published copy is at https://claude.ai/artifact/96e8HtK58oyRqVcYdUcZNn. Republishing it needs a session with the Artifact tool, and the owner's comments on it live in its `comments` collection.
+The spec is `design/workbench-v6/` since 2026-10-27 (ADR 0021). Open its `index.html` to run it. Another AI made it with little input from the owner, so question it, and ask the owner where it differs from what is built on a matter of taste. `design/workbench-prototype/` (v3, with its tests and notes) is the earlier version, kept for reference. Both stay until step 11. Changes to the design are tried there first when that is faster than in the real app. The published copy is at https://claude.ai/artifact/96e8HtK58oyRqVcYdUcZNn. Republishing it needs a session with the Artifact tool, and the owner's comments on it live in its `comments` collection.
 
 ## Setting up and things to know
 
@@ -68,7 +68,7 @@ Every check CI used to run, on this computer, in this order (`tooling/verify.ts`
 - **A test run opens on the second screen** (owner, 2026-10-25): an unpackaged app started with `GRATOVO_USER_DATA` (every Electron test and the lead's screenshot scripts) opens at the top-left corner of the screen that isn't the main one, and doesn't take the keyboard (`showInactive`). With one screen, Windows places it. `pnpm dev` and the installed app are unchanged (`apps/desktop/src/main/window.ts`).
 - **Electron 44 downloads its binary on first use,** not at install. The `dev`, `preview` and `test:e2e` scripts run `install-electron` first (it checks the download against Electron's own checksums and exits at once when the binary is there).
 - **`minimumReleaseAge` is one day.** A version published in the last 24 hours won't install: pick the one before it.
-- **The prototype is the spec.** Before building a screen, open it (or read its `js/<screen>.js`) and its design notes (`js/plan.js`, the `WHY` notes). The token and `DEAL_FLOW` tests fail if the prototype and the port drift apart; change both together.
+- **The prototype is the spec.** Before building a screen, open `design/workbench-v6/` (or read its `js/<screen>.js`) and its design notes (`js/plan.js`, the `WHY` notes). The token and `DEAL_FLOW` tests fail if the prototype and the port drift apart; change both together.
 - **The owner's comments** on the published prototype live in the artifact's `comments` collection (https://claude.ai/artifact/96e8HtK58oyRqVcYdUcZNn). A session without the Artifact tools asks the owner to paste them ("Copy open for Claude" in the prototype's comment list).
 - **Don't** build the four gaps on hold, send email, read the mailbox, or delete anything in `legacy/` ([owner-rules.md](product/owner-rules.md)).
 
