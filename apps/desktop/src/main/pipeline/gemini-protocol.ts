@@ -232,6 +232,13 @@ const someText = (max: number) => z.string().max(max).nullable();
 
 export const commsKinds = ["first", "reply", "followUp", "decision"] as const;
 
+/** What a reply is for, when it is more than "answer them" (plan step 8: Close). */
+export const commsGoals = ["decline_audience", "ask_kit"] as const;
+/** The kit numbers an ask names. */
+export const commsMissing = ["countries", "age", "engagement", "rate"] as const;
+/** The audience checks a decline names as the reason. */
+export const commsFailed = ["countries", "age", "engagement"] as const;
+
 const commsRequest = z.strictObject({
   kind: z.enum(commsKinds),
   threadId: recordId.optional(),
@@ -241,6 +248,19 @@ const commsRequest = z.strictObject({
   // A brand pitch's creators.
   pitchChannelIds: z.array(recordId).max(10).optional(),
   followUpNumber: z.number().int().min(1).max(5).optional(),
+  // A reply's aim; `missing` names the numbers an ask_kit still needs.
+  goal: z.enum(commsGoals).optional(),
+  missing: z
+    .array(z.enum(commsMissing))
+    .max(4)
+    .refine((items) => new Set(items).size === items.length, "no repeats")
+    .optional(),
+  // A decline_audience's reason: the audience checks the creator failed.
+  failed: z
+    .array(z.enum(commsFailed))
+    .max(3)
+    .refine((items) => new Set(items).size === items.length, "no repeats")
+    .optional(),
   // The Steer panel: knob id → option id, plus "note".
   steer: z.record(z.string().min(1).max(50), z.string().max(2000)).optional(),
   // HC-10 for this case only.

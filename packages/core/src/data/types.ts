@@ -176,6 +176,50 @@ export interface LogEntry {
   readonly detail: string | null;
 }
 
+/** A country and its share of the audience, in %; null when not given. */
+export interface AudienceShare {
+  readonly code: string;
+  readonly share: number | null;
+}
+
+/** The most countries a kit keeps. */
+export const kitCountriesMax = 5;
+
+/** What the app knows of a creator's audience and rate (plan step 8, D2). */
+export interface CreatorKit {
+  /** Largest share first, at most `kitCountriesMax`. */
+  readonly countries: readonly AudienceShare[];
+  /** "18-34" (an en dash is read as a hyphen); null when not known. */
+  readonly ageBand: string | null;
+  /** In %. */
+  readonly engagement: number | null;
+  /** US dollars per integration; null when not known, or hidden from a viewer who doesn't see money. */
+  readonly rate: number | null;
+  /** A rate is stored, even when `rate` is hidden from a viewer who doesn't see money. */
+  readonly rateKnown: boolean;
+  /** https only. */
+  readonly link: string | null;
+  /** The numbers come only from the creator's replies, not from a typed kit. */
+  readonly fromReply: boolean;
+}
+
+/**
+ * What a person types into the media kit (D3). An omitted field leaves the stored value as it is;
+ * null (an empty list for countries) removes it.
+ */
+export interface KitInput {
+  /** At most `kitCountriesMax`; codes ISO-2 upper case; share 0 to 100 or null. */
+  readonly countries?: readonly AudienceShare[];
+  /** `/^\d{2}-\d{2}$/`, low below high. */
+  readonly ageBand?: string | null;
+  /** 0 to 100. */
+  readonly engagement?: number | null;
+  /** 1 to 1,000,000, whole dollars. */
+  readonly rate?: number | null;
+  /** An https URL, at most 2000 characters. */
+  readonly link?: string | null;
+}
+
 /** A YouTube creator the agency finds and signs. */
 export interface Creator {
   readonly id: string;
@@ -206,6 +250,11 @@ export interface Creator {
   readonly neverReason: string | null;
   /** In ms: the local `channel_state.archive_due_at` (the server's 7-day value). */
   readonly archiveDueAt: number | null;
+  /**
+   * The audience and rate the app knows, from the typed media kit and the replies (D2); null when
+   * nothing is known. `kit.rate` is null for a viewer who doesn't see money (D10).
+   */
+  readonly kit: CreatorKit | null;
 }
 
 /**
@@ -232,6 +281,8 @@ export interface CreatorState {
   readonly archiveDueAt: number | null;
   /** `manual_engagement_rate`, the only engagement figure there is. */
   readonly engagement: number | null;
+  /** Main's unstripped kit view (the rate is kept: the drafter passes it to the comms facts). */
+  readonly kit: CreatorKit | null;
   /** The old app's `pipeline_stage`, for "emailed before" (D12). */
   readonly legacyPipelineStage: string;
   /**
@@ -379,6 +430,18 @@ export type DataWrite =
    * a stage, it carries the handle and the name so main can create the row (D4). Undo sends the
    * contact the creator had before the same way.
    */
+  /**
+   * A creator's media kit as a person typed it (D3). It goes straight through like notes and is
+   * not an undo step. Main merges it into `media_kit` and may move a replied creator to kit
+   * (D3, D4).
+   */
+  | {
+      readonly kind: "creator.kit";
+      readonly id: string;
+      readonly kit: KitInput;
+      readonly handle: string;
+      readonly name: string;
+    }
   | {
       readonly kind: "creator.contact";
       readonly id: string;

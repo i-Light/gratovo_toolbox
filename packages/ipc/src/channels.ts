@@ -2,6 +2,13 @@ import { z } from "zod";
 
 import { authStatusSchema, signInRequestSchema, signInResultSchema } from "./auth";
 import {
+  closeAskResultSchema,
+  closeCreatorRequestSchema,
+  closeDeclineResultSchema,
+  closeDeclineUndoRequestSchema,
+  closeDeclineUndoResultSchema,
+} from "./close";
+import {
   connectionsChangeSchema,
   connectionsSetResultSchema,
   connectionsStatusSchema,
@@ -434,6 +441,21 @@ export const channels = {
   "reach:park": {
     request: reachParkRequestSchema,
     response: reachSequenceSkipResultSchema,
+  },
+  /** Declines a creator kindly (D6): the stage, and a decline draft that waits for approval. */
+  "close:decline": {
+    request: closeCreatorRequestSchema,
+    response: closeDeclineResultSchema,
+  },
+  /** Undoes a decline: the stage back, the decline draft skipped, the skipped drafts back. */
+  "close:decline-undo": {
+    request: closeDeclineUndoRequestSchema,
+    response: closeDeclineUndoResultSchema,
+  },
+  /** Drafts the reply that asks for what the audience check is missing (D7). */
+  "close:ask": {
+    request: closeCreatorRequestSchema,
+    response: closeAskResultSchema,
   },
   /** Wakes a parked creator now (D22): back to `emailed`, the steps re-timed. */
   "reach:wake": {

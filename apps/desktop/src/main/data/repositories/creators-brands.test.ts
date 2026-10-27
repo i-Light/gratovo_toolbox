@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { openDatabase } from "../../db/open-database";
 import { listBrands, upsertBrand } from "./brands";
-import { listCreators, upsertCreator } from "./creators";
+import { creatorStates, listCreators, upsertCreator, writeCreatorKit } from "./creators";
 
 let folder: string;
 let db: DatabaseSync;
@@ -57,6 +57,7 @@ describe("creators", () => {
         rejectedAt: null,
         neverReason: null,
         archiveDueAt: null,
+        kit: null,
       },
     ]);
     expect(row("SELECT * FROM channel_state")).toMatchObject({
@@ -176,6 +177,7 @@ describe("creators", () => {
       rejectedAt: null,
       neverReason: null,
       archiveDueAt: null,
+      kit: null,
     };
     set(["bare@x.example", 7, { method: "twitter", value: "@a" }]);
     upsertCreator(db, creator, t0);
@@ -224,6 +226,7 @@ describe("creators", () => {
         rejectedAt: null,
         neverReason: null,
         archiveDueAt: null,
+        kit: null,
       },
       {
         id: "UCrej",
@@ -239,6 +242,7 @@ describe("creators", () => {
         rejectedAt: null,
         neverReason: null,
         archiveDueAt: null,
+        kit: null,
       },
       {
         id: "UCnew",
@@ -254,6 +258,7 @@ describe("creators", () => {
         rejectedAt: null,
         neverReason: null,
         archiveDueAt: null,
+        kit: null,
       },
     ]);
   });
@@ -315,5 +320,58 @@ describe("brands", () => {
         "INSERT INTO brands (id, name, created_at, updated_at, budget) VALUES ('a', 'b', 'c', 'd', 'lots')",
       );
     }).toThrow();
+  });
+});
+
+describe("writeCreatorKit", () => {
+  const id = "UCkitRepoCreator00000001";
+  const write = (rate: number | null) => ({
+    id,
+    handle: "@kitrepo",
+    name: "Kit Repo",
+    kit: {
+      countries: [{ code: "US", share: 60 }],
+      ageBand: "18-34",
+      engagement: 4,
+      rate,
+      link: null,
+    },
+  });
+  const stored = (): Record<string, unknown> =>
+    JSON.parse(
+      String(row(`SELECT media_kit FROM channel_state WHERE channel_id = '${id}'`)["media_kit"]),
+    ) as Record<string, unknown>;
+
+  it("creates the row when it is missing and stores the kit", () => {
+    writeCreatorKit(db, write(900), t0);
+    expect(stored()).toEqual({
+      countries: [{ code: "US", pct: 60 }],
+      ageBand: "18-34",
+      engagement: 4,
+      rates: [{ format: "integration", price: 900 }],
+    });
+    const state = creatorStates(db).find((c) => c.id === id);
+    expect(state).toMatchObject({ handle: "@kitrepo", name: "Kit Repo" });
+    expect(state?.kit).toMatchObject({ rate: 900, ageBand: "18-34", engagement: 4 });
+  });
+
+  it("keeps unknown keys and other rate rows, and does nothing for an unknown plain id", () => {
+    writeCreatorKit(db, write(900), t0);
+    db.prepare("UPDATE channel_state SET media_kit = ? WHERE channel_id = ?").run(
+      JSON.stringify({ ...stored(), extra: 1, rates: [{ format: "short", price: 50 }] }),
+      id,
+    );
+    writeCreatorKit(db, write(1000), t0);
+    expect(stored()).toMatchObject({
+      extra: 1,
+      rates: [
+        { format: "short", price: 50 },
+        { format: "integration", price: 1000 },
+      ],
+    });
+    writeCreatorKit(db, { ...write(1), id: "nope" }, t0);
+    expect(
+      db.prepare("SELECT 1 FROM channel_state WHERE channel_id = 'nope'").get(),
+    ).toBeUndefined();
   });
 });

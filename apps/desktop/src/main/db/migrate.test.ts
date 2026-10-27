@@ -64,6 +64,18 @@ describe("migrate", () => {
     }).toThrow(/CHECK/);
   });
 
+  it("adds the draft goal column (migration 6)", () => {
+    migrate(db);
+    expect(migrations[5]?.name).toBe("draft-goal");
+    db.exec(
+      "INSERT INTO outreach_drafts (id, channel_id, kind, state, goal, created_at, updated_at) VALUES ('d', 'UCa', 'reply', 'drafting', 'decline', 1, 1)",
+    );
+    expect(() => {
+      db.exec("UPDATE outreach_drafts SET goal = 'bogus'");
+    }).toThrow(/CHECK/);
+    db.exec("UPDATE outreach_drafts SET goal = NULL");
+  });
+
   it("builds a fresh database at the latest version", () => {
     migrate(db);
     expect(version()).toBe(migrations.length);

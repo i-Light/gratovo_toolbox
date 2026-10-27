@@ -4,7 +4,7 @@ import type { DataSource, DataWrite } from "@gratovo/core/data";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createSqliteSource } from "../data/sqlite-source";
-import { pendingCount, upsertProfile } from "../data/repositories";
+import { pendingCount, replaceMemberAccess, upsertProfile } from "../data/repositories";
 import { openDatabase } from "../db/open-database";
 
 import { recordIntent } from "./intents";
@@ -36,6 +36,9 @@ function lineCount(): number {
 beforeEach(() => {
   db = openDatabase(":memory:");
   upsertProfile(db, { id: me, displayName: "Sam", role: "full", color: "#3B82F6" }, t0);
+  replaceMemberAccess(db, [
+    { profileId: me, roles: ["owner"], seesMoney: true, updatedAt: "2026-10-21T10:00:00Z" },
+  ]);
   n = 0;
   clock = t0;
   source = createSqliteSource(db, {
@@ -852,6 +855,112 @@ describe("recordIntent", () => {
         ]);
         expect(pendingCount(db)).toBe(queued);
         expect(JSON.parse(String(provided()))).toEqual({ rate: 900 });
+      });
+
+      it("a rate and countries move a replied creator to kit, and the move is queued too (step 8, D4)", async () => {
+        seedCreator("replied");
+        db.prepare(
+          `INSERT INTO outreach_messages (id, channel_id, direction, body, at, source, reading)
+           VALUES ('m2', ?, 'in', 'Rate is $900, US 46%', ?, 'sweep', ?)`,
+        ).run(
+          ch,
+          t0,
+          JSON.stringify({
+            replyType: "inf.media_kit",
+            label: "Sends their media kit",
+            summary: "Numbers.",
+            side: "influencer",
+            corrected: false,
+            facts: [
+              { key: "rate", rate: 900, saved: false },
+              { key: "countries", countries: [{ code: "US", share: 46 }], saved: false },
+            ],
+          }),
+        );
+        await source.write([{ kind: "reply.fact", messageId: "m2", key: "rate" }]);
+        expect(edits().filter((e) => e.field === "creator_stage")).toEqual([]);
+        await source.write([{ kind: "reply.fact", messageId: "m2", key: "countries" }]);
+        expect(edits().filter((e) => e.field === "creator_stage")).toEqual([
+          expect.objectContaining({ field: "creator_stage", base: "replied", next: "kit" }),
+        ]);
+      });
+    });
+
+    describe("creator.kit (plan step 8, D3)", () => {
+      const kit = {
+        countries: [{ code: "US", share: 41 }],
+        ageBand: "18-34",
+        engagement: 4.2,
+        rate: null,
+        link: null,
+      } as const;
+
+      it("queues media_kit with its base, null the first time, then the last value", async () => {
+        seedCreator("emailed");
+        await source.write([
+          { kind: "creator.kit", id: ch, kit, handle: "@aiweekly", name: "AI Weekly" },
+        ]);
+        expect(edits()).toEqual([
+          {
+            field: "media_kit",
+            base: null,
+            next: { countries: [{ code: "US", pct: 41 }], ageBand: "18-34", engagement: 4.2 },
+            label: "@aiweekly",
+          },
+        ]);
+        await source.write([
+          {
+            kind: "creator.kit",
+            id: ch,
+            kit: { ...kit, rate: 900 },
+            handle: "@aiweekly",
+            name: "AI Weekly",
+          },
+        ]);
+        expect(edits().at(-1)).toEqual(
+          expect.objectContaining({
+            field: "media_kit",
+            base: { countries: [{ code: "US", pct: 41 }], ageBand: "18-34", engagement: 4.2 },
+          }),
+        );
+        // An emailed creator stays where they are: only a replied one moves to kit.
+        expect(edits().filter((e) => e.field === "creator_stage")).toEqual([]);
+      });
+
+      it("on a replied creator queues media_kit, then creator_stage replied to kit", async () => {
+        seedCreator("replied");
+        await source.write([
+          {
+            kind: "creator.kit",
+            id: ch,
+            kit: { ...kit, rate: 900 },
+            handle: "@aiweekly",
+            name: "AI Weekly",
+          },
+        ]);
+        expect(
+          edits()
+            .map((e) => e.field)
+            .filter((field) => field !== undefined),
+        ).toEqual(["media_kit", "creator_stage"]);
+        expect(edits().filter((e) => e.field === "creator_stage")).toEqual([
+          expect.objectContaining({ field: "creator_stage", base: "replied", next: "kit" }),
+        ]);
+      });
+
+      it("saving the same kit again queues nothing", async () => {
+        seedCreator("emailed");
+        const write = {
+          kind: "creator.kit",
+          id: ch,
+          kit,
+          handle: "@aiweekly",
+          name: "AI Weekly",
+        } as const;
+        await source.write([write]);
+        const queued = pendingCount(db);
+        await source.write([write]);
+        expect(pendingCount(db)).toBe(queued);
       });
     });
   });

@@ -17,6 +17,7 @@ const creator = (id: string, name = id): Creator => ({
   rejectedAt: null,
   neverReason: null,
   archiveDueAt: null,
+  kit: null,
 });
 
 const thread = (
@@ -49,6 +50,7 @@ const answer = (id: string, who: string, over: Partial<OutreachDraft> = {}): Out
   checked: true,
   rewriting: null,
   replyTo: `in-${who}`,
+  goal: null,
   problem: null,
   createdAt: 5,
   updatedAt: 5,

@@ -580,6 +580,68 @@ def test_a_request_with_garbage_in_it_never_raises(conn: sqlite3.Connection) -> 
     assert case["employee_note"] == ""
 
 
+def test_a_reply_without_a_goal_keeps_the_usual_goal(conn: sqlite3.Connection) -> None:
+    case = live_case.build_case(conn, {"kind": "reply", "channelId": "UC_a"}, facts())
+    assert case["goal"] == live_case.GOALS["reply"]
+
+
+def _decline_goal(conn: sqlite3.Connection, **extra: Any) -> str:
+    request = {"kind": "reply", "channelId": "UC_a", "goal": "decline_audience", **extra}
+    return str(live_case.build_case(conn, request, facts())["goal"])
+
+
+def test_a_decline_goal_without_failed_checks_is_neutral(conn: sqlite3.Connection) -> None:
+    goal = _decline_goal(conn)
+    assert "kind no" in goal
+    assert "your audience doesn't match what our brands are buying right now" in goal
+    assert "US, the UK" not in goal
+
+
+def test_a_decline_goal_names_only_the_failed_checks(conn: sqlite3.Connection) -> None:
+    goal = _decline_goal(conn, failed=["age"])
+    assert "viewers of buying age, 18 to 44" in goal
+    assert "US, the UK" not in goal
+    assert "engagement" not in goal
+    goal = _decline_goal(conn, failed=["countries", "engagement"])
+    assert "audiences led by the US, the UK, Canada or Australia" in goal
+    assert "engagement of 3% or more" in goal
+    assert "buying age" not in goal
+
+
+def test_a_decline_goal_with_an_unknown_failed_check_is_bad_params(
+    conn: sqlite3.Connection,
+) -> None:
+    from gratovo_pipeline.gemini.errors import BadParams
+
+    with pytest.raises(BadParams):
+        _decline_goal(conn, failed=["shoe size"])
+
+
+def test_an_ask_goal_names_what_is_missing(conn: sqlite3.Connection) -> None:
+    request = {
+        "kind": "reply",
+        "channelId": "UC_a",
+        "goal": "ask_kit",
+        "missing": ["countries", "rate"],
+    }
+    goal = live_case.build_case(conn, request, facts())["goal"]
+    assert "top countries from YouTube Studio" in goal
+    assert "their rate for a 60-90 second integration" in goal
+    assert "engagement" not in goal
+    assert "screenshot" in goal
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [{"goal": "sell_hard"}, {"goal": 3}, {"goal": "ask_kit", "missing": ["shoe size"]}],
+)
+def test_an_unknown_goal_is_bad_params(conn: sqlite3.Connection, extra: dict[str, Any]) -> None:
+    from gratovo_pipeline.gemini.errors import BadParams
+
+    with pytest.raises(BadParams):
+        live_case.build_case(conn, {"kind": "reply", "channelId": "UC_a", **extra}, facts())
+
+
 def test_readiness_matches_the_app() -> None:
     assert readiness.missing(READY_KIT, None) == []
     assert readiness.missing(None, None) == ["analytics", "agreed rate"]

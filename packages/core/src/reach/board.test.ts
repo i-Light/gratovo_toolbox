@@ -19,6 +19,7 @@ const creator = (id: string, stage: CreatorStage, name = id): Creator => ({
   rejectedAt: null,
   neverReason: null,
   archiveDueAt: null,
+  kit: null,
 });
 
 const draft = (id: string, who: string, over: Partial<OutreachDraft> = {}): OutreachDraft => ({
@@ -37,6 +38,7 @@ const draft = (id: string, who: string, over: Partial<OutreachDraft> = {}): Outr
   checked: true,
   rewriting: null,
   replyTo: null,
+  goal: null,
   problem: null,
   createdAt: 100,
   updatedAt: 100,
@@ -58,8 +60,15 @@ const lane = (input: BoardInput, key: string): string[] =>
     ?.items.map((i) => i.creator.id) ?? [];
 
 describe("boardLanes", () => {
-  it("shows four lanes live and six on example data", () => {
-    expect(boardLanes(base()).map((l) => l.key)).toEqual(["todraft", "waiting", "seq", "replied"]);
+  it("shows all six lanes, live and on example data", () => {
+    expect(boardLanes(base()).map((l) => l.key)).toEqual([
+      "todraft",
+      "waiting",
+      "seq",
+      "replied",
+      "kit",
+      "signed",
+    ]);
     expect(boardLanes(base({ source: "example" })).map((l) => l.key)).toEqual([
       "todraft",
       "waiting",

@@ -153,7 +153,12 @@ export const Rail = memo(function Rail() {
         undefined,
         source === "live" ? strings.screens.reach.subLive : undefined,
       )}
-      {nav("close", counts.close)}
+      {nav(
+        "close",
+        counts.close,
+        undefined,
+        source === "live" ? strings.screens.close.subLive : undefined,
+      )}
       {nav("deliver", counts.deliver)}
       {(["insights", "toolbox", "team"] as const).some(shown) ? (
         <div className="nav-h">{rail.workbench}</div>

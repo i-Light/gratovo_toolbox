@@ -1,4 +1,10 @@
-import { messageBodyMax, threadMessagesMax, type DataSource } from "@gratovo/core/data";
+import { engineKit } from "@gratovo/core/close";
+import {
+  messageBodyMax,
+  threadMessagesMax,
+  type CreatorKit,
+  type DataSource,
+} from "@gratovo/core/data";
 
 import type { GeminiParams } from "../pipeline/gemini-protocol";
 
@@ -22,6 +28,11 @@ export interface CommsFactsInput {
   readonly sender: string | null;
   /** In ms; the facts carry no time of their own, the messages carry theirs. */
   readonly now: number;
+  /**
+   * The creator's kit as main reads it (the merged view, `kitView`); the case does not carry it
+   * itself. Absent or null: the engine is told there is no kit.
+   */
+  readonly kit?: CreatorKit | null;
 }
 
 /** The conversation key of a creator's thread (D3), also the comms engine's thread id. */
@@ -39,7 +50,7 @@ const cutOrNull = (value: string | null, max: number): string | null =>
   value === null || value === "" ? null : cut(value, max);
 
 export async function buildCommsFacts(input: CommsFactsInput): Promise<CommsFacts> {
-  const { source, creatorId, sender } = input;
+  const { source, creatorId, sender, kit = null } = input;
   const states = await source.creatorStates();
   const creator = states.find((state) => state.id === creatorId) ?? null;
   const threadId = threadIdOf(creatorId);
@@ -74,7 +85,7 @@ export async function buildCommsFacts(input: CommsFactsInput): Promise<CommsFact
         : {
             [creatorId]: {
               pipelineStage: cutOrNull(creator.legacyPipelineStage, 50),
-              mediaKit: null,
+              mediaKit: engineKit(kit, creator.stage === "signed"),
               creatorGender: null,
             },
           },

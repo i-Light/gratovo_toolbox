@@ -98,6 +98,12 @@ export interface ReachService {
   ): Promise<ChannelResponse<"reach:sequence-resume">>;
   park(creatorId: string, until: number): Promise<ChannelResponse<"reach:park">>;
   wake(creatorId: string, restore?: readonly string[]): Promise<ChannelResponse<"reach:wake">>;
+  /** Close's Decline kindly, its Undo and Ask for what's missing (plan step 8, D6 and D7). */
+  decline(creatorId: string): Promise<ChannelResponse<"close:decline">>;
+  undoDecline(
+    request: ChannelInput<"close:decline-undo">,
+  ): Promise<ChannelResponse<"close:decline-undo">>;
+  ask(creatorId: string): Promise<ChannelResponse<"close:ask">>;
   /** Reads new replies now (D23): live data with a connected mailbox only. */
   checkReplies(): Promise<ChannelResponse<"reach:check-replies">>;
   /** A reply the person pasted, for a creator already emailed (D23). */

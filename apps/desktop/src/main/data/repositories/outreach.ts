@@ -3,6 +3,7 @@ import type { DatabaseSync, SQLInputValue, SQLOutputValue, StatementSync } from 
 
 import {
   draftBodyMax,
+  draftGoals,
   draftKinds,
   draftProblems,
   draftStates,
@@ -20,6 +21,7 @@ import { bounceWindowMs, replyWindowMs, withStep } from "@gratovo/core/reach";
 import type {
   DataWrite,
   DraftFinding,
+  DraftGoal,
   DraftKind,
   DraftPatch,
   DraftProblem,
@@ -264,6 +266,7 @@ function storedDraft(row: Row): StoredDraft {
     id: String(row["id"]),
     creator: String(row["channel_id"]),
     kind: oneOf(draftKinds, row["kind"]) ?? "first",
+    goal: oneOf<DraftGoal>(draftGoals, row["goal"]),
     followUp: optNum(row["follow_up"]),
     state: oneOf(draftStates, row["state"]) ?? "failed",
     subject,
@@ -291,6 +294,7 @@ function frameDraft(draft: StoredDraft): OutreachDraft {
     id: draft.id,
     creator: draft.creator,
     kind: draft.kind,
+    goal: draft.goal,
     followUp: draft.followUp,
     state: draft.state,
     subject: draft.subject,
@@ -379,12 +383,17 @@ function draftProblem(db: DatabaseSync, id: string): DraftProblem | null {
 }
 
 const fromReady: readonly DraftState[] = ["ready", "failed"];
+/** A person may also skip a draft Gemini is still writing: the drafter checks again before it fills one. */
+const toSkipped: readonly DraftState[] = [...fromReady, "drafting"];
 const fromTaken: readonly DraftState[] = ["approved", "scheduled", "skipped"];
 
 /** How long an approved email waits before it goes, so Undo can take it back (D11). */
 export const sendHoldMs = 10_000;
 
-/** `draft.state`: only between ready/failed and approved/scheduled/skipped, and back to ready. */
+/**
+ * `draft.state`: only between ready/failed and approved/scheduled/skipped, and back to ready; a
+ * draft still `drafting` can be skipped too (the Undo of Ask for what's missing, plan step 8).
+ */
 export function writeDraftState(
   db: DatabaseSync,
   write: Extract<DataWrite, { kind: "draft.state" }>,
@@ -401,7 +410,12 @@ export function writeDraftState(
   const mayHaveGone =
     (to === "approved" || to === "scheduled") && draftProblem(db, write.id) === "maybe_sent";
   const allowed =
-    !mayHaveGone && (to === "ready" ? fromTaken.includes(from) : fromReady.includes(from));
+    !mayHaveGone &&
+    (to === "ready"
+      ? fromTaken.includes(from)
+      : to === "skipped"
+        ? toSkipped.includes(from)
+        : fromReady.includes(from));
   if (!allowed) {
     refused(write.kind);
     return;
@@ -670,12 +684,13 @@ export function createOutreachStore(db: DatabaseSync, deps: OutreachDeps): Outre
   function insertDraft(draft: NewDraft): void {
     db.prepare(
       `INSERT INTO outreach_drafts
-         (id, channel_id, kind, follow_up, state, mailbox, reply_to, created_at, updated_at)
-       VALUES (?, ?, ?, ?, 'drafting', ?, ?, ?, ?)`,
+         (id, channel_id, kind, goal, follow_up, state, mailbox, reply_to, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, 'drafting', ?, ?, ?, ?)`,
     ).run(
       draft.id,
       draft.creator,
       draft.kind,
+      draft.goal ?? null,
       draft.followUp,
       draft.mailbox,
       draft.replyTo,
@@ -953,7 +968,9 @@ export function createOutreachStore(db: DatabaseSync, deps: OutreachDeps): Outre
     },
     runningSequences: () =>
       db
-        .prepare("SELECT * FROM outreach_sequences WHERE stopped IS NULL ORDER BY started_at")
+        .prepare(
+          "SELECT * FROM outreach_sequences WHERE stopped IS NULL OR park_until IS NOT NULL ORDER BY started_at",
+        )
         .all()
         .map(sequenceFrom),
     sequence: (creator) => {

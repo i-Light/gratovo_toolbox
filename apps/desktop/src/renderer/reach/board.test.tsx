@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { aiDraft, goodMailbox, reachWith, stubReachBridge } from "../lib/reach-test-bridge";
 import { appStore, resetAppStoreForTests, selectRoute } from "../lib/store";
 import { strings } from "../strings";
+import { passingKit } from "../close/close-fixtures";
 import { aiCreator, seedReach } from "./reach-fixtures";
 import { ReachScreen } from "./reach-screen";
 
@@ -226,7 +227,7 @@ describe("the banner", () => {
 });
 
 describe("the live gate", () => {
-  it("shows the Board, Sequences, Replies and Mailboxes: four lanes and four tabs", () => {
+  it("shows the Board, Sequences, Replies and Mailboxes: six lanes and four tabs", () => {
     seed("live");
     render(<ReachScreen />);
     expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual([
@@ -235,8 +236,8 @@ describe("the live gate", () => {
       strings.screens.reach.tabs.inbox,
       strings.screens.reach.tabs.mailboxes,
     ]);
-    expect(screen.getAllByRole("region")).toHaveLength(4);
-    expect(screen.queryByRole("region", { name: t.board.lanes.kit.name })).toBeNull();
+    expect(screen.getAllByRole("region")).toHaveLength(6);
+    expect(screen.getByRole("region", { name: t.board.lanes.kit.name })).toBeTruthy();
     // The Mailboxes tab is wired: the capacity summary is a button to it.
     expect(screen.getByRole("button", { name: new RegExp(t.cap.left) })).toBeTruthy();
   });
@@ -245,5 +246,56 @@ describe("the live gate", () => {
     render(<ReachScreen />);
     expect(screen.getAllByRole("tab")).toHaveLength(4);
     expect(screen.getByRole("button", { name: new RegExp(t.cap.left) })).toBeTruthy();
+  });
+});
+
+describe("the Media kit and Signed lanes", () => {
+  it("say the audience verdict and the rate, and Check opens the Overview", () => {
+    seedReach(
+      [
+        aiCreator("k1", "Tensor Talk", { stage: "kit", kit: passingKit() }),
+        aiCreator("k2", "Agent Weekly", {
+          stage: "audience",
+          kit: passingKit({ countries: [{ code: "IN", share: 60 }] }),
+        }),
+        aiCreator("k3", "Model Minute", { stage: "kit", kit: passingKit({ ageBand: null }) }),
+        aiCreator("s1", "Prompt Lab", { stage: "signed", kit: passingKit() }),
+        aiCreator("s2", "Neural Notes", { stage: "signed", kit: null }),
+      ],
+      reachWith({}),
+      "live",
+    );
+    render(<ReachScreen />);
+    const kit = within(lane("kit"));
+    expect(kit.getByText(t.board.sub.kitPass)).toBeTruthy();
+    expect(kit.getByText(t.board.sub.kitFail(t.board.checkNames.top))).toBeTruthy();
+    expect(kit.getByText(t.board.sub.kitMissing)).toBeTruthy();
+    const signed = within(lane("signed"));
+    expect(signed.getByText(t.board.sub.signedRate("$3,400"))).toBeTruthy();
+    expect(signed.queryAllByRole("button", { name: t.board.check })).toHaveLength(0);
+    fireEvent.click(kit.getAllByRole("button", { name: t.board.check })[0] as HTMLElement);
+    expect(appStore().getState().ui.peek?.tab).toBe("overview");
+  });
+
+  it("for a viewer without money: a stored hidden rate reads Hidden and the check still passes", () => {
+    seedReach(
+      [
+        aiCreator("k1", "Tensor Talk", {
+          stage: "kit",
+          kit: passingKit({ rate: null, rateKnown: true }),
+        }),
+        aiCreator("s1", "Prompt Lab", {
+          stage: "signed",
+          kit: passingKit({ rate: null, rateKnown: true }),
+        }),
+      ],
+      reachWith({}),
+      "live",
+    );
+    render(<ReachScreen />);
+    expect(within(lane("kit")).getByText(t.board.sub.kitPass)).toBeTruthy();
+    expect(
+      within(lane("signed")).getByText(t.board.sub.signedRate(strings.close.audience.hidden)),
+    ).toBeTruthy();
   });
 });

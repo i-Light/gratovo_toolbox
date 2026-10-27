@@ -1,3 +1,4 @@
+import { kitView } from "../close/audience";
 import { readReplyFacts } from "../reach/reply-facts";
 
 import { seesMoney, sortRoles } from "./access";
@@ -32,7 +33,7 @@ import type {
  */
 
 /** Bump it when the fixtures change: an older example database is then seeded again. */
-export const exampleSeedVersion = 7;
+export const exampleSeedVersion = 8;
 
 /** The example copies prototype mode starts from (ADR 0004). The same list as the IPC's `scenarioKeys`. */
 export const scenarios = ["normal", "first", "later", "broke"] as const;
@@ -44,6 +45,16 @@ export interface ExampleHealth {
   readonly signedOut: readonly string[];
   /** Drafting acts as if the Gemini bridge is off. */
   readonly geminiOffline: boolean;
+}
+
+/** One creator's stored audience numbers, in the shapes the columns hold. */
+export interface ExampleKit {
+  /** What a person typed: `{countries:[{code,pct}], ageBand, engagement, link, rates:[...]}`. */
+  readonly mediaKit?: Readonly<Record<string, unknown>>;
+  /** What replies gave: `{rate, countries:[{code,share}], age}`. */
+  readonly provided?: Readonly<Record<string, unknown>>;
+  /** `manual_engagement_rate`, in %. */
+  readonly engagement?: number;
 }
 
 /** What the example database is seeded from, and the extras (presence, counts, a run) it serves. */
@@ -69,6 +80,11 @@ export interface ExampleSeed {
   >;
   readonly counts: RailCounts;
   readonly creators: readonly Creator[];
+  /**
+   * By creator id: the stored audience numbers (`channel_state.media_kit`, `provided_data` and
+   * `manual_engagement_rate`) the audience check reads. Not part of the Creator row.
+   */
+  readonly kits: Readonly<Record<string, ExampleKit>>;
   readonly brands: readonly Brand[];
   readonly deals: readonly Deal[];
   /** Newest first. */
@@ -133,7 +149,15 @@ function normalSeed(now: number): ExampleSeed {
     })),
     presence: Object.fromEntries(team.map(({ id, status, doing }) => [id, { status, doing }])),
     counts: { today: 28, plannedMinutes: 90, find: 15, reach: 10, close: 6, deliver: 7 },
-    creators,
+    creators: creators.map((creator) => ({
+      ...creator,
+      kit: kitView(
+        kits[creator.id]?.mediaKit ?? null,
+        kits[creator.id]?.provided ?? null,
+        kits[creator.id]?.engagement ?? null,
+      ),
+    })),
+    kits,
     brands,
     deals,
     notifications: notifications(now),
@@ -327,6 +351,7 @@ const creators: readonly Creator[] = [
     rejectedAt: null,
     neverReason: null,
     archiveDueAt: null,
+    kit: null,
   },
   {
     id: "c2",
@@ -342,6 +367,7 @@ const creators: readonly Creator[] = [
     rejectedAt: null,
     neverReason: null,
     archiveDueAt: null,
+    kit: null,
   },
   {
     id: "c3",
@@ -357,6 +383,7 @@ const creators: readonly Creator[] = [
     rejectedAt: null,
     neverReason: null,
     archiveDueAt: null,
+    kit: null,
   },
   {
     id: "c4",
@@ -372,6 +399,7 @@ const creators: readonly Creator[] = [
     rejectedAt: null,
     neverReason: null,
     archiveDueAt: null,
+    kit: null,
   },
   {
     id: "c5",
@@ -387,6 +415,7 @@ const creators: readonly Creator[] = [
     rejectedAt: null,
     neverReason: null,
     archiveDueAt: null,
+    kit: null,
   },
   {
     id: "c11",
@@ -402,6 +431,7 @@ const creators: readonly Creator[] = [
     rejectedAt: null,
     neverReason: null,
     archiveDueAt: null,
+    kit: null,
   },
   {
     id: "c12",
@@ -417,6 +447,7 @@ const creators: readonly Creator[] = [
     rejectedAt: null,
     neverReason: null,
     archiveDueAt: null,
+    kit: null,
   },
   confirmed("c6", "Agent Weekly", "@agentweekly", "contact", "hello@agentweekly.ai", "Jonas"),
   confirmed("c7", "LLM Lowdown", "@llmlowdown", "contact", "partners@llmlowdown.com", "Ravi"),
@@ -431,7 +462,117 @@ const creators: readonly Creator[] = [
     "Theo",
   ),
   confirmed("c10", "Vector Vlog", "@vectorvlog", "replied", "hi@vectorvlog.io", "Noor"),
+  confirmed("c14", "AgentWorks", "@agentworks", "kit", "hello@agentworks.ai", "Elena"),
+  confirmed("c15", "Silicon Sage", "@siliconsage", "kit", "team@siliconsage.io", "Arjun"),
+  confirmed("c16", "Context Window", "@contextwindow", "kit", "hi@contextwindow.dev", "Sam"),
 ];
+
+const typedKit = (
+  countries: readonly (readonly [string, number])[],
+  ageBand: string,
+  engagement: number,
+  price: number,
+  link: string,
+): ExampleKit => ({
+  mediaKit: {
+    countries: countries.map(([code, pct]) => ({ code, pct })),
+    ageBand,
+    engagement,
+    link,
+    rates: [{ format: "integration", price }],
+  },
+});
+
+/** The stored audience numbers: typed kits for the signed and two kit-stage creators, a reply's for the third. */
+const kits: Readonly<Record<string, ExampleKit>> = {
+  c1: typedKit(
+    [
+      ["US", 52],
+      ["GB", 14],
+      ["CA", 9],
+    ],
+    "25-34",
+    4.6,
+    3400,
+    "https://promptlab.tv/kit",
+  ),
+  c2: typedKit(
+    [
+      ["US", 47],
+      ["CA", 12],
+      ["AU", 8],
+    ],
+    "18-34",
+    3.9,
+    2600,
+    "https://neuralnotes.tv/kit",
+  ),
+  c3: typedKit(
+    [
+      ["US", 58],
+      ["GB", 11],
+      ["DE", 6],
+    ],
+    "25-34",
+    5.1,
+    4800,
+    "https://codewithkai.dev/kit",
+  ),
+  c4: typedKit(
+    [
+      ["US", 44],
+      ["GB", 16],
+      ["AU", 9],
+    ],
+    "18-34",
+    4.2,
+    5200,
+    "https://tensortalk.tv/kit",
+  ),
+  c5: typedKit(
+    [
+      ["US", 41],
+      ["CA", 13],
+      ["GB", 10],
+    ],
+    "25-44",
+    3.4,
+    2200,
+    "https://theaidesk.tv/kit",
+  ),
+  c14: typedKit(
+    [
+      ["US", 55],
+      ["GB", 12],
+      ["CA", 8],
+    ],
+    "18-34",
+    4.2,
+    900,
+    "https://agentworks.ai/kit",
+  ),
+  c15: typedKit(
+    [
+      ["IN", 46],
+      ["US", 17],
+      ["PK", 9],
+    ],
+    "18-24",
+    2.1,
+    650,
+    "https://siliconsage.io/kit",
+  ),
+  c16: {
+    provided: {
+      rate: 900,
+      countries: [
+        { code: "US", share: 48 },
+        { code: "CA", share: 14 },
+      ],
+      age: "25-34",
+    },
+  },
+};
 
 const brands: readonly Brand[] = [
   { id: "b1", name: "Codewell", sells: "AI code review", status: "won" },
@@ -477,6 +618,7 @@ function confirmed(
     rejectedAt: null,
     neverReason: null,
     archiveDueAt: null,
+    kit: null,
   };
 }
 
@@ -581,6 +723,110 @@ function drafts(now: number): readonly ExampleDraft[] {
 const replyBody =
   "Hi Moustafa,\n\nThanks for the kind words! Which brand is this for? I only take sponsors I use myself.\n\nFor a dedicated video my rate is $1,200. My audience is mostly US and UK, ages 25-34.\n\nNoor";
 
+/**
+ * The kit-stage creators' threads: our first email, their answer with the numbers, and our thanks
+ * (so no reply waits to be answered: the audience check is what waits).
+ */
+function kitMessages(now: number): readonly NewMessage[] {
+  const pair = (
+    n: number,
+    creator: string,
+    mailbox: string,
+    peer: string,
+    peerName: string,
+    subject: string,
+    sent: string,
+    answer: string,
+    thanks: string,
+  ): readonly NewMessage[] => {
+    const base = {
+      creator,
+      followUp: null,
+      bodyCut: false,
+      mailbox,
+      peer,
+      peerName,
+      conversationKey: `c:${creator}`,
+      gmailThreadId: `gt-${creator}`,
+      draftId: null,
+      reading: null,
+    } as const;
+    return [
+      {
+        ...base,
+        id: `msg${String(n)}`,
+        direction: "out",
+        kind: "first",
+        subject,
+        body: sent,
+        at: now - (4 + (n % 3)) * dayMs,
+        gmailMessageId: `gm-msg${String(n)}`,
+        by: me,
+        source: "app",
+      },
+      {
+        ...base,
+        id: `msg${String(n + 1)}`,
+        direction: "in",
+        kind: null,
+        subject: `Re: ${subject}`,
+        body: answer,
+        at: now - (2 + (n % 2)) * dayMs,
+        gmailMessageId: `gm-msg${String(n + 1)}`,
+        by: null,
+        source: "sweep",
+      },
+      {
+        ...base,
+        id: `msg${String(n + 2)}`,
+        direction: "out",
+        kind: "reply",
+        subject: `Re: ${subject}`,
+        body: thanks,
+        at: now - dayMs,
+        gmailMessageId: `gm-msg${String(n + 2)}`,
+        by: me,
+        source: "app",
+      },
+    ];
+  };
+  return [
+    ...pair(
+      6,
+      "c14",
+      "outreach1@gratovo.example",
+      "hello@agentworks.ai",
+      "Elena",
+      "Your AI agents series",
+      "Hi Elena,\n\nYour series on building AI agents that actually finish a task was the clearest I have seen.\n\nWe work with AI tool brands and think one fits. Would you be open to a paid sponsorship?\n\nMoustafa",
+      "Hi Moustafa,\n\nThanks, happy to hear about it. My media kit is here: https://agentworks.ai/kit\n\nElena",
+      "Thanks Elena, that is everything I need. I will check it against what our brands are after and come back to you in a day or two.\n\nMoustafa",
+    ),
+    ...pair(
+      9,
+      "c15",
+      "outreach2@gratovo.example",
+      "team@siliconsage.io",
+      "Arjun",
+      "Your LLM explainers",
+      "Hi Arjun,\n\nYour explainer on how large language models are trained was easy to follow.\n\nWe work with AI tool brands and would like to tell you about one. Open to a paid sponsorship?\n\nMoustafa",
+      "Hi Moustafa,\n\nSounds interesting. Here is my media kit: https://siliconsage.io/kit\n\nArjun",
+      "Thanks Arjun, got it. I will look through it and come back to you this week.\n\nMoustafa",
+    ),
+    ...pair(
+      12,
+      "c16",
+      "outreach1@gratovo.example",
+      "hi@contextwindow.dev",
+      "Sam",
+      "Your long-context video",
+      "Hi Sam,\n\nYour test of what happens when you fill a model's whole context window was a good watch.\n\nWe work with AI tool brands. Would you be open to hearing about a sponsorship?\n\nMoustafa",
+      "Hi Moustafa,\n\nOpen to it. A dedicated video is $900. Most of my viewers are in the US and Canada, ages 25-34.\n\nSam",
+      "Thanks Sam, that helps. I will come back to you in a day or two.\n\nMoustafa",
+    ),
+  ];
+}
+
 /** Three first emails sent, and one friendly answer. */
 function messages(now: number): readonly NewMessage[] {
   const out = (
@@ -665,6 +911,7 @@ function messages(now: number): readonly NewMessage[] {
       source: "app",
       reading: null,
     },
+    ...kitMessages(now),
     {
       id: "msg4",
       creator: "c10",
@@ -836,6 +1083,7 @@ function exampleReach(outreach: ExampleSeed["outreach"]): ReachData {
       checked: true,
       rewriting: null,
       replyTo: draft.replyTo,
+      goal: null,
       problem: null,
       createdAt: draft.at,
       updatedAt: draft.at,

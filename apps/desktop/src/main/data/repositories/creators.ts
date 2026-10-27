@@ -10,9 +10,11 @@ import {
   primaryEmail,
   rejectReasons,
 } from "@gratovo/core/data";
+import { kitView, mergeKit } from "@gratovo/core/close";
 import type {
   ContactSource,
   Creator,
+  CreatorKit,
   CreatorStage,
   CreatorState,
   DataWrite,
@@ -316,7 +318,8 @@ export function listCreators(db: DatabaseSync, o: { limit?: number } = {}): Crea
               r.at AS reject_at
        FROM (
          SELECT s.rowid AS rid, s.channel_id, s.handle, s.vetting_status, s.pipeline_stage,
-                s.creator_stage, s.contacts, s.archive_due_at, c.name
+                s.creator_stage, s.contacts, s.archive_due_at, c.name, s.media_kit,
+                s.provided_data, s.manual_engagement_rate
          FROM channel_state s LEFT JOIN channels c ON c.channel_id = s.channel_id
          ORDER BY
            CASE
@@ -339,6 +342,7 @@ export function listCreators(db: DatabaseSync, o: { limit?: number } = {}): Crea
       handle,
       ...storedFields(row),
       ...contactFacts(String(row["contacts"])),
+      kit: rowKit(row),
     };
   });
 }
@@ -354,7 +358,7 @@ export function creatorStates(db: DatabaseSync): CreatorState[] {
     .prepare(
       `WITH ${hiddenLines}, ${rejectLines}, ${latestLines}
        SELECT s.channel_id, s.handle, s.vetting_status, s.pipeline_stage, s.creator_stage,
-              s.contacts, s.archive_due_at, s.manual_engagement_rate, c.name,
+              s.contacts, s.archive_due_at, s.manual_engagement_rate, s.media_kit, s.provided_data, c.name,
               r.action AS reject_action, r.detail AS reject_detail, r.at_ms AS reject_at_ms,
               r.at AS reject_at, l.at_ms AS last_at_ms, l.at AS last_at, l.actor_name AS last_who
        FROM channel_state s
@@ -373,6 +377,7 @@ export function creatorStates(db: DatabaseSync): CreatorState[] {
       ...storedFields(row),
       ...contactFacts(String(row["contacts"])),
       engagement: typeof engagement === "number" ? engagement : null,
+      kit: rowKit(row),
       legacyPipelineStage: String(row["pipeline_stage"]),
       hasAppStage: isAppStage(row["creator_stage"]),
       lastActivity:
@@ -381,6 +386,86 @@ export function creatorStates(db: DatabaseSync): CreatorState[] {
           : { at: lineMs(row["last_at_ms"], row["last_at"]), who: String(row["last_who"]) },
     };
   });
+}
+
+/** The merged kit of a row that selected `media_kit`, `provided_data` and `manual_engagement_rate`. */
+function rowKit(row: Readonly<Record<string, SQLOutputValue>>): CreatorKit | null {
+  const engagement = row["manual_engagement_rate"];
+  return kitView(
+    parseJson(row["media_kit"]),
+    parseJson(row["provided_data"]),
+    typeof engagement === "number" ? engagement : null,
+  );
+}
+
+/** Stored JSON text as a value; bad JSON or a non-text column reads as null. */
+function parseJson(text: unknown): unknown {
+  if (typeof text !== "string") {
+    return null;
+  }
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+/** A `creator.kit` write. */
+type KitWrite = Omit<Extract<DataWrite, { kind: "creator.kit" }>, "kind">;
+
+/**
+ * A creator's media kit write (step 8, D3): `mergeKit` of the stored `media_kit` and what was typed,
+ * stored as JSON (unknown keys and other rate rows stay). A creator with no row gets one as a stage
+ * write makes it, with no stage of its own; any other unknown id does nothing. `now` is in ms.
+ */
+export function writeCreatorKit(db: DatabaseSync, write: KitWrite, now: number): void {
+  const row = db.prepare("SELECT media_kit FROM channel_state WHERE channel_id = ?").get(write.id);
+  if (row === undefined && !createCreatorRow(db, write, null, now)) {
+    return;
+  }
+  const merged = mergeKit(row === undefined ? null : parseJson(row["media_kit"]), write.kit);
+  db.prepare("UPDATE channel_state SET media_kit = ? WHERE channel_id = ?").run(
+    JSON.stringify(merged),
+    write.id,
+  );
+}
+
+/**
+ * What the automatic replied to kit move needs (step 8, D4): the creator's stage, the merged kit
+ * (unstripped) and the handle and name for the stage write. Undefined when there is no row.
+ */
+export function readKitState(
+  db: DatabaseSync,
+  id: string,
+):
+  | {
+      readonly stage: CreatorStage;
+      readonly kit: CreatorKit | null;
+      readonly handle: string;
+      readonly name: string;
+    }
+  | undefined {
+  const row = db
+    .prepare(
+      `SELECT s.handle, s.vetting_status, s.pipeline_stage, s.creator_stage, s.media_kit,
+              s.provided_data, s.manual_engagement_rate, c.name
+       FROM channel_state s LEFT JOIN channels c ON c.channel_id = s.channel_id
+       WHERE s.channel_id = ?`,
+    )
+    .get(id);
+  if (row === undefined) {
+    return undefined;
+  }
+  return {
+    stage: creatorStageFrom({
+      creatorStage: row["creator_stage"] === null ? null : String(row["creator_stage"]),
+      vettingStatus: String(row["vetting_status"]),
+      pipelineStage: String(row["pipeline_stage"]),
+    }),
+    kit: rowKit(row),
+    handle: String(row["handle"]),
+    name: row["name"] === null || row["name"] === "" ? String(row["handle"]) : String(row["name"]),
+  };
 }
 
 // The parts the two reads share. An undo hides a line while its newest undo or redo marker is an

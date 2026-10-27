@@ -6,6 +6,7 @@ import { Thumb } from "../find/thumb";
 import { ago, shortDate, unreadWords } from "../lib/format";
 import { strings } from "../strings";
 import { videoUrl, type CreatorDetail } from "./detail";
+import { CreatorAudience } from "./creator-audience";
 
 const text = strings.creatorRecord;
 const numbers = text.numbers;
@@ -91,6 +92,7 @@ export function CreatorOverview({ item }: { readonly item: CreatorDetail }) {
       ) : (
         <p className="hint">{text.noNumbers}</p>
       )}
+      <CreatorAudience creatorId={item.id} />
       <section className="col tight" aria-label={text.latestVideos}>
         <h4>{text.latestVideos}</h4>
         {item.videos.length === 0 ? (

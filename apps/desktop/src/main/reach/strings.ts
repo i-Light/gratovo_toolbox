@@ -73,6 +73,23 @@ export const reachStrings = {
         "Would a short note with the details and a rough price range be useful?",
       ],
     } as Readonly<Record<string, readonly string[]>>,
+    /** A goal draft's stand-ins: a kind no, and an ask for what the kit lacks. */
+    declineAnswer: [
+      "Thank you for sharing your numbers, I read them with care.",
+      "This brand needs a different audience for now, so I will not move ahead. May I write when one fits better?",
+    ] as readonly string[],
+    missingNames: {
+      top: "your top countries",
+      age: "your main age group",
+      engagement: "your engagement rate",
+      rate: "your price for one video",
+    } as Readonly<Record<"top" | "age" | "engagement" | "rate", string>>,
+    askKitAnswer: (missing: readonly string[]): readonly string[] => [
+      "Thank you for your reply, it helps.",
+      missing.length === 0
+        ? "Could you send your latest media kit once more?"
+        : `Could you share ${missing.join(", ")}? It lets me check the fit with the AI tool brands.`,
+    ],
     otherAnswer: [
       "Thanks for your reply, I read it with care.",
       "Could you tell me what would make a sponsorship a good fit for your channel?",
@@ -133,4 +150,22 @@ export const sequenceStrings = {
     `Parked ${name} until ${new Date(until).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`,
   woke: (name: string): string => `Woke ${name}`,
   finished: (name: string): string => `The follow-ups to ${name} are finished: no reply`,
+} as const;
+
+/** The activity log lines of Close's Decline kindly and Ask for what's missing (step 8). */
+export const signingStrings = {
+  /** The failed checks in plain words; "audience doesn't fit" when none is known. */
+  declined: (name: string, failed: readonly ("countries" | "age" | "engagement")[] = []): string =>
+    `Declined ${name}: ${
+      failed.length === 0
+        ? "audience doesn't fit"
+        : failed.map((key) => signingStrings.failedNames[key]).join(", ")
+    }`,
+  failedNames: {
+    countries: "audience not led by the US, UK, CA or AU",
+    age: "audience outside 18 to 44",
+    engagement: "engagement under 3%",
+  } as Readonly<Record<"countries" | "age" | "engagement", string>>,
+  undidDeclining: (name: string): string => `Undid declining ${name}`,
+  asked: (name: string): string => `Asked ${name} for their missing numbers`,
 } as const;

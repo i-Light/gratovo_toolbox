@@ -629,6 +629,39 @@ describe("Reach channels", () => {
     expect(reach.situations).toHaveBeenCalled();
   });
 
+  it("send the Close channels to the Reach service, and answer no_data from the stubs", async () => {
+    const stubbed = handlersWith(accountWith());
+    expect(await stubbed["close:decline"]({ creatorId: "c14" })).toEqual({
+      ok: false,
+      problem: "no_data",
+    });
+    expect(await stubbed["close:ask"]({ creatorId: "c14" })).toEqual({
+      ok: false,
+      problem: "no_data",
+    });
+    const reach = {
+      ...createStubServices().reach,
+      decline: vi.fn(() =>
+        Promise.resolve({ ok: true as const, draftId: "d9", before: "kit" as const, skipped: [] }),
+      ),
+      undoDecline: vi.fn(() => Promise.resolve({ ok: true as const, kept: null })),
+      ask: vi.fn(() => Promise.resolve({ ok: true as const, draftId: "d10" })),
+    };
+    const mine = handlersWith(accountWith(), [], findWith(), { reach });
+    expect(await mine["close:decline"]({ creatorId: "c14" })).toEqual({
+      ok: true,
+      draftId: "d9",
+      before: "kit",
+      skipped: [],
+    });
+    const undo = { creatorId: "c14", draftId: "d9", before: "kit" as const, skipped: [] };
+    expect(await mine["close:decline-undo"](undo)).toEqual({ ok: true, kept: null });
+    expect(await mine["close:ask"]({ creatorId: "c14" })).toEqual({ ok: true, draftId: "d10" });
+    expect(reach.decline).toHaveBeenCalledWith("c14");
+    expect(reach.undoDecline).toHaveBeenCalledWith(undo);
+    expect(reach.ask).toHaveBeenCalledWith("c14");
+  });
+
   it("puts the frame through the overlay and tells Reach about a write", async () => {
     const overlay = vi.fn((f: typeof frame) =>
       Promise.resolve({ ...f, counts: { ...f.counts, reach: 7 } }),
@@ -749,6 +782,7 @@ describe("data:write and the email finder (plan D30)", () => {
           neverReason: null,
           archiveDueAt: null,
           engagement: null,
+          kit: null,
           legacyPipelineStage: "",
           hasAppStage: true,
           lastActivity: null,

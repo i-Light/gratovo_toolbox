@@ -122,6 +122,7 @@ function teammateChanged(): { frame: Frame; line: LogEntry; stage: string } {
     rejectedAt: null,
     neverReason: null,
     archiveDueAt: null,
+    kit: null,
   };
   const frame: Frame = {
     ...base,

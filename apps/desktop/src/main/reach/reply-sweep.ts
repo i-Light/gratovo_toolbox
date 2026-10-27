@@ -60,9 +60,18 @@ export function skipOpenFollowUps(
   source: Pick<DataSource, "outreach">,
   creatorId: string,
 ): { id: string; patch: { state: "skipped"; problem: null } }[] {
+  return skipOpenDrafts(source, creatorId, "followUp");
+}
+
+/** A creator's open drafts, of every kind unless `kind` is given, as skip patches (a Decline's). */
+export function skipOpenDrafts(
+  source: Pick<DataSource, "outreach">,
+  creatorId: string,
+  kind?: StoredDraft["kind"],
+): { id: string; patch: { state: "skipped"; problem: null } }[] {
   return source.outreach
     .draftsIn(openStates)
-    .filter((d) => d.creator === creatorId && d.kind === "followUp")
+    .filter((d) => d.creator === creatorId && (kind === undefined || d.kind === kind))
     .map((d) => ({ id: d.id, patch: { state: "skipped" as const, problem: null } }));
 }
 

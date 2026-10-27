@@ -54,6 +54,7 @@ function creator(id: string, over: Partial<CreatorState> = {}): CreatorState {
     neverReason: null,
     archiveDueAt: null,
     engagement: null,
+    kit: null,
     legacyPipelineStage: "",
     hasAppStage: true,
     lastActivity: null,
@@ -80,6 +81,7 @@ function row(id: string, over: Partial<Row> = {}): Row {
     id,
     creator: kai,
     kind: "first",
+    goal: null,
     followUp: null,
     state: "ready",
     subject,
@@ -186,7 +188,8 @@ function fakeSource(clock: () => number) {
     sentSince: () => [],
     mailboxCounts: () => new Map(),
     sequence: (id) => sequences.get(id) ?? null,
-    runningSequences: () => [...sequences.values()].filter((q) => q.stopped === null),
+    runningSequences: () =>
+      [...sequences.values()].filter((q) => q.stopped === null || q.parkUntil !== null),
     commit(change) {
       commits.push(change);
       for (const q of change.sequences ?? []) {

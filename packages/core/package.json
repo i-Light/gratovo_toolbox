@@ -7,6 +7,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./data": "./src/data/index.ts",
+    "./close": "./src/close/index.ts",
     "./find": "./src/find/index.ts",
     "./reach": "./src/reach/index.ts"
   },

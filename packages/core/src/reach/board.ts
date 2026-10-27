@@ -2,8 +2,8 @@ import type { Creator, FrameSource, OutreachDraft, Sequence, ThreadSummary } fro
 
 /**
  * Reach's board (plan step 6, D14; the prototype's `boardLanes` in reach.js): where every
- * outreach stands, one lane per step. The Media kit and Signed lanes show on example data only:
- * live, they are step 8's.
+ * outreach stands, one lane per step. Every lane shows on live data too (step 8 built the Media kit and Signed
+ * lanes).
  */
 
 export const boardLaneKeys = ["todraft", "waiting", "seq", "replied", "kit", "signed"] as const;
@@ -11,7 +11,7 @@ export const boardLaneKeys = ["todraft", "waiting", "seq", "replied", "kit", "si
 export type BoardLaneKey = (typeof boardLaneKeys)[number];
 
 /** The lanes live data shows (ground rule 9). */
-export const liveBoardLanes: readonly BoardLaneKey[] = ["todraft", "waiting", "seq", "replied"];
+export const liveBoardLanes: readonly BoardLaneKey[] = boardLaneKeys;
 
 export interface BoardItem {
   readonly creator: Creator;
@@ -139,6 +139,6 @@ export function boardLanes(input: BoardInput): BoardLane[] {
     );
   lanes.get("kit")?.sort(byName);
   lanes.get("signed")?.sort(byName);
-  const shown = input.source === "example" ? boardLaneKeys : liveBoardLanes;
+  const shown = boardLaneKeys;
   return shown.map((key) => ({ key, items: lanes.get(key) ?? [] }));
 }

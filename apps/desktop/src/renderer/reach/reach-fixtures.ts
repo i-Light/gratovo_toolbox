@@ -18,6 +18,7 @@ export function aiCreator(id: string, name: string, over: Partial<Creator> = {})
     rejectedAt: null,
     neverReason: null,
     archiveDueAt: null,
+    kit: null,
     ...over,
   };
 }

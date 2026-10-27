@@ -25,6 +25,7 @@ export {
   emailPattern,
   frameSources,
   logActions,
+  kitCountriesMax,
   nameMax,
   neverReasonMax,
   notesMax,
@@ -36,9 +37,11 @@ export {
 export type {
   AgencyRole,
   AppRole,
+  AudienceShare,
   Brand,
   ContactSource,
   Creator,
+  CreatorKit,
   CreatorStage,
   CreatorState,
   DataSource,
@@ -48,6 +51,7 @@ export type {
   Frame,
   FrameNotification,
   FrameSource,
+  KitInput,
   LogAction,
   LogEntry,
   MateRun,
@@ -65,6 +69,7 @@ export {
   draftBodyMax,
   draftFindingsMax,
   draftGatesMax,
+  draftGoals,
   draftKinds,
   draftProblems,
   draftRulesMax,
@@ -88,6 +93,7 @@ export {
 } from "./reach-types";
 export type {
   DraftFinding,
+  DraftGoal,
   DraftKind,
   DraftProblem,
   DraftProposal,
