@@ -75,6 +75,19 @@ import {
   pickedPathSchema,
 } from "./import";
 import { presenceSetSchema } from "./presence";
+import {
+  commentDeleteResultSchema,
+  commentIdRequestSchema,
+  commentListSchema,
+  commentNewSchema,
+  commentPatchSchema,
+  commentRestoreRequestSchema,
+  commentSchema,
+  commentsExportResultSchema,
+  prototypeScenarioRequestSchema,
+  prototypeSetRequestSchema,
+  prototypeStatusSchema,
+} from "./prototype";
 import { syncStatusSchema } from "./sync";
 import {
   toolboxArchivedRequestSchema,
@@ -299,6 +312,48 @@ export const channels = {
   "connections:pick-folder": {
     request: pickFolderRequestSchema,
     response: pickedPathSchema,
+  },
+  /** Whether the owner's prototype switch shows, and whether it is on (ADR 0004, step 7). */
+  "prototype:status": {
+    request: z.strictObject({}),
+    response: prototypeStatusSchema,
+  },
+  /** Turns prototype mode on or off; main reloads the windows after the answer. Owner only. */
+  "prototype:set": {
+    request: prototypeSetRequestSchema,
+    response: prototypeStatusSchema,
+  },
+  /** Starts a fresh example copy for a scenario, then reloads. Only while prototype mode is on. */
+  "prototype:scenario": {
+    request: prototypeScenarioRequestSchema,
+    response: prototypeStatusSchema,
+  },
+  /** Every comment, oldest first. This and the other comment channels refuse while it is off. */
+  "comments:list": {
+    request: z.strictObject({}),
+    response: commentListSchema,
+  },
+  "comments:add": {
+    request: commentNewSchema,
+    response: commentSchema,
+  },
+  "comments:update": {
+    request: commentPatchSchema,
+    response: commentSchema,
+  },
+  /** Answers the deleted comment, so its toast can undo the delete. */
+  "comments:delete": {
+    request: commentIdRequestSchema,
+    response: commentDeleteResultSchema,
+  },
+  "comments:restore": {
+    request: commentRestoreRequestSchema,
+    response: commentSchema,
+  },
+  /** Writes every comment to `docs/feedback/comments.json` in the repository, for Claude. */
+  "comments:export": {
+    request: z.strictObject({}),
+    response: commentsExportResultSchema,
   },
   /** Connects a Gmail mailbox through Google's consent page. Consent only: nothing is sent or read. */
   "mail:connect": {

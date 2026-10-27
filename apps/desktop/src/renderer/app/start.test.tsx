@@ -108,8 +108,8 @@ describe("start", () => {
       // page also reports its screen.
       expect(calls.map((c) => c[0])).toEqual(
         status === "signed-in"
-          ? ["auth:status", "frame:load", "sync:status", "presence:set"]
-          : ["auth:status", "frame:load", "sync:status"],
+          ? ["auth:status", "frame:load", "sync:status", "presence:set", "prototype:status"]
+          : ["auth:status", "frame:load", "sync:status", "prototype:status"],
       );
       expect(screen.getByRole("navigation", { name: strings.rail.label })).toBeTruthy();
       act(() => {

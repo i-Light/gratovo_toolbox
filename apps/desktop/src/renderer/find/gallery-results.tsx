@@ -100,6 +100,7 @@ export function GalleryResults({
       ) : (
         <div
           className={selection.count > 0 ? "gal selecting" : "gal"}
+          data-ui="find.gallery.grid"
           style={{ "--card-w": cardWidth[size] } as CSSProperties}
           role="list"
           aria-label={text.resultsLabel}

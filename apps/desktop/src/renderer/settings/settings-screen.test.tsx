@@ -98,7 +98,8 @@ describe("the settings screen", () => {
 
   it("has no Prototype mode anywhere", async () => {
     const { container } = render(<App />);
-    for (const section of settingsSections) {
+    // Main has not said the switch may show, so there is no Prototype section to open.
+    for (const section of settingsSections.filter((s) => s.key !== "prototype")) {
       await userEvent.click(navButton(tabs[section.key]));
       expect(container.textContent).not.toMatch(/prototype/i);
     }

@@ -6,6 +6,7 @@ import { firstTab, goLetters, screenOrder, screens } from "../lib/routes";
 import type { RecordRef } from "../lib/routes";
 import { isRouteShown, isScreenShown } from "../lib/wired";
 import type { FrameSource } from "@gratovo/core/data";
+import { getPrototype, setPanel, toggleCommenting } from "../lib/prototype";
 import { meIsOwner, rowsFor, settingsSections } from "../lib/settings";
 import { dealName, findRecord, go, recordName } from "../lib/store";
 import type { AppData } from "../lib/store";
@@ -62,6 +63,28 @@ export function actionCommands(source: FrameSource = "example"): readonly Comman
       }),
     );
   }
+  const proto: Command[] =
+    getPrototype().status?.on === true
+      ? [
+          {
+            group: strings.palette.groups.prototype,
+            icon: "chat",
+            label: strings.prototype.paletteComment,
+            hint: strings.prototype.commentHint,
+            run: () => {
+              toggleCommenting(true);
+            },
+          },
+          {
+            group: strings.palette.groups.prototype,
+            icon: "list",
+            label: strings.prototype.paletteShowAll,
+            run: () => {
+              setPanel(true);
+            },
+          },
+        ]
+      : [];
   return [
     ...finds,
     a("undo", actions.undo, undo, strings.actions.undoKbd),
@@ -84,6 +107,7 @@ export function actionCommands(source: FrameSource = "example"): readonly Comman
     a("rows", actions.density, () => {
       setPref("density", getPrefs().density === "compact" ? "" : "compact");
     }),
+    ...proto,
   ];
 }
 

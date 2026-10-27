@@ -83,7 +83,7 @@ export function WritingRulesSection() {
   }, []);
   if (data === null) {
     return load === "failed" ? (
-      <div className="card tight">
+      <div className="card tight" data-ui="settings.writing.card">
         <Empty
           icon="alert"
           title={text.loadFailed}

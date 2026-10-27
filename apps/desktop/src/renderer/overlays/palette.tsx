@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { setPalette } from "../lib/actions";
 import { quietAnimations, useKeys } from "../lib/keys";
+import { usePrototype } from "../lib/prototype";
 import { useApp } from "../lib/store";
 import { strings } from "../strings";
 import { buildCommands } from "./commands";
@@ -49,7 +50,13 @@ function PaletteBody() {
   }, []);
   useKeys({ "mod+k": close, escape: close }, { barrier: true });
 
-  const list = useMemo(() => buildCommands(data, recent, query), [data, recent, query]);
+  const protoStatus = usePrototype().status;
+  const list = useMemo(
+    () => buildCommands(data, recent, query),
+    // The Prototype rows come and go with main's answer.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [data, recent, query, protoStatus],
+  );
   const index = Math.min(selected, Math.max(0, list.length - 1));
   // Keep the selected row in sight while the arrows move past the bottom (or top) of the list.
   useEffect(() => {

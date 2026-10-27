@@ -1,7 +1,7 @@
 import type { DatabaseSync } from "node:sqlite";
 
 import { exampleSeed, exampleSeedVersion } from "@gratovo/core/data";
-import type { DataSource } from "@gratovo/core/data";
+import type { DataSource, ExampleHealth, Scenario } from "@gratovo/core/data";
 
 import { openDatabase } from "../db/open-database";
 
@@ -38,20 +38,55 @@ const dataTables = [
   "outreach_sequences",
 ] as const;
 
+/** The `local_settings` key the seed writes its `health` to (the "Something broke" scenario). */
+export const exampleHealthKey = "example.health";
+
+/** The most signed-out mailboxes a stored health may list. */
+const healthAddressesMax = 20;
+
+export interface ExampleOptions {
+  /** Seed again even if the stored seed is current (a turn-on, a scenario pick). */
+  readonly fresh?: boolean;
+  /** Which variant of the example to seed (default "normal"). */
+  readonly scenario?: Scenario;
+}
+
+/** An open example copy and its own database handle (prototype mode keeps its comments there). */
+export interface ExampleCopy {
+  readonly source: DataSource;
+  /** The same handle the source uses: closing the source closes it. */
+  readonly db: DatabaseSync;
+}
+
 /**
  * Opens the example database at `path`. A missing file, or one seeded by an older
  * `exampleSeedVersion`, is cleared and seeded again from the fixtures; otherwise it is kept as the
- * app left it. `now` is the clock in ms (default `Date.now`).
+ * app left it. `options.fresh` seeds again in any case, from `options.scenario`. `now` is the clock
+ * in ms (default `Date.now`).
  */
-export function openExampleSource(path: string, now: () => number = Date.now): DataSource {
+export function openExampleSource(
+  path: string,
+  now: () => number = Date.now,
+  options: ExampleOptions = {},
+): DataSource {
+  return openExampleCopy(path, now, options).source;
+}
+
+/** `openExampleSource`, also handing back the database handle the source reads and writes. */
+export function openExampleCopy(
+  path: string,
+  now: () => number = Date.now,
+  options: ExampleOptions = {},
+): ExampleCopy {
+  const scenario = options.scenario ?? "normal";
   const db = openDatabase(path);
   try {
     const stored = Number(getMeta(db, seedKey) ?? 0);
-    if (!(stored >= exampleSeedVersion)) {
-      seed(db, now());
+    if (options.fresh === true || !(stored >= exampleSeedVersion)) {
+      seed(db, now(), scenario);
     }
-    const fixtures = exampleSeed(now());
-    return createSqliteSource(db, {
+    const fixtures = exampleSeed(now(), scenario);
+    const source = createSqliteSource(db, {
       source: "example",
       me: fixtures.me,
       now,
@@ -61,14 +96,40 @@ export function openExampleSource(path: string, now: () => number = Date.now): D
         mateRun: () => fixtures.mateRun(now()),
       },
     });
+    return { source, db };
   } catch (error) {
     db.close();
     throw error;
   }
 }
 
-function seed(db: DatabaseSync, now: number): void {
-  const fixtures = exampleSeed(now);
+const healthy: ExampleHealth = { signedOut: [], geminiOffline: false };
+
+/** The open example copy's health, `{ signedOut: [], geminiOffline: false }` when none. */
+export function readExampleHealth(source: Pick<DataSource, "readSetting">): ExampleHealth {
+  const value = source.readSetting(exampleHealthKey);
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return healthy;
+  }
+  const map = value as Readonly<Record<string, unknown>>;
+  const keys = Object.keys(map);
+  const { signedOut, geminiOffline } = map;
+  if (
+    keys.length !== 2 ||
+    !keys.includes("signedOut") ||
+    !keys.includes("geminiOffline") ||
+    typeof geminiOffline !== "boolean" ||
+    !Array.isArray(signedOut) ||
+    signedOut.length > healthAddressesMax ||
+    !(signedOut as unknown[]).every((address) => typeof address === "string")
+  ) {
+    return healthy;
+  }
+  return { signedOut: [...(signedOut as string[])], geminiOffline };
+}
+
+function seed(db: DatabaseSync, now: number, scenario: Scenario): void {
+  const fixtures = exampleSeed(now, scenario);
   inTransaction(db, () => {
     for (const table of dataTables) {
       db.exec(`DELETE FROM ${table}`);
@@ -96,6 +157,9 @@ function seed(db: DatabaseSync, now: number): void {
     setNotify(db, {});
     setSetting(db, "mail.settings", fixtures.mailSettings);
     setSetting(db, "reach.mailboxes", fixtures.reachMailboxes);
+    if (fixtures.health !== null) {
+      setSetting(db, exampleHealthKey, fixtures.health);
+    }
     // Only the inserts are used here, so the store needs no transaction of its own.
     const outreach = createOutreachStore(db, {
       transaction: (fn) => {

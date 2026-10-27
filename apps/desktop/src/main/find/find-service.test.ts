@@ -118,7 +118,11 @@ describe("the find service", () => {
       supervisor,
       account: {
         findContext: () =>
-          mode === null ? null : { mode, workerId: mode === "example" ? "example" : "user-1" },
+          mode === null
+            ? null
+            : mode === "example"
+              ? { mode, workerId: "example", folder: "example-pipeline" }
+              : { mode, workerId: "user-1", folder: "pipeline" },
         teamKeys: { youtubeKey: () => key() },
       },
       secrets: { get: (name) => Promise.resolve(secretValues[name]) },
@@ -547,7 +551,7 @@ describe("the find service", () => {
       return createFindService({
         supervisor,
         account: {
-          findContext: () => ({ mode: "example", workerId: "example" }),
+          findContext: () => ({ mode: "example", workerId: "example", folder: "example-pipeline" }),
           teamKeys: { youtubeKey: () => key() },
         },
         secrets: { get: () => Promise.resolve(undefined) },
@@ -752,7 +756,7 @@ describe("the find service", () => {
       return createFindService({
         supervisor,
         account: {
-          findContext: () => ({ mode: "example", workerId: "example" }),
+          findContext: () => ({ mode: "example", workerId: "example", folder: "example-pipeline" }),
           teamKeys: { youtubeKey: () => key() },
         },
         secrets: { get: () => Promise.resolve(undefined) },

@@ -97,7 +97,7 @@ export function GalleryFacets({
     .sort((a, b) => b.startedAt - a.startedAt);
   const countries = countryOptions(facets.countries, filter.countries);
   return (
-    <aside className="facets" aria-label={text.filtersLabel}>
+    <aside className="facets" data-ui="find.gallery.facets" aria-label={text.filtersLabel}>
       <Facet title={text.facets.stage}>
         {stageOrder.map((stage) => (
           <Opt

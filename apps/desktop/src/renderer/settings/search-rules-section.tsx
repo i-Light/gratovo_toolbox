@@ -37,7 +37,7 @@ export function SearchRulesSection() {
   const saving = useRef(false);
   if (state === null) {
     return load === "failed" ? (
-      <div className="card tight">
+      <div className="card tight" data-ui="settings.search.rules">
         <Empty
           icon="alert"
           title={text.loadFailed}
@@ -181,7 +181,7 @@ export function SearchRulesSection() {
         label={rows.rulesPerKeyword.label}
         scope="team"
         desc={rows.rulesPerKeyword.desc}
-        ui="settings.search.perKeyword"
+        ui="settings.search.per-keyword"
       >
         {draft === null ? (
           <Tag>{strings.findSearch.rules.perKeyword(rules.perKeyword)}</Tag>

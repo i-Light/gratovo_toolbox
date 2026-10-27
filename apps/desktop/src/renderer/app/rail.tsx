@@ -45,6 +45,7 @@ const NavItem = memo(function NavItem({
     <button
       type="button"
       className="nav"
+      data-ui={`frame.rail.${screen}`}
       style={{ "--hue": info.hue } as CSSProperties}
       aria-current={current ? "page" : undefined}
       // Collapsed, the name and count are hidden, so the button needs a name of its own.
@@ -117,8 +118,14 @@ export const Rail = memo(function Rail() {
   return (
     // At narrow widths the closed drawer is only moved off screen, so it is made inert: Tab
     // must not reach buttons nobody can see.
-    <nav className="rail" id={railId} aria-label={rail.label} inert={narrow && !railOpen}>
-      <div className="brand">
+    <nav
+      className="rail"
+      id={railId}
+      data-ui="frame.rail"
+      aria-label={rail.label}
+      inert={narrow && !railOpen}
+    >
+      <div className="brand" data-ui="frame.rail.brand">
         <img className="logo" src={logoUrl} alt="" />
         <div>
           <b>{strings.brand.name}</b>
@@ -159,6 +166,7 @@ export const Rail = memo(function Rail() {
         <button
           type="button"
           className="me"
+          data-ui="frame.rail.account"
           aria-haspopup="menu"
           aria-expanded={accountMenuOpen}
           onClick={(event) => {
@@ -264,6 +272,7 @@ export const Rail = memo(function Rail() {
         <button
           type="button"
           className="iconbtn rail-tog hide-narrow"
+          data-ui="frame.rail.toggle"
           onClick={() => {
             setPref("rail", collapsed ? "" : "min");
           }}

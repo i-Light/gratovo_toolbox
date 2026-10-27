@@ -80,6 +80,7 @@ export const GalleryCard = memo(function GalleryCard({
     // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
     <div
       className={cx("gcard", dim && "dim")}
+      data-ui="find.gallery.card"
       role="listitem"
       data-selected={selected}
       data-name={item.name}

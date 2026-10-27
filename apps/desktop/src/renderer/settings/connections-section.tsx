@@ -94,7 +94,7 @@ export function ConnectionsSection() {
   const [importing, setImporting] = useState(false);
   if (status === null) {
     return load === "failed" ? (
-      <div className="card tight">
+      <div className="card tight" data-ui="settings.connections.rows">
         <Empty
           icon="alert"
           title={text.loadFailed}

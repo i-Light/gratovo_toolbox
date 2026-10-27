@@ -1,6 +1,7 @@
 import { readReplyFacts } from "../reach/reply-facts";
 
 import { seesMoney, sortRoles } from "./access";
+import { brokeSeed, firstSeed } from "./example-scenarios";
 import type { NewDraft, NewMessage } from "./outreach-store";
 import { threadPreviewMax } from "./reach-types";
 import type {
@@ -32,6 +33,18 @@ import type {
 
 /** Bump it when the fixtures change: an older example database is then seeded again. */
 export const exampleSeedVersion = 7;
+
+/** The example copies prototype mode starts from (ADR 0004). The same list as the IPC's `scenarioKeys`. */
+export const scenarios = ["normal", "first", "later", "broke"] as const;
+export type Scenario = (typeof scenarios)[number];
+
+/** What is broken in an example copy (the "Something broke" scenario). */
+export interface ExampleHealth {
+  /** Mailbox addresses shown as signed out of Gmail. */
+  readonly signedOut: readonly string[];
+  /** Drafting acts as if the Gemini bridge is off. */
+  readonly geminiOffline: boolean;
+}
 
 /** What the example database is seeded from, and the extras (presence, counts, a run) it serves. */
 export interface ExampleSeed {
@@ -75,6 +88,8 @@ export interface ExampleSeed {
   };
   /** A teammate's search in progress, as seen at `now`. */
   mateRun(now: number): MateRun;
+  /** What is broken in this copy; null when nothing is. */
+  readonly health: ExampleHealth | null;
 }
 
 /** The example mail settings, in the shape Settings › Connections stores them. */
@@ -97,8 +112,17 @@ export interface ExampleDraft extends NewDraft {
   readonly proposal: DraftProposal | null;
 }
 
-/** The example fixtures, with times relative to `now`. */
-export function exampleSeed(now: number): ExampleSeed {
+/**
+ * The example fixtures, with times relative to `now`. A scenario is a variant (D9): `later` is the
+ * same data a week older, `first` an empty account, `broke` the normal data with things failing.
+ */
+export function exampleSeed(now: number, scenario: Scenario = "normal"): ExampleSeed {
+  if (scenario === "first") return firstSeed(normalSeed(now), now);
+  if (scenario === "broke") return brokeSeed(normalSeed(now), now);
+  return normalSeed(scenario === "later" ? now - 7 * 24 * 3600 * 1000 : now);
+}
+
+function normalSeed(now: number): ExampleSeed {
   return {
     me,
     profiles: team.map(({ id, displayName, role }) => ({ id, displayName, role })),
@@ -121,6 +145,7 @@ export function exampleSeed(now: number): ExampleSeed {
       sequences: sequences(now),
     },
     mateRun: (at) => mateRun(dayTime(at, 0, 9, 2)),
+    health: null,
   };
 }
 

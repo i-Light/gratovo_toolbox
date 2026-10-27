@@ -100,8 +100,8 @@ export function CreatorRecord({
   };
   const link = channelUrl(item.id);
   return (
-    <div className="cr" data-layout={layout}>
-      <div className="rec-h">
+    <div className="cr" data-layout={layout} data-ui="record.creator">
+      <div className="rec-h" data-ui="record.header">
         <ThumbAvatar pic={item.pic} name={item.name} alt={text.avatarAlt(item.name)} />
         <div className="t">
           <h2>{item.name}</h2>
@@ -120,11 +120,12 @@ export function CreatorRecord({
         </div>
       </div>
       <CreatorNext item={item} />
-      <div className="tabs" role="tablist" aria-label={text.tabsLabel}>
+      <div className="tabs" data-ui="record.tabs" role="tablist" aria-label={text.tabsLabel}>
         {tabKeys.map((key) => (
           <button
             key={key}
             id={tabId(key)}
+            data-ui={`record.tab.${key}`}
             type="button"
             role="tab"
             aria-selected={tab === key}
@@ -141,6 +142,7 @@ export function CreatorRecord({
       </div>
       <div
         id={panelId("overview")}
+        data-ui="record.panel.overview"
         role="tabpanel"
         aria-labelledby={tabId("overview")}
         className="cr-panel"
@@ -150,6 +152,7 @@ export function CreatorRecord({
       </div>
       <div
         id={panelId("emails")}
+        data-ui="record.panel.emails"
         role="tabpanel"
         aria-labelledby={tabId("emails")}
         className="cr-panel"
@@ -160,6 +163,7 @@ export function CreatorRecord({
       {/* Always mounted, so leaving the tab with unsaved text still saves it on blur. */}
       <div
         id={panelId("notes")}
+        data-ui="record.panel.notes"
         role="tabpanel"
         aria-labelledby={tabId("notes")}
         className="cr-panel"
@@ -170,6 +174,7 @@ export function CreatorRecord({
       {/* The panel stays so aria-controls resolves; the list inside loads only while shown. */}
       <div
         id={panelId("activity")}
+        data-ui="record.panel.activity"
         role="tabpanel"
         aria-labelledby={tabId("activity")}
         className="cr-panel"

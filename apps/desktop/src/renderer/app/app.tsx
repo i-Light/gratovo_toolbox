@@ -4,9 +4,11 @@ import { memo, useEffect, useLayoutEffect, useRef } from "react";
 import { useKeys } from "../lib/keys";
 import { useNarrow } from "../lib/media";
 import { usePref } from "../lib/prefs";
+import { usePrototype } from "../lib/prototype";
 import { selectProblems, selectRoute, setRailOpen, useApp } from "../lib/store";
 import { useFirstRun } from "./first-run";
 import { useGlobalKeys, useKeyListener } from "./global-keys";
+import { CommentLayer } from "../prototype/comment-layer";
 import { MenuLayer } from "../overlays/menu-layer";
 import { Palette } from "../overlays/palette";
 import { Peek } from "../overlays/peek";
@@ -42,7 +44,7 @@ const Bars = memo(function Bars() {
     };
   }, []);
   return (
-    <div className="bars" ref={ref}>
+    <div className="bars" ref={ref} data-ui="frame.bars">
       <ProblemsBar problems={problems} />
     </div>
   );
@@ -59,7 +61,7 @@ const Content = memo(function Content() {
     ref.current?.scrollTo({ top: 0, behavior: "instant" });
   }, [screen, tab, kind, id]);
   return (
-    <main className="content" id="content" ref={ref}>
+    <main className="content" id="content" ref={ref} data-ui="frame.content">
       {screen === "record" ? (
         <RecordPage
           key={`${String(kind)}${String(id)}`}
@@ -124,6 +126,8 @@ export function App() {
   const railMin = usePref("rail") === "min";
   const railOpen = useApp((s) => s.ui.railOpen);
   const narrow = useNarrow();
+  const proto = usePrototype();
+  const protoOn = proto.status?.on === true;
   const drawerOpen = narrow && railOpen;
   // A drawer left open while the window widens would come back open later, so it closes.
   useEffect(() => {
@@ -141,7 +145,14 @@ export function App() {
     { active: drawerOpen },
   );
   return (
-    <div className={cx("app", railMin && "rail-min", railOpen && "rail-open")}>
+    <div
+      className={cx(
+        "app",
+        railMin && "rail-min",
+        railOpen && "rail-open",
+        protoOn && proto.panel && "cmt-panel-on",
+      )}
+    >
       <Rail />
       {drawerOpen ? (
         <div
@@ -164,6 +175,7 @@ export function App() {
       <MenuLayer />
       <Toasts />
       <Tooltip />
+      {protoOn ? <CommentLayer /> : null}
     </div>
   );
 }

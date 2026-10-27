@@ -1,0 +1,305 @@
+/* Prototype mode's styles, ported from the prototype (index.html: .proto-chip, .proto-how, .scn). */
+
+.proto-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 15px;
+  border: 1px dashed var(--ink-2);
+  background: var(--sunk);
+  color: var(--ink);
+  font-size: 12.5px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: transform 0.16s var(--ease-out);
+}
+.proto-chip:active {
+  transform: scale(0.97);
+}
+.proto-how {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 12px;
+  background: var(--sunk);
+  margin-bottom: 6px;
+}
+.ph-flow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.ph-split {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ph-box {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 12px;
+  border-radius: 9px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  font-weight: 600;
+  font-size: 13px;
+}
+.ph-box small {
+  font-weight: 400;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+.ph-box.on {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+.ph-list {
+  margin: 0;
+  padding-inline-start: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--ink-2);
+  max-width: 70ch;
+}
+.scn-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  width: 100%;
+}
+.scn {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: start;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line-2);
+  background: var(--panel);
+  color: var(--ink);
+  transition: transform 0.16s var(--ease-out);
+}
+.scn:active {
+  transform: scale(0.98);
+}
+.scn b {
+  font-weight: 600;
+}
+.scn small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+.scn[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* The comment layer (ported from the prototype's .cmt-* rules). Motion is switched off globally by
+   the reduce-motion and keyboard rules in tokens.css. */
+html.cmt-mode .app,
+html.cmt-mode .app * {
+  cursor: crosshair !important;
+}
+html.cmt-mode [data-cmt-ui],
+html.cmt-mode [data-cmt-ui] * {
+  cursor: auto !important;
+}
+html.cmt-mode [data-cmt-ui] button {
+  cursor: pointer !important;
+}
+.cmt-pin {
+  position: fixed;
+  z-index: 71;
+  width: 24px;
+  height: 24px;
+  border-radius: 50% 50% 50% 3px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font: 700 11px var(--f-ui);
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--panel);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.12s var(--ease-out);
+}
+.cmt-pin:hover,
+.cmt-pin[aria-expanded="true"] {
+  transform: scale(1.12);
+}
+.cmt-pin.done {
+  background: var(--faint);
+}
+.cmt-pin.approx {
+  border-style: dashed;
+  opacity: 0.8;
+}
+.cmt-pin.static {
+  position: static;
+  flex: none;
+  box-shadow: none;
+  cursor: inherit;
+  transform: none;
+}
+.cmt-hl {
+  position: fixed;
+  z-index: 69;
+  border: 2px solid var(--accent);
+  border-radius: 8px;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+.cmt-hl-l {
+  position: absolute;
+  bottom: 100%;
+  margin-bottom: 4px;
+  inset-inline-start: -2px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font: 600 11px var(--f-ui);
+  padding: 3px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+  max-width: min(320px, 80vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cmt-pop {
+  position: fixed;
+  z-index: 84;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--shadow-3);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: dropIn 0.14s var(--ease-out);
+  font-size: 13px;
+}
+.cmt-pop p {
+  margin: 0;
+}
+.cmt-body {
+  white-space: pre-wrap;
+}
+.cmt-bar {
+  position: fixed;
+  z-index: 83;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--ink);
+  color: var(--panel);
+  padding: 8px 8px 8px 14px;
+  border-radius: 12px;
+  box-shadow: var(--shadow-3);
+  font-size: 13px;
+  width: max-content;
+  max-width: calc(100vw - 24px);
+  flex-wrap: wrap;
+}
+.cmt-bar .btn {
+  background: transparent;
+  color: inherit;
+  border-color: color-mix(in srgb, currentColor 30%, transparent);
+}
+.cmt-bar .btn:hover {
+  background: color-mix(in srgb, currentColor 12%, transparent);
+}
+.cmt-bar .kbd {
+  background: transparent;
+  color: inherit;
+  border-color: color-mix(in srgb, currentColor 40%, transparent);
+}
+.cmt-side {
+  position: fixed;
+  inset-block: calc(var(--top-h) + 10px) 12px;
+  inset-inline-end: 12px;
+  width: min(330px, calc(100vw - 24px));
+  z-index: 82;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--shadow-2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: slideIn 0.2s var(--ease-drawer);
+}
+.cmt-side-h {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+}
+.cmt-side-f {
+  padding: 8px 10px;
+  gap: 6px;
+  border-bottom: 1px solid var(--line);
+}
+.cmt-side-list {
+  overflow-y: auto;
+  padding: 6px;
+  flex: 1;
+}
+.cmt-side-b {
+  padding: 10px 14px;
+  border-top: 1px solid var(--line);
+}
+.cmt-empty {
+  padding: 14px 10px;
+}
+@media (min-width: 1301px) {
+  .app.cmt-panel-on .main {
+    margin-inline-end: 354px;
+  }
+}
+.cmt-clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 12.5px;
+  color: var(--ink-2);
+  white-space: pre-wrap;
+}
+.cmt-grow {
+  flex: 1;
+  min-width: 0;
+}
+.cmt-fixed {
+  flex: none;
+}
+.cmt-ell {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cmt-label {
+  font-weight: 500;
+}
+.cmt-light {
+  font-weight: 400;
+}
+.cmt-accent {
+  color: var(--accent);
+}
+.cmt-small {
+  width: 28px;
+  height: 28px;
+}

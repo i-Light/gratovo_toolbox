@@ -168,7 +168,11 @@ export function CreatorNext({ item }: { readonly item: CreatorDetail }) {
     hint = text.next.laterHint;
   }
   return (
-    <div className="nextcard" style={{ "--hue": "var(--find)" } as CSSProperties}>
+    <div
+      className="nextcard"
+      data-ui="record.next"
+      style={{ "--hue": "var(--find)" } as CSSProperties}
+    >
       <Icon name="flag" />
       <span className="nt">
         <b ref={line_} tabIndex={-1} style={{ fontWeight: 600 }}>

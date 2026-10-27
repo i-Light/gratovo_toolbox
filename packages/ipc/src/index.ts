@@ -135,6 +135,36 @@ export {
   threadMessageSchema,
   threadSummarySchema,
 } from "./reach";
+export {
+  commentAnchorSchema,
+  commentIdSchema,
+  commentKinds,
+  commentNewSchema,
+  commentPatchSchema,
+  commentPlaceSchema,
+  commentSchema,
+  commentStatuses,
+  commentsExportPath,
+  commentsExportResultSchema,
+  commentsMax,
+  commentTextMax,
+  prototypeStatusSchema,
+  scenarioKeys,
+  scenarioSchema,
+} from "./prototype";
+export type {
+  Comment,
+  CommentAnchor,
+  CommentKind,
+  CommentNew,
+  CommentPatch,
+  CommentPlace,
+  CommentRef,
+  CommentsExportResult,
+  CommentStatus,
+  PrototypeStatus,
+  ScenarioKey,
+} from "./prototype";
 export { syncStatusSchema, syncStates } from "./sync";
 export {
   archivedChannelSchema,

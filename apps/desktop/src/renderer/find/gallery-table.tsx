@@ -42,6 +42,7 @@ const Row = memo(function Row({ item, selected, now, onOpen, onPick }: RowProps)
   return (
     <tr
       className="click"
+      data-ui="find.gallery.row"
       aria-selected={selected}
       onClick={(event) => {
         if (event.shiftKey || event.ctrlKey || event.metaKey) {
@@ -170,7 +171,7 @@ export function GalleryTable({ items, sort, selected, onOpen, onPick }: GalleryT
     );
   };
   return (
-    <div className="tw">
+    <div className="tw" data-ui="find.gallery.table">
       <table className="tbl" aria-label={text.label}>
         <thead>
           <tr>

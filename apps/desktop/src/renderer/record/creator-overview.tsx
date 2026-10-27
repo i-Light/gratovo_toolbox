@@ -45,7 +45,7 @@ export function CreatorOverview({ item }: { readonly item: CreatorDetail }) {
   return (
     <>
       {item.hasNumbers ? (
-        <div className="stats">
+        <div className="stats" data-ui="record.overview.stats">
           <Stat
             value={item.subscribers === null ? numbers.hidden : formatCount(item.subscribers)}
             label={numbers.subscribers}

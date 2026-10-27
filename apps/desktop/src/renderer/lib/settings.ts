@@ -3,6 +3,7 @@ import type { FrameSource, NotifyKind } from "@gratovo/core/data";
 import type { IconName } from "@gratovo/ui";
 
 import { strings } from "../strings";
+import { getPrototype } from "./prototype";
 import type { AppData, Notification } from "./store";
 import { isSettingsSectionShown } from "./wired";
 
@@ -17,12 +18,13 @@ export type SectionKey =
   | "facts"
   | "writing"
   | "team"
-  | "connections";
+  | "connections"
+  | "prototype";
 
 /** One section of the Settings screen. */
 export interface SettingsSection {
   readonly key: SectionKey;
-  readonly group: "you" | "agency";
+  readonly group: "you" | "agency" | "owner";
   readonly icon: IconName;
   /** The prototype's owner flag: only the owner changes these (enforced when accounts arrive, step 3d). */
   readonly owner: boolean;
@@ -42,6 +44,7 @@ export const settingsSections: readonly SettingsSection[] = [
   { key: "writing", group: "agency", icon: "pen", owner: false, arrives: null },
   { key: "team", group: "agency", icon: "users", owner: true, arrives: 9 },
   { key: "connections", group: "agency", icon: "gauge", owner: true, arrives: null },
+  { key: "prototype", group: "owner", icon: "flask", owner: true, arrives: null },
 ];
 
 /** A setting that exists today. */
@@ -72,7 +75,10 @@ export type RowId =
   | "connProxies"
   | "connPacing"
   | "connAws"
-  | "connSync";
+  | "connSync"
+  | "proto"
+  | "scenario"
+  | "comments";
 
 /** A row that can be searched and reached from the palette. */
 export interface SettingsRow {
@@ -109,6 +115,9 @@ export const settingsRows: readonly SettingsRow[] = [
   { section: "connections", id: "connPacing" },
   { section: "connections", id: "connAws" },
   { section: "connections", id: "connSync" },
+  { section: "prototype", id: "proto" },
+  { section: "prototype", id: "scenario" },
+  { section: "prototype", id: "comments" },
 ];
 
 export type { NotifyKind };
@@ -124,15 +133,24 @@ export function sectionsFor(
   owner: boolean,
   source: FrameSource = "example",
 ): readonly SettingsSection[] {
+  const { status } = getPrototype();
   return settingsSections.filter(
-    (s) => (owner || !s.owner) && isSettingsSectionShown(s.key, source),
+    (s) =>
+      (owner || !s.owner || s.key === "prototype") &&
+      isSettingsSectionShown(s.key, source) &&
+      // Main decides who may see the Prototype section; hidden until it has answered.
+      (s.key !== "prototype" || status?.available === true),
   );
 }
 
 /** The setting rows you may reach: those in a section you may open. */
 export function rowsFor(owner: boolean, source: FrameSource = "example"): readonly SettingsRow[] {
   const keys = new Set(sectionsFor(owner, source).map((s) => s.key));
-  return settingsRows.filter((row) => keys.has(row.section));
+  const on = getPrototype().status?.on === true;
+  // The scenario and comments rows exist only while prototype mode is on.
+  return settingsRows.filter(
+    (row) => keys.has(row.section) && (row.section !== "prototype" || row.id === "proto" || on),
+  );
 }
 
 /** Whether the bell and its tray show this notification: problems always, other kinds unless turned off. */

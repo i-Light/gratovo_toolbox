@@ -1,7 +1,13 @@
 export { isAgencyRole, isOwner, noAccess, seesMoney, sortRoles } from "./access";
 export type { MemberAccess } from "./access";
-export { exampleCountries, exampleFrame, exampleSeed, exampleSeedVersion } from "./example";
-export type { ExampleSeed } from "./example";
+export {
+  exampleCountries,
+  exampleFrame,
+  exampleSeed,
+  exampleSeedVersion,
+  scenarios,
+} from "./example";
+export type { ExampleHealth, ExampleSeed, Scenario } from "./example";
 export {
   creatorStageFrom,
   dealStepFrom,

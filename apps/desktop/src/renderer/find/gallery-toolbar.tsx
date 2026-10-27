@@ -58,7 +58,7 @@ function Search({ q }: { readonly q: string }) {
   }
 
   return (
-    <span className="row grow gal-search">
+    <span className="row grow gal-search" data-ui="find.gallery.search">
       <Icon name="search" size={14} />
       <input
         className="gal-search-in"

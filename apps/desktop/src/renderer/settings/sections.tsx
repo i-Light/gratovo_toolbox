@@ -46,7 +46,7 @@ export function ProfileSection() {
   };
   return (
     <>
-      <div className="set-hero">
+      <div className="set-hero" data-ui="settings.profile.hero">
         <Avatar
           name={shown}
           color={avatarColor(owner ? "owner" : memberName)}
@@ -299,7 +299,7 @@ export function NotificationsSection() {
 export function ShellSection({ section }: { readonly section: SettingsSection }) {
   const step = section.arrives ?? 0;
   return (
-    <div className="card tight">
+    <div className="card tight" data-ui="settings.shell">
       <Empty icon={section.icon} title={text.shell.title(step)}>
         {text.shell.line(step)}
       </Empty>

@@ -263,10 +263,19 @@ describe("the drafter", () => {
   let held: Held[];
   let ids: number;
   let drafter: Drafter;
+  let health: unknown;
+  let healthReads: number;
 
   const source = (): DrafterSource => ({
     creatorStates: () => Promise.resolve(states),
     outreach: store,
+    readSetting: (key: string) => {
+      if (key === "example.health") {
+        healthReads += 1;
+        return health;
+      }
+      return undefined;
+    },
   });
 
   function make(options: { realTimers?: boolean; reading?: DrafterDeps["reading"] } = {}): Drafter {
@@ -324,6 +333,8 @@ describe("the drafter", () => {
 
   beforeEach(() => {
     store = new FakeOutreach();
+    health = undefined;
+    healthReads = 0;
     states = [];
     mode = "live";
     bridge = { ready: true, pausedUntil: null };
@@ -857,6 +868,39 @@ describe("the drafter", () => {
   describe("on the example data", () => {
     beforeEach(() => {
       mode = "example";
+    });
+
+    it("says Gemini is off and drafts nothing when the health says so", async () => {
+      mode = "example";
+      health = { signedOut: [], geminiOffline: true };
+      drafter = make();
+      states = [confirmed(sam, { name: "Prompt Lab", contactName: "Sam" })];
+      expect(drafter.state().gemini).toBe("off");
+      await kicked();
+      expect(only()).toMatchObject({ state: "drafting", problem: "bridge_off" });
+      store.updateDraft(only().id, { state: "ready" }, clock);
+      expect(await drafter.rewrite(only().id, "direct")).toEqual({
+        ok: false,
+        problem: "bridge_off",
+      });
+    });
+
+    it("keeps the stand-in when the health is missing or Gemini is online", () => {
+      expect(make().state().gemini).toBe("ready");
+      health = { signedOut: [], geminiOffline: false };
+      expect(make().state().gemini).toBe("ready");
+    });
+
+    it("never reads the health on live data", async () => {
+      mode = "live";
+      health = { signedOut: [], geminiOffline: true };
+      bridge = { ready: true, pausedUntil: null };
+      const live = make();
+      live.state();
+      live.kick();
+      await live.idle();
+      expect(live.state().gemini).toBe("ready");
+      expect(healthReads).toBe(0);
     });
 
     it("fills a first email after 0.9 s and never calls Gemini", async () => {

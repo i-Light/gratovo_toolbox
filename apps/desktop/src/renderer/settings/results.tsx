@@ -2,6 +2,7 @@ import { Empty, Icon } from "@gratovo/ui";
 
 import { openSetting } from "../lib/actions";
 import { meIsOwner, searchSettings, settingsSections } from "../lib/settings";
+import { usePrototype } from "../lib/prototype";
 import { go, useApp } from "../lib/store";
 import { strings } from "../strings";
 
@@ -20,6 +21,7 @@ export function Results({
 }) {
   const owner = useApp((s) => meIsOwner(s.data));
   const source = useApp((s) => s.data.source);
+  usePrototype(); // the Prototype rows follow main's answer
   const { rows, sections } = searchSettings(query, owner, source);
   if (rows.length === 0 && sections.length === 0) {
     return (

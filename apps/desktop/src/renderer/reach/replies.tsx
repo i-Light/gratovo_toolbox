@@ -104,7 +104,7 @@ function ReplyDetail({ item, ids }: { readonly item: ReplyItem; readonly ids: re
   };
   return (
     <>
-      <div className="rp-head">
+      <div className="rp-head" data-ui="reach.inbox.head">
         <Avatar name={creator.name} color={avatarColor(creator.handle)} size="l" decorative />
         <div className="grow">
           <h2>{creator.name}</h2>
@@ -270,7 +270,12 @@ export function Replies() {
         {checkButton}
       </div>
       <div className="rp-split">
-        <div className={cx("card", "queue")} role="listbox" aria-label={text.list}>
+        <div
+          className={cx("card", "queue")}
+          data-ui="reach.inbox.queue"
+          role="listbox"
+          aria-label={text.list}
+        >
           {items.map((item) => (
             <ReplyRow
               key={item.creator.id}
@@ -283,7 +288,7 @@ export function Replies() {
             />
           ))}
         </div>
-        <div className="rp-work">
+        <div className="rp-work" data-ui="reach.inbox.work">
           {cur === null ? null : <ReplyDetail key={cur.creator.id} item={cur} ids={ids} />}
         </div>
       </div>

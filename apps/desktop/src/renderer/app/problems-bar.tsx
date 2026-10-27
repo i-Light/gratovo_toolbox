@@ -16,7 +16,7 @@ export function ProblemsBar({ problems }: { readonly problems: readonly Problem[
     return null;
   }
   return (
-    <div className="sysbar crit" role="alert">
+    <div className="sysbar crit" role="alert" data-ui="frame.problems">
       <Icon name="alert" />
       <span className="grow">
         <b style={{ fontWeight: 600 }}>{first.text}</b>{" "}
@@ -37,7 +37,7 @@ export function ProblemsBar({ problems }: { readonly problems: readonly Problem[
           </>
         ) : null}
         {open ? (
-          <span className="sys-more">
+          <span className="sys-more" data-ui="frame.problems.more">
             {others.map((p) => (
               <span key={p.key} className="row wrap" style={{ gap: "8px" }}>
                 <span>{p.text}</span>
@@ -52,7 +52,12 @@ export function ProblemsBar({ problems }: { readonly problems: readonly Problem[
         ) : null}
       </span>
       {first.action ? (
-        <button type="button" className="btn sm" onClick={first.action.run}>
+        <button
+          type="button"
+          className="btn sm"
+          data-ui="frame.problems.action"
+          onClick={first.action.run}
+        >
           {first.action.label}
         </button>
       ) : null}

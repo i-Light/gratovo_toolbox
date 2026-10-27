@@ -27,7 +27,7 @@ export function BulkBar({ items, onShortlist, onReject, onCompare, onClear }: Bu
   const compareTip =
     n < compareMin ? text.compareFew : n > compareMax ? text.compareMany : text.compareTip;
   return (
-    <div className="bulkbar" role="toolbar" aria-label={text.label}>
+    <div className="bulkbar" data-ui="find.gallery.bulk" role="toolbar" aria-label={text.label}>
       <b>{text.selected(n)}</b>
       <Btn
         size="sm"

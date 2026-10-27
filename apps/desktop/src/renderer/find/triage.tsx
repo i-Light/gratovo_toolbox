@@ -197,7 +197,7 @@ export function Triage({ review }: { readonly review: Review }) {
   }
   if (item === undefined) {
     return (
-      <div className="tr-view">
+      <div className="tr-view" data-ui="find.triage">
         <div className="card">
           <Empty
             icon="checkc"

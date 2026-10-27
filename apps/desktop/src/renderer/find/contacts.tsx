@@ -154,7 +154,13 @@ export function Contacts() {
   };
   const tipList = sure.map((s) => s.best.email);
   return (
-    <div className="col" role="region" aria-label={text.listLabel} ref={root}>
+    <div
+      className="col"
+      role="region"
+      data-ui="find.contacts"
+      aria-label={text.listLabel}
+      ref={root}
+    >
       <div className="row wrap">
         <span className="ink2" tabIndex={-1} ref={header}>
           {text.header(total)}
@@ -191,9 +197,15 @@ export function Contacts() {
           </Btn>
         )}
       </div>
-      <div className="grid2 ct-grid">
+      <div className="grid2 ct-grid" data-ui="find.contacts.grid">
         {ordered.map((item) => (
-          <article key={item.id} data-id={item.id} className="card ct-card" aria-label={item.name}>
+          <article
+            key={item.id}
+            data-id={item.id}
+            data-ui="find.contacts.row"
+            className="card ct-card"
+            aria-label={item.name}
+          >
             <div className="row">
               <ThumbAvatar
                 pic={item.pic}

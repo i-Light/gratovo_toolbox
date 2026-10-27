@@ -9,6 +9,7 @@ import "./app/load-failed.css";
 import "./app/save-state.css";
 import "./find/find.css";
 import "./overlays/overlays.css";
+import "./prototype/prototype.css";
 import "./reach/reach.css";
 import "./record/emails.css";
 import "./record/record.css";

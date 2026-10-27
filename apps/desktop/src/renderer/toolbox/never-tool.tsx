@@ -105,7 +105,11 @@ function AddChannel() {
     setQ("");
   };
   return (
-    <section className="card flat tight col tight" aria-labelledby="tb-never-add">
+    <section
+      className="card flat tight col tight"
+      data-ui="toolbox.never.add"
+      aria-labelledby="tb-never-add"
+    >
       <h4 id="tb-never-add">{text.addTitle}</h4>
       <label className="tb-search">
         <Icon name="search" />
@@ -211,7 +215,7 @@ function NeverRow({
     item.neverReason === null || item.neverReason === "" ? text.noReason : item.neverReason;
   const when = item.rejectedAt === null ? null : ago(item.rejectedAt, now);
   return (
-    <div className="row wrap tb-row" data-row={item.id}>
+    <div className="row wrap tb-row" data-row={item.id} data-ui="toolbox.never.row">
       <button
         type="button"
         className="li"
@@ -297,7 +301,7 @@ export function NeverTool() {
     target?.focus();
   }, [ids]);
   return (
-    <div className="col">
+    <div className="col" data-ui="toolbox.never">
       <AddChannel />
       <div className="col tight" ref={box}>
         {list.status === "failed" ? (

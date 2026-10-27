@@ -119,7 +119,7 @@ export function ContactBlock({
   }
 
   return (
-    <div className="ct-blk">
+    <div className="ct-blk" data-ui="find.contacts.block">
       {found.length === 0 ? (
         <p className="small ink2">{looking ? text.looking : text.none}</p>
       ) : (

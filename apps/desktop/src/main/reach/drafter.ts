@@ -8,6 +8,7 @@ import {
   draftSubjectMax,
   engineGateKinds,
   type CreatorState,
+  type DataSource,
   type DraftFinding,
   type DraftKind,
   type DraftPatch,
@@ -24,6 +25,7 @@ import {
 import { dueSteps, pickMailbox, readReplyFacts, withStep } from "@gratovo/core/reach";
 import type { ChannelResponse } from "@gratovo/ipc";
 
+import { readExampleHealth } from "../data/example-source";
 import type { GeminiParams, GeminiResult } from "../pipeline/gemini-protocol";
 import type { GeminiCall, GeminiCallError } from "../pipeline/gemini-service";
 
@@ -65,7 +67,7 @@ export interface Drafter {
 }
 
 /** What the drafter needs of the open source. */
-export type DrafterSource = FactsSource;
+export type DrafterSource = FactsSource & Pick<DataSource, "readSetting">;
 
 export interface DrafterDeps {
   /** The open data: the example data, live data, or null when none is open. */
@@ -418,6 +420,10 @@ export function createDrafter(deps: DrafterDeps): Drafter {
     return run;
   };
 
+  /** The example data's `broke` scenario: Gemini is off (D9). Never read on live data. */
+  const exampleGeminiOff = (source: DrafterSource | null): boolean =>
+    source !== null && readExampleHealth(source).geminiOffline;
+
   const paused = (): boolean => pausedUntil !== null && pausedUntil > now();
   /** Read through a call: `pass()` may set it while the loop awaits. */
   const askedAgain = (): boolean => again;
@@ -429,9 +435,9 @@ export function createDrafter(deps: DrafterDeps): Drafter {
     if (paused()) {
       return { gemini: "paused", pausedUntil };
     }
-    // Example data never asks Gemini: its stand-in is always there.
+    // Example data never asks Gemini: its stand-in is there, unless the scenario says it is off.
     if (deps.mode() === "example") {
-      return { gemini: "ready", pausedUntil: null };
+      return { gemini: exampleGeminiOff(deps.source()) ? "off" : "ready", pausedUntil: null };
     }
     return { gemini: bridgeOff ? "off" : "ready", pausedUntil: null };
   }
@@ -689,6 +695,10 @@ export function createDrafter(deps: DrafterDeps): Drafter {
         mark(source, rows, "no_sender");
         return;
       }
+      if (mode === "example" && exampleGeminiOff(source)) {
+        mark(source, rows, "bridge_off");
+        return;
+      }
       if (mode === "live") {
         const bridge = await checkBridge();
         if (mine !== generation) {
@@ -942,6 +952,9 @@ export function createDrafter(deps: DrafterDeps): Drafter {
       return { ok: false, problem: first };
     }
     const sender = deps.sender();
+    if (mode === "example" && exampleGeminiOff(source)) {
+      return { ok: false, problem: "bridge_off" };
+    }
     if (mode === "live") {
       // No sender: a draft would be signed "[Your name]".
       if (sender === null) {

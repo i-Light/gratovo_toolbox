@@ -58,7 +58,7 @@ const Row = memo(function Row({
   onRemove,
 }: RowProps) {
   return (
-    <li className={cx("kw", item.state)}>
+    <li className={cx("kw", item.state)} data-ui="find.search.keyword">
       <span className="n">{index + 1}</span>
       <span className="q ell" title={item.keyword}>
         {item.state === "done" ? (
@@ -194,7 +194,7 @@ export function Keywords({ state }: { readonly state: FindState }) {
   };
 
   return (
-    <section className="card" aria-labelledby="find-kw-h">
+    <section className="card" data-ui="find.search.keywords" aria-labelledby="find-kw-h">
       <div className="card-h">
         <h3 id="find-kw-h">
           {text.title}{" "}
@@ -225,7 +225,7 @@ export function Keywords({ state }: { readonly state: FindState }) {
       {queue.length === 0 ? (
         <p className="hint">{text.empty}</p>
       ) : (
-        <ul className="kw-list" aria-label={text.listLabel}>
+        <ul className="kw-list" data-ui="find.search.queue" aria-label={text.listLabel}>
           {queue.map((item, i) => (
             <Row
               key={`${String(i)}:${item.keyword}`}
@@ -243,6 +243,7 @@ export function Keywords({ state }: { readonly state: FindState }) {
       <div className="col tight">
         <textarea
           className="ta"
+          data-ui="find.search.input"
           rows={3}
           placeholder={text.placeholder}
           aria-label={text.inputLabel}

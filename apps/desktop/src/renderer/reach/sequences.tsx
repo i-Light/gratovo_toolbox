@@ -147,7 +147,7 @@ export function Sequences() {
       </div>
       {hasRows ? (
         <>
-          <div className="sq" ref={scroller}>
+          <div className="sq" data-ui="reach.sequences.table" ref={scroller}>
             <div className="sq-in" role="table" aria-label={text.table}>
               <div className="sq-r sq-hd sq-wkrow" role="presentation">
                 <div className="sq-l"></div>
@@ -204,6 +204,7 @@ export function Sequences() {
                     <div
                       key={creator.id}
                       className="sq-r"
+                      data-ui="reach.sequences.row"
                       role="row"
                       aria-selected={peeked === creator.id}
                       onClick={open}
@@ -285,7 +286,12 @@ export function Sequences() {
               </div>
             </div>
           </div>
-          <div className="sq-leg" role="group" aria-label={text.legend.label}>
+          <div
+            className="sq-leg"
+            data-ui="reach.sequences.legend"
+            role="group"
+            aria-label={text.legend.label}
+          >
             <span>
               <i className="sq-d sent"></i>
               {text.legend.sent}

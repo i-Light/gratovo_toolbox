@@ -92,7 +92,12 @@ export function TriageCard({
 
   return (
     <>
-      <article className="card" style={{ gap: "14px" }} aria-label={item.name}>
+      <article
+        className="card"
+        style={{ gap: "14px" }}
+        data-ui="find.triage.card"
+        aria-label={item.name}
+      >
         {item.videos.length === 0 ? (
           <p className="hint">{text.noVideos}</p>
         ) : (

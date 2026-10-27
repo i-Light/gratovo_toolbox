@@ -46,7 +46,7 @@ export function MailAppRow({ status }: { readonly status: ConnectionsStatus }) {
       label={rows.connMailApp.label}
       scope="team"
       desc={rows.connMailApp.desc}
-      ui="settings.connections.mailApp"
+      ui="settings.connections.mail-app"
     >
       <Line
         actions={

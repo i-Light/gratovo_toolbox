@@ -30,7 +30,7 @@ export function cleanBands(clean: FindState["rules"]["autoClean"]): string[] {
 export function Rules({ rules }: { readonly rules: FindState["rules"] }) {
   const bands = cleanBands(rules.autoClean);
   return (
-    <section className="card" aria-labelledby="find-rules-h">
+    <section className="card" data-ui="find.search.rules" aria-labelledby="find-rules-h">
       <div className="card-h">
         <h3 id="find-rules-h">{text.title}</h3>
         <Btn
