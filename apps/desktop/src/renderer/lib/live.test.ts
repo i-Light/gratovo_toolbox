@@ -4,6 +4,7 @@ import type { AppEventName, AppEventPayload } from "@gratovo/ipc";
 import type { Bridge } from "@gratovo/ipc/bridge";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { resetAccountViewForTests, signOut } from "./account";
 import { act, setMyName, setNotify, undo } from "./actions";
 import { installLiveUpdates } from "./live";
 import { installPersistence, persistenceIdle } from "./persist";
@@ -19,10 +20,14 @@ function fakeBridge(slowWrites: Promise<void> | null = null) {
   const listeners = new Map<string, Set<(payload: never) => void>>();
   let server: Frame = exampleFrame(now);
   let hold: Promise<void> | null = null;
+  let loadsFail = false;
   const log: { channel: string; input: unknown }[] = [];
   const invoke = async (channel: string, input: unknown): Promise<unknown> => {
     log.push({ channel, input });
     if (channel === "frame:load") {
+      if (loadsFail) {
+        throw new Error("The call failed");
+      }
       const answer = server;
       if (hold !== null) {
         await hold;
@@ -51,6 +56,9 @@ function fakeBridge(slowWrites: Promise<void> | null = null) {
     calls: (channel: string) => log.filter((c) => c.channel === channel),
     setServer: (next: Frame) => {
       server = next;
+    },
+    failLoads: () => {
+      loadsFail = true;
     },
     holdAnswers: () => {
       let release = (): void => undefined;
@@ -138,6 +146,7 @@ beforeEach(() => {
   vi.setSystemTime(now);
   vi.spyOn(console, "error").mockImplementation(() => undefined);
   resetAppStoreForTests(today, now);
+  resetAccountViewForTests();
   stops = [];
   install();
 });
@@ -153,6 +162,22 @@ afterEach(async () => {
 });
 
 describe("installLiveUpdates", () => {
+  it("logs a failed read of the server's changes", async () => {
+    fake.failLoads();
+    fake.emit("frame:changed", { parts: ["log"] });
+    await flush();
+    expect(console.error).toHaveBeenCalledTimes(1);
+  });
+
+  it("stays quiet about a failed read while signing out, when main closes the copy", async () => {
+    await signOut(fake.bridge.invoke);
+    expect(fake.calls("auth:sign-out")).toHaveLength(1);
+    fake.failLoads();
+    fake.emit("frame:changed", { parts: ["log"] });
+    await flush();
+    expect(console.error).not.toHaveBeenCalled();
+  });
+
   it("asks for the sync status once and shows it", async () => {
     await flush();
     expect(fake.calls("sync:status")).toHaveLength(1);

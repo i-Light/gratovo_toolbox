@@ -2,6 +2,7 @@ import type { OutreachDraft } from "@gratovo/core/data";
 import type { FramePart, SyncStatus } from "@gratovo/ipc";
 import type { Bridge } from "@gratovo/ipc/bridge";
 
+import { signingOut } from "./account";
 import { toAppData } from "./frame";
 import { noticeReachChange } from "./reach-actions";
 import { adoptServerData, onPersistenceIdle, persistenceIdle } from "./persist";
@@ -325,7 +326,9 @@ export function installLiveUpdates(bridge: Pick<Bridge, "invoke" | "on">): () =>
         return;
       }
       if (!loaded.ok) {
-        console.error("The page couldn't read the server's changes:", loaded.reason);
+        if (!signingOut()) {
+          console.error("The page couldn't read the server's changes:", loaded.reason);
+        }
         return;
       }
       if (appStore() !== store || store.getState().data !== noted || !persistenceIdle()) {
@@ -341,7 +344,10 @@ export function installLiveUpdates(bridge: Pick<Bridge, "invoke" | "on">): () =>
       });
       noticeReachChange(shown.reach, next.reach);
     } catch (reason) {
-      console.error("The page couldn't read the server's changes:", reason);
+      // A read on its way while sign-out closes the copy fails; the window reloads right after.
+      if (!stopped && !signingOut()) {
+        console.error("The page couldn't read the server's changes:", reason);
+      }
     } finally {
       busy = false;
       later();

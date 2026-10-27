@@ -23,6 +23,14 @@ export function setAccountView(next: AccountView): void {
 
 export function resetAccountViewForTests(): void {
   setAccountView(none);
+  leaving = false;
+}
+
+let leaving = false;
+
+/** True once the page has asked main to sign out: main is closing the copy and will reload the window. */
+export function signingOut(): boolean {
+  return leaving;
 }
 
 function subscribe(listener: () => void): () => void {
@@ -68,5 +76,16 @@ export async function signOut(invoke?: Invoke): Promise<void> {
     call("sync:now", {}).catch(() => undefined),
     new Promise<void>((resolve) => setTimeout(resolve, lastSyncWaitMs)),
   ]);
-  await call("auth:sign-out", {});
+  // From here main closes the copy, so a read already on its way may fail. Main reloads the window
+  // after a sign-out; a refused one clears the mark and the page carries on. (With no account, main
+  // answers without a reload, but the page offers Sign out only to a signed-in account.)
+  leaving = true;
+  let ok = false;
+  try {
+    ok = (await call("auth:sign-out", {})).ok;
+  } finally {
+    if (!ok) {
+      leaving = false;
+    }
+  }
 }

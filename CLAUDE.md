@@ -25,13 +25,14 @@ These come from the owner and hold until the owner changes them. The detail and 
 - **On hold:** the four noted gaps `search-1`, `first-1`, `mail-1` and `mail-2` wait for the owner. Don't build them.
 - **Cleanup is the last step.** Don't delete or merge files from `legacy/` or the docs until step 10 (the 100% check) has passed. Step 11 does the cleanup.
 - **Checks run on this computer, not GitHub** (2026-10-25): the Actions minutes ran out. `pnpm verify` is the gate a pull request must pass; the GitHub workflow runs only when the owner asks.
-- **Solo first:** team work waits until the app is fully functional for one person. It is all in plan step T (after step 9): R2 sharing, a teammate's run, hand-offs, the Team screen, new-VA onboarding, and packaging (the installer, the bundled Python, updates for other machines). Don't build it earlier. What 3d-2 already built stays as it is.
+- **Solo first:** team work waits until the app is fully functional for one person. It is all in plan step T (after step 9): R2 sharing, a teammate's run, hand-offs, the Team screen, new-VA onboarding, and packaging (the installer, the bundled Python, updates for other machines). Don't build it earlier, except its screens on example data in prototype mode (step P9, ADR 0021); making them real waits for T. What 3d-2 already built stays as it is.
 - **Pipeline-first, no dead screens:** build in pipeline order (step 4 live data, 5 Find, 6 Reach, 7 Today and prototype mode, 8 Close, 9 Deliver and Insights). In live mode, only what is wired to real data can be reached; hide the rest until its step.
 - **Two-tier testing:** a sub-step's pull request needs lint, typecheck, unit tests and at most one new light Electron smoke test. The full Playwright flow suite runs once at the end of a major step.
 - **Windows only:** the app targets Windows desktop alone. Don't spend effort on Linux, macOS or phones (CI jobs, workarounds, docs, phone-sized or 400 px layout checks) until the owner asks for another system.
 - **Language:** English only for now. Keep every user-facing string in one place so other languages can come later.
 - **Dark only, for now:** the app always runs dark, with no theme switch. Don't build, test or check the light theme until the owner asks. The light tokens stay in `tokens.css`.
 - **Prototype mode** is owner-only and off by default. When off it leaves no trace: no buttons, keys, pins, bars or network calls.
+- **The full prototype** (2026-10-27): prototype mode shows the whole app, built and planned (step P, ADR 0021). Every piece is built once, as the real screen on example data, and never as a copy. No screen reads the prototype-mode state. The spec is `design/workbench-v6/`: question it, and ask the owner where it differs from what is built on a matter of taste.
 
 ## How to work
 
