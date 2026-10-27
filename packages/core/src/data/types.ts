@@ -5,6 +5,7 @@
  * them without pulling in the store's immer.
  */
 
+import type { InsightsStore } from "./insights-store";
 import type { OutreachStore } from "./outreach-store";
 import type { PersonDraftState, ReachData, ReplyFactKey } from "./reach-types";
 
@@ -546,5 +547,7 @@ export interface DataSource {
   seedChannelNames(rows: readonly { readonly channelId: string; readonly name: string }[]): number;
   /** Reach's rows, for main's drafter, sender and reply sweep (plan step 6, D2). */
   readonly outreach: OutreachStore;
+  /** Insights' local tables, for main's reports and the sweep's weekly totals (plan step P8a). */
+  readonly insights: InsightsStore;
   close(): void;
 }

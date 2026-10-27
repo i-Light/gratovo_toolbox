@@ -1,5 +1,7 @@
 import type { CatalogItem } from "@gratovo/core/find";
 import { channels } from "@gratovo/ipc";
+import { join } from "node:path";
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { PipelineMessage, Start } from "../pipeline/protocol";
@@ -257,6 +259,37 @@ describe("the archive service", () => {
       lane.finish(swept(1));
       await vi.advanceTimersByTimeAsync(0);
       expect(changed).toBe(1);
+    });
+
+    it("records the week's totals after a pass, even when nothing was due", async () => {
+      const recorded: [string, number][] = [];
+      service.dispose();
+      service = make({
+        recordWeek: (path, at) => {
+          recorded.push([path, at]);
+        },
+      });
+      service.sweep();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(lane.starts).toEqual([]);
+      expect(recorded).toEqual([[join(context?.dataDir ?? "", "pipeline.db"), t0]]);
+    });
+
+    it("keeps sweeping when the weekly totals fail", async () => {
+      const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+      service.dispose();
+      service = make({
+        recordWeek: () => {
+          throw new Error("disk");
+        },
+      });
+      rows = [due("a")];
+      service.sweep();
+      await vi.advanceTimersByTimeAsync(0);
+      lane.finish(swept(1));
+      await vi.advanceTimersByTimeAsync(0);
+      expect(changed).toBe(1);
+      expect(error).toHaveBeenCalledWith("Archive: the weekly totals could not be written.");
     });
 
     it("runs on the example data too", async () => {

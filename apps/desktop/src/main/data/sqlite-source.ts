@@ -60,6 +60,7 @@ import {
   writeCreatorNotes,
   writeCreatorStage,
 } from "./repositories/creators";
+import { recordCatalogWeek } from "../insights/catalog-weeks";
 
 /** What the database has no table for: presence, rail counts and a teammate's running search. */
 export interface FrameExtras {
@@ -329,6 +330,9 @@ export function createSqliteSource(db: DatabaseSync, options: SqliteSourceOption
 
   return {
     outreach,
+    insights: {
+      recordCatalogWeek: (pipelineDbPath, at) => recordCatalogWeek(db, pipelineDbPath, at),
+    },
     // The database is synchronous; the promises keep callers ready for it to move elsewhere.
     frame: () => settle(readFrame),
     creatorStates: () => settle(() => creatorStates(db)),

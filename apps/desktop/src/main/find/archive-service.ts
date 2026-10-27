@@ -1,5 +1,6 @@
 import { archiveDate, type CatalogItem } from "@gratovo/core/find";
 import type { ChannelResponse } from "@gratovo/ipc";
+import { join } from "node:path";
 
 import type { PipelineExit, PipelineSupervisor } from "../pipeline/supervisor";
 import type { Job, PipelineMessage, Start } from "../pipeline/protocol";
@@ -49,6 +50,11 @@ export interface ArchiveServiceDeps {
   routing(): Promise<{ proxyUrls: string[]; gatewayUrls: string[] }>;
   /** The refetch's start settings; any mail part is dropped, as for a search. */
   settings?: () => Start["settings"];
+  /**
+   * Called after each sweep pass, even when nothing was due: records this week's catalog totals
+   * (`recordCatalogWeek`) from the open source's `pipeline.db`. A throw is logged and ignored.
+   */
+  recordWeek?: (pipelineDbPath: string, now: number) => void;
   /** Called after each job: `pipeline.db` changed, so the catalog rebuilds. */
   onPipelineChanged?: () => void;
   now?: () => number;
@@ -336,6 +342,19 @@ export function createArchiveService(deps: ArchiveServiceDeps): ArchiveService {
     }
   }
 
+  /** Writes the week's catalog totals; they matter to Insights only, so a failure just logs. */
+  function recordWeek(): void {
+    const context = disposed ? null : deps.context();
+    if (context === null || deps.recordWeek === undefined) {
+      return;
+    }
+    try {
+      deps.recordWeek(join(context.dataDir, "pipeline.db"), now());
+    } catch {
+      console.error("Archive: the weekly totals could not be written.");
+    }
+  }
+
   /** Whether a request came in during the pass; read through a function, as it changes meanwhile. */
   function again(): boolean {
     return sweepAgain && !disposed;
@@ -355,6 +374,7 @@ export function createArchiveService(deps: ArchiveServiceDeps): ArchiveService {
         do {
           sweepAgain = false;
           await sweepPass();
+          recordWeek();
         } while (again());
       } catch {
         console.error("Archive: a sweep failed (crash).");

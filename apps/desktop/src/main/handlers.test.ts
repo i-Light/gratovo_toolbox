@@ -97,6 +97,7 @@ function sourceWith(overrides: Partial<DataSource> = {}): DataSource {
     logSince: () => Promise.resolve(0),
     write: () => Promise.resolve(),
     close: () => undefined,
+    insights: { recordCatalogWeek: () => false },
     readSetting: () => undefined,
     writeSetting: () => undefined,
     seedChannelNames: () => 0,

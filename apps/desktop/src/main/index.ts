@@ -412,6 +412,9 @@ function start(): void {
         onPipelineChanged: () => {
           invalidateCatalog();
         },
+        recordWeek: (pipelineDbPath, at) => {
+          account.source()?.insights.recordCatalogWeek(pipelineDbPath, at);
+        },
       });
       // Both give way when Start is pressed; the search starts once both have.
       yieldLane = async () => {
