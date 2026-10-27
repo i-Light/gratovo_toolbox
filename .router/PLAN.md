@@ -35,7 +35,7 @@ One part per session (plan §10 rule 5). Each part starts by writing its own con
 | P5 | Close: Brands, Match, Pitch, roster columns, media kit packet | L | P1, P2 |
 | P6 | Close: Negotiate, Contracts, Calculator, Agency facts | L | P5 |
 | P7 | Deliver: deal board, deal record, Money | L | P1, P2 |
-| P8 | Insights | L | P1 |
+| P8 | Insights, as `docs/product/insights-design.md` says. **Runs right after P1** (owner, 2026-10-27) | L | P1 |
 | P9 | Team work on example data, Toolbox › Notifications | M | P4 |
 | P10 | Full prototype flow suite, review, owner walk-through | M | all |
 
@@ -53,3 +53,24 @@ One part per session (plan §10 rule 5). Each part starts by writing its own con
 | P1-7 | Review, docs (architecture, status table, PROGRESS), pull request | H |
 
 Done-check for P1: `pnpm lint`, `pnpm typecheck`, `pnpm test` pass; prototype mode opens all four scenarios with the larger seed; live mode unchanged (`wired.test.ts`, the existing Electron tests).
+
+For P8: P1-3's seed is a snapshot of today. P8 adds the six-month history on top of it, so build the seed so a later layer can add past records to it (the history must agree with the snapshot's creators, brands and deals).
+
+## P8 task outline (its session writes the contracts first)
+
+The spec is `docs/product/insights-design.md`; the mockups are at https://claude.ai/artifact/BHuQ9Y5GU49kzJaRtRqRtD. Owner answers are in its section 10.
+
+| id | Task | Tier |
+|---|---|---|
+| P8-0 | Contracts: `InsightsReport` per tab and period, `insights:read` in `packages/ipc`, the core function signatures, the local tables (`stage_events`, `deal_events`, weekly catalog totals), the goal and hidden-alert settings. Written into this file before building | H |
+| P8-1 | Migration 0008 (local only): `stage_events` written on every stage change and filled backwards from the log and the messages; `deal_events`; weekly catalog totals written by the sweep. Migrate tests; the sync never reads them | N |
+| P8-2 | `packages/core/src/insights/`: rates with counts, the two-proportion test, batches of 50, cohorts, the planner and its levers, the alert and win rules, the summary sentences. Unit tests for each | N |
+| P8-3 | Main: the report reader over `gratovo.db` and `pipeline.db` (the archive tables included), one read per tab | N |
+| P8-4 | The example history: six months on top of the P1 seed, in the four scenarios ("broke" fires the alerts) | N |
+| P8-5 | Screen: the frame, the period and view switches, the chart pieces (line, columns, bars, the funnel, the heat table, See the numbers, Copy as CSV, What is this?), all strings in the strings file | N |
+| P8-6 | Tabs: Overview, Funnel, Emails | N |
+| P8-7 | Tabs: Search (four views), Money, Goal | N |
+| P8-8 | The live gate: the tabs and cards with real data join `liveWired`; Money, Funnel › Brands and the deal parts stay behind it. One light Electron smoke test | N |
+| P8-9 | Review, docs (architecture, status table, PROGRESS), pull request | H |
+
+Done-check for P8: lint, typecheck and tests pass; prototype mode shows every tab and card in all four scenarios with no empty card (the "first" scenario shows the empty state); live mode shows only the wired parts; a number and the list it opens agree (a test per drill-down).
