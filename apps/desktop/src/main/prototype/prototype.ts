@@ -1,33 +1,18 @@
-import { existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { mkdir, rm } from "node:fs/promises";
-import { randomBytes } from "node:crypto";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 import { isOwner as holdsOwner, scenarios } from "@gratovo/core/data";
 import type { DataSource, Scenario } from "@gratovo/core/data";
-import { commentNewSchema, commentSchema, commentsExportPath, commentsMax } from "@gratovo/ipc";
-import type {
-  Comment,
-  CommentNew,
-  CommentPatch,
-  CommentsExportResult,
-  PrototypeStatus,
-} from "@gratovo/ipc";
+import type { PrototypeStatus } from "@gratovo/ipc";
 
 import type { Account } from "../account/account";
 import { openExampleCopy } from "../data";
 import { getMeta, setMeta } from "../data/repositories";
 
-import {
-  countComments,
-  deleteComment,
-  getComment,
-  insertComment,
-  listComments,
-  newCommentId,
-  updateComment,
-} from "./comments";
+import { createCommentStore, type CommentStore } from "./comments";
+import { kindOf } from "./kind-of";
 
 /**
  * Prototype mode (ADR 0004, step 7): the real app on a fresh example copy, `prototype.db`, for the
@@ -42,6 +27,16 @@ export interface PrototypeDeps {
   base: Pick<Account, "source">;
   /** Reloads the windows after the answer; the caller also runs the source watch. */
   reloadWindow: () => void;
+  /**
+   * Stops what must not run across a switch: a search, a job on the pipeline lane. Called inside
+   * the switch's queue once the switch will be tried (after the owner check), and right before the
+   * swap, so nothing started meanwhile carries on into the other data. A rejection stops the switch.
+   */
+  beforeSwitch: () => Promise<void>;
+  /** Removes a folder and everything in it (tests give one that fails). */
+  removeFolder?: (path: string) => Promise<void>;
+  /** Opens a fresh example copy (tests give one that fails). */
+  openCopy?: typeof openExampleCopy;
 }
 
 export interface Prototype {
@@ -51,16 +46,11 @@ export interface Prototype {
   isOn(): boolean;
   /** The prototype copy while on, else null. */
   source(): DataSource | null;
-  readonly comments: {
-    list(): Comment[];
-    add(c: CommentNew): Comment;
-    update(p: CommentPatch): Comment;
-    remove(id: string): Comment | null;
-    restore(c: Comment): Comment;
-    exportTo(repoRoot: string | null): CommentsExportResult;
-  };
+  readonly comments: CommentStore;
   close(): void;
 }
+
+type Copy = { source: DataSource; db: DatabaseSync };
 
 export const prototypeFile = "prototype.db";
 export const prototypeFolder = "prototype-pipeline";
@@ -71,69 +61,6 @@ function toScenario(value: unknown): Scenario {
   return scenarios.find((scenario) => scenario === value) ?? "normal";
 }
 
-/** An error's kind for the log: its code or its name, never its message (it may hold a path). */
-function kindOf(error: unknown): string {
-  if (error instanceof Error) {
-    const code = (error as NodeJS.ErrnoException).code;
-    return typeof code === "string" ? code : error.name;
-  }
-  return typeof error;
-}
-
-/** One comment as the export file lists it. */
-export type ExportedComment = { readonly number: number; readonly where: string } & Comment;
-
-/** Where a comment was left, from its place's keys: "everywhere", or "reach › board › …". */
-function whereOf(comment: Comment): string {
-  const { place } = comment;
-  if (place.global) {
-    return "everywhere";
-  }
-  const parts: string[] = [];
-  if (place.screen !== null) parts.push(place.screen);
-  if (place.tab !== null) parts.push(place.tab);
-  if (place.record !== null) parts.push(`record ${place.record.kind}:${place.record.id}`);
-  if (place.peek !== null) parts.push(`peek ${place.peek.kind}:${place.peek.id}`);
-  return parts.length === 0 ? "everywhere" : parts.join(" › ");
-}
-
-/**
- * The export's counts and comments (D8): each numbered by its place in the oldest-first list (as
- * the pins show), open ones first, then done, each oldest first.
- */
-export function commentsForExport(list: readonly Comment[]): {
-  open: number;
-  done: number;
-  comments: ExportedComment[];
-} {
-  const oldestFirst = [...list].sort((a, b) => a.at - b.at || (a.id < b.id ? -1 : 1));
-  const numbered = oldestFirst.map((comment, index): ExportedComment => ({
-    number: index + 1,
-    where: whereOf(comment),
-    ...comment,
-  }));
-  const open = numbered.filter((comment) => comment.status === "open");
-  const done = numbered.filter((comment) => comment.status === "done");
-  return { open: open.length, done: done.length, comments: [...open, ...done] };
-}
-
-/**
- * The repository's root while the app runs from it (`pnpm dev`), else null. Modelled on
- * `findExtensionDir`: a packaged app has no repository, and `appPath` is `apps/desktop`, two
- * levels below the root. It counts only if `pnpm-workspace.yaml` and `docs` are there.
- */
-export function findRepoRoot(o: {
-  packaged: boolean;
-  appPath: string;
-  exists: (p: string) => boolean;
-}): string | null {
-  if (o.packaged) {
-    return null;
-  }
-  const root = resolve(o.appPath, "..", "..");
-  return o.exists(join(root, "pnpm-workspace.yaml")) && o.exists(join(root, "docs")) ? root : null;
-}
-
 export function createPrototype(deps: PrototypeDeps): Prototype {
   const file = join(deps.userData, prototypeFile);
   const folder = join(deps.userData, prototypeFolder);
@@ -141,8 +68,11 @@ export function createPrototype(deps: PrototypeDeps): Prototype {
   // The copy is opened with `openExampleCopy`, which hands back the source and the one database
   // handle it uses. The comments and `_meta` go through that same handle: no second connection to
   // keep in step, and closing the source closes everything.
-  let copy: { source: DataSource; db: DatabaseSync } | null = null;
+  let copy: Copy | null = null;
+  /** The open copy's scenario; while off, the one last opened (null: none yet). */
   let scenario: Scenario | null = null;
+  /** Set by `close` (the app quits): no switch opens a copy after it. */
+  let closed = false;
   // Turns and scenario picks run one at a time, so two quick clicks can't open two copies.
   let queue: Promise<unknown> = Promise.resolve();
 
@@ -190,22 +120,90 @@ export function createPrototype(deps: PrototypeDeps): Prototype {
     }
   }
 
+  const removeFolder =
+    deps.removeFolder ??
+    ((path: string) => rm(path, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 }));
+
   /** Empties the prototype's pipeline folder: that one folder, nothing else. */
   async function emptyFolder(path: string): Promise<void> {
     if (path !== join(deps.userData, prototypeFolder)) {
       throw new Error("Only the prototype pipeline folder may be emptied");
     }
-    await rm(path, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
+    await removeFolder(path);
     await mkdir(path, { recursive: true });
   }
 
-  async function open(next: Scenario): Promise<void> {
-    await emptyFolder(folder);
-    copy = openExampleCopy(file, deps.now, { fresh: true, scenario: next });
-    scenario = next;
+  /** A fresh copy of `next`, with `next` stored as the scenario. */
+  function openFresh(next: Scenario): Copy {
+    const opened = (deps.openCopy ?? openExampleCopy)(file, deps.now, {
+      fresh: true,
+      scenario: next,
+    });
+    try {
+      setMeta(opened.db, scenarioKey, next);
+    } catch (error) {
+      opened.source.close();
+      throw error;
+    }
+    return opened;
+  }
+
+  /**
+   * Closes the open copy and opens `next` in its place (or nothing: off), in one synchronous step,
+   * so nothing ever sees prototype mode off part-way. If `next` won't open, the previous scenario
+   * opens again (its stored scenario unchanged); if even that fails, prototype mode is off.
+   */
+  function swap(next: Scenario | null): void {
+    const previous = copy;
+    const previousScenario = scenario;
+    copy = null;
+    previous?.source.close();
+    if (next === null) {
+      return;
+    }
+    try {
+      copy = openFresh(next);
+      scenario = next;
+    } catch (error) {
+      console.warn(`The prototype copy could not be opened (${kindOf(error)}).`);
+      if (previous !== null && previousScenario !== null) {
+        try {
+          copy = openFresh(previousScenario);
+        } catch (again) {
+          console.warn(`Prototype mode turned off: no copy would open (${kindOf(again)}).`);
+        }
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Moves to a fresh copy of `next`, or off (null). The waiting comes first with the open copy left
+   * as it is (the switch is never half done while it waits), then the swap. The windows reload at
+   * the end, whether it worked or not, so the page and the source watch match what is open.
+   */
+  async function switchTo(next: Scenario | null): Promise<void> {
+    try {
+      if (next !== null) {
+        if (copy !== null) {
+          // A search in the prototype's folder ends before the folder is emptied.
+          await deps.beforeSwitch();
+        }
+        await emptyFolder(folder);
+      }
+      // Anything that started while this waited ends too.
+      await deps.beforeSwitch();
+      if (closed) {
+        return;
+      }
+      swap(next);
+    } finally {
+      deps.reloadWindow();
+    }
   }
 
   function shut(): void {
+    closed = true;
     const open = copy;
     copy = null;
     open?.source.close();
@@ -224,103 +222,11 @@ export function createPrototype(deps: PrototypeDeps): Prototype {
     return copy.db;
   }
 
-  function current(): Scenario {
-    return toScenario(getMeta(db(), scenarioKey));
-  }
-
-  function refuseAtMax(handle: DatabaseSync): void {
-    if (countComments(handle) >= commentsMax) {
-      throw new Error(`prototype mode keeps at most ${String(commentsMax)} comments`);
-    }
-  }
-
-  const comments: Prototype["comments"] = {
-    list() {
-      return listComments(db());
-    },
-    add(input) {
-      const handle = db();
-      const valid = commentNewSchema.parse(input);
-      refuseAtMax(handle);
-      const at = deps.now();
-      const comment: Comment = {
-        id: newCommentId(at),
-        at,
-        status: "open",
-        doneAt: null,
-        kind: valid.kind,
-        text: valid.text,
-        scenario: current(),
-        place: valid.place,
-        anchor: valid.anchor,
-      };
-      insertComment(handle, comment, at);
-      return comment;
-    },
-    update(patch) {
-      const handle = db();
-      const existing = getComment(handle, patch.id);
-      if (existing === null) {
-        throw new Error("There is no comment with that id");
-      }
-      const now = deps.now();
-      const status = patch.status ?? existing.status;
-      const text = patch.text === undefined ? existing.text : patch.text.trim();
-      if (text === "") {
-        throw new Error("A comment needs some text");
-      }
-      // Done again keeps the time it was first marked done; open clears it.
-      const doneAt = status === "open" ? null : existing.status === "done" ? existing.doneAt : now;
-      const next: Comment = { ...existing, text, status, doneAt };
-      updateComment(handle, next, now);
-      return next;
-    },
-    remove(id) {
-      const handle = db();
-      const existing = getComment(handle, id);
-      // A row that doesn't read back still goes, so the list and the table agree.
-      deleteComment(handle, id);
-      return existing;
-    },
-    restore(input) {
-      const handle = db();
-      const comment = commentSchema.parse(input);
-      const existing = getComment(handle, comment.id);
-      if (existing !== null) {
-        return existing;
-      }
-      refuseAtMax(handle);
-      insertComment(handle, comment, deps.now());
-      return comment;
-    },
-    exportTo(repoRoot) {
-      const handle = db();
-      if (repoRoot === null) {
-        return { ok: false, problem: "no_repo" };
-      }
-      let temp: string | null = null;
-      try {
-        const list = listComments(handle);
-        const dir = join(repoRoot, "docs", "feedback");
-        mkdirSync(dir, { recursive: true });
-        const body = {
-          exportedAt: new Date(deps.now()).toISOString(),
-          ...commentsForExport(list),
-        };
-        temp = join(dir, `.comments-${randomBytes(6).toString("hex")}.tmp`);
-        writeFileSync(temp, `${JSON.stringify(body, null, 2)}\n`, "utf8");
-        renameSync(temp, join(dir, "comments.json"));
-        temp = null;
-        return { ok: true, path: commentsExportPath, count: list.length };
-      } catch (error) {
-        console.warn(`The comments could not be exported (${kindOf(error)}).`);
-        if (temp !== null) {
-          rmSync(temp, { force: true });
-        }
-        return { ok: false, problem: "failed" };
-      }
-    },
-  };
+  const comments = createCommentStore({
+    db,
+    now: deps.now,
+    scenario: () => toScenario(getMeta(db(), scenarioKey)),
+  });
 
   return {
     status,
@@ -329,28 +235,20 @@ export function createPrototype(deps: PrototypeDeps): Prototype {
         if (on === (copy !== null)) {
           return status();
         }
-        if (on) {
-          if (!(await isOwner())) {
-            throw new Error("prototype mode is for the owner");
-          }
-          await open(storedScenario());
-        } else {
-          shut();
+        if (on && !(await isOwner())) {
+          throw new Error("prototype mode is for the owner");
         }
-        deps.reloadWindow();
+        await switchTo(on ? storedScenario() : null);
         return status();
       });
     },
     setScenario(next) {
       return serial(async () => {
-        const handle = db();
+        db();
         if (!scenarios.includes(next)) {
           throw new Error("There is no such scenario");
         }
-        setMeta(handle, scenarioKey, next);
-        shut();
-        await open(next);
-        deps.reloadWindow();
+        await switchTo(next);
         return status();
       });
     },

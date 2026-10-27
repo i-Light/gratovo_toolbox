@@ -130,7 +130,8 @@ export function CommentList() {
               toggleCommenting();
             }}
           >
-            {proto.commenting ? t.stopCommenting : t.addComment} <span className="kbd">C</span>
+            {proto.commenting ? t.stopCommenting : t.addComment}{" "}
+            <span className="kbd">{strings.prototype.commentHint}</span>
           </Btn>
           <Btn
             size="sm"

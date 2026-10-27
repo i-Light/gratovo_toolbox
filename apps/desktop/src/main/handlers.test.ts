@@ -1227,13 +1227,10 @@ describe("prototype mode in the handlers", () => {
     });
     expect(await handlers["prototype:set"]({ on: true })).toMatchObject({ on: true });
     expect(prototype.set).toHaveBeenCalledWith(true);
-    // A switch ends a running search first, as a sign-out does; asking for the same state doesn't.
-    expect(shutdown).toHaveBeenCalledOnce();
-    await handlers["prototype:set"]({ on: true });
-    expect(shutdown).toHaveBeenCalledOnce();
     await handlers["prototype:scenario"]({ scenario: "broke" });
     expect(prototype.setScenario).toHaveBeenCalledWith("broke");
-    expect(shutdown).toHaveBeenCalledTimes(2);
+    // The prototype stops a search itself, inside its queue (`beforeSwitch`): the handlers don't.
+    expect(shutdown).not.toHaveBeenCalled();
   });
 
   it("hands each comment call to the prototype", async () => {

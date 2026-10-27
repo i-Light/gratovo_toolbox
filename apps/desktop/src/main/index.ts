@@ -207,6 +207,14 @@ function start(): void {
           reloadWindows();
           sourceWatch.check();
         },
+        // Inside the switch's queue, right before the swap: a running search ends (its data folder
+        // is the other data's, and a live search must not go on calling YouTube), and the email
+        // finder and the archive service give up the pipeline lane. Reach is closed and reopened
+        // by the source watch after the swap.
+        beforeSwitch: async () => {
+          await find.shutdown();
+          await yieldLane();
+        },
       });
       const wrapped = withPrototype(opened, prototype);
       // The account has no "source changed" callback: the watch checks after each call that can

@@ -1,11 +1,15 @@
 import type { Comment } from "@gratovo/ipc";
 
 import { peek } from "../lib/actions";
-import { commentsForClaude, exportComments, openCount, setOpen } from "../lib/prototype";
+import { exportComments, openCount, setOpen } from "../lib/prototype";
 import { appStore, findRecord, go, recordName, selectRoute } from "../lib/store";
 import { toast } from "../lib/toast";
+import { isRouteShown } from "../lib/wired";
+import { screens } from "../lib/routes";
+import type { ScreenKey } from "../lib/routes";
 import { strings } from "../strings";
 import { locate } from "./anchor";
+import { commentsForClaude } from "./for-claude";
 import { asRecordRef, isHere } from "./place";
 
 const text = strings.prototype;
@@ -52,19 +56,36 @@ export function exportForClaude(): void {
   });
 }
 
+/**
+ * Where a comment's screen and tab lead, or null when it has none, names a screen or tab the app
+ * does not have, or a route the live gate hides. Then the card just opens where the user is.
+ */
+function routeOf(c: Comment): { screen: ScreenKey; tab: string | null } | null {
+  const { global, screen, tab } = c.place;
+  if (global || screen === null || !Object.hasOwn(screens, screen)) {
+    return null;
+  }
+  const key = screen as ScreenKey;
+  if (tab !== null && !screens[key].tabs.some((t) => t.key === tab)) {
+    return null;
+  }
+  const source = appStore().getState().data.source;
+  return isRouteShown({ screen: key, tab }, source) ? { screen: key, tab } : null;
+}
+
 /** Goes to where a comment was left (screen, tab, record, peek), opens its card and scrolls to it. */
 export function visitComment(c: Comment): void {
   const state = appStore().getState();
   const route = selectRoute(state);
-  if (!c.place.global && c.place.screen !== null) {
+  const target = routeOf(c);
+  if (target !== null) {
     const record = c.place.record === null ? null : asRecordRef(c.place.record);
     const sameSpot = isHere({ ...c.place, peek: null }, route, state.ui.peek);
     if (!sameSpot) {
-      const screen = c.place.screen as Parameters<typeof go>[0];
       if (record !== null) {
-        go(screen, c.place.tab, { record, from: route.screen });
+        go(target.screen, target.tab, { record, from: route.screen });
       } else {
-        go(screen, c.place.tab);
+        go(target.screen, target.tab);
       }
     }
     const peekRef = c.place.peek === null ? null : asRecordRef(c.place.peek);

@@ -59,30 +59,45 @@ export function CommentCard({
   const saveEdit = (): void => {
     const body = draft?.trim() ?? "";
     if (body !== "") {
-      void patchComment({ id: comment.id, text: body });
-      setDraft(null);
+      void patchComment({ id: comment.id, text: body }).then((result) => {
+        if (result.ok) {
+          setDraft(null);
+        } else {
+          toast({ msg: t.updateFailed, icon: "alert", tone: "info" });
+        }
+      });
     }
   };
   const markDone = (): void => {
-    void patchComment({ id: comment.id, status: "done" });
-    close();
-    toast({
-      msg: t.markedDone(n),
-      icon: "check",
-      tone: "good",
-      ms: 3500,
-      actions: [
-        {
-          label: t.undo,
-          run: () => {
-            void patchComment({ id: comment.id, status: "open" });
+    void patchComment({ id: comment.id, status: "done" }).then((result) => {
+      if (!result.ok) {
+        toast({ msg: t.updateFailed, icon: "alert", tone: "info" });
+        return;
+      }
+      close();
+      toast({
+        msg: t.markedDone(n),
+        icon: "check",
+        tone: "good",
+        ms: 3500,
+        actions: [
+          {
+            label: t.undo,
+            run: () => {
+              void patchComment({ id: comment.id, status: "open" });
+            },
           },
-        },
-      ],
+        ],
+      });
     });
   };
   const remove = (): void => {
-    void deleteComment(comment.id).then((gone) => {
+    void deleteComment(comment.id).then((result) => {
+      if (!result.ok) {
+        toast({ msg: t.deleteFailed, icon: "alert", tone: "info" });
+        return;
+      }
+      const gone = result.value;
       close();
       toast({
         msg: t.deleted(n),

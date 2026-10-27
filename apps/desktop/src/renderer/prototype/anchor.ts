@@ -267,6 +267,15 @@ export interface Located {
 
 /** Finds the anchor again: the exact path, else the same text nearby, else the section, else nothing. */
 export function locate(anchor: CommentAnchor): Located | null {
+  try {
+    return find(anchor);
+  } catch {
+    // A stored anchor that is not a valid selector must never take the page down.
+    return null;
+  }
+}
+
+function find(anchor: CommentAnchor): Located | null {
   const scopes =
     anchor.ui === null
       ? [rootEl()]
@@ -279,11 +288,14 @@ export function locate(anchor: CommentAnchor): Located | null {
       return { el, moved: false };
     }
   }
-  for (const scope of scopes) {
-    const candidates = Array.from(scope.querySelectorAll(anchor.tag)).slice(0, scanCap);
-    const el = candidates.find((c) => !inCmtUi(c) && snip(c) === anchor.text);
-    if (el !== undefined) {
-      return { el, moved: false };
+  // An empty text matches too many things: only the exact path counts, else the section.
+  if (anchor.text !== "") {
+    for (const scope of scopes) {
+      const candidates = Array.from(scope.querySelectorAll(anchor.tag)).slice(0, scanCap);
+      const el = candidates.find((c) => !inCmtUi(c) && snip(c) === anchor.text);
+      if (el !== undefined) {
+        return { el, moved: false };
+      }
     }
   }
   const section = anchor.ui === null ? undefined : scopes[0];

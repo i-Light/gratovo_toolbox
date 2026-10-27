@@ -107,7 +107,7 @@ export const commentAnchorSchema: z.ZodType<CommentAnchor> = z.strictObject({
     .regex(/^[a-z0-9.-]{1,120}$/)
     .nullable(),
   path: z.string().max(1000),
-  tag: z.string().regex(/^[a-z0-9]{1,20}$/),
+  tag: z.string().regex(/^[a-z][a-z0-9]{0,19}$/),
   text: z.string().max(60),
   label: z.string().min(1).max(200),
   rx: unit,

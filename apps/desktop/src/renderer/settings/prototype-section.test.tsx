@@ -7,7 +7,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "../app/app";
 import { stubFindBridge } from "../lib/find-test-bridge";
 import { initPrefs } from "../lib/prefs";
-import { loadPrototype, resetPrototypeForTests, takeSwitchToast } from "../lib/prototype";
+import { loadPrototype, resetPrototypeForTests } from "../lib/prototype";
+import { takeSwitchToast } from "../lib/prototype-toast";
 import { resetAppStoreForTests } from "../lib/store";
 import { strings } from "../strings";
 

@@ -256,22 +256,11 @@ function buildHandlers(context: HandlerContext): Handlers {
     // The change may carry a secret: it goes to the service and is neither kept nor logged here.
     "connections:set": (change) => connections.set(change),
     "connections:pick-folder": ({ purpose }) => connections.pickFolder(purpose),
-    // Prototype mode (ADR 0004, step 7). A switch ends a running search first, as a sign-out does:
-    // its data folder is the other data's, and a live search must not go on calling YouTube.
+    // Prototype mode (ADR 0004, step 7). The prototype stops a running search itself, inside its
+    // switch queue (`beforeSwitch`), so nothing can start one between the stop and the switch.
     "prototype:status": () => prototype.status(),
-    "prototype:set": async ({ on }) => {
-      if (on !== prototype.isOn()) {
-        await find.shutdown();
-      }
-      return prototype.set(on);
-    },
-    "prototype:scenario": async ({ scenario }) => {
-      // A pick empties the prototype's pipeline folder: a search in it ends first.
-      if (prototype.isOn()) {
-        await find.shutdown();
-      }
-      return prototype.setScenario(scenario);
-    },
+    "prototype:set": ({ on }) => prototype.set(on),
+    "prototype:scenario": ({ scenario }) => prototype.setScenario(scenario),
     // Each comment call throws while prototype mode is off (the copy is closed).
     "comments:list": () => ({ comments: prototype.comments.list() }),
     "comments:add": (comment) => prototype.comments.add(comment),

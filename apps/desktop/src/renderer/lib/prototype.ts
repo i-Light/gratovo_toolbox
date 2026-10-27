@@ -10,14 +10,9 @@ import type {
   PrototypeStatus,
   ScenarioKey,
 } from "@gratovo/ipc";
-import type { IconName } from "@gratovo/ui";
 import { useSyncExternalStore } from "react";
 
-import { strings } from "../strings";
-import { placeWords } from "../prototype/place";
-import { toast } from "./toast";
-
-const text = strings.prototype;
+import { rememberSwitch } from "./prototype-toast";
 
 /**
  * The page's side of prototype mode (plan step 7, D11): whether it is on, the scenario, and the
@@ -116,41 +111,28 @@ export function resetPrototypeForTests(): void {
 }
 
 /** Asks main for the status once; when prototype mode is on, reads the comments too. */
-export async function loadPrototype(invoke?: Bridge["invoke"]): Promise<void> {
+export async function loadPrototype(invoke?: Bridge["invoke"]): Promise<PrototypeStatus | null> {
   const status = await ask("prototype:status", {}, invoke ?? bridge()?.invoke);
   if (status === null) {
-    return;
+    return null;
   }
   set({ status });
   if (!status.on) {
-    return;
+    return status;
   }
   const list = await ask("comments:list", {}, invoke ?? bridge()?.invoke);
   if (list !== null) {
     set({ comments: list.comments });
   }
-}
-
-const toastKey = "gratovo.proto.toast";
-
-function remember(value: string | null): void {
-  try {
-    if (value === null) {
-      sessionStorage.removeItem(toastKey);
-    } else {
-      sessionStorage.setItem(toastKey, value);
-    }
-  } catch {
-    // Without session storage the confirming toast is skipped; the switch itself still works.
-  }
+  return status;
 }
 
 /** Turns prototype mode on or off. Main reloads the window; the toast follows from the reload. */
 export async function setPrototype(on: boolean): Promise<void> {
-  remember(on ? "on" : "off");
+  rememberSwitch(on ? "on" : "off");
   const status = await ask("prototype:set", { on });
   if (status === null) {
-    remember(null);
+    rememberSwitch(null);
     return;
   }
   set({ status });
@@ -158,55 +140,13 @@ export async function setPrototype(on: boolean): Promise<void> {
 
 /** Starts a fresh example copy for the scenario. Main reloads the window. */
 export async function pickScenario(scenario: ScenarioKey): Promise<void> {
-  remember(`scenario:${scenario}`);
+  rememberSwitch(`scenario:${scenario}`);
   const status = await ask("prototype:scenario", { scenario });
   if (status === null) {
-    remember(null);
+    rememberSwitch(null);
     return;
   }
   set({ status });
-}
-
-/** What a toast takes. */
-export type SwitchToast = Parameters<typeof toast>[0];
-
-/** The toast that confirms a switch made before the reload, once; null when there is none. */
-export function takeSwitchToast(): SwitchToast | null {
-  let value: string | null;
-  try {
-    value = sessionStorage.getItem(toastKey);
-    sessionStorage.removeItem(toastKey);
-  } catch {
-    return null;
-  }
-  if (value === "on") {
-    return { msg: text.toastOn, sub: text.toastOnSub, icon: "flask", tone: "info" };
-  }
-  if (value === "off") {
-    return { msg: text.toastOff, sub: text.toastOffSub, icon: "check", tone: "info" };
-  }
-  if (value !== null && value.startsWith("scenario:")) {
-    const key = value.slice("scenario:".length);
-    if (Object.hasOwn(text.scenarios, key)) {
-      const scenario = text.scenarios[key as ScenarioKey];
-      return {
-        msg: text.toastScenario(scenario.name),
-        sub: text.toastScenarioSub,
-        icon: scenario.icon as IconName,
-        tone: "info",
-        ms: 4500,
-      };
-    }
-  }
-  return null;
-}
-
-/** Shows the switch toast, if one is waiting. */
-export function showSwitchToast(): void {
-  const waiting = takeSwitchToast();
-  if (waiting !== null) {
-    toast(waiting);
-  }
 }
 
 export function toggleCommenting(force?: boolean): void {
@@ -241,57 +181,65 @@ export function openCount(list: readonly Comment[]): number {
   return list.filter((c) => c.status !== "done").length;
 }
 
-/** Saves a new comment. The saved comment, or null when off or the call failed. */
-export async function addComment(c: CommentNew): Promise<Comment | null> {
+/** What a comment action answers: it worked (with its result), or it did not (off, or the call failed). */
+export type Outcome<T> = { readonly ok: true; readonly value: T } | { readonly ok: false };
+
+const failed = { ok: false } as const;
+
+/** Saves a new comment. */
+export async function addComment(c: CommentNew): Promise<Outcome<Comment>> {
   if (!isPrototypeOn()) {
-    return null;
+    return failed;
   }
   const saved = await ask("comments:add", c);
-  if (saved !== null) {
-    set({ comments: [...current.comments, saved] });
+  if (saved === null) {
+    return failed;
   }
-  return saved;
+  set({ comments: [...current.comments, saved] });
+  return { ok: true, value: saved };
 }
 
 /** Changes a comment's text or status. */
-export async function patchComment(p: CommentPatch): Promise<Comment | null> {
+export async function patchComment(p: CommentPatch): Promise<Outcome<Comment>> {
   if (!isPrototypeOn()) {
-    return null;
+    return failed;
   }
   const saved = await ask("comments:update", p);
-  if (saved !== null) {
-    set({ comments: current.comments.map((c) => (c.id === saved.id ? saved : c)) });
+  if (saved === null) {
+    return failed;
   }
-  return saved;
+  set({ comments: current.comments.map((c) => (c.id === saved.id ? saved : c)) });
+  return { ok: true, value: saved };
 }
 
-/** Deletes a comment; answers the deleted one so an Undo can restore it. */
-export async function deleteComment(id: string): Promise<Comment | null> {
+/** Deletes a comment; the value is the deleted one (so an Undo can restore it), or null when there was none. */
+export async function deleteComment(id: string): Promise<Outcome<Comment | null>> {
   if (!isPrototypeOn()) {
-    return null;
+    return failed;
   }
   const result = await ask("comments:delete", { id });
   if (result === null) {
-    return null;
+    return failed;
   }
   set({
     comments: current.comments.filter((c) => c.id !== id),
     open: current.open === id ? null : current.open,
   });
-  return result.comment;
+  return { ok: true, value: result.comment };
 }
 
 /** Puts a deleted comment back (Undo). */
-export async function restoreComment(c: Comment): Promise<Comment | null> {
+export async function restoreComment(c: Comment): Promise<Outcome<Comment>> {
   if (!isPrototypeOn()) {
-    return null;
+    return failed;
   }
   const saved = await ask("comments:restore", { comment: c });
-  if (saved !== null) {
-    const rest = current.comments.filter((x) => x.id !== saved.id);
-    set({ comments: [...rest, saved].sort((a, b) => a.at - b.at) });
+  if (saved === null) {
+    return failed;
   }
-  return saved;
+  const rest = current.comments.filter((x) => x.id !== saved.id);
+  set({ comments: [...rest, saved].sort((a, b) => a.at - b.at) });
+  return { ok: true, value: saved };
 }
 
 /** Writes the comments for Claude into the repository. Null when off or the call failed. */
@@ -300,34 +248,4 @@ export async function exportComments(): Promise<CommentsExportResult | null> {
     return null;
   }
   return ask("comments:export", {});
-}
-
-type RefName = (ref: { readonly kind: string; readonly id: string }) => string | null;
-
-/**
- * The open comments as text for Claude: a heading, then each comment numbered by its place in the
- * whole list, with its kind, where it was left, what it was pinned to and what it says.
- */
-export function commentsForClaude(
-  list: readonly Comment[],
-  options: { readonly now?: number; readonly refName?: RefName } = {},
-): string {
-  const when = new Date(options.now ?? Date.now());
-  const stamp = `${when.toLocaleDateString("en-GB")} ${when.toLocaleTimeString("en-GB", {
-    hour: "2-digit",
-    minute: "2-digit",
-  })}`;
-  const refName = options.refName ?? (() => null);
-  const open = list.filter((c) => c.status !== "done");
-  const lines = [text.forClaude.head(open.length, stamp), ""];
-  for (const c of open) {
-    const number = list.indexOf(c) + 1;
-    const scenario =
-      c.scenario === "normal" ? "" : text.forClaude.scenario(text.scenarios[c.scenario].name);
-    lines.push(
-      `${String(number)}. [${text.forClaude.kinds[c.kind]}] ${placeWords(c, refName, text.forClaude.everywhere)} · ${c.anchor.label}${scenario}`,
-    );
-    lines.push(`   ${c.text.replace(/\n/g, "\n   ")}`);
-  }
-  return lines.join("\n");
 }

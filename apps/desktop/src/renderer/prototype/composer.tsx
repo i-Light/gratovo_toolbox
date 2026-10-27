@@ -49,6 +49,8 @@ export function Composer({
 }) {
   const [value, setValue] = useState("");
   const [kind, setKind] = useState<CommentKind>("fix");
+  const [saving, setSaving] = useState(false);
+  const busy = useRef(false);
   const area = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
     area.current?.focus();
@@ -56,16 +58,20 @@ export function Composer({
 
   const save = (): void => {
     const body = value.trim();
-    if (body === "") {
+    if (body === "" || busy.current) {
       return;
     }
+    busy.current = true;
+    setSaving(true);
     void addComment({ kind, text: body, place: draft.place, anchor: draft.anchor }).then(
-      (saved) => {
+      (result) => {
+        busy.current = false;
         onDone();
-        if (saved === null) {
+        if (!result.ok) {
           toast({ msg: t.saveFailed, icon: "alert", tone: "info" });
           return;
         }
+        const saved = result.value;
         const n = getPrototype().comments.findIndex((c) => c.id === saved.id) + 1;
         toast({
           msg: t.saved(n),
@@ -154,7 +160,7 @@ export function Composer({
         <Btn size="sm" kind="ghost" onClick={onDone}>
           {t.cancel}
         </Btn>
-        <Btn size="sm" kind="pri" disabled={value.trim() === ""} onClick={save}>
+        <Btn size="sm" kind="pri" disabled={saving || value.trim() === ""} onClick={save}>
           {t.save} <span className="kbd">{t.saveKeys}</span>
         </Btn>
       </div>

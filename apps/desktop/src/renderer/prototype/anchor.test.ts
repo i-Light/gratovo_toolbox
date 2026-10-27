@@ -83,6 +83,24 @@ describe("locate", () => {
     expect(locate(a)).toBeNull();
   });
 
+  it("gives null, not a throw, for a tag or path that is no valid selector", () => {
+    const a = anchorOf(q("li:nth-of-type(2)"), 0, 0);
+    expect(() => locate({ ...a, tag: "1a", path: "!!", ui: null })).not.toThrow();
+    expect(locate({ ...a, tag: "1a", path: "!!", ui: null })).toBeNull();
+    expect(locate({ ...a, tag: "1a", path: "!!", ui: 'x"]' })).toBeNull();
+  });
+
+  it("with an empty text, accepts only the exact path, else marks the section moved", () => {
+    page('<div data-ui="a.b"><p><i></i></p><button></button></div>');
+    const a = anchorOf(q("button"), 0, 0);
+    expect(a.text).toBe("");
+    expect(locate(a)?.el.tagName).toBe("BUTTON");
+    q("button").insertAdjacentHTML("beforebegin", "<button></button>");
+    const found = locate({ ...a, path: "nope:nth-of-type(9)" });
+    expect(found?.moved).toBe(true);
+    expect(found?.el.getAttribute("data-ui")).toBe("a.b");
+  });
+
   it("never counts the tool's own elements", () => {
     const a = anchorOf(q("li:nth-of-type(2)"), 0, 0);
     q("li:nth-of-type(2)").remove();

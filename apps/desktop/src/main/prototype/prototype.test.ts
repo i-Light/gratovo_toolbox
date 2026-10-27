@@ -12,13 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { openDatabase } from "../db/open-database";
 
 import { insertComment, newCommentId } from "./comments";
-import {
-  commentsForExport,
-  createPrototype,
-  findRepoRoot,
-  prototypeFile,
-  prototypeFolder,
-} from "./prototype";
+import { createPrototype, prototypeFile, prototypeFolder } from "./prototype";
 import type { Prototype } from "./prototype";
 
 const start = Date.UTC(2026, 9, 26, 9, 0, 0);
@@ -81,6 +75,7 @@ describe("prototype mode", () => {
       now: () => clock,
       base: baseWith(roles),
       reloadWindow: reload,
+      beforeSwitch: () => Promise.resolve(),
     });
     made.push(proto);
     return proto;
@@ -313,35 +308,5 @@ describe("prototype mode", () => {
     await writeFile(blocker, "a file, not a folder");
     expect(proto.comments.exportTo(blocker)).toEqual({ ok: false, problem: "failed" });
     expect(warn.mock.calls.flat().join(" ")).not.toContain("private");
-  });
-});
-
-describe("commentsForExport", () => {
-  it("counts and orders an empty list", () => {
-    expect(commentsForExport([])).toEqual({ open: 0, done: 0, comments: [] });
-  });
-});
-
-describe("findRepoRoot", () => {
-  const appPath = join("E:", "repo", "apps", "desktop");
-  const root = join("E:", "repo");
-
-  it("finds the root two levels above the app when it has the workspace and docs", () => {
-    const exists = (p: string): boolean =>
-      p === join(root, "pnpm-workspace.yaml") || p === join(root, "docs");
-    expect(findRepoRoot({ packaged: false, appPath, exists })).toBe(root);
-  });
-
-  it("answers null when packaged", () => {
-    expect(findRepoRoot({ packaged: true, appPath, exists: () => true })).toBeNull();
-  });
-
-  it("answers null when the workspace file or docs are missing", () => {
-    expect(
-      findRepoRoot({ packaged: false, appPath, exists: (p) => p.endsWith("docs") }),
-    ).toBeNull();
-    expect(
-      findRepoRoot({ packaged: false, appPath, exists: (p) => p.endsWith(".yaml") }),
-    ).toBeNull();
   });
 });

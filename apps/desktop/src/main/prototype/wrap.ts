@@ -2,6 +2,7 @@ import type { DataSource } from "@gratovo/core/data";
 
 import type { Account, FindContext } from "../account/account";
 
+import { kindOf } from "./kind-of";
 import { prototypeFolder, type Prototype } from "./prototype";
 
 /**
@@ -21,15 +22,6 @@ export const prototypeContext: FindContext = {
   workerId: "prototype",
   folder: prototypeFolder,
 };
-
-/** An error's kind for the log: its code or its name, never its message (it may hold a path). */
-function kindOf(error: unknown): string {
-  if (error instanceof Error) {
-    const code = (error as NodeJS.ErrnoException).code;
-    return typeof code === "string" ? code : error.name;
-  }
-  return typeof error;
-}
 
 export function withPrototype(account: Account, proto: Prototype): Account {
   // One turn-off at a time: every read in the meantime would otherwise ask again.

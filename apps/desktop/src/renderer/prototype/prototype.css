@@ -263,10 +263,15 @@ html.cmt-mode [data-cmt-ui] button {
 .cmt-empty {
   padding: 14px 10px;
 }
+/* The list sits under the top bar, so only what is below the top bar makes room for it; toasts
+   move to its left so they don't cover its header. */
 @media (min-width: 1301px) {
-  .app.cmt-panel-on .main {
+  .app.cmt-panel-on .main > :not(.top) {
     margin-inline-end: 354px;
   }
+}
+:root:has(.app.cmt-panel-on) .toasts {
+  inset-inline-end: 366px;
 }
 .cmt-clamp {
   display: -webkit-box;

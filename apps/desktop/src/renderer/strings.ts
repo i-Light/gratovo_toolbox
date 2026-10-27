@@ -255,6 +255,8 @@ export const strings = {
       "You're on an example copy. Your live data is set aside untouched, and nothing is sent.",
     toastOff: "Prototype mode is off",
     toastOffSub: "Back on your live data, exactly as you left it.",
+    toastFailed: "That switch didn't happen",
+    toastFailedSub: "Prototype mode is as it was before. Try again in a moment.",
     toastScenario: (name: string): string => `Scenario: ${name}`,
     toastScenarioSub:
       "A fresh example copy. Changes you make stay in this copy until you switch again.",
@@ -342,6 +344,8 @@ export const strings = {
       saved: (n: number): string => `Comment ${String(n)} saved`,
       savedSub: "Saved on this computer. Export for Claude from the list.",
       saveFailed: "The comment couldn't be saved",
+      deleteFailed: "That comment couldn't be deleted",
+      updateFailed: "That comment couldn't be changed",
       markedDone: (n: number): string => `Comment ${String(n)} marked done`,
       deleted: (n: number): string => `Comment ${String(n)} deleted`,
       copiedOne: "The comment was copied",

@@ -84,5 +84,7 @@ describe("commentAnchorSchema", () => {
     expect(commentAnchorSchema.safeParse({ ...anchor, rx: 1.5 }).success).toBe(false);
     expect(commentAnchorSchema.safeParse({ ...anchor, ui: "Find.Search" }).success).toBe(false);
     expect(commentAnchorSchema.safeParse({ ...anchor, extra: true }).success).toBe(false);
+    expect(commentAnchorSchema.safeParse({ ...anchor, tag: "1a" }).success).toBe(false);
+    expect(commentAnchorSchema.safeParse({ ...anchor, tag: "h1" }).success).toBe(true);
   });
 });
