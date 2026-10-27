@@ -111,6 +111,7 @@ describe("the live gate", () => {
     expect(goTo).toEqual([
       screens.find.name,
       screens.reach.name,
+      screens.close.name,
       screens.toolbox.name,
       screens.settings.name,
     ]);

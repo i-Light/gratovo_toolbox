@@ -60,8 +60,15 @@ const lane = (input: BoardInput, key: string): string[] =>
     ?.items.map((i) => i.creator.id) ?? [];
 
 describe("boardLanes", () => {
-  it("shows four lanes live and six on example data", () => {
-    expect(boardLanes(base()).map((l) => l.key)).toEqual(["todraft", "waiting", "seq", "replied"]);
+  it("shows all six lanes, live and on example data", () => {
+    expect(boardLanes(base()).map((l) => l.key)).toEqual([
+      "todraft",
+      "waiting",
+      "seq",
+      "replied",
+      "kit",
+      "signed",
+    ]);
     expect(boardLanes(base({ source: "example" })).map((l) => l.key)).toEqual([
       "todraft",
       "waiting",

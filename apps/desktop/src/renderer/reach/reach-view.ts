@@ -8,11 +8,12 @@ import type {
   SequenceStep,
   ThreadSummary,
 } from "@gratovo/core/data";
+import { checkAudience } from "@gratovo/core/close";
 import { isFinished, isRunning, nextStep, repliesToAnswer, replyItems } from "@gratovo/core/reach";
 import type { BoardItem, BoardLaneKey } from "@gratovo/core/reach";
 import type { IconName } from "@gratovo/ui";
 
-import { ago } from "../lib/format";
+import { ago, money } from "../lib/format";
 import { dayWords, kindLabel, whenWords } from "../lib/reach-actions";
 import { strings } from "../strings";
 
@@ -96,7 +97,7 @@ export function dueWords(at: number, now: number): string {
 }
 
 /** The button on a card; `writing` is Gemini at work, shown but not pressable. */
-export type CardAction = "draftIt" | "writing" | "review" | "answer";
+export type CardAction = "draftIt" | "writing" | "review" | "answer" | "check";
 
 export interface CardInfo {
   readonly sub: string;
@@ -203,6 +204,30 @@ export function cardInfo(
       need: false,
       chip: lastIn === null ? null : { kind: "age", at: lastIn.at },
       action: draft === null ? null : draft.state === "drafting" ? "writing" : "answer",
+    };
+  }
+  if (lane === "kit") {
+    const result = checkAudience(item.creator.kit);
+    const first = result.firstFail;
+    return {
+      sub:
+        result.verdict === "pass"
+          ? sub.kitPass
+          : result.verdict === "fail" && first !== null
+            ? sub.kitFail(t.board.checkNames[first])
+            : sub.kitMissing,
+      need: false,
+      chip: null,
+      action: "check",
+    };
+  }
+  if (lane === "signed") {
+    const rate = item.creator.kit?.rate ?? null;
+    return {
+      sub: rate === null ? strings.record.stages.signed : sub.signedRate(money(rate)),
+      need: false,
+      chip: null,
+      action: null,
     };
   }
   return { sub: strings.record.stages[item.creator.stage], need: false, chip: null, action: null };

@@ -17,6 +17,7 @@ const actionLabel: Record<CardAction, string> = {
   writing: t.board.writing,
   review: t.board.review,
   answer: t.board.answer,
+  check: t.board.check,
 };
 
 function Chip({ chip, now }: { readonly chip: CardInfo["chip"]; readonly now: number }) {
@@ -66,7 +67,8 @@ export function BoardCard({
   const info = cardInfo(item, lane, now, gate === null ? null : t.gatesShort[gate.key]);
   const ref = { kind: "creator", id: creator.id } as const;
   const open = (): void => {
-    peek(ref, list, { tab: "emails" });
+    // The audience check sits on the Overview; every other card's news is in the emails.
+    peek(ref, list, { tab: lane === "kit" || lane === "signed" ? "overview" : "emails" });
   };
   const onKey = (event: KeyboardEvent<HTMLDivElement>): void => {
     if (event.target !== event.currentTarget) {

@@ -1546,6 +1546,8 @@ export const strings = {
     close: {
       name: "Close",
       sub: "Audience, brands, pitch, terms",
+      /** Live mode shows only the Roster tab until brands and deals are built (plan step 8). */
+      subLive: "Check audiences and sign creators",
       tabs: {
         roster: "Roster",
         brands: "Brands",
@@ -1701,6 +1703,36 @@ export const strings = {
         draft_open: "An email to this creator is already waiting",
         unreachable: "Couldn’t reach the app’s data",
       },
+    },
+  },
+  /** Close's screen and its Roster tab (plan step 8, R2). */
+  closeScreen: {
+    title: "Close",
+    sub: "Sign creators, match them to brands, then agree the price and the contract.",
+    tabsLabel: "Close sections",
+    roster: {
+      kitsTitle: "Waiting for an audience check",
+      kitsHint:
+        "Brands buy US, UK, CA or AU audiences of buying age. Check the media kit against your rules, then sign or decline.",
+      kitsListLabel: "Creators waiting for an audience check",
+      asks: (rate: string): string => `asks ${rate}`,
+      openCreator: (name: string): string => `Open ${name}`,
+      show: "Check the audience",
+      hide: "Hide the check",
+      verdict: {
+        pass: "Passes all four checks",
+        fail: (check: string): string => `Fails: ${check}`,
+        missing: "Numbers missing",
+      },
+      signedTitle: "Signed creators",
+      tableLabel: "Signed creators",
+      columns: { creator: "Creator", rate: "Rate", median: "Median views", audience: "Audience" },
+      subscribers: (n: string): string => `${n} subscribers`,
+      none: "—",
+      emptyTitle: "Nobody is signed yet",
+      emptyAction: "See who has replied",
+      emptyWithKits: "Check the media kits above. A creator who passes can be signed in one click.",
+      emptyNoKits: "Creators who reply with a media kit show up here for an audience check.",
     },
   },
   findActions: {
@@ -2393,7 +2425,18 @@ export const strings = {
           finished: "Sequence finished",
         },
         parked: (when: string): string => `Parked until ${when}`,
+        kitPass: "Passes your audience rules",
+        kitFail: (check: string): string => `Fails your rules: ${check}`,
+        kitMissing: "Some numbers are missing",
+        signedRate: (rate: string): string => `Rate ${rate}`,
       },
+      checkNames: {
+        top: "audience country",
+        age: "buying age",
+        engagement: "engagement",
+        rate: "rate",
+      },
+      check: "Check",
       draftIt: "Draft it",
       writing: "Gemini is writing…",
       review: "Review",

@@ -16,6 +16,7 @@ import type { SectionKey } from "./settings";
 export const liveWired = {
   find: ["search", "triage", "gallery", "contacts"],
   reach: ["board", "sequences", "inbox", "mailboxes"],
+  close: ["roster"],
   toolbox: ["archive", "never", "scheduled", "log"],
   record: [],
   settings: [

@@ -19,6 +19,7 @@ import { Tooltip } from "../overlays/tooltip";
 import { Trays } from "../overlays/trays";
 import { FindScreen } from "../find/find-screen";
 import { ReachScreen } from "../reach/reach-screen";
+import { CloseScreen } from "../close/close-screen";
 import { ToolboxScreen } from "../toolbox/toolbox-screen";
 import { PlaceholderScreen } from "./placeholder-screen";
 import { ProblemsBar } from "./problems-bar";
@@ -73,6 +74,8 @@ const Content = memo(function Content() {
         <FindScreen key={screen} />
       ) : screen === "reach" ? (
         <ReachScreen key={screen} />
+      ) : screen === "close" ? (
+        <CloseScreen key={screen} />
       ) : screen === "toolbox" ? (
         <ToolboxScreen key={screen} />
       ) : (

@@ -418,8 +418,12 @@ describe("the live gate", () => {
 
   it("sends a hidden screen or tab to the default route", () => {
     live();
-    go("close");
+    go("deliver");
     expect(route()).toEqual({ screen: "find", tab: "search" });
+    go("close", "brands");
+    expect(route()).toEqual({ screen: "find", tab: "search" });
+    go("close", "roster");
+    expect(route()).toEqual({ screen: "close", tab: "roster" });
     go("reach", "inbox");
     expect(route()).toEqual({ screen: "reach", tab: "inbox" });
     go("today");
@@ -445,7 +449,7 @@ describe("the live gate", () => {
       ui.history = {
         entries: [
           { screen: "find", tab: "search" },
-          { screen: "close", tab: "roster" },
+          { screen: "deliver", tab: "board" },
           { screen: "settings", tab: "profile" },
         ],
         index: 2,
