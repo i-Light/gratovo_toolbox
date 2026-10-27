@@ -61,15 +61,17 @@ const skippable: readonly DraftState[] = ["drafting", "ready", "failed", "approv
  * (read as one, or from a mail server's daemon address). It tells a wake which stage to restore.
  */
 export function hasReplied(source: DataSource, creatorId: string): boolean {
-  return source.outreach
-    .thread(creatorId, 500)
-    .some(
-      (m) =>
-        m.direction === "in" &&
-        m.source !== "imported" &&
-        m.reading?.replyType !== "any.bounce" &&
-        !/^(?:mailer-daemon|postmaster)@/i.test((m.peer ?? "").trim()),
-    );
+  return source.outreach.thread(creatorId, 500).some(isTheirReply);
+}
+
+/** A message the creator wrote: in, not from the old app, and not a bounce. */
+function isTheirReply(m: ReturnType<DataSource["outreach"]["thread"]>[number]): boolean {
+  return (
+    m.direction === "in" &&
+    m.source !== "imported" &&
+    m.reading?.replyType !== "any.bounce" &&
+    !/^(?:mailer-daemon|postmaster)@/i.test((m.peer ?? "").trim())
+  );
 }
 
 /** The audience checks a kit failed, as the engine names them (top is "countries"). */
@@ -143,10 +145,8 @@ export function createSigning(deps: SigningDeps): Signing {
     source: DataSource,
     creatorId: string,
   ): { id: string; mailbox: string | null } | null {
-    const message = source.outreach
-      .thread(creatorId, 500)
-      .filter((m) => m.direction === "in")
-      .pop();
+    // Their own newest reply: a goal draft never answers a bounce.
+    const message = source.outreach.thread(creatorId, 500).filter(isTheirReply).pop();
     return message === undefined ? null : { id: message.id, mailbox: message.mailbox };
   }
 

@@ -1691,7 +1691,7 @@ export const strings = {
       undoKeptSub: "The creator is back where they were, but the email can’t be taken back.",
       undoFailed: "Couldn’t undo that",
       undoFailedSub: "Open their record and put it right by hand.",
-      parkReason: "Audience outside US, UK, CA and AU",
+      parkReason: "Audience doesn’t fit what brands buy",
       kitSaved: (name: string): string => `Saved ${name}’s media kit`,
       kitSavedSub: "Their numbers are up to date.",
       kitFailed: "Couldn’t save the numbers",

@@ -694,6 +694,20 @@ describe("skipping a follow-up's draft", () => {
     });
     expect(store.sequence("UCa")).toBeNull();
   });
+
+  it("lets a person skip a draft Gemini is still writing (the Undo of Ask, step 8)", () => {
+    draft("asking");
+    expect(store.draft("asking")?.state).toBe("drafting");
+    inTransaction(db, () => {
+      writeDraftState(
+        db,
+        { kind: "draft.state", id: "asking", state: "skipped", sendAt: null },
+        "u1",
+        now,
+      );
+    });
+    expect(store.draft("asking")?.state).toBe("skipped");
+  });
 });
 
 describe("commit", () => {

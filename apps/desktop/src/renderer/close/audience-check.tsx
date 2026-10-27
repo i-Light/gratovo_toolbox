@@ -27,7 +27,7 @@ function label(key: AudienceKey): string {
   }
 }
 
-function detail(key: AudienceKey, kit: CreatorKit | null, seesMoney: boolean): string {
+function detail(key: AudienceKey, kit: CreatorKit | null): string {
   if (key === "top") {
     const top = (kit?.countries ?? []).slice(0, topShown);
     return top.length === 0
@@ -40,18 +40,10 @@ function detail(key: AudienceKey, kit: CreatorKit | null, seesMoney: boolean): s
   if (key === "engagement") {
     return kit?.engagement == null ? text.notReceived : `${String(kit.engagement)}%`;
   }
-  return rateWords(kit) ?? (seesMoney ? text.notReceived : text.hidden);
+  return rateWords(kit) ?? text.notReceived;
 }
 
-function Row({
-  row,
-  kit,
-  seesMoney,
-}: {
-  row: AudienceRow;
-  kit: CreatorKit | null;
-  seesMoney: boolean;
-}) {
+function Row({ row, kit }: { row: AudienceRow; kit: CreatorKit | null }) {
   const tone = row.ok === true ? "good" : row.ok === false ? "crit" : "unknown";
   return (
     <li className="ck" data-ui={`record.audience.row.${row.key}`} data-ok={tone}>
@@ -60,7 +52,7 @@ function Row({
       </span>
       <span className="t">
         {label(row.key)}
-        <small>{detail(row.key, kit, seesMoney)}</small>
+        <small>{detail(row.key, kit)}</small>
       </span>
     </li>
   );
@@ -157,7 +149,7 @@ export function AudienceCheck({
     >
       <ul className="checks">
         {result.rows.map((row) => (
-          <Row key={row.key} row={row} kit={kit} seesMoney={seesMoney} />
+          <Row key={row.key} row={row} kit={kit} />
         ))}
       </ul>
       {kit?.fromReply === true ? (

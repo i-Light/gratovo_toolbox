@@ -56,11 +56,11 @@ describe("AudienceCheck", () => {
     expect(screen.queryAllByRole("button")).toHaveLength(0);
   });
 
-  it("shows Hidden for a rate the viewer cannot see, and the reply callout", () => {
-    const creator = kitCreator(passingKit({ rate: null, fromReply: true }));
+  it("without money and no stored rate: reads Not received, offers no Ask, shows the reply callout", () => {
+    const creator = kitCreator(passingKit({ rate: null, rateKnown: false, fromReply: true }));
     seedCreators([creator], false);
     render(<AudienceCheck creator={creator} />);
-    expect(screen.getByText(t.hidden)).toBeTruthy();
+    expect(screen.getByText(t.notReceived)).toBeTruthy();
     expect(screen.getByText(t.fromReply)).toBeTruthy();
     expect(screen.queryByRole("button", { name: t.ask })).toBeNull();
   });

@@ -131,7 +131,7 @@ function Err({ id, message }: { readonly id: string; readonly message: string | 
 }
 
 /**
- * The form for the media kit numbers (plan step 8, D3): up to three countries, the age band,
+ * The form for the media kit numbers (plan step 8, D3): up to five countries, the age band,
  * engagement, the rate and the kit link. Offered only to a viewer who sees money, because it
  * writes the rate. Esc closes it without saving.
  */

@@ -279,6 +279,39 @@ describe("ask", () => {
     expect(draftsOf("c8")).toHaveLength(0);
   });
 
+  it("treats a bounce as no message to answer", async () => {
+    await source.write([
+      { kind: "creator.stage", id: "c8", stage: "replied", handle: "@shipai", name: "Ship AI" },
+    ]);
+    source.outreach.commit({
+      at: clock,
+      messages: [
+        {
+          id: "bounce1",
+          creator: "c8",
+          direction: "in",
+          kind: null,
+          subject: "Delivery Status Notification (Failure)",
+          body: "Address not found",
+          at: clock,
+          gmailMessageId: "gm-bounce1",
+          by: null,
+          source: "sweep",
+          followUp: null,
+          bodyCut: false,
+          mailbox: "outreach1@gratovo.example",
+          peer: "mailer-daemon@googlemail.com",
+          peerName: null,
+          conversationKey: "c:c8",
+          gmailThreadId: "gt-c8",
+          draftId: null,
+          reading: null,
+        },
+      ],
+    });
+    expect(await service.ask("c8")).toEqual({ ok: false, problem: "no_thread" });
+  });
+
   it("queues an ask_kit reply draft answering the newest inbound message", async () => {
     const answer = await service.ask("c16");
     expect(answer.ok).toBe(true);
