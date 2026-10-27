@@ -313,6 +313,25 @@ export function recordIntent(
       }
       return;
     }
+    case "creator.kit": {
+      // The typed media kit goes into `media_kit` (plan step 8, D3), the base being the stored value
+      // before the write, null when it was never set or the row is new (created here and by the
+      // server). The replied → kit move it may cause comes through as its own `creator.stage`.
+      const stored = (): unknown => {
+        const row = db
+          .prepare("SELECT media_kit FROM channel_state WHERE channel_id = ?")
+          .get(write.id);
+        return row === undefined ? null : parseValue(row["media_kit"]);
+      };
+      const base = stored();
+      applyLocal();
+      const next = stored();
+      const label = handleOf(write.id);
+      if (label !== null && canonical(base) !== canonical(next)) {
+        queueEdit(write.id, label, "media_kit", base, next);
+      }
+      return;
+    }
     case "brand.set":
       applyLocal();
       enqueue(db, {

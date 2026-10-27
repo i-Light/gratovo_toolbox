@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { DEAL_FLOW } from "../deal-flow";
 import { seesMoney } from "./access";
 import { dueSteps } from "../reach/sequence";
+import { checkAudience, kitView } from "../close/audience";
 import { exampleFrame, exampleSeed, exampleSeedVersion, scenarios } from "./example";
 import { agencyRoles, creatorStages, notificationIcons } from "./types";
 
@@ -123,6 +124,9 @@ describe("exampleSeed", () => {
       "Ship AI",
       "Diffusion Diaries",
       "Vector Vlog",
+      "AgentWorks",
+      "Silicon Sage",
+      "Context Window",
     ]);
   });
 
@@ -155,7 +159,7 @@ describe("exampleSeed", () => {
         text: "It says we worked with Lumen AI before. Confirm that is true.",
       },
     ]);
-    // Five messages of the creators; the rest is outreach3's imported week (next test).
+    // The creators' messages; the rest is outreach3's imported week (next test).
     const creatorIds = new Set(seed.creators.map((c) => c.id));
     expect(
       seed.outreach.messages
@@ -166,6 +170,15 @@ describe("exampleSeed", () => {
       ["c9", "out"],
       ["c10", "out"],
       ["c9", "out"],
+      ["c14", "out"],
+      ["c14", "in"],
+      ["c14", "out"],
+      ["c15", "out"],
+      ["c15", "in"],
+      ["c15", "out"],
+      ["c16", "out"],
+      ["c16", "in"],
+      ["c16", "out"],
       ["c10", "in"],
     ]);
   });
@@ -236,6 +249,9 @@ describe("exampleSeed", () => {
         .map((t) => [t.creator, t.count, t.answered]),
     ).toEqual([
       ["c10", 2, false],
+      ["c14", 3, true],
+      ["c15", 3, true],
+      ["c16", 3, true],
       ["c8", 1, true],
       ["c9", 2, true],
     ]);
@@ -327,6 +343,37 @@ describe("exampleFrame", () => {
 
   it("gives the same frame for the same `now`", () => {
     expect(exampleFrame(now)).toEqual(frame);
+  });
+
+  it("seeds kit-stage creators that pass, fail and rely on a reply, and typed kits for the signed", () => {
+    const seed = exampleSeed(now);
+    const kitOf = (id: string) => {
+      const stored = seed.kits[id];
+      return kitView(
+        stored?.mediaKit ?? null,
+        stored?.provided ?? null,
+        stored?.engagement ?? null,
+      );
+    };
+    const verdictOf = (id: string) => {
+      const kit = kitOf(id);
+      return kit === null ? null : checkAudience(kit).verdict;
+    };
+    const kitStage = seed.creators.filter((c) => c.stage === "kit").map((c) => c.id);
+    const verdicts = kitStage.map(verdictOf);
+    expect(verdicts).toContain("pass");
+    expect(verdicts).toContain("fail");
+    expect(verdicts).toContain("missing");
+    expect(kitOf("c16")?.fromReply).toBe(true);
+    for (const id of seed.creators.filter((c) => c.stage === "signed").map((c) => c.id)) {
+      expect(kitOf(id)?.rate).toBeGreaterThan(0);
+    }
+    // Each kit-stage creator has an inbound message for a decline or an ask to answer.
+    for (const id of kitStage) {
+      expect(seed.outreach.messages.some((m) => m.creator === id && m.direction === "in")).toBe(
+        true,
+      );
+    }
   });
 });
 

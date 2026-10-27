@@ -276,6 +276,8 @@ export interface CreatorState {
   readonly archiveDueAt: number | null;
   /** `manual_engagement_rate`, the only engagement figure there is. */
   readonly engagement: number | null;
+  /** Main's unstripped kit view (the rate is kept: the drafter passes it to the comms facts). */
+  readonly kit: CreatorKit | null;
   /** The old app's `pipeline_stage`, for "emailed before" (D12). */
   readonly legacyPipelineStage: string;
   /**

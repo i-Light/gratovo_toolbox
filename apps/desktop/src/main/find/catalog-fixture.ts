@@ -240,6 +240,7 @@ export function creatorState(id: string, over: Partial<CreatorState> = {}): Crea
     neverReason: null,
     archiveDueAt: null,
     engagement: null,
+    kit: null,
     legacyPipelineStage: "new",
     hasAppStage: false,
     lastActivity: null,

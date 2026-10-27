@@ -1352,6 +1352,14 @@ export function describeDataSourceContract(
           neverReason: null,
           archiveDueAt: contractNow + 7 * day,
           engagement: 0.042,
+          kit: {
+            ageBand: null,
+            countries: [],
+            engagement: 0.042,
+            fromReply: false,
+            link: null,
+            rate: null,
+          },
           legacyPipelineStage: "new",
           hasAppStage: true,
           lastActivity: { at: contractNow - 500, who: "Ada" },
@@ -1747,6 +1755,139 @@ export function describeDataSourceContract(
           read: false,
         });
         await frameSchema.parseAsync(frame);
+      });
+    });
+
+    describe("the media kit (plan step 8, D2 to D4 and D10)", () => {
+      const kitCreator = "UCkitCreatorAiTools00001";
+      const noKit = { countries: [], ageBand: null, engagement: null, rate: null, link: null };
+      const typed = (
+        over: Partial<Extract<DataWrite, { kind: "creator.kit" }>["kit"]>,
+      ): DataWrite => ({
+        kind: "creator.kit",
+        id: kitCreator,
+        kit: { ...noKit, ...over },
+        handle: "@kitcreator",
+        name: "Kit Creator",
+      });
+      const stageTo = (stage: CreatorStage): DataWrite => ({
+        kind: "creator.stage",
+        id: kitCreator,
+        stage,
+        handle: "@kitcreator",
+        name: "Kit Creator",
+      });
+
+      /** A creator at `stage` with a reply in that reads a rate, countries and an age. */
+      async function seed(source: DataSource, stage: CreatorStage): Promise<void> {
+        await source.write([stageTo(stage)]);
+        source.outreach.commit({
+          at: contractNow,
+          messages: [
+            {
+              id: "m-kit",
+              creator: kitCreator,
+              direction: "in",
+              kind: null,
+              followUp: null,
+              subject: "Re: Hello",
+              body: "Rate 900. Mostly US.",
+              bodyCut: false,
+              at: contractNow,
+              mailbox: "outreach1@gratovo.example",
+              peer: "a@b.example",
+              peerName: null,
+              conversationKey: `c:${kitCreator}`,
+              gmailMessageId: "g-kit",
+              gmailThreadId: null,
+              draftId: null,
+              by: null,
+              source: "sweep",
+              reading: {
+                replyType: "inf.gives_rate",
+                label: "Gives their rate or rate card",
+                summary: "They gave numbers.",
+                side: "influencer",
+                corrected: false,
+                facts: [
+                  { key: "rate" as const, rate: 900, saved: false },
+                  {
+                    key: "countries" as const,
+                    countries: [{ code: "US", share: 60 }],
+                    saved: false,
+                  },
+                  { key: "age" as const, band: "25-34", saved: false },
+                ],
+              },
+            },
+          ],
+        });
+      }
+
+      const stateOf = async (source: DataSource) =>
+        (await source.creatorStates()).find((c) => c.id === kitCreator);
+      const frameCreator = async (source: DataSource) =>
+        (await source.frame()).creators.find((c) => c.id === kitCreator);
+
+      it("shows a typed kit in the frame and in the states, the typed value over the reply", async () => {
+        const source = start();
+        await seed(source, "emailed");
+        await source.write([{ kind: "reply.fact", messageId: "m-kit", key: "age" }]);
+        await source.write([
+          typed({ ageBand: "18-24", engagement: 4.5, link: "https://example.com/kit" }),
+        ]);
+        const expected = {
+          countries: [],
+          ageBand: "18-24",
+          engagement: 4.5,
+          rate: null,
+          link: "https://example.com/kit",
+          fromReply: false,
+        };
+        expect((await frameCreator(source))?.kit).toEqual(expected);
+        expect((await stateOf(source))?.kit).toEqual(expected);
+      });
+
+      it("moves a replied creator to kit when a typed kit gives a rate and a country, with a log line", async () => {
+        const source = start();
+        await seed(source, "replied");
+        await source.write([typed({ rate: 800, countries: [{ code: "GB", share: 70 }] })]);
+        expect((await frameCreator(source))?.stage).toBe("kit");
+        const frame = await source.frame();
+        expect(frame.log.filter((l) => l.text === "Media kit in for Kit Creator")).toHaveLength(1);
+      });
+
+      it("does not move a creator that is not replied", async () => {
+        const source = start();
+        await seed(source, "emailed");
+        await source.write([typed({ rate: 800, countries: [{ code: "GB", share: 70 }] })]);
+        expect((await frameCreator(source))?.stage).toBe("emailed");
+        expect((await source.frame()).log.some((l) => l.text.startsWith("Media kit in"))).toBe(
+          false,
+        );
+      });
+
+      it("moves a replied creator to kit when saved reply facts bring the rate and then the countries", async () => {
+        const source = start();
+        await seed(source, "replied");
+        await source.write([{ kind: "reply.fact", messageId: "m-kit", key: "rate" }]);
+        expect((await frameCreator(source))?.stage).toBe("replied");
+        await source.write([{ kind: "reply.fact", messageId: "m-kit", key: "countries" }]);
+        expect((await frameCreator(source))?.stage).toBe("kit");
+        expect((await frameCreator(source))?.kit).toMatchObject({ rate: 900, fromReply: true });
+        expect(
+          (await source.frame()).log.some((l) => l.text === "Media kit in for Kit Creator"),
+        ).toBe(true);
+      });
+
+      it("hides the kit rate from a viewer without money, but keeps it in the states", async () => {
+        const source = start();
+        await seed(source, "replied");
+        await source.write([typed({ rate: 800, countries: [{ code: "GB", share: 70 }] })]);
+        setAccess(file, [{ profileId: "u1", roles: ["scout", "outreach"], seesMoney: false }]);
+        expect((await frameCreator(source))?.kit).toMatchObject({ rate: null });
+        expect((await frameCreator(source))?.kit?.countries).toHaveLength(1);
+        expect((await stateOf(source))?.kit?.rate).toBe(800);
       });
     });
   });

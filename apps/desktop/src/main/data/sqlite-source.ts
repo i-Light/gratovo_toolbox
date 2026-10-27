@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 
 import { creatorStages, nameMax, noAccess, notifyKind, seesMoney } from "@gratovo/core/data";
@@ -35,6 +36,8 @@ import {
   setNotificationRead,
   setNotify,
 } from "./repositories";
+import { movesToKit } from "@gratovo/core/close";
+import { strings } from "../strings";
 import { linesFor, linesSince, logPage, peopleInLog } from "./repositories/activity-log";
 import {
   createOutreachStore,
@@ -47,10 +50,12 @@ import {
 import {
   creatorStates,
   parseTags,
+  readKitState,
   readNotes,
   setCreatorTags,
   storedNotes,
   writeCreatorContact,
+  writeCreatorKit,
   writeCreatorNotes,
   writeCreatorStage,
 } from "./repositories/creators";
@@ -139,7 +144,11 @@ export function createSqliteSource(db: DatabaseSync, options: SqliteSourceOption
         : notifications.filter((n) => notifyKind(n.icon) !== "money"),
       log: newestLog(db, { seesMoney: money }),
       conflicts: listConflicts(db),
-      creators: listCreators(db),
+      creators: money
+        ? listCreators(db)
+        : listCreators(db).map((creator) =>
+            creator.kit === null ? creator : { ...creator, kit: { ...creator.kit, rate: null } },
+          ),
       brands: listBrands(db),
       deals: money ? deals : deals.map((deal) => ({ ...deal, price: null })),
       mateRun: extras.mateRun(),
@@ -191,6 +200,9 @@ export function createSqliteSource(db: DatabaseSync, options: SqliteSourceOption
         return;
       case "creator.contact":
         writeCreatorContact(db, write, clock());
+        return;
+      case "creator.kit":
+        writeCreatorKit(db, write, clock());
         return;
       case "brand.set":
         setBrand(db, write, clock());
@@ -253,14 +265,56 @@ export function createSqliteSource(db: DatabaseSync, options: SqliteSourceOption
    */
   function applyAll(writes: readonly DataWrite[]): void {
     for (const write of writes) {
-      if (options.onWrite === undefined || write.kind.startsWith("draft.")) {
+      applyOne(write);
+    }
+  }
+
+  function applyOne(write: DataWrite): void {
+    if (options.onWrite === undefined || write.kind.startsWith("draft.")) {
+      apply(write);
+    } else {
+      options.onWrite(db, write, () => {
         apply(write);
-      } else {
-        options.onWrite(db, write, () => {
-          apply(write);
-        });
+      });
+    }
+    if (write.kind === "creator.kit") {
+      moveToKit(write.id);
+    } else if (write.kind === "reply.fact") {
+      const message = db
+        .prepare("SELECT channel_id FROM outreach_messages WHERE id = ?")
+        .get(write.messageId);
+      if (message !== undefined) {
+        moveToKit(String(message["channel_id"]));
       }
     }
+  }
+
+  /**
+   * Step 8, D4: a replied creator whose numbers now hold a rate and a country moves to kit. The
+   * stage write and its log line go through `applyOne`, after the write that caused them, so the
+   * tags, the timestamps and the sync hook see them as ordinary writes in the same transaction.
+   */
+  function moveToKit(id: string): void {
+    const state = readKitState(db, id);
+    if (state === undefined || !movesToKit(state.stage, state.kit)) {
+      return;
+    }
+    applyOne({
+      kind: "creator.stage",
+      id,
+      stage: "kit",
+      handle: state.handle,
+      name: state.name,
+    });
+    applyOne({
+      kind: "log.add",
+      id: randomUUID(),
+      at: clock(),
+      text: strings.kitIn(state.name),
+      ref: id,
+      action: null,
+      detail: null,
+    });
   }
 
   return {

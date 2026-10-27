@@ -54,6 +54,7 @@ function creator(id: string, over: Partial<CreatorState> = {}): CreatorState {
     neverReason: null,
     archiveDueAt: null,
     engagement: null,
+    kit: null,
     legacyPipelineStage: "",
     hasAppStage: true,
     lastActivity: null,

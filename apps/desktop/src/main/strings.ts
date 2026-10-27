@@ -63,6 +63,8 @@ export const strings = {
       crash: "The lookup stopped on an error. The details are in the log file.",
     } as Readonly<Record<string, string>>,
   },
+  /** The log line when a replied creator's numbers are in and the app moves it to kit (D4). */
+  kitIn: (name: string): string => `Media kit in for ${name}`,
   presence: {
     idle: "Idle",
     record: "Looking at a record",

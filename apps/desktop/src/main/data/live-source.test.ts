@@ -39,6 +39,17 @@ function seedLiveFile(file: string, now: number): void {
     for (const creator of fixtures.creators) {
       upsertCreator(db, creator, now);
     }
+    // The sync would bring each creator's kit columns too.
+    for (const [id, kit] of Object.entries(fixtures.kits)) {
+      db.prepare(
+        "UPDATE channel_state SET media_kit = ?, provided_data = ?, manual_engagement_rate = ? WHERE channel_id = ?",
+      ).run(
+        kit.mediaKit === undefined ? null : JSON.stringify(kit.mediaKit),
+        kit.provided === undefined ? null : JSON.stringify(kit.provided),
+        kit.engagement ?? null,
+        id,
+      );
+    }
     for (const brand of fixtures.brands) {
       upsertBrand(db, brand, now);
     }

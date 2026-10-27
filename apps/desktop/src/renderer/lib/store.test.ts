@@ -256,7 +256,8 @@ describe("the store at boot", () => {
 describe("example records", () => {
   it("has the prototype's creators, brands, deals and teammate run", () => {
     const data = exampleData(now);
-    // c6 to c10 and c13 are Reach's (plan step 6): contacts, emailed creators and a reply.
+    // c6 to c10 and c13 are Reach's (plan step 6): contacts, emailed creators and a reply;
+    // c14 to c16 wait for an audience check (plan step 8).
     expect(data.creators.map((c) => c.id)).toEqual([
       "c1",
       "c2",
@@ -271,8 +272,12 @@ describe("example records", () => {
       "c8",
       "c9",
       "c10",
+      "c14",
+      "c15",
+      "c16",
     ]);
     expect(data.creators.filter((c) => c.stage === "new")).toHaveLength(2);
+    expect(data.creators[0]?.kit).toMatchObject({ rate: 3400, fromReply: false });
     expect(data.creators[0]).toEqual({
       id: "c1",
       name: "Prompt Lab",
@@ -287,7 +292,7 @@ describe("example records", () => {
       rejectedAt: null,
       neverReason: null,
       archiveDueAt: null,
-      kit: null,
+      kit: data.creators[0]?.kit ?? null,
     });
     expect(data.creators.find((c) => c.id === "c12")?.email).toBeNull();
     expect(data.brands.map((b) => b.name)).toEqual([
