@@ -64,4 +64,13 @@ describe("AudienceCheck", () => {
     expect(screen.getByText(t.fromReply)).toBeTruthy();
     expect(screen.queryByRole("button", { name: t.ask })).toBeNull();
   });
+
+  it("with a hidden stored rate: reads Hidden, passes, and signs without an amount", () => {
+    const creator = kitCreator(passingKit({ rate: null, rateKnown: true }));
+    seedCreators([creator], false);
+    render(<AudienceCheck creator={creator} />);
+    expect(screen.getByText(t.hidden)).toBeTruthy();
+    expect(screen.getByRole("button", { name: t.signNoRate })).toBeTruthy();
+    expect(screen.getByRole("group", { name: t.checkLabel })).toBeTruthy();
+  });
 });

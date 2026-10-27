@@ -195,24 +195,29 @@ export interface CreatorKit {
   readonly engagement: number | null;
   /** US dollars per integration; null when not known, or hidden from a viewer who doesn't see money. */
   readonly rate: number | null;
+  /** A rate is stored, even when `rate` is hidden from a viewer who doesn't see money. */
+  readonly rateKnown: boolean;
   /** https only. */
   readonly link: string | null;
   /** The numbers come only from the creator's replies, not from a typed kit. */
   readonly fromReply: boolean;
 }
 
-/** What a person types into the media kit (D3). */
+/**
+ * What a person types into the media kit (D3). An omitted field leaves the stored value as it is;
+ * null (an empty list for countries) removes it.
+ */
 export interface KitInput {
   /** At most `kitCountriesMax`; codes ISO-2 upper case; share 0 to 100 or null. */
-  readonly countries: readonly AudienceShare[];
+  readonly countries?: readonly AudienceShare[];
   /** `/^\d{2}-\d{2}$/`, low below high. */
-  readonly ageBand: string | null;
+  readonly ageBand?: string | null;
   /** 0 to 100. */
-  readonly engagement: number | null;
+  readonly engagement?: number | null;
   /** 1 to 1,000,000, whole dollars. */
-  readonly rate: number | null;
+  readonly rate?: number | null;
   /** An https URL, at most 2000 characters. */
-  readonly link: string | null;
+  readonly link?: string | null;
 }
 
 /** A YouTube creator the agency finds and signs. */

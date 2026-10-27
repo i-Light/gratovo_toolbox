@@ -1,9 +1,9 @@
-import { canSign, movesToKit } from "@gratovo/core/close";
+import { canSign } from "@gratovo/core/close";
 import type { Creator, KitInput } from "@gratovo/core/data";
 
 import { strings } from "../strings";
 import { act, peek } from "./actions";
-import { parkCreator, skipDraft } from "./reach-actions";
+import { parkCreator } from "./reach-actions";
 import { appStore, go } from "./store";
 import { toast } from "./toast";
 
@@ -13,7 +13,7 @@ const t = strings.close.actions;
 const parkDays = 90;
 const dayMs = 86_400_000;
 
-const problems: Readonly<Record<string, string>> = t.problems;
+const problems: Partial<Record<string, string>> = t.problems;
 /** A problem main named, in plain words; unknown ones get the general line. */
 const problemWords = (problem: string): string => problems[problem] ?? t.problems.no_data;
 
@@ -83,15 +83,19 @@ export async function decline(creatorId: string): Promise<boolean> {
   }
   toast({
     msg: t.declined(name),
-    sub: t.declinedSub,
+    sub: answer.draftId === null ? t.declinedNoDraftSub : t.declinedSub,
     icon: "x",
     actions: [
-      {
-        label: t.reviewIt,
-        run: () => {
-          reviewDraft(creatorId);
-        },
-      },
+      ...(answer.draftId === null
+        ? []
+        : [
+            {
+              label: t.reviewIt,
+              run: () => {
+                reviewDraft(creatorId);
+              },
+            },
+          ]),
       {
         label: t.undo,
         run: () => {
@@ -116,6 +120,13 @@ async function undoDecline(
       skipped: answer.skipped,
     });
     worked = result.ok && result.value.ok;
+    if (result.ok && result.value.ok && "kept" in result.value) {
+      const kept: unknown = result.value.kept;
+      if (kept === "sending" || kept === "sent") {
+        toast({ msg: t.undoKept, sub: t.undoKeptSub, icon: "mail" });
+        return;
+      }
+    }
   } catch {
     // The answer stays "not worked".
   }
@@ -140,6 +151,7 @@ export async function askMissing(creatorId: string): Promise<boolean> {
   }
   const answer = result.value;
   if (!answer.ok) {
+    const problemName: string = answer.problem;
     if (answer.problem === "draft_open") {
       toast({
         msg: t.draftOpen,
@@ -154,6 +166,8 @@ export async function askMissing(creatorId: string): Promise<boolean> {
           },
         ],
       });
+    } else if (problemName === "no_thread") {
+      toast({ msg: t.noThread(name), icon: "alert" });
     } else {
       toast({ msg: problemWords(answer.problem), icon: "alert" });
     }
@@ -174,14 +188,28 @@ export async function askMissing(creatorId: string): Promise<boolean> {
       {
         label: t.undo,
         run: () => {
-          if (!skipDraft(draftId)) {
-            toast({ msg: t.undoFailed, sub: t.undoFailedSub, icon: "alert" });
-          }
+          void undoAsk(draftId);
         },
       },
     ],
   });
   return true;
+}
+
+/** Skips the asked-for draft straight through `data:write`, so it doesn't matter whether the store has it yet. */
+async function undoAsk(draftId: string): Promise<void> {
+  let ok = false;
+  try {
+    const result = await window.gratovo.invoke("data:write", {
+      writes: [{ kind: "draft.state", id: draftId, state: "skipped", sendAt: null }],
+    });
+    ok = result.ok;
+  } catch {
+    // The answer stays "not ok".
+  }
+  if (!ok) {
+    toast({ msg: t.undoFailed, sub: t.undoFailedSub, icon: "alert" });
+  }
 }
 
 /** Parks the creator for 90 days. The toast is Reach's own: it says until when and how to undo. */
@@ -217,24 +245,6 @@ export async function saveKit(creatorId: string, input: KitInput): Promise<boole
     toast({ msg: t.kitFailed, sub: t.kitFailedSub, icon: "alert" });
     return false;
   }
-  // Main moves a replied creator to Media kit in when the numbers now hold a rate and a country.
-  const moved =
-    creator.stage === "replied" &&
-    input.rate !== null &&
-    input.countries.length > 0 &&
-    movesToKit("replied", {
-      countries: input.countries,
-      ageBand: input.ageBand,
-      engagement: input.engagement,
-      rate: input.rate,
-      link: input.link,
-      fromReply: false,
-    });
-  toast({
-    msg: t.kitSaved(creator.name),
-    sub: moved ? t.kitMoved : t.kitSavedSub,
-    icon: "check",
-    tone: "good",
-  });
+  toast({ msg: t.kitSaved(creator.name), sub: t.kitSavedSub, icon: "check", tone: "good" });
   return true;
 }

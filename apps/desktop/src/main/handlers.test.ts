@@ -644,7 +644,7 @@ describe("Reach channels", () => {
       decline: vi.fn(() =>
         Promise.resolve({ ok: true as const, draftId: "d9", before: "kit" as const, skipped: [] }),
       ),
-      undoDecline: vi.fn(() => Promise.resolve({ ok: true as const })),
+      undoDecline: vi.fn(() => Promise.resolve({ ok: true as const, kept: null })),
       ask: vi.fn(() => Promise.resolve({ ok: true as const, draftId: "d10" })),
     };
     const mine = handlersWith(accountWith(), [], findWith(), { reach });
@@ -655,7 +655,7 @@ describe("Reach channels", () => {
       skipped: [],
     });
     const undo = { creatorId: "c14", draftId: "d9", before: "kit" as const, skipped: [] };
-    expect(await mine["close:decline-undo"](undo)).toEqual({ ok: true });
+    expect(await mine["close:decline-undo"](undo)).toEqual({ ok: true, kept: null });
     expect(await mine["close:ask"]({ creatorId: "c14" })).toEqual({ ok: true, draftId: "d10" });
     expect(reach.decline).toHaveBeenCalledWith("c14");
     expect(reach.undoDecline).toHaveBeenCalledWith(undo);

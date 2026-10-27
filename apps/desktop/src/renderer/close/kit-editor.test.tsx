@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { stubReachBridge } from "../lib/reach-test-bridge";
 import { resetAppStoreForTests } from "../lib/store";
 import { strings } from "../strings";
-import { kitCreator, seedCreators } from "./close-fixtures";
+import { kitCreator, passingKit, seedCreators } from "./close-fixtures";
 import { KitEditor } from "./kit-editor";
 
 const t = strings.close.kit;
@@ -84,5 +84,70 @@ describe("KitEditor", () => {
     });
     expect(done).toHaveBeenCalledTimes(1);
     expect(bridge.writes).toHaveLength(0);
+  });
+
+  it("shows five country rows and reads UK as GB", async () => {
+    const bridge = stubReachBridge();
+    render(<KitEditor creator={kitCreator(null)} onDone={vi.fn()} />);
+    expect(screen.getByLabelText(t.country(5))).toBeTruthy();
+    type(t.country(1), "uk");
+    fireEvent.click(screen.getByRole("button", { name: t.save }));
+    await waitFor(() => {
+      expect(bridge.writes).toHaveLength(1);
+    });
+    expect(bridge.writes[0]?.[0]).toMatchObject({
+      kit: { countries: [{ code: "GB", share: null }] },
+    });
+  });
+
+  it("sends only what changed, and does not judge what it did not touch", async () => {
+    const bridge = stubReachBridge();
+    const done = vi.fn();
+    const old = kitCreator(passingKit({ link: "http://old.example.com/kit", rate: 3400.5 }));
+    render(<KitEditor creator={old} onDone={done} />);
+    type(t.engagement, "5");
+    fireEvent.click(screen.getByRole("button", { name: t.save }));
+    await waitFor(() => {
+      expect(done).toHaveBeenCalled();
+    });
+    expect(bridge.writes[0]?.[0]).toMatchObject({ kind: "creator.kit", kit: { engagement: 5 } });
+    expect(Object.keys((bridge.writes[0]?.[0] as { kit: object }).kit)).toEqual(["engagement"]);
+  });
+
+  it("closes without a write when nothing changed", () => {
+    const bridge = stubReachBridge();
+    const done = vi.fn();
+    render(<KitEditor creator={kitCreator(passingKit())} onDone={done} />);
+    fireEvent.click(screen.getByRole("button", { name: t.save }));
+    expect(done).toHaveBeenCalledTimes(1);
+    expect(bridge.writes).toHaveLength(0);
+  });
+
+  it("focuses the first field, and Esc on a button closes it without reaching the page", () => {
+    stubReachBridge();
+    const done = vi.fn();
+    const outer = vi.fn();
+    render(
+      // eslint-disable-next-line jsx-a11y/no-static-element-interactions
+      <div onKeyDown={outer}>
+        <KitEditor creator={kitCreator(null)} onDone={done} />
+      </div>,
+    );
+    expect(document.activeElement).toBe(screen.getByLabelText(t.country(1)));
+    fireEvent.keyDown(screen.getByRole("button", { name: t.cancel }), { key: "Escape" });
+    expect(done).toHaveBeenCalledTimes(1);
+    expect(outer).not.toHaveBeenCalled();
+  });
+
+  it("ignores a second save while one is running", async () => {
+    const bridge = stubReachBridge();
+    render(<KitEditor creator={kitCreator(null)} onDone={vi.fn()} />);
+    type(t.rate, "100");
+    const form = screen.getByRole("form", { name: t.title });
+    fireEvent.submit(form);
+    fireEvent.submit(form);
+    await waitFor(() => {
+      expect(bridge.writes).toHaveLength(1);
+    });
   });
 });

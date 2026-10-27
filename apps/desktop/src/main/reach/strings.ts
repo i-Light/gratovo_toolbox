@@ -154,7 +154,18 @@ export const sequenceStrings = {
 
 /** The activity log lines of Close's Decline kindly and Ask for what's missing (step 8). */
 export const signingStrings = {
-  declined: (name: string): string => `Declined ${name}: audience outside the US, UK, CA and AU`,
+  /** The failed checks in plain words; "audience doesn't fit" when none is known. */
+  declined: (name: string, failed: readonly ("countries" | "age" | "engagement")[] = []): string =>
+    `Declined ${name}: ${
+      failed.length === 0
+        ? "audience doesn't fit"
+        : failed.map((key) => signingStrings.failedNames[key]).join(", ")
+    }`,
+  failedNames: {
+    countries: "audience not led by the US, UK, CA or AU",
+    age: "audience outside 18 to 44",
+    engagement: "engagement under 3%",
+  } as Readonly<Record<"countries" | "age" | "engagement", string>>,
   undidDeclining: (name: string): string => `Undid declining ${name}`,
   asked: (name: string): string => `Asked ${name} for their missing numbers`,
 } as const;

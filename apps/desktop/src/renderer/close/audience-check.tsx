@@ -5,9 +5,9 @@ import { Btn, Icon, Tag } from "@gratovo/ui";
 import { useState } from "react";
 
 import { askMissing, decline, parkForAudience, sign } from "../lib/close-actions";
-import { money } from "../lib/format";
 import { useApp } from "../lib/store";
 import { strings } from "../strings";
+import { rateWords } from "./rate-words";
 
 const text = strings.close.audience;
 
@@ -40,10 +40,7 @@ function detail(key: AudienceKey, kit: CreatorKit | null, seesMoney: boolean): s
   if (key === "engagement") {
     return kit?.engagement == null ? text.notReceived : `${String(kit.engagement)}%`;
   }
-  if (kit?.rate != null) {
-    return money(kit.rate);
-  }
-  return seesMoney ? text.notReceived : text.hidden;
+  return rateWords(kit) ?? (seesMoney ? text.notReceived : text.hidden);
 }
 
 function Row({
@@ -107,7 +104,7 @@ export function AudienceCheck({
           }}
         >
           <span data-ui="record.audience.sign">
-            {text.sign(kit?.rate == null ? "" : money(kit.rate))}
+            {kit?.rate == null ? text.signNoRate : text.sign(rateWords(kit) ?? "")}
           </span>
         </Btn>
         <span className="hint">{text.signHint}</span>
@@ -155,6 +152,7 @@ export function AudienceCheck({
     <div
       className="col audience-check"
       data-ui="record.audience.check"
+      role="group"
       aria-label={text.checkLabel}
     >
       <ul className="checks">

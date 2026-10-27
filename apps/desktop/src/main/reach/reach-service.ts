@@ -51,7 +51,7 @@ import { mailboxKey, noFlags, readMailboxFlags, writeMailboxFlags } from "./mail
 import { createQuickQueue, type QuickQueue } from "./quick-queue";
 import { createReplySweep, skipOpenFollowUps, type ReplySweep } from "./reply-sweep";
 import { createSender, type CheckOutcome, type Sender, type SendOutcome } from "./sender";
-import { createSigning, type Signing } from "./signing";
+import { createSigning, hasReplied, type Signing } from "./signing";
 import { createSituations, type Situations } from "./situations";
 import { mailboxStrings, sequenceStrings } from "./strings";
 
@@ -645,9 +645,12 @@ export function createReachService(deps: ReachServiceDeps): ReachServiceHandle {
     creatorId: string,
     restore: readonly string[],
     sequence: Sequence,
+    skipping?: string,
   ): { drafts: { id: string; patch: { state: DraftState; problem: null } }[]; sequence: Sequence } {
     const none = { drafts: [], sequence };
-    if (source.outreach.openDraft(creatorId) !== null) {
+    // A draft the same commit skips does not count as open.
+    const open = source.outreach.openDraft(creatorId);
+    if (open !== null && open.id !== skipping) {
       return none;
     }
     for (const id of restore.slice(0, sequenceRestoreMax)) {
@@ -782,7 +785,12 @@ export function createReachService(deps: ReachServiceDeps): ReachServiceHandle {
       sequences: [back.sequence],
       writes: [
         ...(creator.stage === "parked"
-          ? [stageWrite(creator, wakeStage(sequence.stopped, creator.kit))]
+          ? [
+              stageWrite(
+                creator,
+                wakeStage(sequence.stopped, creator.kit, hasReplied(source, creatorId)),
+              ),
+            ]
           : []),
         logLine(creator, sequenceStrings.woke(nameOf(creator)), at),
       ],
@@ -851,17 +859,23 @@ export function createReachService(deps: ReachServiceDeps): ReachServiceHandle {
         }
         if (wakeDue(sequence, at)) {
           wakes.set(creator.id, wakesOf(creator.id) + 1);
+          // Only a parked creator is woken: any other stage just loses its stale date, with no
+          // stage write and no log line.
+          const parked = creator.stage === "parked";
           source.outreach.commit({
             at,
             sequences: [woken(sequence, sequence.stopped === null ? at : null)],
-            writes: [
-              ...(creator.stage === "parked"
-                ? [stageWrite(creator, wakeStage(sequence.stopped, creator.kit))]
-                : []),
-              logLine(creator, sequenceStrings.woke(nameOf(creator)), at),
-            ],
+            writes: parked
+              ? [
+                  stageWrite(
+                    creator,
+                    wakeStage(sequence.stopped, creator.kit, hasReplied(source, creator.id)),
+                  ),
+                  logLine(creator, sequenceStrings.woke(nameOf(creator)), at),
+                ]
+              : [],
           });
-          wrote = true;
+          wrote = wrote || parked;
         } else if (sequence.parkUntil === null && isFinished(sequence, at)) {
           source.outreach.commit({
             at,

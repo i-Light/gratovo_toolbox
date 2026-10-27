@@ -5,9 +5,9 @@ import { avatarColor, Avatar, Btn, Empty } from "@gratovo/ui";
 
 import { peek } from "../lib/actions";
 import { useCatalogQuery } from "../lib/find-catalog";
-import { money } from "../lib/format";
 import { go, useApp } from "../lib/store";
 import { strings } from "../strings";
+import { rateWords } from "./rate-words";
 
 const text = strings.closeScreen.roster;
 
@@ -55,9 +55,9 @@ function Row({
   };
   const subs = numbers?.subscribers ?? null;
   const median = numbers?.median ?? null;
-  const rate = creator.kit?.rate ?? null;
+  const rate = rateWords(creator.kit);
   return (
-    <tr className="click" data-ui="close.roster.row" aria-selected={selected} onClick={open}>
+    <tr className="click" data-ui="close.roster.row" data-selected={selected} onClick={open}>
       <td>
         <button
           type="button"
@@ -79,7 +79,7 @@ function Row({
           </span>
         </button>
       </td>
-      <td className="n">{rate === null ? text.none : money(rate)}</td>
+      <td className="n">{rate ?? text.none}</td>
       <td className="n">{median === null ? text.none : formatCount(median)}</td>
       <td className="aud">
         <Audience creator={creator} />

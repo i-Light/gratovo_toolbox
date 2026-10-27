@@ -1359,6 +1359,7 @@ export function describeDataSourceContract(
             fromReply: false,
             link: null,
             rate: null,
+            rateKnown: false,
           },
           legacyPipelineStage: "new",
           hasAppStage: true,
@@ -1841,6 +1842,7 @@ export function describeDataSourceContract(
           ageBand: "18-24",
           engagement: 4.5,
           rate: null,
+          rateKnown: false,
           link: "https://example.com/kit",
           fromReply: false,
         };
@@ -1874,7 +1876,11 @@ export function describeDataSourceContract(
         expect((await frameCreator(source))?.stage).toBe("replied");
         await source.write([{ kind: "reply.fact", messageId: "m-kit", key: "countries" }]);
         expect((await frameCreator(source))?.stage).toBe("kit");
-        expect((await frameCreator(source))?.kit).toMatchObject({ rate: 900, fromReply: true });
+        expect((await frameCreator(source))?.kit).toMatchObject({
+          rate: 900,
+          rateKnown: true,
+          fromReply: true,
+        });
         expect(
           (await source.frame()).log.some((l) => l.text === "Media kit in for Kit Creator"),
         ).toBe(true);
@@ -1885,9 +1891,19 @@ export function describeDataSourceContract(
         await seed(source, "replied");
         await source.write([typed({ rate: 800, countries: [{ code: "GB", share: 70 }] })]);
         setAccess(file, [{ profileId: "u1", roles: ["scout", "outreach"], seesMoney: false }]);
-        expect((await frameCreator(source))?.kit).toMatchObject({ rate: null });
+        expect((await frameCreator(source))?.kit).toMatchObject({ rate: null, rateKnown: true });
         expect((await frameCreator(source))?.kit?.countries).toHaveLength(1);
         expect((await stateOf(source))?.kit?.rate).toBe(800);
+      });
+
+      it("keeps the stored rate when a viewer without money writes the kit", async () => {
+        const source = start();
+        await seed(source, "replied");
+        await source.write([typed({ rate: 800, countries: [{ code: "GB", share: 70 }] })]);
+        setAccess(file, [{ profileId: "u1", roles: ["scout", "outreach"], seesMoney: false }]);
+        await source.write([typed({ rate: 5000, countries: [{ code: "CA", share: 70 }] })]);
+        expect((await stateOf(source))?.kit?.rate).toBe(800);
+        expect((await stateOf(source))?.kit?.countries[0]?.code).toBe("CA");
       });
     });
   });

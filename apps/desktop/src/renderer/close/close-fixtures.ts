@@ -5,7 +5,7 @@ import { aiCreator } from "../reach/reach-fixtures";
 
 /** A kit that passes all four checks; `over` changes any field. */
 export function passingKit(over: Partial<CreatorKit> = {}): CreatorKit {
-  return {
+  const made: CreatorKit = {
     countries: [
       { code: "US", share: 52 },
       { code: "GB", share: 14 },
@@ -16,8 +16,10 @@ export function passingKit(over: Partial<CreatorKit> = {}): CreatorKit {
     rate: 3400,
     link: "https://example.com/kit",
     fromReply: false,
+    rateKnown: true,
     ...over,
   };
+  return over.rateKnown === undefined ? { ...made, rateKnown: made.rate !== null } : made;
 }
 
 /** Puts these creators in the store as saved data; `seesMoney` says whether the viewer sees rates. */

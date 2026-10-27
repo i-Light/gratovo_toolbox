@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { checkAudience, signingStages } from "@gratovo/core/close";
+import type { AudienceKey } from "@gratovo/core/close";
 import type {
   CreatorStage,
   CreatorState,
@@ -34,6 +35,8 @@ export interface SigningDeps {
     creatorId: string,
     restore: readonly string[],
     sequence: Sequence,
+    /** A draft the same commit skips, which does not count as open. */
+    skipping?: string,
   ): { drafts: { id: string; patch: { state: DraftState; problem: null } }[]; sequence: Sequence };
   newId?: () => string;
 }
@@ -46,8 +49,47 @@ export interface Signing {
   ask(creatorId: string): Promise<ChannelResponse<"close:ask">>;
 }
 
-/** The draft states a decline draft is skipped from on an Undo; a person's approval is kept. */
-const skippable: readonly DraftState[] = ["drafting", "ready", "failed"];
+/**
+ * The draft states a decline draft is skipped from on an Undo. A skip never sends (the sender
+ * reads the state again before it sends, ADR 0018), so even an approved or scheduled one goes;
+ * only one on its way or gone keeps (`kept`).
+ */
+const skippable: readonly DraftState[] = ["drafting", "ready", "failed", "approved", "scheduled"];
+
+/**
+ * Whether the creator wrote back: an in-message that is neither the old app's import nor a bounce
+ * (read as one, or from a mail server's daemon address). It tells a wake which stage to restore.
+ */
+export function hasReplied(source: DataSource, creatorId: string): boolean {
+  return source.outreach
+    .thread(creatorId, 500)
+    .some(
+      (m) =>
+        m.direction === "in" &&
+        m.source !== "imported" &&
+        m.reading?.replyType !== "any.bounce" &&
+        !/^(?:mailer-daemon|postmaster)@/i.test((m.peer ?? "").trim()),
+    );
+}
+
+/** The audience checks a kit failed, as the engine names them (top is "countries"). */
+export function failedChecks(
+  kit: Parameters<typeof checkAudience>[0],
+): ("countries" | "age" | "engagement")[] {
+  const names: Partial<Record<AudienceKey, "countries" | "age" | "engagement">> = {
+    top: "countries",
+    age: "age",
+    engagement: "engagement",
+  };
+  const failed: ("countries" | "age" | "engagement")[] = [];
+  for (const row of checkAudience(kit).rows) {
+    const name = names[row.key];
+    if (row.ok === false && name !== undefined) {
+      failed.push(name);
+    }
+  }
+  return failed;
+}
 
 export function createSigning(deps: SigningDeps): Signing {
   const newId = deps.newId ?? randomUUID;
@@ -157,7 +199,7 @@ export function createSigning(deps: SigningDeps): Signing {
         stageWrite(creator, "rejected", "audience"),
         logLine(
           creator,
-          signingStrings.declined(nameOf(creator)),
+          signingStrings.declined(nameOf(creator), failedChecks(creator.kit)),
           at,
           "creator.reject",
           "audience",
@@ -186,27 +228,33 @@ export function createSigning(deps: SigningDeps): Signing {
       return { ok: false, problem: "wrong_state" };
     }
     const at = deps.now();
-    const patches: { id: string; patch: { state: DraftState; problem: null } }[] = [];
-    // The decline draft goes, unless a person approved it or it is on its way. It is skipped
-    // first, so the creator has no open draft of its own when the skipped ones come back.
+    const patches: { id: string; patch: { state: DraftState | "skipped"; problem: null } }[] = [];
+    // The decline draft is skipped in the same commit as the stage. A skip never sends: the
+    // sender reads the state again before it does (ADR 0018). Only a draft already on its way
+    // or sent stays, and the answer says so.
     const declining = request.draftId === null ? null : source.outreach.draft(request.draftId);
-    if (
-      declining !== null &&
-      declining.creator === creator.id &&
-      declining.goal === "decline" &&
-      skippable.includes(declining.state)
-    ) {
-      source.outreach.updateDraft(declining.id, { state: "skipped", problem: null }, at);
+    const ours =
+      declining !== null && declining.creator === creator.id && declining.goal === "decline";
+    let kept: "sending" | "sent" | null = null;
+    let skipping: string | undefined;
+    if (ours) {
+      if (skippable.includes(declining.state)) {
+        patches.push({ id: declining.id, patch: { state: "skipped", problem: null } });
+        skipping = declining.id;
+      } else if (declining.state === "sending" || declining.state === "sent") {
+        kept = declining.state;
+      }
     }
     // Skipped drafts come back as ready (or drafting), never approved or scheduled, and only when
     // nothing else is open for the creator by then. At most one comes back.
     let sequences: Sequence[] = [];
-    if (source.outreach.openDraft(creator.id) === null) {
+    const open = source.outreach.openDraft(creator.id);
+    if (open === null || open.id === skipping) {
       const sequence = source.outreach.sequence(creator.id);
       const restored =
         sequence === null
           ? null
-          : deps.restoreDrafts(source, creator.id, request.skipped, sequence);
+          : deps.restoreDrafts(source, creator.id, request.skipped, sequence, skipping);
       if (restored !== null && restored.drafts.length > 0) {
         patches.push(...restored.drafts);
         sequences = [restored.sequence];
@@ -234,7 +282,7 @@ export function createSigning(deps: SigningDeps): Signing {
     });
     deps.afterCommand();
     deps.kick();
-    return { ok: true };
+    return { ok: true, kept };
   }
 
   async function ask(creatorId: string): Promise<ChannelResponse<"close:ask">> {
@@ -248,6 +296,10 @@ export function createSigning(deps: SigningDeps): Signing {
     }
     if (checkAudience(creator.kit).missing.length === 0) {
       return { ok: false, problem: "nothing_missing" };
+    }
+    // An ask answers a message of theirs; with none, there is nothing to answer.
+    if (newestInbound(source, creatorId) === null) {
+      return { ok: false, problem: "no_thread" };
     }
     if (source.outreach.openDraft(creatorId) !== null) {
       return { ok: false, problem: "draft_open" };

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 
 import { creatorStages, nameMax, noAccess, notifyKind, seesMoney } from "@gratovo/core/data";
+import type { KitInput } from "@gratovo/core/data";
 import type {
   CreatorStage,
   DataSource,
@@ -201,9 +202,18 @@ export function createSqliteSource(db: DatabaseSync, options: SqliteSourceOption
       case "creator.contact":
         writeCreatorContact(db, write, clock());
         return;
-      case "creator.kit":
-        writeCreatorKit(db, write, clock());
+      case "creator.kit": {
+        // A viewer without money can't touch the rate: it stays as stored.
+        if (seesMoney(listMemberAccess(db).get(me) ?? noAccess)) {
+          writeCreatorKit(db, write, clock());
+        } else {
+          const rest = Object.fromEntries(
+            Object.entries(write.kit).filter(([key]) => key !== "rate"),
+          ) as KitInput;
+          writeCreatorKit(db, { ...write, kit: rest }, clock());
+        }
         return;
+      }
       case "brand.set":
         setBrand(db, write, clock());
         return;

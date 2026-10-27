@@ -146,7 +146,7 @@ class FakeOutreach implements OutreachStore {
     return this.sequences.get(creator) ?? null;
   }
   runningSequences(): Sequence[] {
-    return [...this.sequences.values()].filter((q) => q.stopped === null);
+    return [...this.sequences.values()].filter((q) => q.stopped === null || q.parkUntil !== null);
   }
   commit(change: Parameters<OutreachStore["commit"]>[0]): void {
     for (const draft of change.newDrafts ?? []) {
@@ -872,6 +872,7 @@ describe("the drafter", () => {
       ageBand: null,
       engagement: null,
       rate: 900,
+      rateKnown: true,
       link: null,
       fromReply: true,
     };
@@ -895,6 +896,31 @@ describe("the drafter", () => {
       const request = propose.mock.calls[0]?.[0].request;
       expect(request).toMatchObject({ kind: "reply", goal: "decline_audience" });
       expect(request).not.toHaveProperty("missing");
+      // Nothing failed (the rest is only not known), so no reason is named.
+      expect(request).not.toHaveProperty("failed");
+    });
+
+    it("names the failed checks in a decline, top as countries", async () => {
+      const failing = {
+        ...kit,
+        countries: [{ code: "IN", share: 60 }],
+        ageBand: "45-54",
+        engagement: 1.2,
+      };
+      states = [confirmed(sam, { stage: "audience", kit: failing })];
+      goalDraft("decline");
+      await kicked();
+      expect(propose.mock.calls[0]?.[0].request).toMatchObject({
+        goal: "decline_audience",
+        failed: ["countries", "age", "engagement"],
+      });
+    });
+
+    it("names only the check that failed", async () => {
+      states = [confirmed(sam, { stage: "audience", kit: { ...kit, engagement: 1.2 } })];
+      goalDraft("decline");
+      await kicked();
+      expect(propose.mock.calls[0]?.[0].request).toMatchObject({ failed: ["engagement"] });
     });
 
     it("sends an ask for the kit with what the kit lacks, and keeps the goal in a rewrite", async () => {

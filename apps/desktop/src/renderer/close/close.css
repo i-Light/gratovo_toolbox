@@ -112,3 +112,11 @@
 .audience-verdict {
   align-self: flex-start;
 }
+
+.tbl tbody tr[data-selected="true"] td {
+  background: var(--accent-soft);
+}
+
+.selectable {
+  user-select: text;
+}

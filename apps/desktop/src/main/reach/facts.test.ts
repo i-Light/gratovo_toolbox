@@ -198,6 +198,7 @@ describe("the comms facts", () => {
     ageBand: "18-34",
     engagement: 4.2,
     rate: 900,
+    rateKnown: true,
     link: null,
     fromReply: false,
   };

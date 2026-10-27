@@ -456,7 +456,8 @@ describe("wake, park and the day check (review of 6c, findings 4, 7 and 11)", ()
     expect(await logTexts()).not.toContain("Woke Ship AI");
     expect(source.outreach.sequence("c9")?.parkUntil).toBeNull();
     expect(await stageOf("c9")).toBe("replied");
-    expect(await logTexts()).toContain("Woke Diffusion Diaries");
+    // Not parked any more: it loses the stale date, and no line says it woke.
+    expect(await logTexts()).not.toContain("Woke Diffusion Diaries");
   });
 
   it("runs the check again after the computer sleeps, sets the timer again, and is safe with no data", async () => {
@@ -600,11 +601,11 @@ describe("no automatic send, live mode", () => {
 
 describe("park and wake for a creator who replied (step 8, D9)", () => {
   /** A sequence a reply stopped, for a creator who has none (the example gives sequences to c8). */
-  function stoppedFor(id: string): void {
+  function stoppedFor(id: string, stopped: "replied" | "finished" | "you" = "replied"): void {
     const q = source.outreach.sequence("c8") as Sequence;
     source.outreach.commit({
       at: clock,
-      sequences: [{ ...q, creator: id, stopped: "replied", parkUntil: null }],
+      sequences: [{ ...q, creator: id, stopped, parkUntil: null }],
     });
   }
 
@@ -645,6 +646,37 @@ describe("park and wake for a creator who replied (step 8, D9)", () => {
     await service.dayTick();
     expect(await stageOf("c14")).toBe("kit");
     expect(source.outreach.sequence("c14")?.parkUntil).toBeNull();
+  });
+
+  it.each(["finished", "you"] as const)(
+    "wakes a kit creator whose sequence was stopped %s before the reply to kit",
+    async (stopped) => {
+      stoppedFor("c14", stopped);
+      expect(await service.park("c14", clock + 90 * day)).toEqual({ ok: true, skipped: [] });
+      clock += 3 * day;
+      expect(await service.wake("c14")).toEqual({ ok: true });
+      expect(await stageOf("c14")).toBe("kit");
+    },
+  );
+
+  it("the day timer wakes such a kit creator to kit too", async () => {
+    stoppedFor("c14", "finished");
+    await service.park("c14", clock + 2 * day);
+    clock += 3 * day;
+    await service.dayTick();
+    expect(await stageOf("c14")).toBe("kit");
+  });
+
+  it("the day timer clears a stale date on a creator who is not parked, with no stage write or line", async () => {
+    stoppedFor("c14", "replied");
+    const q = source.outreach.sequence("c14") as Sequence;
+    source.outreach.commit({ at: clock, sequences: [{ ...q, parkUntil: clock + 2 * day }] });
+    expect(await stageOf("c14")).toBe("kit");
+    clock += 3 * day;
+    await service.dayTick();
+    expect(await stageOf("c14")).toBe("kit");
+    expect(source.outreach.sequence("c14")?.parkUntil).toBeNull();
+    expect(await logTexts()).not.toContain("Woke AgentWorks");
   });
 
   it("an emailed creator still wakes to emailed, and a creator with no sequence can't be parked", async () => {

@@ -173,6 +173,7 @@ const kitSchema = z.strictObject({
   ageBand: z.string().max(20).nullable(),
   engagement: z.number().min(0).max(100).nullable(),
   rate: z.number().nonnegative().nullable(),
+  rateKnown: z.boolean(),
   link: z.string().max(2000).nullable(),
   fromReply: z.boolean(),
 });
@@ -278,25 +279,31 @@ export const dataWriteSchema: z.ZodType<DataWrite> = z.discriminatedUnion("kind"
       kind: z.literal("creator.kit"),
       id,
       kit: z.strictObject({
-        countries: z
-          .array(
-            z.strictObject({
-              code: z.string().regex(/^[A-Z]{2}$/),
-              share: z.number().min(0).max(100).nullable(),
-            }),
-          )
-          .max(kitCountriesMax),
-        ageBand: z
-          .string()
-          .regex(/^\d{2}-\d{2}$/)
-          .nullable(),
-        engagement: z.number().min(0).max(100).nullable(),
-        rate: z.number().int().min(1).max(1_000_000).nullable(),
-        link: z
-          .string()
-          .max(2000)
-          .refine((value) => value.startsWith("https://"), "Use an https link")
-          .nullable(),
+        countries: z.exactOptional(
+          z
+            .array(
+              z.strictObject({
+                code: z.string().regex(/^[A-Z]{2}$/),
+                share: z.number().min(0).max(100).nullable(),
+              }),
+            )
+            .max(kitCountriesMax),
+        ),
+        ageBand: z.exactOptional(
+          z
+            .string()
+            .regex(/^\d{2}-\d{2}$/)
+            .nullable(),
+        ),
+        engagement: z.exactOptional(z.number().min(0).max(100).nullable()),
+        rate: z.exactOptional(z.number().int().min(1).max(1_000_000).nullable()),
+        link: z.exactOptional(
+          z
+            .string()
+            .max(2000)
+            .refine((value) => value.startsWith("https://"), "Use an https link")
+            .nullable(),
+        ),
       }),
       handle: text,
       name: text,
@@ -305,7 +312,7 @@ export const dataWriteSchema: z.ZodType<DataWrite> = z.discriminatedUnion("kind"
     .refine(
       (write) => {
         const band = write.kit.ageBand;
-        if (band === null) return true;
+        if (band === undefined || band === null) return true;
         const [low, high] = band.split("-").map(Number);
         return (low ?? 0) < (high ?? 0);
       },

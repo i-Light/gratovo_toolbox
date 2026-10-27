@@ -124,9 +124,8 @@ describe("decline", () => {
     expect(creator?.rejectReason).toBe("audience");
     expect(source.outreach.draft("d-first")?.state).toBe("skipped");
     expect(source.outreach.draft("d-follow")?.state).toBe("skipped");
-    expect(await logTexts()).toContain(
-      "Declined AgentWorks: audience outside the US, UK, CA and AU",
-    );
+    // c14 passes every check, so no failed one is known.
+    expect(await logTexts()).toContain("Declined AgentWorks: audience doesn't fit");
 
     const draft = source.outreach.draft(draftId ?? "");
     expect(draft).toMatchObject({
@@ -164,7 +163,7 @@ describe("undo decline", () => {
       before: "kit",
       skipped: done.skipped,
     });
-    expect(undo).toEqual({ ok: true });
+    expect(undo).toEqual({ ok: true, kept: null });
     const creator = await stateOf("c14");
     expect(creator?.stage).toBe("kit");
     expect(creator?.rejectReason).toBeNull();
@@ -174,7 +173,7 @@ describe("undo decline", () => {
     expect(await logTexts()).toContain("Undid declining AgentWorks");
   });
 
-  it("keeps a decline draft a person approved, and brings nothing back on top of it", async () => {
+  it("skips even an approved decline draft, in the same commit as the stage", async () => {
     openDraft("d-first", "c14", "first", "ready");
     const done = await service.decline("c14");
     if (!done.ok) {
@@ -188,10 +187,53 @@ describe("undo decline", () => {
         before: "kit",
         skipped: done.skipped,
       }),
-    ).toEqual({ ok: true });
-    expect(source.outreach.draft(done.draftId ?? "")?.state).toBe("approved");
-    expect(source.outreach.draft("d-first")?.state).toBe("skipped");
+    ).toEqual({ ok: true, kept: null });
+    expect(source.outreach.draft(done.draftId ?? "")?.state).toBe("skipped");
+    expect((await stateOf("c14"))?.stage).toBe("kit");
+    // The skipped first email comes back, since the decline draft no longer blocks it.
+    expect(source.outreach.draft("d-first")?.state).toBe("ready");
   });
+
+  it.each(["drafting", "ready", "failed", "approved", "scheduled"] as const)(
+    "skips a decline draft that is %s",
+    async (state) => {
+      const done = await service.decline("c14");
+      if (!done.ok) {
+        throw new Error("decline failed");
+      }
+      source.outreach.updateDraft(done.draftId ?? "", { state }, clock);
+      expect(
+        await service.undoDecline({
+          creatorId: "c14",
+          draftId: done.draftId,
+          before: "kit",
+          skipped: [],
+        }),
+      ).toEqual({ ok: true, kept: null });
+      expect(source.outreach.draft(done.draftId ?? "")?.state).toBe("skipped");
+    },
+  );
+
+  it.each(["sending", "sent"] as const)(
+    "says the decline draft was kept when it is %s",
+    async (state) => {
+      const done = await service.decline("c14");
+      if (!done.ok) {
+        throw new Error("decline failed");
+      }
+      source.outreach.updateDraft(done.draftId ?? "", { state }, clock);
+      expect(
+        await service.undoDecline({
+          creatorId: "c14",
+          draftId: done.draftId,
+          before: "kit",
+          skipped: [],
+        }),
+      ).toEqual({ ok: true, kept: state });
+      expect(source.outreach.draft(done.draftId ?? "")?.state).toBe(state);
+      expect((await stateOf("c14"))?.stage).toBe("kit");
+    },
+  );
 
   it("is refused once the stage moved", async () => {
     const done = await service.decline("c14");
@@ -227,6 +269,14 @@ describe("ask", () => {
     openDraft("d-open", "c16", "reply", "ready");
     expect(await service.ask("c16")).toEqual({ ok: false, problem: "draft_open" });
     expect(await service.ask("nobody")).toEqual({ ok: false, problem: "not_found" });
+  });
+
+  it("refuses with no_thread when the creator has no inbound message", async () => {
+    await source.write([
+      { kind: "creator.stage", id: "c8", stage: "replied", handle: "@shipai", name: "Ship AI" },
+    ]);
+    expect(await service.ask("c8")).toEqual({ ok: false, problem: "no_thread" });
+    expect(draftsOf("c8")).toHaveLength(0);
   });
 
   it("queues an ask_kit reply draft answering the newest inbound message", async () => {

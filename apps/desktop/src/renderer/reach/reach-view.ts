@@ -13,7 +13,8 @@ import { isFinished, isRunning, nextStep, repliesToAnswer, replyItems } from "@g
 import type { BoardItem, BoardLaneKey } from "@gratovo/core/reach";
 import type { IconName } from "@gratovo/ui";
 
-import { ago, money } from "../lib/format";
+import { rateWords } from "../close/rate-words";
+import { ago } from "../lib/format";
 import { dayWords, kindLabel, whenWords } from "../lib/reach-actions";
 import { strings } from "../strings";
 
@@ -222,9 +223,9 @@ export function cardInfo(
     };
   }
   if (lane === "signed") {
-    const rate = item.creator.kit?.rate ?? null;
+    const rate = rateWords(item.creator.kit);
     return {
-      sub: rate === null ? strings.record.stages.signed : sub.signedRate(money(rate)),
+      sub: rate === null ? strings.record.stages.signed : sub.signedRate(rate),
       need: false,
       chip: null,
       action: null,

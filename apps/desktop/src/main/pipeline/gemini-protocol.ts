@@ -236,6 +236,8 @@ export const commsKinds = ["first", "reply", "followUp", "decision"] as const;
 export const commsGoals = ["decline_audience", "ask_kit"] as const;
 /** The kit numbers an ask names. */
 export const commsMissing = ["countries", "age", "engagement", "rate"] as const;
+/** The audience checks a decline names as the reason. */
+export const commsFailed = ["countries", "age", "engagement"] as const;
 
 const commsRequest = z.strictObject({
   kind: z.enum(commsKinds),
@@ -251,6 +253,12 @@ const commsRequest = z.strictObject({
   missing: z
     .array(z.enum(commsMissing))
     .max(4)
+    .refine((items) => new Set(items).size === items.length, "no repeats")
+    .optional(),
+  // A decline_audience's reason: the audience checks the creator failed.
+  failed: z
+    .array(z.enum(commsFailed))
+    .max(3)
     .refine((items) => new Set(items).size === items.length, "no repeats")
     .optional(),
   // The Steer panel: knob id → option id, plus "note".

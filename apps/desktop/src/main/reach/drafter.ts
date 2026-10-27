@@ -33,6 +33,7 @@ import type { GeminiParams, GeminiResult } from "../pipeline/gemini-protocol";
 import type { GeminiCall, GeminiCallError } from "../pipeline/gemini-service";
 
 import { buildCommsFacts, threadIdOf, type FactsSource } from "./facts";
+import { failedChecks } from "./signing";
 import { reachStrings } from "./strings";
 
 /**
@@ -517,9 +518,12 @@ export function createDrafter(deps: DrafterDeps): Drafter {
   ): {
     goal?: "decline_audience" | "ask_kit";
     missing?: ("countries" | "age" | "engagement" | "rate")[];
+    failed?: ("countries" | "age" | "engagement")[];
   } {
     if (draft.goal === "decline") {
-      return { goal: "decline_audience" };
+      // The decline names only the checks that failed; it never invents a reason.
+      const failed = failedChecks(creator.kit);
+      return { goal: "decline_audience", ...(failed.length === 0 ? {} : { failed }) };
     }
     if (draft.goal === "ask_kit") {
       return {

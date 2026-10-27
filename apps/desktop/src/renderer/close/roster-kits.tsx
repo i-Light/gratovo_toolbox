@@ -4,10 +4,10 @@ import { avatarColor, Avatar, Btn, Tag } from "@gratovo/ui";
 import { useState } from "react";
 
 import { peek } from "../lib/actions";
-import { money } from "../lib/format";
 import { useApp } from "../lib/store";
 import { strings } from "../strings";
 import { AudienceCheck } from "./audience-check";
+import { rateWords } from "./rate-words";
 
 const text = strings.closeScreen.roster;
 
@@ -41,7 +41,7 @@ function KitRow({
 }) {
   const selected = useApp((s) => s.ui.peek?.record.id === creator.id);
   const verdict = verdictOf(creator);
-  const rate = creator.kit?.rate ?? null;
+  const rate = rateWords(creator.kit);
   return (
     <div className="cl-sub" data-ui="close.roster.kit.row">
       <div className="cl-row row">
@@ -59,9 +59,7 @@ function KitRow({
           <span className="col t2" style={{ minWidth: 0 }}>
             <b className="ell">{creator.name}</b>
             <small className="muted ell">
-              {rate === null
-                ? creator.handle
-                : `${creator.handle} \u00b7 ${text.asks(money(rate))}`}
+              {rate === null ? creator.handle : `${creator.handle} \u00b7 ${text.asks(rate)}`}
             </small>
           </span>
         </button>

@@ -138,15 +138,24 @@ GOALS = {
 # A reply with a stated aim (the Close step): the app asks for it by name, never by a template.
 REPLY_GOALS = {
     "decline_audience": (
-        "Write a short, kind no. The brands we work with right now want audiences led by the US, "
-        "the UK, Canada or Australia, so there is no fit today. Thank them for sending their "
-        "numbers, keep the door open, and say nothing about price. No pitch."
+        "Write a short, kind no. Say only this about why: {reason}. Do not invent any other "
+        "reason. Thank them for sending their numbers, keep the door open, and say nothing about "
+        "price. No pitch."
     ),
     "ask_kit": (
         "Ask, briefly and warmly, for the numbers we still need: {missing}. A screenshot of the "
         "YouTube Studio audience tab is ideal. Do not make an offer yet."
     ),
 }
+
+# What `failed` names, in plain words for the decline; the brands' current wish for each check.
+FAILED_WORDS = {
+    "countries": "the brands we work with right now want audiences led by the US, the UK, Canada "
+    "or Australia",
+    "age": "they want viewers of buying age, 18 to 44",
+    "engagement": "they want engagement of 3% or more",
+}
+NEUTRAL_REASON = "your audience doesn't match what our brands are buying right now"
 
 # What `missing` names, in plain words for the ask.
 MISSING_WORDS = {
@@ -413,6 +422,8 @@ def _reply_goal(request: dict[str, Any]) -> str | None:
         return None
     if not isinstance(asked, str) or asked not in REPLY_GOALS:
         _bad(f"unknown goal: {asked!r}")
+    if asked == "decline_audience":
+        return REPLY_GOALS[asked].format(reason=_decline_reason(request.get("failed")))
     if asked != "ask_kit":
         return REPLY_GOALS[asked]
     wanted = request.get("missing")
@@ -431,6 +442,25 @@ def _reply_goal(request: dict[str, Any]) -> str | None:
     else:
         joined = ", ".join(words[:-1]) + " and " + words[-1]
     return REPLY_GOALS[asked].format(missing=joined)
+
+
+def _decline_reason(failed: Any) -> str:
+    """The failed checks in plain words, or a neutral line when none is named."""
+    if failed is None:
+        return NEUTRAL_REASON
+    if not isinstance(failed, list):
+        _bad("`failed` must be a list")
+    parts: list[str] = []
+    for key in cast("list[Any]", failed):
+        if not isinstance(key, str) or key not in FAILED_WORDS:
+            _bad(f"unknown failed item: {key!r}")
+        if FAILED_WORDS[key] not in parts:
+            parts.append(FAILED_WORDS[key])
+    if not parts:
+        return NEUTRAL_REASON
+    if len(parts) == 1:
+        return parts[0]
+    return "; ".join(parts[:-1]) + "; and " + parts[-1]
 
 
 def _bad(message: str) -> None:

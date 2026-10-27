@@ -37,7 +37,10 @@ describe("the Close screen", () => {
     expect(screen.getByRole("heading", { name: t.title })).toBeTruthy();
     expect(screen.getByText(t.sub)).toBeTruthy();
     expect(screen.queryByRole("tablist")).toBeNull();
-    expect(document.querySelector("[data-ui='close.panel']")).toBeTruthy();
+    const panel = document.querySelector("[data-ui='close.panel']");
+    expect(panel).toBeTruthy();
+    expect(panel?.getAttribute("aria-labelledby")).toBeNull();
+    expect(panel?.getAttribute("aria-label")).toBe(t.title);
     expect(screen.getByText(t.roster.kitsTitle)).toBeTruthy();
   });
 

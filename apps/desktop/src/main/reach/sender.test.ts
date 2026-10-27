@@ -188,7 +188,8 @@ function fakeSource(clock: () => number) {
     sentSince: () => [],
     mailboxCounts: () => new Map(),
     sequence: (id) => sequences.get(id) ?? null,
-    runningSequences: () => [...sequences.values()].filter((q) => q.stopped === null),
+    runningSequences: () =>
+      [...sequences.values()].filter((q) => q.stopped === null || q.parkUntil !== null),
     commit(change) {
       commits.push(change);
       for (const q of change.sequences ?? []) {

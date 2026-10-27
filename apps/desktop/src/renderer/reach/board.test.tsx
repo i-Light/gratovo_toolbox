@@ -276,4 +276,26 @@ describe("the Media kit and Signed lanes", () => {
     fireEvent.click(kit.getAllByRole("button", { name: t.board.check })[0] as HTMLElement);
     expect(appStore().getState().ui.peek?.tab).toBe("overview");
   });
+
+  it("for a viewer without money: a stored hidden rate reads Hidden and the check still passes", () => {
+    seedReach(
+      [
+        aiCreator("k1", "Tensor Talk", {
+          stage: "kit",
+          kit: passingKit({ rate: null, rateKnown: true }),
+        }),
+        aiCreator("s1", "Prompt Lab", {
+          stage: "signed",
+          kit: passingKit({ rate: null, rateKnown: true }),
+        }),
+      ],
+      reachWith({}),
+      "live",
+    );
+    render(<ReachScreen />);
+    expect(within(lane("kit")).getByText(t.board.sub.kitPass)).toBeTruthy();
+    expect(
+      within(lane("signed")).getByText(t.board.sub.signedRate(strings.close.audience.hidden)),
+    ).toBeTruthy();
+  });
 });

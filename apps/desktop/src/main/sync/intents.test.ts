@@ -4,7 +4,7 @@ import type { DataSource, DataWrite } from "@gratovo/core/data";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createSqliteSource } from "../data/sqlite-source";
-import { pendingCount, upsertProfile } from "../data/repositories";
+import { pendingCount, replaceMemberAccess, upsertProfile } from "../data/repositories";
 import { openDatabase } from "../db/open-database";
 
 import { recordIntent } from "./intents";
@@ -36,6 +36,9 @@ function lineCount(): number {
 beforeEach(() => {
   db = openDatabase(":memory:");
   upsertProfile(db, { id: me, displayName: "Sam", role: "full", color: "#3B82F6" }, t0);
+  replaceMemberAccess(db, [
+    { profileId: me, roles: ["owner"], seesMoney: true, updatedAt: "2026-10-21T10:00:00Z" },
+  ]);
   n = 0;
   clock = t0;
   source = createSqliteSource(db, {
@@ -922,6 +925,27 @@ describe("recordIntent", () => {
         );
         // An emailed creator stays where they are: only a replied one moves to kit.
         expect(edits().filter((e) => e.field === "creator_stage")).toEqual([]);
+      });
+
+      it("on a replied creator queues media_kit, then creator_stage replied to kit", async () => {
+        seedCreator("replied");
+        await source.write([
+          {
+            kind: "creator.kit",
+            id: ch,
+            kit: { ...kit, rate: 900 },
+            handle: "@aiweekly",
+            name: "AI Weekly",
+          },
+        ]);
+        expect(
+          edits()
+            .map((e) => e.field)
+            .filter((field) => field !== undefined),
+        ).toEqual(["media_kit", "creator_stage"]);
+        expect(edits().filter((e) => e.field === "creator_stage")).toEqual([
+          expect.objectContaining({ field: "creator_stage", base: "replied", next: "kit" }),
+        ]);
       });
 
       it("saving the same kit again queues nothing", async () => {

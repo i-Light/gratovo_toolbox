@@ -1,7 +1,8 @@
 import { signingStages } from "@gratovo/core/close";
 import type { Creator } from "@gratovo/core/data";
 import { Btn } from "@gratovo/ui";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { Ref } from "react";
 
 import { AudienceCheck } from "../close/audience-check";
 import { KitEditor } from "../close/kit-editor";
@@ -23,6 +24,15 @@ export function CreatorAudience({ creatorId }: { readonly creatorId: string }) {
   const creator = useApp((s) => s.data.creators.find((c) => c.id === creatorId));
   const seesMoney = useApp((s) => s.data.seesMoney);
   const [editing, setEditing] = useState(false);
+  const editButton = useRef<HTMLButtonElement>(null);
+  const wasEditing = useRef(false);
+  useEffect(() => {
+    // Closing the form hands focus back to the button that opened it.
+    if (wasEditing.current && !editing) {
+      editButton.current?.focus();
+    }
+    wasEditing.current = editing;
+  }, [editing]);
   if (creator === undefined || (creator.kit === null && !shownFrom.includes(creator.stage))) {
     return null;
   }
@@ -40,6 +50,7 @@ export function CreatorAudience({ creatorId }: { readonly creatorId: string }) {
         <Body
           creator={creator}
           canEdit={seesMoney}
+          editRef={editButton}
           onEdit={() => {
             setEditing(true);
           }}
@@ -52,10 +63,12 @@ export function CreatorAudience({ creatorId }: { readonly creatorId: string }) {
 function Body({
   creator,
   canEdit,
+  editRef,
   onEdit,
 }: {
   readonly creator: Creator;
   readonly canEdit: boolean;
+  readonly editRef: Ref<HTMLButtonElement>;
   readonly onEdit: () => void;
 }) {
   const kit = creator.kit;
@@ -81,9 +94,10 @@ function Body({
         <>
           {link === null || !link.startsWith("https://") ? null : (
             <div className="row small" data-ui="record.audience.link">
-              <a href={link} target="_blank" rel="noreferrer">
-                {text.kitLink}
-              </a>
+              <span className="grow ell" data-tip={text.kitLink}>
+                <span className="muted">{text.kitLink}: </span>
+                <span className="selectable">{link}</span>
+              </span>
               <Btn kind="ghost" size="sm" icon="copy" onClick={copy}>
                 {text.copyLink}
               </Btn>
@@ -94,7 +108,13 @@ function Body({
       )}
       {canEdit ? (
         <div className="row">
-          <Btn size="sm" kind={kit === null ? "" : "ghost"} icon="edit" onClick={onEdit}>
+          <Btn
+            ref={editRef}
+            size="sm"
+            kind={kit === null ? "" : "ghost"}
+            icon="edit"
+            onClick={onEdit}
+          >
             {kit === null ? text.add : text.edit}
           </Btn>
         </div>

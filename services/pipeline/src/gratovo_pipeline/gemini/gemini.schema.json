@@ -874,6 +874,18 @@
                 ]
               }
             },
+            "failed": {
+              "maxItems": 3,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "countries",
+                  "age",
+                  "engagement"
+                ]
+              }
+            },
             "steer": {
               "type": "object",
               "propertyNames": {
@@ -1499,6 +1511,18 @@
                   "age",
                   "engagement",
                   "rate"
+                ]
+              }
+            },
+            "failed": {
+              "maxItems": 3,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "countries",
+                  "age",
+                  "engagement"
                 ]
               }
             },

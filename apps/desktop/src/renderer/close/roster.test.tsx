@@ -200,3 +200,23 @@ describe("Roster, signed creators", () => {
     expect(screen.getByText(t.emptyWithKits)).toBeTruthy();
   });
 });
+
+describe("Roster without money", () => {
+  it("reads Hidden for a stored rate the viewer cannot see, and keeps the verdict", async () => {
+    stubReachBridge({ "find:query": page([]) });
+    const hidden = (c: Creator): Creator => ({
+      ...c,
+      kit: passingKit({ ...c.kit, rate: null, rateKnown: true }),
+    });
+    seedCreators([hidden(passing), hidden(signedOne("c1", "Prompt Lab", 2000))], false);
+    render(<Roster />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.getByText(t.verdict.pass)).toBeTruthy();
+    expect(screen.getByText(/asks Hidden/)).toBeTruthy();
+    const row = screen.getAllByRole("row")[1] as HTMLElement;
+    expect(within(row).getByText(strings.close.audience.hidden)).toBeTruthy();
+    expect(row.getAttribute("aria-selected")).toBeNull();
+  });
+});

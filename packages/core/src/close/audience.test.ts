@@ -14,15 +14,17 @@ import {
 } from "./audience";
 
 function kit(over: Partial<CreatorKit> = {}): CreatorKit {
-  return {
+  const made: CreatorKit = {
     countries: [{ code: "US", share: 60 }],
     ageBand: "18-34",
     engagement: 4,
     rate: 2000,
+    rateKnown: true,
     link: null,
     fromReply: false,
     ...over,
   };
+  return over.rateKnown === undefined ? { ...made, rateKnown: (made.rate ?? 0) > 0 } : made;
 }
 
 const input: KitInput = {
@@ -141,6 +143,7 @@ describe("kitView", () => {
       ageBand: "18-34",
       engagement: 5,
       rate: 1500,
+      rateKnown: true,
       link: "https://x.test/kit",
       fromReply: false,
     });
@@ -157,6 +160,7 @@ describe("kitView", () => {
       ageBand: "25-34",
       engagement: 3.5,
       rate: 900,
+      rateKnown: true,
       link: null,
       fromReply: true,
     });
@@ -225,6 +229,7 @@ describe("kitView", () => {
       ageBand: null,
       engagement: null,
       rate: null,
+      rateKnown: false,
       link: null,
       fromReply: false,
     });
@@ -359,21 +364,92 @@ describe("canSign", () => {
 });
 
 describe("wakeStage", () => {
-  it("wakes a sequence stopped by a reply to kit when the numbers are there", () => {
-    expect(wakeStage("replied", kit())).toBe("kit");
+  it("wakes a sequence stopped by anything to kit when the numbers are there", () => {
+    expect(wakeStage("replied", kit(), true)).toBe("kit");
+    expect(wakeStage("finished", kit(), false)).toBe("kit");
+    expect(wakeStage("you", kit(), true)).toBe("kit");
   });
 
-  it("wakes to replied when the rate or countries are missing", () => {
-    expect(wakeStage("replied", kit({ rate: null }))).toBe("replied");
-    expect(wakeStage("replied", kit({ countries: [] }))).toBe("replied");
-    expect(wakeStage("replied", null)).toBe("replied");
+  it("wakes to replied only when there was a reply and no numbers", () => {
+    expect(wakeStage("replied", kit({ rate: null }), true)).toBe("replied");
+    expect(wakeStage("replied", kit({ countries: [] }), true)).toBe("replied");
+    expect(wakeStage("replied", null, true)).toBe("replied");
+    expect(wakeStage("finished", null, true)).toBe("replied");
+    expect(wakeStage("you", null, true)).toBe("replied");
   });
 
-  it("wakes anything else to emailed", () => {
-    expect(wakeStage(null, kit())).toBe("emailed");
-    expect(wakeStage("you", kit())).toBe("emailed");
-    expect(wakeStage("bounced", null)).toBe("emailed");
-    expect(wakeStage("finished", kit())).toBe("emailed");
+  it("wakes to emailed without a reply and without numbers", () => {
+    expect(wakeStage("replied", null, false)).toBe("emailed");
+    expect(wakeStage("finished", kit({ rate: null }), false)).toBe("emailed");
+    expect(wakeStage("you", null, false)).toBe("emailed");
+    expect(wakeStage("bounced", null, false)).toBe("emailed");
+  });
+
+  it("wakes a sequence that never stopped to emailed", () => {
+    expect(wakeStage(null, kit(), true)).toBe("emailed");
+  });
+});
+
+describe("rateKnown", () => {
+  it("counts a hidden but stored rate in the check and the moves", () => {
+    const hidden = kit({ rate: null, rateKnown: true });
+    expect(checkAudience(hidden).rows[3]?.ok).toBe(true);
+    expect(movesToKit("replied", hidden)).toBe(true);
+    expect(canSign("kit", hidden)).toBe(true);
+    expect(wakeStage("replied", hidden, true)).toBe("kit");
+  });
+});
+
+describe("kitView with a hostile stored kit", () => {
+  it("sanitises every field", () => {
+    const view = kitView(
+      {
+        countries: [
+          { code: "United States", pct: 50 },
+          { code: "uk", pct: 120 },
+          { code: "ca", pct: -5 },
+          { code: "au", pct: Number.NaN },
+          { code: { nested: 1 }, pct: 3 },
+        ],
+        ageBand: { nested: true },
+        engagement: 250,
+        rates: [{ format: "integration", price: 5_000_000.4 }],
+        link: `https://${"a".repeat(3000)}`,
+      },
+      null,
+      -5,
+    );
+    expect(view?.countries).toEqual([
+      { code: "GB", share: null },
+      { code: "CA", share: null },
+      { code: "AU", share: null },
+    ]);
+    expect(view?.engagement).toBeNull();
+    expect(view?.rate).toBe(1_000_000);
+    expect(view?.link).toBeNull();
+  });
+
+  it("rounds a rate to whole dollars and drops one that is not positive", () => {
+    expect(kitView({ rates: [{ format: "integration", price: 99.6 }] }, null, null)?.rate).toBe(
+      100,
+    );
+    expect(kitView({ rates: [{ format: "integration", price: 0.2 }] }, null, null)).toBeNull();
+    expect(kitView({ rates: [{ format: "integration", price: Infinity }] }, null, null)).toBeNull();
+  });
+});
+
+describe("mergeKit with omitted fields", () => {
+  it("leaves the stored values as they are", () => {
+    const stored = {
+      countries: [{ code: "US", pct: 60 }],
+      ageBand: "18-34",
+      engagement: 4,
+      link: "https://example.com/k",
+      rates: [{ format: "integration", price: 900, agreed: true }],
+    };
+    expect(mergeKit(stored, {})).toEqual(stored);
+    expect(mergeKit(stored, { ageBand: null })["ageBand"]).toBeUndefined();
+    expect(mergeKit(stored, { ageBand: null })["rates"]).toEqual(stored.rates);
   });
 });
 

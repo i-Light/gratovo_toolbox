@@ -30,5 +30,11 @@ describe("the close channels", () => {
     const ask = channels["close:ask"].response;
     expect(ask.safeParse({ ok: false, problem: "nothing_missing" }).success).toBe(true);
     expect(ask.safeParse({ ok: true, draftId: null }).success).toBe(false);
+    expect(ask.safeParse({ ok: false, problem: "no_thread" }).success).toBe(true);
+    const undo = channels["close:decline-undo"].response;
+    expect(undo.safeParse({ ok: true, kept: null }).success).toBe(true);
+    expect(undo.safeParse({ ok: true, kept: "sent" }).success).toBe(true);
+    expect(undo.safeParse({ ok: true, kept: "approved" }).success).toBe(false);
+    expect(undo.safeParse({ ok: true }).success).toBe(false);
   });
 });

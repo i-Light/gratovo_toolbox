@@ -1,10 +1,11 @@
 import { DEAL_FLOW } from "@gratovo/core";
+import { kitView } from "@gratovo/core/close";
 import { creatorStages, exampleFrame, nameMax, type DataWrite } from "@gratovo/core/data";
 import { emptyFacets } from "@gratovo/core/find";
 import { describe, expect, it, vi } from "vitest";
 
 import { channels } from "./channels";
-import { dataWriteSchema, frameSchema } from "./data";
+import { creatorSchema, dataWriteSchema, frameSchema } from "./data";
 import { createDispatcher, type Handlers } from "./dispatch";
 
 const frame = exampleFrame(Date.UTC(2026, 9, 20));
@@ -293,6 +294,44 @@ describe("the new write kinds", () => {
     expect(ok(kit({ link: `https://example.com/${"x".repeat(2000)}` }))).toBe(false);
     expect(ok(kit({ fromReply: true }))).toBe(false);
     expect(ok({ ...base, handle: undefined })).toBe(false);
+  });
+
+  it("creator.kit takes each field as optional, and nothing else", () => {
+    const write = (kit: object) => ({
+      kind: "creator.kit",
+      id: "UC1",
+      kit,
+      handle: "@a",
+      name: "A",
+    });
+    expect(ok(write({}))).toBe(true);
+    expect(ok(write({ rate: 900 }))).toBe(true);
+    expect(ok(write({ rate: null }))).toBe(true);
+    expect(ok(write({ countries: [{ code: "UK", share: 1 }] }))).toBe(true);
+    expect(ok(write({ extra: 1 }))).toBe(false);
+  });
+
+  it("a hostile stored kit still makes a creator the frame accepts", () => {
+    const [first] = exampleFrame(Date.now()).creators;
+    if (first === undefined) throw new Error("no example creator");
+    const kit = kitView(
+      {
+        countries: [
+          { code: "United States", pct: 50 },
+          { code: "us", pct: 120 },
+          { code: "uk", pct: -5 },
+          { code: "ca", pct: Number.NaN },
+          { code: { nested: [1] }, pct: 1 },
+        ],
+        ageBand: ["x"],
+        engagement: 250,
+        rates: [{ format: "integration", price: 9e99 }],
+        link: `https://${"a".repeat(3000)}`,
+      },
+      { rate: -1, countries: "all", age: {} },
+      -5,
+    );
+    expect(creatorSchema.safeParse({ ...first, kit }).success).toBe(true);
   });
 
   it("creator.contact takes an address in its shape or none, a name to 80, a source and a confidence", () => {
@@ -607,7 +646,7 @@ describe("the data channels through the dispatcher", () => {
       "reach:sequence-stop": () => ({ ok: true as const, skipped: [] }),
       "reach:sequence-resume": () => ({ ok: true as const }),
       "close:decline": () => ({ ok: false as const, problem: "no_data" as const }),
-      "close:decline-undo": () => ({ ok: true as const }),
+      "close:decline-undo": () => ({ ok: true as const, kept: null }),
       "close:ask": () => ({ ok: false as const, problem: "no_data" as const }),
       "reach:park": () => ({ ok: true as const, skipped: [] }),
       "reach:wake": () => ({ ok: true as const }),

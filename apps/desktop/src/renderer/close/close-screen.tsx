@@ -78,6 +78,7 @@ export function CloseScreen() {
   const source = useApp((s) => s.data.source);
   const routeTab = useApp((s) => selectRoute(s).tab);
   const tab = routeTab ?? "roster";
+  const tabsShown = shownTabs("close", source).length > 1;
   if (!shownTabs("close", source).some((t) => t.key === tab)) {
     return <PlaceholderScreen screen="close" />;
   }
@@ -85,7 +86,12 @@ export function CloseScreen() {
     <div className="page" data-ui="close.page">
       <PageHead dataUi="close.head" title={text.title} sub={text.sub} hue={screens.close.hue} />
       <CloseTabs tab={tab} />
-      <div id={panelId} data-ui="close.panel" role="tabpanel" aria-labelledby={tabId(tab)}>
+      <div
+        id={panelId}
+        data-ui="close.panel"
+        role="tabpanel"
+        {...(tabsShown ? { "aria-labelledby": tabId(tab) } : { "aria-label": text.title })}
+      >
         {tab === "roster" ? (
           <Roster />
         ) : (

@@ -34,12 +34,13 @@ export const closeDeclineUndoRequestSchema = z.strictObject({
   skipped: z.array(id).max(sequenceRestoreMax),
 });
 export const closeDeclineUndoResultSchema = z.union([
-  z.strictObject({ ok: z.literal(true) }),
+  // `kept`: the decline draft was already sending or sent, so the Undo could not stop it.
+  z.strictObject({ ok: z.literal(true), kept: z.enum(["sending", "sent"]).nullable() }),
   refused(["no_data", "not_found", "wrong_state"]),
 ]);
 
 /** `close:ask`: the draft that asks for what is missing. */
 export const closeAskResultSchema = z.union([
   z.strictObject({ ok: z.literal(true), draftId: id }),
-  refused(["no_data", "not_found", "wrong_state", "draft_open", "nothing_missing"]),
+  refused(["no_data", "not_found", "wrong_state", "draft_open", "nothing_missing", "no_thread"]),
 ]);

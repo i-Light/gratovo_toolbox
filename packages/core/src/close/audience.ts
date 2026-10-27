@@ -69,9 +69,10 @@ function readCountries(value: unknown, shareKey: string): AudienceShare[] {
   const out: AudienceShare[] = [];
   for (const entry of value as unknown[]) {
     if (!isRecord(entry) || typeof entry["code"] !== "string") continue;
-    const code = entry["code"].trim().toUpperCase();
-    if (code === "" || out.some((one) => one.code === code)) continue;
-    out.push({ code, share: finite(entry[shareKey]) });
+    const upper = entry["code"].trim().toUpperCase();
+    const code = upper === "UK" ? "GB" : upper;
+    if (!/^[A-Z]{2}$/.test(code) || out.some((one) => one.code === code)) continue;
+    out.push({ code, share: pct(entry[shareKey]) });
   }
   return out;
 }
@@ -91,6 +92,18 @@ function sortedCountries(list: readonly AudienceShare[]): AudienceShare[] {
     .slice(0, kitCountriesMax);
 }
 
+function pct(value: unknown): number | null {
+  const n = finite(value);
+  return n !== null && n >= 0 && n <= 100 ? n : null;
+}
+
+function sanitisedRate(value: unknown): number | null {
+  const n = positive(value);
+  if (n === null) return null;
+  const whole = Math.round(n);
+  return whole < 1 ? null : Math.min(whole, 1_000_000);
+}
+
 function readBand(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const band = parseAgeBand(value);
@@ -105,10 +118,10 @@ function rateRows(kit: Json): Json[] {
 function kitRate(kit: Json): number | null {
   const rows = rateRows(kit);
   const integration = rows.find((row) => row["format"] === "integration");
-  const fromIntegration = integration === undefined ? null : positive(integration["price"]);
+  const fromIntegration = integration === undefined ? null : sanitisedRate(integration["price"]);
   if (fromIntegration !== null) return fromIntegration;
   const first = rows[0];
-  return first === undefined ? null : positive(first["price"]);
+  return first === undefined ? null : sanitisedRate(first["price"]);
 }
 
 /**
@@ -129,14 +142,17 @@ export function kitView(
   const kitAge = readBand(kit["ageBand"]);
   const replyAge = readBand(reply["age"]);
   const typedRate = kitRate(kit);
-  const replyRate = positive(reply["rate"]);
+  const replyRate = sanitisedRate(reply["rate"]);
 
   const countries = sortedCountries(kitCountries.length > 0 ? kitCountries : replyCountries);
   const ageBand = kitAge ?? replyAge;
   const rate = typedRate ?? replyRate;
   const kitLink = kit["link"];
-  const link = typeof kitLink === "string" && kitLink.startsWith("https://") ? kitLink : null;
-  const engagementValue = finite(kit["engagement"]) ?? finite(engagement);
+  const link =
+    typeof kitLink === "string" && kitLink.startsWith("https://") && kitLink.length <= 2000
+      ? kitLink
+      : null;
+  const engagementValue = pct(kit["engagement"]) ?? pct(engagement);
 
   const kitGives = kitCountries.length > 0 || kitAge !== null || typedRate !== null;
   const replyGives = replyCountries.length > 0 || replyAge !== null || replyRate !== null;
@@ -155,6 +171,7 @@ export function kitView(
     ageBand,
     engagement: engagementValue,
     rate,
+    rateKnown: rate !== null,
     link,
     fromReply: !kitGives && replyGives,
   };
@@ -173,7 +190,7 @@ export function checkAudience(kit: CreatorKit | null): AudienceResult {
         : (audienceRule.leaders as readonly string[]).includes(leader.code),
     age: band === null ? null : band.low >= audienceRule.minAge && band.high <= audienceRule.maxAge,
     engagement: engagement === null ? null : engagement >= audienceRule.minEngagement,
-    rate: rate !== null && rate > 0 ? true : null,
+    rate: (rate !== null && rate > 0) || kit?.rateKnown === true ? true : null,
   };
   const rows = audienceKeys.map((key): AudienceRow => ({ key, ok: ok[key] }));
   const missing = rows.filter((row) => row.ok === null).map((row) => row.key);
@@ -186,15 +203,24 @@ export function checkAudience(kit: CreatorKit | null): AudienceResult {
 export function mergeKit(stored: unknown, input: KitInput): Record<string, unknown> {
   const out: Json = isRecord(stored) ? { ...stored } : {};
 
-  if (input.countries.length > 0) {
-    out["countries"] = input.countries.map((one) => ({ code: one.code, pct: one.share }));
-  } else delete out["countries"];
-  if (input.ageBand === null) delete out["ageBand"];
-  else out["ageBand"] = input.ageBand;
-  if (input.engagement === null) delete out["engagement"];
-  else out["engagement"] = input.engagement;
-  if (input.link === null) delete out["link"];
-  else out["link"] = input.link;
+  if (input.countries !== undefined) {
+    if (input.countries.length > 0) {
+      out["countries"] = input.countries.map((one) => ({ code: one.code, pct: one.share }));
+    } else delete out["countries"];
+  }
+  if (input.ageBand !== undefined) {
+    if (input.ageBand === null) delete out["ageBand"];
+    else out["ageBand"] = input.ageBand;
+  }
+  if (input.engagement !== undefined) {
+    if (input.engagement === null) delete out["engagement"];
+    else out["engagement"] = input.engagement;
+  }
+  if (input.link !== undefined) {
+    if (input.link === null) delete out["link"];
+    else out["link"] = input.link;
+  }
+  if (input.rate === undefined) return out;
 
   const rows: unknown[] = Array.isArray(out["rates"]) ? [...(out["rates"] as unknown[])] : [];
   const at = rows.findIndex((row) => isRecord(row) && row["format"] === "integration");
@@ -228,7 +254,7 @@ export function engineKit(kit: CreatorKit | null, signed: boolean): Record<strin
 
 /** D4: a replied creator whose numbers include a rate and a country moves to kit. */
 export function movesToKit(stage: CreatorStage, kit: CreatorKit | null): boolean {
-  return stage === "replied" && kit !== null && kit.rate !== null && kit.countries.length > 0;
+  return stage === "replied" && kit !== null && kit.rateKnown && kit.countries.length > 0;
 }
 
 /** D5: Sign is offered at kit or audience, when the check passes. */
@@ -237,7 +263,12 @@ export function canSign(stage: CreatorStage, kit: CreatorKit | null): boolean {
 }
 
 /** D9: the stage a parked creator wakes to. */
-export function wakeStage(stopped: SequenceStop | null, kit: CreatorKit | null): CreatorStage {
-  if (stopped !== "replied") return "emailed";
-  return kit !== null && kit.rate !== null && kit.countries.length > 0 ? "kit" : "replied";
+export function wakeStage(
+  stopped: SequenceStop | null,
+  kit: CreatorKit | null,
+  replied: boolean,
+): CreatorStage {
+  if (stopped === null) return "emailed";
+  if (kit !== null && kit.rateKnown && kit.countries.length > 0) return "kit";
+  return replied ? "replied" : "emailed";
 }
