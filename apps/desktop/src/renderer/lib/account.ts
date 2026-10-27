@@ -28,7 +28,7 @@ export function resetAccountViewForTests(): void {
 
 let leaving = false;
 
-/** True from the moment sign-out starts: main is about to close the copy and reload the window. */
+/** True once the page has asked main to sign out: main is closing the copy and will reload the window. */
 export function signingOut(): boolean {
   return leaving;
 }
@@ -68,7 +68,6 @@ export const lastSyncWaitMs = 5000;
  * which clears the local copy and reloads the window. The page starts again from `auth:status`.
  */
 export async function signOut(invoke?: Invoke): Promise<void> {
-  leaving = true;
   await settled(signOutWaitMs);
   const call = invoke ?? window.gratovo.invoke;
   // At most a few seconds: a pass can be deep in a long pull, and main's sign-out gives the outbox
@@ -77,9 +76,16 @@ export async function signOut(invoke?: Invoke): Promise<void> {
     call("sync:now", {}).catch(() => undefined),
     new Promise<void>((resolve) => setTimeout(resolve, lastSyncWaitMs)),
   ]);
-  const answer = await call("auth:sign-out", {}).catch(() => null);
-  // Main reloads the window after a sign-out; if it didn't happen, the page carries on as before.
-  if (answer === null || !answer.ok) {
-    leaving = false;
+  // From here main closes the copy, so a read already on its way may fail. Main reloads the window
+  // after a sign-out; a refused one clears the mark and the page carries on. (With no account, main
+  // answers without a reload, but the page offers Sign out only to a signed-in account.)
+  leaving = true;
+  let ok = false;
+  try {
+    ok = (await call("auth:sign-out", {})).ok;
+  } finally {
+    if (!ok) {
+      leaving = false;
+    }
   }
 }

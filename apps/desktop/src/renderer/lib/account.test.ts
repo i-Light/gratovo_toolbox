@@ -1,9 +1,37 @@
 // @vitest-environment happy-dom
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { lastSyncWaitMs, signOut } from "./account";
+import { lastSyncWaitMs, resetAccountViewForTests, signOut, signingOut } from "./account";
+
+beforeEach(() => {
+  resetAccountViewForTests();
+});
 
 describe("signOut", () => {
+  it("marks the page as signing out only once it asks main, and keeps the mark when main signs out", async () => {
+    const seen: boolean[] = [];
+    const invoke = ((channel: string) => {
+      seen.push(signingOut());
+      return Promise.resolve({ ok: true, value: channel === "sync:now" ? null : {} });
+    }) as never;
+    await signOut(invoke);
+    expect(seen).toEqual([false, true]);
+    expect(signingOut()).toBe(true);
+  });
+
+  it("clears the mark when main refuses or fails the sign-out", async () => {
+    const refusing = (() => Promise.resolve({ ok: false, reason: "x" })) as never;
+    await signOut(refusing);
+    expect(signingOut()).toBe(false);
+
+    const throwing = ((channel: string) =>
+      channel === "auth:sign-out"
+        ? Promise.reject(new Error("x"))
+        : Promise.resolve({ ok: true })) as never;
+    await expect(signOut(throwing)).rejects.toThrow("x");
+    expect(signingOut()).toBe(false);
+  });
+
   it("asks for one last sync, then signs out", async () => {
     const calls: string[] = [];
     const invoke = ((channel: string) => {

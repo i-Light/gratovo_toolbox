@@ -53,7 +53,7 @@ Every check CI used to run, on this computer, in this order (`tooling/verify.ts`
 
 ## The prototype
 
-The spec is `design/workbench-v6/` since 2026-10-27 (ADR 0021). Open its `index.html` to run it. Another AI made it with little input from the owner, so question it, and ask the owner where it differs from what is built on a matter of taste. `design/workbench-prototype/` (v3, with its tests and notes) is the earlier version, kept for reference. Both stay until step 11. Changes to the design are tried there first when that is faster than in the real app. The published copy is at https://claude.ai/artifact/96e8HtK58oyRqVcYdUcZNn. Republishing it needs a session with the Artifact tool, and the owner's comments on it live in its `comments` collection.
+The spec is `design/workbench-v6/` since 2026-10-27 (ADR 0021). Open its `index.html` to run it. Another AI made it with little input from the owner, so question it, and ask the owner where it differs from what is built on a matter of taste. `design/workbench-prototype/` (v3, with its tests and notes) is the earlier version, kept for reference; the token, icon, avatar and `DEAL_FLOW` drift tests still read v3 until step P's P1 moves them to v6. Both folders stay until step 11. Since step P the real app in prototype mode is where design changes are tried and commented on. The published copy at https://claude.ai/artifact/96e8HtK58oyRqVcYdUcZNn is v3. Republishing it needs a session with the Artifact tool, and the owner's comments on it live in its `comments` collection.
 
 ## Setting up and things to know
 
