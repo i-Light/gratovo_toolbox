@@ -1,3 +1,4 @@
+import { checkAudience } from "@gratovo/core/close";
 import { Btn, Icon } from "@gratovo/ui";
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 
@@ -163,6 +164,12 @@ export function CreatorNext({ item }: { readonly item: CreatorDetail }) {
         {text.next.allow}
       </Btn>
     );
+  } else if (stage === "kit" || stage === "audience") {
+    line = strings.close.next.check;
+    hint = strings.close.next.verdict[checkAudience(creator?.kit ?? null).verdict];
+  } else if (stage === "signed") {
+    line = strings.close.next.signed;
+    hint = strings.close.next.signedHint;
   } else {
     line = strings.record.stages[stage];
     hint = text.next.laterHint;
