@@ -1,0 +1,282 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@400;500;600&amp;display=swap">
+<style>
+:root{--bg:#06131d;--panel:#0c2131;--sunk:#091b29;--sunk-2:#122d41;--line:#1c3a51;--line-2:#29506d;--ink:#e5eff8;--ink-2:#b0c3d6;--muted:#8aa0b5;--faint:#647d93;--accent:#4cb6ef;--accent-ink:#04131d;--accent-soft:#103651;--accent-line:#245a80;--accent-strong:#7cccf5;--find:#4cb6ef;--reach:#3cc3b2;--close:#a98bea;--deliver:#e59a4c;--money:#5fd283;--good:#5fd283;--good-soft:#123522;--warn:#f2b84b;--warn-soft:#3a2b0c;--crit:#ef7d70;--crit-soft:#3e1712;--shadow-1:0 1px 2px rgba(0,0,0,.3);--f-ui:"Readex Pro","Segoe UI",system-ui,sans-serif;--r-s:6px;--r-m:9px;--r-l:13px;--s1:#3a9ad3;--s2:#c8711f;--s3:#8a7ae6;--other:#3d5a72}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 13.5px/1.5 var(--f-ui);-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
+::selection{background:var(--accent-soft)}
+a{color:var(--accent);text-decoration:none}a:hover{color:var(--accent-strong)}
+h1,h2,h3{margin:0;letter-spacing:-0.01em;text-wrap:balance}
+h1{font-size:1.55rem;font-weight:600}h2{font-size:1.18rem;font-weight:600}h3{font-size:1rem;font-weight:600}
+p{margin:0}
+b,strong{font-weight:600;color:var(--ink)}
+.ic{flex:none;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+
+/* frame */
+.app{display:grid;grid-template-columns:236px minmax(0,1fr);min-height:100vh}
+.rail{background:var(--panel);border-right:1px solid var(--line);padding:10px;display:flex;flex-direction:column;gap:2px}
+.brand{display:flex;align-items:center;gap:10px;padding:4px 6px 12px;min-height:44px}
+.brand b{font-size:14.5px;letter-spacing:-0.01em}.brand small{display:block;color:var(--muted);font-size:11.5px;font-weight:400}
+.nav{display:flex;align-items:center;gap:10px;padding:7px 8px;min-height:38px;border-radius:var(--r-m);color:var(--ink-2)}
+.nav:hover{background:var(--sunk);color:var(--ink-2)}
+.nav .nic{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;flex:none;color:var(--hue);background:color-mix(in srgb,var(--hue) 12%,transparent)}
+.nav .nl{display:flex;flex-direction:column;min-width:0;flex:1}.nav .nl b{font-weight:500;font-size:13.5px;color:inherit}.nav .nl small{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nav.on{background:color-mix(in srgb,var(--hue) 11%,var(--panel));color:var(--ink)}.nav.on .nic{background:var(--hue);color:var(--panel)}.nav.on .nl b{font-weight:600}
+.nav .cnt{font-size:11px;font-weight:600;color:var(--muted)}
+.nav-h{font-size:12px;font-weight:600;color:var(--muted);padding:14px 10px 6px}
+.main{display:flex;flex-direction:column;min-width:0}
+.top{height:54px;display:flex;align-items:center;gap:10px;padding:0 14px;background:var(--panel);border-bottom:1px solid var(--line)}
+.crumbs{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:13px}.crumbs b{font-weight:500}
+.cmdk{display:flex;align-items:center;gap:8px;height:34px;flex:0 1 380px;margin-inline:auto;padding:0 8px 0 10px;border:1px solid var(--line);background:var(--sunk);border-radius:var(--r-m);color:var(--muted);font-size:13px}
+.cmdk .grow{flex:1;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kbd{font-size:11px;font-weight:500;color:var(--ink-2);background:var(--sunk-2);border-radius:5px;padding:1px 6px}
+.save{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}.save i{width:7px;height:7px;border-radius:50%;background:var(--good)}
+.page{width:100%;max-width:1220px;margin:0 auto;padding:26px 32px 96px;display:flex;flex-direction:column;gap:16px}
+
+/* controls, as packages/ui */
+.iconbtn{width:30px;height:30px;border-radius:var(--r-m);border:1px solid transparent;background:none;display:grid;place-items:center;color:var(--muted);flex:none}
+.iconbtn:hover{background:var(--sunk-2);color:var(--ink)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:34px;padding:0 13px;border-radius:var(--r-m);border:1px solid var(--line-2);background:var(--panel);color:var(--ink);font-weight:500;font-size:13px;white-space:nowrap}
+.btn:hover{background:var(--sunk-2);color:var(--ink)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}.btn.pri:hover{background:var(--accent-strong)}
+.btn.ghost{border-color:transparent;background:none;color:var(--ink-2)}.btn.ghost:hover{background:var(--sunk-2);color:var(--ink)}
+.btn.sm{height:30px;padding:0 10px;font-size:12.5px}
+.tag{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:6px;font-size:11.8px;font-weight:500;background:var(--sunk-2);color:var(--ink-2);white-space:nowrap;flex:none}
+.tag .ic{width:12px;height:12px;stroke-width:2.2}
+.tag.good{background:var(--good-soft);color:var(--good)}.tag.warn{background:var(--warn-soft);color:var(--warn)}.tag.crit{background:var(--crit-soft);color:var(--crit)}
+.vt{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:500;white-space:nowrap}
+.vt::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor;flex:none}
+.vt.good{color:var(--good)}.vt.warn{color:var(--warn)}.vt.crit{color:var(--crit)}.vt.early{color:var(--muted)}
+.seg{display:inline-flex;background:var(--sunk-2);border-radius:var(--r-m);padding:3px;gap:2px;flex:none}
+.seg button{border:0;background:none;border-radius:7px;height:28px;padding:0 11px;font-size:12.5px;font-weight:500;color:var(--ink-2);display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+.seg button:hover{color:var(--ink)}
+.seg button[aria-pressed="true"]{background:var(--panel);color:var(--ink);box-shadow:var(--shadow-1)}
+.seg .c{font-size:11.5px;color:var(--muted);font-weight:500}
+.seg button[aria-pressed="true"] .c{color:var(--ink-2)}
+.sw{display:inline-block;width:9px;height:9px;border-radius:3px;flex:none}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line)}
+.tabs a{padding:9px 12px 10px;font-size:13.5px;font-weight:500;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs a:hover{color:var(--ink)}.tabs a.on{color:var(--ink);border-color:var(--accent)}
+.inp{height:40px;width:100%;border:1px solid var(--line-2);background:var(--sunk);border-radius:var(--r-s);padding:0 12px;color:var(--ink);font:500 17px var(--f-ui);font-variant-numeric:tabular-nums}
+.inp:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+
+/* page structure */
+.ph{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.ph .t{display:flex;flex-direction:column;gap:4px}.ph p{color:var(--ink-2)}
+.ph .r{display:flex;gap:10px;align-items:center}
+.bar-row{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.sec{display:flex;align-items:baseline;gap:12px;margin-top:18px}
+.sec p{color:var(--muted);font-size:13px}
+.grid{display:grid;gap:16px;align-items:start}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.g21{grid-template-columns:minmax(0,1.7fr) minmax(0,1fr)}.g12{grid-template-columns:minmax(0,1fr) minmax(0,1.7fr)}
+.stretch{align-items:stretch}
+
+/* card */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r-l);padding:20px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.ch{display:flex;align-items:flex-start;gap:12px}
+.ch .t{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.ch .sub{color:var(--muted);font-size:12.8px;max-width:78ch}
+.ch .a{display:flex;align-items:center;gap:4px;flex:none;margin:-4px -6px 0 0}
+.cf{display:flex;align-items:center;gap:16px;border-top:1px solid var(--line);padding-top:14px;margin-top:auto}
+.cf p{flex:1;color:var(--ink-2);font-size:13.2px;line-height:1.55;max-width:96ch}
+.cf p .tag{margin-right:6px;vertical-align:1px}
+.cf .btns{display:flex;gap:8px;flex:none}
+.legend{display:flex;gap:18px;flex-wrap:wrap;font-size:12.5px;color:var(--ink-2)}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.legend .ln{width:14px;height:2px;border-radius:1px}
+.note{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12.8px;padding:2px 2px}
+.muted{color:var(--muted)}.ink2{color:var(--ink-2)}.small{font-size:12.5px}
+.chart{display:block;overflow:visible}
+.chart text{font-family:var(--f-ui);font-size:11px;fill:var(--muted);font-variant-numeric:tabular-nums}
+.chart text.v{fill:var(--ink-2);font-weight:500}
+.chart text.l{fill:var(--ink);font-size:12px;font-weight:500}
+
+/* numbers */
+.stat{display:flex;flex-direction:column;gap:2px;min-width:0}
+.stat .lab{font-size:12.8px;color:var(--ink-2)}
+.stat .val{font-size:26px;font-weight:500;letter-spacing:-0.02em;line-height:1.2}
+.stat .val small{font-size:14px;color:var(--muted);font-weight:400;letter-spacing:0;margin-left:3px}
+.stat .ctx{font-size:12.5px;color:var(--muted)}
+.big{font-size:34px;font-weight:500;letter-spacing:-0.025em;line-height:1.1}
+.big small{font-size:15px;color:var(--muted);font-weight:400;letter-spacing:0;margin-left:4px}
+
+/* horizontal bars */
+.hb{display:grid;grid-template-columns:var(--lw,150px) minmax(0,1fr) var(--vw,56px);gap:14px;align-items:center;font-size:13px;min-height:26px}
+.hb>span:first-child{color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hb .v{text-align:right;color:var(--ink);font-weight:500}
+.trk{height:8px;border-radius:4px;background:var(--sunk);overflow:hidden;display:flex;gap:2px}
+.trk i{display:block;height:100%;border-radius:4px;background:var(--c,var(--s1));min-width:3px}
+.trk.stack i{border-radius:0}.trk.stack i:first-child{border-radius:4px 0 0 4px}.trk.stack i:last-child{border-radius:0 4px 4px 0}
+a.hb{color:inherit;border-radius:6px;margin:0 -8px;padding:0 8px}a.hb:hover{background:var(--sunk)}
+.grp{display:flex;flex-direction:column;gap:6px}
+.grp-h{display:flex;align-items:baseline;justify-content:space-between;gap:8px;font-size:13px;font-weight:600;margin-bottom:2px}
+.grp-h span{color:var(--muted);font-weight:500}
+
+/* tables */
+.tw{overflow-x:auto;margin:0 -4px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;color:var(--muted);font-weight:500;font-size:12px;padding:0 10px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:11px 10px;border-bottom:1px solid #15304a;vertical-align:middle;color:var(--ink-2)}
+td:first-child,th:first-child{padding-left:4px}td:last-child,th:last-child{padding-right:4px}
+tbody tr:last-child td{border-bottom:0}
+tbody tr:hover td{background:color-mix(in srgb,var(--sunk) 70%,transparent)}
+td.n,th.n{text-align:right}
+td.k{color:var(--ink);font-weight:500}
+tr.sum td{color:var(--ink);font-weight:600;border-top:1px solid var(--line)}
+td .sub2{display:block;font-size:12px;color:var(--muted);font-weight:400}
+.dim{color:var(--faint)}
+
+/* link rows */
+.rows{display:flex;flex-direction:column}
+.lrow{display:flex;align-items:center;gap:10px;padding:6px 8px;margin:0 -8px;border-radius:7px;color:var(--ink-2);font-size:13px}
+.lrow:hover{background:var(--sunk);color:var(--ink)}
+.lrow span:first-child{flex:1}.lrow .v{color:var(--ink);font-weight:500}
+.lrow .ic{color:var(--faint);opacity:0}.lrow:hover .ic{opacity:1}
+
+.pl{display:grid;position:relative;margin:4px 0 0}
+.pl::before{content:"";position:absolute;left:calc(100% / var(--n,9) / 2);right:calc(100% / var(--n,9) / 2);top:39px;height:2px;background:var(--line-2);border-radius:1px}
+.ps{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;padding:6px 4px 8px;border-radius:9px;color:inherit;text-align:center}
+.ps:hover{background:var(--sunk)}
+.ps .pn{font-size:12.5px;color:var(--ink-2);white-space:nowrap}
+.ps .pd{width:12px;height:12px;border-radius:50%;background:var(--panel);border:2px solid var(--s1);position:relative;z-index:1;margin:2px 0}
+.ps:first-child .pd{background:var(--s1)}
+.ps .pv{font-size:20px;font-weight:500;letter-spacing:-0.02em;line-height:1.2}
+.ps .pf{font-size:12px;color:var(--warn);font-weight:500;min-height:18px}
+.ps .pc{position:absolute;left:0;top:32px;transform:translateX(-50%);font-size:11.5px;font-weight:500;color:var(--ink-2);background:var(--sunk-2);border-radius:6px;padding:1px 6px;z-index:2}
+
+.card{border:0;border-radius:16px;padding:22px 24px;gap:18px;background:linear-gradient(180deg,#10293d 0%,#0c2131 56%);box-shadow:inset 0 1px 0 rgba(229,239,248,.06),0 1px 2px rgba(0,0,0,.4),0 18px 40px -18px rgba(0,0,0,.7)}
+.card h3{font-size:18px;letter-spacing:-0.015em;line-height:1.3}
+.card.hero h3{font-size:26px;letter-spacing:-0.025em;line-height:1.2}
+.ch .sub{font-size:13px}
+.cf{border-top-color:rgba(124,204,245,.09)}
+.sec{margin-top:26px}.sec h2{font-size:20px;letter-spacing:-0.02em}
+.mega{font-size:46px;font-weight:600;letter-spacing:-0.035em;line-height:1}
+.mega small{font-size:15px;font-weight:500;color:var(--muted);letter-spacing:0;margin-left:6px}
+.kick{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--ink-2);font-size:13px;font-weight:500}
+.views{display:flex;align-items:stretch;gap:10px}
+.view{display:flex;flex-direction:column;gap:3px;padding:12px 16px 13px;border-radius:12px;background:var(--panel);box-shadow:inset 0 0 0 1px var(--line);min-width:180px;color:var(--ink-2)}
+.view:hover{box-shadow:inset 0 0 0 1px var(--line-2);color:var(--ink-2)}
+.view.on{background:var(--ink);color:var(--bg);box-shadow:none}
+.view .vn{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:500;white-space:nowrap}
+.view b{font-size:20px;font-weight:600;letter-spacing:-0.02em;color:inherit}
+.view small{font-size:11.5px;opacity:.75}
+.view.on .vn,.view.on small{color:var(--bg)}
+.tiles{display:grid;gap:10px}
+.tile{display:flex;flex-direction:column;gap:2px;padding:12px 14px;border-radius:12px;background:rgba(6,19,29,.5);box-shadow:inset 0 0 0 1px var(--line);color:var(--ink-2);min-width:0}
+a.tile:hover{box-shadow:inset 0 0 0 1px var(--accent-line);color:var(--ink-2)}
+.tile b{font-size:22px;font-weight:600;letter-spacing:-0.02em;color:var(--ink)}
+.tile span{font-size:12.5px}
+.tile.dim{opacity:.55}
+.rank{display:grid;grid-template-columns:28px minmax(0,1fr) 120px 90px 110px;gap:14px;align-items:center;padding:10px 0;border-bottom:1px solid rgba(124,204,245,.07);font-size:13px}
+.rank:last-child{border-bottom:0}
+.rank.h{color:var(--muted);font-size:11.5px;padding-top:0}
+.rank .av{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;font-size:11px;font-weight:600;color:#04131d}
+.rank b{font-weight:500;color:var(--ink)}
+.rank small{display:block;color:var(--muted);font-size:12px}
+.searchbox{display:flex;align-items:center;gap:10px;height:46px;padding:0 14px;border-radius:12px;background:var(--sunk);box-shadow:inset 0 0 0 1px var(--line-2);color:var(--muted);font-size:14px}
+.searchbox .grow{flex:1}
+.mult{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:28px}
+.mult .m{display:flex;flex-direction:column;gap:6px}
+.mult .mh{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;color:var(--ink-2)}
+.mult .mh b{font-size:22px;font-weight:600;letter-spacing:-0.02em;color:var(--ink)}
+.mult .md{font-size:12.5px;font-weight:500}
+.state{display:flex;flex-direction:column;gap:6px;padding:16px 16px 14px;border-radius:14px;background:rgba(6,19,29,.5);box-shadow:inset 0 0 0 1px var(--line);color:var(--ink-2);min-width:0}
+a.state:hover{box-shadow:inset 0 0 0 1px var(--accent-line);color:var(--ink-2)}
+.state b{font-size:30px;font-weight:600;letter-spacing:-0.03em;color:var(--ink);line-height:1.1}
+.state .l{font-size:13px;color:var(--ink-2);min-height:38px;line-height:1.4}
+.state .sh{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--muted)}
+.state .sh .trk{flex:1;height:4px}
+.state .go{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:500;color:var(--accent);margin-top:auto;padding-top:4px}
+.state .mk{font-size:12px;font-weight:500;color:var(--warn)}
+.state.hot{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--warn) 50%,transparent);background:color-mix(in srgb,var(--warn-soft) 45%,rgba(6,19,29,.5))}
+.state.day b{font-size:24px}
+.state.dash{background:none;box-shadow:none;border:1px dashed var(--line-2)}
+
+.band{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:32px;padding:28px 32px 24px;border-radius:20px;background:linear-gradient(160deg,#11304a 0%,#0c2131 45%,#0a1c2a 100%);box-shadow:inset 0 1px 0 rgba(229,239,248,.07),0 24px 60px -30px rgba(0,0,0,.9)}
+.band h2{font-size:28px;font-weight:600;letter-spacing:-0.03em;line-height:1.18}
+.band h2 span{color:var(--hl)}
+.band .s{color:var(--ink-2);margin-top:6px;max-width:68ch}
+.band .f{display:flex;justify-content:space-between;align-items:center;gap:16px;color:var(--muted);font-size:13px;border-top:1px solid rgba(124,204,245,.1);padding-top:14px}
+.band .f b{color:var(--ink-2)}
+.vlist{display:flex;flex-direction:column;gap:4px;border-left:1px solid rgba(124,204,245,.12);padding-left:24px}
+.vlist .q{font-size:12px;color:var(--muted);padding:2px 12px 8px}
+.vrow{display:grid;grid-template-columns:10px minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 12px;border-radius:10px;color:var(--ink-2);font-size:13px}
+.vrow:hover{background:rgba(6,19,29,.4);color:var(--ink)}
+.vrow.on{background:rgba(6,19,29,.55);color:var(--ink);box-shadow:inset 0 0 0 1px var(--accent-line)}
+.vrow i{width:9px;height:9px;border-radius:50%}
+.vrow b{font-size:15px;font-weight:600;color:var(--ink)}
+.vrow small{display:block;color:var(--muted);font-size:11.5px}
+</style>
+</head><body>
+
+<div class="app">
+    <nav class="rail" aria-label="Screens">
+      <div class="brand"><svg width="30" height="30" aria-hidden="true" viewBox="0 0 2047 2047" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve"  style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:2;"><g transform="matrix(1,0,0,1,-503.495577,-598.561096)"><g id="On-Dark"  transform="matrix(4.323186,0,0,6.177886,-3088.886724,-11857.400568)"><rect x="830.957" y="2016.217" width="473.493" height="331.343" style="fill:rgb(17,24,39);fill-opacity:0;"/><clipPath id="_clip1"><rect x="830.957" y="2016.217" width="473.493" height="331.343"/></clipPath><g clip-path="url(#_clip1)"><g transform="matrix(1.036606,0,0,0.7254,-332.645859,1265.478766)"><g transform="matrix(1.087481,0,0,1.087481,533.071259,-775.226094)"><path d="M766.754,1951.542C766.754,1951.542 780.064,1958.686 797.331,1964.495C815.722,1970.681 839.697,1975.268 839.697,1975.268C784.951,2047.181 676.866,2060.583 605.748,2006.881C566.917,1977.56 547.258,1934.152 542.985,1894.405C533.007,1801.598 601.692,1709.859 706.441,1709.454C766.737,1709.221 794.019,1747.544 811.696,1759.244C867.364,1796.09 903.737,1755.088 904.214,1754.877C902.489,1761.751 898.023,1774.079 891.611,1785.223C891.011,1786.264 889.65,1788.66 887.472,1791.987C887.355,1792.165 882.043,1798.993 873.97,1806.167C865.552,1813.648 857.916,1818.221 853.07,1820.839C852.348,1821.229 845.625,1824.216 836.798,1826.493C832.005,1827.729 828.156,1828.361 826.583,1828.611C826.231,1828.667 817.636,1829.596 806.234,1828.483C799.139,1827.79 796.583,1827.049 795.768,1826.812C763.829,1817.545 748.796,1789.411 725.544,1781.04C721.934,1779.74 713.625,1776.874 696.698,1778.543C634.743,1784.652 600.718,1845.669 613.172,1898.812C618.964,1923.53 632.762,1938.55 633.809,1939.757C667.346,1978.388 727.458,1982.249 766.754,1951.542Z" style="fill:url(#_Radial2);"/><clipPath id="_clip3"><path d="M766.754,1951.542C766.754,1951.542 780.064,1958.686 797.331,1964.495C815.722,1970.681 839.697,1975.268 839.697,1975.268C784.951,2047.181 676.866,2060.583 605.748,2006.881C566.917,1977.56 547.258,1934.152 542.985,1894.405C533.007,1801.598 601.692,1709.859 706.441,1709.454C766.737,1709.221 794.019,1747.544 811.696,1759.244C867.364,1796.09 903.737,1755.088 904.214,1754.877C902.489,1761.751 898.023,1774.079 891.611,1785.223C891.011,1786.264 889.65,1788.66 887.472,1791.987C887.355,1792.165 882.043,1798.993 873.97,1806.167C865.552,1813.648 857.916,1818.221 853.07,1820.839C852.348,1821.229 845.625,1824.216 836.798,1826.493C832.005,1827.729 828.156,1828.361 826.583,1828.611C826.231,1828.667 817.636,1829.596 806.234,1828.483C799.139,1827.79 796.583,1827.049 795.768,1826.812C763.829,1817.545 748.796,1789.411 725.544,1781.04C721.934,1779.74 713.625,1776.874 696.698,1778.543C634.743,1784.652 600.718,1845.669 613.172,1898.812C618.964,1923.53 632.762,1938.55 633.809,1939.757C667.346,1978.388 727.458,1982.249 766.754,1951.542Z"/></clipPath><g clip-path="url(#_clip3)"><g transform="matrix(0.919556,0,0,0.919556,-490.188989,712.863971)"><path d="M1348.535,1190.01C1360.325,1211.922 1275.541,1228.562 1258.534,1263.317C1235.857,1309.656 1238.055,1475.828 1212.474,1468.046C1186.893,1460.264 1086.523,1325.483 1105.047,1216.627C1108.671,1195.331 1149.393,1169.367 1149.393,1169.367C1149.393,1169.367 1203.857,1125.279 1255.566,1126.135C1298.274,1126.842 1324.696,1145.704 1348.535,1190.01Z" style="fill:url(#_Linear4);"/></g><g transform="matrix(0.919556,0,0,0.919556,-490.188989,712.863971)"><path d="M1255.566,1126.135C1298.274,1126.842 1314.684,1146.125 1349.582,1182.364C1368.136,1201.631 1388.249,1219.749 1418.379,1219.058C1454.51,1218.229 1469.391,1211.239 1474.655,1206.182C1481.328,1199.771 1544.472,1162.628 1516.387,1128.969C1505.044,1115.375 1482.95,1159.016 1455.747,1151.888C1422.264,1143.115 1374.931,1062.313 1275.885,1080.043C1156.278,1101.454 1149.393,1169.367 1149.393,1169.367C1149.393,1169.367 1203.857,1125.279 1255.566,1126.135Z" style="fill:url(#_Linear5);"/></g></g></g><g transform="matrix(1.833478,0.147117,-0.13599,1.694803,-1154.414096,4094.686055)"><path d="M1306.051,-1774.845L1305.713,-1797.136L1360.584,-1758.213L1305.037,-1709.323L1305.375,-1739.382C1305.375,-1739.382 1273.88,-1726.959 1234.89,-1753.188C1202.66,-1774.87 1184.199,-1755.842 1184.199,-1755.842C1184.199,-1755.842 1193.949,-1805.555 1250.779,-1785.975C1291.814,-1771.836 1306.051,-1774.845 1306.051,-1774.845Z" style="fill:url(#_Linear6);"/></g></g></g></g></g><defs><radialGradient id="_Radial2" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="matrix(-238.206482,57.45609,-57.45609,-238.206482,837.708913,1898.060094)"><stop offset="0" style="stop-color:rgb(0,139,211);stop-opacity:1"/><stop offset="1" style="stop-color:rgb(36,172,242);stop-opacity:1"/></radialGradient><linearGradient id="_Linear4" x1="0" y1="0" x2="1" y2="0" gradientUnits="userSpaceOnUse" gradientTransform="matrix(76.021768,-150.986709,150.986709,76.021768,1172.710625,1277.109726)"><stop offset="0" style="stop-color:rgb(0,140,212);stop-opacity:0"/><stop offset="1" style="stop-color:rgb(15,81,151);stop-opacity:1"/></linearGradient><linearGradient id="_Linear5" x1="0" y1="0" x2="1" y2="0" gradientUnits="userSpaceOnUse" gradientTransform="matrix(-386.430482,0,0,-386.430482,1552.010197,1146.738154)"><stop offset="0" style="stop-color:rgb(252,91,122);stop-opacity:1"/><stop offset="0.2" style="stop-color:rgb(241,89,137);stop-opacity:1"/><stop offset="0.39" style="stop-color:rgb(207,83,184);stop-opacity:1"/><stop offset="1" style="stop-color:rgb(37,176,243);stop-opacity:1"/></linearGradient><linearGradient id="_Linear6" x1="0" y1="0" x2="1" y2="0" gradientUnits="userSpaceOnUse" gradientTransform="matrix(176.384948,0,0,87.812971,1184.199104,-1753.229657)"><stop offset="0" style="stop-color:rgb(0,121,186);stop-opacity:1"/><stop offset="1" style="stop-color:rgb(35,168,242);stop-opacity:1"/></linearGradient></defs></svg>
+<div><b>Gratovo</b><small>Workbench</small></div></div>
+      <a href="#" class="nav" style="--hue: var(--accent)"><span class="nic"><svg class="ic" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2"></path><path d="M12 20v2"></path><path d="m4.93 4.93 1.41 1.41"></path><path d="m17.66 17.66 1.41 1.41"></path><path d="M2 12h2"></path><path d="M20 12h2"></path><path d="m6.34 17.66-1.41 1.41"></path><path d="m19.07 4.93-1.41 1.41"></path></svg></span><span class="nl"><b>Today</b></span><span class="cnt">14</span></a>
+      <a href="#" class="nav" style="--hue: var(--find)"><span class="nic"><svg class="ic" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M3 7V5a2 2 0 0 1 2-2h2"></path><path d="M17 3h2a2 2 0 0 1 2 2v2"></path><path d="M21 17v2a2 2 0 0 1-2 2h-2"></path><path d="M7 21H5a2 2 0 0 1-2-2v-2"></path><circle cx="11.5" cy="11.5" r="3.2"></circle><path d="m16 16-2.2-2.2"></path></svg></span><span class="nl"><b>Find</b><small>Search, triage, contacts</small></span></a>
+      <a href="#" class="nav" style="--hue: var(--reach)"><span class="nic"><svg class="ic" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M22 2 11 13"></path><path d="M22 2 15 22l-4-9-9-4z"></path></svg></span><span class="nl"><b>Reach</b><small>Emails, replies, sequences</small></span></a>
+      <a href="#" class="nav" style="--hue: var(--close)"><span class="nic"><svg class="ic" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M12.5 22H18a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v9.5"></path><path d="M14 2v4a2 2 0 0 0 2 2h4"></path><path d="M13.4 15.6a1 1 0 1 0-3-3l-5 5a2 2 0 0 0-.5.9l-.8 2.8a.5.5 0 0 0 .6.6l2.8-.8a2 2 0 0 0 .9-.5z"></path></svg></span><span class="nl"><b>Close</b><small>Audience, brands, pitch, terms</small></span></a>
+      <a href="#" class="nav" style="--hue: var(--deliver)"><span class="nic"><svg class="ic" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="m7.5 4.27 9 5.15"></path><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><path d="m3.3 7 8.7 5 8.7-5"></path><path d="M12 22V12"></path></svg></span><span class="nl"><b>Deliver</b><small>Deals and money</small></span></a>
+      <div class="nav-h">Run the agency</div>
+      <a href="#" class="nav on" style="--hue: var(--ink-2)" aria-current="page"><span class="nic"><svg class="ic" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M3 3v18h18"></path><path d="M18 17V9"></path><path d="M13 17V5"></path><path d="M8 17v-3"></path></svg></span><span class="nl"><b>Insights</b><small>Analytics, keywords, funnel</small></span></a>
+      <a href="#" class="nav" style="--hue: var(--ink-2)"><span class="nic"><svg class="ic" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg></span><span class="nl"><b>Toolbox</b><small>Archive, scheduled, never contact, log</small></span></a>
+      <a href="#" class="nav" style="--hue: var(--ink-2)"><span class="nic"><svg class="ic" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg></span><span class="nl"><b>Settings</b><small>You, this computer, the agency</small></span></a>
+    </nav>
+  <div class="main">
+    <header class="top">
+      <button type="button" class="iconbtn" aria-label="Back"><svg class="ic" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg></button>
+      <button type="button" class="iconbtn" aria-label="Forward"><svg class="ic" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg></button>
+      <div class="crumbs">Insights <svg class="ic" viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg> <b>Search</b></div>
+      <button type="button" class="cmdk"><svg class="ic" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.6-3.6"></path></svg><span class="grow">Search or run a command</span><span class="kbd">Ctrl K</span></button>
+      <span class="save"><i></i>Saved</span>
+      <button type="button" class="iconbtn" aria-label="Notifications"><svg class="ic" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg></button>
+    </header>
+    <main class="page">
+      <div class="ph">
+        <div class="t"><h1>Insights</h1><p>How the agency is doing, what needs you, and what to do about it.</p></div>
+        <div class="r"><div class="seg" role="group" aria-label="Period"><button type="button" aria-pressed="false">7 days</button><button type="button" aria-pressed="true">30 days</button><button type="button" aria-pressed="false">90 days</button><button type="button" aria-pressed="false">This month</button></div><button type="button" class="btn"><svg class="ic" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><rect x="8" y="8" width="14" height="14" rx="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg>Copy summary</button></div>
+      </div>
+      <nav class="tabs" aria-label="Insights tabs"><a href="overview.html">Overview</a><a href="funnel.html">Funnel</a><a href="emails.html">Emails</a><a href="#" class="on" aria-current="page">Search</a><a href="money.html">Money</a><a href="goal.html">Goal</a></nav>
+
+      <section class="band" style="--hl: #5fd283">
+        <div style="display: flex; flex-direction: column; gap: 18px; min-width: 0">
+          <div><h2>10,200 leave for good this week. <span>37 look like mistakes.</span></h2><p class="s">Rejected channels count down your 7 archive days, then go to the archive. Rescue the likely mistakes before their day.</p></div>
+          <svg class="chart" width="100%" viewBox="0 0 760 262" role="img" aria-label="10,200 waiting channels leave over the next 7 days; 37 look like mistakes; 1,200 have no date"><circle cx="48" cy="110" r="46" fill="#0d2436"></circle><circle cx="48" cy="110" r="46" fill="#c8711f" fill-opacity="0.2" stroke="#c8711f" stroke-width="2"></circle><text x="48" y="180" text-anchor="middle" style="fill:#e5eff8;font-size:20px;font-weight:600;letter-spacing:-0.02em">10,200</text><text x="48" y="198" text-anchor="middle" style="fill:#b0c3d6;font-size:12.5px">Waiting</text><text x="48" y="215" text-anchor="middle" style="fill:#8aa0b5;font-size:11.5px">rejected by a person</text><path d="M96,110 L142,110" fill="none" stroke="#3b5a73" stroke-width="2"></path><path d="M134,105 L142,110 L134,115" fill="none" stroke="#3b5a73" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path><circle cx="168" cy="110" r="21.78036055625032" fill="#0d2436"></circle><circle cx="168" cy="110" r="21.78036055625032" fill="#c8711f" fill-opacity="0.45" stroke="#c8711f" stroke-width="2"></circle><text x="168" y="152" text-anchor="middle" style="fill:#e5eff8;font-size:14px;font-weight:600">1,480</text><text x="168" y="169" text-anchor="middle" style="fill:#f2b84b;font-size:11.5px;font-weight:600">Tomorrow</text><line x1="193.78036055625032" x2="212.89226625520732" y1="110" y2="110" stroke="#3b5a73" stroke-width="2"></line><circle cx="238" cy="110" r="21.10773374479268" fill="#0d2436"></circle><circle cx="238" cy="110" r="21.10773374479268" fill="#c8711f" fill-opacity="0.2" stroke="#c8711f" stroke-width="2"></circle><text x="238" y="152" text-anchor="middle" style="fill:#e5eff8;font-size:14px;font-weight:600">1,390</text><text x="238" y="169" text-anchor="middle" style="fill:#8aa0b5;font-size:11.5px;font-weight:400">Thu</text><line x1="263.10773374479265" x2="282" y1="110" y2="110" stroke="#3b5a73" stroke-width="2"></line><circle cx="308" cy="110" r="22" fill="#0d2436"></circle><circle cx="308" cy="110" r="22" fill="#c8711f" fill-opacity="0.2" stroke="#c8711f" stroke-width="2"></circle><text x="308" y="152" text-anchor="middle" style="fill:#e5eff8;font-size:14px;font-weight:600">1,510</text><text x="308" y="169" text-anchor="middle" style="fill:#8aa0b5;font-size:11.5px;font-weight:400">Fri</text><line x1="334" x2="352.66570090486226" y1="110" y2="110" stroke="#3b5a73" stroke-width="2"></line><circle cx="378" cy="110" r="21.334299095137734" fill="#0d2436"></circle><circle cx="378" cy="110" r="21.334299095137734" fill="#c8711f" fill-opacity="0.2" stroke="#c8711f" stroke-width="2"></circle><text x="378" y="152" text-anchor="middle" style="fill:#e5eff8;font-size:14px;font-weight:600">1,420</text><text x="378" y="169" text-anchor="middle" style="fill:#8aa0b5;font-size:11.5px;font-weight:400">Sat</text><line x1="403.33429909513774" x2="424.30631929773796" y1="110" y2="110" stroke="#3b5a73" stroke-width="2"></line><circle cx="448" cy="110" r="19.693680702262057" fill="#0d2436"></circle><circle cx="448" cy="110" r="19.693680702262057" fill="#c8711f" fill-opacity="0.2" stroke="#c8711f" stroke-width="2"></circle><text x="448" y="152" text-anchor="middle" style="fill:#e5eff8;font-size:14px;font-weight:600">1,210</text><text x="448" y="169" text-anchor="middle" style="fill:#8aa0b5;font-size:11.5px;font-weight:400">Sun</text><line x1="471.69368070226204" x2="493.9834505557119" y1="110" y2="110" stroke="#3b5a73" stroke-width="2"></line><circle cx="518" cy="110" r="20.016549444288074" fill="#0d2436"></circle><circle cx="518" cy="110" r="20.016549444288074" fill="#c8711f" fill-opacity="0.2" stroke="#c8711f" stroke-width="2"></circle><text x="518" y="152" text-anchor="middle" style="fill:#e5eff8;font-size:14px;font-weight:600">1,250</text><text x="518" y="169" text-anchor="middle" style="fill:#8aa0b5;font-size:11.5px;font-weight:400">Mon</text><line x1="542.0165494442881" x2="568.5989593539874" y1="110" y2="110" stroke="#3b5a73" stroke-width="2"></line><circle cx="588" cy="110" r="15.401040646012607" fill="#0d2436"></circle><circle cx="588" cy="110" r="15.401040646012607" fill="#c8711f" fill-opacity="0.2" stroke="#c8711f" stroke-width="2"></circle><text x="588" y="152" text-anchor="middle" style="fill:#e5eff8;font-size:14px;font-weight:600">740</text><text x="588" y="169" text-anchor="middle" style="fill:#8aa0b5;font-size:11.5px;font-weight:400">Tue</text><path d="M614,110 L690,110" fill="none" stroke="#3b5a73" stroke-width="2"></path><path d="M682,105 L690,110 L682,115" fill="none" stroke="#3b5a73" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path><circle cx="722" cy="110" r="22" fill="none" stroke="#8a7ae6" stroke-width="2" stroke-dasharray="4 4"></circle><text x="722" y="152" text-anchor="middle" style="fill:#b0c3d6;font-size:12.5px">Archived</text><text x="722" y="169" text-anchor="middle" style="fill:#8aa0b5;font-size:11.5px">for good</text><path d="M60,64 C60,22 120,22 168,22" fill="none" stroke="#5fd283" stroke-width="2"></path><path d="M160,17 L168,22 L160,27" fill="none" stroke="#5fd283" stroke-width="2" stroke-linecap="round"></path><text x="178" y="20" style="fill:#5fd283;font-size:14px;font-weight:600">37 look like mistakes</text><text x="340" y="20" style="fill:#8aa0b5;font-size:12px">fit 85 or more · 9 leave tomorrow</text><text x="760" y="20" text-anchor="end" style="fill:#4cb6ef;font-size:12px;font-weight:500">Bring back →</text><path d="M60,156 C60,236 100,250 140,250" fill="none" stroke="#3b5a73" stroke-width="2" stroke-dasharray="4 5"></path><text x="150" y="254" style="fill:#8aa0b5;font-size:12.5px"><tspan style="fill:#e5eff8;font-weight:600">1,200</tspan> have no date and never leave on their own</text></svg>
+          <div class="f"><span>Half were rejected as <b>not about AI</b>: your keywords are too broad.</span><a href="#" class="btn ghost sm">Open the archive<svg class="ic" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg></a></div>
+        </div>
+        <nav class="vlist" aria-label="Which channels"><span class="q">Each view answers its own question</span><a href="#" class="vrow"><i style="background: #3a9ad3"></i><span>Live<small>Where is the work?</small></span><b>2,000</b></a><a href="#" class="vrow on"><i style="background: #c8711f"></i><span>To be archived<small>What leaves, and what to rescue?</small></span><b>10,200</b></a><a href="#" class="vrow"><i style="background: #8a7ae6"></i><span>Archive<small>How did they get here?</small></span><b>150,200</b></a><a href="#" class="vrow"><i style="background: #b0c3d6"></i><span>Everything<small>How does the catalog split?</small></span><b>162,400</b></a></nav>
+      </section>
+        <section class="card ">
+        <div class="ch"><div class="t"><h3>37 of them look like mistakes.</h3><p class="sub">Rejected channels that score 85 or more on fit. Too many leave to look at one by one, so these come first.</p></div><div class="a"><span class="tag warn"><svg class="ic" viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>Look today</span></div></div>
+        <div>
+            <div class="rank h"><span></span><span>Channel</span><span>Fit</span><span style="text-align: right">Median views</span><span style="text-align: right">Leaves</span></div>
+            <div class="rank"><span class="av" style="background: #4cb6ef">PE</span><span><b>Prompt Engineering Daily</b><small>Rejected: too few views</small></span><span style="display: flex; align-items: center; gap: 8px"><span class="trk" style="flex: 1"><i style="width: 92%; --c: var(--good)"></i></span><b>92</b></span><span style="text-align: right">41K</span><span style="text-align: right; color: var(--warn)">Tomorrow</span></div><div class="rank"><span class="av" style="background: #3cc3b2">LL</span><span><b>LocalAI Lab</b><small>Rejected: not posting enough</small></span><span style="display: flex; align-items: center; gap: 8px"><span class="trk" style="flex: 1"><i style="width: 90%; --c: var(--good)"></i></span><b>90</b></span><span style="text-align: right">88K</span><span style="text-align: right; color: var(--warn)">Tomorrow</span></div><div class="rank"><span class="av" style="background: #a98bea">AO</span><span><b>AgentOps Weekly</b><small>Rejected: audience outside</small></span><span style="display: flex; align-items: center; gap: 8px"><span class="trk" style="flex: 1"><i style="width: 88%; --c: var(--good)"></i></span><b>88</b></span><span style="text-align: right">63K</span><span style="text-align: right; color: var(--ink-2)">In 2 days</span></div><div class="rank"><span class="av" style="background: #e59a4c">TB</span><span><b>The Token Budget</b><small>Rejected: too few views</small></span><span style="display: flex; align-items: center; gap: 8px"><span class="trk" style="flex: 1"><i style="width: 87%; --c: var(--good)"></i></span><b>87</b></span><span style="text-align: right">44K</span><span style="text-align: right; color: var(--ink-2)">In 3 days</span></div><div class="rank"><span class="av" style="background: #5fd283">VS</span><span><b>Vector Space Vids</b><small>Rejected: not posting enough</small></span><span style="display: flex; align-items: center; gap: 8px"><span class="trk" style="flex: 1"><i style="width: 86%; --c: var(--good)"></i></span><b>86</b></span><span style="text-align: right">120K</span><span style="text-align: right; color: var(--ink-2)">In 5 days</span></div>
+          </div>
+        <div class="cf"><p>Showing 5 of 37, highest fit first.</p><div class="btns"><a href="#" class="btn sm">Open all 37</a><a href="#" class="btn pri sm">Bring back all 37</a></div></div>
+      </section>
+      <div class="grid g2 stretch">
+        <section class="card ">
+        <div class="ch"><div class="t"><h3>Half were rejected for not being about AI.</h3><p class="sub">Why the 10,200 waiting channels were rejected.</p></div><div class="a"><button type="button" class="btn ghost sm"><svg class="ic" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M8 6h13"></path><path d="M8 12h13"></path><path d="M8 18h13"></path><path d="M3 6h.01"></path><path d="M3 12h.01"></path><path d="M3 18h.01"></path></svg>Numbers</button></div></div>
+        <div class="grp"><a href="#" class="hb"><span>Not about AI</span><div class="trk"><i style="width: 100%; --c: #c8711f"></i></div><span class="v">4,900</span></a>
+<a href="#" class="hb"><span>Too few views</span><div class="trk"><i style="width: 63.265306122448976%; --c: #c8711f"></i></div><span class="v">3,100</span></a>
+<a href="#" class="hb"><span>Not posting enough</span><div class="trk"><i style="width: 30.612244897959183%; --c: #c8711f"></i></div><span class="v">1,500</span></a>
+<a href="#" class="hb"><span>Audience outside</span><div class="trk"><i style="width: 14.285714285714286%; --c: #c8711f"></i></div><span class="v">700</span></a></div>
+        <div class="cf"><p><span class="tag warn"><svg class="ic" viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg>Watch</span>Rejecting "not about AI" by hand means the keywords are too broad. <b>ai news weekly</b> and <b>chatgpt tips</b> bring 3,600 of the 4,900.</p></div>
+      </section>
+        <section class="card ">
+        <div class="ch"><div class="t"><h3>Second looks rarely pay off, except on posting.</h3><p class="sub">Channels brought back in the last 90 days, by why they left.</p></div></div>
+        <div class="tw"><table>
+            <thead><tr><th>Left because</th><th class="n">Brought back</th><th class="n">Emailed</th><th class="n">Replied</th><th class="n">Signed</th></tr></thead>
+            <tbody><tr><td class="k">Not posting enough</td><td class="n">9</td><td class="n">6</td><td class="n">2</td><td class="n">1</td></tr><tr><td class="k">Too few views</td><td class="n">18</td><td class="n">7</td><td class="n dim">0</td><td class="n dim">0</td></tr><tr><td class="k">Not about AI</td><td class="n">6</td><td class="n">3</td><td class="n dim">0</td><td class="n dim">0</td></tr><tr><td class="k">Audience outside</td><td class="n">3</td><td class="n">1</td><td class="n dim">0</td><td class="n dim">0</td></tr></tbody>
+          </table></div>
+        <div class="cf"><p><span class="tag "><svg class="ic" viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 6v6l4 2"></path></svg>Too early to tell</span>3 of 9 brought back after "not posting enough" replied or signed. Past 10, the posting rule may be too strict.</p></div>
+      </section>
+      </div>
+    </main>
+  </div>
+</div>
+</body></html>

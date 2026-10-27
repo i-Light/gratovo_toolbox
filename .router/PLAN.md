@@ -58,7 +58,7 @@ For P8: P1-3's seed is a snapshot of today. P8 adds the six-month history on top
 
 ## P8 task outline (its session writes the contracts first)
 
-The spec is `docs/product/insights-design.md`; the mockups are at https://claude.ai/artifact/BHuQ9Y5GU49kzJaRtRqRtD. Owner answers are in its section 10.
+The spec is `docs/product/insights-design.md` (redesigned with the owner on 2026-10-28: section 2a is the look, section 3.4 the Search tab around the archive's size, section 10 every answer). The mockups to build from are in `design/insights/` (a page and a screenshot per tab and Search view), also on the owner's canvas at https://claude.ai/artifact/BHuQ9Y5GU49kzJaRtRqRtD.
 
 | id | Task | Tier |
 |---|---|---|
@@ -66,10 +66,10 @@ The spec is `docs/product/insights-design.md`; the mockups are at https://claude
 | P8-1 | Migration 0008 (local only): `stage_events` written on every stage change and filled backwards from the log and the messages; `deal_events`; weekly catalog totals written by the sweep. Migrate tests; the sync never reads them | N |
 | P8-2 | `packages/core/src/insights/`: rates with counts, the two-proportion test, batches of 50, cohorts, the planner and its levers, the alert and win rules, the summary sentences. Unit tests for each | N |
 | P8-3 | Main: the report reader over `gratovo.db` and `pipeline.db` (the archive tables included), one read per tab | N |
-| P8-4 | The example history: six months on top of the P1 seed, in the four scenarios ("broke" fires the alerts) | N |
-| P8-5 | Screen: the frame, the period and view switches, the chart pieces (line, columns, bars, the funnel, the heat table, See the numbers, Copy as CSV, What is this?), all strings in the strings file | N |
+| P8-4 | The example history: six months on top of the P1 seed, in the four scenarios ("broke" fires the alerts), at the real scale: about 160,000 found, 150,000 archived (most swept by rules), 10,000 to be archived, 2,000 live. The archive as aggregate tombstones that load fast | N |
+| P8-5 | Screen: the frame, the period switch, the raised panel with its anatomy (finding headline, what is counted, the footer's meaning and actions), the tokens it needs in `tokens.css` (series colours, the panel's light and shadow), and the chart pieces: line, columns, bars, small multiples with their own scales, the step line, the heat table, Numbers with Copy as CSV, What is this?. All strings in the strings file | N |
 | P8-6 | Tabs: Overview, Funnel, Emails | N |
-| P8-7 | Tabs: Search (four views), Money, Goal | N |
+| P8-7 | Tabs: Search (the flow band with one flow per view and the view list; the panels of each view, opening on Live; likely mistakes ranked in main), Money, Goal | N |
 | P8-8 | The live gate: the tabs and cards with real data join `liveWired`; Money, Funnel › Brands and the deal parts stay behind it. One light Electron smoke test | N |
 | P8-9 | Review, docs (architecture, status table, PROGRESS), pull request | H |
 
