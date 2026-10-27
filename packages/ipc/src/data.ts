@@ -10,6 +10,7 @@ import {
   emailMax,
   emailPattern,
   frameSources,
+  kitCountriesMax,
   logActions,
   nameMax,
   neverReasonMax,
@@ -160,6 +161,22 @@ export const logPageResultSchema = z.strictObject({
   total: count,
 });
 
+const kitSchema = z.strictObject({
+  countries: z
+    .array(
+      z.strictObject({
+        code: z.string().min(2).max(3),
+        share: z.number().min(0).max(100).nullable(),
+      }),
+    )
+    .max(kitCountriesMax),
+  ageBand: z.string().max(20).nullable(),
+  engagement: z.number().min(0).max(100).nullable(),
+  rate: z.number().nonnegative().nullable(),
+  link: z.string().max(2000).nullable(),
+  fromReply: z.boolean(),
+});
+
 export const creatorSchema: z.ZodType<Creator, Creator> = z.strictObject({
   id,
   name: text,
@@ -175,6 +192,7 @@ export const creatorSchema: z.ZodType<Creator, Creator> = z.strictObject({
   rejectedAt: time.nullable(),
   neverReason: z.string().max(neverReasonMax).nullable(),
   archiveDueAt: time.nullable(),
+  kit: kitSchema.nullable(),
 });
 
 export const brandSchema: z.ZodType<Brand> = z.strictObject({
@@ -255,6 +273,44 @@ export const dataWriteSchema: z.ZodType<DataWrite> = z.discriminatedUnion("kind"
     handle: text,
     name: text,
   }),
+  z
+    .strictObject({
+      kind: z.literal("creator.kit"),
+      id,
+      kit: z.strictObject({
+        countries: z
+          .array(
+            z.strictObject({
+              code: z.string().regex(/^[A-Z]{2}$/),
+              share: z.number().min(0).max(100).nullable(),
+            }),
+          )
+          .max(kitCountriesMax),
+        ageBand: z
+          .string()
+          .regex(/^\d{2}-\d{2}$/)
+          .nullable(),
+        engagement: z.number().min(0).max(100).nullable(),
+        rate: z.number().int().min(1).max(1_000_000).nullable(),
+        link: z
+          .string()
+          .max(2000)
+          .refine((value) => value.startsWith("https://"), "Use an https link")
+          .nullable(),
+      }),
+      handle: text,
+      name: text,
+    })
+    // An age band reads low-high, and the low end is the lower one.
+    .refine(
+      (write) => {
+        const band = write.kit.ageBand;
+        if (band === null) return true;
+        const [low, high] = band.split("-").map(Number);
+        return (low ?? 0) < (high ?? 0);
+      },
+      { message: "The low age must be under the high age", path: ["kit", "ageBand"] },
+    ),
   z
     .strictObject({
       kind: z.literal("creator.contact"),

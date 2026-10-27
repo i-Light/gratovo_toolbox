@@ -9,6 +9,7 @@ const draft = {
   id: "d1",
   creator: "UCabc",
   kind: "first",
+  goal: null,
   followUp: null,
   state: "ready",
   subject: "your agent demo",
@@ -28,6 +29,8 @@ const draft = {
 
 describe("the reach schemas", () => {
   it("takes an empty reach and a draft, and refuses an unknown state", () => {
+    expect(outreachDraftSchema.safeParse({ ...draft, goal: "ask_kit" }).success).toBe(true);
+    expect(outreachDraftSchema.safeParse({ ...draft, goal: "other" }).success).toBe(false);
     expect(reachDataSchema.safeParse(emptyReach).success).toBe(true);
     expect(outreachDraftSchema.safeParse(draft).success).toBe(true);
     expect(outreachDraftSchema.safeParse({ ...draft, state: "queued" }).success).toBe(false);

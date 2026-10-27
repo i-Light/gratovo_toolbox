@@ -327,6 +327,7 @@ const creators: readonly Creator[] = [
     rejectedAt: null,
     neverReason: null,
     archiveDueAt: null,
+    kit: null,
   },
   {
     id: "c2",
@@ -342,6 +343,7 @@ const creators: readonly Creator[] = [
     rejectedAt: null,
     neverReason: null,
     archiveDueAt: null,
+    kit: null,
   },
   {
     id: "c3",
@@ -357,6 +359,7 @@ const creators: readonly Creator[] = [
     rejectedAt: null,
     neverReason: null,
     archiveDueAt: null,
+    kit: null,
   },
   {
     id: "c4",
@@ -372,6 +375,7 @@ const creators: readonly Creator[] = [
     rejectedAt: null,
     neverReason: null,
     archiveDueAt: null,
+    kit: null,
   },
   {
     id: "c5",
@@ -387,6 +391,7 @@ const creators: readonly Creator[] = [
     rejectedAt: null,
     neverReason: null,
     archiveDueAt: null,
+    kit: null,
   },
   {
     id: "c11",
@@ -402,6 +407,7 @@ const creators: readonly Creator[] = [
     rejectedAt: null,
     neverReason: null,
     archiveDueAt: null,
+    kit: null,
   },
   {
     id: "c12",
@@ -417,6 +423,7 @@ const creators: readonly Creator[] = [
     rejectedAt: null,
     neverReason: null,
     archiveDueAt: null,
+    kit: null,
   },
   confirmed("c6", "Agent Weekly", "@agentweekly", "contact", "hello@agentweekly.ai", "Jonas"),
   confirmed("c7", "LLM Lowdown", "@llmlowdown", "contact", "partners@llmlowdown.com", "Ravi"),
@@ -477,6 +484,7 @@ function confirmed(
     rejectedAt: null,
     neverReason: null,
     archiveDueAt: null,
+    kit: null,
   };
 }
 
@@ -836,6 +844,7 @@ function exampleReach(outreach: ExampleSeed["outreach"]): ReachData {
       checked: true,
       rewriting: null,
       replyTo: draft.replyTo,
+      goal: null,
       problem: null,
       createdAt: draft.at,
       updatedAt: draft.at,

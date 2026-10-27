@@ -580,6 +580,43 @@ def test_a_request_with_garbage_in_it_never_raises(conn: sqlite3.Connection) -> 
     assert case["employee_note"] == ""
 
 
+def test_a_reply_without_a_goal_keeps_the_usual_goal(conn: sqlite3.Connection) -> None:
+    case = live_case.build_case(conn, {"kind": "reply", "channelId": "UC_a"}, facts())
+    assert case["goal"] == live_case.GOALS["reply"]
+
+
+def test_a_decline_goal_is_a_kind_no(conn: sqlite3.Connection) -> None:
+    request = {"kind": "reply", "channelId": "UC_a", "goal": "decline_audience"}
+    case = live_case.build_case(conn, request, facts())
+    assert case["goal"] == live_case.REPLY_GOALS["decline_audience"]
+    assert "no fit today" in case["goal"]
+
+
+def test_an_ask_goal_names_what_is_missing(conn: sqlite3.Connection) -> None:
+    request = {
+        "kind": "reply",
+        "channelId": "UC_a",
+        "goal": "ask_kit",
+        "missing": ["countries", "rate"],
+    }
+    goal = live_case.build_case(conn, request, facts())["goal"]
+    assert "top countries from YouTube Studio" in goal
+    assert "their rate for a 60-90 second integration" in goal
+    assert "engagement" not in goal
+    assert "screenshot" in goal
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [{"goal": "sell_hard"}, {"goal": 3}, {"goal": "ask_kit", "missing": ["shoe size"]}],
+)
+def test_an_unknown_goal_is_bad_params(conn: sqlite3.Connection, extra: dict[str, Any]) -> None:
+    from gratovo_pipeline.gemini.errors import BadParams
+
+    with pytest.raises(BadParams):
+        live_case.build_case(conn, {"kind": "reply", "channelId": "UC_a", **extra}, facts())
+
+
 def test_readiness_matches_the_app() -> None:
     assert readiness.missing(READY_KIT, None) == []
     assert readiness.missing(None, None) == ["analytics", "agreed rate"]

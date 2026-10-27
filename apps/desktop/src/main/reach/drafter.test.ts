@@ -74,6 +74,7 @@ class FakeOutreach implements OutreachStore {
       id: d.id,
       creator: d.creator,
       kind: d.kind,
+      goal: null,
       followUp: d.followUp,
       state: "drafting",
       subject: "",

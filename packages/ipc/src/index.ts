@@ -11,6 +11,13 @@ export {
 export type { AuthState, AuthStatus, SignInProblem, SignInRequest, SignInResult } from "./auth";
 export { appEventNames, bridgeChannel, bridgeGlobal, eventChannel } from "./bridge";
 export type { Bridge, InvokeResult } from "./bridge";
+export {
+  closeAskResultSchema,
+  closeCreatorRequestSchema,
+  closeDeclineResultSchema,
+  closeDeclineUndoRequestSchema,
+  closeDeclineUndoResultSchema,
+} from "./close";
 export { channels, isChannel, parseRequest, secretName } from "./channels";
 export {
   connectionsChangeSchema,

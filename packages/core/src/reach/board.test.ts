@@ -19,6 +19,7 @@ const creator = (id: string, stage: CreatorStage, name = id): Creator => ({
   rejectedAt: null,
   neverReason: null,
   archiveDueAt: null,
+  kit: null,
 });
 
 const draft = (id: string, who: string, over: Partial<OutreachDraft> = {}): OutreachDraft => ({
@@ -37,6 +38,7 @@ const draft = (id: string, who: string, over: Partial<OutreachDraft> = {}): Outr
   checked: true,
   rewriting: null,
   replyTo: null,
+  goal: null,
   problem: null,
   createdAt: 100,
   updatedAt: 100,

@@ -339,6 +339,7 @@ export function listCreators(db: DatabaseSync, o: { limit?: number } = {}): Crea
       handle,
       ...storedFields(row),
       ...contactFacts(String(row["contacts"])),
+      kit: null, // Task D1 reads it.
     };
   });
 }

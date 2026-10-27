@@ -127,6 +127,7 @@ describe("Toolbox > Never contact", () => {
             rejectedAt: item.rejectedAt,
             neverReason: "Asked us to stop",
             archiveDueAt: null,
+            kit: null,
           });
         }
       });

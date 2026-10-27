@@ -653,6 +653,7 @@ export function describeDataSourceContract(
           rejectedAt: null,
           neverReason: null,
           archiveDueAt: null,
+          kit: null,
         });
         expect(frame.creators).toHaveLength(exampleFrame(contractNow).creators.length + 1);
         // The legacy fields keep the old app's defaults, as the server writes a new row (D4).
@@ -744,6 +745,7 @@ export function describeDataSourceContract(
         expect(frame.creators.find((c) => c.id === "c11")).toMatchObject({
           stage: "new",
           archiveDueAt: null,
+          kit: null,
         });
       });
 
@@ -765,6 +767,7 @@ export function describeDataSourceContract(
           rejectReason: "views",
           rejectedAt: contractNow - 2000,
           archiveDueAt: contractNow + 7 * day,
+          kit: null,
         });
         // Other creators are untouched.
         expect(frame.creators.find((c) => c.id === "c12")).toMatchObject({

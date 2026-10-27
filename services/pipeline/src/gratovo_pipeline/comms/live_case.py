@@ -135,6 +135,27 @@ GOALS = {
     "decision": "Decide the next step in this deal and draft the message it needs, if any.",
 }
 
+# A reply with a stated aim (the Close step): the app asks for it by name, never by a template.
+REPLY_GOALS = {
+    "decline_audience": (
+        "Write a short, kind no. The brands we work with right now want audiences led by the US, "
+        "the UK, Canada or Australia, so there is no fit today. Thank them for sending their "
+        "numbers, keep the door open, and say nothing about price. No pitch."
+    ),
+    "ask_kit": (
+        "Ask, briefly and warmly, for the numbers we still need: {missing}. A screenshot of the "
+        "YouTube Studio audience tab is ideal. Do not make an offer yet."
+    ),
+}
+
+# What `missing` names, in plain words for the ask.
+MISSING_WORDS = {
+    "countries": "their top countries from YouTube Studio",
+    "age": "the main age range",
+    "engagement": "their engagement rate",
+    "rate": "their rate for a 60-90 second integration",
+}
+
 # The old query read the 20 newest outbound bodies for the templated check (`overused_phrases`).
 HISTORY = 20
 
@@ -384,6 +405,40 @@ def _steer_note(steer: dict[str, Any]) -> str:
     )
 
 
+def _reply_goal(request: dict[str, Any]) -> str | None:
+    """The goal text a request names (`goal`, and `missing` for ask_kit); None when it names none.
+    An unknown goal, or an unknown missing word, is bad params."""
+    asked = request.get("goal")
+    if asked is None:
+        return None
+    if not isinstance(asked, str) or asked not in REPLY_GOALS:
+        _bad(f"unknown goal: {asked!r}")
+    if asked != "ask_kit":
+        return REPLY_GOALS[asked]
+    wanted = request.get("missing")
+    if wanted is not None and not isinstance(wanted, list):
+        _bad("`missing` must be a list")
+    words: list[str] = []
+    for key in cast("list[Any]", wanted or []):
+        if not isinstance(key, str) or key not in MISSING_WORDS:
+            _bad(f"unknown missing item: {key!r}")
+        if MISSING_WORDS[key] not in words:
+            words.append(MISSING_WORDS[key])
+    if not words:
+        joined = "the numbers still missing"
+    elif len(words) == 1:
+        joined = words[0]
+    else:
+        joined = ", ".join(words[:-1]) + " and " + words[-1]
+    return REPLY_GOALS[asked].format(missing=joined)
+
+
+def _bad(message: str) -> None:
+    from gratovo_pipeline.gemini.errors import BadParams
+
+    raise BadParams(message=message)
+
+
 def build_case(
     conn: sqlite3.Connection,
     request: dict[str, Any],
@@ -513,7 +568,9 @@ def build_case(
             n = int(asked or _follow_ups_sent(thread) + 1)
             goal = f"Write our follow-up {n} of 3: they have not replied yet."
         else:
-            goal = GOALS.get(kind, GOALS["reply"])
+            goal = (_reply_goal(request) if kind == "reply" else None) or GOALS.get(
+                kind, GOALS["reply"]
+            )
 
     # Our recent sent bodies (main's, newest first), less this thread's own: they are not "other"
     # messages. By thread, as the old query left the thread out (`thread_id != ?`): the same text

@@ -57,6 +57,7 @@ describe("creators", () => {
         rejectedAt: null,
         neverReason: null,
         archiveDueAt: null,
+        kit: null,
       },
     ]);
     expect(row("SELECT * FROM channel_state")).toMatchObject({
@@ -176,6 +177,7 @@ describe("creators", () => {
       rejectedAt: null,
       neverReason: null,
       archiveDueAt: null,
+      kit: null,
     };
     set(["bare@x.example", 7, { method: "twitter", value: "@a" }]);
     upsertCreator(db, creator, t0);
@@ -224,6 +226,7 @@ describe("creators", () => {
         rejectedAt: null,
         neverReason: null,
         archiveDueAt: null,
+        kit: null,
       },
       {
         id: "UCrej",
@@ -239,6 +242,7 @@ describe("creators", () => {
         rejectedAt: null,
         neverReason: null,
         archiveDueAt: null,
+        kit: null,
       },
       {
         id: "UCnew",
@@ -254,6 +258,7 @@ describe("creators", () => {
         rejectedAt: null,
         neverReason: null,
         archiveDueAt: null,
+        kit: null,
       },
     ]);
   });

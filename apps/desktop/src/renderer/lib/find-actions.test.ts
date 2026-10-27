@@ -114,6 +114,7 @@ describe("ensureCreators", () => {
       rejectedAt: null,
       neverReason: null,
       archiveDueAt: null,
+      kit: null,
     });
     await settle();
     expect(writes).toEqual([]);

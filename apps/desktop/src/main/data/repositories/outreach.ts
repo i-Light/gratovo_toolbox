@@ -264,6 +264,7 @@ function storedDraft(row: Row): StoredDraft {
     id: String(row["id"]),
     creator: String(row["channel_id"]),
     kind: oneOf(draftKinds, row["kind"]) ?? "first",
+    goal: null, // Task M1 reads the column.
     followUp: optNum(row["follow_up"]),
     state: oneOf(draftStates, row["state"]) ?? "failed",
     subject,
@@ -291,6 +292,7 @@ function frameDraft(draft: StoredDraft): OutreachDraft {
     id: draft.id,
     creator: draft.creator,
     kind: draft.kind,
+    goal: draft.goal,
     followUp: draft.followUp,
     state: draft.state,
     subject: draft.subject,

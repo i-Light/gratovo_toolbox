@@ -9,6 +9,11 @@ export const draftKinds = ["first", "followUp", "reply"] as const;
 
 export type DraftKind = (typeof draftKinds)[number];
 
+/** What a draft is for beyond answering: turn a creator down kindly, or ask for their numbers. */
+export const draftGoals = ["decline", "ask_kit"] as const;
+
+export type DraftGoal = (typeof draftGoals)[number];
+
 /**
  * Where a draft is. `drafting`: Gemini is (or will be) writing it. `ready`: it waits for a person.
  * `approved`: a person pressed Send and the 10 s hold runs. `scheduled`: a person chose Send later.
@@ -147,6 +152,8 @@ export interface OutreachDraft {
   readonly rewriting: RewriteHow | null;
   /** For an answer: the id of the message it answers. */
   readonly replyTo: string | null;
+  /** Why the draft was made, when it is a decline or an ask for the kit; null otherwise. */
+  readonly goal: DraftGoal | null;
   readonly problem: DraftProblem | null;
   readonly createdAt: number;
   readonly updatedAt: number;

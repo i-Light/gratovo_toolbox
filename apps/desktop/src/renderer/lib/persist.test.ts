@@ -773,6 +773,7 @@ describe("adoptServerData", () => {
         rejectedAt: null,
         neverReason: null,
         archiveDueAt: null,
+        kit: null,
       });
     });
     await flush();

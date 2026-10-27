@@ -12,6 +12,7 @@ export function aiDraft(
     id,
     creator,
     kind: "first",
+    goal: null,
     followUp: null,
     state: "ready",
     subject: "Your agents video",

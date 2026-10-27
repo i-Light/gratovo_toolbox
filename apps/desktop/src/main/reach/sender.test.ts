@@ -80,6 +80,7 @@ function row(id: string, over: Partial<Row> = {}): Row {
     id,
     creator: kai,
     kind: "first",
+    goal: null,
     followUp: null,
     state: "ready",
     subject,

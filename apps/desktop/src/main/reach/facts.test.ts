@@ -1,4 +1,4 @@
-import type { CreatorState, OutreachStore, ThreadMessage } from "@gratovo/core/data";
+import type { CreatorKit, CreatorState, OutreachStore, ThreadMessage } from "@gratovo/core/data";
 import { describe, expect, it } from "vitest";
 
 import { channelId, creatorState } from "../find/catalog-fixture";
@@ -188,5 +188,81 @@ describe("the comms facts", () => {
       creatorGender: null,
     });
     expect(facts.thread?.messages).toEqual([]);
+  });
+
+  const kit: CreatorKit = {
+    countries: [
+      { code: "US", share: 40 },
+      { code: "GB", share: 12 },
+    ],
+    ageBand: "18-34",
+    engagement: 4.2,
+    rate: 900,
+    link: null,
+    fromReply: false,
+  };
+
+  it("gives the engine the kit, with the rate agreed once the creator is signed", async () => {
+    const signed = await buildCommsFacts({
+      source: source([creatorState(sam, { stage: "signed" })], [], []),
+      creatorId: sam,
+      sender: null,
+      now: at,
+      kit,
+    });
+    expect(signed.creators[sam]?.mediaKit).toEqual({
+      countries: [
+        { code: "US", pct: 40 },
+        { code: "GB", pct: 12 },
+      ],
+      ageBand: "18-34",
+      engagement: 4.2,
+      link: null,
+      rates: [{ format: "integration", price: 900, agreed: true }],
+    });
+    expect(
+      geminiParamsSchemas["action.comms_propose"].safeParse({
+        request: { kind: "reply", channelId: sam, goal: "ask_kit", missing: ["age", "rate"] },
+        facts: signed,
+      }).success,
+    ).toBe(true);
+  });
+
+  it("leaves the rate unagreed before signing, and sends no kit when none is given", async () => {
+    const kitStage = await buildCommsFacts({
+      source: source([creatorState(sam, { stage: "kit" })], [], []),
+      creatorId: sam,
+      sender: null,
+      now: at,
+      kit,
+    });
+    expect(kitStage.creators[sam]?.mediaKit).toMatchObject({
+      rates: [{ format: "integration", price: 900, agreed: false }],
+    });
+    const none = await buildCommsFacts({
+      source: source([creatorState(sam, { stage: "kit" })], [], []),
+      creatorId: sam,
+      sender: null,
+      now: at,
+    });
+    expect(none.creators[sam]?.mediaKit).toBeNull();
+  });
+
+  it("refuses a goal that does not exist, or a repeated missing item", () => {
+    const parse = (request: object) =>
+      geminiParamsSchemas["action.comms_propose"].safeParse({
+        request,
+        facts: {
+          agency: null,
+          thread: null,
+          creators: {},
+          brand: null,
+          deal: null,
+          recentOutbound: [],
+        },
+      }).success;
+    expect(parse({ kind: "reply", goal: "sell" })).toBe(false);
+    expect(parse({ kind: "reply", goal: "ask_kit", missing: ["age", "age"] })).toBe(false);
+    expect(parse({ kind: "reply", goal: "decline_audience" })).toBe(true);
   });
 });

@@ -28,7 +28,7 @@ export function ensureCreators(items: readonly CatalogItem[]): void {
       .getState()
       .data.creators.map((c) => c.id),
   );
-  const missing: Creator[] = [];
+  const missing: (Creator & { readonly kit: null })[] = [];
   for (const item of items) {
     if (!held.has(item.id)) {
       held.add(item.id);
@@ -48,6 +48,7 @@ export function ensureCreators(items: readonly CatalogItem[]): void {
         rejectedAt: item.rejectedAt,
         neverReason: item.neverReason,
         archiveDueAt: item.archiveDueAt,
+        kit: null,
       });
     }
   }

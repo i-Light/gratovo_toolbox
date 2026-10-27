@@ -854,6 +854,26 @@
               "minimum": 1,
               "maximum": 5
             },
+            "goal": {
+              "type": "string",
+              "enum": [
+                "decline_audience",
+                "ask_kit"
+              ]
+            },
+            "missing": {
+              "maxItems": 4,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "countries",
+                  "age",
+                  "engagement",
+                  "rate"
+                ]
+              }
+            },
             "steer": {
               "type": "object",
               "propertyNames": {
@@ -1461,6 +1481,26 @@
               "type": "integer",
               "minimum": 1,
               "maximum": 5
+            },
+            "goal": {
+              "type": "string",
+              "enum": [
+                "decline_audience",
+                "ask_kit"
+              ]
+            },
+            "missing": {
+              "maxItems": 4,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "countries",
+                  "age",
+                  "engagement",
+                  "rate"
+                ]
+              }
             },
             "steer": {
               "type": "object",

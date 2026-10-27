@@ -287,6 +287,7 @@ describe("example records", () => {
       rejectedAt: null,
       neverReason: null,
       archiveDueAt: null,
+      kit: null,
     });
     expect(data.creators.find((c) => c.id === "c12")?.email).toBeNull();
     expect(data.brands.map((b) => b.name)).toEqual([
