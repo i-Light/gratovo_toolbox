@@ -168,10 +168,18 @@ export function AudienceCheck({
           <span>{text.fromReply}</span>
         </div>
       ) : null}
-      {buttons === null ? null : <div className="row wrap">{buttons}</div>}
-      <Tag tone={result.verdict === "pass" ? "good" : result.verdict === "fail" ? "crit" : "warn"}>
-        {strings.close.next.verdict[result.verdict]}
-      </Tag>
+      {/* The buttons say what the verdict means; without them, the verdict says it. */}
+      {buttons === null ? (
+        <span className="audience-verdict">
+          <Tag
+            tone={result.verdict === "pass" ? "good" : result.verdict === "fail" ? "crit" : "warn"}
+          >
+            {strings.close.next.verdict[result.verdict]}
+          </Tag>
+        </span>
+      ) : (
+        <div className="row wrap">{buttons}</div>
+      )}
     </div>
   );
 }

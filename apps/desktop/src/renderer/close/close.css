@@ -109,3 +109,6 @@
   margin-left: 6px;
   font-weight: 400;
 }
+.audience-verdict {
+  align-self: flex-start;
+}

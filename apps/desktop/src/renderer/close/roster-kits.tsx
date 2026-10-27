@@ -56,7 +56,7 @@ function KitRow({
           }}
         >
           <Avatar name={creator.name} color={avatarColor(creator.handle)} size="s" decorative />
-          <span className="col" style={{ minWidth: 0 }}>
+          <span className="col t2" style={{ minWidth: 0 }}>
             <b className="ell">{creator.name}</b>
             <small className="muted ell">
               {rate === null
