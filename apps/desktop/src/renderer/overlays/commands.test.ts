@@ -112,6 +112,7 @@ describe("the live gate", () => {
       screens.find.name,
       screens.reach.name,
       screens.close.name,
+      screens.insights.name,
       screens.toolbox.name,
       screens.settings.name,
     ]);

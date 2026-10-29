@@ -17,6 +17,7 @@ export const liveWired = {
   find: ["search", "triage", "gallery", "contacts"],
   reach: ["board", "sequences", "inbox", "mailboxes"],
   close: ["roster"],
+  insights: ["overview", "funnel", "emails", "search", "goal"],
   toolbox: ["archive", "never", "scheduled", "log"],
   record: [],
   settings: [

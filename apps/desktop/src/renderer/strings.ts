@@ -1764,6 +1764,56 @@ export const strings = {
       close: "Close",
       empty: "No records",
       more: "Load more",
+      /** What a drill sheet is called, by what the number counted. */
+      names: {
+        step: (step: string): string => `Creators who reached: ${step}`,
+        stuck: (step: string): string => `Creators stuck at: ${step}`,
+        keyword: (keyword: string): string => `Channels found by “${keyword}”`,
+        live: {
+          notReviewed: "Live: not reviewed yet",
+          shortlisted: "Live: shortlisted",
+          outreach: "Live: in outreach",
+          signed: "Live: signed",
+          parked: "Live: parked",
+          never: "Live: never contact",
+        },
+        leaving: (day: number): string =>
+          day === 0 ? "Leaving tomorrow" : `Leaving in ${String(day + 1)} days`,
+        mistakes: "Rejected channels worth a second look",
+        undated: "Rejected channels with no leaving date",
+        rejected: (reason: string): string => `Rejected: ${reason}`,
+        secondLook: (reason: string): string => `Worth a second look: ${reason}`,
+        fuel: "Ready to email",
+        unconfirmed: "Waiting for an address to be confirmed",
+        repliesWaiting: "Replies waiting for us",
+        unreadable: {
+          notRead: "Numbers not read yet",
+          retrying: "Numbers being read again",
+          gaveUp: "Numbers that could not be read",
+          noCountry: "Channels with no country",
+        },
+        reasons: {
+          ai: "not about AI",
+          views: "too few views",
+          posting: "posts too rarely",
+          audience: "wrong audience",
+          unknown: "no reason given",
+        },
+      },
+    },
+    /** What Insights says while a read is on its way, or when it failed. */
+    reading: "Reading the numbers…",
+    readFailed: "Couldn’t read the numbers.",
+    tryAgain: "Try again",
+    restoreFailed: "Couldn’t bring those channels back. Try again.",
+    /** Copy summary: the plain-text report of the Overview. */
+    summaryDoc: {
+      heading: (period: string): string => `Insights, ${period}`,
+      vitals: "Vital signs",
+      line: (label: string, value: string, verdict: string): string =>
+        `${label}: ${value} (${verdict})`,
+      attention: "Needs attention",
+      nothing: "Nothing needs you right now.",
     },
     empty: {
       title: "Nothing to show yet",
