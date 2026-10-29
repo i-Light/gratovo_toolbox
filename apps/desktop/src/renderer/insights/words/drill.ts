@@ -1,9 +1,21 @@
-import type { Drill } from "@gratovo/core/insights";
+import type { Drill, DrillNote } from "@gratovo/core/insights";
 
 import { strings } from "../../strings";
 
 const n = strings.insights.drill.names;
 const steps = strings.insights.overview.pipeline.short;
+
+/** The words for a row's note. */
+export function noteText(note: DrillNote): string {
+  switch (note.kind) {
+    case "reason":
+      return n.reasons[note.reason];
+    case "fit":
+      return strings.insights.drill.notes.fit(note.fit);
+    case "gone":
+      return strings.insights.drill.notes.gone;
+  }
+}
 
 /** What a drill sheet is called: what the number counted. */
 export function drillTitle(drill: Drill): string {

@@ -24,6 +24,8 @@ from gratovo_pipeline.protocol import Emitter, ExampleLoadData, Start
 
 DB_NAME: Final = "pipeline.db"
 _PLAIN_FILE = re.compile(r"(?!.*\.\.)[A-Za-z0-9_-][A-Za-z0-9._-]{0,99}")
+# Windows device names (with or without an extension) are not files.
+_DEVICE = re.compile(r"(?i)(CON|PRN|AUX|NUL|COM[0-9]|LPT[0-9])(\..*)?")
 _NON_ALNUM = re.compile(r"[^a-z0-9]")
 
 _CHANNEL_COLUMNS: Final = (
@@ -217,7 +219,7 @@ def _read(path: Path) -> dict[str, Any]:
 
 def run_file(data_dir: Path, name: str) -> ExampleLoadData:
     """Loads `<data_dir>/<name>` into `<data_dir>/pipeline.db` and deletes the file."""
-    if not _PLAIN_FILE.fullmatch(name):
+    if not _PLAIN_FILE.fullmatch(name) or _DEVICE.fullmatch(name):
         raise ValueError("the file must be a plain file name")
     path = data_dir / name
     try:
@@ -225,6 +227,11 @@ def run_file(data_dir: Path, name: str) -> ExampleLoadData:
         conn = store.get_connection(data_dir / DB_NAME)
         try:
             store.init_db(conn)
+            # A second guard after `source`: the history goes only into an empty pipeline.db (the
+            # prototype empties its folder first), never on top of real channels.
+            for table in ("channels", "channel_archive"):
+                if conn.execute(f"SELECT 1 FROM {table} LIMIT 1").fetchone() is not None:  # noqa: S608
+                    raise ValueError("the example load needs an empty pipeline.db")
             return load(conn, history)
         finally:
             conn.close()

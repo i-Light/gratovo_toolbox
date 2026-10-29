@@ -38,6 +38,7 @@ import {
   setNotify,
 } from "./repositories";
 import { movesToKit } from "@gratovo/core/close";
+import { recordCatalogWeek } from "../insights/catalog-weeks";
 import { strings } from "../strings";
 import { linesFor, linesSince, logPage, peopleInLog } from "./repositories/activity-log";
 import {
@@ -60,7 +61,6 @@ import {
   writeCreatorNotes,
   writeCreatorStage,
 } from "./repositories/creators";
-import { recordCatalogWeek } from "../insights/catalog-weeks";
 import { readInsightsLocal } from "./repositories/insights";
 
 /** What the database has no table for: presence, rail counts and a teammate's running search. */

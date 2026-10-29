@@ -9,6 +9,7 @@ import {
   isRouteShown,
   isScreenShown,
   isSettingsSectionShown,
+  isPartShown,
   isTabShown,
   liveWired,
   shownTabs,
@@ -141,5 +142,12 @@ describe("on live data", () => {
     expect(isRouteShown({ screen: "close", tab: null }, "live")).toBe(true);
     expect(isRouteShown({ screen: "close", tab: "brands" }, "live")).toBe(false);
     expect(isRouteShown({ screen: "deliver", tab: null }, "live")).toBe(false);
+  });
+});
+
+describe("parts of a tab", () => {
+  it("shows Funnel's Brands view on example data only, until deals come", () => {
+    expect(isPartShown("insights.funnel.brands", "example")).toBe(true);
+    expect(isPartShown("insights.funnel.brands", "live")).toBe(false);
   });
 });

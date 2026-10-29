@@ -24,7 +24,7 @@ import {
   stepName,
   usualText,
 } from "./words/funnel";
-import { dayLabel, num, pct, ratioPct } from "./words/format";
+import { dayLabel, num, ofText, pct, ratioPct, ratioText } from "./words/format";
 import "./tabs.css";
 
 const t = strings.insights.funnel;
@@ -104,7 +104,7 @@ function FunnelTable({
                         n={row.fromPrev.n}
                         d={row.fromPrev.d}
                         tone={tone}
-                        ariaLabel={`${shareText(row)}, ${num(row.fromPrev.n)} of ${num(row.fromPrev.d)}`}
+                        ariaLabel={`${shareText(row)}, ${ofText(row.fromPrev.n, row.fromPrev.d)}`}
                       />
                       <span>{shareText(row)}</span>
                     </div>
@@ -231,9 +231,7 @@ function CohortsPanel({ report }: { readonly report: FunnelReport }) {
         rows: report.cohorts.map((r) => [
           dayLabel(r.week),
           r.emailed,
-          ...r.by.map((b) =>
-            b === null ? fmt.dash : `${ratioPct(b)}, ${num(b.n)} of ${num(b.d)}`,
-          ),
+          ...r.by.map((b) => (b === null ? fmt.dash : ratioText(b))),
         ]),
       }}
       meaning={

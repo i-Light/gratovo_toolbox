@@ -21,6 +21,7 @@ import { PairedColumns } from "./charts/paired-columns";
 import { SmallMultiples } from "./charts/small-multiples";
 import { Panel } from "./panel";
 import { VerdictDot } from "./verdict";
+import { dayLabel, weekdayLabel } from "./words/format";
 import {
   addressHeadline,
   addressSources,
@@ -81,11 +82,6 @@ export interface SearchTabProps {
 }
 
 const lowerFirst = (s: string): string => s.charAt(0).toLowerCase() + s.slice(1);
-
-const dayLabelOf = (at: number): string =>
-  new Date(at).toLocaleDateString("en-US", { weekday: "short" });
-const weekLabelOf = (at: number): string =>
-  new Date(at).toLocaleDateString("en-US", { day: "numeric", month: "short" });
 
 // ---------------------------------------------------------------------------------------------
 // The hero: the flow band and the view switch
@@ -199,7 +195,7 @@ function bandOf(
         ...days.map((d, i): FlowNode => ({
           id: `day${String(i)}`,
           count: d.count,
-          label: i === 0 ? hero.tomorrow : dayLabelOf(d.at),
+          label: i === 0 ? hero.tomorrow : weekdayLabel(d.at),
           tone: "series-waiting",
           x: 0.2 + i * 0.095,
           y: 0.5,
@@ -406,7 +402,7 @@ function heroNumbers(view: SearchView, report: SearchReport) {
     ],
     waiting: [
       [hero.waitingNode, w.dated + w.undated],
-      ...w.leaving.map((l, i) => [i === 0 ? hero.tomorrow : dayLabelOf(l.at), l.count]),
+      ...w.leaving.map((l, i) => [i === 0 ? hero.tomorrow : weekdayLabel(l.at), l.count]),
       [hero.mistakes, w.mistakes.total],
       [hero.undated, w.undated],
     ],
@@ -567,7 +563,7 @@ function JoinLeave({ report }: { readonly report: SearchReport }) {
       what={t.what}
       numbers={{
         columns: t.columns,
-        rows: w.map((x) => [weekLabelOf(x.at), x.joined, x.left]),
+        rows: w.map((x) => [dayLabel(x.at), x.joined, x.left]),
       }}
       meaning={joinLeaveMeaning(report)}
     >
@@ -577,7 +573,7 @@ function JoinLeave({ report }: { readonly report: SearchReport }) {
         <PairedColumns
           rows={w.map((x) => ({
             key: String(x.at),
-            label: weekLabelOf(x.at),
+            label: dayLabel(x.at),
             a: x.joined,
             b: x.left,
           }))}
@@ -784,7 +780,7 @@ function KeywordScorecard({
                             n={kept}
                             d={maxKept}
                             tone="series-live"
-                            ariaLabel={`${formatKept(kept)} per 1,000 found`}
+                            ariaLabel={t.keptAria(formatKept(kept))}
                           />
                           <span className="num">{formatKept(kept)}</span>
                         </span>
@@ -1206,8 +1202,8 @@ function WeeksPanel({
     first === undefined || last === undefined || first === last
       ? undefined
       : [
-          { at: first, label: weekLabelOf(first) },
-          { at: last, label: weekLabelOf(last) },
+          { at: first, label: dayLabel(first) },
+          { at: last, label: dayLabel(last) },
         ];
   const series = [
     { key: "live", tone: "series-live" },
@@ -1222,12 +1218,7 @@ function WeeksPanel({
       what={t.what}
       numbers={{
         columns: t.columns,
-        rows: weeks.map((w) => [
-          weekLabelOf(w.at),
-          w.live ?? "—",
-          w.waiting ?? "—",
-          w.archive ?? "—",
-        ]),
+        rows: weeks.map((w) => [dayLabel(w.at), w.live ?? "—", w.waiting ?? "—", w.archive ?? "—"]),
       }}
       meaning={`${t.meaning} ${t.ownScale}`}
     >

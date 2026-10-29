@@ -180,6 +180,7 @@ export {
   insightsAlertsMax,
   insightsGoalRequestSchema,
   insightsHideRequestSchema,
+  insightsHiddenMax,
   insightsHideResultSchema,
   insightsKeywordsMax,
   insightsListRequestSchema,

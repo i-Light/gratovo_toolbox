@@ -17,7 +17,7 @@ import { screens } from "../lib/routes";
 import type { ScreenKey } from "../lib/routes";
 import { appStore, go, selectRoute, useApp } from "../lib/store";
 import { toast } from "../lib/toast";
-import { firstShownTab, isRouteShown } from "../lib/wired";
+import { firstShownTab, isPartShown, isRouteShown } from "../lib/wired";
 import { strings } from "../strings";
 import { copyText } from "./csv";
 import { DrillSheet } from "./drill-sheet";
@@ -85,6 +85,7 @@ function Reader({
 }) {
   const { report, status, reload } = useInsightsReport(tab, period);
   const seesMoney = useApp((s) => s.data.seesMoney);
+  const source = useApp((s) => s.data.source);
   if (report === null) {
     return status === "failed" ? (
       <div className="card" data-ui="insights.failed">
@@ -114,7 +115,14 @@ function Reader({
         />
       );
     case "funnel":
-      return <FunnelTab report={report} onGo={onGo} onDrill={onDrill} showBrands={false} />;
+      return (
+        <FunnelTab
+          report={report}
+          onGo={onGo}
+          onDrill={onDrill}
+          showBrands={isPartShown("insights.funnel.brands", source)}
+        />
+      );
     case "emails":
       return <EmailsTab report={report} onGo={onGo} />;
     case "search":
@@ -210,9 +218,15 @@ export function InsightsHost() {
     const token = drillToken.current;
     void insightsList(sheet.drill, period, sheet.rows.length).then((page) => {
       if (page !== null && token === drillToken.current) {
-        setSheet((s) =>
-          s === null ? s : { ...s, rows: [...s.rows, ...page.rows], total: page.total },
-        );
+        setSheet((s) => {
+          if (s === null) {
+            return s;
+          }
+          // Two quick presses ask for the same page: a record is listed once.
+          const seen = new Set(s.rows.map((r) => r.id));
+          const rows = [...s.rows, ...page.rows.filter((r) => !seen.has(r.id))];
+          return { ...s, rows, total: page.total };
+        });
       }
     });
   };
@@ -248,6 +262,15 @@ export function InsightsHost() {
           rows={sheet.rows}
           total={sheet.total}
           onMore={loadMore}
+          {...(sheet.drill.kind === "step" &&
+          (sheet.drill.step === "found" || sheet.drill.step === "passed")
+            ? {
+                onArchive: () => {
+                  setSheet(null);
+                  go("toolbox", "archive");
+                },
+              }
+            : {})}
           onOpen={(id) => {
             peek(
               { kind: "creator", id },

@@ -9,19 +9,18 @@ Working plan: [PLAN.md](PLAN.md). Gap list and conflicts: [GAPS.md](GAPS.md).
 | Part | What | State |
 |---|---|---|
 | plan | ADR 0021, the plan change, this working plan, the gap map of v6 against the app | **Done** 2026-10-27, branch `feat/full-prototype` |
-| P8a | Insights without deals and money, with its example history; Search live | **In progress** 2026-10-28, branch `feat/insights-p8a`. Owner split P8 in two the same day: P8a first, then P1, then P8b. Tasks in PLAN.md § P8a; state below |
-| P1 | Foundations | **After P8a.** Start with P1-0 (the contracts, Tier H) and write them into PLAN.md before building |
+| P8a | Insights without deals and money, with its example history; live on real data | **Done** 2026-10-29 (ADR 0022). Owner split P8 in two on 2026-10-28: P8a first, then P1, then P8b |
+| P1 | Foundations | **Next.** Start with P1-0 (the contracts, Tier H) and write them into PLAN.md before building |
 | P8b | Insights' deals and money (Money, Funnel › Brands, the deal and money parts of Overview and Goal) | **After P1** |
 | P2 to P7, P9, P10 | See PLAN.md | Not started |
 
 Owner answers so far are in ADR 0021 D6. Still to put to the owner when their part starts: the creator record's tab names beyond Overview, Emails, Deals, Notes and Activity (proposed: Channel, Videos, Sponsors, Contacts, Audience), checked in prototype mode after P2.
 
-## P8a task state
+## P8a (done 2026-10-29, ADR 0022)
 
-Done and committed: A0 contracts, A1 migration 0007 + weekly totals (the data source has an `insights` store), A2 stats and readings, A3 funnel/emails/search, A4 goal/alerts/overview/report (162 core tests), A5 the example history (about 0.7 s), A9 the screen base, A10 the charts.
-Running: A6+A7 (the Python `example.load` job and loading the history when prototype mode opens), A8 (main's reader, service and the four channels; the lead wires `main/index.ts` after A7).
-Next: A11 tabs Overview, Funnel, Emails; A12 Search and Goal; A13 the live gate (owner, 2026-10-28: all real-data tabs live, Money hidden) and the smoke test; A14 review, docs, verify, PR.
-Builder's calls to tell the owner: the example's archive days are 90 (A8 in PLAN.md); emailed is 1,150 in the example, not 1,202 (the mockup's targets can't all hold at once); the backlog's days are its size at your review pace.
+All tasks A0 to A14 done on `feat/insights-p8a`. Live: Overview, Funnel, Emails, Search, Goal (owner, 2026-10-28); Money hidden.
+Left for later, small: the Search › Archive box opens Toolbox › Archive without the typed words; a keyword's last run can't count channels already live (the pipeline doesn't record it); prototype mode takes about 8 s to open with the history.
+Told to the owner: the example's archive days are 90; emailed is 1,150 in the example, not 1,202 (the mockup's targets can't all hold at once); the backlog's days are its size at your review pace; the biggest drop starts at Confirmed.
 
 ## Carried into step P from steps 7 and 8
 

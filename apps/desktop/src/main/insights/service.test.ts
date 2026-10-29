@@ -91,7 +91,7 @@ describe("list", () => {
     expect(first.total).toBe(250);
     expect(first.rows).toHaveLength(100);
     expect(first.rows[0]).toMatchObject({ handle: expect.stringMatching(/^@/) as string });
-    expect(first.rows[0]?.note).toMatch(/^fit \d+$/);
+    expect(first.rows[0]?.note).toMatchObject({ kind: "fit", fit: expect.any(Number) as number });
     const last = await service.list(drill, "30d", 200);
     expect(last.rows).toHaveLength(50);
     expect(await service.list(drill, "30d", 300)).toEqual({ rows: [], total: 250 });
@@ -101,6 +101,20 @@ describe("list", () => {
       ...last.rows.map((r) => r.id),
     ]);
     expect(ids.size).toBe(250);
+  });
+
+  it("lists a creator known only from its history as gone, so the pages add up", async () => {
+    db.prepare(
+      "INSERT INTO stage_events (channel_id, stage, at, source) VALUES ('UCgone', 'shortlisted', ?, 'log')",
+    ).run(NOW - day);
+    const page = await service.list({ kind: "step", step: "shortlisted" }, "30d", 0);
+    expect(page.total).toBe(page.rows.length);
+    expect(page.rows).toContainEqual({
+      id: "UCgone",
+      name: "UCgone",
+      handle: null,
+      note: { kind: "gone" },
+    });
   });
 
   it("lists nothing for a drill with no records", async () => {
@@ -116,6 +130,17 @@ describe("hide", () => {
     expect(service.hide("a", null).hidden).toEqual({ b: NOW + 2 * day });
     // A time that has passed hides nothing.
     expect(service.hide("c", NOW - 1).hidden).toEqual({ b: NOW + 2 * day });
+  });
+
+  it("keeps at most 500, dropping the ones that end soonest", () => {
+    const many = Object.fromEntries(
+      Array.from({ length: 500 }, (_, i) => [`k${String(i)}`, NOW + (i + 2) * day]),
+    );
+    source.writeSetting("insights.hidden", many);
+    const { hidden } = service.hide("new", NOW + 1000 * day);
+    expect(Object.keys(hidden)).toHaveLength(500);
+    expect(hidden["new"]).toBe(NOW + 1000 * day);
+    expect(hidden["k0"]).toBeUndefined();
   });
 
   it("shows in the Overview's count of hidden alerts", async () => {

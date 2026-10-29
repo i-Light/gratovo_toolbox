@@ -6,7 +6,6 @@ import { exampleHistory } from "@gratovo/core/data";
 import type { ExampleHistory, Scenario } from "@gratovo/core/data";
 
 import { inTransaction } from "../data/sqlite-source";
-import { backfillStageEventsSql } from "../db/migrations/0007-insights";
 import type { JobOutcome } from "../pipeline/jobs";
 import type { Start } from "../pipeline/protocol";
 import { kindOf } from "../prototype/kind-of";
@@ -150,15 +149,11 @@ const weekColumns = [
 /**
  * Writes the history's local part into `gratovo.db`, in one transaction. Inserting `creators`
  * fires the stage-event triggers (source `change`, stamped with now): those rows are removed for
- * the history's creators and the history's own `events` take their place. The backfill also runs,
- * for the seed's creators, which have a log and messages but no event times.
+ * the history's creators and the history's own `events` take their place. The seed has already put
+ * times on its own creators' events (`restampStageEventsSql`).
  */
 export function writeHistoryLocal(db: DatabaseSync, history: Gratovo): void {
   inTransaction(db, () => {
-    // The seed's own creators have a log and messages but no event times: the backfill gives them
-    // some. It runs first, while the tables hold only the seed: over the history's 20,000 log
-    // lines its "not exists" check takes 15 s. The history's creators have their `events`.
-    db.exec(backfillStageEventsSql);
     insertAll(db, insertSql("channel_state", creatorColumns), history.creators, (row) =>
       pick(row, creatorColumns),
     );

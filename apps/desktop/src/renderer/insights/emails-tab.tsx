@@ -34,7 +34,7 @@ import {
   stepsMeaning,
   tryThis,
 } from "./words/emails";
-import { dayLabel, num, ratioPct, ratioText } from "./words/format";
+import { dayLabel, num, ofText, ratioPct, ratioText } from "./words/format";
 import "./tabs.css";
 
 const t = strings.insights.emails;
@@ -221,8 +221,8 @@ function BatchesPanel({
           `#${num(b.index)}`,
           range(b.from, b.to),
           b.sent,
-          `${num(b.bounced)} of ${num(b.sent)}`,
-          `${num(b.replied)} of ${num(b.sent)}`,
+          ofText(b.bounced, b.sent),
+          ofText(b.replied, b.sent),
           b.positive,
           b.signed,
           diagnosisText(b),

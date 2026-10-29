@@ -34,6 +34,11 @@ export function ratioText(r: Ratio): string {
   return rateOf(r) === null ? fmt.none : fmt.rate(ratioPct(r), num(r.n), num(r.d));
 }
 
+/** "9 of 182". */
+export function ofText(n: number, d: number): string {
+  return fmt.of(num(n), num(d));
+}
+
 /** "1 email", "182 emails". */
 export function plural(n: number, pair: readonly [string, string]): string {
   return `${num(n)} ${n === 1 ? pair[0] : pair[1]}`;
@@ -42,4 +47,9 @@ export function plural(n: number, pair: readonly [string, string]): string {
 /** "28 Sep", in this computer's time. */
 export function dayLabel(at: number): string {
   return new Date(at).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+}
+
+/** "Wed", in this computer's time. */
+export function weekdayLabel(at: number): string {
+  return new Date(at).toLocaleDateString("en-GB", { weekday: "short" });
 }

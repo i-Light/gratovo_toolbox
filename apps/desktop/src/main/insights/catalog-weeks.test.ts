@@ -65,6 +65,27 @@ describe("recordCatalogWeek", () => {
     expect(rows()).toEqual([
       { week: "2026-10-26", live: 3, waiting: 0, archive: 1, written_at: now + 1000 },
     ]);
+    // A creator the old app rejected has no stage of its own: it waits all the same.
+    db.prepare(
+      "INSERT INTO channel_state (channel_id, handle, vetting_status, updated_at) VALUES (?, '@x', 'rejected', 'x')",
+    ).run(c);
+    recordCatalogWeek(db, path, now + 2000);
+    expect(rows()).toEqual([
+      { week: "2026-10-26", live: 2, waiting: 1, archive: 1, written_at: now + 2000 },
+    ]);
+  });
+
+  it("keeps a written week when the catalog is empty (a folder being refilled)", () => {
+    const path = join(dir, "pipeline.db");
+    const now = new Date(2026, 9, 28, 12).getTime();
+    db.prepare(
+      "INSERT INTO catalog_weeks (week, live, waiting, archive, written_at) VALUES ('2026-10-26', 2000, 10200, 150200, 1)",
+    ).run();
+    writePipelineDb(path, { channels: [] });
+    expect(recordCatalogWeek(db, path, now)).toBe(false);
+    expect(rows()).toEqual([
+      { week: "2026-10-26", live: 2000, waiting: 10200, archive: 150200, written_at: 1 },
+    ]);
   });
 
   it("writes nothing for a missing file", () => {

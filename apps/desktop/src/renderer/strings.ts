@@ -1764,6 +1764,15 @@ export const strings = {
       close: "Close",
       empty: "No records",
       more: "Load more",
+      /** The short fact on a row. */
+      notes: {
+        fit: (fit: number): string => `fit ${String(Math.round(fit))}`,
+        gone: "No longer in your list",
+      },
+      /** Found and Passed count the archive too, which is too big to list here. */
+      archived:
+        "Only the channels in your catalog are listed. The rest of this number is in the archive.",
+      openArchive: "Open the archive",
       /** What a drill sheet is called, by what the number counted. */
       names: {
         step: (step: string): string => `Creators who reached: ${step}`,
@@ -1829,6 +1838,7 @@ export const strings = {
         none: "none yet",
         dash: "–",
         rate: (pct: string, n: string, d: string): string => `${pct}, ${n} of ${d}`,
+        of: (n: string, d: string): string => `${n} of ${d}`,
         daysShort: (d: string): string => `${d} d`,
         daysLong: (d: string): string => `${d} days`,
         hoursLong: (h: string): string => `${h} hours`,
@@ -2679,6 +2689,8 @@ export const strings = {
         oldestRow: "Oldest, in days",
       },
       keywords: {
+        /** The kept bar, read aloud. */
+        keptAria: (kept: string): string => `${kept} per 1,000 found`,
         what: "Every keyword that found channels. Kept per 1,000 found is the share of a keyword's finds that survived your rules and your review, so keywords of any size compare fairly. The verdict is Keep, Watch, Drop or Too early.",
         counted: (shown: string, total: string): string =>
           `The ${shown} keywords that found the most live channels, of ${total}. Kept per 1,000 found is the share of a keyword's finds that survived your rules and your review.`,

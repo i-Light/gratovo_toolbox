@@ -242,3 +242,21 @@ def test_it_does_not_run_on_live_data(tmp_path: Path, check_from_pipeline: Check
     assert lines[-1]["state"] == "failed"
     assert not (tmp_path / "pipeline.db").exists()
     assert path.exists()  # nothing was touched
+
+
+@pytest.mark.parametrize("name", ["CON", "nul.json", "Com1.txt", "lpt9"])
+def test_a_windows_device_name_is_refused(tmp_path: Path, name: str) -> None:
+    with pytest.raises(ValueError, match="plain file name"):
+        example_load.run_file(tmp_path, name)
+
+
+def test_it_does_not_load_on_top_of_channels(tmp_path: Path) -> None:
+    write_history(tmp_path)
+    example_load.run_file(tmp_path, "history.json")
+    write_history(tmp_path)
+    with pytest.raises(ValueError, match=r"empty pipeline.db"):
+        example_load.run_file(tmp_path, "history.json")
+    conn = store.get_connection(tmp_path / "pipeline.db")
+    assert len(table(conn, "channels")) == len(history()["channels"])
+    conn.close()
+    assert not (tmp_path / "history.json").exists()  # the file goes all the same

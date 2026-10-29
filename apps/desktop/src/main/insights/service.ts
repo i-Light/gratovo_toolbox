@@ -1,9 +1,11 @@
 import type { DataSource } from "@gratovo/core/data";
+import { insightsHiddenMax } from "@gratovo/ipc";
 import type { CatalogItem } from "@gratovo/core/find";
 import { drillIds, insightsReport, thresholds } from "@gratovo/core/insights";
 import type {
   ChannelFacts,
   Drill,
+  DrillNote,
   DrillRow,
   GoalSettings,
   GoalStep,
@@ -58,14 +60,14 @@ export interface InsightsService {
 }
 
 /** The note on a row: a waiting channel's reject reason, a live channel's fit. */
-function noteOf(c: ChannelFacts, drill: Drill): string | null {
+function noteOf(c: ChannelFacts, drill: Drill): DrillNote | null {
   if (drill.kind === "secondLook") {
-    return drill.reason;
+    return { kind: "reason", reason: drill.reason };
   }
   if (c.stage === "rejected") {
-    return c.rejectReason ?? "unknown";
+    return { kind: "reason", reason: c.rejectReason ?? "unknown" };
   }
-  return c.inCatalog ? `fit ${String(c.fit)}` : null;
+  return c.inCatalog ? { kind: "fit", fit: c.fit } : null;
 }
 
 export function createInsightsService(deps: InsightsServiceDeps): InsightsService {
@@ -98,13 +100,14 @@ export function createInsightsService(deps: InsightsServiceDeps): InsightsServic
       const all = await inputs();
       const ids = drillIds(drill, all, period);
       const byId = new Map(all.channels.map((c) => [c.id, c]));
-      const rows: DrillRow[] = [];
-      for (const id of ids.slice(offset, offset + drillPageMax)) {
+      // Every counted id gets a row, so the pages add up to the total. A creator the funnel knows
+      // only from its history (its record was removed) is listed by id, as gone.
+      const rows: DrillRow[] = ids.slice(offset, offset + drillPageMax).map((id) => {
         const c = byId.get(id);
-        if (c !== undefined) {
-          rows.push({ id, name: c.name, handle: c.handle, note: noteOf(c, drill) });
-        }
-      }
+        return c === undefined
+          ? { id, name: id, handle: null, note: { kind: "gone" } }
+          : { id, name: c.name, handle: c.handle, note: noteOf(c, drill) };
+      });
       return { rows, total: ids.length };
     },
     hide(key, until) {
@@ -120,8 +123,14 @@ export function createInsightsService(deps: InsightsServiceDeps): InsightsServic
       if (until !== null && until > now) {
         hidden[key] = until;
       }
-      source.writeSetting(hiddenSettingName, hidden);
-      return { hidden };
+      // Past the most the answer may carry, the ones that end soonest go first.
+      const kept = Object.fromEntries(
+        Object.entries(hidden)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, insightsHiddenMax),
+      );
+      source.writeSetting(hiddenSettingName, kept);
+      return { hidden: kept };
     },
     goal(patch) {
       const source = open();

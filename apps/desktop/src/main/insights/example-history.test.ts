@@ -91,29 +91,42 @@ describe("the example history, local part", () => {
       .filter((r) => ids.has(String(r["channel_id"])));
     expect(change).toEqual([]);
     expect(count(db, "stage_events", "source = 'example'")).toBe(g.events.length);
-
-    // The seed's own creators got times from the backfill (its log and messages).
-    expect(count(db, "stage_events", "source IN ('log', 'message')")).toBeGreaterThan(0);
   });
 
-  it("can run on a copy that already holds an earlier history", () => {
+  it("leaves nothing of an earlier history when the copy is seeded again", () => {
     const db = seededCopy();
     writeHistoryLocal(db, history.gratovo);
-    const events = count(db, "stage_events", "source = 'example'");
-    // A fresh seed clears the data tables but not these two; the same ids come again.
-    for (const table of [
-      "activity_log",
-      "channel_state",
-      "channels",
-      "outreach_drafts",
-      "outreach_messages",
-      "outreach_sequences",
-    ]) {
-      db.exec(`DELETE FROM ${table}`);
-    }
-    writeHistoryLocal(db, history.gratovo);
-    expect(count(db, "stage_events", "source = 'example'")).toBe(events);
-    expect(count(db, "catalog_weeks")).toBe(history.gratovo.weeks.length);
+    expect(count(db, "stage_events")).toBeGreaterThan(0);
+
+    // Switching to "first" seeds the same file again: no creators, so no events and no weeks.
+    const first = seededCopy("first");
+    expect(count(first, "channel_state")).toBe(0);
+    expect(count(first, "stage_events")).toBe(0);
+    expect(count(first, "catalog_weeks")).toBe(0);
+  });
+
+  it("gives the seed's creators the times their log and messages know, not the seed's now", () => {
+    const db = seededCopy();
+    const stamped = db
+      .prepare(
+        `SELECT e.channel_id FROM stage_events e
+         WHERE e.source = 'change' AND e.stage IN ('shortlisted', 'emailed', 'replied')
+           AND EXISTS (SELECT 1 FROM stage_events o
+                       WHERE o.channel_id = e.channel_id AND o.stage = e.stage
+                         AND o.source <> 'change')`,
+      )
+      .all();
+    expect(stamped).toEqual([]);
+    // Every creator with a stage has an event for it.
+    expect(
+      count(
+        db,
+        "channel_state k",
+        `k.creator_stage IS NOT NULL AND NOT EXISTS (SELECT 1 FROM stage_events e
+          WHERE e.channel_id = k.channel_id AND e.stage = k.creator_stage)`,
+      ),
+    ).toBe(0);
+    expect(count(db, "stage_events", "source IN ('log', 'message')")).toBeGreaterThan(0);
   });
 });
 

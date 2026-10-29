@@ -15,6 +15,8 @@ export const hideMs = 7 * 86_400_000;
 
 interface Held {
   readonly report: Report | null;
+  /** The period `report` was read for. */
+  readonly period: Period | null;
   readonly failed: boolean;
 }
 
@@ -35,7 +37,7 @@ export function useInsightsReport(
   const tick = useCatalogTick();
   const newestLine = useApp((s) => s.data.log[0]?.id ?? "");
   const [beat, setBeat] = useState(0);
-  const [held, setHeld] = useState<Held>({ report: null, failed: false });
+  const [held, setHeld] = useState<Held>({ report: null, period: null, failed: false });
   useEffect(() => {
     const timer = setInterval(() => {
       setBeat((n) => n + 1);
@@ -52,7 +54,7 @@ export function useInsightsReport(
           return;
         }
         setHeld((last) =>
-          result.ok ? { report: result.value, failed: false } : { ...last, failed: true },
+          result.ok ? { report: result.value, period, failed: false } : { ...last, failed: true },
         );
       },
       () => {
@@ -68,7 +70,8 @@ export function useInsightsReport(
   const reload = useCallback(() => {
     setBeat((n) => n + 1);
   }, []);
-  const report = held.report?.tab === tab ? held.report : null;
+  // A report for another tab or period is not shown while the new one is on its way.
+  const report = held.report?.tab === tab && held.period === period ? held.report : null;
   const status: InsightsLoad = held.failed ? "failed" : report === null ? "loading" : "ready";
   return { report, status, reload };
 }

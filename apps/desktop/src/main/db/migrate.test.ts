@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { DatabaseTooNewError, migrate, type Migration } from "./migrate";
 import { migrations } from "./migrations";
-import { backfillStageEventsSql } from "./migrations/0007-insights";
+import { backfillStageEventsSql, restampStageEventsSql } from "./migrations/0007-insights";
 
 let db: DatabaseSync;
 
@@ -169,6 +169,45 @@ describe("migrate", () => {
           `c3 never ${String(Date.parse(day("4")))} log`,
         ].sort(),
       );
+    });
+
+    it("skips lines an undo hides and lines whose time can't be read, so it can't fail", () => {
+      migrate(db, migrations.slice(0, 6));
+      const line = db.prepare(
+        `INSERT INTO activity_log (id, at, at_ms, actor_name, actor_role, action, entity_type, entity_id)
+         VALUES (?, ?, ?, 'Me', 'owner', ?, ?, ?)`,
+      );
+      line.run("l1", "not a time", null, "creator.reject", "channel", "c1");
+      line.run("l2", "2026-03-01T10:00:00.000Z", 1000, "creator.shortlist", "channel", "c2");
+      line.run("u1", "2026-03-01T11:00:00.000Z", 2000, "undo", "activity_log", "l2");
+      line.run("l3", "2026-03-02T10:00:00.000Z", 3000, "creator.shortlist", "channel", "c3");
+      line.run("u2", "2026-03-02T11:00:00.000Z", 4000, "undo", "activity_log", "l3");
+      line.run("r2", "2026-03-02T12:00:00.000Z", 5000, "redo", "activity_log", "l3");
+      migrate(db);
+      expect(version()).toBe(migrations.length);
+      expect(events()).toEqual([
+        { channel_id: "c3", stage: "shortlisted", at: 3000, source: "log" },
+      ]);
+    });
+
+    it("restamps events written in bulk with the times the log knows, else updated_at", () => {
+      migrate(db);
+      state("c1", "shortlisted");
+      state("c2", "signed");
+      db.prepare(
+        `INSERT INTO activity_log (id, at, at_ms, actor_name, actor_role, action, entity_type, entity_id)
+         VALUES ('l1', '2026-03-01T10:00:00.000Z', 1000, 'Me', 'owner', 'creator.shortlist', 'channel', 'c1')`,
+      ).run();
+      db.exec(restampStageEventsSql);
+      expect(events()).toEqual([
+        { channel_id: "c1", stage: "shortlisted", at: 1000, source: "log" },
+        {
+          channel_id: "c2",
+          stage: "signed",
+          at: Date.parse("2026-01-01T00:00:00Z"),
+          source: "change",
+        },
+      ]);
     });
   });
 

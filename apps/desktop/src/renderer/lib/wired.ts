@@ -32,6 +32,19 @@ export const liveWired = {
   ],
 } as const satisfies Partial<Record<ScreenKey, readonly string[]>>;
 
+/**
+ * Parts inside a shown tab that wait for a later step: shown on example data, hidden on live.
+ * Funnel's Brands view comes with deals (plan step P, part P8b).
+ */
+export const liveHiddenParts = ["insights.funnel.brands"] as const;
+
+export type GatedPart = (typeof liveHiddenParts)[number];
+
+/** Whether a part of a tab may be shown. */
+export function isPartShown(part: GatedPart, source: FrameSource): boolean {
+  return source === "example" || !(liveHiddenParts as readonly string[]).includes(part);
+}
+
 /** Whether the first-run import has happened. "unknown" holds until the Connections status loads. */
 export type ImportState = "unknown" | "never" | "imported";
 

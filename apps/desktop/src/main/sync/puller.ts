@@ -25,6 +25,7 @@ import type { FramePart } from "@gratovo/ipc";
 
 import { getMeta, hasPending, setMeta } from "../data/repositories";
 import { inTransaction } from "../data/sqlite-source";
+import { restampStageEventsSql } from "../db/migrations/0007-insights";
 import type { Rest } from "../supabase/rest";
 import { RestError } from "../supabase/rest";
 
@@ -61,6 +62,12 @@ export const tombstoneTable = "sync_tombstones";
 export const seededKey = "sync.seeded";
 /** Set while a full pull after the horizon is running; its end deletes the rows it didn't see. */
 export const resyncKey = "sync.resync";
+/**
+ * Set when the seed finds no creators here (a new computer, or a sign-in after a sign-out): every
+ * row the first pull brings fires the stage-event trigger with the time of the pull, so once all
+ * the tables are in, the events take the times the log knows instead (Insights, plan step P8a).
+ */
+export const restampKey = "sync.restamp";
 export const cursorKey = (table: string): string => `sync.cursor.${table}`;
 export const pageKey = (table: string): string => `sync.page.${table}`;
 
@@ -417,6 +424,9 @@ export function createPuller(o: {
     inTransaction(db, () => {
       writeCursor(db, tombstoneTable, cursor);
       setMeta(db, seededKey, "1");
+      if (db.prepare("SELECT 1 AS one FROM channel_state LIMIT 1").get() === undefined) {
+        setMeta(db, restampKey, "1");
+      }
     });
   }
 
@@ -475,11 +485,15 @@ export function createPuller(o: {
 
     const sweeping = getMeta(db, resyncKey) !== null;
     let complete = true;
+    let everyTable = true;
     for (const t of mirrorTables) {
       const before = changed.has(t.part);
       const outcome = await pullSource(dataSource(t, changed, sweeping), deadline);
       if (outcome === "stalled") {
         stalled.push(t.name);
+      }
+      if (outcome !== "done") {
+        everyTable = false;
       }
       if (outcome !== "done" && t.name !== "activity_log") {
         complete = false;
@@ -499,6 +513,12 @@ export function createPuller(o: {
           o.onTableDone?.(part);
         }
       }
+    }
+    if (everyTable && getMeta(db, restampKey) !== null) {
+      inTransaction(db, () => {
+        db.exec(restampStageEventsSql);
+        db.prepare("DELETE FROM _meta WHERE key = ?").run(restampKey);
+      });
     }
 
     const before = new Set(changed);

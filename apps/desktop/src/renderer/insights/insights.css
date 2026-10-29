@@ -230,8 +230,20 @@
   background: none;
   color: var(--ink);
 }
-.ins-sheet-row:hover {
+button.ins-sheet-row:hover {
   background: var(--sunk-2);
+}
+.ins-sheet-aside {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.ins-sheet-aside p {
+  margin: 0;
+  flex: 1;
+  font-size: 12.5px;
 }
 .ins-row-name {
   font-weight: 500;

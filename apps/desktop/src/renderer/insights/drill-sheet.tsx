@@ -6,6 +6,8 @@ import { useReturnFocus } from "../lib/focus";
 import { useKeys } from "../lib/keys";
 import { strings } from "../strings";
 
+import { noteText } from "./words/drill";
+
 const text = strings.insights.drill;
 
 /** What `DrillSheet` takes. */
@@ -17,11 +19,21 @@ export interface DrillSheetProps {
   readonly total: number;
   readonly onMore: () => void;
   readonly onOpen: (id: string) => void;
+  /** Set when the number also counts archived channels: the sheet says so and opens the archive. */
+  readonly onArchive?: () => void;
   readonly onClose: () => void;
 }
 
 /** The records behind a number, in a side sheet. Esc closes it and focus goes back to where it was. */
-export function DrillSheet({ title, rows, total, onMore, onOpen, onClose }: DrillSheetProps) {
+export function DrillSheet({
+  title,
+  rows,
+  total,
+  onMore,
+  onOpen,
+  onArchive,
+  onClose,
+}: DrillSheetProps) {
   const sheet = useRef<HTMLElement>(null);
   useKeys({ escape: onClose });
   useReturnFocus(true);
@@ -44,29 +56,53 @@ export function DrillSheet({ title, rows, total, onMore, onOpen, onClose }: Dril
         </div>
         <IconBtn icon="x" label={text.close} dataUi="insights.drill.close" onClick={onClose} />
       </div>
+      {onArchive === undefined ? null : (
+        <div className="ins-sheet-aside" data-ui="insights.drill.archived">
+          <p className="muted">{text.archived}</p>
+          <Btn kind="ghost" size="sm" onClick={onArchive}>
+            {text.openArchive}
+          </Btn>
+        </div>
+      )}
       {rows.length === 0 ? (
         <p className="ins-sheet-empty muted">{text.empty}</p>
       ) : (
         <ul className="ins-sheet-list" aria-label={text.label}>
-          {rows.map((row) => (
-            <li key={row.id}>
-              <button
-                type="button"
-                className="ins-sheet-row"
-                data-ui="insights.drill.row"
-                aria-label={`${text.open} ${row.name}`}
-                onClick={() => {
-                  onOpen(row.id);
-                }}
-              >
+          {rows.map((row) => {
+            const inner = (
+              <>
                 <span className="ins-row-name">{row.name}</span>
                 {row.handle === null ? null : (
                   <span className="ins-row-handle muted">{row.handle}</span>
                 )}
-                {row.note === null ? null : <span className="ins-row-note">{row.note}</span>}
-              </button>
-            </li>
-          ))}
+                {row.note === null ? null : (
+                  <span className="ins-row-note">{noteText(row.note)}</span>
+                )}
+              </>
+            );
+            return (
+              <li key={row.id}>
+                {/* A gone record has nothing to open. */}
+                {row.note?.kind === "gone" ? (
+                  <div className="ins-sheet-row muted" data-ui="insights.drill.row">
+                    {inner}
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="ins-sheet-row"
+                    data-ui="insights.drill.row"
+                    aria-label={`${text.open} ${row.name}`}
+                    onClick={() => {
+                      onOpen(row.id);
+                    }}
+                  >
+                    {inner}
+                  </button>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
       {rows.length < total ? (

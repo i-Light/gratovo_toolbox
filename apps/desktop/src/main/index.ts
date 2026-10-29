@@ -23,6 +23,7 @@ import {
 } from "./gemini/gemini-control";
 import { createImporter, storeOutcomeOf } from "./import/import-service";
 import { loadHistory } from "./insights/example-history";
+import { createInsightsService } from "./insights/service";
 import { readMailSecrets } from "./pipeline/pipeline-secrets";
 import { createQuickQueue } from "./reach/quick-queue";
 import { createReachService, type ReachServiceHandle } from "./reach/reach-service";
@@ -55,7 +56,6 @@ import { createSourceWatch, withSourceChecks } from "./settings/source-switch";
 import { createWritingRulesService, playbookRulesDir } from "./settings/writing-rules";
 import { describeConfigProblem, readSupabaseConfig, type SupabaseConfig } from "./supabase/config";
 import { appPageUrl, createMainWindow, rendererRoot } from "./window";
-import { createInsightsService } from "./insights/service";
 
 /**
  * Unpackaged runs (`pnpm dev`, the end-to-end tests) keep their data, and their single-instance

@@ -3,6 +3,7 @@ import type { DatabaseSync } from "node:sqlite";
 import { exampleSeed, exampleSeedVersion } from "@gratovo/core/data";
 import type { DataSource, ExampleHealth, Scenario } from "@gratovo/core/data";
 
+import { restampStageEventsSql } from "../db/migrations/0007-insights";
 import { openDatabase } from "../db/open-database";
 
 import {
@@ -36,6 +37,8 @@ const dataTables = [
   "outreach_drafts",
   "outreach_messages",
   "outreach_sequences",
+  "stage_events",
+  "catalog_weeks",
 ] as const;
 
 /** The `local_settings` key the seed writes its `health` to (the "Something broke" scenario). */
@@ -187,6 +190,8 @@ function seed(db: DatabaseSync, now: number, scenario: Scenario): void {
       messages: fixtures.outreach.messages,
       sequences: fixtures.outreach.sequences,
     });
+    // The inserts stamped every creator's stage with now: the log and the messages know better.
+    db.exec(restampStageEventsSql);
     setMeta(db, seedKey, String(exampleSeedVersion));
   });
 }

@@ -103,14 +103,23 @@ export type InsightsGo =
   | { readonly kind: "insights"; readonly tab: InsightsTab; readonly view: SearchView | null }
   | { readonly kind: "drill"; readonly drill: Drill };
 
+/**
+ * The short fact on a drill row: a waiting channel's reject reason, a live channel's fit, or that
+ * the record is counted (its history is kept) but is no longer in the list. Worded in the renderer.
+ */
+export type DrillNote =
+  | { readonly kind: "reason"; readonly reason: RejectReason | "unknown" }
+  | { readonly kind: "fit"; readonly fit: number }
+  | { readonly kind: "gone" };
+
 /** One record in a drill-down list. */
 export interface DrillRow {
-  /** The creator (channel) id; the row opens the creator record. */
+  /** The creator (channel) id; the row opens the creator record, unless the note is `gone`. */
   readonly id: string;
+  /** The channel's name; the id when the record is gone. */
   readonly name: string;
   readonly handle: string | null;
-  /** A short fact for the row: the reject reason, the fit, the days stuck. Shown as is. */
-  readonly note: string | null;
+  readonly note: DrillNote | null;
 }
 
 // ---------------------------------------------------------------------------------------------

@@ -62,7 +62,8 @@ export const insightsPageMax = 100;
 export const insightsKeywordsMax = 2000;
 /** The most alerts a report lists. */
 export const insightsAlertsMax = 200;
-const hiddenMax = 500;
+/** The most alerts hidden at once (the service drops the soonest to end past it). */
+export const insightsHiddenMax = 500;
 
 const count = z.number().int().nonnegative();
 const amount = z.number().nonnegative();
@@ -129,7 +130,13 @@ export const drillRowSchema: z.ZodType<DrillRow> = z.strictObject({
   id: z.string().min(1).max(100),
   name: text,
   handle: text.nullable(),
-  note: text.nullable(),
+  note: z
+    .discriminatedUnion("kind", [
+      z.strictObject({ kind: z.literal("reason"), reason }),
+      z.strictObject({ kind: z.literal("fit"), fit: amount }),
+      z.strictObject({ kind: z.literal("gone") }),
+    ])
+    .nullable(),
 });
 
 // ---------------------------------------------------------------------------------------------
@@ -513,13 +520,13 @@ export const insightsListResultSchema = z.strictObject({
 
 /** `insights:hide`: hide an alert until a time; null shows it again. */
 export const insightsHideRequestSchema = z.strictObject({
-  key: z.string().min(1).max(200),
+  key: z.string().min(1).max(400),
   until: time.nullable(),
 });
 
 export const hiddenAlertsSchema: z.ZodType<HiddenAlerts> = z
   .record(z.string().min(1).max(400), time)
-  .refine((all) => Object.keys(all).length <= hiddenMax, "Too many hidden alerts");
+  .refine((all) => Object.keys(all).length <= insightsHiddenMax, "Too many hidden alerts");
 
 export const insightsHideResultSchema = z.strictObject({ hidden: hiddenAlertsSchema });
 

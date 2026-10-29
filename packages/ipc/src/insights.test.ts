@@ -231,7 +231,7 @@ describe("insights:list", () => {
       id: "UCaaaaaaaaaaaaaaaaaaaaaa",
       name: "AI Lab",
       handle: "@ailab",
-      note: "fit 80",
+      note: { kind: "fit", fit: 80 },
     };
     const parse = (value: unknown) => insightsListResultSchema.safeParse(value).success;
     expect(parse({ rows: Array.from({ length: 100 }, () => row), total: 250 })).toBe(true);
@@ -240,6 +240,14 @@ describe("insights:list", () => {
     expect(parse({ rows: [{ ...row, extra: 1 }], total: 1 })).toBe(false);
     expect(parse({ rows: [], total: -1 })).toBe(false);
     expect(parse({ rows: [{ ...row, handle: null, note: null }], total: 1 })).toBe(true);
+    expect(parse({ rows: [{ ...row, note: { kind: "reason", reason: "views" } }], total: 1 })).toBe(
+      true,
+    );
+    expect(parse({ rows: [{ ...row, note: { kind: "gone" } }], total: 1 })).toBe(true);
+    expect(parse({ rows: [{ ...row, note: "fit 80" }], total: 1 })).toBe(false);
+    expect(parse({ rows: [{ ...row, note: { kind: "reason", reason: "x" } }], total: 1 })).toBe(
+      false,
+    );
   });
 });
 
@@ -254,7 +262,9 @@ describe("insights:hide", () => {
   it("refuses an empty or long key, a missing time and extra keys", () => {
     const parse = (value: unknown) => parseRequest("insights:hide", value).ok;
     expect(parse({ key: "", until: null })).toBe(false);
-    expect(parse({ key: "x".repeat(201), until: null })).toBe(false);
+    // An alert's key can be as long as 400 (a mailbox address, a keyword), so it can be hidden.
+    expect(parse({ key: "x".repeat(400), until: null })).toBe(true);
+    expect(parse({ key: "x".repeat(401), until: null })).toBe(false);
     expect(parse({ key: "fuelLow" })).toBe(false);
     expect(parse({ key: "fuelLow", until: "tomorrow" })).toBe(false);
     expect(parse({ key: "fuelLow", until: null, extra: 1 })).toBe(false);
