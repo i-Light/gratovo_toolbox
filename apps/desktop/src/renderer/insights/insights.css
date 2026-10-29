@@ -1,0 +1,272 @@
+/* Insights: the raised panel and its parts (plan step P8a, design 2a). Dark tokens only. */
+.ins-head-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.ins > [role="tabpanel"] {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  margin-top: var(--gap);
+}
+
+.ins-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px 22px;
+  border: 0;
+  border-radius: var(--r-panel);
+  background: linear-gradient(180deg, var(--raised-top), var(--panel));
+  box-shadow:
+    inset 0 1px 0 var(--raised-highlight),
+    var(--raised-shadow);
+}
+.ins-panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.ins-panel-title {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ins-headline {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.ins-headline.hero {
+  font-size: 27px;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+.ins-counted {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.ins-panel-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+.ins-what {
+  margin: 0;
+  max-width: 64ch;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+.ins-panel-body {
+  min-width: 0;
+}
+.ins-panel-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.ins-meaning {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.ins-actions {
+  display: flex;
+  gap: 8px;
+  flex: none;
+}
+
+.ins-table-wrap {
+  overflow-x: auto;
+}
+.ins-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.ins-table th {
+  text-align: start;
+  font-weight: 500;
+  color: var(--muted);
+  padding: 6px 12px 6px 0;
+  border-bottom: 1px solid var(--line);
+}
+.ins-table td {
+  padding: 7px 12px 7px 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+}
+.ins-table td.num {
+  text-align: end;
+}
+.ins-table tr:last-child td {
+  border-bottom: 0;
+}
+.ins-table-tools {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 10px;
+}
+
+/* Verdicts: an icon or dot and a word, never colour alone. */
+.ins-verdict {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--muted);
+}
+.ins-verdict.good {
+  color: var(--good);
+}
+.ins-verdict.watch {
+  color: var(--warn);
+}
+.ins-verdict.act {
+  color: var(--crit);
+}
+.ins-verdict.early {
+  color: var(--muted);
+}
+.ins-verdict.diff.clear {
+  color: var(--good);
+}
+.ins-verdict.diff.chance {
+  color: var(--warn);
+}
+.ins-verdict.dot i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+
+.ins-big {
+  font-size: 40px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.ins-big.lg {
+  font-size: 46px;
+}
+.ins-big small {
+  margin-inline-start: 4px;
+  font-size: 0.45em;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--muted);
+}
+
+/* The drill sheet */
+.ins-sheet {
+  position: fixed;
+  inset-block: 0;
+  inset-inline-end: 0;
+  width: 400px;
+  max-width: 100%;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border-inline-start: 1px solid var(--line);
+  box-shadow: var(--shadow-3);
+  animation: slideIn 0.24s var(--ease-drawer);
+}
+.ins-sheet:focus {
+  outline: none;
+}
+.ins-sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.ins-sheet-title {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.ins-sheet-title h2 {
+  margin: 0;
+  font-size: 15px;
+}
+.ins-sheet-list {
+  list-style: none;
+  margin: 0;
+  padding: 6px 8px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+.ins-sheet-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 10px;
+  text-align: start;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: var(--r-s);
+  background: none;
+  color: var(--ink);
+}
+button.ins-sheet-row:hover {
+  background: var(--sunk-2);
+}
+.ins-sheet-aside {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.ins-sheet-aside p {
+  margin: 0;
+  flex: 1;
+  font-size: 12.5px;
+}
+.ins-row-name {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ins-row-handle {
+  font-size: 12px;
+  align-self: center;
+}
+.ins-row-note {
+  grid-column: 1 / -1;
+  font-size: 12.5px;
+  color: var(--ink-2);
+}
+.ins-sheet-empty {
+  padding: 24px 16px;
+  margin: 0;
+}
+.ins-sheet-foot {
+  display: flex;
+  justify-content: center;
+  padding: 10px;
+  border-top: 1px solid var(--line);
+}

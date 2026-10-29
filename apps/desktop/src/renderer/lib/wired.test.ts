@@ -9,13 +9,14 @@ import {
   isRouteShown,
   isScreenShown,
   isSettingsSectionShown,
+  isPartShown,
   isTabShown,
   liveWired,
   shownTabs,
   startRoute,
 } from "./wired";
 
-const hidden: readonly ScreenKey[] = ["today", "deliver", "insights", "team"];
+const hidden: readonly ScreenKey[] = ["today", "deliver", "team"];
 
 describe("on example data", () => {
   it("shows every screen, tab and section", () => {
@@ -39,12 +40,20 @@ describe("on example data", () => {
 });
 
 describe("on live data", () => {
-  it("shows only Find, Reach, Close, Toolbox, Settings and the record page", () => {
+  it("shows only Find, Reach, Close, Insights, Toolbox, Settings and the record page", () => {
     for (const key of hidden) {
       expect(isScreenShown(key, "live")).toBe(false);
       expect(isTabShown(key, null, "live")).toBe(false);
     }
-    for (const key of ["find", "reach", "close", "toolbox", "settings", "record"] as const) {
+    for (const key of [
+      "find",
+      "reach",
+      "close",
+      "insights",
+      "toolbox",
+      "settings",
+      "record",
+    ] as const) {
       expect(isScreenShown(key, "live")).toBe(true);
     }
   });
@@ -80,6 +89,15 @@ describe("on live data", () => {
     expect(isTabShown("reach", "sequences", "live")).toBe(true);
     expect(isTabShown("reach", "inbox", "live")).toBe(true);
     expect(isTabShown("toolbox", "scheduled", "live")).toBe(true);
+    expect(shownTabs("insights", "live").map((t) => t.key)).toEqual([
+      "overview",
+      "funnel",
+      "emails",
+      "search",
+      "goal",
+    ]);
+    expect(isTabShown("insights", "money", "live")).toBe(false);
+    expect(firstShownTab("insights", "live")).toBe("overview");
     expect(shownTabs("close", "live").map((t) => t.key)).toEqual(["roster"]);
     expect(firstShownTab("close", "live")).toBe("roster");
     expect(firstShownTab("deliver", "live")).toBeNull();
@@ -124,5 +142,12 @@ describe("on live data", () => {
     expect(isRouteShown({ screen: "close", tab: null }, "live")).toBe(true);
     expect(isRouteShown({ screen: "close", tab: "brands" }, "live")).toBe(false);
     expect(isRouteShown({ screen: "deliver", tab: null }, "live")).toBe(false);
+  });
+});
+
+describe("parts of a tab", () => {
+  it("shows Funnel's Brands view on example data only, until deals come", () => {
+    expect(isPartShown("insights.funnel.brands", "example")).toBe(true);
+    expect(isPartShown("insights.funnel.brands", "live")).toBe(false);
   });
 });

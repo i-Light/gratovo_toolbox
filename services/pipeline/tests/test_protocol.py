@@ -266,10 +266,11 @@ GOOD_JOBS: list[dict[str, Any]] = [
         ],
     },
     {"kind": "archive.restore", "channelIds": ["UCaaaaaaaaaaaaaaaaaaaaaa"]},
+    {"kind": "example.load", "file": "history.json"},
 ]
 
 # The jobs example data runs for real besides a search (plan step 5d, D37).
-ARCHIVE_KINDS = ("archive.sweep", "archive.restore")
+ARCHIVE_KINDS = ("archive.sweep", "archive.restore", "example.load")
 LIVE_ONLY_JOBS = [job for job in GOOD_JOBS if job["kind"] not in ARCHIVE_KINDS]
 LIVE_ONLY_IDS = [f"{job['kind']}-{i}" for i, job in enumerate(LIVE_ONLY_JOBS)]
 
@@ -380,6 +381,12 @@ BAD_JOBS: list[dict[str, Any]] = [
     {"kind": "archive.restore", "channelIds": []},
     {"kind": "archive.restore", "channelIds": ["@aitoolsweekly"]},
     {"kind": "archive.restore", "channelIds": ["UCaaaaaaaaaaaaaaaaaaaaaa"], "label": "rejected"},
+    {"kind": "example.load", "file": "../history.json"},
+    {"kind": "example.load", "file": "sub/history.json"},
+    {"kind": "example.load", "file": r"sub\history.json"},
+    {"kind": "example.load", "file": ".."},
+    {"kind": "example.load", "file": ""},
+    {"kind": "example.load", "file": "history.json", "extra": 1},
 ]
 
 
@@ -765,6 +772,10 @@ RESULTS: list[tuple[protocol.ResultKind, dict[str, Any]]] = [
                 {"channelId": "UCbbbbbbbbbbbbbbbbbbbbbb", "handle": None},
             ]
         },
+    ),
+    (
+        "example.load",
+        {"channels": 4, "keywords": 6, "links": 9, "runs": 3, "archived": 150200, "pending": 12},
     ),
 ]
 

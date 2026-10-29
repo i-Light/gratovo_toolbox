@@ -7,7 +7,7 @@ import { RestError } from "../supabase/rest";
 
 import { mirrorTables, toLocalRow, upsertRow } from "./mirror-tables";
 import type { MirrorTable } from "./mirror-tables";
-import { createPuller, cursorKey, pageKey, resyncKey, seededKey } from "./puller";
+import { createPuller, cursorKey, pageKey, restampKey, resyncKey, seededKey } from "./puller";
 import { compareServerTime } from "./server-time";
 import { refetchKey } from "./uploader";
 
@@ -276,6 +276,48 @@ describe("createPuller", () => {
     );
     expect(getMeta(db, seededKey)).toBe("1");
     expect(localIds(db, "channel_state", "channel_id")).toEqual(["UC1"]);
+  });
+
+  it("gives a first pull's creators the stage times the log knows, not the pull's", async () => {
+    server.tables["channel_state"]?.push(
+      channel("UC1", ts(1), { creator_stage: "shortlisted" }),
+      channel("UC2", ts(2), { creator_stage: "signed" }),
+    );
+    server.tables["activity_log"]?.push({
+      id: "l1",
+      at: "2026-03-01T10:00:00.000Z",
+      actor_name: "Sam",
+      actor_role: "full",
+      action: "creator.shortlist",
+      entity_type: "channel",
+      entity_id: "UC1",
+      detail: {},
+      received_at: ts(3),
+    });
+    await puller().pull(120_000);
+
+    const events = db
+      .prepare("SELECT channel_id, stage, at, source FROM stage_events ORDER BY channel_id")
+      .all();
+    expect(events).toEqual([
+      {
+        channel_id: "UC1",
+        stage: "shortlisted",
+        at: Date.parse("2026-03-01T10:00:00.000Z"),
+        source: "log",
+      },
+      { channel_id: "UC2", stage: "signed", at: Date.parse(ts(2)), source: "change" },
+    ]);
+    expect(getMeta(db, restampKey)).toBeNull();
+  });
+
+  it("leaves the stage times alone when the copy already had creators", async () => {
+    putLocal(db, "channel_state", channel("UC9", ts(0), { creator_stage: "emailed" }));
+    server.tables["channel_state"]?.push(channel("UC1", ts(1), { creator_stage: "shortlisted" }));
+    await puller().pull(120_000);
+    expect(getMeta(db, restampKey)).toBeNull();
+    const sources = db.prepare("SELECT DISTINCT source FROM stage_events").all();
+    expect(sources).toEqual([{ source: "change" }]);
   });
 
   it("pages across same-stamp rows and stores the server's cursor text", async () => {

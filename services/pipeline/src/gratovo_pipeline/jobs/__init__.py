@@ -47,6 +47,10 @@ def run(start: Start, emitter: Emitter) -> None:
         from gratovo_pipeline.jobs import archive
 
         archive.run(start, emitter)
+    elif kind == "example.load":
+        from gratovo_pipeline.jobs import example_load
+
+        example_load.run(start, emitter)
     else:  # gateways.deploy, gateways.destroy, gateways.test
         from gratovo_pipeline.jobs import gateways
 

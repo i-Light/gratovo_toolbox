@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { DatabaseTooNewError, migrate, type Migration } from "./migrate";
 import { migrations } from "./migrations";
+import { backfillStageEventsSql, restampStageEventsSql } from "./migrations/0007-insights";
 
 let db: DatabaseSync;
 
@@ -74,6 +75,140 @@ describe("migrate", () => {
       db.exec("UPDATE outreach_drafts SET goal = 'bogus'");
     }).toThrow(/CHECK/);
     db.exec("UPDATE outreach_drafts SET goal = NULL");
+  });
+
+  describe("insights (migration 7)", () => {
+    const events = (): Record<string, unknown>[] =>
+      db.prepare("SELECT channel_id, stage, at, source FROM stage_events ORDER BY id").all();
+    const state = (id: string, stage: string | null): void => {
+      db.prepare(
+        "INSERT INTO channel_state (channel_id, handle, creator_stage, updated_at) VALUES (?, '@ai', ?, '2026-01-01T00:00:00Z')",
+      ).run(id, stage);
+    };
+
+    it("creates the two tables and refuses a source outside the list", () => {
+      migrate(db);
+      expect(migrations[6]?.name).toBe("insights");
+      expect(tables()).toEqual(expect.arrayContaining(["stage_events", "catalog_weeks"]));
+      expect(() => {
+        db.exec(
+          "INSERT INTO stage_events (channel_id, stage, at, source) VALUES ('c', 's', 1, 'x')",
+        );
+      }).toThrow(/CHECK/);
+    });
+
+    it("writes an event when a creator is inserted with a stage, within a second of now", () => {
+      migrate(db);
+      const before = Date.now();
+      state("c1", "shortlisted");
+      const [row] = events();
+      expect(row).toMatchObject({ channel_id: "c1", stage: "shortlisted", source: "change" });
+      expect(Number(row?.["at"])).toBeGreaterThanOrEqual(before - 1000);
+      expect(Number(row?.["at"])).toBeLessThanOrEqual(Date.now() + 1000);
+    });
+
+    it("writes nothing for a NULL stage or an update to the same stage", () => {
+      migrate(db);
+      state("c1", null);
+      expect(events()).toEqual([]);
+      db.exec("UPDATE channel_state SET creator_stage = 'new' WHERE channel_id = 'c1'");
+      expect(events()).toHaveLength(1);
+      db.exec("UPDATE channel_state SET creator_stage = 'new' WHERE channel_id = 'c1'");
+      db.exec("UPDATE channel_state SET creator_stage = NULL WHERE channel_id = 'c1'");
+      expect(events()).toHaveLength(1);
+    });
+
+    it("writes one event when the stage changes, including through an upsert", () => {
+      migrate(db);
+      state("c1", "new");
+      db.exec("UPDATE channel_state SET creator_stage = 'rejected' WHERE channel_id = 'c1'");
+      expect(events().map((e) => e["stage"])).toEqual(["new", "rejected"]);
+      const upsert = db.prepare(
+        `INSERT INTO channel_state (channel_id, handle, creator_stage, updated_at)
+         VALUES ('c1', '@ai', ?, 'x')
+         ON CONFLICT (channel_id) DO UPDATE SET creator_stage = excluded.creator_stage`,
+      );
+      upsert.run("emailed");
+      upsert.run("emailed");
+      expect(events().map((e) => e["stage"])).toEqual(["new", "rejected", "emailed"]);
+    });
+
+    it("fills the events backwards from the log and the messages, without duplicates", () => {
+      migrate(db);
+      const line = db.prepare(
+        `INSERT INTO activity_log (id, at, at_ms, actor_name, actor_role, action, entity_type, entity_id)
+         VALUES (?, ?, ?, 'Me', 'owner', ?, 'channel', ?)`,
+      );
+      const day = (d: string): string => `2026-03-0${d}T10:00:00.000Z`;
+      line.run("l1", day("1"), Date.parse(day("1")), "creator.reject", "c1");
+      line.run("l2", day("2"), Date.parse(day("2")), "creator.reject", "c1");
+      line.run("l3", day("3"), null, "creator.shortlist", "c2");
+      line.run("l4", day("4"), null, "creator.never", "c3");
+      const message = db.prepare(
+        `INSERT INTO outreach_messages (id, channel_id, direction, kind, body, at, peer, reading)
+         VALUES (?, ?, ?, ?, 'x', ?, ?, ?)`,
+      );
+      message.run("m1", "c2", "out", "first", 200, null, null);
+      message.run("m2", "c2", "out", "first", 100, null, null);
+      message.run("m3", "c2", "out", "followUp", 50, null, null);
+      message.run("m4", "c2", "in", "reply", 150, "mailer-daemon@x.com", null);
+      message.run("m5", "c2", "in", "reply", 160, "a@b.com", '{"replyType":"any.bounce"}');
+      message.run("m6", "c2", "in", "reply", 300, "a@b.com", '{"replyType":"inf.gives_rate"}');
+      message.run("m7", "c2", "in", "reply", 400, "a@b.com", null);
+      db.exec(backfillStageEventsSql);
+      db.exec(backfillStageEventsSql);
+      const rows = events().map((e) =>
+        [e["channel_id"], e["stage"], e["at"], e["source"]].join(" "),
+      );
+      expect(rows.sort()).toEqual(
+        [
+          `c1 rejected ${String(Date.parse(day("1")))} log`,
+          `c2 shortlisted ${String(Date.parse(day("3")))} log`,
+          "c2 emailed 100 message",
+          "c2 replied 300 message",
+          `c3 never ${String(Date.parse(day("4")))} log`,
+        ].sort(),
+      );
+    });
+
+    it("skips lines an undo hides and lines whose time can't be read, so it can't fail", () => {
+      migrate(db, migrations.slice(0, 6));
+      const line = db.prepare(
+        `INSERT INTO activity_log (id, at, at_ms, actor_name, actor_role, action, entity_type, entity_id)
+         VALUES (?, ?, ?, 'Me', 'owner', ?, ?, ?)`,
+      );
+      line.run("l1", "not a time", null, "creator.reject", "channel", "c1");
+      line.run("l2", "2026-03-01T10:00:00.000Z", 1000, "creator.shortlist", "channel", "c2");
+      line.run("u1", "2026-03-01T11:00:00.000Z", 2000, "undo", "activity_log", "l2");
+      line.run("l3", "2026-03-02T10:00:00.000Z", 3000, "creator.shortlist", "channel", "c3");
+      line.run("u2", "2026-03-02T11:00:00.000Z", 4000, "undo", "activity_log", "l3");
+      line.run("r2", "2026-03-02T12:00:00.000Z", 5000, "redo", "activity_log", "l3");
+      migrate(db);
+      expect(version()).toBe(migrations.length);
+      expect(events()).toEqual([
+        { channel_id: "c3", stage: "shortlisted", at: 3000, source: "log" },
+      ]);
+    });
+
+    it("restamps events written in bulk with the times the log knows, else updated_at", () => {
+      migrate(db);
+      state("c1", "shortlisted");
+      state("c2", "signed");
+      db.prepare(
+        `INSERT INTO activity_log (id, at, at_ms, actor_name, actor_role, action, entity_type, entity_id)
+         VALUES ('l1', '2026-03-01T10:00:00.000Z', 1000, 'Me', 'owner', 'creator.shortlist', 'channel', 'c1')`,
+      ).run();
+      db.exec(restampStageEventsSql);
+      expect(events()).toEqual([
+        { channel_id: "c1", stage: "shortlisted", at: 1000, source: "log" },
+        {
+          channel_id: "c2",
+          stage: "signed",
+          at: Date.parse("2026-01-01T00:00:00Z"),
+          source: "change",
+        },
+      ]);
+    });
   });
 
   it("builds a fresh database at the latest version", () => {

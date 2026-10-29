@@ -53,7 +53,7 @@ describe("routes", () => {
   it("gives the first tab for an unknown tab", () => {
     expect(routeFromHash("#/reach/nope")).toEqual({ screen: "reach", tab: "board" });
     expect(routeFromHash("#/settings")).toEqual({ screen: "settings", tab: "profile" });
-    expect(routeFromHash("#/insights/anything")).toEqual({ screen: "insights", tab: null });
+    expect(routeFromHash("#/team/anything")).toEqual({ screen: "team", tab: null });
   });
 
   it("compares routes by screen and tab", () => {

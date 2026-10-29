@@ -315,3 +315,4 @@ On 2026-10-28:
 8. **No shared map across views:** a "zoom ladder" at the top of every Search view was rejected. Each view answers its own question; archived channels never show steps they can't reach.
 9. **The flow band** (option 2 of 3) is the top of every Search view.
 10. **When:** P8 builds this design, right after P1.
+11. **Split in two** (later the same day): **P8a** now, before P1: everything without deals or money, with its example history (six months of searches, the archive, emails and replies) at the real scale, and Search live on real data. Then P1. Then **P8b**: Money, Funnel › Brands, and the deal and money parts of Overview and Goal.

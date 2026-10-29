@@ -9,11 +9,18 @@ Working plan: [PLAN.md](PLAN.md). Gap list and conflicts: [GAPS.md](GAPS.md).
 | Part | What | State |
 |---|---|---|
 | plan | ADR 0021, the plan change, this working plan, the gap map of v6 against the app | **Done** 2026-10-27, branch `feat/full-prototype` |
+| P8a | Insights without deals and money, with its example history; live on real data | **Done** 2026-10-29 (ADR 0022). Owner split P8 in two on 2026-10-28: P8a first, then P1, then P8b |
 | P1 | Foundations | **Next.** Start with P1-0 (the contracts, Tier H) and write them into PLAN.md before building |
-| P8 | Insights | **Designed** 2026-10-27, **redesigned** 2026-10-28 with the owner (`docs/product/insights-design.md`, mockups in `design/insights/`). **Runs right after P1** |
+| P8b | Insights' deals and money (Money, Funnel › Brands, the deal and money parts of Overview and Goal) | **After P1** |
 | P2 to P7, P9, P10 | See PLAN.md | Not started |
 
 Owner answers so far are in ADR 0021 D6. Still to put to the owner when their part starts: the creator record's tab names beyond Overview, Emails, Deals, Notes and Activity (proposed: Channel, Videos, Sponsors, Contacts, Audience), checked in prototype mode after P2.
+
+## P8a (done 2026-10-29, ADR 0022)
+
+All tasks A0 to A14 done on `feat/insights-p8a`. Live: Overview, Funnel, Emails, Search, Goal (owner, 2026-10-28); Money hidden.
+Left for later, small: the Search › Archive box opens Toolbox › Archive without the typed words; a keyword's last run can't count channels already live (the pipeline doesn't record it); prototype mode takes about 8 s to open with the history.
+Told to the owner: the example's archive days are 90; emailed is 1,150 in the example, not 1,202 (the mockup's targets can't all hold at once); the backlog's days are its size at your review pace; the biggest drop starts at Confirmed.
 
 ## Carried into step P from steps 7 and 8
 

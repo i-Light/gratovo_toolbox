@@ -60,6 +60,8 @@ describe("laneFor", () => {
     // They write pipeline.db too (plan step 5d, D37 and D38).
     ["archive.sweep", "store"],
     ["archive.restore", "store"],
+    // The example history load writes pipeline.db (plan P8a, A6).
+    ["example.load", "store"],
     ["mail.status", "quick"],
     ["mail.send", "quick"],
     ["mail.replies", "quick"],

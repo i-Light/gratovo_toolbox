@@ -313,7 +313,10 @@ export function listCreators(db: DatabaseSync, o: { limit?: number } = {}): Crea
   const limit = Math.max(0, Math.min(Math.floor(o.limit ?? listMax), listMax));
   const rows = db
     .prepare(
-      `WITH ${hiddenLines}, ${rejectLines}
+      // Each kept creator's newest visible reject or never line is looked up through the log's
+      // entity index, one creator at a time: joining a computed list of every creator's line
+      // instead took 16 s with 5,000 creators and 19,000 reject lines (plan P8a).
+      `WITH ${hiddenLines}
        SELECT k.*, r.action AS reject_action, r.detail AS reject_detail, r.at_ms AS reject_at_ms,
               r.at AS reject_at
        FROM (
@@ -330,7 +333,14 @@ export function listCreators(db: DatabaseSync, o: { limit?: number } = {}): Crea
            END,
            s.rowid DESC
          LIMIT ?
-       ) k LEFT JOIN rejects r ON r.entity_id = k.channel_id
+       ) k LEFT JOIN activity_log r ON r.id = (
+         SELECT a.id FROM activity_log a
+         WHERE a.entity_type = 'channel' AND a.entity_id = k.channel_id
+           AND a.action IN ('creator.reject', 'creator.never')
+           AND a.id NOT IN (SELECT line FROM hidden)
+         ORDER BY a.at_ms DESC, a.id DESC
+         LIMIT 1
+       )
        ORDER BY k.rid`,
     )
     .all(limit);

@@ -309,4 +309,60 @@ describe("prototype mode", () => {
     expect(proto.comments.exportTo(blocker)).toEqual({ ok: false, problem: "failed" });
     expect(warn.mock.calls.flat().join(" ")).not.toContain("private");
   });
+
+  describe("the example history", () => {
+    it("is awaited before the reload on a turn-on and a scenario pick, and not while off", async () => {
+      const events: string[] = [];
+      reload.mockImplementation(() => {
+        events.push("reload");
+      });
+      const loadHistory = vi.fn(
+        async (o: { db: unknown; scenario: string; folder: string }): Promise<void> => {
+          events.push(`load:${o.scenario}`);
+          // A slow load: the reload must still wait for it.
+          await new Promise((resolve) => setTimeout(resolve, 20));
+          events.push(`loaded:${o.scenario}`);
+        },
+      );
+      const proto = createPrototype({
+        userData: folder,
+        now: () => clock,
+        base: baseWith(["owner"]),
+        reloadWindow: reload,
+        beforeSwitch: () => Promise.resolve(),
+        loadHistory,
+      });
+      made.push(proto);
+
+      await proto.status();
+      expect(loadHistory).not.toHaveBeenCalled();
+
+      await proto.set(true);
+      expect(events).toEqual(["load:normal", "loaded:normal", "reload"]);
+      expect(loadHistory.mock.calls[0]?.[0].folder).toBe(join(folder, prototypeFolder));
+
+      await proto.setScenario("broke");
+      expect(events.slice(3)).toEqual(["load:broke", "loaded:broke", "reload"]);
+
+      await proto.set(false);
+      expect(loadHistory).toHaveBeenCalledTimes(2);
+      expect(events.at(-1)).toBe("reload");
+    });
+
+    it("opens anyway when the load throws, logging only its kind", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+      const proto = createPrototype({
+        userData: folder,
+        now: () => clock,
+        base: baseWith(["owner"]),
+        reloadWindow: reload,
+        beforeSwitch: () => Promise.resolve(),
+        loadHistory: () => Promise.reject(new Error("a path with someone in it")),
+      });
+      made.push(proto);
+      expect((await proto.set(true)).on).toBe(true);
+      expect(reload).toHaveBeenCalledTimes(1);
+      expect(warn.mock.calls.flat().join(" ")).not.toContain("someone");
+    });
+  });
 });

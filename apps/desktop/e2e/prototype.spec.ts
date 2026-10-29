@@ -41,7 +41,8 @@ test.describe("Prototype mode", () => {
       .getByRole("button", { name: new RegExp(`^${screens.settings.tabs.prototype}`) })
       .click();
     await page.getByRole("switch", { name: text.switchLabel, exact: true }).click();
-    await expect(chip(page)).toBeVisible();
+    // Turning on loads the six-month example history first (plan P8a, about 8 s), then reloads.
+    await expect(chip(page)).toBeVisible({ timeout: 30_000 });
     await expect(toast(page, text.toastOn)).toBeVisible();
 
     // 3. Comment on the first card of the Reach board.

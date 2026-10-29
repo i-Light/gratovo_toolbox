@@ -38,6 +38,7 @@ import {
   setNotify,
 } from "./repositories";
 import { movesToKit } from "@gratovo/core/close";
+import { recordCatalogWeek } from "../insights/catalog-weeks";
 import { strings } from "../strings";
 import { linesFor, linesSince, logPage, peopleInLog } from "./repositories/activity-log";
 import {
@@ -60,6 +61,7 @@ import {
   writeCreatorNotes,
   writeCreatorStage,
 } from "./repositories/creators";
+import { readInsightsLocal } from "./repositories/insights";
 
 /** What the database has no table for: presence, rail counts and a teammate's running search. */
 export interface FrameExtras {
@@ -329,6 +331,10 @@ export function createSqliteSource(db: DatabaseSync, options: SqliteSourceOption
 
   return {
     outreach,
+    insights: {
+      recordCatalogWeek: (pipelineDbPath, at) => recordCatalogWeek(db, pipelineDbPath, at),
+      readLocal: () => readInsightsLocal(db),
+    },
     // The database is synchronous; the promises keep callers ready for it to move elsewhere.
     frame: () => settle(readFrame),
     creatorStates: () => settle(() => creatorStates(db)),

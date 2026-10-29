@@ -269,6 +269,17 @@ const jobCases: { good: Job; bad: Record<string, unknown>[] }[] = [
       { kind: "archive.restore", channelIds: ["UCaaaaaaaaaaaaaaaaaaaaaa"], label: "rejected" },
     ],
   },
+  {
+    good: { kind: "example.load", file: "history.json" },
+    bad: [
+      { kind: "example.load", file: "../history.json" },
+      { kind: "example.load", file: "sub/history.json" },
+      { kind: "example.load", file: "sub\\history.json" },
+      { kind: "example.load", file: ".." },
+      { kind: "example.load", file: "" },
+      { kind: "example.load", file: "history.json", extra: 1 },
+    ],
+  },
 ];
 
 describe("the jobs other than search", () => {
@@ -292,6 +303,8 @@ describe("the jobs other than search", () => {
       channels: [{ channelId: "UCaaaaaaaaaaaaaaaaaaaaaa", handle: null }],
     };
     expect(startSchema.safeParse({ ...start, job: sweep }).success).toBe(true);
+    const load = { kind: "example.load", file: "history.json" };
+    expect(startSchema.safeParse({ ...start, job: load }).success).toBe(true);
   });
 
   it("takes a dry run with no backup folder, and refuses an import on example data", () => {

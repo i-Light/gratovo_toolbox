@@ -1,0 +1,71 @@
+/* Insights › Goal (plan step P8a, A12). */
+.goal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+}
+.goal-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 260px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.goal-input {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-s);
+  background: var(--sunk);
+  color: var(--ink);
+  font: inherit;
+  font-size: 20px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.goal-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.goal-chain th[scope="row"] {
+  text-align: start;
+  font-weight: 500;
+  color: var(--ink);
+  padding: 9px 12px 9px 0;
+  border-bottom: 1px solid var(--line);
+}
+.goal-chain tr:last-child th[scope="row"] {
+  border-bottom: 0;
+}
+.goal-chain th.num {
+  text-align: end;
+}
+.goal-day {
+  display: inline-grid;
+  grid-template-columns: minmax(80px, 160px) auto;
+  align-items: center;
+  gap: 12px;
+}
+.goal-sub {
+  font-size: 12px;
+}
+.goal-levers th.num {
+  text-align: end;
+}
+.goal-room {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.goal-note {
+  margin: 0;
+  font-size: 12.5px;
+}
+.goal-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--gap);
+}
+.goal-pair > .ins-panel {
+  min-width: 0;
+}

@@ -56,6 +56,15 @@
   --shadow-2: 0 2px 6px rgba(11, 37, 64, 0.06), 0 12px 32px rgba(11, 37, 64, 0.1);
   --shadow-3: 0 24px 64px rgba(11, 37, 64, 0.22);
   --scrim: rgba(9, 25, 41, 0.32);
+  /* Insights (design 2a): series colours and the raised panel */
+  --series-live: #3a9ad3;
+  --series-waiting: #c8711f;
+  --series-archive: #8a7ae6;
+  --series-rules: #4a4380;
+  --series-neutral: #3d5a72;
+  --raised-top: #10293d;
+  --raised-highlight: rgba(255, 255, 255, 0.04);
+  --raised-shadow: 0 1px 0 rgba(0, 0, 0, 0.4), 0 12px 32px -12px rgba(0, 0, 0, 0.6);
 
   /* Type: Readex Pro for everything; Plex Mono only for keys, addresses and logs */
   --f-ui: "Readex Pro", "Segoe UI", system-ui, -apple-system, sans-serif;
@@ -65,6 +74,7 @@
   --r-s: 6px;
   --r-m: 9px;
   --r-l: 13px;
+  --r-panel: 16px;
 
   /* Frame sizes */
   --rail-w: 236px;
@@ -122,6 +132,15 @@
     --shadow-2: 0 2px 6px rgba(0, 0, 0, 0.3), 0 12px 32px rgba(0, 0, 0, 0.4);
     --shadow-3: 0 24px 64px rgba(0, 0, 0, 0.6);
     --scrim: rgba(0, 0, 0, 0.5);
+    /* Insights (design 2a): series colours and the raised panel */
+    --series-live: #3a9ad3;
+    --series-waiting: #c8711f;
+    --series-archive: #8a7ae6;
+    --series-rules: #4a4380;
+    --series-neutral: #3d5a72;
+    --raised-top: #10293d;
+    --raised-highlight: rgba(255, 255, 255, 0.04);
+    --raised-shadow: 0 1px 0 rgba(0, 0, 0, 0.4), 0 12px 32px -12px rgba(0, 0, 0, 0.6);
     color-scheme: dark;
   }
 }
@@ -163,6 +182,15 @@
   --shadow-2: 0 2px 6px rgba(0, 0, 0, 0.3), 0 12px 32px rgba(0, 0, 0, 0.4);
   --shadow-3: 0 24px 64px rgba(0, 0, 0, 0.6);
   --scrim: rgba(0, 0, 0, 0.5);
+  /* Insights (design 2a): series colours and the raised panel */
+  --series-live: #3a9ad3;
+  --series-waiting: #c8711f;
+  --series-archive: #8a7ae6;
+  --series-rules: #4a4380;
+  --series-neutral: #3d5a72;
+  --raised-top: #10293d;
+  --raised-highlight: rgba(255, 255, 255, 0.04);
+  --raised-shadow: 0 1px 0 rgba(0, 0, 0, 0.4), 0 12px 32px -12px rgba(0, 0, 0, 0.6);
   color-scheme: dark;
 }
 

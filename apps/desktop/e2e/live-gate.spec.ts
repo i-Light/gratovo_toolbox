@@ -45,7 +45,13 @@ test.describe("the live gate, against a fake Supabase", () => {
         name: railName(screens.reach.name, screens.reach.subLive),
       }),
     ).toBeVisible();
-    for (const key of ["today", "close", "deliver", "insights", "team"] as const) {
+    // Insights is wired from plan step P8a: every tab but Money.
+    await expect(
+      rail(page).getByRole("button", {
+        name: railName(screens.insights.name, screens.insights.sub),
+      }),
+    ).toBeVisible();
+    for (const key of ["today", "close", "deliver", "team"] as const) {
       await expect(
         rail(page).getByRole("button", { name: railName(screens[key].name, screens[key].sub) }),
       ).toHaveCount(0);

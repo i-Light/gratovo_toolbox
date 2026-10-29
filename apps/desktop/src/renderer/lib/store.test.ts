@@ -211,9 +211,9 @@ describe("useApp", () => {
     });
     expect(result.current).toEqual({ screen: "team", tab: null });
     act(() => {
-      go("insights");
+      go("today");
     });
-    expect(result.current).toEqual({ screen: "insights", tab: null });
+    expect(result.current).toEqual({ screen: "today", tab: null });
   });
 });
 

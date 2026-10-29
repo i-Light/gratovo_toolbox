@@ -22,6 +22,8 @@ import {
   geminiLaunchOptions,
 } from "./gemini/gemini-control";
 import { createImporter, storeOutcomeOf } from "./import/import-service";
+import { loadHistory } from "./insights/example-history";
+import { createInsightsService } from "./insights/service";
 import { readMailSecrets } from "./pipeline/pipeline-secrets";
 import { createQuickQueue } from "./reach/quick-queue";
 import { createReachService, type ReachServiceHandle } from "./reach/reach-service";
@@ -215,6 +217,20 @@ function start(): void {
           await find.shutdown();
           await yieldLane();
         },
+        // The six-month example history (plan P8a, A7): the local part into the copy, the
+        // pipeline part through the Python job `example.load` on the store lane. Before the reload.
+        loadHistory: ({ db, scenario, folder }) =>
+          loadHistory({
+            db,
+            scenario,
+            now: Date.now(),
+            folder,
+            runJob: (start) => runJob(supervisor, start),
+            // The prototype's find rules: the history was built for the archive days it names.
+            setArchiveDays: (days) => {
+              find.setRules({ ...find.state().rules, archiveDays: days });
+            },
+          }),
       });
       const wrapped = withPrototype(opened, prototype);
       // The account has no "source changed" callback: the watch checks after each call that can
@@ -412,6 +428,20 @@ function start(): void {
         onPipelineChanged: () => {
           invalidateCatalog();
         },
+        recordWeek: (pipelineDbPath, at) => {
+          account.source()?.insights.recordCatalogWeek(pipelineDbPath, at);
+        },
+      });
+      // Insights (plan step P8a): one read per tab, worked out here from both databases.
+      const insights = createInsightsService({
+        source: () => account.source(),
+        pipelineDbPath: () => {
+          const folder = find.folder();
+          return folder === null ? null : join(folder, "pipeline.db");
+        },
+        catalog: async () => (await catalog.snapshot()).rows,
+        archiveDays: () => find.state().rules.archiveDays,
+        now: () => Date.now(),
       });
       // Both give way when Start is pressed; the search starts once both have.
       yieldLane = async () => {
@@ -638,6 +668,7 @@ function start(): void {
             emailFinder.shortlisted(ids);
           },
           archive,
+          insights,
           importer,
           connections: connectionsForPage,
           gemini: geminiControl,

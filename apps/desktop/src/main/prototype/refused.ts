@@ -19,6 +19,9 @@ export const prototypeRefused = "Not available in prototype mode.";
  *   and rules are files in `prototype-pipeline`; a search runs the Python example source
  *   (`source: "example"`), which reads `channels.json` and never touches the network, and the
  *   YouTube key is looked up for live only. `find:ideas` answers its stand-in on example data.
+ * - `insights:read`, `insights:list`, `insights:hide`, `insights:goal`: local reads of the open source
+ *   and `pipeline.db` (read-only), and two local settings (`insights.hidden`, `insights.goal`); no
+ *   secret, no network, no mail. None is refused.
  * - `toolbox:restore`, `toolbox:sweep`: the archive jobs run on example data locally; the refetch
  *   after a restore is live only.
  * - `reach:*` but `send-test`: example data has stand-ins on main's side. Sends are recorded locally

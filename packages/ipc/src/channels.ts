@@ -29,6 +29,16 @@ import {
   logPageResultSchema,
 } from "./data";
 import {
+  insightsGoalRequestSchema,
+  insightsHideRequestSchema,
+  insightsHideResultSchema,
+  insightsListRequestSchema,
+  insightsListResultSchema,
+  insightsReadRequestSchema,
+  insightsReportSchema,
+  goalSettingsSchema,
+} from "./insights";
+import {
   reachCheckRepliesResultSchema,
   reachCreatorRequestSchema,
   reachDraftActionResultSchema,
@@ -274,6 +284,26 @@ export const channels = {
   "toolbox:counts": {
     request: z.strictObject({}),
     response: toolboxCountsSchema,
+  },
+  /** One Insights tab for a period (plan step P8a, A3): the report, worked out on this computer. */
+  "insights:read": {
+    request: insightsReadRequestSchema,
+    response: insightsReportSchema,
+  },
+  /** The records behind a number in a report, a page of 100 (A4). */
+  "insights:list": {
+    request: insightsListRequestSchema,
+    response: insightsListResultSchema,
+  },
+  /** Hides an alert until a time, or shows it again with null (A10). */
+  "insights:hide": {
+    request: insightsHideRequestSchema,
+    response: insightsHideResultSchema,
+  },
+  /** Changes the goal (A9): creators to sign a month, and rates set by hand. */
+  "insights:goal": {
+    request: insightsGoalRequestSchema,
+    response: goalSettingsSchema,
   },
   /** Replaces the search rules (Settings › Search rules); `find:changed` follows. */
   "rules:set": {

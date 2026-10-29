@@ -18,6 +18,7 @@ export function laneFor(kind: JobKind): Lane {
     case "import.legacy":
     case "archive.sweep":
     case "archive.restore":
+    case "example.load":
       return "store";
     case "mail.status":
     case "mail.send":
