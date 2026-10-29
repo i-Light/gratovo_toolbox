@@ -1,0 +1,352 @@
+/* Insights: the Overview, Funnel and Emails tabs (plan step P8a, task A11). Dark tokens only. */
+
+.ins-two {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--gap);
+  align-items: start;
+}
+.ins-two.wide {
+  grid-template-columns: minmax(0, 1fr) 360px;
+}
+.ins-switches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.ins-note {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 14px;
+}
+
+/* Overview: the summary and the five tiles */
+.ins-summary-text {
+  margin: 0;
+  max-width: 78ch;
+  font-size: 19px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+.ins-summary-text b {
+  font-weight: 600;
+  color: var(--ink);
+}
+.ins-vitals {
+  padding: 0;
+}
+.ins-vital-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+.ins-vital {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  padding: 18px 20px;
+}
+.ins-vital + .ins-vital {
+  border-inline-start: 1px solid var(--line);
+}
+.ins-vital-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--ink-2);
+  font-size: 13px;
+}
+.ins-vital-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ins-vital-lines p {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+.ins-vital-what {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+
+/* Needs attention and What's working: lines separated by hairlines, never boxes */
+.ins-lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.ins-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px 16px;
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+}
+.ins-line:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+.ins-line-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.ins-line-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.ins-line-main p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+.ins-line-numbers {
+  color: var(--ink) !important;
+  font-variant-numeric: tabular-nums;
+}
+.ins-line-side {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  align-self: start;
+}
+
+/* Funnel table */
+.ins-funnel {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+  font-variant-numeric: tabular-nums;
+}
+.ins-funnel th {
+  text-align: start;
+  font-weight: 500;
+  font-size: 12.5px;
+  color: var(--muted);
+  padding: 6px 12px 8px 0;
+}
+.ins-funnel th.num,
+.ins-funnel td.num {
+  text-align: end;
+}
+.ins-funnel td {
+  padding: 9px 12px 9px 0;
+  border-top: 1px solid var(--line);
+  color: var(--ink);
+}
+.ins-funnel tr.is-click {
+  cursor: pointer;
+}
+.ins-funnel tr.is-click:hover td {
+  background: var(--sunk-2);
+}
+.ins-funnel tr.is-biggest td {
+  background: color-mix(in srgb, var(--warn) 10%, transparent);
+}
+.ins-funnel td.step {
+  font-weight: 600;
+}
+.ins-funnel td.bar {
+  width: 32%;
+  min-width: 140px;
+}
+.ins-funnel .bar-cell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  align-items: center;
+  gap: 10px;
+}
+.ins-funnel .bar-cell > span:last-child {
+  text-align: end;
+}
+.ins-step-btn {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  text-align: start;
+}
+.ins-step-btn:focus-visible,
+.ins-stuck:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.ins-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  background: var(--sunk-2);
+  color: var(--ink-2);
+}
+.ins-tag.warn {
+  color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 14%, transparent);
+}
+.ins-stuck {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  color: var(--warn);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.ins-quiet {
+  color: var(--muted);
+}
+
+/* Exits */
+.ins-exits {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 28px;
+}
+.ins-exit-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.ins-exit-head span:last-child {
+  color: var(--muted);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.ins-also {
+  margin: 14px 0 0;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+/* Emails */
+.ins-chart-title {
+  margin: 0 0 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.ins-chart + .ins-chart {
+  margin-top: 18px;
+}
+.ins-legend {
+  display: flex;
+  gap: 18px;
+  margin: 0 0 8px;
+  font-size: 12.5px;
+  color: var(--ink-2);
+}
+.ins-legend i {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-inline-end: 6px;
+  border-radius: 50%;
+  background: var(--series-live);
+}
+.ins-legend i.warn {
+  background: var(--warn);
+}
+.ins-grid {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.ins-grid th {
+  text-align: start;
+  font-weight: 500;
+  color: var(--muted);
+  padding: 6px 12px 8px 0;
+}
+.ins-grid td {
+  padding: 9px 12px 9px 0;
+  border-top: 1px solid var(--line);
+  vertical-align: middle;
+  color: var(--ink);
+}
+.ins-grid th.num,
+.ins-grid td.num {
+  text-align: end;
+}
+.ins-grid td.name {
+  font-weight: 600;
+}
+.ins-grid td small {
+  display: block;
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--muted);
+}
+.ins-grid td.hot {
+  color: var(--warn);
+  font-weight: 600;
+}
+.ins-grid tr.total td {
+  font-weight: 600;
+  border-top: 1px solid var(--line-2, var(--line));
+}
+.ins-grid td.bar {
+  min-width: 120px;
+  width: 22%;
+}
+.ins-grid .bar-cell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+.ins-diagnosis {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+.ins-splits {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 22px;
+}
+.ins-split-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+.ins-answer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ins-answer p {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 13.5px;
+}
