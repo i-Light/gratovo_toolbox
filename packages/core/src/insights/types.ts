@@ -406,7 +406,7 @@ export interface SearchReport {
       /** Last 14 days, per day: new finds that passed the rules, and channels a person reviewed. */
       readonly foundPerDay: number;
       readonly reviewedPerDay: number;
-      /** How long the backlog lasts at this pace; null when reviewing keeps up. */
+      /** Days of reviewing the backlog holds at your pace; null when nothing was reviewed. */
       readonly days: number | null;
       readonly verdict: Verdict;
     };

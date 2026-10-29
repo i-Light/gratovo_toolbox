@@ -108,6 +108,7 @@ ResultKind = Literal[
     "import.legacy",
     "archive.sweep",
     "archive.restore",
+    "example.load",
 ]
 JobKind = Literal["search"] | ResultKind
 BackfillPart = Literal["channels", "videos", "backfill", "backlog"]
@@ -129,9 +130,15 @@ RESULT_KINDS: Final[tuple[ResultKind, ...]] = (
     "import.legacy",
     "archive.sweep",
     "archive.restore",
+    "example.load",
 )
 # The jobs example data runs for real (plan step 5d, D37): the rest are faked on main's side.
-EXAMPLE_KINDS: Final[tuple[JobKind, ...]] = ("search", "archive.sweep", "archive.restore")
+EXAMPLE_KINDS: Final[tuple[JobKind, ...]] = (
+    "search",
+    "archive.sweep",
+    "archive.restore",
+    "example.load",
+)
 # The most channels one archive job takes.
 ARCHIVE_MAX_CHANNELS: Final = 2000
 
@@ -286,6 +293,14 @@ class ArchiveRestoreJob(TypedDict):
     channelIds: list[str]  # 1 to ARCHIVE_MAX_CHANNELS, unique
 
 
+class ExampleLoadJob(TypedDict):
+    """Load the example history (plan P8a, A6) into this data folder's pipeline.db, from a JSON
+    file main wrote there, and delete the file. Example data only."""
+
+    kind: Literal["example.load"]
+    file: str  # a plain file name inside the data folder: no separator, no `..`
+
+
 type Job = (
     SearchJob
     | MailStatusJob
@@ -303,6 +318,7 @@ type Job = (
     | ImportLegacyJob
     | ArchiveSweepJob
     | ArchiveRestoreJob
+    | ExampleLoadJob
 )
 
 
@@ -578,6 +594,15 @@ class ArchiveSweepData(TypedDict):
     archived: int  # the tombstones written
 
 
+class ExampleLoadData(TypedDict):
+    channels: int
+    keywords: int
+    links: int
+    runs: int
+    archived: int
+    pending: int
+
+
 class ArchiveRestoreData(TypedDict):
     # Each tombstone deleted, with its handle (None when it had none, or one that isn't an
     # @handle); unknown ids are left out.
@@ -594,6 +619,8 @@ _COUNTRY = re.compile(r"[A-Z]{2}")
 # The schema's patterns. `[0-9]`, not `\d`: Python's `\d` also takes other scripts' digits.
 _EMAIL = re.compile(r"[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+")
 _HANDLE = re.compile(r"@[A-Za-z0-9._-]{1,100}")
+# A plain file name: no separator, no `..`, not starting with a dot.
+_PLAIN_FILE = re.compile(r"(?!.*\.\.)[A-Za-z0-9_-][A-Za-z0-9._-]{0,99}")
 _REGION = re.compile(r"[a-z]{2}(-[a-z]+)+-[0-9]")
 _API_ID = re.compile(r"[a-z0-9]{1,32}")
 _GMAIL_ID = re.compile(r"[A-Za-z0-9_-]{1,64}")
@@ -977,6 +1004,12 @@ def _job(job: object) -> Job:
             for item in _list(raw["channelIds"], "job.channelIds", ARCHIVE_MAX_CHANNELS, low=1)
         ]
         return {"kind": "archive.restore", "channelIds": _unique(ids, "job.channelIds")}
+    if kind == "example.load":
+        raw = _object(value, "job", {"kind", "file"})
+        return {
+            "kind": "example.load",
+            "file": _matching(raw["file"], "job.file", _PLAIN_FILE, "a plain file name"),
+        }
     _object(value, "job", {"kind"})
     return {"kind": "gateways.test"}
 
@@ -1362,6 +1395,8 @@ class Emitter:
     def result(self, kind: Literal["archive.sweep"], data: ArchiveSweepData) -> None: ...
     @overload
     def result(self, kind: Literal["archive.restore"], data: ArchiveRestoreData) -> None: ...
+    @overload
+    def result(self, kind: Literal["example.load"], data: ExampleLoadData) -> None: ...
     def result(self, kind: ResultKind, data: Mapping[str, object]) -> None:
         """The job's answer: at most once, before `end`; on `done` (and on `stopped` for refetch
         and backfill), never on `failed`. Messages are cut to fit, as in `end`."""

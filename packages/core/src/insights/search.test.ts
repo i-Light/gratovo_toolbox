@@ -311,16 +311,18 @@ describe("backlog", () => {
     expect(b.oldestAt).toBe(NOW - 30 * DAY);
     expect(b.foundPerDay).toBeCloseTo(60 / 14);
     expect(b.reviewedPerDay).toBeCloseTo(10);
-    expect(b.days).toBeCloseTo(61 / (10 - 60 / 14));
+    // Days of reviewing at your pace: 61 waiting, 10 reviewed a day.
+    expect(b.days).toBeCloseTo(61 / 10);
     expect(b.verdict).toBe("watch");
   });
-  it("watches when reviewing does not keep up", () => {
+  it("watches when the backlog holds over 5 days of reviewing", () => {
     const channels = Array.from({ length: 30 }, (_, n) =>
       ch(`n${String(n)}`, { foundAt: NOW - DAY }),
     );
     const b = report(inputs({ channels, events: [ev("x", "shortlisted", NOW - DAY)] })).live
       .backlog;
-    expect(b.days).toBeNull();
+    // One review in 14 days: 30 waiting hold 420 days.
+    expect(b.days).toBeCloseTo(30 / (1 / 14));
     expect(b.verdict).toBe("watch");
   });
   it("is early with a small backlog and no review", () => {

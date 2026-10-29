@@ -60,7 +60,7 @@ function isBounce(m: MessageFact): boolean {
 }
 
 /** One creator's way through the funnel: for each step reached, when (null: reached, time not known). */
-interface Creator {
+export interface Creator {
   readonly id: string;
   readonly stage: CreatorStage | null;
   readonly reached: Readonly<Partial<Record<PathStep, number | null>>>;
@@ -75,7 +75,7 @@ function earliest(xs: readonly number[]): number | null {
 }
 
 /** Every creator the records know about, with the steps they reached and when. */
-function creatorsOf(inputs: InsightsInputs): Creator[] {
+export function creatorsOf(inputs: InsightsInputs): Creator[] {
   const eventTimes = new Map<string, Map<CreatorStage, number[]>>();
   for (const e of inputs.events) {
     let byStage: Map<CreatorStage, number[]> | undefined = eventTimes.get(e.channelId);
@@ -180,23 +180,49 @@ function nextStep(step: PathStep): PathStep | null {
   return pathSteps[pathSteps.indexOf(step) + 1] ?? null;
 }
 
-/** Creators whose latest step is `step` and who have been in it longer than `limitDays`. */
-function stuckCount(
+/** The creators whose latest step is `step` and who have been in it longer than `limitDays`. */
+function stuckList(
   pop: readonly Creator[],
   step: PathStep,
   limitDays: number,
   now: number,
-): number {
-  let n = 0;
+): string[] {
+  const ids: string[] = [];
   for (const c of pop) {
     if (c.stage !== null && offPath.includes(c.stage)) continue;
     let top: PathStep | null = null;
     for (const s of pathSteps) if (s in c.reached) top = s;
     if (top !== step) continue;
     const at = c.reached[step];
-    if (at != null && now - at > limitDays * DAY) n += 1;
+    if (at != null && now - at > limitDays * DAY) ids.push(c.id);
   }
-  return n;
+  return ids;
+}
+
+function stuckCount(
+  pop: readonly Creator[],
+  step: PathStep,
+  limitDays: number,
+  now: number,
+): number {
+  return stuckList(pop, step, limitDays, now).length;
+}
+
+/** The creators behind an "everyone" row's `stuck` number; none for a step with no such number. */
+export function stuckIds(inputs: InsightsInputs, step: CreatorStep): string[] {
+  if (step === "found" || step === "passed" || step === "signed") return [];
+  const pop = creatorsOf(inputs);
+  const next = nextStep(step);
+  const days = next === null ? null : gapDays(pop, step, next);
+  return days === null ? [] : stuckList(pop, step, thresholds.stuckFactor * days, inputs.now);
+}
+
+/** The creators who ever reached a path step (the count of an "everyone" row after `passed`). */
+export function reachedIds(inputs: InsightsInputs, step: CreatorStep): string[] {
+  if (step === "found" || step === "passed") return [];
+  return creatorsOf(inputs)
+    .filter((c) => step in c.reached)
+    .map((c) => c.id);
 }
 
 function ratioOrNull(n: number, d: number): Ratio | null {
@@ -428,4 +454,21 @@ export function cohorts(inputs: InsightsInputs): { rows: CohortRow[]; trend: Dif
   let trend = compareRates(recent, older, thresholds.minEmails);
   if (trend === "clear" && recent.n / recent.d >= older.n / older.d) trend = "chance";
   return { rows, trend };
+}
+
+/** Everything the Funnel tab shows, for the period asked for. */
+export function funnelReport(inputs: InsightsInputs, window: ReportWindow): FunnelReport {
+  const everyone = creatorFunnel(inputs, window, "everyone");
+  const { rows, trend } = cohorts(inputs);
+  return {
+    tab: "funnel",
+    window,
+    everyone,
+    cohort: creatorFunnel(inputs, window, "cohort"),
+    biggestDrop: biggestDrop(everyone),
+    exits: funnelExits(inputs, window),
+    stepDays: stepDays(inputs),
+    cohorts: rows,
+    cohortTrend: trend,
+  };
 }

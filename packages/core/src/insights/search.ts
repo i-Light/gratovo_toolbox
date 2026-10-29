@@ -79,12 +79,65 @@ export function liveGroup(c: { readonly stage: CreatorStage | null }): LiveGroup
   }
 }
 
-function isLive(c: ChannelFacts): boolean {
+export function isLive(c: ChannelFacts): boolean {
   return c.inCatalog && c.stage !== "rejected";
 }
 
-function isWaiting(c: ChannelFacts): boolean {
+export function isWaiting(c: ChannelFacts): boolean {
   return c.inCatalog && c.stage === "rejected";
+}
+
+/** A shortlisted live channel whose address was found but not yet confirmed. */
+export function isAddressWaiting(c: ChannelFacts): boolean {
+  return isLive(c) && c.stage === "shortlisted" && c.hasAddress && c.confirmedAt === null;
+}
+
+/** Whether a live channel counts in the Trust panel's `which` number. */
+export function isUnreadable(
+  c: ChannelFacts,
+  which: "notRead" | "retrying" | "gaveUp" | "noCountry",
+): boolean {
+  return isLive(c) && (which === "noCountry" ? c.country === null : c.read === which);
+}
+
+/** A waiting channel that leaves for good on the day `day` after today (0 = tomorrow). */
+export function leavesOnDay(c: ChannelFacts, now: number, day: number): boolean {
+  if (!isWaiting(c) || c.leavesAt === null) return false;
+  const today = startOfDay(now);
+  return c.leavesAt >= addDays(today, day + 1) && c.leavesAt < addDays(today, day + 2);
+}
+
+/** A rejected channel, still waiting with a date, whose fit says a person may have been wrong. */
+export function isMistake(c: ChannelFacts): boolean {
+  return isWaiting(c) && c.leavesAt !== null && c.fit >= thresholds.mistakeFit;
+}
+
+/** Creators brought back in the 90 days before `now`, with why they had left. */
+export function secondLookReasons(
+  inputs: InsightsInputs,
+  now: number,
+): Map<string, RejectReason | "unknown"> {
+  const since90 = addDays(now, -90);
+  const restores = latestByChannel(
+    inputs.log,
+    (l) => l.action === "restore" && l.at >= since90 && l.at <= now,
+  );
+  const rejectLines = new Map<string, LogFact[]>();
+  for (const l of inputs.log) {
+    if (l.action !== "reject") continue;
+    const list = rejectLines.get(l.channelId);
+    if (list) list.push(l);
+    else rejectLines.set(l.channelId, [l]);
+  }
+  const out = new Map<string, Reason>();
+  for (const [id, r] of restores) {
+    let prior: LogFact | null = null;
+    for (const l of rejectLines.get(id) ?? []) {
+      if (l.at <= r.at && (!prior || l.at >= prior.at)) prior = l;
+    }
+    out.set(id, prior?.reason ?? "unknown");
+  }
+  return out;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -194,7 +247,7 @@ function sortedCounts(m: Map<string, number>): { readonly key: string; readonly 
     .sort((a, b) => b.count - a.count || a.key.localeCompare(b.key));
 }
 
-function reasonOf(c: ChannelFacts): Reason {
+export function reasonOf(c: ChannelFacts): Reason {
   return c.rejectReason ?? "unknown";
 }
 
@@ -334,8 +387,9 @@ export function searchReport(inputs: InsightsInputs, window: ReportWindow): Sear
   ).length;
   const reviewedPerDay = reviewed14 / 14;
   const backlogCount = notReviewed.length;
-  const backlogDays =
-    reviewedPerDay > foundPerDay ? backlogCount / (reviewedPerDay - foundPerDay) : null;
+  // Days of reviewing the backlog holds at your pace (design section 4: "would take over 5 days at
+  // your triage pace"); null when nothing was reviewed.
+  const backlogDays = reviewedPerDay > 0 ? backlogCount / reviewedPerDay : null;
   let backlogVerdict: Verdict;
   if (reviewed14 === 0 && backlogCount < thresholds.minOther) backlogVerdict = "early";
   else if (backlogCount === 0) backlogVerdict = "good";
@@ -364,16 +418,14 @@ export function searchReport(inputs: InsightsInputs, window: ReportWindow): Sear
       confirmDays.push(Math.max(0, (c.confirmedAt - at) / DAY));
     }
   }
-  const addressWaiting = live.filter(
-    (c) => c.stage === "shortlisted" && c.hasAddress && c.confirmedAt === null,
-  ).length;
+  const addressWaiting = live.filter(isAddressWaiting).length;
 
   // Trust.
   const trust = {
-    notRead: live.filter((c) => c.read === "notRead").length,
-    retrying: live.filter((c) => c.read === "retrying").length,
-    gaveUp: live.filter((c) => c.read === "gaveUp").length,
-    noCountry: live.filter((c) => c.country === null).length,
+    notRead: live.filter((c) => isUnreadable(c, "notRead")).length,
+    retrying: live.filter((c) => isUnreadable(c, "retrying")).length,
+    gaveUp: live.filter((c) => isUnreadable(c, "gaveUp")).length,
+    noCountry: live.filter((c) => isUnreadable(c, "noCountry")).length,
   };
 
   // Waiting.
@@ -382,11 +434,11 @@ export function searchReport(inputs: InsightsInputs, window: ReportWindow): Sear
   const leaving = Array.from({ length: 7 }, (_, i) => {
     const from = addDays(today, i + 1);
     const to = addDays(today, i + 2);
-    const count = dated.filter((c) => (c.leavesAt ?? 0) >= from && (c.leavesAt ?? 0) < to).length;
+    const count = dated.filter((c) => leavesOnDay(c, now, i)).length;
     return { at: from, to, count };
   });
   const tomorrow = leaving[0] ?? { at: 0, to: 0, count: 0 };
-  const mistakeRows = dated.filter((c) => c.fit >= thresholds.mistakeFit);
+  const mistakeRows = dated.filter(isMistake);
   const top: Mistake[] = [...mistakeRows]
     .sort((a, b) => b.fit - a.fit || (a.leavesAt ?? 0) - (b.leavesAt ?? 0))
     .slice(0, 50)
@@ -413,28 +465,12 @@ export function searchReport(inputs: InsightsInputs, window: ReportWindow): Sear
   }
 
   // Second looks: brought back in the last 90 days, by why they had left.
-  const since90 = addDays(now, -90);
-  const restores = latestByChannel(
-    inputs.log,
-    (l) => l.action === "restore" && l.at >= since90 && l.at <= now,
-  );
-  const rejectLines = new Map<string, LogFact[]>();
-  for (const l of inputs.log) {
-    if (l.action !== "reject") continue;
-    const list = rejectLines.get(l.channelId);
-    if (list) list.push(l);
-    else rejectLines.set(l.channelId, [l]);
-  }
+  const restored = secondLookReasons(inputs, now);
   const looks = new Map<
     Reason,
     { back: number; emailed: number; replied: number; signed: number }
   >();
-  for (const [id, r] of restores) {
-    let prior: LogFact | null = null;
-    for (const l of rejectLines.get(id) ?? []) {
-      if (l.at <= r.at && (!prior || l.at >= prior.at)) prior = l;
-    }
-    const reason: Reason = prior?.reason ?? "unknown";
+  for (const [id, reason] of restored) {
     const t = looks.get(reason) ?? { back: 0, emailed: 0, replied: 0, signed: 0 };
     const rank = rankOf(byId.get(id)?.stage ?? null);
     t.back += 1;
