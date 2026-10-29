@@ -213,7 +213,7 @@ function bandOf(
           count: w.dated,
           label: hero.archivedNode,
           tone: "series-archive",
-          x: 0.94,
+          x: 0.9,
           y: 0.5,
           dashed: true,
         },
@@ -260,7 +260,7 @@ function bandOf(
           label: hero.undated,
           tone: "series-neutral",
           x: 0.3,
-          y: 0.8,
+          y: 0.72,
           dashed: true,
           onClick: () => {
             onDrill({ kind: "undated" });
@@ -274,7 +274,7 @@ function bandOf(
           dashed: true,
         });
       }
-      return { height: 330, nodes, edges };
+      return { height: 370, nodes, edges };
     }
     case "archive": {
       const a = report.archive;
@@ -316,12 +316,13 @@ function bandOf(
           },
           {
             id: "back",
-            count: a.broughtBack.n,
+            // Brought back (d), and of those the ones who replied since (n).
+            count: a.broughtBack.d,
             label: hero.backNode,
-            sub: hero.backSub(fmt(a.broughtBack.d)),
+            sub: hero.backSub(fmt(a.broughtBack.n)),
             tone: "good",
             x: 0.88,
-            y: 0.74,
+            y: 0.7,
           },
         ],
         edges: [
@@ -413,7 +414,7 @@ function heroNumbers(view: SearchView, report: SearchReport) {
       [hero.rulesNode, report.archive.byRules],
       [hero.personNode, report.archive.byPerson],
       [hero.refoundNode, report.archive.refoundThisWeek],
-      [hero.backNode, report.archive.broughtBack.n],
+      [hero.backNode, report.archive.broughtBack.d],
     ],
     everything: [
       [hero.foundNode, report.everything.found],

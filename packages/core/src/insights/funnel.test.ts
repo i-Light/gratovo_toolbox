@@ -226,25 +226,27 @@ describe("medianDays and stuck", () => {
     const events: StageEvent[] = [];
     for (let n = 0; n < 6; n += 1) {
       const id = `r${String(n)}`;
-      channels.push(channel(id, { stage: "replied" }));
-      events.push({ channelId: id, stage: "emailed", at: NOW - 40 * DAY });
-      events.push({ channelId: id, stage: "replied", at: NOW - 38 * DAY });
+      channels.push(channel(id, { stage: "audience" }));
+      events.push({ channelId: id, stage: "kit", at: NOW - 40 * DAY });
+      events.push({ channelId: id, stage: "audience", at: NOW - 38 * DAY });
     }
-    // Two creators waiting at "emailed": one for 10 days (stuck), one for 3 days (not).
-    channels.push(channel("old", { stage: "emailed" }), channel("new", { stage: "emailed" }));
-    events.push({ channelId: "old", stage: "emailed", at: NOW - 10 * DAY });
-    events.push({ channelId: "new", stage: "emailed", at: NOW - 3 * DAY });
+    // Two creators waiting at "kit": one for 10 days (stuck), one for 3 days (not).
+    channels.push(channel("old", { stage: "kit" }), channel("new", { stage: "kit" }));
+    events.push({ channelId: "old", stage: "kit", at: NOW - 10 * DAY });
+    events.push({ channelId: "new", stage: "kit", at: NOW - 3 * DAY });
     // A rejected creator is never stuck.
     channels.push(channel("gone", { stage: "rejected" }));
-    events.push({ channelId: "gone", stage: "emailed", at: NOW - 30 * DAY });
+    events.push({ channelId: "gone", stage: "kit", at: NOW - 30 * DAY });
     return inputsWith({ channels, events });
   }
 
   it("takes the median days to the next step and counts those past twice that", () => {
     const rows = creatorFunnel(population(), window, "everyone");
-    expect(row(rows, "emailed").medianDays).toBe(2);
-    expect(row(rows, "emailed").stuck).toBe(1);
-    expect(row(rows, "replied").stuck).toBeNull(); // no median to the next step
+    expect(row(rows, "kit").medianDays).toBe(2);
+    expect(row(rows, "kit").stuck).toBe(1);
+    // The follow-ups do the waiting at "emailed": never stuck there.
+    expect(row(rows, "emailed").stuck).toBeNull();
+    expect(row(rows, "audience").stuck).toBeNull(); // no median to the next step
     expect(row(rows, "found").stuck).toBeNull();
     expect(row(rows, "signed").stuck).toBeNull();
   });
@@ -265,9 +267,9 @@ describe("medianDays and stuck", () => {
   it("stepDays gives the median between consecutive steps", () => {
     const days = stepDays(population());
     expect(days).toHaveLength(7);
-    expect(days.find((d) => d.from === "emailed")).toEqual({
-      from: "emailed",
-      to: "replied",
+    expect(days.find((d) => d.from === "kit")).toEqual({
+      from: "kit",
+      to: "audience",
       days: 2,
     });
     expect(days[0]).toMatchObject({ from: "shortlisted", to: "confirmed" });

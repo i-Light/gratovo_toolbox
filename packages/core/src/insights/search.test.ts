@@ -111,7 +111,9 @@ describe("liveGroup", () => {
     expect(liveGroup({ stage: null })).toBe("notReviewed");
     expect(liveGroup({ stage: "new" })).toBe("notReviewed");
     expect(liveGroup({ stage: "shortlisted" })).toBe("shortlisted");
-    for (const s of ["contact", "emailed", "replied", "kit", "audience"] as const) {
+    // Confirmed and waiting for the first email: still "Shortlisted" in the band.
+    expect(liveGroup({ stage: "contact" })).toBe("shortlisted");
+    for (const s of ["emailed", "replied", "kit", "audience"] as const) {
       expect(liveGroup({ stage: s })).toBe("outreach");
     }
     expect(liveGroup({ stage: "signed" })).toBe("signed");

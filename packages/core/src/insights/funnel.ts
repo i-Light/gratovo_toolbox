@@ -180,6 +180,15 @@ function nextStep(step: PathStep): PathStep | null {
   return pathSteps[pathSteps.indexOf(step) + 1] ?? null;
 }
 
+/**
+ * Whether a step counts creators stuck in it. Not the catalog steps; not `emailed`, where the
+ * follow-ups do the waiting and a creator who never answers is an exit, not stuck; not `signed`,
+ * the end of this funnel.
+ */
+function hasStuck(step: CreatorStep): step is PathStep {
+  return step !== "found" && step !== "passed" && step !== "emailed" && step !== "signed";
+}
+
 /** The creators whose latest step is `step` and who have been in it longer than `limitDays`. */
 function stuckList(
   pop: readonly Creator[],
@@ -210,7 +219,7 @@ function stuckCount(
 
 /** The creators behind an "everyone" row's `stuck` number; none for a step with no such number. */
 export function stuckIds(inputs: InsightsInputs, step: CreatorStep): string[] {
-  if (step === "found" || step === "passed" || step === "signed") return [];
+  if (!hasStuck(step)) return [];
   const pop = creatorsOf(inputs);
   const next = nextStep(step);
   const days = next === null ? null : gapDays(pop, step, next);
@@ -276,7 +285,7 @@ export function creatorFunnel(
     const next = path === null ? null : nextStep(path);
     const medianDays = path === null || next === null ? null : gapDays(pop, path, next);
     const stuck =
-      path === null || path === "signed" || medianDays === null
+      path === null || !hasStuck(path) || medianDays === null
         ? null
         : stuckCount(pop, path, thresholds.stuckFactor * medianDays, inputs.now);
     return { step, count, fromPrev, before, medianDays, stuck, byDesign: step === "passed" };

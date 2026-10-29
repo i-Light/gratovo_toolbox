@@ -73,10 +73,18 @@ export function repliesWaitingList(
     const seen = newest.get(m.channelId);
     if (!seen || m.at >= seen.at) newest.set(m.channelId, m);
   }
+  const setAside = new Set(
+    inputs.channels
+      .filter((c) => c.stage === "rejected" || c.stage === "parked" || c.stage === "never")
+      .map((c) => c.id),
+  );
   const out: { id: string; at: number }[] = [];
   for (const [id, m] of newest) {
-    // An auto-reply (out of office) waits for nothing.
-    if (m.direction === "in" && !isBounce(m) && m.reading !== "auto") out.push({ id, at: m.at });
+    // An auto-reply (out of office) or a plain no waits for nothing, and nor does a creator set
+    // aside (rejected, parked or never contact).
+    if (m.direction !== "in" || isBounce(m) || setAside.has(id)) continue;
+    if (m.reading === "auto" || m.reading === "no") continue;
+    out.push({ id, at: m.at });
   }
   return out;
 }

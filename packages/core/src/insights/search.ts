@@ -60,9 +60,10 @@ export function liveGroup(c: { readonly stage: CreatorStage | null }): LiveGroup
     case null:
     case "new":
       return "notReviewed";
+    // Shortlisted and confirmed creators both wait for their first email ("Draft emails").
     case "shortlisted":
-      return "shortlisted";
     case "contact":
+      return "shortlisted";
     case "emailed":
     case "replied":
     case "kit":

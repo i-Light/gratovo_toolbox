@@ -135,7 +135,7 @@ describe("drillIds agrees with the number", () => {
       expect(ids({ kind: "stuck", step: row.step }).length, row.step).toBe(row.stuck);
     }
     expect(seen).toBeGreaterThan(0);
-    expect(funnel.everyone.find((r) => r.step === "emailed")?.stuck).toBeGreaterThanOrEqual(3);
+    expect(funnel.everyone.find((r) => r.step === "emailed")?.stuck).toBeNull();
     expect(ids({ kind: "stuck", step: "found" })).toEqual([]);
   });
 

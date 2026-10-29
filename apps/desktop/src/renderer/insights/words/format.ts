@@ -10,9 +10,9 @@ export function num(n: number): string {
   return Math.round(n).toLocaleString("en-US");
 }
 
-/** One decimal place, dropping a trailing ".0". */
+/** A number for reading: one decimal under 10, whole from 10, no trailing ".0". */
 export function decimal(n: number): string {
-  const rounded = Math.round(n * 10) / 10;
+  const rounded = Math.abs(n) >= 10 ? Math.round(n) : Math.round(n * 10) / 10;
   return rounded.toLocaleString("en-US", { maximumFractionDigits: 1 });
 }
 

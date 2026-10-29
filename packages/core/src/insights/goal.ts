@@ -262,9 +262,15 @@ function actualFrom(inputs: InsightsInputs): GoalActual {
   const reviews = inputs.events.filter(
     (e) => (e.stage === "shortlisted" || e.stage === "rejected") && inSpan(e.at, from, inputs.now),
   ).length;
-  const found = inputs.channels.filter(
+  // Every find, as the needed line counts them: the ones in the catalog, and the ones the rules
+  // swept as they were found (the archive's weekly sweeps, by the weeks that end in the span).
+  const kept = inputs.channels.filter(
     (c) => c.inCatalog && c.foundAt !== null && inSpan(c.foundAt, from, inputs.now),
   ).length;
+  const swept = inputs.archive.weekly
+    .filter((w) => w.at >= from && w.at < inputs.now)
+    .reduce((sum, w) => sum + w.byRules, 0);
+  const found = kept + swept;
   let signed = 0;
   let replied = 0;
   for (const c of creatorsOf(inputs)) {
