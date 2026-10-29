@@ -1,0 +1,596 @@
+/* Hand-drawn chart pieces for Insights. Colours come only from tokens. Dark only. */
+
+.ch-line,
+.ch-paired,
+.ch-bars,
+.ch-share,
+.ch-multi,
+.ch-steps,
+.ch-heat,
+.ch-flow {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+.ch-tone-muted {
+  color: var(--muted);
+}
+.ch-tone-ink {
+  color: var(--ink);
+}
+.ch-tone-ink-2 {
+  color: var(--ink-2);
+}
+.ch-tone-faint {
+  color: var(--faint);
+}
+.ch-tone-good {
+  color: var(--good);
+}
+.ch-tone-warn {
+  color: var(--warn);
+}
+.ch-tone-crit {
+  color: var(--crit);
+}
+.ch-tone-series-live {
+  color: var(--series-live);
+}
+.ch-tone-series-waiting {
+  color: var(--series-waiting);
+}
+.ch-tone-series-archive {
+  color: var(--series-archive);
+}
+.ch-tone-series-rules {
+  color: var(--series-rules);
+}
+.ch-tone-series-neutral {
+  color: var(--series-neutral);
+}
+.ch-tone-line {
+  color: var(--line);
+}
+
+/* ---- Line chart ---------------------------------------------------------------------- */
+
+.ch-line {
+  --ch-gutter: 30px;
+  --ch-xs: 20px;
+  position: relative;
+  width: 100%;
+  color: var(--muted);
+  font-size: 11px;
+}
+.ch-line[data-axis="none"] {
+  --ch-gutter: 0px;
+}
+.ch-line[data-labels="none"] {
+  --ch-xs: 0px;
+}
+.ch-line__plot {
+  position: absolute;
+  inset: 6px 6px var(--ch-xs) var(--ch-gutter);
+}
+.ch-line__plot > svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.ch-line__path {
+  fill: none;
+  stroke: var(--tone);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+.ch-line__area {
+  fill: var(--tone);
+  fill-opacity: 0.16;
+  stroke: none;
+}
+.ch-line__grid {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 1px solid color-mix(in srgb, var(--line) 55%, transparent);
+}
+.ch-line__grid--base {
+  border-top-color: var(--line);
+}
+.ch-line__ytick {
+  position: absolute;
+  left: 0;
+  width: calc(var(--ch-gutter) - 6px);
+  margin-top: 6px;
+  transform: translateY(-50%);
+  text-align: right;
+  color: var(--faint);
+  line-height: 1;
+}
+.ch-line__band {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+}
+.ch-line__dot {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  margin: -4px 0 0 -4px;
+  border-radius: 50%;
+  background: var(--tone);
+  box-sizing: border-box;
+}
+.ch-line__dot--small {
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+}
+.ch-line__dot--hollow {
+  background: var(--panel, transparent);
+  border: 2px solid var(--tone);
+}
+.ch-line__xs {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  margin-top: 4px;
+  height: 14px;
+}
+.ch-line__xs > span {
+  position: absolute;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  color: var(--faint);
+  line-height: 14px;
+}
+.ch-line__xs > .is-start {
+  transform: none;
+}
+.ch-line__xs > .is-end {
+  transform: translateX(-100%);
+}
+
+/* ---- Paired columns ------------------------------------------------------------------ */
+
+.ch-paired {
+  width: 100%;
+  font-size: 11px;
+  color: var(--muted);
+}
+.ch-legend {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 8px;
+  color: var(--ink-2);
+  font-size: 12px;
+}
+.ch-legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.ch-legend__swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--tone);
+}
+.ch-paired__chart {
+  display: flex;
+  flex-direction: column;
+}
+.ch-paired__plot {
+  position: relative;
+  flex: 1;
+  margin-left: 30px;
+  min-height: 0;
+}
+.ch-paired__grid {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 1px solid color-mix(in srgb, var(--line) 55%, transparent);
+}
+.ch-paired__grid:first-child {
+  border-top-color: var(--line);
+}
+.ch-paired__grid > span {
+  position: absolute;
+  right: 100%;
+  margin-right: 6px;
+  transform: translateY(-50%);
+  color: var(--faint);
+  line-height: 1;
+}
+.ch-paired__groups {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+}
+.ch-paired__group {
+  flex: 1;
+  display: flex;
+  gap: 2px;
+  align-items: flex-end;
+  justify-content: center;
+  min-width: 0;
+}
+.ch-paired__col,
+.ch-paired__none {
+  flex: 1;
+  max-width: 14px;
+}
+.ch-paired__col {
+  background: var(--tone);
+  border-radius: 4px 4px 0 0;
+  min-height: 1px;
+}
+.ch-paired__labels {
+  display: flex;
+  gap: 6px;
+  margin: 4px 0 0 30px;
+  height: 16px;
+}
+.ch-paired__labels > span {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  white-space: nowrap;
+  overflow: visible;
+  color: var(--faint);
+}
+
+/* ---- Bars ---------------------------------------------------------------------------- */
+
+.ch-bars {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ch-bars__row {
+  display: grid;
+  grid-template-columns: minmax(90px, 160px) 1fr auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 6px 4px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+}
+.ch-bars__row--click {
+  cursor: pointer;
+  transition: background 120ms ease-out;
+}
+.ch-bars__row--click:hover {
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+}
+.ch-bars__row--click:focus-visible {
+  outline: 2px solid var(--series-live);
+  outline-offset: 1px;
+}
+.ch-bars__label {
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+.ch-bars__track {
+  height: 8px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+  overflow: hidden;
+}
+.ch-bars__fill {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--tone);
+}
+.ch-bars__value {
+  min-width: 36px;
+  text-align: right;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.ch-share {
+  position: relative;
+  display: block;
+  height: 8px;
+  min-width: 40px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+}
+.ch-share__fill {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--tone);
+}
+.ch-share__mark {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--ink);
+}
+
+/* ---- Small multiples ----------------------------------------------------------------- */
+
+.ch-multi {
+  display: grid;
+  gap: 24px;
+}
+.ch-multi__item {
+  min-width: 0;
+}
+.ch-multi__item > header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.ch-multi__title {
+  color: var(--muted);
+  font-size: 13px;
+}
+.ch-multi__value {
+  color: var(--ink);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.ch-multi__change {
+  margin: 6px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* ---- Step line ----------------------------------------------------------------------- */
+
+.ch-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+}
+.ch-steps__item {
+  position: relative;
+  min-width: 0;
+}
+.ch-steps__btn {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 4px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+  transition: background 120ms ease-out;
+}
+.ch-steps__btn:hover {
+  background: color-mix(in srgb, var(--ink) 5%, transparent);
+}
+.ch-steps__btn:focus-visible {
+  outline: 2px solid var(--series-live);
+  outline-offset: 1px;
+}
+.ch-steps__label {
+  color: var(--ink-2);
+  font-size: 13px;
+}
+.ch-steps__dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--series-live);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--series-live) 22%, transparent);
+}
+.ch-steps__count {
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.ch-steps__sub {
+  font-size: 12px;
+  font-weight: 600;
+}
+/* The line runs from this dot to the next, on the dot's row: label (~21px) + gap + dot centre. */
+.ch-steps__link {
+  position: absolute;
+  z-index: 0;
+  left: 50%;
+  width: 100%;
+  top: 41px;
+  height: 0;
+  border-top: 2px solid var(--line-2, var(--line));
+  pointer-events: none;
+}
+.ch-steps__share {
+  position: absolute;
+  left: 50%;
+  top: -1px;
+  transform: translate(-50%, -50%);
+  padding: 0 8px;
+  background: var(--panel, transparent);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ---- Heat table ---------------------------------------------------------------------- */
+
+.ch-heat {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 3px;
+  font-size: 12px;
+}
+.ch-heat th {
+  padding: 4px 8px;
+  color: var(--muted);
+  font-weight: 500;
+  text-align: center;
+}
+.ch-heat tbody th {
+  text-align: left;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.ch-heat__cell {
+  position: relative;
+  height: 30px;
+  padding: 0;
+  border-radius: 6px;
+  text-align: center;
+  overflow: hidden;
+}
+.ch-heat__shade {
+  position: absolute;
+  inset: 0;
+  background: var(--tone);
+}
+.ch-heat__text {
+  position: relative;
+  color: var(--ink);
+  font-weight: 600;
+}
+.ch-heat__cell.is-null .ch-heat__text {
+  color: var(--faint);
+  font-weight: 400;
+}
+
+/* ---- Flow band ----------------------------------------------------------------------- */
+
+.ch-flow {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+}
+.ch-flow > svg {
+  position: absolute;
+  inset: 0 auto auto 0;
+  display: block;
+}
+.ch-flow__circle {
+  fill-opacity: 0.2;
+}
+.ch-flow__edge {
+  fill: none;
+  stroke: var(--tone);
+  stroke-width: 1.5;
+  stroke-opacity: 0.85;
+}
+.ch-flow__head {
+  fill: var(--tone);
+  fill-opacity: 0.85;
+}
+.ch-flow__edge-label {
+  fill: var(--muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.ch-flow__node {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+.ch-flow__hit {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translate(-50%, -50%);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+}
+.ch-flow__hit:hover {
+  background: color-mix(in srgb, var(--tone) 12%, transparent);
+}
+.ch-flow__hit:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+.ch-flow__text {
+  position: absolute;
+  left: 0;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  width: 170px;
+  text-align: center;
+  pointer-events: none;
+}
+.ch-flow__count {
+  color: var(--ink);
+  font-size: 17px;
+  font-weight: 600;
+}
+.ch-flow__name {
+  color: var(--ink-2);
+  font-size: 13px;
+}
+.ch-flow__sub {
+  color: var(--muted);
+  font-size: 11px;
+}
+.ch-flow__action {
+  margin-top: 4px;
+  padding: 2px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--tone);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.ch-flow__action:hover {
+  background: color-mix(in srgb, var(--tone) 14%, transparent);
+}
+.ch-flow__action:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ch-bars__row--click,
+  .ch-steps__btn {
+    transition: none;
+  }
+}
