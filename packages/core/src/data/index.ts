@@ -127,3 +127,23 @@ export type {
   StoredDraft,
   StoredMessage,
 } from "./outreach-store";
+export type { InsightsStore } from "./insights-store";
+export { exampleHistory } from "./example-history";
+export type {
+  ArchiveTuple,
+  ExampleHistory,
+  HistoryArchive,
+  HistoryChannelRow,
+  HistoryCreatorRow,
+  HistoryDraftRow,
+  HistoryEventRow,
+  HistoryKeywordRow,
+  HistoryLinkRow,
+  HistoryLogRow,
+  HistoryMessageRow,
+  HistoryNameRow,
+  HistoryPendingRow,
+  HistoryRunRow,
+  HistorySequenceRow,
+  HistoryWeekRow,
+} from "./example-history";
