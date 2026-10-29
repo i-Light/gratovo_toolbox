@@ -141,6 +141,10 @@ function setup(overrides: Partial<Handlers> = {}) {
     "gemini:start": vi.fn(() => gemini),
     "gemini:stop": vi.fn(() => gemini),
     "gemini:open-window": vi.fn(() => gemini),
+    "insights:read": () => Promise.reject(new Error("not used here")),
+    "insights:list": () => ({ rows: [], total: 0 }),
+    "insights:hide": () => ({ hidden: {} }),
+    "insights:goal": () => ({ signsPerMonth: 4, overrides: {} }),
     ...overrides,
   };
   const onError = vi.fn();

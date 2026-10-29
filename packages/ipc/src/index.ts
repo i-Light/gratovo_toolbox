@@ -174,6 +174,21 @@ export type {
 } from "./prototype";
 export { syncStatusSchema, syncStates } from "./sync";
 export {
+  drillRowSchema,
+  goalSettingsSchema,
+  hiddenAlertsSchema,
+  insightsAlertsMax,
+  insightsGoalRequestSchema,
+  insightsHideRequestSchema,
+  insightsHideResultSchema,
+  insightsKeywordsMax,
+  insightsListRequestSchema,
+  insightsListResultSchema,
+  insightsPageMax,
+  insightsReadRequestSchema,
+  insightsReportSchema,
+} from "./insights";
+export {
   archivedChannelSchema,
   archivedPageMax,
   restoreMax,

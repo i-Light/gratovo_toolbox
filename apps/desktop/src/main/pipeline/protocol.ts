@@ -255,6 +255,15 @@ const archiveRestoreJob = z
   })
   .refine((job) => unique(job.channelIds), "channel ids must be unique");
 
+/**
+ * Plan P8a, A6: load the example history into the data folder's `pipeline.db` from a JSON file
+ * main wrote there, then delete the file. A plain file name: no separator, no `..`.
+ */
+const exampleLoadJob = z.strictObject({
+  kind: z.literal("example.load"),
+  file: z.string().regex(/^(?!.*\.\.)[A-Za-z0-9_-][A-Za-z0-9._-]{0,99}$/),
+});
+
 export const jobSchema = z.discriminatedUnion("kind", [
   searchJob,
   mailStatusJob,
@@ -272,10 +281,16 @@ export const jobSchema = z.discriminatedUnion("kind", [
   importLegacyJob,
   archiveSweepJob,
   archiveRestoreJob,
+  exampleLoadJob,
 ]);
 
 /** The jobs example data runs for real: the rest are faked on main's side. */
-const exampleJobs: ReadonlySet<string> = new Set(["search", "archive.sweep", "archive.restore"]);
+const exampleJobs: ReadonlySet<string> = new Set([
+  "search",
+  "archive.sweep",
+  "archive.restore",
+  "example.load",
+]);
 
 export const startSchema = z
   .strictObject({
@@ -365,6 +380,7 @@ export type SearchJob = Extract<Job, { kind: "search" }>;
 export type ImportLegacyJob = Extract<Job, { kind: "import.legacy" }>;
 export type ArchiveSweepJob = Extract<Job, { kind: "archive.sweep" }>;
 export type ArchiveRestoreJob = Extract<Job, { kind: "archive.restore" }>;
+export type ExampleLoadJob = Extract<Job, { kind: "example.load" }>;
 export type Start = z.infer<typeof startSchema>;
 export type Stop = z.infer<typeof stopSchema>;
 
@@ -667,6 +683,20 @@ const archiveRestoreResult = z.strictObject({
   }),
 });
 
+const exampleLoadResult = z.strictObject({
+  type: z.literal("result"),
+  kind: z.literal("example.load"),
+  /** What was written: rows per table, and the tombstones expanded from the archive tuples. */
+  data: z.strictObject({
+    channels: count,
+    keywords: count,
+    links: count,
+    runs: count,
+    archived: count,
+    pending: count,
+  }),
+});
+
 const resultSchema = z.discriminatedUnion("kind", [
   mailStatusResult,
   mailSendResult,
@@ -683,6 +713,7 @@ const resultSchema = z.discriminatedUnion("kind", [
   importLegacyResult,
   archiveSweepResult,
   archiveRestoreResult,
+  exampleLoadResult,
 ]);
 
 export const endErrorCodes = [

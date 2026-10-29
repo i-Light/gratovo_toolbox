@@ -657,6 +657,10 @@ describe("the data channels through the dispatcher", () => {
       "gemini:start": () => gemini,
       "gemini:stop": () => gemini,
       "gemini:open-window": () => gemini,
+      "insights:read": () => Promise.reject(new Error("not used here")),
+      "insights:list": () => ({ rows: [], total: 0 }),
+      "insights:hide": () => ({ hidden: {} }),
+      "insights:goal": () => ({ signsPerMonth: 4, overrides: {} }),
       ...overrides,
     };
     const onError = vi.fn();

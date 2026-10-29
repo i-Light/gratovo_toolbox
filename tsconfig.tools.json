@@ -18,7 +18,8 @@
     "apps/desktop/src/main/supabase/**/*.ts",
     "apps/desktop/src/main/sync/**/*.ts",
     "apps/desktop/src/main/data/**/*.ts",
-    "apps/desktop/src/main/db/**/*.ts"
+    "apps/desktop/src/main/db/**/*.ts",
+    "apps/desktop/src/main/insights/catalog-weeks.ts"
   ],
   "exclude": ["apps/desktop/src/**/*.test.ts", "apps/desktop/src/main/data/data-source-contract.ts"]
 }

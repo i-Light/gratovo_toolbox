@@ -48,6 +48,9 @@ CREATE TABLE channel_archive (
     median_views_last_30 INTEGER,
     videos_found_count INTEGER,
     found_via TEXT,
+    found_at TEXT,
+    seen_brands TEXT,
+    found_emails TEXT,
     name TEXT,
     country TEXT,
     videos_last_30 INTEGER,
@@ -60,6 +63,21 @@ CREATE TABLE runs (
     status TEXT NOT NULL DEFAULT 'running',
     keywords_total INTEGER NOT NULL DEFAULT 0,
     kind TEXT NOT NULL DEFAULT 'search'
+);
+CREATE TABLE keywords (
+    keyword TEXT PRIMARY KEY,
+    status TEXT NOT NULL DEFAULT 'pending',
+    added_at TEXT NOT NULL DEFAULT '2026-01-01 00:00:00',
+    started_at TEXT,
+    completed_at TEXT,
+    channels_found INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE archive_keyword_pending (
+    channel_id TEXT NOT NULL,
+    keyword TEXT NOT NULL,
+    handles_limit INTEGER,
+    discovered_at TEXT NOT NULL,
+    PRIMARY KEY (channel_id, keyword)
 );
 `;
 
@@ -126,7 +144,21 @@ export interface FixtureData {
     country?: string | null;
     uploads30?: number | null;
     latestUpload?: string | null;
+    /** What schema 4 keeps for Insights: when it was found, sponsors and addresses (JSON text). */
+    foundAt?: string | null;
+    brands?: string | null;
+    emails?: string | null;
   }[];
+  /** The keyword queue, for Insights: its runs by keyword. */
+  keywordRows?: {
+    keyword: string;
+    status?: string;
+    startedAt?: string | null;
+    completedAt?: string | null;
+    found?: number;
+  }[];
+  /** Archived channels a search found again. */
+  pending?: { channel: string; keyword: string; at: string }[];
   /** Build the archive as schema 3 had it, without the facts schema 4 added. */
   schema3?: boolean;
   /** Build the file as schema 2 had it, without `found_email_sources`. */
@@ -195,9 +227,9 @@ export function writePipelineDb(path: string, data: FixtureData = {}): void {
     const archive = db.prepare(
       `INSERT INTO channel_archive (channel_id, handle, label, archived_at, subscribers${
         wide
-          ? ", median_views_last_30, videos_found_count, found_via, name, country, videos_last_30, latest_upload_at"
+          ? ", median_views_last_30, videos_found_count, found_via, found_at, seen_brands, found_emails, name, country, videos_last_30, latest_upload_at"
           : ""
-      }) VALUES (?,?,?,?,?${wide ? ",?,?,?,?,?,?,?" : ""})`,
+      }) VALUES (?,?,?,?,?${wide ? ",?,?,?,?,?,?,?,?,?,?" : ""})`,
     );
     for (const a of data.archive ?? []) {
       archive.run(
@@ -211,6 +243,9 @@ export function writePipelineDb(path: string, data: FixtureData = {}): void {
               a.median ?? null,
               a.videos ?? null,
               a.foundVia ?? null,
+              a.foundAt ?? null,
+              a.brands ?? null,
+              a.emails ?? null,
               a.name ?? null,
               a.country ?? null,
               a.uploads30 ?? null,
@@ -218,6 +253,24 @@ export function writePipelineDb(path: string, data: FixtureData = {}): void {
             ]
           : []),
       );
+    }
+    const keywordQueue = db.prepare(
+      "INSERT INTO keywords (keyword, status, started_at, completed_at, channels_found) VALUES (?,?,?,?,?)",
+    );
+    for (const k of data.keywordRows ?? []) {
+      keywordQueue.run(
+        k.keyword,
+        k.status ?? "done",
+        k.startedAt ?? null,
+        k.completedAt ?? null,
+        k.found ?? 0,
+      );
+    }
+    const pending = db.prepare(
+      "INSERT INTO archive_keyword_pending (channel_id, keyword, handles_limit, discovered_at) VALUES (?,?,?,?)",
+    );
+    for (const p of data.pending ?? []) {
+      pending.run(p.channel, p.keyword, 200, p.at);
     }
     db.exec("COMMIT");
   } finally {

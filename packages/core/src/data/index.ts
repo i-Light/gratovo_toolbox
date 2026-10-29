@@ -127,7 +127,7 @@ export type {
   StoredDraft,
   StoredMessage,
 } from "./outreach-store";
-export type { InsightsStore } from "./insights-store";
+export type { InsightsLocal, InsightsLocalCreator, InsightsStore } from "./insights-store";
 export { exampleHistory } from "./example-history";
 export type {
   ArchiveTuple,

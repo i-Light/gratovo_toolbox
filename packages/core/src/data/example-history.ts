@@ -1456,7 +1456,7 @@ function build(now: number, broke: boolean): ExampleHistory {
     log.push({
       id: `hl-${str(logN)}`,
       at: new Date(t).toISOString(),
-      at_ms: t,
+      at_ms: Math.round(t),
       actor_id: actor.id,
       actor_name: actor.name,
       actor_role: actor.role,

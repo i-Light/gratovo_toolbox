@@ -61,7 +61,7 @@ CREATE TABLE stage_events (
   at INTEGER NOT NULL,
   source TEXT NOT NULL CHECK (source IN ('change','log','message','example'))
 ) STRICT;
-CREATE INDEX stage_events_channel ON stage_events (channel_id, at);
+CREATE INDEX stage_events_channel ON stage_events (channel_id, stage, at);
 CREATE INDEX stage_events_stage ON stage_events (stage, at);
 
 CREATE TRIGGER stage_events_insert AFTER INSERT ON channel_state

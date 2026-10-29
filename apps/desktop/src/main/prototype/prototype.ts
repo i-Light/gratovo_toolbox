@@ -37,6 +37,12 @@ export interface PrototypeDeps {
   removeFolder?: (path: string) => Promise<void>;
   /** Opens a fresh example copy (tests give one that fails). */
   openCopy?: typeof openExampleCopy;
+  /**
+   * Fills a fresh copy with the example history (plan P8a, A7): awaited after the copy opens (a
+   * turn-on or a scenario pick) and before the windows reload. It must not throw or start a
+   * search; a rejection is logged and prototype mode opens anyway.
+   */
+  loadHistory?: (o: { db: DatabaseSync; scenario: Scenario; folder: string }) => Promise<void>;
 }
 
 export interface Prototype {
@@ -197,6 +203,13 @@ export function createPrototype(deps: PrototypeDeps): Prototype {
         return;
       }
       swap(next);
+      if (next !== null && copy !== null && deps.loadHistory !== undefined) {
+        try {
+          await deps.loadHistory({ db: copy.db, scenario: next, folder });
+        } catch (error) {
+          console.warn(`Prototype: the example history could not be loaded (${kindOf(error)}).`);
+        }
+      }
     } finally {
       deps.reloadWindow();
     }

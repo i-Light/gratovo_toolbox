@@ -16,6 +16,7 @@ import {
   toolboxList,
   type ArchivedNames,
 } from "./find/toolbox";
+import type { InsightsService } from "./insights/service";
 import { prototypeRefused, refusedWhileOn } from "./prototype/refused";
 import type { SecretStore } from "./secret-store";
 import type { HandlerServices } from "./services";
@@ -54,6 +55,11 @@ export interface HandlerContext extends HandlerServices {
    * good". Without it a restore answers `no_python`, as no job can run.
    */
   archive?: Pick<ArchiveService, "sweep" | "restore">;
+  /**
+   * The Insights service (plan step P8a): the reports, the records behind a number, hidden alerts
+   * and the goal. Without it the four `insights:*` channels refuse.
+   */
+  insights?: InsightsService;
   account: Pick<
     Account,
     | "status"
@@ -123,6 +129,14 @@ function buildHandlers(context: HandlerContext): Handlers {
       throw new Error("No data is open: the account is signed out or waiting for access.");
     }
     return source;
+  }
+
+  /** The Insights service; a call without one is refused. */
+  function insightsService(): InsightsService {
+    if (context.insights === undefined) {
+      throw new Error("Insights is not available yet.");
+    }
+    return context.insights;
   }
 
   /** `pipeline.db` in the open data folder; null with none. */
@@ -243,6 +257,11 @@ function buildHandlers(context: HandlerContext): Handlers {
         await openSource().logSince(midnight.getTime()),
       );
     },
+    // Plan step P8a: Insights (local reads and local settings; none is refused in prototype mode).
+    "insights:read": ({ tab, period }) => insightsService().read(tab, period),
+    "insights:list": ({ drill, period, offset }) => insightsService().list(drill, period, offset),
+    "insights:hide": ({ key, until }) => insightsService().hide(key, until),
+    "insights:goal": (patch) => insightsService().goal(patch),
     "rules:set": ({ rules }) => {
       find.setRules(rules);
       return {};
