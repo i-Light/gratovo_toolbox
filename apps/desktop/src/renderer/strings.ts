@@ -1562,7 +1562,18 @@ export const strings = {
       sub: "Deals and money",
       tabs: { board: "Deal board", money: "Money" },
     },
-    insights: { name: "Insights", sub: "Analytics, keywords, funnel", tabs: {} },
+    insights: {
+      name: "Insights",
+      sub: "Analytics, keywords, funnel",
+      tabs: {
+        overview: "Overview",
+        funnel: "Funnel",
+        emails: "Emails",
+        search: "Search",
+        money: "Money",
+        goal: "Goal",
+      },
+    },
     toolbox: {
       name: "Toolbox",
       sub: "Archive, scheduled, never contact, log",
@@ -1708,6 +1719,60 @@ export const strings = {
         unreachable: "Couldn’t reach the app’s data",
       },
     },
+  },
+  /** Insights' screen and its shared pieces (plan step P8a). */
+  insights: {
+    title: "Insights",
+    sub: "How the agency is doing, what needs you, and what to do about it.",
+    tabsLabel: "Insights sections",
+    periodLabel: "Period",
+    periods: {
+      "7d": "7 days",
+      "30d": "30 days",
+      "90d": "90 days",
+      month: "This month",
+    },
+    comparedWith: {
+      "7d": "Last 7 days, compared with the 7 days before",
+      "30d": "Last 30 days, compared with the 30 days before",
+      "90d": "Last 90 days, compared with the 90 days before",
+      month: "This month so far, compared with last month",
+    },
+    copySummary: "Copy summary",
+    summaryCopied: "Summary copied",
+    numbers: "Numbers",
+    hideNumbers: "Hide numbers",
+    copyCsv: "Copy as CSV",
+    csvCopied: "CSV copied",
+    whatIsThis: "What is this?",
+    verdict: {
+      good: "On track",
+      watch: "Watch",
+      act: "Act now",
+      early: "Too early to tell",
+    },
+    difference: {
+      clear: "Clear difference",
+      chance: "Could be chance, keep going",
+      early: "Too early to tell",
+    },
+    drill: {
+      title: (count: number): string =>
+        `${count.toLocaleString("en-US")} ${count === 1 ? "record" : "records"}`,
+      label: "Records behind the number",
+      open: "Open",
+      close: "Close",
+      empty: "No records",
+      more: "Load more",
+    },
+    empty: {
+      title: "Nothing to show yet",
+      body: "Insights fills in as you search, review and email.",
+    },
+    showAll: (n: number): string => `Show all ${n.toLocaleString("en-US")}`,
+    hideForWeek: "Hide for 7 days",
+    moneyComes: "Money comes with deals",
+    building: "This part is still being built.",
   },
   /** Close's screen and its Roster tab (plan step 8, R2). */
   closeScreen: {

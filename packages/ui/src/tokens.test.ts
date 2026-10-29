@@ -23,8 +23,27 @@ const expectedRules = [
 /**
  * Values that differ from the prototype on purpose: rule -> property -> { value, why }.
  */
+const insightsWhy =
+  "Insights (P8a, design 2a): series colours and the raised panel; not in the prototype.";
+const insightsTokens: Record<string, { value: string; why: string }> = Object.fromEntries(
+  Object.entries({
+    "--series-live": "#3a9ad3",
+    "--series-waiting": "#c8711f",
+    "--series-archive": "#8a7ae6",
+    "--series-rules": "#4a4380",
+    "--series-neutral": "#3d5a72",
+    "--raised-top": "#10293d",
+    "--raised-highlight": "rgba(255,255,255,0.04)",
+    "--raised-shadow": "0 1px 0 rgba(0,0,0,0.4),0 12px 32px -12px rgba(0,0,0,0.6)",
+  }).map(([name, value]) => [name, { value, why: insightsWhy }]),
+);
+
 const deviations: Record<string, Record<string, { value: string; why: string }>> = {
+  '@media (prefers-color-scheme: dark) :root:not([data-theme="light"])': insightsTokens,
+  ':root[data-theme="dark"]': insightsTokens,
   ":root": {
+    ...insightsTokens,
+    "--r-panel": { value: "16px", why: insightsWhy },
     "--muted": {
       value: "#566678",
       why: "Contrast (3c-3, F7): the prototype's #64778b reads 3.96 to 4.26:1 on the sunk and accent-soft surfaces; #566678 keeps the hue and reads at least 4.72:1 on every light surface.",
