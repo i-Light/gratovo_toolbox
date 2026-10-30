@@ -1465,12 +1465,12 @@ function build(now: number, broke: boolean): ExampleHistory {
     const actor = actorOf(by);
     const text =
       action === "creator.shortlist"
-        ? `Shortlisted ${label}`
+        ? `${label} shortlisted`
         : action === "creator.reject"
-          ? `Rejected ${label}`
+          ? `${label} rejected`
           : action === "creator.restore"
-            ? `Brought back ${label}`
-            : `Marked ${label} as never contact`;
+            ? `${label} is back in Review new`
+            : `${label} will never be emailed`;
     logN += 1;
     log.push({
       id: `hl-${str(logN)}`,

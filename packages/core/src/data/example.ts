@@ -212,7 +212,8 @@ function turnedDownLog(list: readonly Creator[]): readonly LogEntry[] {
       id: `00000000-0000-4000-8000-${String(100 + i).padStart(12, "0")}`,
       at: c.rejectedAt,
       who: turnedDownBy[c.id] ?? me,
-      text: never ? `Marked ${c.name} as never contact` : `Rejected ${c.name}`,
+      // The words the app itself writes (strings.findActions).
+      text: never ? `${c.name} will never be emailed` : `${c.name} rejected`,
       ref: c.id,
       action: never ? "creator.never" : "creator.reject",
       detail: never ? c.neverReason : c.rejectReason,
