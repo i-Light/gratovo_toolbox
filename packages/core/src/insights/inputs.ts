@@ -1,5 +1,6 @@
 import type { AudienceKey } from "../close/audience";
 import type { CreatorStage, RejectReason } from "../data/types";
+import type { BrandStatus } from "../data/work-types";
 
 import type { GoalSettings, HiddenAlerts, ReadingKind } from "./types";
 
@@ -152,6 +153,55 @@ export interface CatalogWeek {
   readonly archive: number;
 }
 
+/**
+ * A deal, as the money reports need it (plan step P8b). Amounts are whole dollars; for a viewer who
+ * doesn't see money main never builds a money report, and passes the amounts as null.
+ */
+export interface DealFact {
+  readonly id: string;
+  readonly brandId: string;
+  readonly creatorId: string;
+  /** An index into DEAL_FLOW. */
+  readonly step: number;
+  readonly price: number | null;
+  readonly payout: number | null;
+  readonly createdAt: number | null;
+  readonly goLiveAt: number | null;
+  readonly invoiceSentAt: number | null;
+  readonly invoiceDueAt: number | null;
+  readonly invoicePaidAt: number | null;
+  readonly paidCreatorAt: number | null;
+  /** Views at 30 days (the 30-day report); null before it. */
+  readonly reportViews: number | null;
+  /** The creator's usual views when the deal was made (the report's target); null when not known. */
+  readonly usualViews: number | null;
+  /** The 30-day report went out. */
+  readonly reportSentAt: number | null;
+}
+
+/** A brand, as the brand funnel needs it. */
+export interface BrandFact {
+  readonly id: string;
+  readonly name: string;
+  readonly status: BrandStatus;
+  /** When it was added; null when not known. */
+  readonly since: number | null;
+}
+
+/** One deal step change (`deal_events`, migration 0009). */
+export interface DealEvent {
+  readonly dealId: string;
+  readonly step: number;
+  readonly at: number;
+}
+
+/** One brand status change (`brand_events`, migration 0009). */
+export interface BrandEvent {
+  readonly brandId: string;
+  readonly status: BrandStatus;
+  readonly at: number;
+}
+
 export interface InsightsInputs {
   readonly now: number;
   /** The owner's archive days (Settings › Search rules). */
@@ -170,4 +220,14 @@ export interface InsightsInputs {
   readonly runs: readonly number[];
   readonly goal: GoalSettings;
   readonly hidden: HiddenAlerts;
+  /** Every deal (P8b). */
+  readonly deals: readonly DealFact[];
+  /** Every brand (P8b). */
+  readonly brands: readonly BrandFact[];
+  readonly dealEvents: readonly DealEvent[];
+  readonly brandEvents: readonly BrandEvent[];
+  /** Whether the viewer sees money: without it no money report, line, alert or win is made. */
+  readonly seesMoney: boolean;
+  /** The least margin a deal may have, in % of its price (Settings › Agency facts). */
+  readonly marginFloorPct: number;
 }

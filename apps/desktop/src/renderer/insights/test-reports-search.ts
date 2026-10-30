@@ -241,6 +241,7 @@ const line = (over: Partial<GoalLine> & Pick<GoalLine, "step">): GoalLine => ({
   rate: null,
   perDay: null,
   actualPerDay: null,
+  actualMonth: null,
   verdict: "good",
   shortBy: null,
   ...over,
@@ -251,7 +252,7 @@ export function goalReport(over: Partial<GoalReport> = {}): GoalReport {
   return {
     tab: "goal",
     window,
-    settings: { signsPerMonth: 4, overrides: {} },
+    settings: { signsPerMonth: 4, revenuePerMonth: null, overrides: {} },
     lines: [
       line({ step: "signed", month: 4 }),
       line({

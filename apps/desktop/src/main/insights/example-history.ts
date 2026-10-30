@@ -5,6 +5,8 @@ import type { DatabaseSync, SQLInputValue } from "node:sqlite";
 import { exampleHistory } from "@gratovo/core/data";
 import type { ExampleHistory, Scenario } from "@gratovo/core/data";
 
+import { goalSettingName } from "../data/repositories/insights";
+import { setSetting } from "../data/repositories/settings";
 import { inTransaction } from "../data/sqlite-source";
 import type { JobOutcome } from "../pipeline/jobs";
 import type { Start } from "../pipeline/protocol";
@@ -146,6 +148,78 @@ const weekColumns = [
   "written_at",
 ] as const satisfies readonly Extract<keyof Gratovo["weeks"][number], string>[];
 
+const brandColumns = [
+  "id",
+  "name",
+  "sells",
+  "status",
+  "category",
+  "country",
+  "website",
+  "contacts",
+  "budget",
+  "created_at",
+  "updated_at",
+] as const satisfies readonly Extract<keyof Gratovo["brands"][number], string>[];
+
+const brandDetailColumns = [
+  "brand_id",
+  "headcount",
+  "recommended_title",
+  "paid_spender_verified",
+  "past_campaign_hook",
+  "budget_high",
+  "seen",
+  "since",
+  "pitched",
+  "owner_id",
+  "status",
+] as const satisfies readonly Extract<keyof Gratovo["brandDetails"][number], string>[];
+
+const dealColumns = [
+  "id",
+  "brand_id",
+  "channel_id",
+  "stage",
+  "brand_price",
+  "influencer_payout",
+  "deliverables",
+  "payment_terms",
+  "brand_invoice_sent_at",
+  "brand_invoice_paid_at",
+  "creator_payout_paid_at",
+  "payment_reference",
+  "owner_id",
+  "flow_step",
+  "created_at",
+  "updated_at",
+] as const satisfies readonly Extract<keyof Gratovo["deals"][number], string>[];
+
+const dealDetailColumns = [
+  "deal_id",
+  "model",
+  "checks",
+  "video_count",
+  "videos_delivered",
+  "creator_deadline",
+  "go_live_at",
+  "due_at",
+  "placement",
+  "invoice_number",
+  "invoice_due_at",
+  "report",
+  "live_url",
+  "clauses",
+  "redlines",
+  "shipping",
+  "script_approved",
+  "qc",
+  "hype",
+  "whitelisting_until",
+  "cpm",
+  "negotiation",
+] as const satisfies readonly Extract<keyof Gratovo["dealDetails"][number], string>[];
+
 /**
  * Writes the history's local part into `gratovo.db`, in one transaction. Inserting `creators`
  * fires the stage-event triggers (source `change`, stamped with now): those rows are removed for
@@ -200,6 +274,42 @@ export function writeHistoryLocal(db: DatabaseSync, history: Gratovo): void {
       history.events,
       (row) => [row.channel_id, row.stage, row.at, row.source],
     );
+
+    // Brands and deals (P8b). The seed's ten brands and eight deals are already in.
+    insertAll(db, insertSql("brands", brandColumns), history.brands, (row) =>
+      pick(row, brandColumns),
+    );
+    insertAll(db, insertSql("brand_details", brandDetailColumns), history.brandDetails, (row) =>
+      pick(row, brandDetailColumns),
+    );
+    insertAll(db, insertSql("deals", dealColumns), history.deals, (row) => pick(row, dealColumns));
+    insertAll(db, insertSql("deal_details", dealDetailColumns), history.dealDetails, (row) =>
+      pick(row, dealDetailColumns),
+    );
+    // The triggers stamped them with now too; the history knows when each step and status came.
+    // (The seed's own deals and brands keep the times it gave them.)
+    const forgetDeal = db.prepare("DELETE FROM deal_events WHERE deal_id = ?");
+    for (const row of history.deals) {
+      forgetDeal.run(row.id);
+    }
+    const forgetBrand = db.prepare("DELETE FROM brand_events WHERE brand_id = ?");
+    for (const row of history.brands) {
+      forgetBrand.run(row.id);
+    }
+    insertAll(
+      db,
+      "INSERT INTO deal_events (deal_id, step, at, source) VALUES (?, ?, ?, ?)",
+      history.dealEvents,
+      (row) => [row.deal_id, row.step, row.at, row.source],
+    );
+    insertAll(
+      db,
+      "INSERT INTO brand_events (brand_id, status, at, source) VALUES (?, ?, ?, ?)",
+      history.brandEvents,
+      (row) => [row.brand_id, row.status, row.at, row.source],
+    );
+    // The prototype's goal: a money goal (net a month) beside the creators to sign.
+    setSetting(db, goalSettingName, { ...history.settings.goal, overrides: {} });
   });
 }
 

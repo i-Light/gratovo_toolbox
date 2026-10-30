@@ -258,8 +258,9 @@ function buildHandlers(context: HandlerContext): Handlers {
       );
     },
     // Plan step P8a: Insights (local reads and local settings; none is refused in prototype mode).
-    "insights:read": ({ tab, period }) => insightsService().read(tab, period),
-    "insights:list": ({ drill, period, offset }) => insightsService().list(drill, period, offset),
+    "insights:read": ({ tab, period, deals }) => insightsService().read(tab, period, deals),
+    "insights:list": ({ drill, period, offset, deals }) =>
+      insightsService().list(drill, period, offset, deals),
     "insights:hide": ({ key, until }) => insightsService().hide(key, until),
     "insights:goal": (patch) => insightsService().goal(patch),
     "rules:set": ({ rules }) => {

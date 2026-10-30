@@ -20,12 +20,19 @@ const t = strings.insights;
 
 afterEach(cleanup);
 
-function overview(report = overviewReport) {
+function overview(report = overviewReport, showDeals = true) {
   const onGo = vi.fn();
   const onDrill = vi.fn();
   const onHide = vi.fn();
   render(
-    <OverviewTab report={report} onGo={onGo} onDrill={onDrill} onHide={onHide} seesMoney={false} />,
+    <OverviewTab
+      report={report}
+      onGo={onGo}
+      onDrill={onDrill}
+      onHide={onHide}
+      seesMoney={false}
+      showDeals={showDeals}
+    />,
   );
   return { onGo, onDrill, onHide };
 }
@@ -126,17 +133,37 @@ describe("OverviewTab", () => {
 });
 
 describe("FunnelTab", () => {
-  function funnel(showBrands = false, report = funnelReport) {
+  function funnel(showBrands = false, report = funnelReport, showDeals = true) {
     const onGo = vi.fn();
     const onDrill = vi.fn();
-    render(<FunnelTab report={report} onGo={onGo} onDrill={onDrill} showBrands={showBrands} />);
+    render(
+      <FunnelTab
+        report={report}
+        onGo={onGo}
+        onDrill={onDrill}
+        showBrands={showBrands}
+        showDeals={showDeals}
+      />,
+    );
     return { onGo, onDrill };
   }
+
+  it("leaves out First deal and First payout, and their waits, when deals are not shown", () => {
+    funnel(false, funnelReport, false);
+    const table = screen.getByRole("table", { name: t.funnel.table.label });
+    expect(within(table).queryByText(t.funnel.steps.firstDeal)).toBeNull();
+    expect(within(table).queryByText(t.funnel.steps.firstPayout)).toBeNull();
+    expect(within(table).getByText(t.funnel.steps.signed)).toBeTruthy();
+    cleanup();
+    funnel(false, funnelReport, true);
+    const shown = screen.getByRole("table", { name: t.funnel.table.label });
+    expect(within(shown).getByText(t.funnel.steps.firstDeal)).toBeTruthy();
+  });
 
   it("shows the table, the exits, the days and the cohorts, with cohorts folded", () => {
     funnel();
     const table = screen.getByRole("table", { name: t.funnel.table.label });
-    expect(within(table).getAllByRole("row")).toHaveLength(1 + 10);
+    expect(within(table).getAllByRole("row")).toHaveLength(1 + 12);
     expect(within(table).getByText(t.funnel.table.byDesign)).toBeTruthy();
     expect(within(table).getByText(t.funnel.table.biggest)).toBeTruthy();
     expect(screen.getByText(/1,020 never answered/)).toBeTruthy();
@@ -168,13 +195,31 @@ describe("FunnelTab", () => {
     expect(screen.getByText(t.funnel.headline.countedCohort)).toBeTruthy();
   });
 
-  it("shows Brands only when asked, with a note that they come with deals", () => {
+  it("shows Brands only when asked, with the brand funnel's rows and what was lost", () => {
     funnel(false);
     expect(screen.queryByRole("button", { name: t.funnel.brands })).toBeNull();
     cleanup();
     funnel(true);
     fireEvent.click(screen.getByRole("button", { name: t.funnel.brands }));
-    expect(screen.getByText(t.funnel.brandsComes)).toBeTruthy();
+    expect(screen.getByText("Brands: 6 of the 140 found have paid so far.")).toBeTruthy();
+    expect(document.querySelectorAll("[data-ui^='insights.funnel.brands.row.']")).toHaveLength(8);
+    expect(screen.getByText("6 brands were marked not a fit.")).toBeTruthy();
+    expect(screen.queryByText(t.funnel.table.label)).toBeNull();
+  });
+
+  it("opens the brands at a step", () => {
+    const { onDrill } = funnel(true);
+    fireEvent.click(screen.getByRole("button", { name: t.funnel.brands }));
+    fireEvent.click(
+      document.querySelector("[data-ui='insights.funnel.brands.row.pitched']") as HTMLElement,
+    );
+    expect(onDrill).toHaveBeenCalledWith({ kind: "brandStep", step: "pitched" });
+  });
+
+  it("shows the creator funnel's two new steps", () => {
+    funnel();
+    expect(document.querySelector("[data-ui='insights.funnel.row.firstDeal']")).toBeTruthy();
+    expect(document.querySelector("[data-ui='insights.funnel.row.firstPayout']")).toBeTruthy();
   });
 
   it("gives each exit its own list", () => {

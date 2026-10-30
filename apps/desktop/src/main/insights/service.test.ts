@@ -66,16 +66,16 @@ afterEach(() => {
 describe("read", () => {
   it("answers each tab with its own report", async () => {
     for (const tab of ["overview", "funnel", "emails", "search", "goal"] as const) {
-      expect((await service.read(tab, "30d")).tab).toBe(tab);
+      expect((await service.read(tab, "30d", true)).tab).toBe(tab);
     }
-    const search = await service.read("search", "7d");
+    const search = await service.read("search", "7d", true);
     if (search.tab !== "search") throw new Error("wrong tab");
     expect(search.counts).toMatchObject({ live: 250, waiting: 0, archive: 0 });
   });
 
   it("refuses with no data open", async () => {
     open = false;
-    await expect(service.read("overview", "7d")).rejects.toThrow(/No data is open/);
+    await expect(service.read("overview", "7d", true)).rejects.toThrow(/No data is open/);
     expect(() => service.hide("k", NOW + day)).toThrow(/No data is open/);
   });
 });
@@ -84,20 +84,20 @@ describe("list", () => {
   const drill = { kind: "live", group: "notReviewed" } as const;
 
   it("pages the records behind a number, and the total is the number", async () => {
-    const search = await service.read("search", "30d");
+    const search = await service.read("search", "30d", true);
     if (search.tab !== "search") throw new Error("wrong tab");
-    const first = await service.list(drill, "30d", 0);
+    const first = await service.list(drill, "30d", 0, true);
     expect(first.total).toBe(search.live.groups.notReviewed);
     expect(first.total).toBe(250);
     expect(first.rows).toHaveLength(100);
     expect(first.rows[0]).toMatchObject({ handle: expect.stringMatching(/^@/) as string });
     expect(first.rows[0]?.note).toMatchObject({ kind: "fit", fit: expect.any(Number) as number });
-    const last = await service.list(drill, "30d", 200);
+    const last = await service.list(drill, "30d", 200, true);
     expect(last.rows).toHaveLength(50);
-    expect(await service.list(drill, "30d", 300)).toEqual({ rows: [], total: 250 });
+    expect(await service.list(drill, "30d", 300, true)).toEqual({ rows: [], total: 250 });
     const ids = new Set([
       ...first.rows.map((r) => r.id),
-      ...(await service.list(drill, "30d", 100)).rows.map((r) => r.id),
+      ...(await service.list(drill, "30d", 100, true)).rows.map((r) => r.id),
       ...last.rows.map((r) => r.id),
     ]);
     expect(ids.size).toBe(250);
@@ -107,7 +107,7 @@ describe("list", () => {
     db.prepare(
       "INSERT INTO stage_events (channel_id, stage, at, source) VALUES ('UCgone', 'shortlisted', ?, 'log')",
     ).run(NOW - day);
-    const page = await service.list({ kind: "step", step: "shortlisted" }, "30d", 0);
+    const page = await service.list({ kind: "step", step: "shortlisted" }, "30d", 0, true);
     expect(page.total).toBe(page.rows.length);
     expect(page.rows).toContainEqual({
       id: "UCgone",
@@ -118,7 +118,10 @@ describe("list", () => {
   });
 
   it("lists nothing for a drill with no records", async () => {
-    expect(await service.list({ kind: "mistakes" }, "30d", 0)).toEqual({ rows: [], total: 0 });
+    expect(await service.list({ kind: "mistakes" }, "30d", 0, true)).toEqual({
+      rows: [],
+      total: 0,
+    });
   });
 });
 
@@ -144,13 +147,13 @@ describe("hide", () => {
   });
 
   it("shows in the Overview's count of hidden alerts", async () => {
-    const before = await service.read("overview", "30d");
+    const before = await service.read("overview", "30d", true);
     if (before.tab !== "overview") throw new Error("wrong tab");
     expect(before.hidden).toBe(0);
     for (const line of before.attention) {
       service.hide(line.key, NOW + day);
     }
-    const after = await service.read("overview", "30d");
+    const after = await service.read("overview", "30d", true);
     if (after.tab !== "overview") throw new Error("wrong tab");
     expect(after.hidden).toBe(before.attention.length);
     expect(after.attention).toEqual([]);
@@ -159,33 +162,49 @@ describe("hide", () => {
 
 describe("goal", () => {
   it("sets, overrides, clears and resets", async () => {
-    expect(service.goal({})).toEqual({ signsPerMonth: 4, overrides: {} });
-    expect(service.goal({ signsPerMonth: 6 })).toEqual({ signsPerMonth: 6, overrides: {} });
+    expect(service.goal({})).toEqual({ signsPerMonth: 4, revenuePerMonth: null, overrides: {} });
+    expect(service.goal({ signsPerMonth: 6 })).toEqual({
+      signsPerMonth: 6,
+      revenuePerMonth: null,
+      overrides: {},
+    });
     expect(service.goal({ overrides: { replied: 0.1, signed: 0.5 } })).toEqual({
       signsPerMonth: 6,
+      revenuePerMonth: null,
       overrides: { replied: 0.1, signed: 0.5 },
     });
     expect(source.readSetting("insights.goal")).toEqual({
       signsPerMonth: 6,
+      revenuePerMonth: null,
       overrides: { replied: 0.1, signed: 0.5 },
     });
     // Null goes back to your own rate.
     expect(service.goal({ overrides: { replied: null } })).toEqual({
       signsPerMonth: 6,
+      revenuePerMonth: null,
       overrides: { signed: 0.5 },
     });
-    const goal = await service.read("goal", "30d");
+    const goal = await service.read("goal", "30d", true);
     if (goal.tab !== "goal") throw new Error("wrong tab");
-    expect(goal.settings).toEqual({ signsPerMonth: 6, overrides: { signed: 0.5 } });
-    expect(service.goal({ reset: true })).toEqual({ signsPerMonth: 4, overrides: {} });
+    expect(goal.settings).toEqual({
+      signsPerMonth: 6,
+      revenuePerMonth: null,
+      overrides: { signed: 0.5 },
+    });
+    expect(service.goal({ reset: true })).toEqual({
+      signsPerMonth: 4,
+      revenuePerMonth: null,
+      overrides: {},
+    });
     expect(service.goal({ reset: true, signsPerMonth: 9 })).toEqual({
       signsPerMonth: 9,
+      revenuePerMonth: null,
       overrides: {},
     });
   });
 
   it("reads a damaged goal as the default", () => {
     source.writeSetting("insights.goal", { signsPerMonth: "many", overrides: { signed: 7, x: 1 } });
-    expect(service.goal({})).toEqual({ signsPerMonth: 4, overrides: {} });
+    expect(service.goal({})).toEqual({ signsPerMonth: 4, revenuePerMonth: null, overrides: {} });
   });
 });

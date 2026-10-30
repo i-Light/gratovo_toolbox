@@ -1,5 +1,7 @@
 import { rateOf } from "@gratovo/core/insights";
 import type {
+  BrandFunnel,
+  BrandStep,
   CohortRow,
   CreatorStep,
   Difference,
@@ -19,8 +21,27 @@ export function stepName(step: CreatorStep): string {
   return t.steps[step];
 }
 
+/** The creator steps that come from deals: live leaves them out until deals are wired (B8). */
+const dealSteps: ReadonlySet<CreatorStep> = new Set<CreatorStep>(["firstDeal", "firstPayout"]);
+
+/** The rows to show: all of them, or without First deal and First payout when deals are not shown. */
+export function shownRows<T extends { readonly step: CreatorStep }>(
+  rows: readonly T[],
+  showDeals: boolean,
+): readonly T[] {
+  return showDeals ? rows : rows.filter((r) => !dealSteps.has(r.step));
+}
+
+/** The waits to show: without the ones to or from a deal step when deals are not shown. */
+export function shownWaits(
+  waits: FunnelReport["stepDays"],
+  showDeals: boolean,
+): FunnelReport["stepDays"] {
+  return showDeals ? waits : waits.filter((w) => !dealSteps.has(w.from) && !dealSteps.has(w.to));
+}
+
 /** The share that made it from the step above, as the table shows it. */
-export function shareText(row: FunnelRow): string {
+export function shareText(row: Pick<FunnelRow, "fromPrev">): string {
   if (row.fromPrev === null) return t.table.start;
   return ratioPct(row.fromPrev);
 }
@@ -187,4 +208,42 @@ export function cohortMeaning(trend: Difference): string {
 /** The heat table's cells, one row per week: the share that replied by day 3, 7, 14 and 30. */
 export function cohortCells(rows: readonly CohortRow[]): (number | null)[][] {
   return rows.map((r) => r.by.map((b) => (b === null ? null : rateOf(b))));
+}
+
+// ---------------------------------------------------------------------------------------------
+// The brand funnel
+
+export function brandStepName(step: BrandStep): string {
+  return t.brandFunnel.steps[step];
+}
+
+/** True when no brand has moved past Found: nothing to show. */
+export function brandsAreEmpty(brands: BrandFunnel): boolean {
+  return brands.rows.every((r) => r.count === 0);
+}
+
+/** "Brands: 6 of the 140 found have paid so far." */
+export function brandHeadline(brands: BrandFunnel): string {
+  const b = t.brandFunnel;
+  const found = brands.rows.find((r) => r.step === "found")?.count ?? 0;
+  const paid = brands.rows.find((r) => r.step === "paid")?.count ?? 0;
+  if (found === 0) return b.headlineOnly;
+  return paid === 0 ? b.headlineNone(num(found)) : b.headline(num(paid), num(found));
+}
+
+/** The sentence under the brand funnel: its biggest drop with counts. */
+export function brandDropSentence(brands: BrandFunnel): string {
+  const b = t.brandFunnel;
+  const i = brands.rows.findIndex((r) => r.step === brands.biggestDrop);
+  const row = i > 0 ? brands.rows[i] : undefined;
+  const prev = i > 0 ? brands.rows[i - 1] : undefined;
+  if (row?.fromPrev == null || prev === undefined) return b.noDrop;
+  const { n, d } = row.fromPrev;
+  return b.biggest(brandStepName(prev.step), brandStepName(row.step), num(d - n), num(d));
+}
+
+/** The headline of the "lost" breakdown. */
+export function brandLostHeadline(brands: BrandFunnel): string {
+  const total = brands.lost.reduce((a, r) => a + r.count, 0);
+  return total === 0 ? t.brandFunnel.lostNone : t.brandFunnel.lostHeadline(num(total));
 }

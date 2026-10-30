@@ -1,11 +1,15 @@
 import { audienceKeys } from "../close/audience";
 import { rejectReasons } from "../data/types";
 import type { CreatorStage, RejectReason } from "../data/types";
+import type { BrandStatus } from "../data/work-types";
 
 import { compareRates, median, startOfWeek } from "./stats";
 import { thresholds } from "./thresholds";
-import { creatorSteps, positiveReadings } from "./types";
+import { brandSteps, creatorSteps, positiveReadings } from "./types";
 import type {
+  BrandFunnel,
+  BrandFunnelRow,
+  BrandStep,
   CohortRow,
   CreatorStep,
   Difference,
@@ -16,7 +20,7 @@ import type {
   Ratio,
   ReportWindow,
 } from "./types";
-import type { InsightsInputs, MessageFact } from "./inputs";
+import type { DealFact, InsightsInputs, MessageFact } from "./inputs";
 
 /**
  * The creator funnel (design 3.2): how many creators reached each step, how many made it from the
@@ -51,6 +55,9 @@ const stepRank: Readonly<Record<PathStep, number>> = {
   kit: 5,
   audience: 6,
   signed: 7,
+  // The two deal steps come from deals, not stages: a creator with a deal has signed.
+  firstDeal: 7,
+  firstPayout: 7,
 };
 
 const offPath: readonly CreatorStage[] = ["rejected", "parked", "never"];
@@ -98,7 +105,18 @@ export function creatorsOf(inputs: InsightsInputs): Creator[] {
     else messages.set(m.channelId, [m]);
   }
   const channels = new Map(inputs.channels.map((c) => [c.id, c]));
-  const ids = new Set<string>([...channels.keys(), ...eventTimes.keys(), ...messages.keys()]);
+  const dealsOf = new Map<string, DealFact[]>();
+  for (const d of inputs.deals) {
+    const list = dealsOf.get(d.creatorId);
+    if (list) list.push(d);
+    else dealsOf.set(d.creatorId, [d]);
+  }
+  const ids = new Set<string>([
+    ...channels.keys(),
+    ...eventTimes.keys(),
+    ...messages.keys(),
+    ...dealsOf.keys(),
+  ]);
 
   const out: Creator[] = [];
   for (const id of ids) {
@@ -126,6 +144,12 @@ export function creatorsOf(inputs: InsightsInputs): Creator[] {
         : false;
     if (positive) rank = Math.max(rank, 4);
 
+    const deals = dealsOf.get(id) ?? [];
+    if (deals.length > 0) rank = Math.max(rank, 7);
+    const dealTimes = deals.map((d) => d.createdAt).filter((t): t is number => t !== null);
+    const payTimes = deals.map((d) => d.paidCreatorAt).filter((t): t is number => t !== null);
+    const paid = deals.some((d) => d.paidCreatorAt !== null);
+
     const eventAt = (s: CreatorStage): number | null => earliest(byStage?.get(s) ?? []);
     const timeOf: Record<PathStep, number | null> = {
       shortlisted: eventAt("shortlisted") ?? earliest(shortlistLog.get(id) ?? []),
@@ -136,6 +160,8 @@ export function creatorsOf(inputs: InsightsInputs): Creator[] {
       kit: eventAt("kit"),
       audience: eventAt("audience"),
       signed: eventAt("signed"),
+      firstDeal: earliest(dealTimes),
+      firstPayout: earliest(payTimes),
     };
 
     const reached: Partial<Record<PathStep, number | null>> = {};
@@ -143,6 +169,8 @@ export function creatorsOf(inputs: InsightsInputs): Creator[] {
       let has = rank >= stepRank[step];
       if (step === "confirmed" && channel?.confirmedAt != null) has = true;
       if (step === "interested") has = rank >= 5 || positive;
+      if (step === "firstDeal") has = deals.length > 0;
+      if (step === "firstPayout") has = paid;
       if (has) reached[step] = timeOf[step];
     }
     out.push({ id, stage, reached, replyAt: repliesIn[0]?.at ?? timeOf.replied });
@@ -182,11 +210,11 @@ function nextStep(step: PathStep): PathStep | null {
 
 /**
  * Whether a step counts creators stuck in it. Not the catalog steps; not `emailed`, where the
- * follow-ups do the waiting and a creator who never answers is an exit, not stuck; not `signed`,
- * the end of this funnel.
+ * follow-ups do the waiting and a creator who never answers is an exit, not stuck; not
+ * `firstPayout`, the end of this funnel.
  */
 function hasStuck(step: CreatorStep): step is PathStep {
-  return step !== "found" && step !== "passed" && step !== "emailed" && step !== "signed";
+  return step !== "found" && step !== "passed" && step !== "emailed" && step !== "firstPayout";
 }
 
 /** The creators whose latest step is `step` and who have been in it longer than `limitDays`. */
@@ -465,6 +493,213 @@ export function cohorts(inputs: InsightsInputs): { rows: CohortRow[]; trend: Dif
   return { rows, trend };
 }
 
+// ---------------------------------------------------------------------------------------------
+// The brand funnel (design 3.2, Brands; plan B6)
+
+/** How far a status goes. `lost` has none: a lost brand counts up to what its events show. */
+const statusRank: Readonly<Record<BrandStatus, number | null>> = {
+  found: 0,
+  qualified: 1,
+  pitched: 2,
+  negotiating: 3,
+  won: 4,
+  lost: null,
+};
+
+/** The rank a brand needs to have reached each step; `live` and `paid` come from its deals. */
+const brandStepRank: Readonly<Record<BrandStep, number>> = {
+  found: 0,
+  qualified: 1,
+  pitched: 2,
+  replied: 3,
+  negotiating: 3,
+  won: 4,
+  live: 4,
+  paid: 4,
+};
+
+/** The deal step "Go-live"; a deal at it or later makes its brand Live. */
+const goLiveStep = 5;
+
+interface BrandPath {
+  readonly id: string;
+  readonly lost: boolean;
+  readonly reached: Readonly<Partial<Record<BrandStep, number | null>>>;
+}
+
+/** Every brand with the steps it reached and when (null: reached, time not known). */
+function brandPaths(inputs: InsightsInputs): BrandPath[] {
+  const events = new Map<string, { rank: number; at: number }[]>();
+  for (const e of inputs.brandEvents) {
+    const rank = statusRank[e.status];
+    if (rank === null) continue;
+    const list = events.get(e.brandId);
+    if (list) list.push({ rank, at: e.at });
+    else events.set(e.brandId, [{ rank, at: e.at }]);
+  }
+  const dealsOf = new Map<string, DealFact[]>();
+  for (const d of inputs.deals) {
+    const list = dealsOf.get(d.brandId);
+    if (list) list.push(d);
+    else dealsOf.set(d.brandId, [d]);
+  }
+  const dealStepAt = new Map<string, number[]>();
+  for (const e of inputs.dealEvents) {
+    if (e.step < goLiveStep) continue;
+    const list = dealStepAt.get(e.dealId);
+    if (list) list.push(e.at);
+    else dealStepAt.set(e.dealId, [e.at]);
+  }
+
+  return inputs.brands.map((brand): BrandPath => {
+    const evs = events.get(brand.id) ?? [];
+    const deals = dealsOf.get(brand.id) ?? [];
+    const liveDeals = deals.filter((d) => d.step >= goLiveStep);
+    const paidDeals = deals.filter((d) => d.invoicePaidAt !== null);
+    const live = liveDeals.length > 0;
+    const paid = paidDeals.length > 0;
+
+    let top = statusRank[brand.status] ?? 0;
+    for (const e of evs) top = Math.max(top, e.rank);
+    if (live || paid) top = Math.max(top, 4);
+
+    const timeOfRank = (rank: number): number | null =>
+      earliest(evs.filter((e) => e.rank >= rank).map((e) => e.at));
+    const liveTimes = liveDeals.flatMap((d) => {
+      const at = dealStepAt.get(d.id) ?? [];
+      return at.length > 0 ? at : d.goLiveAt === null ? [] : [d.goLiveAt];
+    });
+    const paidTimes = paidDeals.map((d) => d.invoicePaidAt).filter((t): t is number => t !== null);
+
+    const reached: Partial<Record<BrandStep, number | null>> = {};
+    for (const step of brandSteps) {
+      if (step === "live") {
+        if (live) reached.live = earliest(liveTimes);
+      } else if (step === "paid") {
+        if (paid) reached.paid = earliest(paidTimes);
+      } else if (top >= brandStepRank[step]) {
+        reached[step] =
+          step === "found" ? (brand.since ?? timeOfRank(0)) : timeOfRank(brandStepRank[step]);
+      }
+    }
+    return { id: brand.id, lost: brand.status === "lost", reached };
+  });
+}
+
+function brandTop(b: BrandPath): BrandStep {
+  let top: BrandStep = "found";
+  for (const s of brandSteps) if (s in b.reached) top = s;
+  return top;
+}
+
+function brandNext(step: BrandStep): BrandStep | null {
+  return brandSteps[brandSteps.indexOf(step) + 1] ?? null;
+}
+
+function brandGapDays(pop: readonly BrandPath[], from: BrandStep, to: BrandStep): number | null {
+  const gaps: number[] = [];
+  for (const b of pop) {
+    const a = b.reached[from];
+    const c = b.reached[to];
+    if (a == null || c == null || c < a) continue;
+    gaps.push((c - a) / DAY);
+  }
+  return gaps.length >= thresholds.minForMedian ? median(gaps) : null;
+}
+
+/** `replied` is not a state of its own (it is negotiating's twin) and `paid` is the end. */
+function brandHasStuck(step: BrandStep): boolean {
+  return step !== "replied" && step !== "paid";
+}
+
+function brandStuckList(
+  pop: readonly BrandPath[],
+  step: BrandStep,
+  limitDays: number,
+  now: number,
+): { id: string; days: number }[] {
+  const rows: { id: string; days: number }[] = [];
+  for (const b of pop) {
+    if (b.lost || brandTop(b) !== step) continue;
+    const at = b.reached[step];
+    if (at != null && now - at > limitDays * DAY) rows.push({ id: b.id, days: (now - at) / DAY });
+  }
+  return rows;
+}
+
+/** The brands who ever reached a step (the count of a brand row). */
+export function brandReachedIds(inputs: InsightsInputs, step: BrandStep): string[] {
+  return brandPaths(inputs)
+    .filter((b) => step in b.reached)
+    .map((b) => b.id);
+}
+
+/** The brands behind a brand row's `stuck` number; none for a step with no such number. */
+export function brandStuckIds(inputs: InsightsInputs, step: BrandStep): string[] {
+  return brandStuckRows(inputs, step).map((r) => r.id);
+}
+
+/** The same brands with the days each has been at the step. */
+export function brandStuckRows(
+  inputs: InsightsInputs,
+  step: BrandStep,
+): { id: string; days: number }[] {
+  const next = brandNext(step);
+  if (!brandHasStuck(step) || next === null) return [];
+  const pop = brandPaths(inputs);
+  const days = brandGapDays(pop, step, next);
+  return days === null ? [] : brandStuckList(pop, step, thresholds.stuckFactor * days, inputs.now);
+}
+
+/**
+ * Found → Paid: how many brands reached each step, the share from the step above, the same share
+ * at the end of the previous period (from the status changes' times), the usual days to the next
+ * step, and the brands stuck. Brands marked "Not a fit" count up to the last step their events show.
+ */
+export function brandFunnel(inputs: InsightsInputs, window: ReportWindow): BrandFunnel {
+  const pop = brandPaths(inputs);
+  const count = (step: BrandStep, cutoff: number | null): number =>
+    pop.filter((b) => {
+      if (!(step in b.reached)) return false;
+      const at = b.reached[step] ?? null;
+      return cutoff === null || (at !== null && at <= cutoff);
+    }).length;
+
+  const rows = brandSteps.map((step, i): BrandFunnelRow => {
+    const n = count(step, null);
+    const prev = i === 0 ? null : (brandSteps[i - 1] ?? null);
+    const fromPrev = prev === null ? null : ratioOrNull(n, count(prev, null));
+    const before =
+      prev === null
+        ? null
+        : ratioOrNull(count(step, window.previous.to), count(prev, window.previous.to));
+    const next = brandNext(step);
+    const medianDays = next === null ? null : brandGapDays(pop, step, next);
+    const stuck =
+      !brandHasStuck(step) || medianDays === null
+        ? null
+        : brandStuckList(pop, step, thresholds.stuckFactor * medianDays, inputs.now).length;
+    return { step, count: n, fromPrev, before, medianDays, stuck };
+  });
+
+  let best: BrandStep | null = null;
+  let bestRate = Infinity;
+  for (const row of rows) {
+    if (row.fromPrev === null || row.fromPrev.d < thresholds.minOther) continue;
+    const rate = row.fromPrev.n / row.fromPrev.d;
+    if (rate < bestRate) {
+      bestRate = rate;
+      best = row.step;
+    }
+  }
+
+  const lost = brandSteps
+    .map((step) => ({ step, count: pop.filter((b) => b.lost && brandTop(b) === step).length }))
+    .filter((x) => x.count > 0);
+
+  return { rows, biggestDrop: best, lost };
+}
+
 /** Everything the Funnel tab shows, for the period asked for. */
 export function funnelReport(inputs: InsightsInputs, window: ReportWindow): FunnelReport {
   const everyone = creatorFunnel(inputs, window, "everyone");
@@ -479,5 +714,6 @@ export function funnelReport(inputs: InsightsInputs, window: ReportWindow): Funn
     stepDays: stepDays(inputs),
     cohorts: rows,
     cohortTrend: trend,
+    brands: brandFunnel(inputs, window),
   };
 }

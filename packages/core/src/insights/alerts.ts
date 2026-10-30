@@ -1,7 +1,23 @@
 import { audienceKeys } from "../close/audience";
 
+import {
+  basketMinDeals,
+  basketShare,
+  basketVerdict,
+  DAY,
+  monthPace,
+  paceVerdict,
+} from "./deal-facts";
+import { goalAsPaid } from "./goal";
 import type { InsightsInputs } from "./inputs";
-import { compareRates, rateOf } from "./stats";
+import {
+  lateInvoiceDeals,
+  payoutDueDeals,
+  rosterRows,
+  stuckDealRows,
+  underFloorDeals,
+} from "./money";
+import { compareRates, median, rateOf } from "./stats";
 import { thresholds } from "./thresholds";
 import type {
   Alert,
@@ -22,8 +38,6 @@ import type {
  * minimum sample so it can't cry wolf, and names the button that goes to the fix. It reads the
  * reports the tabs already built (`ReportParts`), so a number in an alert is the number on the tab.
  */
-
-const DAY = 86_400_000;
 
 /** The reports the rules read, built once and shared with the tab. */
 export interface ReportParts {
@@ -55,6 +69,15 @@ export function alertKey(a: Alert): string {
       return `${a.kind}:${a.reason}`;
     case "auditFailing":
       return `${a.kind}:${a.check}`;
+    case "invoiceLate":
+    case "payoutDue":
+    case "dealStuck":
+    case "marginLow":
+      return `${a.kind}:${a.dealId}`;
+    case "basket":
+      return `${a.kind}:${a.brandId}`;
+    case "idleCreator":
+      return `${a.kind}:${a.creatorId}`;
     case "fuelLow":
     case "repliesFalling":
     case "roomUnused":
@@ -62,6 +85,7 @@ export function alertKey(a: Alert): string {
     case "backlogGrowing":
     case "mistakesLeaving":
     case "unreadable":
+    case "behindGoal":
       return a.kind;
   }
 }
@@ -70,8 +94,10 @@ export function alertKey(a: Alert): string {
 // Where each button goes
 
 const route = (screen: string, tab: string | null): InsightsGo => ({ kind: "route", screen, tab });
-const inInsights = (tab: "emails" | "search" | "goal", view: "live" | "waiting" | null = null) =>
-  ({ kind: "insights", tab, view }) satisfies InsightsGo;
+const inInsights = (
+  tab: "emails" | "search" | "money" | "goal",
+  view: "live" | "waiting" | null = null,
+) => ({ kind: "insights", tab, view }) satisfies InsightsGo;
 
 function goOf(a: Alert, parts: ReportParts): InsightsGo {
   switch (a.kind) {
@@ -101,6 +127,19 @@ function goOf(a: Alert, parts: ReportParts): InsightsGo {
       return route("settings", "search");
     case "noSearch":
       return route("find", "search");
+    case "invoiceLate":
+      return { kind: "drill", drill: { kind: "lateInvoices" } };
+    case "dealStuck":
+      return { kind: "drill", drill: { kind: "stuckDeals", step: a.step } };
+    case "marginLow":
+      return { kind: "drill", drill: { kind: "underFloor" } };
+    case "payoutDue":
+    case "basket":
+      return inInsights("money");
+    case "behindGoal":
+      return inInsights("goal");
+    case "idleCreator":
+      return route("close", null);
   }
 }
 
@@ -116,9 +155,16 @@ const kindOrder: readonly Alert["kind"][] = [
   "mailboxBounces",
   "repliesFell",
   "fuelLow",
+  "invoiceLate",
+  "payoutDue",
+  "dealStuck",
   "repliesFalling",
+  "behindGoal",
   "stepShort",
   "roomUnused",
+  "basket",
+  "idleCreator",
+  "marginLow",
   "noSearch",
   "backlogGrowing",
   "mistakesLeaving",
@@ -167,6 +213,20 @@ function sizeOf(a: Alert): number {
       return share(a.count);
     case "auditFailing":
       return share(a.failed);
+    case "invoiceLate":
+      return a.days;
+    case "payoutDue":
+      return a.amount;
+    case "dealStuck":
+      return a.usual > 0 ? a.days / a.usual : a.days;
+    case "behindGoal":
+      return a.goal > 0 ? (a.goal - a.projected) / a.goal : 0;
+    case "basket":
+      return a.share;
+    case "idleCreator":
+      return a.days ?? 0;
+    case "marginLow":
+      return a.floor - a.margin;
   }
 }
 
@@ -372,7 +432,82 @@ function firing(inputs: InsightsInputs, parts: ReportParts): Found[] {
     }
   }
 
+  dealAlerts(inputs, act, watch);
+
   return found;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Deals and money (P8b)
+
+/** The shortest median days from invoice to payment must beat the median of all by this much. */
+const paysFastBy = 0.75;
+
+/**
+ * The rules that read deals; the money ones only for a viewer who sees money. Each uses the very
+ * predicate the drill-down lists (`money.ts`), so an alert and its list name the same deals.
+ */
+function dealAlerts(
+  inputs: InsightsInputs,
+  act: (alert: Alert) => void,
+  watch: (alert: Alert) => void,
+): void {
+  const { now } = inputs;
+
+  if (inputs.seesMoney) {
+    // An invoice is late: Net 30 passed. Act now over 30 days late, Watch from 1.
+    for (const { deal: d, days } of lateInvoiceDeals(inputs)) {
+      if (d.price === null) continue;
+      const alert: Alert = { kind: "invoiceLate", dealId: d.id, days, amount: d.price };
+      if (days > thresholds.invoiceAct) act(alert);
+      else watch(alert);
+    }
+
+    // A payout is due: the brand has paid and the creator hasn't been.
+    for (const d of payoutDueDeals(inputs)) {
+      if (d.payout === null || d.invoicePaidAt === null) continue;
+      watch({ kind: "payoutDue", dealId: d.id, amount: d.payout, since: d.invoicePaidAt });
+    }
+
+    // A deal under the margin floor, made in the last 90 days.
+    for (const { deal: d, margin } of underFloorDeals(inputs)) {
+      watch({ kind: "marginLow", dealId: d.id, margin, floor: inputs.marginFloorPct / 100 });
+    }
+
+    // Behind the monthly goal: the month's pace ends under 90% of the goal (as brand payments).
+    // The very verdict the Overview's tile and the Money chart show, so they agree.
+    const goal = goalAsPaid(inputs);
+    const pace = monthPace(inputs);
+    if (paceVerdict(pace, goal) === "watch" && goal !== null) {
+      watch({ kind: "behindGoal", projected: pace.projected, goal });
+    }
+
+    // Too much in one basket: the top brand's share of the last 90 days' payments.
+    const basket = basketShare(inputs, basketMinDeals);
+    if (basket !== null && basketVerdict(inputs) === "watch") {
+      watch({ kind: "basket", brandId: basket.brandId, share: basket.share });
+    }
+  }
+
+  // A deal is stuck: more than twice the usual time at its step (the usual from at least 5 deals).
+  for (const row of stuckDealRows(inputs)) {
+    watch({
+      kind: "dealStuck",
+      dealId: row.dealId,
+      step: row.step,
+      days: Math.floor(row.days),
+      usual: row.usual,
+    });
+  }
+
+  // An idle roster creator: signed, and no deal in 60 days (counted from signing when none yet).
+  for (const row of rosterRows(inputs)) {
+    if (!row.idle) continue;
+    const since = row.lastDealAt ?? row.signedAt;
+    // With no known signing time the days are not known, and no number is made up.
+    const days = since === null ? null : Math.floor((now - since) / DAY);
+    watch({ kind: "idleCreator", creatorId: row.creatorId, days });
+  }
 }
 
 /**
@@ -420,7 +555,7 @@ export function alerts(
  * - followUp: the best follow-up step (1 to 3) with `minEmails` sent whose rate is within 1 point
  *   of the first email's (which also needs `minEmails`) or better.
  */
-export function wins(_inputs: InsightsInputs, parts: ReportParts): WinLine[] {
+export function wins(inputs: InsightsInputs, parts: ReportParts): WinLine[] {
   const out: WinLine[] = [];
   const { emails, search } = parts;
 
@@ -502,5 +637,41 @@ export function wins(_inputs: InsightsInputs, parts: ReportParts): WinLine[] {
     }
   }
 
+  const fast = inputs.seesMoney ? brandPaysFast(inputs) : null;
+  if (fast) out.push({ result: "good", win: fast, go: inInsights("money") });
+
   return out.slice(0, 3);
+}
+
+/**
+ * The brand that pays fastest: the shortest median days from invoice sent to paid, with at least 2
+ * paid invoices, and at least 25% under the median of every paid invoice.
+ */
+function brandPaysFast(inputs: InsightsInputs): Win | null {
+  const byBrand = new Map<string, number[]>();
+  const all: number[] = [];
+  for (const d of inputs.deals) {
+    // Paid before sent is a wrong date: left out.
+    if (d.invoiceSentAt === null || d.invoicePaidAt === null || d.invoicePaidAt < d.invoiceSentAt) {
+      continue;
+    }
+    const days = (d.invoicePaidAt - d.invoiceSentAt) / DAY;
+    all.push(days);
+    const list = byBrand.get(d.brandId);
+    if (list) list.push(days);
+    else byBrand.set(d.brandId, [days]);
+  }
+  const usual = median(all);
+  if (usual === null || !(usual > 0)) return null;
+  let best: { brandId: string; days: number } | null = null;
+  for (const [brandId, list] of byBrand) {
+    if (list.length < 2) continue;
+    const days = median(list);
+    if (days === null) continue;
+    if (best === null || days < best.days || (days === best.days && brandId < best.brandId)) {
+      best = { brandId, days };
+    }
+  }
+  if (best === null || best.days > paysFastBy * usual) return null;
+  return { kind: "brandPaysFast", brandId: best.brandId, days: Math.round(best.days) };
 }

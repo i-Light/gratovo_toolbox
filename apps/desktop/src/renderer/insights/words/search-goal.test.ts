@@ -165,7 +165,7 @@ describe("search words", () => {
 
 describe("goal words", () => {
   it("names the step falling short", () => {
-    expect(chainHeadline(goalReport())).toBe("First emails is 10 a day short.");
+    expect(chainHeadline(goalReport())).toBe("First emails: 10 a day short.");
     expect(chainHeadline(goalReport({ shortStep: null }))).toBe(
       strings.insights.goal.chain.headlineNone,
     );

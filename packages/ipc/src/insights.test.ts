@@ -1,5 +1,10 @@
 import { insightsReport, reportTabs } from "@gratovo/core/insights";
-import type { ChannelFacts, InsightsInputs, MessageFact } from "@gratovo/core/insights";
+import type {
+  ChannelFacts,
+  InsightsInputs,
+  MessageFact,
+  MoneyReport,
+} from "@gratovo/core/insights";
 import { describe, expect, it } from "vitest";
 
 import { channels, parseRequest } from "./channels";
@@ -125,27 +130,101 @@ const inputs: InsightsInputs = {
   },
   weeks: [{ at: NOW - 7 * day, live: 3, waiting: 1, archive: 100 }],
   runs: [NOW - day],
-  goal: { signsPerMonth: 4, overrides: { replied: 0.1 } },
+  goal: { signsPerMonth: 4, revenuePerMonth: 20_000, overrides: { replied: 0.1 } },
   hidden: {},
+  deals: [
+    {
+      id: "d1",
+      brandId: "b1",
+      creatorId: "c1",
+      step: 7,
+      price: 4000,
+      payout: 2400,
+      createdAt: NOW - 60 * day,
+      goLiveAt: NOW - 40 * day,
+      invoiceSentAt: NOW - 40 * day,
+      invoiceDueAt: NOW - 10 * day,
+      invoicePaidAt: NOW - 20 * day,
+      paidCreatorAt: null,
+      reportViews: 30_000,
+      usualViews: 40_000,
+      reportSentAt: null,
+    },
+  ],
+  brands: [{ id: "b1", name: "Prompt Labs", status: "won", since: NOW - 90 * day }],
+  dealEvents: [{ dealId: "d1", step: 7, at: NOW - 40 * day }],
+  brandEvents: [{ brandId: "b1", status: "won", at: NOW - 60 * day }],
+  seesMoney: true,
+  marginFloorPct: 25,
+};
+
+/** A money report as the schema must take it (built by hand, so it does not lean on core). */
+const money: MoneyReport = {
+  tab: "money",
+  names: { c1: "Dana" },
+  window: {
+    period: "30d",
+    now: NOW,
+    current: { from: NOW - 30 * day, to: NOW },
+    previous: { from: NOW - 60 * day, to: NOW - 30 * day },
+    workingDays: 22,
+  },
+  months: [{ month: NOW - 30 * day, paid: 18_000, net: 7000, projected: null }],
+  goalPaid: 25_000,
+  goalNet: 10_000,
+  usualMargin: 0.4,
+  paceVerdict: "watch",
+  owed: {
+    buckets: [{ bucket: "late30", amount: 4000, count: 1 }],
+    late: [{ dealId: "d1", amount: 4000, daysLate: 12 }],
+    payDays: [{ brandId: "b1", days: 31, unpaid: false }],
+    verdict: "watch",
+  },
+  payouts: {
+    due: [{ dealId: "d1", amount: 2400, brandPaidAt: NOW - 20 * day }],
+    dueTotal: 2400,
+    locked: 0,
+    lockedCount: 0,
+  },
+  margin: { average: 0.4, floor: 0.25, under: [{ dealId: "d1", margin: 0.2 }], verdict: "good" },
+  dealSize: { average: 4000, before: null, per1000: 95, trend: [{ at: NOW, value: 4000 }] },
+  basket: { brand: { id: "b1", share: 0.5 }, creator: null, verdict: "good" },
+  roster: [
+    {
+      creatorId: "c1",
+      deals: 1,
+      revenue: 4000,
+      lastDealAt: NOW - 60 * day,
+      signedAt: null,
+      delivered: 0.75,
+      idle: false,
+    },
+  ],
+  deliveredAverage: 0.75,
+  steps: [{ step: 0, medianDays: 3, stuck: 0 }],
+  stuckDeals: [{ dealId: "d1", step: 7, days: 20, usual: 7 }],
+  repeat: { came: { n: 0, d: 1 }, noNext: ["d1"] },
 };
 
 describe("insights:read", () => {
   it("takes every report tab and every period", () => {
     for (const tab of reportTabs) {
       for (const period of ["7d", "30d", "90d", "month"]) {
-        expect(parseRequest("insights:read", { tab, period }).ok).toBe(true);
+        expect(parseRequest("insights:read", { tab, period, deals: true }).ok).toBe(true);
       }
     }
   });
 
-  it("refuses an unknown tab, the money tab, a bad period and extra keys", () => {
+  it("refuses an unknown tab, a bad period and extra keys", () => {
     const parse = (value: unknown) => parseRequest("insights:read", value).ok;
-    expect(parse({ tab: "brands", period: "7d" })).toBe(false);
-    expect(parse({ tab: "money", period: "7d" })).toBe(false);
-    expect(parse({ tab: "overview", period: "year" })).toBe(false);
-    expect(parse({ tab: "overview" })).toBe(false);
-    expect(parse({ period: "7d" })).toBe(false);
-    expect(parse({ tab: "overview", period: "7d", extra: 1 })).toBe(false);
+    expect(parse({ tab: "brands", period: "7d", deals: true })).toBe(false);
+    expect(parse({ tab: "overview", period: "year", deals: true })).toBe(false);
+    expect(parse({ tab: "overview", deals: true })).toBe(false);
+    expect(parse({ period: "7d", deals: true })).toBe(false);
+    // The deals flag is required: a read that forgets it is refused, not read with deals.
+    expect(parse({ tab: "overview", period: "7d" })).toBe(false);
+    expect(parse({ tab: "overview", period: "7d", deals: "yes" })).toBe(false);
+    expect(parse({ tab: "overview", period: "7d", deals: true, extra: 1 })).toBe(false);
     expect(parse(null)).toBe(false);
   });
 
@@ -161,7 +240,11 @@ describe("insights:read", () => {
       keywords: [],
       weeks: [],
       runs: [],
-      goal: { signsPerMonth: 4, overrides: {} },
+      goal: { signsPerMonth: 4, revenuePerMonth: null, overrides: {} },
+      deals: [],
+      brands: [],
+      dealEvents: [],
+      brandEvents: [],
     };
     for (const data of [empty, inputs]) {
       for (const tab of reportTabs) {
@@ -176,19 +259,111 @@ describe("insights:read", () => {
     }
   });
 
+  it("accepts every report built from mis-dated deals and an unknown idle time", () => {
+    const day = 86_400_000;
+    const at = (days: number): number => inputs.now - days * day;
+    const odd = (id: string, over: Partial<InsightsInputs["deals"][number]>) => ({
+      id,
+      brandId: "b1",
+      creatorId: "c1",
+      step: 8,
+      price: 1000,
+      payout: 3000,
+      createdAt: at(30),
+      goLiveAt: null,
+      invoiceSentAt: at(10),
+      invoiceDueAt: null,
+      invoicePaidAt: at(20), // paid before it was sent
+      paidCreatorAt: at(40), // and the creator before the brand
+      reportViews: null,
+      usualViews: null,
+      reportSentAt: null,
+      ...over,
+    });
+    const world: InsightsInputs = {
+      ...inputs,
+      seesMoney: true,
+      channels: inputs.channels.map((c, i) =>
+        i === 0 ? { ...c, id: "c1", stage: "signed" as const } : c,
+      ),
+      goal: { signsPerMonth: 4, revenuePerMonth: 10_000, overrides: {} },
+      deals: [odd("d1", {}), odd("d2", { brandId: "b2" }), odd("d3", { brandId: "b2" })],
+    };
+    for (const tab of reportTabs) {
+      const parsed = channels["insights:read"].response.safeParse(
+        insightsReport(tab, world, "30d"),
+      );
+      if (!parsed.success) throw new Error(`${tab}: ${parsed.error.message}`);
+    }
+    const idle = {
+      key: "idleCreator:c1",
+      verdict: "watch",
+      alert: { kind: "idleCreator", creatorId: "c1", days: null },
+      go: { kind: "route", screen: "close", tab: null },
+    };
+    const overview = insightsReport("overview", world, "30d");
+    expect(insightsReportSchema.safeParse({ ...overview, attention: [idle] }).success).toBe(true);
+  });
+
   it("refuses a report with an extra key, a missing key or the wrong tab", () => {
     const report = insightsReport("goal", inputs, "30d");
     expect(insightsReportSchema.safeParse(report).success).toBe(true);
     expect(insightsReportSchema.safeParse({ ...report, extra: 1 }).success).toBe(false);
-    expect(insightsReportSchema.safeParse({ ...report, tab: "money" }).success).toBe(false);
+    expect(insightsReportSchema.safeParse({ ...report, tab: "elsewhere" }).success).toBe(false);
     const without: Record<string, unknown> = { ...report };
     delete without["lines"];
     expect(insightsReportSchema.safeParse(without).success).toBe(false);
   });
 });
 
+describe("the money report", () => {
+  it("takes the money tab and parses a valid report", () => {
+    expect(parseRequest("insights:read", { tab: "money", period: "30d", deals: true }).ok).toBe(
+      true,
+    );
+    expect(insightsReportSchema.safeParse(money).success).toBe(true);
+    expect(
+      insightsReportSchema.safeParse({ ...money, goalPaid: null, goalNet: null }).success,
+    ).toBe(true);
+  });
+
+  it("refuses a bad one: an extra key, a missing part, a wrong bucket, too many late invoices", () => {
+    const parse = (value: unknown) => insightsReportSchema.safeParse(value).success;
+    expect(parse({ ...money, extra: 1 })).toBe(false);
+    const without: Record<string, unknown> = { ...money };
+    delete without["payouts"];
+    expect(parse(without)).toBe(false);
+    expect(
+      parse({
+        ...money,
+        owed: { ...money.owed, buckets: [{ bucket: "soon", amount: 1, count: 1 }] },
+      }),
+    ).toBe(false);
+    const late = { dealId: "d1", amount: 1, daysLate: 1 };
+    expect(
+      parse({ ...money, owed: { ...money.owed, late: Array.from({ length: 11 }, () => late) } }),
+    ).toBe(false);
+    expect(parse({ ...money, months: [{ month: 1, paid: -5, net: 0, projected: null }] })).toBe(
+      false,
+    );
+  });
+});
+
+describe("the brand funnel in the funnel report", () => {
+  it("is required and strict", () => {
+    const funnel = insightsReport("funnel", inputs, "30d");
+    expect(insightsReportSchema.safeParse(funnel).success).toBe(true);
+    expect(insightsReportSchema.safeParse({ ...funnel, brands: { rows: [] } }).success).toBe(false);
+  });
+});
+
 describe("insights:list", () => {
-  const request = { drill: { kind: "live", group: "notReviewed" }, period: "30d", offset: 0 };
+  const request = {
+    drill: { kind: "live", group: "notReviewed" },
+    period: "30d",
+    offset: 0,
+    deals: true,
+  };
 
   it("takes each kind of drill and a page start up to 100,000", () => {
     const drills = [
@@ -205,6 +380,15 @@ describe("insights:list", () => {
       { kind: "unconfirmed" },
       { kind: "repliesWaiting" },
       { kind: "unreadable", which: "noCountry" },
+      { kind: "brandStep", step: "negotiating" },
+      { kind: "brandStuck", step: "pitched" },
+      { kind: "lateInvoices" },
+      { kind: "payoutsDue" },
+      { kind: "stuckDeals", step: 4 },
+      { kind: "stuckDeals", step: null },
+      { kind: "underFloor" },
+      { kind: "idleCreators" },
+      { kind: "noNextDeal" },
     ];
     for (const drill of drills) {
       expect(parseRequest("insights:list", { ...request, drill }).ok).toBe(true);
@@ -219,10 +403,13 @@ describe("insights:list", () => {
     expect(parse({ ...request, drill: { kind: "step", step: "paid" } })).toBe(false);
     expect(parse({ ...request, drill: { kind: "keyword", keyword: "x".repeat(201) } })).toBe(false);
     expect(parse({ ...request, drill: { kind: "mistakes", extra: 1 } })).toBe(false);
+    expect(parse({ ...request, drill: { kind: "brandStep", step: "emailed" } })).toBe(false);
+    expect(parse({ ...request, drill: { kind: "stuckDeals" } })).toBe(false);
     expect(parse({ ...request, offset: -1 })).toBe(false);
     expect(parse({ ...request, offset: 100_001 })).toBe(false);
     expect(parse({ ...request, offset: 1.5 })).toBe(false);
     expect(parse({ ...request, period: "year" })).toBe(false);
+    expect(parse({ drill: request.drill, period: "30d", offset: 0 })).toBe(false);
     expect(parse({ ...request, extra: 1 })).toBe(false);
   });
 
@@ -245,6 +432,21 @@ describe("insights:list", () => {
     );
     expect(parse({ rows: [{ ...row, note: { kind: "gone" } }], total: 1 })).toBe(true);
     expect(parse({ rows: [{ ...row, note: "fit 80" }], total: 1 })).toBe(false);
+    // P8b: brand and deal records, and the notes their lists carry.
+    expect(parse({ rows: [{ ...row, record: "deal", handle: null }], total: 1 })).toBe(true);
+    expect(parse({ rows: [{ ...row, record: "brand" }], total: 1 })).toBe(true);
+    expect(parse({ rows: [{ ...row, record: "team" }], total: 1 })).toBe(false);
+    for (const note of [
+      { kind: "money", amount: 4000, days: 12 },
+      { kind: "money", amount: 4000, days: null },
+      { kind: "days", days: 9 },
+      { kind: "margin", margin: 0.2 },
+    ]) {
+      expect(parse({ rows: [{ ...row, note }], total: 1 })).toBe(true);
+    }
+    expect(
+      parse({ rows: [{ ...row, note: { kind: "money", amount: -1, days: 1 } }], total: 1 }),
+    ).toBe(false);
     expect(parse({ rows: [{ ...row, note: { kind: "reason", reason: "x" } }], total: 1 })).toBe(
       false,
     );
@@ -287,6 +489,10 @@ describe("insights:goal", () => {
     expect(parse({ overrides: { replied: 0.05, signed: null } })).toBe(true);
     expect(parse({ overrides: { find: 1 } })).toBe(true);
     expect(parse({ reset: true })).toBe(true);
+    expect(parse({ revenuePerMonth: 100 })).toBe(true);
+    expect(parse({ revenuePerMonth: 10_000_000 })).toBe(true);
+    expect(parse({ revenuePerMonth: null })).toBe(true);
+    expect(parse({ overrides: { revenue: 0.4, pitches: null } })).toBe(true);
   });
 
   it("refuses a bad count, a bad rate, an unknown step, reset: false and extra keys", () => {
@@ -297,15 +503,32 @@ describe("insights:goal", () => {
     expect(parse({ overrides: { replied: 0 } })).toBe(false);
     expect(parse({ overrides: { replied: 1.1 } })).toBe(false);
     expect(parse({ overrides: { paid: 0.5 } })).toBe(false);
+    expect(parse({ revenuePerMonth: 99 })).toBe(false);
+    expect(parse({ revenuePerMonth: 10_000_001 })).toBe(false);
+    expect(parse({ revenuePerMonth: 2500.5 })).toBe(false);
     expect(parse({ reset: false })).toBe(false);
     expect(parse({ extra: 1 })).toBe(false);
   });
 
   it("answers the goal as kept", () => {
-    expect(goalSettingsSchema.safeParse({ signsPerMonth: 4, overrides: {} }).success).toBe(true);
     expect(
-      goalSettingsSchema.safeParse({ signsPerMonth: 4, overrides: { signed: 0.2 } }).success,
+      goalSettingsSchema.safeParse({ signsPerMonth: 4, revenuePerMonth: null, overrides: {} })
+        .success,
+    ).toBe(true);
+    expect(
+      goalSettingsSchema.safeParse({
+        signsPerMonth: 4,
+        revenuePerMonth: null,
+        overrides: { signed: 0.2 },
+      }).success,
     ).toBe(true);
     expect(goalSettingsSchema.safeParse({ signsPerMonth: 4 }).success).toBe(false);
+    expect(
+      goalSettingsSchema.safeParse({ signsPerMonth: 4, revenuePerMonth: 25_000, overrides: {} })
+        .success,
+    ).toBe(true);
+    expect(
+      goalSettingsSchema.safeParse({ signsPerMonth: 4, revenuePerMonth: 5, overrides: {} }).success,
+    ).toBe(false);
   });
 });

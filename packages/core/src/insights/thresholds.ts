@@ -58,4 +58,21 @@ export const thresholds = {
   hideDays: 7,
   /** Default goal: creators to sign a month, until the owner sets one. */
   signsPerMonth: 4,
+  // P8b: deals and money.
+  /** Net 30: an invoice is due 30 days after it is sent, and late the day after. */
+  netDays: 30,
+  /** An invoice over this many days late is Act now (Watch from 1). */
+  invoiceAct: 30,
+  /** Too much in one basket: one brand's share of 90 days' revenue over this is Watch. */
+  basketShare: 0.4,
+  /** An idle roster creator: signed, no deal in this many days. */
+  idleDays: 60,
+  /** Behind the monthly goal: the month's pace ends under this share of the goal. */
+  behindGoal: 0.9,
+  /** Course figures until there are enough of your own (marked as such in Goal). */
+  courseCloseRate: 0.25,
+  courseMargin: 0.4,
+  courseDealSize: 2500,
+  /** New creators to sign per deal won: a marked starting guess until yours is known. */
+  guessSignsPerDeal: 0.5,
 } as const;

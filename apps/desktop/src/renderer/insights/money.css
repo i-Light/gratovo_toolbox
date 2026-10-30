@@ -1,0 +1,139 @@
+/* Insights › Money (plan step P8b, task B-5). Dark tokens only. */
+.money {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+}
+.money-lock {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 13.5px;
+}
+.money-grid {
+  display: grid;
+  gap: var(--gap);
+  align-items: stretch;
+}
+.money-grid.two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.money-grid.three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.money-grid.wide {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+}
+.money-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13.5px;
+  font-variant-numeric: tabular-nums;
+}
+.money-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 6px 0;
+  border: 0;
+  background: none;
+  color: var(--ink-2);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.money-row:hover {
+  color: var(--ink);
+}
+.money-row:focus-visible,
+.money-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--r-s);
+}
+.money-amount {
+  font-weight: 600;
+  color: var(--ink);
+}
+.money-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--gap);
+}
+.money-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}
+.money-stat-label {
+  color: var(--ink-2);
+}
+.money-sentence {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.money-roster th[scope="row"] {
+  text-align: start;
+  font-weight: 600;
+}
+.money-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.money-link:hover {
+  text-decoration: underline;
+}
+.money-views {
+  display: grid;
+  grid-template-columns: minmax(80px, 1fr) 44px;
+  align-items: center;
+  gap: 10px;
+}
+.money-views > span:last-child {
+  text-align: end;
+}
+.money .ins-panel-foot {
+  flex-wrap: wrap;
+}
+.money .ins-meaning {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+.money .ins-actions {
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+.money-roster td.money-end {
+  width: 1%;
+  white-space: nowrap;
+}
+.money-end-box {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  white-space: nowrap;
+}
+/* Every roster row is as tall as the one with a button, so the Idle row does not stand out. */
+.money-roster tbody th,
+.money-roster tbody td {
+  height: 44px;
+  padding-block: 0;
+  box-sizing: border-box;
+}

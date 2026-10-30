@@ -80,8 +80,14 @@ function inputs(over: Partial<InsightsInputs> = {}): InsightsInputs {
     archive: emptyArchive,
     weeks: [],
     runs: [],
-    goal: { signsPerMonth: 4, overrides: {} },
+    goal: { signsPerMonth: 4, revenuePerMonth: null, overrides: {} },
     hidden: {},
+    deals: [],
+    brands: [],
+    dealEvents: [],
+    brandEvents: [],
+    seesMoney: true,
+    marginFloorPct: 25,
     ...over,
   };
 }

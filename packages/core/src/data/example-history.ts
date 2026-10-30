@@ -1,4 +1,6 @@
 import { exampleSeed } from "./example";
+import { exampleDeals } from "./example-history-deals";
+import type { ExampleDeals } from "./example-history-deals";
 import type { Scenario } from "./example";
 import { exampleVideoId } from "./example-roster";
 import { legacyCreatorFields } from "./legacy-mapping";
@@ -308,8 +310,8 @@ export interface ExampleHistory {
     drafts: HistoryDraftRow[];
     sequences: HistorySequenceRow[];
     weeks: HistoryWeekRow[];
-    settings: { archiveDays: number };
-  };
+    settings: { archiveDays: number; goal: { signsPerMonth: number; revenuePerMonth: number } };
+  } & ExampleDeals;
   pipeline: {
     channels: HistoryChannelRow[];
     /** The seed creators' videos; the history's other channels have none. */
@@ -2050,8 +2052,44 @@ function build(now: number, broke: boolean): ExampleHistory {
     });
   }
 
+  // ---- 8. brands and deals (P8b) -----------------------------------------------------------
+  const usualViews = new Map<string, number>();
+  for (const channel of channels) {
+    usualViews.set(channel.channel_id, channel.median_views_last_30 ?? 20_000);
+  }
+  const signedAt = new Map<string, number>();
+  for (const event of events) {
+    if (event.stage === "signed" && !signedAt.has(event.channel_id)) {
+      signedAt.set(event.channel_id, event.at);
+    }
+  }
+  const dealCreators = [
+    ...seed.creators
+      .filter((c) => c.stage === "signed")
+      .map((c) => ({
+        id: c.id,
+        signedAt: now - 200 * DAY,
+        usualViews: usualViews.get(c.id) ?? 20_000,
+      })),
+    ...creators
+      .filter((c) => c.creator_stage === "signed")
+      .map((c, i) => ({
+        id: c.channel_id,
+        signedAt: signedAt.get(c.channel_id) ?? histStart,
+        // Brands pay for the creators' real trimmed averages (55K to 127K here), not for the
+        // search's small median views, so a thousand views is worth about $30 to $50.
+        usualViews: 55_000 + ((i * 5) % 7) * 12_000,
+      })),
+  ];
+  const deals = exampleDeals({
+    now,
+    creators: dealCreators,
+    owners: seed.profiles.map((p) => p.id),
+  });
+
   return {
     gratovo: {
+      ...deals,
       creators,
       names,
       log,
@@ -2060,7 +2098,10 @@ function build(now: number, broke: boolean): ExampleHistory {
       drafts,
       sequences,
       weeks,
-      settings: { archiveDays: target.archiveDays },
+      settings: {
+        archiveDays: target.archiveDays,
+        goal: { signsPerMonth: 4, revenuePerMonth: 10_000 },
+      },
     },
     pipeline: {
       channels,

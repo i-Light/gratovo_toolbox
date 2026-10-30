@@ -35,6 +35,11 @@ export interface ReadInputsOptions {
   readonly catalog: readonly CatalogItem[];
   readonly archiveDays: number;
   readonly now: number;
+  /**
+   * Whether deals and money may be read. False on live data until step 9 (B8): the deals, brands
+   * and their events come as nothing, so no deal or money reading has anything to count. Default true.
+   */
+  readonly deals?: boolean;
 }
 
 /** What a channel's uploads say, or why they don't (`ChannelFacts.read`). */
@@ -230,6 +235,7 @@ export function readInputs(o: ReadInputsOptions): InsightsInputs {
       channels.push(stateOnly(creator));
     }
   }
+  const withDeals = o.deals !== false;
   return {
     now: o.now,
     archiveDays: o.archiveDays,
@@ -245,5 +251,11 @@ export function readInputs(o: ReadInputsOptions): InsightsInputs {
     runs: pipe.runs,
     goal: local.goal,
     hidden: local.hidden,
+    deals: withDeals ? local.deals : [],
+    brands: withDeals ? local.brands : [],
+    dealEvents: withDeals ? local.dealEvents : [],
+    brandEvents: withDeals ? local.brandEvents : [],
+    seesMoney: local.seesMoney,
+    marginFloorPct: local.marginFloorPct,
   };
 }

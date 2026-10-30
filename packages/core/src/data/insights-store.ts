@@ -1,6 +1,10 @@
 import type { AudienceKey } from "../close/audience";
 import type {
+  BrandEvent,
+  BrandFact,
   CatalogWeek,
+  DealEvent,
+  DealFact,
   LogFact,
   MailboxFacts,
   MessageFact,
@@ -49,6 +53,15 @@ export interface InsightsLocal {
   readonly weeks: readonly CatalogWeek[];
   readonly goal: GoalSettings;
   readonly hidden: HiddenAlerts;
+  /** Every deal; for a viewer without money the amounts are null (P8b). */
+  readonly deals: readonly DealFact[];
+  readonly brands: readonly BrandFact[];
+  readonly dealEvents: readonly DealEvent[];
+  readonly brandEvents: readonly BrandEvent[];
+  /** Whether the viewer sees money, as the frame decides it. */
+  readonly seesMoney: boolean;
+  /** The least margin a deal may have, in % (`agency.facts`; the default when not set). */
+  readonly marginFloorPct: number;
 }
 
 export interface InsightsStore {

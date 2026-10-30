@@ -18,7 +18,7 @@ export const insightsTabs = ["overview", "funnel", "emails", "search", "money", 
 export type InsightsTab = (typeof insightsTabs)[number];
 
 /** The tabs P8a reports on; `money` comes with P8b. */
-export const reportTabs = ["overview", "funnel", "emails", "search", "goal"] as const;
+export const reportTabs = ["overview", "funnel", "emails", "search", "money", "goal"] as const;
 export type ReportTab = (typeof reportTabs)[number];
 
 /** The period switch. Each is compared with the span of the same length just before it. */
@@ -95,7 +95,22 @@ export type Drill =
   | {
       readonly kind: "unreadable";
       readonly which: "notRead" | "retrying" | "gaveUp" | "noCountry";
-    };
+    }
+  // P8b: brands and deals. Their rows open a brand or deal record (`DrillRow.record`).
+  | { readonly kind: "brandStep"; readonly step: BrandStep }
+  | { readonly kind: "brandStuck"; readonly step: BrandStep }
+  /** Deals whose invoice is past due (money viewers only). */
+  | { readonly kind: "lateInvoices" }
+  /** Deals whose brand has paid and whose creator hasn't been (money viewers only). */
+  | { readonly kind: "payoutsDue" }
+  /** Deals at `step` for more than twice the usual time there; every stuck deal when null. */
+  | { readonly kind: "stuckDeals"; readonly step: number | null }
+  /** Deals under the margin floor in the last 90 days (money viewers only). */
+  | { readonly kind: "underFloor" }
+  /** Signed creators with no deal in `thresholds.idleDays`. */
+  | { readonly kind: "idleCreators" }
+  /** Finished 30-day reports with no next deal for that brand. */
+  | { readonly kind: "noNextDeal" };
 
 /** Where a button goes. `route` is checked against the live gate by the renderer. */
 export type InsightsGo =
@@ -110,12 +125,20 @@ export type InsightsGo =
 export type DrillNote =
   | { readonly kind: "reason"; readonly reason: RejectReason | "unknown" }
   | { readonly kind: "fit"; readonly fit: number }
-  | { readonly kind: "gone" };
+  | { readonly kind: "gone" }
+  /** A deal's amount (late invoice, payout due) and how many days it waits. */
+  | { readonly kind: "money"; readonly amount: number; readonly days: number | null }
+  /** Days at a step (stuck deals and brands), or since the last deal (idle creators). */
+  | { readonly kind: "days"; readonly days: number }
+  /** A deal's margin, 0 to 1. */
+  | { readonly kind: "margin"; readonly margin: number };
 
 /** One record in a drill-down list. */
 export interface DrillRow {
-  /** The creator (channel) id; the row opens the creator record, unless the note is `gone`. */
+  /** The record's id; the row opens it, unless the note is `gone`. */
   readonly id: string;
+  /** Which record the id names (P8b); a creator when absent. */
+  readonly record?: "creator" | "brand" | "deal";
   /** The channel's name; the id when the record is gone. */
   readonly name: string;
   readonly handle: string | null;
@@ -125,7 +148,7 @@ export interface DrillRow {
 // ---------------------------------------------------------------------------------------------
 // The creator funnel
 
-/** Found → … → Signed (design 3.2). P8b adds `firstDeal` and `firstPayout`. */
+/** Found → … → Signed → First deal → First payout (design 3.2). */
 export const creatorSteps = [
   "found",
   "passed",
@@ -137,6 +160,8 @@ export const creatorSteps = [
   "kit",
   "audience",
   "signed",
+  "firstDeal",
+  "firstPayout",
 ] as const;
 export type CreatorStep = (typeof creatorSteps)[number];
 
@@ -179,6 +204,37 @@ export interface CohortRow {
   readonly by: readonly (Ratio | null)[];
 }
 
+/** The brand funnel's steps (design 3.2, Brands). */
+export const brandSteps = [
+  "found",
+  "qualified",
+  "pitched",
+  "replied",
+  "negotiating",
+  "won",
+  "live",
+  "paid",
+] as const;
+export type BrandStep = (typeof brandSteps)[number];
+
+export interface BrandFunnelRow {
+  readonly step: BrandStep;
+  readonly count: number;
+  readonly fromPrev: Ratio | null;
+  readonly before: Ratio | null;
+  readonly medianDays: number | null;
+  readonly stuck: number | null;
+}
+
+export interface BrandFunnel {
+  /** Everyone so far, Found to Paid. */
+  readonly rows: readonly BrandFunnelRow[];
+  /** The biggest drop after Found, or null. */
+  readonly biggestDrop: BrandStep | null;
+  /** Brands marked "Not a fit", by the last step they reached. */
+  readonly lost: readonly { readonly step: BrandStep; readonly count: number }[];
+}
+
 export interface FunnelReport {
   readonly tab: "funnel";
   readonly window: ReportWindow;
@@ -199,6 +255,8 @@ export interface FunnelReport {
   readonly cohorts: readonly CohortRow[];
   /** Whether the recent weeks are clearly worse than the older ones. */
   readonly cohortTrend: Difference;
+  /** The brand funnel (P8b). */
+  readonly brands: BrandFunnel;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -497,10 +555,148 @@ export interface SearchReport {
 }
 
 // ---------------------------------------------------------------------------------------------
+// Money (design 3.5, P8b; money viewers only)
+
+/** Unpaid invoices by age, all Net 30. */
+export const owedBuckets = ["notDue", "late30", "late60", "over60"] as const;
+export type OwedBucket = (typeof owedBuckets)[number];
+
+export interface MoneyMonth {
+  /** The 1st of the month, 00:00 local. */
+  readonly month: number;
+  /** What brands paid the agency that month (gross). */
+  readonly paid: number;
+  /** What the agency kept of it (price less the creator's payout). */
+  readonly net: number;
+  /**
+   * The current month only: where `paid` ends at this pace; null for past months, and for a month
+   * too young for its pace to say anything (before `paceMinDays` working days).
+   */
+  readonly projected: number | null;
+}
+
+export interface MoneyReport {
+  readonly tab: "money";
+  readonly window: ReportWindow;
+  /** The name of every creator and brand id this report mentions (the frame holds only some). */
+  readonly names: Readonly<Record<string, string>>;
+  /** Six months, oldest first; the last is the current one. */
+  readonly months: readonly MoneyMonth[];
+  /** The goal as brand payments: the net goal over the usual margin; null without a money goal. */
+  readonly goalPaid: number | null;
+  /** The net goal a month; null when none is set. */
+  readonly goalNet: number | null;
+  /** The usual margin behind `goalPaid`, 0 to 1; null when not known. */
+  readonly usualMargin: number | null;
+  readonly paceVerdict: Verdict;
+  readonly owed: {
+    readonly buckets: readonly {
+      readonly bucket: OwedBucket;
+      readonly amount: number;
+      readonly count: number;
+    }[];
+    /** Late invoices, most days late first, at most 10. */
+    readonly late: readonly {
+      readonly dealId: string;
+      readonly amount: number;
+      readonly daysLate: number;
+    }[];
+    /** Median days from invoice to payment, by brand (paid invoices); `unpaid` when it never paid. */
+    readonly payDays: readonly {
+      readonly brandId: string;
+      readonly days: number | null;
+      readonly unpaid: boolean;
+    }[];
+    readonly verdict: Verdict;
+  };
+  readonly payouts: {
+    /** The brand paid; the creator hasn't been. Oldest payment first. */
+    readonly due: readonly {
+      readonly dealId: string;
+      readonly amount: number;
+      readonly brandPaidAt: number;
+    }[];
+    readonly dueTotal: number;
+    /** Waiting on the brand. */
+    readonly locked: number;
+    readonly lockedCount: number;
+  };
+  readonly margin: {
+    /** The average margin over the last 90 days' deals, 0 to 1; null when none. */
+    readonly average: number | null;
+    /** The floor, 0 to 1. */
+    readonly floor: number;
+    readonly under: readonly { readonly dealId: string; readonly margin: number }[];
+    readonly verdict: Verdict;
+  };
+  readonly dealSize: {
+    /** The average price of the last 90 days' deals; null when none. */
+    readonly average: number | null;
+    /** The same over the 90 days before; null when none. */
+    readonly before: number | null;
+    /** Price per 1,000 of the creators' usual views; null when not known. */
+    readonly per1000: number | null;
+    /** The average price by month, oldest first, as `months`. */
+    readonly trend: readonly Point[];
+  };
+  readonly basket: {
+    readonly brand: { readonly id: string; readonly share: number } | null;
+    readonly creator: { readonly id: string; readonly share: number } | null;
+    readonly verdict: Verdict;
+  };
+  /** Every signed creator, most revenue first. */
+  readonly roster: readonly {
+    readonly creatorId: string;
+    readonly deals: number;
+    readonly revenue: number;
+    readonly lastDealAt: number | null;
+    readonly signedAt: number | null;
+    /** Views at 30 days against their usual, 1 = 100%, averaged over reported deals; null before one. */
+    readonly delivered: number | null;
+    /** Signed, no deal in `thresholds.idleDays`. */
+    readonly idle: boolean;
+  }[];
+  /** Across every reported deal; null before one. */
+  readonly deliveredAverage: number | null;
+  /** The 10 deal steps in DEAL_FLOW order. */
+  readonly steps: readonly {
+    readonly step: number;
+    readonly medianDays: number | null;
+    readonly stuck: number;
+  }[];
+  readonly stuckDeals: readonly {
+    readonly dealId: string;
+    readonly step: number;
+    readonly days: number;
+    readonly usual: number;
+  }[];
+  readonly repeat: {
+    /** Brands with a second deal, of brands with a deal. */
+    readonly came: Ratio;
+    /** Deal ids: finished 30-day reports with no newer deal for that brand. */
+    readonly noNext: readonly string[];
+  };
+}
+
+// ---------------------------------------------------------------------------------------------
 // Goal (design 3.6). P8a: in emails and creators, from a "creators to sign a month" target. P8b
 // puts the money lines on top (revenue → bookings → deals → brand pitches → creators to sign).
 
-export const goalSteps = ["signed", "replied", "firstEmails", "triage", "find"] as const;
+/**
+ * The chain from the top down. The money lines (`revenue` to `pitches`) show only to money viewers
+ * with a money goal (P8b); the rest always show.
+ */
+export const goalSteps = [
+  "revenue",
+  "bookings",
+  "deals",
+  "pitches",
+  "signed",
+  "replied",
+  "firstEmails",
+  "triage",
+  "find",
+] as const;
 export type GoalStep = (typeof goalSteps)[number];
 
 /** The rate a goal line is worked out with, and where it came from. */
@@ -521,13 +717,18 @@ export interface GoalLine {
   readonly perDay: number | null;
   /** What you do a working day now (last 30 days); null when not counted a day. */
   readonly actualPerDay: number | null;
+  /**
+   * The money lines (revenue, bookings, deals) only: what the last 30 days did (net paid, booked,
+   * deals made), against `month`. Null for every other line.
+   */
+  readonly actualMonth: number | null;
   readonly verdict: Verdict;
   /** How many a day short, when short. */
   readonly shortBy: number | null;
 }
 
 export interface Lever {
-  readonly kind: "replyRate" | "signRate";
+  readonly kind: "replyRate" | "signRate" | "dealSize" | "closeRate";
   readonly from: number;
   readonly to: number;
   /** First emails needed a working day, before and after. */
@@ -554,6 +755,11 @@ export interface GoalReport {
 /** Kept in `local_settings` (key `insights.goal`). */
 export interface GoalSettings {
   readonly signsPerMonth: number;
+  /**
+   * Net revenue a month, in dollars (P8b). When set, money viewers see the money lines lead the
+   * chain, and the creators to sign are worked out from it. Null: no money goal.
+   */
+  readonly revenuePerMonth: number | null;
   /** Rates a person set by hand, by the step they lead to. */
   readonly overrides: Readonly<Partial<Record<GoalStep, number>>>;
 }
@@ -561,7 +767,7 @@ export interface GoalSettings {
 // ---------------------------------------------------------------------------------------------
 // The early-warning list and What's working (design section 4)
 
-/** P8b adds invoiceLate, payoutDue, dealStuck, behindGoal, basket, idleCreator and marginLow. */
+/** invoiceLate, payoutDue, behindGoal, basket and marginLow are for money viewers only. */
 export type Alert =
   | { readonly kind: "mailboxBounces"; readonly mailbox: string; readonly bounced: Ratio }
   | {
@@ -602,7 +808,35 @@ export type Alert =
       readonly replied: number;
     }
   | { readonly kind: "unreadable"; readonly count: Ratio }
-  | { readonly kind: "auditFailing"; readonly check: AudienceKey; readonly failed: Ratio };
+  | { readonly kind: "auditFailing"; readonly check: AudienceKey; readonly failed: Ratio }
+  | {
+      readonly kind: "invoiceLate";
+      readonly dealId: string;
+      readonly days: number;
+      readonly amount: number;
+    }
+  | {
+      readonly kind: "payoutDue";
+      readonly dealId: string;
+      readonly amount: number;
+      readonly since: number;
+    }
+  | {
+      readonly kind: "dealStuck";
+      readonly dealId: string;
+      readonly step: number;
+      readonly days: number;
+      readonly usual: number;
+    }
+  | { readonly kind: "behindGoal"; readonly projected: number; readonly goal: number }
+  | { readonly kind: "basket"; readonly brandId: string; readonly share: number }
+  | { readonly kind: "idleCreator"; readonly creatorId: string; readonly days: number | null }
+  | {
+      readonly kind: "marginLow";
+      readonly dealId: string;
+      readonly margin: number;
+      readonly floor: number;
+    };
 
 export type AlertKind = Alert["kind"];
 
@@ -629,7 +863,9 @@ export type Win =
       readonly step: number;
       readonly share: Ratio;
       readonly rate: Ratio;
-    };
+    }
+  /** The brand that pays fastest (money viewers only). */
+  | { readonly kind: "brandPaysFast"; readonly brandId: string; readonly days: number };
 
 export interface WinLine {
   readonly result: Difference | "good";
@@ -693,7 +929,19 @@ export interface OverviewReport {
       readonly waitingConfirm: number;
       readonly verdict: Verdict;
     };
-    /** Shown in place of revenue (P8b shows revenue to money viewers). */
+    /** Money viewers: this month's brand payments against the goal; null for everyone else. */
+    readonly revenue: {
+      readonly month: number;
+      readonly paid: number;
+      /** Where the month ends at this pace; null while it is too early to say. */
+      readonly projected: number | null;
+      /** The goal as brand payments; null without a money goal. */
+      readonly goal: number | null;
+      readonly verdict: Verdict;
+      /** The last six months' payments. */
+      readonly trend: readonly Point[];
+    } | null;
+    /** Shown in place of revenue to those who don't see money. */
     readonly repliesWaiting: {
       readonly count: number;
       readonly oldestAt: number | null;
@@ -705,13 +953,13 @@ export interface OverviewReport {
   readonly hidden: number;
   /** At most 3. */
   readonly wins: readonly WinLine[];
-  /** Everyone so far, Found to Signed. */
+  /** Everyone so far, Found to First payout (design 3.1's "Paid"). */
   readonly pipeline: readonly FunnelRow[];
   readonly biggestDrop: CreatorStep | null;
 }
 
 export type InsightsReport =
-  OverviewReport | FunnelReport | EmailsReport | SearchReport | GoalReport;
+  OverviewReport | FunnelReport | EmailsReport | SearchReport | MoneyReport | GoalReport;
 
 /** Kept in `local_settings` (key `insights.hidden`): alert key → hidden until (ms). */
 export type HiddenAlerts = Readonly<Record<string, number>>;

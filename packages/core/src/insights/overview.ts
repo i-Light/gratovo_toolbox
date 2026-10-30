@@ -1,8 +1,9 @@
 import { alerts, wins } from "./alerts";
 import type { ReportParts } from "./alerts";
+import { monthPace, paceMinDays, paceVerdict, paidMonths } from "./deal-facts";
 import { emailsReport } from "./emails";
 import { biggestDrop, creatorFunnel, creatorsOf, funnelReport } from "./funnel";
-import { goalReport } from "./goal";
+import { goalAsPaid, goalReport } from "./goal";
 import type { InsightsInputs, MessageFact } from "./inputs";
 import { searchReport } from "./search";
 import { compareRates, rateVerdict, startOfDay, startOfWeek, workingDays } from "./stats";
@@ -158,6 +159,29 @@ function replyTrend(inputs: InsightsInputs): Point[] {
 }
 
 // ---------------------------------------------------------------------------------------------
+// Revenue (money viewers only)
+
+/**
+ * This month's brand payments against the goal (as brand payments), where the month ends at this
+ * pace, and the last six months. Null for a viewer who doesn't see money.
+ */
+function revenueOf(inputs: InsightsInputs): OverviewReport["vitals"]["revenue"] {
+  if (!inputs.seesMoney) return null;
+  const pace = monthPace(inputs);
+  const goal = goalAsPaid(inputs);
+  const verdict: Verdict = paceVerdict(pace, goal);
+  return {
+    month: pace.month,
+    paid: pace.paid,
+    // Before `paceMinDays` working days the pace says nothing: no projection is given.
+    projected: pace.elapsed < paceMinDays ? null : pace.projected,
+    goal,
+    verdict,
+    trend: paidMonths(inputs, 6).map((m) => ({ at: m.month, value: m.paid })),
+  };
+}
+
+// ---------------------------------------------------------------------------------------------
 // The report
 
 /**
@@ -259,6 +283,7 @@ export function overviewReport(
       },
       signedPer1000: { now: signedNow, ninety, verdict: signedVerdict },
       fuel,
+      revenue: revenueOf(inputs),
       repliesWaiting: {
         count: waiting.length,
         oldestAt,

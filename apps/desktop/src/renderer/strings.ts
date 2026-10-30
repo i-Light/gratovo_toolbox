@@ -1768,6 +1768,11 @@ export const strings = {
       notes: {
         fit: (fit: number): string => `fit ${String(Math.round(fit))}`,
         gone: "No longer in your list",
+        /** A deal's amount and how long it has waited (P8b). */
+        money: (amount: string, days: string | null): string =>
+          days === null ? amount : `${amount} · ${days}`,
+        days: (days: string): string => days,
+        margin: (pct: string): string => `kept ${pct}`,
       },
       /** Found and Passed count the archive too, which is too big to list here. */
       archived:
@@ -1795,6 +1800,15 @@ export const strings = {
         fuel: "Ready to email",
         unconfirmed: "Waiting for an address to be confirmed",
         repliesWaiting: "Replies waiting for us",
+        brandStep: (step: string): string => `Brands that reached: ${step}`,
+        brandStuck: (step: string): string => `Brands stuck at: ${step}`,
+        lateInvoices: "Invoices that are late",
+        payoutsDue: "Payouts due to creators",
+        stuckDeals: (step: string | null): string =>
+          step === null ? "Deals that are stuck" : `Deals stuck at: ${step}`,
+        underFloor: "Deals under the margin floor",
+        idleCreators: "Creators with no recent deal",
+        noNextDeal: "Finished reports with no next deal",
         unreadable: {
           notRead: "Numbers not read yet",
           retrying: "Numbers being read again",
@@ -1840,7 +1854,7 @@ export const strings = {
         rate: (pct: string, n: string, d: string): string => `${pct}, ${n} of ${d}`,
         of: (n: string, d: string): string => `${n} of ${d}`,
         daysShort: (d: string): string => `${d} d`,
-        daysLong: (d: string): string => `${d} days`,
+        daysLong: (d: string): string => (d === "1" ? "1 day" : `${d} days`),
         hoursLong: (h: string): string => `${h} hours`,
       },
       nouns: {
@@ -1929,6 +1943,17 @@ export const strings = {
           what: "Replies from creators that we have not answered yet. A quick answer keeps a warm reply warm. Good looks like none waiting more than a day.",
         },
       },
+      /** Money viewers: this month's payments in place of "Replies waiting for us" (P8b). */
+      revenue: {
+        label: (month: string): string => `Paid by brands, ${month}`,
+        what: "What brands paid the agency this month, against the goal as brand payments. The pace is where the month ends if the rest of it goes as the days so far did.",
+        pace: (projected: string, goal: string | null): string =>
+          goal === null
+            ? `At this pace ${projected} by the end of the month.`
+            : `At this pace ${projected} by the end of the month. Goal ${goal}.`,
+        tooEarly: "Too early in the month to say where it ends.",
+        open: "Open Money",
+      },
       what: {
         attention:
           "The early-warning list. Each line is a rule that found something wrong or drifting: what happened, why it matters, the numbers behind it and the one place to fix it. Most urgent first. Hiding a line silences it for 7 days.",
@@ -2010,6 +2035,10 @@ export const strings = {
             `You do ${perDay} a working day. Your goal needs ${needed}.`,
           action: "Open the Goal",
           steps: {
+            revenue: "Net revenue",
+            bookings: "Bookings",
+            deals: "Deals",
+            pitches: "Brand pitches",
             signed: "Signings",
             replied: "Replies",
             firstEmails: "First emails",
@@ -2057,6 +2086,57 @@ export const strings = {
           evidence: (ratio: string): string => `${ratio} of live channels have no numbers.`,
           action: "See them",
         },
+        invoiceLate: {
+          title: (deal: string, days: string): string =>
+            `${deal}: the invoice is ${days} ${days === "1" ? "day" : "days"} late`,
+          why: "A brand that has not paid holds up the creator’s payout, and the longer it waits the less likely it is to pay.",
+          evidence: (amount: string): string => `${amount} unpaid, past its due date (Net 30).`,
+          action: "Open the deal",
+        },
+        payoutDue: {
+          title: (deal: string, amount: string): string => `Pay the creator ${amount} for ${deal}`,
+          why: "The brand has paid. A creator paid on time takes the next deal.",
+          evidence: (days: string): string =>
+            `The brand paid ${days} ago and the payout is still open.`,
+          action: "Pay them",
+        },
+        dealStuck: {
+          title: (deal: string, step: string): string => `${deal} is stuck in ${step}`,
+          why: "A deal that waits much longer than usual at one step is the one that goes cold.",
+          evidence: (days: string, usual: string): string =>
+            `${days} ${days === "1" ? "day" : "days"} here, against the usual ${usual}.`,
+          action: "Open the deal",
+        },
+        behindGoal: {
+          title: "Revenue is behind your goal",
+          why: "At this pace the month ends under the goal, and money trails the work by about two months.",
+          evidence: (projected: string, goal: string): string =>
+            `On pace for ${projected}, against ${goal} as brand payments.`,
+          action: "Open the Goal",
+        },
+        basket: {
+          title: (brand: string): string => `${brand} brings most of your revenue`,
+          why: "Over 40% from one brand means one lost brand hurts the month badly.",
+          evidence: (share: string): string => `${share} of the last 90 days’ payments.`,
+          action: "Open the brand",
+        },
+        idleCreator: {
+          title: (creator: string, days: string): string =>
+            `${creator} has had no deal in ${days} ${days === "1" ? "day" : "days"}`,
+          // When no signing time is known there is no number to give.
+          titleUnknownDays: (creator: string): string =>
+            `${creator} has had no deal for a long while`,
+          why: "A creator with no deal for long tends to drift away.",
+          evidence: "Signed, with no deal for a long while.",
+          action: "Pitch them",
+        },
+        marginLow: {
+          title: (deal: string): string => `${deal} kept less than your floor`,
+          why: "A deal under your floor costs more to run than it earns.",
+          evidence: (margin: string, floor: string): string =>
+            `Kept ${margin}, against your floor of ${floor}.`,
+          action: "Open the deal",
+        },
         auditFailing: {
           title: (check: string): string => `Many creators fail the ${check} check`,
           why: "A creator who fails the audience check has already cost you emails and time.",
@@ -2093,6 +2173,13 @@ export const strings = {
           todo: "Send more through it while it lasts.",
           action: "Open Mailboxes",
         },
+        brandPaysFast: {
+          title: (brand: string): string => `${brand} pays fastest`,
+          evidence: (days: string): string =>
+            `It usually pays in ${days} ${days === "1" ? "day" : "days"}.`,
+          todo: "Pitch more brands like it.",
+          action: "Open the brand",
+        },
         followUp: {
           title: (step: string): string => `Follow-up ${step} earns its keep`,
           evidence: (share: string, rate: string): string =>
@@ -2114,6 +2201,8 @@ export const strings = {
           kit: "Kit in",
           audience: "Audience ok",
           signed: "Signed",
+          firstDeal: "First deal",
+          firstPayout: "Paid",
         },
         stuck: (n: string): string => `${n} stuck`,
         headlineOnly: (found: string): string => `${found} channels found so far.`,
@@ -2129,12 +2218,223 @@ export const strings = {
           kit: (n: string): string => `${n} sent a media kit`,
           audience: (n: string): string => `${n} passed the audience check`,
           signed: (n: string): string => `${n} have signed`,
+          firstDeal: (n: string): string => `${n} have a first deal`,
+          firstPayout: (n: string): string => `${n} creators have been paid`,
         },
         counted:
           "Everyone so far, from the first search. Your rules drop most finds on purpose. Amber is how many are stuck: in a step for more than twice the usual time.",
         open: "Open the Funnel",
         pickLabel: (step: string): string => `Open the Funnel at ${step}`,
         tableColumns: ["Step", "How many", "Made it from the step above", "Stuck"] as const,
+      },
+    },
+    /** The Money tab (plan step P8b, task B-5): money viewers only. */
+    money: {
+      lockNote:
+        "Only people who see money have this tab. For everyone else it isn’t there at all, and the Goal tab speaks in emails and creators.",
+      empty: {
+        title: "No money yet",
+        body: "Money fills in after your first paid invoice.",
+      },
+      unknown: "–",
+      names: {
+        brand: "A brand",
+        creator: "A creator",
+        deal: "A deal",
+        dealOf: (brand: string, creator: string): string => `${brand} × ${creator}`,
+      },
+      revenue: {
+        label: "What brands paid, by month",
+        counted:
+          "What brands paid the agency each month. The current month is still running: its bar is paler, and the dashed outline is where it ends at this pace.",
+        headlineOver: (month: string, projected: string, goal: string): string =>
+          `${month} is on pace for ${projected}, over the ${goal} goal.`,
+        headlineUnder: (month: string, projected: string, goal: string): string =>
+          `${month} is on pace for ${projected}, under the ${goal} goal.`,
+        headlineNoGoal: (month: string, projected: string): string =>
+          `${month} is on pace for ${projected}.`,
+        headlineNone: "Nothing has been paid yet.",
+        headlineEarly: (month: string, paid: string): string => `${month} so far: ${paid} paid.`,
+        goalLabel: (paid: string, net: string, margin: string): string =>
+          `goal ${paid} (net ${net} at ${margin})`,
+        goalLabelPlain: (paid: string): string => `goal ${paid}`,
+        grew: (from: string, fromPaid: string, to: string, toPaid: string): string =>
+          `Revenue grew every month from ${from} (${fromPaid}) to ${to} (${toPaid}). `,
+        was: (from: string, fromPaid: string, to: string, toPaid: string): string =>
+          `Revenue was ${fromPaid} in ${from} and ${toPaid} in ${to}. `,
+        at: (month: string): string => `${month} is at `,
+        after: (days: string): string => ` after ${days}.`,
+        projectedMark: "where it ends at this pace",
+        barLabel: (month: string, paid: string, running: boolean): string =>
+          running ? `${month} ${paid} so far` : `${month} ${paid}`,
+        columns: ["Month", "Paid by brands", "Kept by the agency", "At this pace"] as const,
+        open: "See the paid invoices",
+      },
+      owed: {
+        counted: "Unpaid invoices by age. All are Net 30.",
+        headline: (late: string, over30: string): string =>
+          `${late} is late. ${over30} of it is over 30 days.`,
+        headlineLate: (late: string): string => `${late} is late.`,
+        headlineNone: "No invoice is late.",
+        buckets: {
+          notDue: "Not due yet",
+          late30: "1–30 days late",
+          late60: "31–60 days late",
+          over60: "Over 60 days",
+        },
+        columns: ["Age", "Invoices", "Amount"] as const,
+        label: "Unpaid invoices by age",
+        listLabel: "Late invoices",
+        row: (deal: string, days: string): string => `${deal} · ${days} late`,
+        rowOpen: (deal: string): string => `Open ${deal}`,
+        usually: (list: string): string => `Brands usually pay in: ${list}.`,
+        andMore: (n: string): string => `and ${n} more`,
+        payIn: (brand: string, days: string, first: boolean): string =>
+          first ? `${brand} ${days} ${days === "1" ? "day" : "days"}` : `${brand} ${days}`,
+        notPaid: (brand: string): string => `${brand} hasn’t paid at all yet`,
+        noPayData: "No brand has paid an invoice yet.",
+        open: (n: string): string => `Open the ${n} late`,
+      },
+      payouts: {
+        counted: "Creator payouts stay locked until the brand pays us.",
+        headlineOne: (creator: string, amount: string): string =>
+          `${amount} is due to ${creator} now.`,
+        headlineMany: (amount: string, n: string): string =>
+          `${amount} is due to ${n} creators now.`,
+        headlineNone: "No creator payout is due now.",
+        dueNow: "Due now",
+        locked: "Locked",
+        dueContext: (brand: string, ago: string): string => `${brand} paid ${ago}`,
+        dueContextMany: (n: string): string => `${n} payouts waiting for you`,
+        noneContext: "Nothing is waiting for you",
+        lockedContext: (n: string): string =>
+          n === "1" ? "1 payout waiting on a brand" : `${n} payouts waiting on brands`,
+        meaning: "A creator paid on time takes the next deal.",
+        pay: (creator: string): string => `Pay ${creator}`,
+        payMany: "Open the payouts",
+        columns: ["Measure", "Amount", "Payouts"] as const,
+        open: (n: string): string => `Open the ${n} due`,
+        label: "Creator payouts",
+      },
+      margin: {
+        headline: (pct: string): string => `We keep ${pct} on average.`,
+        headlineNone: "No margin to show yet.",
+        counted: (floor: string): string =>
+          `Margin per deal, last 90 days. Your floor is ${floor}.`,
+        under: (n: string): string =>
+          n === "1" ? "1 deal under the floor" : `${n} deals under the floor`,
+        noneUnder: "No deal is under the floor.",
+        row: (deal: string, pct: string): string => `${deal} kept ${pct}.`,
+        columns: ["Deal", "Kept"] as const,
+        open: (n: string): string => `Open the ${n} under the floor`,
+      },
+      size: {
+        headlineUp: "Deals are getting bigger.",
+        headlineDown: "Deals are getting smaller.",
+        headlineSame: "Deal size is steady.",
+        headlineFirst: "Your first deals set the average.",
+        headlineNone: "No deals in the last 90 days.",
+        counted: "Average deal price.",
+        up: (before: string): string => `Up from ${before} three months ago.`,
+        down: (before: string): string => `Down from ${before} three months ago.`,
+        same: (before: string): string => `About the same as ${before} three months ago.`,
+        noBefore: "No deals three months ago to compare with.",
+        per1000: (price: string): string => ` Brands pay about ${price} per 1,000 views.`,
+        columns: ["Month", "Average deal price"] as const,
+      },
+      basket: {
+        headline: (pct: string): string => `${pct} comes from one brand.`,
+        headlineNone: "No payments to share out yet.",
+        counted: "Share of 90 days’ revenue.",
+        brand: (brand: string): string =>
+          `${brand} alone. Over 40% means one lost brand hurts the month badly.`,
+        creator: (creator: string, pct: string): string =>
+          ` Your top creator, ${creator}, brings ${pct}.`,
+        open: (name: string): string => `Open ${name}`,
+        columns: ["Who", "Share"] as const,
+        brandRow: "Top brand",
+        creatorRow: "Top creator",
+      },
+      roster: {
+        headlineBoth: (top: string, idle: string, days: string): string =>
+          `${top} earns most. ${idle} has had no deal in ${days}.`,
+        headlineTop: (top: string): string => `${top} earns most.`,
+        headlineIdle: (idle: string, days: string): string => `${idle} has had no deal in ${days}.`,
+        headlineNone: "No creator is signed yet.",
+        counted: (days: string): string =>
+          `Every signed creator, most revenue first. Idle is no deal in ${days} days.`,
+        columns: [
+          "Creator",
+          "Deals",
+          "Revenue",
+          "Last deal",
+          "Views at 30 days, against their usual",
+        ] as const,
+        signed: (date: string): string => `signed ${date}`,
+        idle: "Idle",
+        pitch: "Pitch them",
+        pitchLabel: (creator: string): string => `Pitch ${creator}`,
+        open: (creator: string): string => `Open ${creator}`,
+        deliveredStrong: (pct: string): string =>
+          `Videos delivered ${pct} of the creators’ usual views on average: a strong case for the next deal.`,
+        delivered: (pct: string): string =>
+          `Videos delivered ${pct} of the creators’ usual views on average.`,
+        lowest: (creator: string, pct: string): string =>
+          ` Look at ${creator} (${pct}) before pitching them again.`,
+        noReports: "No 30-day report is in yet.",
+        deliveredLabel: (pct: string): string => `${pct} of their usual views`,
+        label: "Signed creators and what they earned",
+        showAll: (n: string): string => `Show all ${n}`,
+        showLess: "Show fewer",
+      },
+      steps: {
+        counted:
+          "The usual days at each of the 10 deal steps. Orange is where deals are stuck now.",
+        headlineOne: (step: string): string => `One deal is stuck in ${step}.`,
+        headlineMany: (n: string, step: string): string => `${n} deals are stuck in ${step}.`,
+        headlineSpread: (n: string, here: string, step: string): string =>
+          `${n} deals are stuck, ${here} of them in ${step}.`,
+        headlineNone: "No deal is stuck.",
+        waited: (step: string, days: string, usual: string): string =>
+          `In ${step} they’ve waited ${days}, against the usual ${usual}.`,
+        long: " The 30-day report is long by design.",
+        columns: ["Step", "Usual days", "Stuck now"] as const,
+        label: "The usual days at each deal step",
+        open: (n: string): string => `Open the ${n} stuck`,
+        unknownDays: "not enough yet",
+      },
+      repeat: {
+        headline: (n: string, d: string): string =>
+          `${n} of ${d} ${d === "1" ? "brand" : "brands"} came back.`,
+        headlineNone: "No brand has had a deal yet.",
+        counted: "Brands that booked a second deal, all time.",
+        noNext: (n: string, names: string): string =>
+          n === "1"
+            ? `One finished report has no next deal proposed: ${names}.`
+            : `${n} finished reports have no next deal proposed: ${names}.`,
+        noNextMore: (n: string): string => `${n} finished reports have no next deal proposed.`,
+        allProposed: "Every finished report has a next deal proposed.",
+        propose: "Propose the next deal",
+        columns: ["Brands", "Count"] as const,
+        cameBack: "Booked a second deal",
+        withDeal: "Had a deal",
+        open: (n: string): string => `Open the ${n} without a next deal`,
+      },
+      what: {
+        revenue:
+          "What brands paid the agency each month, counted on the day the invoice was paid. The dashed line is the monthly goal as brand payments: your net goal divided by the margin you usually keep.",
+        owed: "Invoices sent and not yet paid, by how late they are. Net 30 means a brand has 30 days to pay.",
+        payouts:
+          "Creators are paid only after the brand has paid us. Due now is paid by brands and not yet paid on to the creator.",
+        margin: "What the agency kept of each deal: the price less what the creator got.",
+        size: "The average price of the deals made in the last 90 days, against the 90 days before.",
+        basket:
+          "How much of the last 90 days’ payments came from one brand and from one creator. Over 40% from one brand is a risk.",
+        roster:
+          "Every signed creator and what their deals brought in. Views at 30 days is how the video did in its first month against the creator’s usual views.",
+        steps:
+          "The usual (median) days a deal spends at each step. Stuck is more than twice the usual time.",
+        repeat: "The share of brands that came back for a second deal.",
       },
     },
     /** The Funnel tab (plan step P8a, task A11). */
@@ -2146,7 +2446,43 @@ export const strings = {
       switchLabel: "Which funnel",
       creators: "Creators",
       brands: "Brands",
-      brandsComes: "Brands come with deals. The brand funnel shows here once deals are built.",
+      /** The brand funnel (plan step P8b, task B-5): the same columns as the creator funnel. */
+      brandFunnel: {
+        steps: {
+          found: "Found",
+          qualified: "Qualified",
+          pitched: "Pitched",
+          replied: "Replied",
+          negotiating: "Negotiating",
+          won: "Won",
+          live: "Live",
+          paid: "Paid",
+        },
+        empty: {
+          title: "No brands have moved through yet",
+          body: "The brand funnel fills in as brands are found, pitched and signed.",
+        },
+        label: "The brand funnel",
+        rowOpen: (step: string): string => `Open the brands at ${step}`,
+        stuckOpen: (n: string, step: string): string => `Open the ${n} brands stuck at ${step}`,
+        headline: (paid: string, found: string): string =>
+          `Brands: ${paid} of the ${found} found have paid so far.`,
+        headlineNone: (found: string): string =>
+          `Brands: none of the ${found} found has paid so far.`,
+        headlineOnly: "No brand has been found yet.",
+        counted:
+          "Everyone so far. Each bar is the share that made it from the step above. Click a row to open those brands.",
+        what: "How many brands reached each step, and the share that made it from the step above. Stuck means in the step for more than twice its usual time. A brand marked “Not a fit” counts up to the last step it reached.",
+        biggest: (prev: string, step: string, lost: string, of: string): string =>
+          `The biggest drop is from ${prev} to ${step}: ${lost} of ${of} brands did not make it.`,
+        noDrop: "No step stands out yet.",
+        lostHeadline: (n: string): string =>
+          n === "1" ? "One brand was marked not a fit." : `${n} brands were marked not a fit.`,
+        lostNone: "No brand has been marked not a fit.",
+        lostCounted: "Brands marked “Not a fit”, by the last step they reached.",
+        lostColumns: ["Last step reached", "How many"] as readonly string[],
+        lostLabel: "Brands marked not a fit",
+      },
       viewLabel: "Who to follow",
       everyone: "Everyone so far",
       cohort: "Only those emailed in this period",
@@ -2161,6 +2497,8 @@ export const strings = {
         kit: "Media kit in",
         audience: "Audience check passed",
         signed: "Signed",
+        firstDeal: "First deal",
+        firstPayout: "First payout",
       },
       table: {
         label: "The creator funnel",
@@ -2932,6 +3270,18 @@ export const strings = {
       what: "Say how many creators you want to sign each month. Each line below is worked out from the one above it with the rate beside it.",
       inputLabel: "Creators to sign a month",
       inputHelp: "Press Enter to save.",
+      /** The money goal (money viewers only, P8b). */
+      money: {
+        headline: (amount: string): string => `Your goal: ${amount} net a month.`,
+        inputLabel: "Monthly net revenue goal",
+        inputHelp: "Press Enter to save. Leave it empty to clear it.",
+        marginLabel: "Agency margin",
+        dealLabel: "Average deal price",
+        yours: (n: string): string => `yours, ${n}`,
+        none: "Not set",
+        placeholder: "No money goal",
+        opened: "Open Money",
+      },
       chain: {
         what: "Each line is worked out from the one above with the rate beside it. The white mark is what a day needs; the bar is what you do now, over the last 30 days. A rate is yours when you have enough of your own numbers, otherwise the course figure or a marked starting guess.",
         counted:
@@ -2944,12 +3294,22 @@ export const strings = {
           verdict: "Verdict",
         },
         steps: {
+          revenue: "Net revenue",
+          bookings: "Bookings (what brands pay)",
+          deals: "Deals won",
+          pitches: "Brand pitches",
           signed: "Creators to sign",
           replied: "Creators who reply",
           firstEmails: "First emails",
           triage: "Channels to review",
           find: "Channels to find",
         },
+        /** The money lines' rates (P8b). */
+        marginRate: (pct: string): string => `${pct} margin`,
+        dealRate: (dollars: string): string => `${dollars} a deal`,
+        winRate: (pct: string): string => `${pct} win`,
+        perDealRate: (n: string): string => `1 for every ${n} deals`,
+        perDealRateMore: (n: string): string => `${n} for every deal`,
         rateVerb: {
           replied: "sign",
           firstEmails: "reply",
@@ -2965,18 +3325,25 @@ export const strings = {
           override: "set by you",
         },
         monthOnly: "counted by the month",
+        /** What the last 30 days did on a money line (revenue, bookings, deals). */
+        moneyDone: (amount: string): string => `${amount} in 30 days`,
+        countDone: (n: string): string => `${n} in 30 days`,
         dayOf: (done: string, needed: string): string => `${done} of ${needed}`,
         barLabel: (done: string, needed: string): string => `${done} a day now, ${needed} needed`,
         shortBy: (n: string): string => `Short by ${n} a day`,
         headlineNone: "Every step is on pace.",
         headlineEarly: "Not enough work is counted yet to compare with your pace.",
-        headlineShort: (step: string, n: string): string => `${step} is ${n} a day short.`,
-        headlineShortMonth: (step: string): string => `${step} is falling short.`,
-        meaning: (step: string): string => `${step} is the step falling short the most.`,
+        headlineShort: (step: string, n: string): string => `${step}: ${n} a day short.`,
+        headlineShortMonth: (step: string): string => `${step}: falling short.`,
+        meaning: (step: string): string => `The step falling short the most: ${step}.`,
         meaningNone: "Every step keeps up with what the goal needs.",
         meaningEarly: "Once a month of work is counted, each step shows its verdict.",
         reset: "Reset the rates",
         open: {
+          revenue: "Open Money",
+          bookings: "Open Money",
+          deals: "Open the deals",
+          pitches: "Open Brands",
           signed: "Open the roster",
           replied: "Open replies",
           firstEmails: "Open Reach",
@@ -3000,6 +3367,12 @@ export const strings = {
         biggest: "Biggest lever",
         replyRate: "Get 1 point more replies",
         signRate: "Sign more of the creators who reply",
+        dealSize: "Raise the average deal by $500",
+        closeRate: "Win 5 points more brand pitches",
+        headlineDealSize: (from: string, to: string, a: string, b: string): string =>
+          `Raising the average deal from ${from} to ${to} cuts first emails from ${a} to ${b} a day.`,
+        headlineCloseRate: (from: string, to: string): string =>
+          `Winning more pitches (${from} to ${to}) cuts the brand pitches you need.`,
         change: (from: string, to: string): string => `${from} → ${to}`,
         headlineReply: (from: string, to: string, a: string, b: string): string =>
           `Raising replies from ${from} to ${to} cuts first emails from ${a} to ${b} a day.`,
@@ -3034,7 +3407,8 @@ export const strings = {
         neededRow: "Needed",
         capacityRow: "Mailboxes allow",
       },
-      moneyNote: "Money lines come with deals.",
+      moneyNote:
+        "Without money access, this tab shows the same plan as daily targets only, with none of the dollar lines.",
     },
   },
   /** Close's screen and its Roster tab (plan step 8, R2). */

@@ -2,10 +2,21 @@ import type { DatabaseSync, SQLOutputValue } from "node:sqlite";
 
 import { checkAudience, kitView } from "@gratovo/core/close";
 import type { InsightsLocal, InsightsLocalCreator, RejectReason } from "@gratovo/core/data";
-import { creatorStageFrom, creatorStages, primaryEmail, rejectReasons } from "@gratovo/core/data";
+import {
+  brandStatuses,
+  creatorStageFrom,
+  creatorStages,
+  defaultAgencyFacts,
+  primaryEmail,
+  rejectReasons,
+} from "@gratovo/core/data";
 import { goalSteps, readingKind, thresholds } from "@gratovo/core/insights";
 import type {
+  BrandEvent,
+  BrandFact,
   CatalogWeek,
+  DealEvent,
+  DealFact,
   GoalSettings,
   GoalStep,
   HiddenAlerts,
@@ -16,6 +27,8 @@ import type {
 } from "@gratovo/core/insights";
 import { effectiveCap, warmupDays } from "@gratovo/core/reach";
 
+import { listBrands } from "./brands";
+import { listDeals } from "./deals";
 import { getSetting } from "./settings";
 
 /**
@@ -26,6 +39,7 @@ import { getSetting } from "./settings";
 
 export const goalSettingName = "insights.goal";
 export const hiddenSettingName = "insights.hidden";
+export const agencyFactsSettingName = "agency.facts";
 
 function num(value: SQLOutputValue | undefined): number {
   return typeof value === "number" ? value : typeof value === "bigint" ? Number(value) : 0;
@@ -83,7 +97,15 @@ export function goalFrom(raw: unknown): GoalSettings {
       }
     }
   }
-  return { signsPerMonth, overrides };
+  const revenue = isRecord(raw) ? raw["revenuePerMonth"] : undefined;
+  const revenuePerMonth =
+    typeof revenue === "number" &&
+    Number.isInteger(revenue) &&
+    revenue >= 100 &&
+    revenue <= 10_000_000
+      ? revenue
+      : null;
+  return { signsPerMonth, revenuePerMonth, overrides };
 }
 
 /** The hidden alerts: key → until (ms). Anything that is not a number is dropped. */
@@ -377,8 +399,81 @@ function readWeeks(db: DatabaseSync): CatalogWeek[] {
 
 // ---------------------------------------------------------------------------------------------
 
-/** Everything Insights reads from the local database, in one pass per table. */
-export function readInsightsLocal(db: DatabaseSync): InsightsLocal {
+// ---------------------------------------------------------------------------------------------
+// Deals and brands (P8b)
+
+/**
+ * Every deal as the money reports need it. A viewer without money gets null amounts (the frame
+ * hides them the same way, F4).
+ */
+function readDealFacts(db: DatabaseSync, sees: boolean): DealFact[] {
+  return listDeals(db).map((d) => ({
+    id: d.id,
+    brandId: d.brand,
+    creatorId: d.creator,
+    step: d.step,
+    price: sees ? d.price : null,
+    payout: sees ? d.payout : null,
+    createdAt: d.createdAt,
+    goLiveAt: d.goLiveAt,
+    invoiceSentAt: d.invoice.sentAt,
+    invoiceDueAt: d.invoice.dueAt,
+    invoicePaidAt: d.invoice.paidAt,
+    paidCreatorAt: d.paidCreatorAt,
+    reportViews: d.report?.views ?? null,
+    usualViews: d.report?.targetViews ?? null,
+    reportSentAt: d.report?.sentAt ?? null,
+  }));
+}
+
+function readBrandFacts(db: DatabaseSync): BrandFact[] {
+  return listBrands(db).map((b) => ({
+    id: b.id,
+    name: b.name,
+    status: b.status,
+    since: b.since,
+  }));
+}
+
+function readDealEvents(db: DatabaseSync): DealEvent[] {
+  return db
+    .prepare("SELECT deal_id, step, at FROM deal_events ORDER BY at, id")
+    .all()
+    .map((row) => ({ dealId: String(row["deal_id"]), step: num(row["step"]), at: num(row["at"]) }));
+}
+
+function readBrandEvents(db: DatabaseSync): BrandEvent[] {
+  const known: readonly string[] = brandStatuses;
+  const events: BrandEvent[] = [];
+  for (const row of db
+    .prepare("SELECT brand_id, status, at FROM brand_events ORDER BY at, id")
+    .all()) {
+    const status = String(row["status"]);
+    if (known.includes(status)) {
+      events.push({
+        brandId: String(row["brand_id"]),
+        status: status as BrandEvent["status"],
+        at: num(row["at"]),
+      });
+    }
+  }
+  return events;
+}
+
+/** The margin floor from Settings › Agency facts; the default when not set or damaged. */
+function readMarginFloor(db: DatabaseSync): number {
+  const facts = getSetting(db, agencyFactsSettingName);
+  const floor = isRecord(facts) ? facts["marginFloorPct"] : undefined;
+  return typeof floor === "number" && Number.isFinite(floor) && floor >= 0 && floor <= 100
+    ? floor
+    : defaultAgencyFacts.marginFloorPct;
+}
+
+/**
+ * Everything Insights reads from the local database, in one pass per table. `sees` is the viewer's
+ * money access, as the frame decides it: without it deal amounts are null.
+ */
+export function readInsightsLocal(db: DatabaseSync, sees: boolean): InsightsLocal {
   const events = readEvents(db);
   const firstContact = new Map<string, number>();
   for (const event of events) {
@@ -399,5 +494,11 @@ export function readInsightsLocal(db: DatabaseSync): InsightsLocal {
     weeks: readWeeks(db),
     goal: goalFrom(getSetting(db, goalSettingName)),
     hidden: hiddenFrom(getSetting(db, hiddenSettingName)),
+    deals: readDealFacts(db, sees),
+    brands: readBrandFacts(db),
+    dealEvents: readDealEvents(db),
+    brandEvents: readBrandEvents(db),
+    seesMoney: sees,
+    marginFloorPct: readMarginFloor(db),
   };
 }

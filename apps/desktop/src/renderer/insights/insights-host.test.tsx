@@ -52,10 +52,10 @@ function bridge(): void {
   (window as unknown as { gratovo: unknown }).gratovo = { invoke, on: () => () => undefined };
 }
 
-function reads(): { tab: string; period: string }[] {
+function reads(): { tab: string; period: string; deals: boolean }[] {
   return calls
     .filter(([c]) => c === "insights:read")
-    .map(([, i]) => i as { tab: string; period: string });
+    .map(([, i]) => i as { tab: string; period: string; deals: boolean });
 }
 
 function seed(tab: string): void {
@@ -79,17 +79,35 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+describe("the Insights host on live data", () => {
+  it("asks for no deals in every read and list, until deals are wired", async () => {
+    resetAppStoreForTests({ screen: "insights", tab: "overview" });
+    adoptServerData((d) => {
+      d.source = "live";
+    });
+    render(<InsightsHost />);
+    await settle();
+    expect(reads()).toEqual([{ tab: "overview", period: "30d", deals: false }]);
+    fireEvent.click(screen.getByRole("button", { name: t.overview.vitals.fuel.open("58") }));
+    await settle();
+    expect(calls.at(-1)).toEqual([
+      "insights:list",
+      { drill: { kind: "fuel" }, period: "30d", offset: 0, deals: false },
+    ]);
+  });
+});
+
 describe("the Insights host", () => {
   it("reads the route's tab for the period, and again when the period changes", async () => {
     seed("overview");
     render(<InsightsHost />);
     expect(screen.getByRole("status").textContent).toBe(t.reading);
     await settle();
-    expect(reads()).toEqual([{ tab: "overview", period: "30d" }]);
+    expect(reads()).toEqual([{ tab: "overview", period: "30d", deals: true }]);
     expect(screen.getByLabelText(t.overview.summary.label)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: t.periods["7d"] }));
     await settle();
-    expect(reads().at(-1)).toEqual({ tab: "overview", period: "7d" });
+    expect(reads().at(-1)).toEqual({ tab: "overview", period: "7d", deals: true });
   });
 
   it("shows a plain error with Try again when the first read fails", async () => {
@@ -112,13 +130,13 @@ describe("the Insights host", () => {
     expect(within(sheet).getAllByRole("button", { name: /^Open Creator/ })).toHaveLength(100);
     expect(calls.at(-1)).toEqual([
       "insights:list",
-      { drill: { kind: "fuel" }, period: "30d", offset: 0 },
+      { drill: { kind: "fuel" }, period: "30d", offset: 0, deals: true },
     ]);
     fireEvent.click(within(sheet).getByRole("button", { name: t.drill.more }));
     await settle();
     expect(calls.at(-1)).toEqual([
       "insights:list",
-      { drill: { kind: "fuel" }, period: "30d", offset: 100 },
+      { drill: { kind: "fuel" }, period: "30d", offset: 100, deals: true },
     ]);
     expect(within(sheet).getAllByRole("button", { name: /^Open Creator/ })).toHaveLength(120);
     fireEvent.click(within(sheet).getByRole("button", { name: /^Open Creator 3$/ }));
@@ -165,6 +183,6 @@ describe("the Insights host", () => {
     await waitFor(() => {
       expect(writeText).toHaveBeenCalledWith(summaryDocument(overviewReport, "30d"));
     });
-    expect(reads()).toContainEqual({ tab: "overview", period: "30d" });
+    expect(reads()).toContainEqual({ tab: "overview", period: "30d", deals: true });
   });
 });

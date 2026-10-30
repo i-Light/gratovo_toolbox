@@ -11,6 +11,7 @@ import {
   isSettingsSectionShown,
   isPartShown,
   isTabShown,
+  liveHiddenParts,
   liveWired,
   shownTabs,
   startRoute,
@@ -149,5 +150,23 @@ describe("parts of a tab", () => {
   it("shows Funnel's Brands view on example data only, until deals come", () => {
     expect(isPartShown("insights.funnel.brands", "example")).toBe(true);
     expect(isPartShown("insights.funnel.brands", "live")).toBe(false);
+  });
+
+  it("shows the revenue tile, the goal's money lines and any deal reading on example data only", () => {
+    for (const part of [
+      "insights.overview.revenue",
+      "insights.goal.money",
+      "insights.deals",
+    ] as const) {
+      expect(isPartShown(part, "example")).toBe(true);
+      expect(isPartShown(part, "live")).toBe(false);
+    }
+  });
+
+  it("keeps the live Insights tabs as they are, with Money hidden", () => {
+    expect(liveWired.insights).toEqual(["overview", "funnel", "emails", "search", "goal"]);
+    expect(liveHiddenParts).toContain("insights.funnel.brands");
+    // The synced legacy deals are never read on live: the part gates the data itself.
+    expect(liveHiddenParts).toContain("insights.deals");
   });
 });

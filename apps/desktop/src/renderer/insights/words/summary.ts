@@ -11,6 +11,8 @@ import {
   waitingTile,
 } from "./overview";
 import type { TileWords } from "./overview";
+import { noNames } from "./names";
+import type { Names } from "./names";
 
 const t = strings.insights;
 const d = t.summaryDoc;
@@ -23,7 +25,11 @@ function value(words: TileWords): string {
  * The Overview as plain text for Copy summary: the heading, the summary sentences, the five vital
  * numbers with their verdict words, and the titles of what needs attention.
  */
-export function summaryDocument(report: OverviewReport, period: Period): string {
+export function summaryDocument(
+  report: OverviewReport,
+  period: Period,
+  names: Names = noNames,
+): string {
   const v = report.vitals;
   const tile = (label: string, words: TileWords, verdict: Verdict): string =>
     d.line(label, value(words), t.verdict[verdict]);
@@ -31,7 +37,7 @@ export function summaryDocument(report: OverviewReport, period: Period): string 
   const lines = [
     d.heading(t.comparedWith[period]),
     "",
-    summaryText(report.summary),
+    summaryText(report.summary, names),
     "",
     d.vitals,
     tile(vitals.emails.label, emailsTile(v.emails), v.emails.verdict),
@@ -47,7 +53,7 @@ export function summaryDocument(report: OverviewReport, period: Period): string 
     d.attention,
     ...(report.attention.length === 0
       ? [d.nothing]
-      : report.attention.map((line) => `- ${alertWords(line.alert).title}`)),
+      : report.attention.map((line) => `- ${alertWords(line.alert, names).title}`)),
   ];
   return lines.join("\n");
 }

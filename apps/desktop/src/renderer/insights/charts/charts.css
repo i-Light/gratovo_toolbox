@@ -594,3 +594,110 @@
     transition: none;
   }
 }
+
+/* ---- Month bars (Money) ---------------------------------------------------------------- */
+
+.ch-months {
+  width: 100%;
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+.ch-months__chart {
+  display: flex;
+  flex-direction: column;
+}
+.ch-months__plot {
+  position: relative;
+  flex: 1;
+  margin-left: 36px;
+  min-height: 0;
+}
+.ch-months__grid {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 1px solid color-mix(in srgb, var(--line) 55%, transparent);
+}
+.ch-months__grid:first-child {
+  border-top-color: var(--line);
+}
+.ch-months__grid > span {
+  position: absolute;
+  right: 100%;
+  margin-right: 8px;
+  transform: translateY(-50%);
+  color: var(--faint);
+  line-height: 1;
+}
+.ch-months__goal {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 1.5px dashed var(--ink-2);
+  z-index: 1;
+}
+.ch-months__goal > span {
+  position: absolute;
+  left: 0;
+  bottom: 4px;
+  color: var(--ink-2);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+.ch-months__cols {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  gap: 24px;
+  padding-inline: 16px;
+  align-items: stretch;
+}
+.ch-months__col {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+.ch-months__bar,
+.ch-months__proj {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: min(48px, 70%);
+  transform: translateX(-50%);
+  border-radius: 3px 3px 0 0;
+}
+.ch-months__bar {
+  background: var(--tone);
+}
+.ch-months__bar.partial {
+  background: color-mix(in srgb, var(--tone) 55%, transparent);
+}
+.ch-months__proj {
+  border: 1.5px dashed var(--tone);
+  border-bottom: 0;
+  box-sizing: border-box;
+}
+.ch-months__value {
+  position: absolute;
+  left: 0;
+  right: 0;
+  text-align: center;
+  color: var(--ink);
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1;
+}
+.ch-months__labels {
+  display: flex;
+  gap: 24px;
+  padding-inline: 16px;
+  margin: 8px 0 0 36px;
+}
+.ch-months__labels > span {
+  flex: 1;
+  text-align: center;
+}

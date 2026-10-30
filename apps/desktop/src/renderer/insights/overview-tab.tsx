@@ -10,14 +10,18 @@ import type {
   WinLine,
 } from "@gratovo/core/insights";
 import { useState } from "react";
+import type { ReactNode } from "react";
 
 import { strings } from "../strings";
 import { BigNumber } from "./big-number";
+import { ShareBar } from "./charts/bars";
 import { LineChart } from "./charts/line-chart";
 import { StepLine } from "./charts/step-line";
 import { Panel } from "./panel";
 import { DifferenceTag, VerdictTag } from "./verdict";
-import { biggestDropSentence } from "./words/funnel";
+import { biggestDropSentence, shownRows } from "./words/funnel";
+import { noNames } from "./words/names";
+import type { Names } from "./words/names";
 import { num, pct, ratioPct } from "./words/format";
 import {
   alertWords,
@@ -28,6 +32,8 @@ import {
   overviewIsEmpty,
   pipelineHeadline,
   replyRateTile,
+  revenueLabel,
+  revenueTile,
   signedTile,
   summaryRuns,
   waitingTile,
@@ -49,8 +55,12 @@ export interface OverviewTabProps {
   readonly onDrill: (drill: Drill) => void;
   /** Hide an alert for 7 days; the host stores the key. */
   readonly onHide: (key: string) => void;
-  /** Money viewers: P8b puts revenue in place of "Replies waiting for us". Not used in P8a. */
+  /** Show the revenue tile in place of "Replies waiting for us": money viewers, where it is wired. */
   readonly seesMoney: boolean;
+  /** Whether First deal and First payout show in the pipeline: not on live before step 9 (B8). */
+  readonly showDeals: boolean;
+  /** Names of brands, creators and deals, for the money alerts. */
+  readonly names?: Names;
 }
 
 interface VitalProps {
@@ -61,10 +71,12 @@ interface VitalProps {
   readonly what: string;
   readonly trend?: readonly Point[];
   readonly action?: { readonly label: string; readonly onClick: () => void };
+  /** Something small under the lines, such as a progress bar. */
+  readonly extra?: ReactNode;
 }
 
 /** One of the five tiles: label, mark, the big number, its lines and a small trend. */
-function Vital({ dataUi, label, verdict, words, what, trend, action }: VitalProps) {
+function Vital({ dataUi, label, verdict, words, what, trend, action, extra }: VitalProps) {
   const [open, setOpen] = useState(false);
   return (
     <div className="ins-vital" role="listitem" data-ui={dataUi}>
@@ -87,6 +99,7 @@ function Vital({ dataUi, label, verdict, words, what, trend, action }: VitalProp
           <p key={line}>{line}</p>
         ))}
       </div>
+      {extra}
       {open ? <p className="ins-vital-what">{what}</p> : null}
       {trend !== undefined && trend.length > 1 ? (
         <LineChart points={trend} height={40} yTickCount={0} lastIsPartial ariaLabel={label} />
@@ -105,10 +118,12 @@ function Vital({ dataUi, label, verdict, words, what, trend, action }: VitalProp
 function AttentionPanel({
   lines,
   hidden,
+  names,
   onGo,
   onHide,
 }: {
   readonly lines: readonly AlertLine[];
+  readonly names: Names;
   readonly hidden: number;
   readonly onGo: (go: InsightsGo) => void;
   readonly onHide: (key: string) => void;
@@ -127,7 +142,7 @@ function AttentionPanel({
       numbers={{
         columns: a.tableColumns,
         rows: lines.map((l) => {
-          const w = alertWords(l.alert);
+          const w = alertWords(l.alert, names);
           return [text.verdict[l.verdict], w.title, w.evidence];
         }),
       }}
@@ -153,7 +168,7 @@ function AttentionPanel({
       {lines.length === 0 ? null : (
         <ul className="ins-lines" aria-label={a.listLabel}>
           {shown.map((line) => {
-            const w = alertWords(line.alert);
+            const w = alertWords(line.alert, names);
             return (
               <li key={line.key} className="ins-line" data-ui="insights.overview.alert">
                 <div className="ins-line-main">
@@ -194,9 +209,11 @@ function AttentionPanel({
 
 function WinsPanel({
   wins,
+  names,
   onGo,
 }: {
   readonly wins: readonly WinLine[];
+  readonly names: Names;
   readonly onGo: (go: InsightsGo) => void;
 }) {
   return (
@@ -208,7 +225,7 @@ function WinsPanel({
       numbers={{
         columns: t.wins.tableColumns,
         rows: wins.map((w) => {
-          const words = winWords(w.win);
+          const words = winWords(w.win, names);
           return [words.title, words.evidence];
         }),
       }}
@@ -216,7 +233,7 @@ function WinsPanel({
       {wins.length === 0 ? null : (
         <ul className="ins-lines" aria-label={t.wins.listLabel}>
           {wins.map((line) => {
-            const w = winWords(line.win);
+            const w = winWords(line.win, names);
             const go = line.go;
             return (
               <li
@@ -259,7 +276,15 @@ function WinsPanel({
 }
 
 /** The Overview: how are we doing, and what needs me? (design 3.1). */
-export function OverviewTab({ report, onGo, onDrill, onHide }: OverviewTabProps) {
+export function OverviewTab({
+  report,
+  onGo,
+  onDrill,
+  onHide,
+  seesMoney,
+  showDeals,
+  names = noNames,
+}: OverviewTabProps) {
   if (overviewIsEmpty(report)) {
     return (
       <div className="card" data-ui="insights.overview.empty">
@@ -270,8 +295,9 @@ export function OverviewTab({ report, onGo, onDrill, onHide }: OverviewTabProps)
     );
   }
   const v = report.vitals;
+  const revenue = seesMoney ? v.revenue : null;
   const funnel: InsightsGo = { kind: "insights", tab: "funnel", view: null };
-  const rows = report.pipeline;
+  const rows = shownRows(report.pipeline, showDeals);
   const stepNames = t.pipeline.short;
   return (
     <>
@@ -281,7 +307,7 @@ export function OverviewTab({ report, onGo, onDrill, onHide }: OverviewTabProps)
         aria-label={t.summary.label}
       >
         <p className="ins-summary-text">
-          {summaryRuns(report.summary).map((run, i) =>
+          {summaryRuns(report.summary, names).map((run, i) =>
             run.bold === true ? <b key={i}>{run.text}</b> : <span key={i}>{run.text}</span>,
           )}
         </p>
@@ -334,23 +360,50 @@ export function OverviewTab({ report, onGo, onDrill, onHide }: OverviewTabProps)
                 }
               : {})}
           />
-          <Vital
-            dataUi="insights.overview.vital.waiting"
-            label={t.vitals.waiting.label}
-            verdict={v.repliesWaiting.verdict}
-            words={waitingTile(v.repliesWaiting, report.window.now)}
-            what={t.vitals.waiting.what}
-            {...(v.repliesWaiting.count > 0
-              ? {
-                  action: {
-                    label: t.vitals.waiting.open(num(v.repliesWaiting.count)),
-                    onClick: () => {
-                      onDrill({ kind: "repliesWaiting" });
+          {revenue === null ? (
+            <Vital
+              dataUi="insights.overview.vital.waiting"
+              label={t.vitals.waiting.label}
+              verdict={v.repliesWaiting.verdict}
+              words={waitingTile(v.repliesWaiting, report.window.now)}
+              what={t.vitals.waiting.what}
+              {...(v.repliesWaiting.count > 0
+                ? {
+                    action: {
+                      label: t.vitals.waiting.open(num(v.repliesWaiting.count)),
+                      onClick: () => {
+                        onDrill({ kind: "repliesWaiting" });
+                      },
                     },
-                  },
-                }
-              : {})}
-          />
+                  }
+                : {})}
+            />
+          ) : (
+            <Vital
+              dataUi="insights.overview.vital.revenue"
+              label={revenueLabel(revenue)}
+              verdict={revenue.verdict}
+              words={revenueTile(revenue)}
+              what={t.revenue.what}
+              action={{
+                label: t.revenue.open,
+                onClick: () => {
+                  onGo({ kind: "insights", tab: "money", view: null });
+                },
+              }}
+              {...(revenue.goal === null
+                ? {}
+                : {
+                    extra: (
+                      <ShareBar
+                        n={revenue.paid}
+                        d={revenue.goal}
+                        ariaLabel={revenueLabel(revenue)}
+                      />
+                    ),
+                  })}
+            />
+          )}
         </div>
       </section>
 
@@ -358,10 +411,11 @@ export function OverviewTab({ report, onGo, onDrill, onHide }: OverviewTabProps)
         <AttentionPanel
           lines={report.attention}
           hidden={report.hidden}
+          names={names}
           onGo={onGo}
           onHide={onHide}
         />
-        <WinsPanel wins={report.wins} onGo={onGo} />
+        <WinsPanel wins={report.wins} names={names} onGo={onGo} />
       </div>
 
       <Panel

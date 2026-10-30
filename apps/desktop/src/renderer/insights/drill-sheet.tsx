@@ -18,7 +18,7 @@ export interface DrillSheetProps {
   /** How many records there are in all; more than `rows.length` shows Load more. */
   readonly total: number;
   readonly onMore: () => void;
-  readonly onOpen: (id: string) => void;
+  readonly onOpen: (row: DrillRow) => void;
   /** Set when the number also counts archived channels: the sheet says so and opens the archive. */
   readonly onArchive?: () => void;
   readonly onClose: () => void;
@@ -94,7 +94,7 @@ export function DrillSheet({
                     data-ui="insights.drill.row"
                     aria-label={`${text.open} ${row.name}`}
                     onClick={() => {
-                      onOpen(row.id);
+                      onOpen(row);
                     }}
                   >
                     {inner}

@@ -1,7 +1,16 @@
 import { emailsReport } from "./emails";
-import { funnelReport, reachedIds, stuckIds } from "./funnel";
+import { brandReachedIds, brandStuckIds, funnelReport, reachedIds, stuckIds } from "./funnel";
 import { goalReport } from "./goal";
 import type { InsightsInputs } from "./inputs";
+import {
+  idleCreatorIds,
+  lateInvoiceDeals,
+  moneyReport,
+  noNextDeals,
+  payoutDueDeals,
+  stuckDealRows,
+  underFloorDeals,
+} from "./money";
 import { overviewReport, readyIds, repliesWaitingIds } from "./overview";
 import {
   isAddressWaiting,
@@ -39,13 +48,32 @@ export function insightsReport(
       return emailsReport(inputs, window);
     case "search":
       return searchReport(inputs, window);
+    case "money":
+      return moneyReport(inputs, window);
     case "goal":
       return goalReport(inputs, window);
   }
 }
 
+/** Which kind of record a drill's ids name: a brand, a deal, or (the rest) a creator. */
+export function drillRecord(drill: Drill): "creator" | "brand" | "deal" {
+  switch (drill.kind) {
+    case "brandStep":
+    case "brandStuck":
+      return "brand";
+    case "lateInvoices":
+    case "payoutsDue":
+    case "stuckDeals":
+    case "underFloor":
+    case "noNextDeal":
+      return "deal";
+    default:
+      return "creator";
+  }
+}
+
 /**
- * The creator ids behind a number, worked out by the rules that counted it.
+ * The record ids behind a number, worked out by the rules that counted it.
  *
  * - `step`: found and passed list the catalog's channels only. The archive part of those two
  *   numbers (hundreds of thousands of tombstones) opens Toolbox › Archive instead, so the list is
@@ -54,6 +82,9 @@ export function insightsReport(
  * - `stuck`: the creators counted in the row's `stuck` (everyone mode).
  * - `keyword`, `live`, `leaving`, `mistakes`, `undated`, `rejected`: catalog channels, by the same
  *   predicates the Search report uses.
+ * - `brandStep`, `brandStuck`: brand ids; `lateInvoices`, `payoutsDue`, `stuckDeals`, `underFloor`,
+ *   `noNextDeal`: deal ids; `idleCreators`: creator ids (see `drillRecord`). The money drills list
+ *   nothing for a viewer who doesn't see money.
  * - `secondLook`, `fuel`, `unconfirmed`, `repliesWaiting`, `unreadable`: as counted on their tabs.
  */
 export function drillIds(drill: Drill, inputs: InsightsInputs, period: Period): string[] {
@@ -92,5 +123,23 @@ export function drillIds(drill: Drill, inputs: InsightsInputs, period: Period): 
       return repliesWaitingIds(inputs);
     case "unreadable":
       return channels.filter((c) => isUnreadable(c, drill.which)).map((c) => c.id);
+    case "brandStep":
+      return brandReachedIds(inputs, drill.step);
+    case "brandStuck":
+      return brandStuckIds(inputs, drill.step);
+    case "lateInvoices":
+      return inputs.seesMoney ? lateInvoiceDeals(inputs).map((x) => x.deal.id) : [];
+    case "payoutsDue":
+      return inputs.seesMoney ? payoutDueDeals(inputs).map((d) => d.id) : [];
+    case "stuckDeals":
+      return stuckDealRows(inputs)
+        .filter((r) => drill.step === null || r.step === drill.step)
+        .map((r) => r.dealId);
+    case "underFloor":
+      return inputs.seesMoney ? underFloorDeals(inputs).map((x) => x.deal.id) : [];
+    case "idleCreators":
+      return idleCreatorIds(inputs);
+    case "noNextDeal":
+      return noNextDeals(inputs).map((d) => d.id);
   }
 }

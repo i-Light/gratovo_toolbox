@@ -2,8 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import { overviewReport, readyIds, repliesWaitingList } from "./overview";
 import { reportWindow } from "./stats";
-import { ch, DAY, ev, incoming, inputs, L, NOW, out } from "./test-inputs";
-import type { InsightsInputs } from "./inputs";
+import { ch, DAY, deal, ev, incoming, inputs, L, NOW, out } from "./test-inputs";
+import type { DealFact, InsightsInputs } from "./inputs";
+import { creatorSteps } from "./types";
 
 const win = reportWindow("30d", NOW);
 const report = (i: InsightsInputs) => overviewReport(i, win);
@@ -28,7 +29,7 @@ describe("overviewReport on empty inputs", () => {
     expect(r.attention).toEqual([]);
     expect(r.hidden).toBe(0);
     expect(r.wins).toEqual([]);
-    expect(r.pipeline).toHaveLength(10);
+    expect(r.pipeline).toHaveLength(creatorSteps.length);
     expect(r.vitals.emails.trend).toHaveLength(14);
     expect(r.vitals.replyRate.trend).toHaveLength(8);
     expect(r.vitals.replyRate.trend.every((p) => p.value === null)).toBe(true);
@@ -59,7 +60,12 @@ describe("vitals", () => {
   });
 
   it("no goal: early", () => {
-    const r = report(inputs({ messages: sends(10), goal: { signsPerMonth: 0, overrides: {} } }));
+    const r = report(
+      inputs({
+        messages: sends(10),
+        goal: { signsPerMonth: 0, revenuePerMonth: null, overrides: {} },
+      }),
+    );
     expect(r.vitals.emails.neededPerDay).toBeNull();
     expect(r.vitals.emails.verdict).toBe("early");
   });
@@ -181,5 +187,117 @@ describe("attention, summary and wins", () => {
       reportWindow("month", L(2026, 10, 28, 12)),
     );
     expect(m.vitals.emails.sent).toBe(3);
+  });
+});
+
+describe("the revenue vital and the pipeline to First payout (P8b)", () => {
+  const deal = (id: string, over: Partial<DealFact> = {}): DealFact => ({
+    id,
+    brandId: "b1",
+    creatorId: "c1",
+    step: 0,
+    price: 5000,
+    payout: 3000,
+    createdAt: null,
+    goLiveAt: null,
+    invoiceSentAt: null,
+    invoiceDueAt: null,
+    invoicePaidAt: null,
+    paidCreatorAt: null,
+    reportViews: null,
+    usualViews: null,
+    reportSentAt: null,
+    ...over,
+  });
+  const goal = (revenuePerMonth: number | null) => ({
+    signsPerMonth: 4,
+    revenuePerMonth,
+    overrides: {},
+  });
+
+  it("is null for a viewer who doesn't see money", () => {
+    const r = report(
+      inputs({
+        seesMoney: false,
+        goal: goal(10_000),
+        deals: [deal("d1", { invoicePaidAt: L(2026, 10, 5) })],
+      }),
+    );
+    expect(r.vitals.revenue).toBeNull();
+    expect(r.vitals.repliesWaiting).toBeDefined();
+  });
+
+  it("is zero and early with no deals", () => {
+    const rev = report(inputs()).vitals.revenue;
+    expect(rev).toMatchObject({
+      month: L(2026, 10, 1),
+      paid: 0,
+      projected: 0,
+      goal: null,
+      verdict: "early",
+    });
+    expect(rev?.trend).toHaveLength(6);
+    expect(rev?.trend.every((p) => p.value === 0)).toBe(true);
+  });
+
+  it("counts what brands paid this month, the pace, and six months of payments", () => {
+    const deals = [
+      deal("d1", { invoicePaidAt: L(2026, 10, 5) }),
+      deal("d2", { price: 3000, invoicePaidAt: L(2026, 9, 10) }),
+      deal("d3", { price: 7000, invoicePaidAt: L(2026, 5, 20) }), // before the six months
+      deal("d4"), // not paid
+    ];
+    const rev = report(inputs({ deals, goal: goal(10_000) })).vitals.revenue;
+    expect(rev?.paid).toBe(5000);
+    // 20 working days in the month so far of 22: 5,000 at that pace is 5,500.
+    expect(rev?.projected).toBeCloseTo(5500);
+    // $10,000 net at the 40% course margin is $25,000 paid.
+    expect(rev?.goal).toBeCloseTo(25_000);
+    expect(rev?.verdict).toBe("watch");
+    expect(rev?.trend.map((p) => p.at)).toEqual([5, 6, 7, 8, 9, 10].map((m) => L(2026, m, 1)));
+    expect(rev?.trend.map((p) => p.value)).toEqual([7000, 0, 0, 0, 3000, 5000]);
+  });
+
+  it("is good on pace for the goal, and early with no goal", () => {
+    const paid = [deal("d1", { price: 24_000, payout: 14_000, invoicePaidAt: L(2026, 10, 5) })];
+    expect(report(inputs({ deals: paid, goal: goal(10_000) })).vitals.revenue?.verdict).toBe(
+      "good",
+    );
+    expect(report(inputs({ deals: paid })).vitals.revenue).toMatchObject({
+      goal: null,
+      verdict: "early",
+    });
+  });
+
+  it("is early in the first working days of a month", () => {
+    const rev = report(inputs({ now: L(2026, 10, 2, 12), goal: goal(10_000) })).vitals.revenue;
+    expect(rev?.verdict).toBe("early");
+  });
+
+  it("shows the pipeline from Found to First payout", () => {
+    const r = report(inputs());
+    expect(r.pipeline.map((p) => p.step)).toEqual([...creatorSteps]);
+    expect(r.pipeline.at(-2)?.step).toBe("firstDeal");
+    expect(r.pipeline.at(-1)?.step).toBe("firstPayout");
+  });
+});
+
+describe("the revenue tile in a month too young for its pace", () => {
+  it("gives no projection before paceMinDays working days, and an early verdict", () => {
+    const now = new Date(2026, 9, 2, 12).getTime();
+    const paid = deal("p", {
+      price: 3000,
+      payout: 1500,
+      invoicePaidAt: new Date(2026, 9, 1, 9).getTime(),
+    });
+    const r = overviewReport(
+      inputs({
+        now,
+        goal: { signsPerMonth: 4, revenuePerMonth: 10_000, overrides: {} },
+        deals: [paid],
+      }),
+      reportWindow("30d", now),
+    );
+    expect(r.vitals.revenue).toMatchObject({ paid: 3000, projected: null, verdict: "early" });
   });
 });

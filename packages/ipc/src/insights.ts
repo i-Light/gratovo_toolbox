@@ -1,12 +1,14 @@
 import { audienceKeys } from "@gratovo/core/close";
 import { rejectReasons } from "@gratovo/core/data";
 import {
+  brandSteps,
   creatorSteps,
   diagnoses,
   goalSteps,
   keywordVerdicts,
   liveGroups,
   noKinds,
+  owedBuckets,
   patternKinds,
   periods,
   readingKinds,
@@ -18,6 +20,8 @@ import type {
   Alert,
   AlertLine,
   Batch,
+  BrandFunnel,
+  BrandFunnelRow,
   CohortRow,
   Drill,
   DrillRow,
@@ -36,6 +40,8 @@ import type {
   KeywordRow,
   Lever,
   MailboxRow,
+  MoneyMonth,
+  MoneyReport,
   Mistake,
   OverviewReport,
   PatternSplit,
@@ -62,6 +68,8 @@ export const insightsPageMax = 100;
 export const insightsKeywordsMax = 2000;
 /** The most alerts a report lists. */
 export const insightsAlertsMax = 200;
+/** The most rows one Money list carries (payouts due, under the floor, roster, stuck). */
+export const insightsMoneyRowsMax = 2000;
 /** The most alerts hidden at once (the service drops the soonest to end past it). */
 export const insightsHiddenMax = 500;
 
@@ -80,6 +88,8 @@ const difference = z.enum(["clear", "chance", "early"]);
 const reason = z.enum([...rejectReasons, "unknown"]);
 const step = z.enum(creatorSteps);
 const goalStep = z.enum(goalSteps);
+const brandStep = z.enum(brandSteps);
+const id = z.string().min(1).max(100);
 
 const ratio: z.ZodType<Ratio> = z.strictObject({ n: count, d: count });
 const nullableRatio = ratio.nullable();
@@ -114,6 +124,17 @@ const drill: z.ZodType<Drill> = z.discriminatedUnion("kind", [
     kind: z.literal("unreadable"),
     which: z.enum(["notRead", "retrying", "gaveUp", "noCountry"]),
   }),
+  z.strictObject({ kind: z.literal("brandStep"), step: brandStep }),
+  z.strictObject({ kind: z.literal("brandStuck"), step: brandStep }),
+  z.strictObject({ kind: z.literal("lateInvoices") }),
+  z.strictObject({ kind: z.literal("payoutsDue") }),
+  z.strictObject({
+    kind: z.literal("stuckDeals"),
+    step: z.number().int().min(0).max(20).nullable(),
+  }),
+  z.strictObject({ kind: z.literal("underFloor") }),
+  z.strictObject({ kind: z.literal("idleCreators") }),
+  z.strictObject({ kind: z.literal("noNextDeal") }),
 ]);
 
 const go: z.ZodType<InsightsGo> = z.discriminatedUnion("kind", [
@@ -127,7 +148,8 @@ const go: z.ZodType<InsightsGo> = z.discriminatedUnion("kind", [
 ]);
 
 export const drillRowSchema: z.ZodType<DrillRow> = z.strictObject({
-  id: z.string().min(1).max(100),
+  id,
+  record: z.exactOptional(z.enum(["creator", "brand", "deal"])),
   name: text,
   handle: text.nullable(),
   note: z
@@ -135,6 +157,9 @@ export const drillRowSchema: z.ZodType<DrillRow> = z.strictObject({
       z.strictObject({ kind: z.literal("reason"), reason }),
       z.strictObject({ kind: z.literal("fit"), fit: amount }),
       z.strictObject({ kind: z.literal("gone") }),
+      z.strictObject({ kind: z.literal("money"), amount, days: amount.nullable() }),
+      z.strictObject({ kind: z.literal("days"), days: amount }),
+      z.strictObject({ kind: z.literal("margin"), margin: num }),
     ])
     .nullable(),
 });
@@ -169,6 +194,21 @@ const cohortRow: z.ZodType<CohortRow> = z.strictObject({
   by: z.array(nullableRatio).max(4),
 });
 
+const brandFunnelRow: z.ZodType<BrandFunnelRow> = z.strictObject({
+  step: brandStep,
+  count,
+  fromPrev: nullableRatio,
+  before: nullableRatio,
+  medianDays: amount.nullable(),
+  stuck: count.nullable(),
+});
+
+const brandFunnel: z.ZodType<BrandFunnel> = z.strictObject({
+  rows: z.array(brandFunnelRow).max(brandSteps.length),
+  biggestDrop: brandStep.nullable(),
+  lost: z.array(z.strictObject({ step: brandStep, count })).max(brandSteps.length),
+});
+
 const funnelReport: z.ZodType<FunnelReport> = z.strictObject({
   tab: z.literal("funnel"),
   window,
@@ -181,6 +221,7 @@ const funnelReport: z.ZodType<FunnelReport> = z.strictObject({
     .max(creatorSteps.length),
   cohorts: z.array(cohortRow).max(12),
   cohortTrend: difference,
+  brands: brandFunnel,
 });
 
 // ---------------------------------------------------------------------------------------------
@@ -345,6 +386,86 @@ const searchReport: z.ZodType<SearchReport> = z.strictObject({
 });
 
 // ---------------------------------------------------------------------------------------------
+// Money
+
+const moneyMonth: z.ZodType<MoneyMonth> = z.strictObject({
+  month: time,
+  paid: amount,
+  net: num,
+  projected: amount.nullable(),
+});
+
+const moneyReport: z.ZodType<MoneyReport> = z.strictObject({
+  tab: z.literal("money"),
+  window,
+  names: z.record(id, z.string().max(300)).refine((r) => Object.keys(r).length <= 4000),
+  months: z.array(moneyMonth).max(12),
+  goalPaid: amount.nullable(),
+  goalNet: amount.nullable(),
+  usualMargin: num.nullable(),
+  paceVerdict: verdict,
+  owed: z.strictObject({
+    buckets: z
+      .array(z.strictObject({ bucket: z.enum(owedBuckets), amount, count }))
+      .max(owedBuckets.length),
+    late: z.array(z.strictObject({ dealId: id, amount, daysLate: amount })).max(10),
+    payDays: z
+      .array(z.strictObject({ brandId: id, days: amount.nullable(), unpaid: z.boolean() }))
+      .max(insightsMoneyRowsMax),
+    verdict,
+  }),
+  payouts: z.strictObject({
+    due: z
+      .array(z.strictObject({ dealId: id, amount, brandPaidAt: time }))
+      .max(insightsMoneyRowsMax),
+    dueTotal: amount,
+    locked: amount,
+    lockedCount: count,
+  }),
+  margin: z.strictObject({
+    average: num.nullable(),
+    floor: num,
+    under: z.array(z.strictObject({ dealId: id, margin: num })).max(insightsMoneyRowsMax),
+    verdict,
+  }),
+  dealSize: z.strictObject({
+    average: amount.nullable(),
+    before: amount.nullable(),
+    per1000: amount.nullable(),
+    trend: z.array(point).max(12),
+  }),
+  basket: z.strictObject({
+    brand: z.strictObject({ id, share: num }).nullable(),
+    creator: z.strictObject({ id, share: num }).nullable(),
+    verdict,
+  }),
+  roster: z
+    .array(
+      z.strictObject({
+        creatorId: id,
+        deals: count,
+        revenue: amount,
+        lastDealAt: time.nullable(),
+        signedAt: time.nullable(),
+        delivered: num.nullable(),
+        idle: z.boolean(),
+      }),
+    )
+    .max(insightsMoneyRowsMax),
+  deliveredAverage: num.nullable(),
+  steps: z
+    .array(z.strictObject({ step: count, medianDays: amount.nullable(), stuck: count }))
+    .max(20),
+  stuckDeals: z
+    .array(z.strictObject({ dealId: id, step: count, days: amount, usual: amount }))
+    .max(insightsMoneyRowsMax),
+  repeat: z.strictObject({
+    came: ratio,
+    noNext: z.array(id).max(insightsMoneyRowsMax),
+  }),
+});
+
+// ---------------------------------------------------------------------------------------------
 // Goal
 
 const goalRate: z.ZodType<GoalRate> = z.strictObject({
@@ -359,21 +480,25 @@ const goalLine: z.ZodType<GoalLine> = z.strictObject({
   rate: goalRate.nullable(),
   perDay: amount.nullable(),
   actualPerDay: amount.nullable(),
+  actualMonth: amount.nullable(),
   verdict,
   shortBy: amount.nullable(),
 });
 
 const lever: z.ZodType<Lever> = z.strictObject({
-  kind: z.enum(["replyRate", "signRate"]),
+  kind: z.enum(["replyRate", "signRate", "dealSize", "closeRate"]),
   from: amount,
   to: amount,
   emailsFrom: amount,
   emailsTo: amount,
 });
 
+const revenueGoal = z.number().int().min(100).max(10_000_000);
+
 /** The goal as kept in `local_settings` (key `insights.goal`). */
 export const goalSettingsSchema: z.ZodType<GoalSettings> = z.strictObject({
   signsPerMonth: z.number().int().min(1).max(100),
+  revenuePerMonth: revenueGoal.nullable(),
   overrides: z.partialRecord(goalStep, z.number().gt(0).max(1)),
 });
 
@@ -420,6 +545,19 @@ const alert: z.ZodType<Alert> = z.discriminatedUnion("kind", [
     check: z.enum(audienceKeys),
     failed: ratio,
   }),
+  z.strictObject({ kind: z.literal("invoiceLate"), dealId: id, days: amount, amount }),
+  z.strictObject({ kind: z.literal("payoutDue"), dealId: id, amount, since: time }),
+  z.strictObject({
+    kind: z.literal("dealStuck"),
+    dealId: id,
+    step: count,
+    days: amount,
+    usual: amount,
+  }),
+  z.strictObject({ kind: z.literal("behindGoal"), projected: amount, goal: amount }),
+  z.strictObject({ kind: z.literal("basket"), brandId: id, share: num }),
+  z.strictObject({ kind: z.literal("idleCreator"), creatorId: id, days: amount.nullable() }),
+  z.strictObject({ kind: z.literal("marginLow"), dealId: id, margin: num, floor: num }),
 ]);
 
 const alertLine: z.ZodType<AlertLine> = z.strictObject({
@@ -434,6 +572,7 @@ const win: z.ZodType<Win> = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("keyword"), keyword: short, replied: ratio, signed: count }),
   z.strictObject({ kind: z.literal("mailbox"), mailbox: address, replies: ratio }),
   z.strictObject({ kind: z.literal("followUp"), step: count, share: ratio, rate: ratio }),
+  z.strictObject({ kind: z.literal("brandPaysFast"), brandId: id, days: amount }),
 ]);
 
 const winLine: z.ZodType<WinLine> = z.strictObject({
@@ -483,6 +622,16 @@ const overviewReport: z.ZodType<OverviewReport> = z.strictObject({
       waitingConfirm: count,
       verdict,
     }),
+    revenue: z
+      .strictObject({
+        month: time,
+        paid: amount,
+        projected: amount.nullable(),
+        goal: amount.nullable(),
+        verdict,
+        trend: z.array(point).max(12),
+      })
+      .nullable(),
     repliesWaiting: z.strictObject({ count, oldestAt: time.nullable(), verdict }),
   }),
   attention: z.array(alertLine).max(insightsAlertsMax),
@@ -495,14 +644,19 @@ const overviewReport: z.ZodType<OverviewReport> = z.strictObject({
 // ---------------------------------------------------------------------------------------------
 // The four channels
 
-/** `insights:read`: one tab for a period. Money is P8b's: it is not a report tab yet. */
-export const insightsReadRequestSchema = z.strictObject({ tab, period });
+/**
+ * `insights:read`: one tab for a period. Money is refused for a viewer without money access.
+ * `deals` says whether deals and money may be read at all: false on live data until step 9, when
+ * the report is worked out as if there were no deals (B8).
+ */
+export const insightsReadRequestSchema = z.strictObject({ tab, period, deals: z.boolean() });
 
 export const insightsReportSchema: z.ZodType<InsightsReport> = z.union([
   overviewReport,
   funnelReport,
   emailsReport,
   searchReport,
+  moneyReport,
   goalReport,
 ]);
 
@@ -511,6 +665,8 @@ export const insightsListRequestSchema = z.strictObject({
   drill,
   period,
   offset: z.number().int().min(0).max(100_000),
+  /** As for `insights:read`. */
+  deals: z.boolean(),
 });
 
 export const insightsListResultSchema = z.strictObject({
@@ -533,6 +689,7 @@ export const insightsHideResultSchema = z.strictObject({ hidden: hiddenAlertsSch
 /** `insights:goal`: change the goal; an override of null goes back to your own rate. */
 export const insightsGoalRequestSchema = z.strictObject({
   signsPerMonth: z.exactOptional(z.number().int().min(1).max(100)),
+  revenuePerMonth: z.exactOptional(revenueGoal.nullable()),
   overrides: z.exactOptional(z.partialRecord(goalStep, z.number().gt(0).max(1).nullable())),
   reset: z.exactOptional(z.literal(true)),
 });
