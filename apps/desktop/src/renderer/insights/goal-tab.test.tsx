@@ -22,7 +22,7 @@ describe("the Goal tab", () => {
   it("shows the goal, the chain, the lever and the room", () => {
     setup();
     expect(screen.getByText("Your goal: sign 4 creators a month.")).toBeTruthy();
-    expect(screen.getByText("First emails is 10 a day short.")).toBeTruthy();
+    expect(screen.getByText("First emails: 10 a day short.")).toBeTruthy();
     expect(screen.getByText("yours, 61 of 1,240", { exact: false })).toBeTruthy();
     expect(screen.getByText("course figure", { exact: false })).toBeTruthy();
     expect(screen.getByText("starting guess", { exact: false })).toBeTruthy();

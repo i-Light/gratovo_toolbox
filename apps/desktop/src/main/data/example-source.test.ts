@@ -121,8 +121,47 @@ describe("example source", () => {
     expect(frame.creators).toEqual(seed.creators);
   });
 
+  it("stamps the seed's deal steps and brand statuses at their real times, not at seeding", () => {
+    const source = start();
+    const seed = exampleSeed(contractNow);
+    source.close();
+    open.length = 0;
+    const db = openDatabase(file);
+    try {
+      const events = db
+        .prepare("SELECT deal_id, step, at FROM deal_events ORDER BY deal_id, step")
+        .all();
+      for (const deal of seed.deals) {
+        const mine = events.filter((e) => String(e["deal_id"]) === deal.id);
+        // One event per step from 0 to the deal's own, the first at its creation, none later than now.
+        expect(mine.map((e) => Number(e["step"]))).toEqual(
+          Array.from({ length: deal.step + 1 }, (_, i) => i),
+        );
+        expect(Number(mine[0]?.["at"])).toBe(deal.createdAt);
+        mine.forEach((e, i) => {
+          expect(Number(e["at"])).toBeLessThanOrEqual(contractNow);
+          if (i > 0) expect(Number(e["at"])).toBeGreaterThan(Number(mine[i - 1]?.["at"]));
+        });
+        if (deal.step >= 5 && deal.goLiveAt !== null) {
+          expect(Number(mine[5]?.["at"])).toBe(deal.goLiveAt);
+        }
+      }
+      const brandEvents = db.prepare("SELECT brand_id, status, at FROM brand_events").all();
+      expect(brandEvents).toHaveLength(seed.brands.length);
+      for (const brand of seed.brands) {
+        const e = brandEvents.find((x) => String(x["brand_id"]) === brand.id);
+        expect(String(e?.["status"])).toBe(brand.status);
+        expect(Number(e?.["at"])).toBe(brand.since);
+      }
+    } finally {
+      db.close();
+    }
+  });
+
   it("seeds the first day with no details, and a fresh open clears the old ones", async () => {
-    start({ fresh: true });
+    // Closed again at once: an open handle would keep the file from being removed on Windows.
+    start({ fresh: true }).close();
+    open.length = 0;
     const first = start({ fresh: true, scenario: "first" });
     const frame = await first.frame();
     expect([frame.creators, frame.brands, frame.deals]).toEqual([[], [], []]);

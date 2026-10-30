@@ -69,3 +69,18 @@
 .goal-pair > .ins-panel {
   min-width: 0;
 }
+.goal-fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--gap);
+}
+.goal-derived {
+  min-width: 200px;
+}
+.goal-value {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}

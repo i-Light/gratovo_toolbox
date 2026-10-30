@@ -336,7 +336,7 @@ export function createSqliteSource(db: DatabaseSync, options: SqliteSourceOption
     outreach,
     insights: {
       recordCatalogWeek: (pipelineDbPath, at) => recordCatalogWeek(db, pipelineDbPath, at),
-      readLocal: () => readInsightsLocal(db),
+      readLocal: () => readInsightsLocal(db, seesMoney(listMemberAccess(db).get(me) ?? noAccess)),
     },
     // The database is synchronous; the promises keep callers ready for it to move elsewhere.
     frame: () => settle(readFrame),

@@ -1,7 +1,7 @@
 import type { DatabaseSync } from "node:sqlite";
 
 import { exampleSeed, exampleSeedVersion } from "@gratovo/core/data";
-import type { DataSource, ExampleHealth, Scenario } from "@gratovo/core/data";
+import type { Brand, DataSource, Deal, ExampleHealth, Scenario } from "@gratovo/core/data";
 
 import { restampStageEventsSql } from "../db/migrations/0007-insights";
 import { openDatabase } from "../db/open-database";
@@ -40,11 +40,62 @@ const dataTables = [
   "outreach_messages",
   "outreach_sequences",
   "stage_events",
+  "deal_events",
+  "brand_events",
   "catalog_weeks",
   "brand_details",
   "deal_details",
   "creator_details",
 ] as const;
+
+/**
+ * Gives the seed's deals and brands the step and status times they would really have: one event
+ * per deal for each step from 0 to its current one, spread between when it was made and now (or
+ * to go-live, for a deal that is live), and one per brand at the day it was added.
+ */
+function restampDealEvents(
+  db: DatabaseSync,
+  deals: readonly Deal[],
+  brands: readonly Brand[],
+  now: number,
+): void {
+  db.exec("DELETE FROM deal_events; DELETE FROM brand_events;");
+  const addDeal = db.prepare(
+    "INSERT INTO deal_events (deal_id, step, at, source) VALUES (?, ?, ?, 'example')",
+  );
+  for (const deal of deals) {
+    const created = Math.min(deal.createdAt ?? now - 30 * 86_400_000, now - 3_600_000);
+    const live = deal.goLiveAt !== null && deal.goLiveAt > created && deal.goLiveAt <= now;
+    if (deal.step >= 5 && live) {
+      const goLive = deal.goLiveAt;
+      for (let step = 0; step < 5; step += 1) {
+        addDeal.run(deal.id, step, Math.round(created + (step / 5) * (goLive - created)));
+      }
+      addDeal.run(deal.id, 5, goLive);
+      for (let step = 6; step <= deal.step; step += 1) {
+        addDeal.run(
+          deal.id,
+          step,
+          Math.round(goLive + ((step - 5) / (deal.step - 4)) * (now - goLive)),
+        );
+      }
+    } else {
+      for (let step = 0; step <= deal.step; step += 1) {
+        addDeal.run(
+          deal.id,
+          step,
+          Math.round(created + (step / (deal.step + 1)) * (now - created)),
+        );
+      }
+    }
+  }
+  const addBrand = db.prepare(
+    "INSERT INTO brand_events (brand_id, status, at, source) VALUES (?, ?, ?, 'example')",
+  );
+  for (const brand of brands) {
+    addBrand.run(brand.id, brand.status, Math.round(brand.since ?? now - 30 * 86_400_000));
+  }
+}
 
 /** The `local_settings` key the seed writes its `health` to (the "Something broke" scenario). */
 export const exampleHealthKey = "example.health";
@@ -213,6 +264,8 @@ function seed(db: DatabaseSync, now: number, scenario: Scenario): void {
     });
     // The inserts stamped every creator's stage with now: the log and the messages know better.
     db.exec(restampStageEventsSql);
+    // The same for deals and brands: their inserts stamped now, and the seed knows the real times.
+    restampDealEvents(db, fixtures.deals, fixtures.brands, now);
     setMeta(db, seedKey, String(exampleSeedVersion));
   });
 }

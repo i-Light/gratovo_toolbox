@@ -1,6 +1,8 @@
 import type { GoalLine, GoalRate, GoalReport, GoalStep, Lever } from "@gratovo/core/insights";
 
+import { money } from "../../lib/format";
 import { strings } from "../../strings";
+import { decimal } from "./format";
 import { fmt } from "./search";
 
 const text = strings.insights.goal;
@@ -36,8 +38,32 @@ export function sourceText(rate: GoalRate): string {
 
 /** "17% sign · yours, 16 of 96" for a line that has a rate; the top line has none. */
 export function rateLine(line: GoalLine): string {
-  if (line.rate === null || line.step === "signed") return text.chain.yourGoal;
-  return `${rateText(line.rate.value)} ${text.chain.rateVerb[line.step]} · ${sourceText(line.rate)}`;
+  const c = text.chain;
+  if (line.rate === null) return c.yourGoal;
+  const value = line.rate.value;
+  const source = sourceText(line.rate);
+  switch (line.step) {
+    case "bookings":
+      return `${c.marginRate(rateText(value))} · ${source}`;
+    case "deals":
+      return `${c.dealRate(money(value))} · ${source}`;
+    case "pitches":
+      return `${c.winRate(rateText(value))} · ${source}`;
+    case "signed":
+      return `${value > 0 && value < 1 ? c.perDealRate(decimal(1 / value)) : c.perDealRateMore(decimal(value))} · ${source}`;
+    case "replied":
+    case "firstEmails":
+    case "triage":
+    case "find":
+      return `${rateText(value)} ${c.rateVerb[line.step]} · ${source}`;
+    case "revenue":
+      return c.yourGoal;
+  }
+}
+
+/** A line's amount a month: dollars for the money lines, else a count. */
+export function monthText(line: GoalLine): string {
+  return line.step === "revenue" || line.step === "bookings" ? money(line.month) : fmt(line.month);
 }
 
 /** The finding about the chain, chosen by rules. */
@@ -72,17 +98,29 @@ export function leverName(lever: Lever): string {
   return text.levers[lever.kind];
 }
 
+/** A lever's before and after: dollars for the deal size, else a share. */
+export function leverValue(lever: Lever, value: number): string {
+  return lever.kind === "dealSize" ? money(value) : rateText(value);
+}
+
 /** The finding about the first (biggest) lever. */
 export function leversHeadline(levers: readonly Lever[]): string {
   const first = levers[0];
   if (first === undefined) return text.levers.none;
-  const from = rateText(first.from);
-  const to = rateText(first.to);
+  const from = leverValue(first, first.from);
+  const to = leverValue(first, first.to);
   const a = fmt(first.emailsFrom);
   const b = fmt(first.emailsTo);
-  return first.kind === "replyRate"
-    ? text.levers.headlineReply(from, to, a, b)
-    : text.levers.headlineSign(from, to, a, b);
+  switch (first.kind) {
+    case "replyRate":
+      return text.levers.headlineReply(from, to, a, b);
+    case "signRate":
+      return text.levers.headlineSign(from, to, a, b);
+    case "dealSize":
+      return text.levers.headlineDealSize(from, to, a, b);
+    case "closeRate":
+      return text.levers.headlineCloseRate(from, to);
+  }
 }
 
 /** The room the mailboxes have, or the shortfall. */
@@ -106,6 +144,12 @@ export function roomVerdict(room: GoalReport["room"]): "good" | "watch" | "act" 
 /** Where the action under the chain goes, for the step falling short. */
 export function stepRoute(step: GoalStep): { screen: string; tab: string | null } {
   switch (step) {
+    case "revenue":
+    case "bookings":
+    case "deals":
+      return { screen: "deliver", tab: "money" };
+    case "pitches":
+      return { screen: "close", tab: "brands" };
     case "signed":
       return { screen: "close", tab: "roster" };
     case "replied":
@@ -117,4 +161,13 @@ export function stepRoute(step: GoalStep): { screen: string; tab: string | null 
     case "find":
       return { screen: "find", tab: "search" };
   }
+}
+
+/** What the last 30 days did on a money line, for the "A day" column; null for other lines. */
+export function monthDoneText(line: GoalLine): string | null {
+  if (line.actualMonth === null) return null;
+  const c = text.chain;
+  return line.step === "deals"
+    ? c.countDone(fmt(line.actualMonth))
+    : c.moneyDone(money(line.actualMonth));
 }

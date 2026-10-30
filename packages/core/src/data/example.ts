@@ -38,7 +38,7 @@ import type {
  */
 
 /** Bump it when the fixtures change: an older example database is then seeded again. */
-export const exampleSeedVersion = 9;
+export const exampleSeedVersion = 10;
 
 /** The example copies prototype mode starts from (ADR 0004). The same list as the IPC's `scenarioKeys`. */
 export const scenarios = ["normal", "first", "later", "broke"] as const;

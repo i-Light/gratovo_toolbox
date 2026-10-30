@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DatabaseTooNewError, migrate, type Migration } from "./migrate";
 import { migrations } from "./migrations";
 import { backfillStageEventsSql, restampStageEventsSql } from "./migrations/0007-insights";
+import { backfillDealEventsSql } from "./migrations/0009-deal-events";
 
 let db: DatabaseSync;
 
@@ -316,5 +317,92 @@ describe("details (migration 8)", () => {
     expect(() => {
       db.exec("INSERT INTO deal_details (deal_id, due_at) VALUES ('d2', 'soon')");
     }).toThrow(/cannot store TEXT/);
+  });
+});
+
+describe("deal and brand events (migration 9)", () => {
+  function deal(id: string, step: number | null, createdAt = "2026-03-01T10:00:00.000Z"): void {
+    db.prepare(
+      `INSERT INTO deals (id, brand_id, channel_id, flow_step, created_at, updated_at)
+       VALUES (?, 'b1', 'c1', ?, ?, ?)`,
+    ).run(id, step, createdAt, createdAt);
+  }
+  function brand(id: string, status: string | null, createdAt = "2026-03-01T10:00:00.000Z"): void {
+    db.prepare(
+      `INSERT INTO brands (id, name, status, created_at, updated_at) VALUES (?, 'AI Co', ?, ?, ?)`,
+    ).run(id, status, createdAt, createdAt);
+  }
+  const dealEvents = () =>
+    db.prepare("SELECT deal_id, step, source FROM deal_events ORDER BY id").all();
+  const brandEvents = () =>
+    db.prepare("SELECT brand_id, status, source FROM brand_events ORDER BY id").all();
+
+  it("creates both tables, and refuses an unknown source", () => {
+    migrate(db);
+    expect(migrations[8]?.name).toBe("deal-events");
+    expect(tables()).toEqual(expect.arrayContaining(["deal_events", "brand_events"]));
+    expect(() => {
+      db.exec("INSERT INTO deal_events (deal_id, step, at, source) VALUES ('d', 1, 1, 'x')");
+    }).toThrow(/CHECK/);
+    expect(() => {
+      db.exec("INSERT INTO brand_events (brand_id, status, at, source) VALUES ('b', 's', 1, 'x')");
+    }).toThrow(/CHECK/);
+  });
+
+  it("writes a deal event on insert and when the step changes, through an upsert too", () => {
+    migrate(db);
+    const before = Date.now();
+    deal("d1", 2);
+    deal("d2", null);
+    expect(dealEvents()).toEqual([{ deal_id: "d1", step: 2, source: "change" }]);
+    const at = Number(db.prepare("SELECT at FROM deal_events").get()?.["at"]);
+    expect(at).toBeGreaterThanOrEqual(before - 1000);
+    expect(at).toBeLessThanOrEqual(Date.now() + 1000);
+    db.exec("UPDATE deals SET flow_step = 2 WHERE id = 'd1'");
+    db.exec("UPDATE deals SET flow_step = 3 WHERE id = 'd1'");
+    db.exec("UPDATE deals SET flow_step = NULL WHERE id = 'd1'");
+    db.prepare(
+      `INSERT INTO deals (id, brand_id, channel_id, flow_step, created_at, updated_at)
+       VALUES ('d1', 'b1', 'c1', 4, 'x', 'x')
+       ON CONFLICT (id) DO UPDATE SET flow_step = excluded.flow_step`,
+    ).run();
+    expect(dealEvents().map((e) => e["step"])).toEqual([2, 3, 4]);
+  });
+
+  it("writes a brand event on insert and when the status changes", () => {
+    migrate(db);
+    brand("b1", "found");
+    brand("b2", null);
+    db.exec("UPDATE brands SET status = 'found' WHERE id = 'b1'");
+    db.exec("UPDATE brands SET status = 'pitched' WHERE id = 'b1'");
+    db.exec("UPDATE brands SET name = 'Renamed' WHERE id = 'b1'");
+    expect(brandEvents()).toEqual([
+      { brand_id: "b1", status: "found", source: "change" },
+      { brand_id: "b1", status: "pitched", source: "change" },
+    ]);
+  });
+
+  it("backfills the current step and status at the creation time, once", () => {
+    migrate(db);
+    deal("d1", 3);
+    deal("d2", 1, "not a time");
+    brand("b1", "won");
+    db.exec("DELETE FROM deal_events; DELETE FROM brand_events;");
+    db.exec(backfillDealEventsSql);
+    db.exec(backfillDealEventsSql);
+    const day = Date.parse("2026-03-01T10:00:00.000Z");
+    expect(db.prepare("SELECT deal_id, step, at, source FROM deal_events").all()).toEqual([
+      { deal_id: "d1", step: 3, at: day, source: "backfill" },
+    ]);
+    expect(db.prepare("SELECT brand_id, status, at, source FROM brand_events").all()).toEqual([
+      { brand_id: "b1", status: "won", at: day, source: "backfill" },
+    ]);
+  });
+
+  it("does not backfill a deal that already has an event for its step", () => {
+    migrate(db);
+    deal("d1", 3);
+    db.exec(backfillDealEventsSql);
+    expect(dealEvents()).toHaveLength(1);
   });
 });

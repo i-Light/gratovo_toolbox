@@ -4,12 +4,14 @@ import { alertKey, alerts, wins } from "./alerts";
 import type { ReportParts } from "./alerts";
 import { emailsReport } from "./emails";
 import { funnelReport } from "./funnel";
-import { goalReport } from "./goal";
-import type { InsightsInputs } from "./inputs";
+import { monthPace, paceVerdict } from "./deal-facts";
+import { goalAsPaid, goalReport } from "./goal";
+import type { DealEvent, DealFact, InsightsInputs } from "./inputs";
 import { searchReport } from "./search";
 import { reportWindow } from "./stats";
-import { ch, DAY, inputs, NOW } from "./test-inputs";
+import { ch, DAY, ev, inputs, L, NOW } from "./test-inputs";
 import type {
+  Alert,
   Batch,
   EmailsReport,
   GoalLine,
@@ -229,6 +231,7 @@ describe("alerts: each kind at its threshold", () => {
       rate: null,
       perDay: 20,
       actualPerDay,
+      actualMonth: null,
       verdict: "watch",
       shortBy: null,
     });
@@ -491,5 +494,404 @@ describe("wins", () => {
       }),
     );
     expect(w.map((x) => x.win.kind)).toEqual(["edited", "keyword", "mailbox"]);
+  });
+});
+
+// ---------------------------------------------------------------------------------------------
+// Deals and money (P8b)
+
+const deal = (id: string, over: Partial<DealFact> = {}): DealFact => ({
+  id,
+  brandId: "b1",
+  creatorId: "c1",
+  step: 0,
+  price: 4000,
+  payout: 2400,
+  createdAt: null,
+  goLiveAt: null,
+  invoiceSentAt: null,
+  invoiceDueAt: null,
+  invoicePaidAt: null,
+  paidCreatorAt: null,
+  reportViews: null,
+  usualViews: null,
+  reportSentAt: null,
+  ...over,
+});
+
+const dealStep = (dealId: string, step: number, at: number): DealEvent => ({ dealId, step, at });
+
+/** The alerts of one kind for these inputs. */
+const found = (i: InsightsInputs, kind: Alert["kind"]) =>
+  alerts(i, base(i)).lines.filter((l) => l.alert.kind === kind);
+
+describe("alerts: a late invoice", () => {
+  const due = (days: number) =>
+    deal("d1", { invoiceSentAt: NOW - (days + 30) * DAY, invoiceDueAt: NOW - days * DAY });
+
+  it("is Watch from 1 day late, with its amount and a link to the late list", () => {
+    const [line] = found(inputs({ deals: [due(5)] }), "invoiceLate");
+    expect(line).toMatchObject({
+      key: "invoiceLate:d1",
+      verdict: "watch",
+      alert: { kind: "invoiceLate", dealId: "d1", days: 5, amount: 4000 },
+      go: { kind: "drill", drill: { kind: "lateInvoices" } },
+    });
+  });
+
+  it("is Act now over 30 days late", () => {
+    expect(found(inputs({ deals: [due(30)] }), "invoiceLate")[0]?.verdict).toBe("watch");
+    expect(found(inputs({ deals: [due(31)] }), "invoiceLate")[0]?.verdict).toBe("act");
+  });
+
+  it("does not fire before it is a day late, once paid, or with no invoice", () => {
+    expect(found(inputs({ deals: [due(0)] }), "invoiceLate")).toEqual([]);
+    expect(
+      found(inputs({ deals: [{ ...due(40), invoicePaidAt: NOW - DAY }] }), "invoiceLate"),
+    ).toEqual([]);
+    expect(found(inputs({ deals: [deal("d1")] }), "invoiceLate")).toEqual([]);
+  });
+
+  it("works the due date from Net 30 when none is stored", () => {
+    const d = deal("d1", { invoiceSentAt: NOW - 36 * DAY });
+    expect(found(inputs({ deals: [d] }), "invoiceLate")[0]?.alert).toMatchObject({ days: 6 });
+  });
+
+  it("is one alert for each late deal", () => {
+    const deals = [due(5), { ...due(8), id: "d2" }];
+    expect(found(inputs({ deals }), "invoiceLate").map((l) => l.key)).toEqual([
+      "invoiceLate:d2",
+      "invoiceLate:d1",
+    ]);
+  });
+});
+
+describe("alerts: a payout is due", () => {
+  it("fires when the brand has paid and the creator hasn't been", () => {
+    const d = deal("d1", { invoicePaidAt: NOW - 3 * DAY });
+    const [line] = found(inputs({ deals: [d] }), "payoutDue");
+    expect(line).toMatchObject({
+      key: "payoutDue:d1",
+      verdict: "watch",
+      alert: { kind: "payoutDue", dealId: "d1", amount: 2400, since: NOW - 3 * DAY },
+      go: { kind: "insights", tab: "money", view: null },
+    });
+  });
+
+  it("does not fire when the creator is paid or the brand hasn't paid", () => {
+    const paid = deal("d1", { invoicePaidAt: NOW - 3 * DAY, paidCreatorAt: NOW - DAY });
+    expect(found(inputs({ deals: [paid, deal("d2")] }), "payoutDue")).toEqual([]);
+  });
+});
+
+describe("alerts: a deal is stuck", () => {
+  /** Five deals that spent 2 days at step 0 and moved on. */
+  const usual = Array.from({ length: 5 }, (_, i) => dealStep(`u${String(i)}`, 0, NOW - 30 * DAY));
+  const moved = usual.map((e) => dealStep(e.dealId, 1, NOW - 28 * DAY));
+  const history = [...usual, ...moved];
+  const movedDeals = usual.map((e) => deal(e.dealId, { step: 1 }));
+
+  it("fires over twice the usual time at its step", () => {
+    const stuck = deal("s1", { step: 0 });
+    const i = inputs({
+      deals: [...movedDeals, stuck],
+      dealEvents: [...history, dealStep("s1", 0, NOW - 10 * DAY)],
+    });
+    const [line] = found(i, "dealStuck");
+    expect(line).toMatchObject({
+      key: "dealStuck:s1",
+      verdict: "watch",
+      alert: { kind: "dealStuck", dealId: "s1", step: 0, days: 10, usual: 2 },
+      go: { kind: "drill", drill: { kind: "stuckDeals", step: 0 } },
+    });
+  });
+
+  it("does not fire at twice the usual time or under", () => {
+    const i = inputs({
+      deals: [...movedDeals, deal("s1", { step: 0 })],
+      dealEvents: [...history, dealStep("s1", 0, NOW - 4 * DAY)],
+    });
+    expect(found(i, "dealStuck")).toEqual([]);
+  });
+
+  it("needs minForMedian known times at the step", () => {
+    const i = inputs({
+      deals: [...movedDeals.slice(0, 4), deal("s1", { step: 0 })],
+      dealEvents: [...history.filter((e) => e.dealId !== "u4"), dealStep("s1", 0, NOW - 10 * DAY)],
+    });
+    expect(found(i, "dealStuck")).toEqual([]);
+  });
+
+  it("also fires for a viewer who doesn't see money", () => {
+    const i = inputs({
+      seesMoney: false,
+      deals: [...movedDeals, deal("s1", { step: 0, price: null, payout: null })],
+      dealEvents: [...history, dealStep("s1", 0, NOW - 10 * DAY)],
+    });
+    expect(found(i, "dealStuck")).toHaveLength(1);
+  });
+});
+
+describe("alerts: behind the monthly goal", () => {
+  const goal = (revenuePerMonth: number | null) => ({
+    signsPerMonth: 4,
+    revenuePerMonth,
+    overrides: {},
+  });
+  const paidThisMonth = (price: number) =>
+    deal("d1", { price, payout: price * 0.6, invoicePaidAt: L(2026, 10, 5) });
+
+  it("fires when the month's pace ends under 90% of the goal (as brand payments)", () => {
+    // $10,000 net at the 40% course margin is $25,000 paid. $5,000 by the 28th is far behind.
+    const [line] = found(
+      inputs({ goal: goal(10_000), deals: [paidThisMonth(5000)] }),
+      "behindGoal",
+    );
+    expect(line).toMatchObject({
+      key: "behindGoal",
+      verdict: "watch",
+      go: { kind: "insights", tab: "goal", view: null },
+    });
+    const a = line?.alert;
+    expect(a?.kind === "behindGoal" && a.goal).toBeCloseTo(25_000);
+    expect(a?.kind === "behindGoal" && a.projected).toBeCloseTo((5000 * 22) / 20);
+  });
+
+  it("does not fire on pace, with no goal, or in the first working days of a month", () => {
+    expect(
+      found(inputs({ goal: goal(10_000), deals: [paidThisMonth(24_000)] }), "behindGoal"),
+    ).toEqual([]);
+    expect(found(inputs({ goal: goal(null), deals: [paidThisMonth(5000)] }), "behindGoal")).toEqual(
+      [],
+    );
+    const early = inputs({ goal: goal(10_000), now: L(2026, 10, 2, 12) });
+    expect(found(early, "behindGoal")).toEqual([]);
+  });
+
+  it("fires exactly when the shared pace verdict is Watch, as the tile and the chart say", () => {
+    for (const paid of [1000, 5000, 20_000, 24_000, 40_000]) {
+      const i = inputs({ goal: goal(10_000), deals: [paidThisMonth(paid)] });
+      const watch = paceVerdict(monthPace(i), goalAsPaid(i)) === "watch";
+      expect([paid, found(i, "behindGoal").length === 1]).toEqual([paid, watch]);
+    }
+  });
+});
+
+describe("alerts: too much in one basket", () => {
+  const paid = (id: string, brandId: string, price = 5000) =>
+    deal(id, { brandId, price, payout: 3000, invoicePaidAt: NOW - 20 * DAY });
+
+  it("fires when the top brand is over 40% of the last 90 days' payments", () => {
+    const deals = [paid("a", "b1"), paid("b", "b1"), paid("c", "b2")];
+    const [line] = found(inputs({ deals }), "basket");
+    expect(line).toMatchObject({
+      key: "basket:b1",
+      verdict: "watch",
+      go: { kind: "insights", tab: "money", view: null },
+    });
+    expect(line?.alert.kind === "basket" && line.alert.share).toBeCloseTo(2 / 3);
+  });
+
+  it("does not fire on an even spread, a share of exactly the line, or too few deals", () => {
+    const even = ["b1", "b2", "b3", "b4"].map((b, i) => paid(`e${String(i)}`, b));
+    expect(found(inputs({ deals: even }), "basket")).toEqual([]);
+    expect(found(inputs({ deals: [paid("a", "b1"), paid("b", "b1")] }), "basket")).toEqual([]);
+    const old = [paid("a", "b1"), paid("b", "b1"), paid("c", "b2")].map((d) => ({
+      ...d,
+      invoicePaidAt: NOW - 120 * DAY,
+    }));
+    expect(found(inputs({ deals: old }), "basket")).toEqual([]);
+  });
+});
+
+describe("alerts: an idle roster creator", () => {
+  const signed = (id: string, daysAgo: number) => ({
+    events: [ev(id, "signed", NOW - daysAgo * DAY)],
+    channels: [ch(id, { stage: "signed" as const })],
+  });
+
+  it("fires when signed and no deal in 60 days, counted from signing when there is none", () => {
+    const [line] = found(inputs({ ...signed("c1", 100) }), "idleCreator");
+    expect(line).toMatchObject({
+      key: "idleCreator:c1",
+      verdict: "watch",
+      alert: { kind: "idleCreator", creatorId: "c1", days: 100 },
+      go: { kind: "route", screen: "close", tab: null },
+    });
+  });
+
+  it("gives no days when no signing time is known, never a made-up number", () => {
+    const i = inputs({ channels: [ch("c1", { stage: "signed" })] });
+    expect(found(i, "idleCreator")[0]?.alert).toEqual({
+      kind: "idleCreator",
+      creatorId: "c1",
+      days: null,
+    });
+  });
+
+  it("counts from the creator's last deal", () => {
+    const d = deal("d1", { createdAt: NOW - 70 * DAY });
+    const i = inputs({ ...signed("c1", 200), deals: [d] });
+    expect(found(i, "idleCreator")[0]?.alert).toMatchObject({ days: 70 });
+    const recent = inputs({
+      ...signed("c1", 200),
+      deals: [deal("d1", { createdAt: NOW - 10 * DAY })],
+    });
+    expect(found(recent, "idleCreator")).toEqual([]);
+  });
+
+  it("does not fire for a creator signed under 60 days ago, or one not signed", () => {
+    expect(found(inputs({ ...signed("c1", 59) }), "idleCreator")).toEqual([]);
+    expect(
+      found(inputs({ events: [ev("c1", "emailed", NOW - 100 * DAY)] }), "idleCreator"),
+    ).toEqual([]);
+  });
+
+  it("also fires for a viewer who doesn't see money", () => {
+    expect(found(inputs({ seesMoney: false, ...signed("c1", 100) }), "idleCreator")).toHaveLength(
+      1,
+    );
+  });
+});
+
+describe("alerts: a deal under the margin floor", () => {
+  const made = (id: string, payout: number, daysAgo = 10) =>
+    deal(id, { price: 4000, payout, createdAt: NOW - daysAgo * DAY });
+
+  it("fires for a deal made in the last 90 days with a margin under the floor", () => {
+    const [line] = found(inputs({ deals: [made("d1", 3200)] }), "marginLow");
+    expect(line).toMatchObject({
+      key: "marginLow:d1",
+      verdict: "watch",
+      alert: { kind: "marginLow", dealId: "d1", floor: 0.25 },
+      go: { kind: "drill", drill: { kind: "underFloor" } },
+    });
+    expect(line?.alert.kind === "marginLow" && line.alert.margin).toBeCloseTo(0.2);
+  });
+
+  it("does not fire at the floor, over it, or for a deal made over 90 days ago", () => {
+    expect(found(inputs({ deals: [made("d1", 3000)] }), "marginLow")).toEqual([]);
+    expect(found(inputs({ deals: [made("d1", 3200, 100)] }), "marginLow")).toEqual([]);
+  });
+
+  it("follows the floor in Agency facts", () => {
+    expect(found(inputs({ deals: [made("d1", 3200)], marginFloorPct: 15 }), "marginLow")).toEqual(
+      [],
+    );
+  });
+});
+
+describe("alerts: money stays with money viewers", () => {
+  const everything = (seesMoney: boolean) => {
+    const late = deal("late", {
+      invoiceSentAt: NOW - 80 * DAY,
+      createdAt: NOW - 85 * DAY,
+      payout: 3500,
+    });
+    const payout = deal("pay", { invoicePaidAt: NOW - 3 * DAY, createdAt: NOW - 40 * DAY });
+    const basket = ["x1", "x2", "x3"].map((id) =>
+      deal(id, { brandId: "big", invoicePaidAt: NOW - 20 * DAY, paidCreatorAt: NOW - 19 * DAY }),
+    );
+    return inputs({
+      seesMoney,
+      goal: { signsPerMonth: 4, revenuePerMonth: 10_000, overrides: {} },
+      deals: [late, payout, ...basket],
+      events: [ev("idle", "signed", NOW - 100 * DAY)],
+      channels: [ch("idle", { stage: "signed" })],
+    });
+  };
+
+  it("gives a money viewer every one of the money alerts", () => {
+    const got = alerts(everything(true), base(everything(true))).lines.map((l) => l.alert.kind);
+    for (const kind of [
+      "invoiceLate",
+      "payoutDue",
+      "behindGoal",
+      "basket",
+      "marginLow",
+      "idleCreator",
+    ]) {
+      expect(got).toContain(kind);
+    }
+  });
+
+  it("gives a viewer who doesn't see money none of them", () => {
+    const i = everything(false);
+    const got = alerts(i, base(i)).lines.map((l) => l.alert.kind);
+    for (const money of ["invoiceLate", "payoutDue", "behindGoal", "basket", "marginLow"]) {
+      expect(got).not.toContain(money);
+    }
+    expect(got).toContain("idleCreator");
+  });
+
+  it("puts Act now before Watch with the new alerts among the rest", () => {
+    const i = everything(true);
+    const lines = alerts(i, base(i)).lines;
+    const verdicts = lines.map((l) => l.verdict);
+    expect(verdicts).toEqual([...verdicts].sort((a, b) => (a === b ? 0 : a === "act" ? -1 : 1)));
+    expect(lines[0]?.alert.kind).toBe("invoiceLate");
+  });
+});
+
+describe("wins: the brand that pays fastest", () => {
+  const paidIn = (id: string, brandId: string, days: number) =>
+    deal(id, {
+      brandId,
+      invoiceSentAt: NOW - 60 * DAY,
+      invoicePaidAt: NOW - 60 * DAY + days * DAY,
+      paidCreatorAt: NOW - 20 * DAY,
+    });
+  const slow = [
+    paidIn("s1", "b2", 30),
+    paidIn("s2", "b2", 30),
+    paidIn("s3", "b3", 32),
+    paidIn("s4", "b3", 32),
+  ];
+  const fast = (i: InsightsInputs) => wins(i, base(i)).find((w) => w.win.kind === "brandPaysFast");
+
+  it("names the brand clearly faster than the rest, with at least 2 paid invoices", () => {
+    const i = inputs({ deals: [paidIn("f1", "b1", 10), paidIn("f2", "b1", 10), ...slow] });
+    expect(fast(i)).toEqual({
+      result: "good",
+      win: { kind: "brandPaysFast", brandId: "b1", days: 10 },
+      go: { kind: "insights", tab: "money", view: null },
+    });
+  });
+
+  it("needs 2 paid invoices and at least 25% fewer days than the median of all", () => {
+    expect(fast(inputs({ deals: [paidIn("f1", "b1", 10), ...slow] }))).toBeUndefined();
+    const close = inputs({ deals: [paidIn("f1", "b1", 26), paidIn("f2", "b1", 26), ...slow] });
+    expect(fast(close)).toBeUndefined();
+  });
+
+  it("leaves out an invoice paid before it was sent", () => {
+    const i = inputs({ deals: [paidIn("f1", "b1", -5), paidIn("f2", "b1", -5), ...slow] });
+    expect(fast(i)).toBeUndefined();
+  });
+
+  it("is left out for a viewer who doesn't see money", () => {
+    const i = inputs({
+      seesMoney: false,
+      deals: [paidIn("f1", "b1", 10), paidIn("f2", "b1", 10), ...slow],
+    });
+    expect(fast(i)).toBeUndefined();
+  });
+});
+
+describe("alertKey: the deal and money alerts", () => {
+  it("names the subject, or just the kind", () => {
+    expect(alertKey({ kind: "invoiceLate", dealId: "d9", days: 3, amount: 1 })).toBe(
+      "invoiceLate:d9",
+    );
+    expect(alertKey({ kind: "payoutDue", dealId: "d9", amount: 1, since: 0 })).toBe("payoutDue:d9");
+    expect(alertKey({ kind: "dealStuck", dealId: "d9", step: 1, days: 9, usual: 2 })).toBe(
+      "dealStuck:d9",
+    );
+    expect(alertKey({ kind: "marginLow", dealId: "d9", margin: 0.1, floor: 0.25 })).toBe(
+      "marginLow:d9",
+    );
+    expect(alertKey({ kind: "basket", brandId: "b7", share: 0.5 })).toBe("basket:b7");
+    expect(alertKey({ kind: "idleCreator", creatorId: "c7", days: 70 })).toBe("idleCreator:c7");
+    expect(alertKey({ kind: "behindGoal", projected: 1, goal: 2 })).toBe("behindGoal");
   });
 });

@@ -1,10 +1,12 @@
 import { Btn, Empty, Seg } from "@gratovo/ui";
-import type { Drill, FunnelReport, FunnelRow, InsightsGo } from "@gratovo/core/insights";
+import type { Drill, FunnelReport, InsightsGo } from "@gratovo/core/insights";
 import { useState } from "react";
 
 import { strings } from "../strings";
-import { BarList, ShareBar } from "./charts/bars";
+import { BarList } from "./charts/bars";
 import { HeatTable } from "./charts/heat-table";
+import { BrandsView } from "./funnel-brands";
+import { FunnelTable } from "./funnel-table";
 import { Panel } from "./panel";
 import { DifferenceTag } from "./verdict";
 import {
@@ -21,10 +23,12 @@ import {
   funnelIsEmpty,
   longestWait,
   shareText,
+  shownRows,
+  shownWaits,
   stepName,
   usualText,
 } from "./words/funnel";
-import { dayLabel, num, ofText, pct, ratioPct, ratioText } from "./words/format";
+import { dayLabel, num, pct, ratioPct, ratioText } from "./words/format";
 import "./tabs.css";
 
 const t = strings.insights.funnel;
@@ -35,112 +39,14 @@ export interface FunnelTabProps {
   readonly report: FunnelReport;
   readonly onGo: (go: InsightsGo) => void;
   readonly onDrill: (drill: Drill) => void;
-  /** Brands come with deals (P8b); until then the switch has no Brands. */
+  /** Whether the Creators/Brands switch shows: prototype mode only until deals are wired (B8). */
   readonly showBrands: boolean;
+  /** Whether First deal and First payout show: not on live until deals are wired (B8). */
+  readonly showDeals: boolean;
 }
 
 type Who = "creators" | "brands";
 type View = "everyone" | "cohort";
-
-function FunnelTable({
-  rows,
-  biggest,
-  onDrill,
-}: {
-  readonly rows: readonly FunnelRow[];
-  readonly biggest: FunnelReport["biggestDrop"];
-  readonly onDrill: (drill: Drill) => void;
-}) {
-  const h = t.table.columns;
-  return (
-    <div className="ins-table-wrap">
-      <table className="ins-funnel" aria-label={t.table.label}>
-        <thead>
-          <tr>
-            <th scope="col">{h[0]}</th>
-            <th scope="col" className="num">
-              {h[1]}
-            </th>
-            <th scope="col">{h[2]}</th>
-            <th scope="col" className="num">
-              {h[3]}
-            </th>
-            <th scope="col" className="num">
-              {h[4]}
-            </th>
-            <th scope="col" className="num">
-              {h[5]}
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => {
-            const isBiggest = row.step === biggest;
-            const tone = isBiggest ? "warn" : row.byDesign ? "series-archive" : "series-live";
-            const name = stepName(row.step);
-            return (
-              <tr
-                key={row.step}
-                className={isBiggest ? "is-click is-biggest" : "is-click"}
-                data-ui={`insights.funnel.row.${row.step}`}
-                onClick={() => {
-                  onDrill({ kind: "step", step: row.step });
-                }}
-              >
-                <td className="step">
-                  <button type="button" className="ins-step-btn" aria-label={t.table.rowOpen(name)}>
-                    {name}
-                    {row.byDesign ? <span className="ins-tag">{t.table.byDesign}</span> : null}
-                    {isBiggest ? <span className="ins-tag warn">{t.table.biggest}</span> : null}
-                  </button>
-                </td>
-                <td className="num">{num(row.count)}</td>
-                <td className="bar">
-                  {row.fromPrev === null ? (
-                    <span className="ins-quiet">{t.table.start}</span>
-                  ) : (
-                    <div className="bar-cell">
-                      <ShareBar
-                        n={row.fromPrev.n}
-                        d={row.fromPrev.d}
-                        tone={tone}
-                        ariaLabel={`${shareText(row)}, ${ofText(row.fromPrev.n, row.fromPrev.d)}`}
-                      />
-                      <span>{shareText(row)}</span>
-                    </div>
-                  )}
-                </td>
-                <td className="num ins-quiet">
-                  {row.before === null ? fmt.dash : ratioPct(row.before)}
-                </td>
-                <td className="num">{usualText(row.medianDays)}</td>
-                <td className="num">
-                  {row.stuck === null ? (
-                    <span className="ins-quiet">{fmt.dash}</span>
-                  ) : row.stuck === 0 ? (
-                    <span className="ins-quiet">0</span>
-                  ) : (
-                    <button
-                      type="button"
-                      className="ins-stuck"
-                      aria-label={t.table.stuckOpen(num(row.stuck), name)}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onDrill({ kind: "stuck", step: row.step });
-                      }}
-                    >
-                      {num(row.stuck)}
-                    </button>
-                  )}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
-  );
-}
 
 function ExitsPanel({ exits }: { readonly exits: FunnelReport["exits"] }) {
   const lists = exitLists(exits);
@@ -266,7 +172,7 @@ function CohortsPanel({ report }: { readonly report: FunnelReport }) {
 }
 
 /** The Funnel: where do creators drop out, and where are they stuck? (design 3.2). */
-export function FunnelTab({ report, onDrill, showBrands }: FunnelTabProps) {
+export function FunnelTab({ report, onDrill, showBrands, showDeals }: FunnelTabProps) {
   const [who, setWho] = useState<Who>("creators");
   const [view, setView] = useState<View>("everyone");
   if (funnelIsEmpty(report)) {
@@ -278,7 +184,8 @@ export function FunnelTab({ report, onDrill, showBrands }: FunnelTabProps) {
       </div>
     );
   }
-  const rows = view === "everyone" ? report.everyone : report.cohort;
+  const rows = shownRows(view === "everyone" ? report.everyone : report.cohort, showDeals);
+  const stepDays = shownWaits(report.stepDays, showDeals);
   const brandsPicked = showBrands && who === "brands";
   return (
     <>
@@ -311,9 +218,7 @@ export function FunnelTab({ report, onDrill, showBrands }: FunnelTabProps) {
         )}
       </div>
       {brandsPicked ? (
-        <section className="ins-panel" data-ui="insights.funnel.brands">
-          <p className="ins-note">{t.brandsComes}</p>
-        </section>
+        <BrandsView brands={report.brands} onDrill={onDrill} />
       ) : (
         <>
           <Panel
@@ -335,11 +240,25 @@ export function FunnelTab({ report, onDrill, showBrands }: FunnelTabProps) {
             }}
             meaning={biggestDropSentence(rows, report.biggestDrop)}
           >
-            <FunnelTable rows={rows} biggest={report.biggestDrop} onDrill={onDrill} />
+            <FunnelTable
+              rows={rows}
+              biggest={report.biggestDrop}
+              label={t.table.label}
+              dataUi="insights.funnel.row"
+              nameOf={stepName}
+              rowOpen={t.table.rowOpen}
+              stuckOpen={t.table.stuckOpen}
+              onRow={(step) => {
+                onDrill({ kind: "step", step });
+              }}
+              onStuck={(step) => {
+                onDrill({ kind: "stuck", step });
+              }}
+            />
           </Panel>
           <ExitsPanel exits={report.exits} />
           <div className="ins-two">
-            <DaysPanel stepDays={report.stepDays} />
+            <DaysPanel stepDays={stepDays} />
             <CohortsPanel report={report} />
           </div>
         </>

@@ -1,3 +1,4 @@
+import { DEAL_FLOW } from "@gratovo/core";
 import { thresholds } from "@gratovo/core/insights";
 import type {
   Alert,
@@ -11,11 +12,19 @@ import type {
   WinLine,
 } from "@gratovo/core/insights";
 
+import { money } from "../../lib/format";
 import { strings } from "../../strings";
-import { decimal, num, plural, ratioPct, ratioText } from "./format";
+import { decimal, monthName, num, pct, plural, ratioPct, ratioText } from "./format";
+import { noNames } from "./names";
+import type { Names } from "./names";
 
 const t = strings.insights.overview;
 const reasons = strings.insights.funnel.exits;
+
+/** A deal step's name, as the deal board calls it. */
+function dealStepName(step: number): string {
+  return DEAL_FLOW[step]?.name ?? t.fmt.dash;
+}
 
 /** A piece of a sentence; bold pieces carry the finding. */
 export interface Run {
@@ -37,7 +46,7 @@ export interface AlertWords {
   readonly action: string;
 }
 
-export function alertWords(alert: Alert): AlertWords {
+export function alertWords(alert: Alert, names: Names = noNames): AlertWords {
   const a = t.alerts;
   switch (alert.kind) {
     case "mailboxBounces":
@@ -152,6 +161,60 @@ export function alertWords(alert: Alert): AlertWords {
         evidence: a.auditFailing.evidence(ratioText(alert.failed)),
         action: a.auditFailing.action,
       };
+    case "invoiceLate":
+      return {
+        title: a.invoiceLate.title(names.deal(alert.dealId), num(alert.days)),
+        why: a.invoiceLate.why,
+        evidence: a.invoiceLate.evidence(money(alert.amount)),
+        action: a.invoiceLate.action,
+      };
+    case "payoutDue":
+      return {
+        title: a.payoutDue.title(names.deal(alert.dealId), money(alert.amount)),
+        why: a.payoutDue.why,
+        evidence: a.payoutDue.evidence(
+          t.fmt.daysLong(num(Math.max(0, Math.floor((names.now - alert.since) / 86_400_000)))),
+        ),
+        action: a.payoutDue.action,
+      };
+    case "dealStuck":
+      return {
+        title: a.dealStuck.title(names.deal(alert.dealId), dealStepName(alert.step)),
+        why: a.dealStuck.why,
+        evidence: a.dealStuck.evidence(num(alert.days), decimal(alert.usual)),
+        action: a.dealStuck.action,
+      };
+    case "behindGoal":
+      return {
+        title: a.behindGoal.title,
+        why: a.behindGoal.why,
+        evidence: a.behindGoal.evidence(money(alert.projected), money(alert.goal)),
+        action: a.behindGoal.action,
+      };
+    case "basket":
+      return {
+        title: a.basket.title(names.brand(alert.brandId)),
+        why: a.basket.why,
+        evidence: a.basket.evidence(pct(alert.share)),
+        action: a.basket.action,
+      };
+    case "idleCreator":
+      return {
+        title:
+          alert.days === null
+            ? a.idleCreator.titleUnknownDays(names.creator(alert.creatorId))
+            : a.idleCreator.title(names.creator(alert.creatorId), num(alert.days)),
+        why: a.idleCreator.why,
+        evidence: a.idleCreator.evidence,
+        action: a.idleCreator.action,
+      };
+    case "marginLow":
+      return {
+        title: a.marginLow.title(names.deal(alert.dealId)),
+        why: a.marginLow.why,
+        evidence: a.marginLow.evidence(pct(alert.margin), pct(alert.floor)),
+        action: a.marginLow.action,
+      };
   }
 }
 
@@ -163,7 +226,7 @@ export interface WinWords {
   readonly action: string;
 }
 
-export function winWords(win: Win): WinWords {
+export function winWords(win: Win, names: Names = noNames): WinWords {
   const w = t.wins;
   switch (win.kind) {
     case "edited":
@@ -186,6 +249,13 @@ export function winWords(win: Win): WinWords {
         evidence: w.mailbox.evidence(ratioText(win.replies)),
         todo: w.mailbox.todo,
         action: w.mailbox.action,
+      };
+    case "brandPaysFast":
+      return {
+        title: w.brandPaysFast.title(names.brand(win.brandId)),
+        evidence: w.brandPaysFast.evidence(num(win.days)),
+        todo: w.brandPaysFast.todo,
+        action: w.brandPaysFast.action,
       };
     case "followUp":
       return {
@@ -233,7 +303,7 @@ export function winsCounted(wins: readonly WinLine[]): string {
 }
 
 /** The summary hero as sentence pieces, one part after another. */
-export function summaryRuns(parts: readonly SummaryPart[]): Run[] {
+export function summaryRuns(parts: readonly SummaryPart[], names: Names = noNames): Run[] {
   const s = t.summary;
   const out: Run[] = [];
   parts.forEach((part, i) => {
@@ -280,7 +350,7 @@ export function summaryRuns(parts: readonly SummaryPart[]): Run[] {
             : count === 1
               ? s.watchOne
               : s.watchMany(num(count));
-        const titles = lines.slice(0, 2).map((l) => alertWords(l.alert).title);
+        const titles = lines.slice(0, 2).map((l) => alertWords(l.alert, names).title);
         const more = count > 2 ? s.needsMore(num(count - 2)) : "";
         out.push(bold(lead), plain(`${s.needsJoin}${titles.join(s.needsAnd)}${more}.`));
         break;
@@ -294,8 +364,8 @@ export function summaryRuns(parts: readonly SummaryPart[]): Run[] {
 }
 
 /** The summary as plain text, for Copy summary. */
-export function summaryText(parts: readonly SummaryPart[]): string {
-  return summaryRuns(parts)
+export function summaryText(parts: readonly SummaryPart[], names: Names = noNames): string {
+  return summaryRuns(parts, names)
     .map((r) => r.text)
     .join("");
 }
@@ -375,6 +445,22 @@ export function fuelTile(v: Vitals["fuel"]): TileWords {
     ...(v.days === null ? {} : { unit: f.unit }),
     lines,
   };
+}
+
+/** The revenue tile (money viewers): this month's payments, the pace and the goal. */
+export function revenueTile(v: NonNullable<Vitals["revenue"]>): TileWords {
+  return {
+    value: money(v.paid),
+    lines: [
+      v.projected === null
+        ? t.revenue.tooEarly
+        : t.revenue.pace(money(v.projected), v.goal === null ? null : money(v.goal)),
+    ],
+  };
+}
+
+export function revenueLabel(v: NonNullable<Vitals["revenue"]>): string {
+  return t.revenue.label(monthName(v.month));
 }
 
 export function waitingTile(v: Vitals["repliesWaiting"], now: number): TileWords {

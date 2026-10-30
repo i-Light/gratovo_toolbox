@@ -233,7 +233,10 @@ describe("the catalog", () => {
     for (let i = 1; i < weeks.length; i += 1) {
       expect(weeks[i]?.archive ?? 0).toBeGreaterThanOrEqual(weeks[i - 1]?.archive ?? 0);
     }
-    expect(history.gratovo.settings).toEqual({ archiveDays: 90 });
+    expect(history.gratovo.settings).toEqual({
+      archiveDays: 90,
+      goal: { signsPerMonth: 4, revenuePerMonth: 10_000 },
+    });
   });
 });
 
@@ -674,4 +677,26 @@ describe("the seed's creators as catalog channels (plan P1, F6)", () => {
       expect(videoChannels.size).toBe(seedIds.size);
     }
   }, 20_000);
+});
+
+describe("the deals' usual views", () => {
+  it("are at the creators' real scale, so a thousand views is worth $30 to $50", () => {
+    const targets = new Map(
+      history.gratovo.dealDetails.map((d) => [
+        d.deal_id,
+        (JSON.parse(d.report) as { targetViews?: number } | null)?.targetViews ?? null,
+      ]),
+    );
+    const per1000: number[] = [];
+    for (const deal of history.gratovo.deals) {
+      const target = targets.get(deal.id) ?? null;
+      if (target !== null && Date.parse(deal.created_at) > now - 90 * DAY) {
+        per1000.push(deal.brand_price / (target / 1000));
+      }
+    }
+    expect(per1000.length).toBeGreaterThan(10);
+    const mean = per1000.reduce((a, b) => a + b, 0) / per1000.length;
+    expect(mean).toBeGreaterThan(30);
+    expect(mean).toBeLessThan(50);
+  });
 });

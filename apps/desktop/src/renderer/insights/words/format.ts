@@ -53,3 +53,23 @@ export function dayLabel(at: number): string {
 export function weekdayLabel(at: number): string {
   return new Date(at).toLocaleDateString("en-GB", { weekday: "short" });
 }
+
+/** A month's money in short form for chart labels: "$9.8K", "$30K", "$1.2M", "$850". */
+export function moneyShort(n: number): string {
+  const abs = Math.abs(n);
+  const sign = n < 0 ? "\u2212" : "";
+  const trim = (v: number): string => String(Math.round(v * 10) / 10);
+  if (abs >= 1_000_000) return `${sign}$${trim(abs / 1_000_000)}M`;
+  if (abs >= 1_000) return `${sign}$${trim(abs / 1_000)}K`;
+  return `${sign}$${String(Math.round(abs))}`;
+}
+
+/** "October", in this computer's time, for a month's first day. */
+export function monthName(at: number): string {
+  return new Date(at).toLocaleDateString("en-US", { month: "long" });
+}
+
+/** "Oct", in this computer's time. */
+export function monthShort(at: number): string {
+  return new Date(at).toLocaleDateString("en-US", { month: "short" });
+}

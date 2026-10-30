@@ -93,6 +93,42 @@ describe("the example history, local part", () => {
     expect(count(db, "stage_events", "source = 'example'")).toBe(g.events.length);
   });
 
+  it("writes the history's brands and deals with their own events, beside the seed's", () => {
+    const db = seededCopy();
+    const seedBrands = count(db, "brands");
+    const seedDeals = count(db, "deals");
+    const seedDealEvents = count(db, "deal_events");
+    const g = history.gratovo;
+
+    writeHistoryLocal(db, g);
+
+    expect(count(db, "brands")).toBe(seedBrands + g.brands.length);
+    expect(count(db, "brand_details")).toBe(seedBrands + g.brands.length);
+    expect(count(db, "deals")).toBe(seedDeals + g.deals.length);
+    expect(count(db, "deal_details")).toBe(seedDeals + g.deals.length);
+    // No trigger-stamped row is left for a history deal or brand; the history's events are in.
+    expect(count(db, "deal_events", "source = 'change' AND deal_id LIKE 'hd-%'")).toBe(0);
+    expect(count(db, "brand_events", "source = 'change' AND brand_id LIKE 'hb-%'")).toBe(0);
+    expect(count(db, "deal_events", "source = 'example' AND deal_id LIKE 'hd-%'")).toBe(
+      g.dealEvents.length,
+    );
+    expect(count(db, "brand_events", "source = 'example' AND brand_id LIKE 'hb-%'")).toBe(
+      g.brandEvents.length,
+    );
+    // The seed's own events stay.
+    expect(count(db, "deal_events")).toBe(seedDealEvents + g.dealEvents.length);
+    // A deal reads back with its step, price and the invoice dates.
+    const deal = g.deals.find((d) => d.brand_invoice_paid_at !== null);
+    const row = db.prepare("SELECT * FROM deals WHERE id = ?").get(deal?.id ?? "");
+    expect(row?.["flow_step"]).toBe(deal?.flow_step);
+    expect(row?.["brand_price"]).toBe(deal?.brand_price);
+    expect(row?.["brand_invoice_paid_at"]).toBe(deal?.brand_invoice_paid_at);
+    const detail = db
+      .prepare("SELECT report FROM deal_details WHERE deal_id = ?")
+      .get(deal?.id ?? "");
+    expect(JSON.parse(String(detail?.["report"]))).toHaveProperty("targetViews");
+  });
+
   it("leaves nothing of an earlier history when the copy is seeded again", () => {
     const db = seededCopy();
     writeHistoryLocal(db, history.gratovo);
@@ -103,6 +139,8 @@ describe("the example history, local part", () => {
     expect(count(first, "channel_state")).toBe(0);
     expect(count(first, "stage_events")).toBe(0);
     expect(count(first, "catalog_weeks")).toBe(0);
+    expect(count(first, "deal_events", "deal_id LIKE 'hd-%'")).toBe(0);
+    expect(count(first, "brand_events", "brand_id LIKE 'hb-%'")).toBe(0);
   });
 
   it("gives the seed's creators the times their log and messages know, not the seed's now", () => {

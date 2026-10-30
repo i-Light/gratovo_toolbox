@@ -1,9 +1,19 @@
 import { describe, expect, it } from "vitest";
 
-import { biggestDrop, cohorts, creatorFunnel, funnelExits, stepDays } from "./funnel";
+import {
+  biggestDrop,
+  brandFunnel,
+  brandReachedIds,
+  brandStuckIds,
+  cohorts,
+  creatorFunnel,
+  funnelExits,
+  stepDays,
+} from "./funnel";
 import type { ChannelFacts, InsightsInputs, MessageFact, StageEvent } from "./inputs";
+import { brand, deal } from "./test-inputs";
 import { reportWindow } from "./stats";
-import type { CreatorStep, FunnelRow } from "./types";
+import type { BrandFunnelRow, BrandStep, CreatorStep, FunnelRow } from "./types";
 
 const L = (y: number, m: number, d: number, h = 0) => new Date(y, m - 1, d, h).getTime();
 const DAY = 86_400_000;
@@ -43,8 +53,14 @@ function inputsWith(over: Partial<InsightsInputs> = {}): InsightsInputs {
     },
     weeks: [],
     runs: [],
-    goal: { signsPerMonth: 4, overrides: {} },
+    goal: { signsPerMonth: 4, revenuePerMonth: null, overrides: {} },
     hidden: {},
+    deals: [],
+    brands: [],
+    dealEvents: [],
+    brandEvents: [],
+    seesMoney: true,
+    marginFloorPct: 25,
     ...over,
   };
 }
@@ -107,7 +123,7 @@ describe("empty inputs", () => {
   it("gives zeros and nulls and does not throw", () => {
     const empty = inputsWith();
     const rows = creatorFunnel(empty, window, "everyone");
-    expect(rows).toHaveLength(10);
+    expect(rows).toHaveLength(12);
     expect(rows.every((r) => r.count === 0 && r.stuck === null && r.medianDays === null)).toBe(
       true,
     );
@@ -150,6 +166,8 @@ describe("creatorFunnel membership", () => {
       ["kit", 0],
       ["audience", 0],
       ["signed", 0],
+      ["firstDeal", 0],
+      ["firstPayout", 0],
     ]);
   });
 
@@ -266,7 +284,7 @@ describe("medianDays and stuck", () => {
 
   it("stepDays gives the median between consecutive steps", () => {
     const days = stepDays(population());
-    expect(days).toHaveLength(7);
+    expect(days).toHaveLength(9);
     expect(days.find((d) => d.from === "kit")).toEqual({
       from: "kit",
       to: "audience",
@@ -435,5 +453,154 @@ describe("cohorts", () => {
 
   it("is early with fewer than 50 emails a side", () => {
     expect(cohorts(inputsWith({ messages: week(0, 10, 2, "a") })).trend).toBe("early");
+  });
+});
+
+describe("first deal and first payout", () => {
+  /** Six signed creators, each with a deal made 5 days after signing; two of them were paid. */
+  function signed(): InsightsInputs {
+    const channels: ChannelFacts[] = [];
+    const events: StageEvent[] = [];
+    const deals = [];
+    for (let n = 0; n < 6; n += 1) {
+      const id = `s${String(n)}`;
+      channels.push(channel(id, { stage: "signed" }));
+      events.push({ channelId: id, stage: "signed", at: NOW - 60 * DAY });
+      deals.push(
+        deal(`d${String(n)}`, {
+          creatorId: id,
+          createdAt: NOW - 55 * DAY,
+          paidCreatorAt: n < 2 ? NOW - 20 * DAY : null,
+        }),
+      );
+    }
+    // Signed 40 days ago, still no deal; signed 5 days ago.
+    channels.push(channel("idle", { stage: "signed" }), channel("fresh", { stage: "signed" }));
+    events.push({ channelId: "idle", stage: "signed", at: NOW - 40 * DAY });
+    events.push({ channelId: "fresh", stage: "signed", at: NOW - 5 * DAY });
+    return inputsWith({ channels, events, deals });
+  }
+
+  it("counts creators with a deal, and with a deal the creator was paid for", () => {
+    const rows = creatorFunnel(signed(), window, "everyone");
+    expect(row(rows, "signed").count).toBe(8);
+    expect(row(rows, "firstDeal").count).toBe(6);
+    expect(row(rows, "firstDeal").fromPrev).toEqual({ n: 6, d: 8 });
+    expect(row(rows, "firstPayout").count).toBe(2);
+    expect(row(rows, "firstPayout").fromPrev).toEqual({ n: 2, d: 6 });
+  });
+
+  it("takes the usual days from signing to the first deal, and who is stuck", () => {
+    const rows = creatorFunnel(signed(), window, "everyone");
+    expect(row(rows, "signed").medianDays).toBe(5);
+    expect(row(rows, "signed").stuck).toBe(1); // "idle": 40 days with no deal; "fresh": 5
+    expect(row(rows, "firstPayout").stuck).toBeNull();
+    expect(row(rows, "firstPayout").medianDays).toBeNull();
+    expect(row(rows, "firstDeal").medianDays).toBeNull(); // only 2 deal-to-payout times known
+  });
+
+  it("a deal for a creator with no channel row still counts them", () => {
+    const rows = creatorFunnel(
+      inputsWith({ deals: [deal("x", { creatorId: "ghost" })] }),
+      window,
+      "everyone",
+    );
+    expect(row(rows, "firstDeal").count).toBe(1);
+    expect(row(rows, "signed").count).toBe(1);
+  });
+
+  it("the previous period's share counts only what happened by then", () => {
+    const rows = creatorFunnel(signed(), window, "everyone");
+    // By the end of the previous period (60 days ago to 30 days ago ends at -30d) six deals existed.
+    expect(row(rows, "firstDeal").before).toEqual({ n: 6, d: 7 });
+  });
+});
+
+describe("the brand funnel", () => {
+  const stepRow = (rows: readonly BrandFunnelRow[], step: BrandStep) =>
+    rows.find((r) => r.step === step);
+
+  /** Eight brands; six won with times known; a lost one that was pitched; a found one. */
+  function brands(): InsightsInputs {
+    const list = [];
+    const events = [];
+    const deals = [];
+    for (let n = 0; n < 6; n += 1) {
+      const id = `w${String(n)}`;
+      list.push(brand(id, { status: "won", since: NOW - 80 * DAY }));
+      events.push(
+        { brandId: id, status: "qualified" as const, at: NOW - 78 * DAY },
+        { brandId: id, status: "pitched" as const, at: NOW - 74 * DAY },
+        { brandId: id, status: "negotiating" as const, at: NOW - 70 * DAY },
+        { brandId: id, status: "won" as const, at: NOW - 66 * DAY },
+      );
+      if (n < 3)
+        deals.push(deal(`b${String(n)}`, { brandId: id, step: 6, goLiveAt: NOW - 50 * DAY }));
+      if (n < 1)
+        deals.push(deal(`p${String(n)}`, { brandId: id, step: 9, invoicePaidAt: NOW - 10 * DAY }));
+    }
+    list.push(brand("lost1", { status: "lost", since: NOW - 60 * DAY }));
+    events.push(
+      { brandId: "lost1", status: "pitched" as const, at: NOW - 50 * DAY },
+      { brandId: "lost1", status: "lost" as const, at: NOW - 20 * DAY },
+    );
+    // Qualified 40 days ago: stuck at qualified (the usual is 4 days).
+    list.push(brand("slow", { status: "qualified", since: NOW - 50 * DAY }));
+    events.push({ brandId: "slow", status: "qualified" as const, at: NOW - 40 * DAY });
+    list.push(brand("new", { status: "found", since: NOW - 2 * DAY }));
+    return inputsWith({ brands: list, brandEvents: events, deals });
+  }
+
+  const f = brandFunnel(brands(), window);
+
+  it("counts a brand at every step up to the furthest it reached", () => {
+    expect(f.rows.map((r) => [r.step, r.count])).toEqual([
+      ["found", 9],
+      ["qualified", 8],
+      ["pitched", 7],
+      ["replied", 6],
+      ["negotiating", 6],
+      ["won", 6],
+      ["live", 3],
+      ["paid", 1],
+    ]);
+    expect(stepRow(f.rows, "qualified")).toMatchObject({ fromPrev: { n: 8, d: 9 } });
+    expect(f.rows[0]?.fromPrev).toBeNull();
+  });
+
+  it("works out the usual days and who is stuck", () => {
+    expect(stepRow(f.rows, "qualified")).toMatchObject({ medianDays: 4, stuck: 1 });
+    expect(brandStuckIds(brands(), "qualified")).toEqual(["slow"]);
+    expect(stepRow(f.rows, "replied")?.stuck).toBeNull();
+    expect(stepRow(f.rows, "paid")?.stuck).toBeNull();
+    expect(stepRow(f.rows, "won")?.medianDays).toBeNull(); // won to live: only 3 known
+  });
+
+  it("compares with the end of the previous period", () => {
+    // Previous period ends 30 days ago: the six won brands were all at "won" by then.
+    expect(stepRow(f.rows, "won")?.before).toEqual({ n: 6, d: 6 });
+    expect(stepRow(f.rows, "live")?.before).toEqual({ n: 3, d: 6 }); // their go-live was 50 days ago
+    expect(f.rows[0]?.before).toBeNull();
+  });
+
+  it("lists lost brands by the last step they reached, and names the biggest drop", () => {
+    expect(f.lost).toEqual([{ step: "pitched", count: 1 }]);
+    expect(f.biggestDrop).toBeNull(); // under 20 brands above every step
+    const many = Array.from({ length: 30 }, (_, n) =>
+      brand(`m${String(n)}`, { status: n < 10 ? "qualified" : "found" }),
+    );
+    expect(brandFunnel(inputsWith({ brands: many }), window).biggestDrop).toBe("qualified");
+  });
+
+  it("lists the brands behind a count", () => {
+    expect(brandReachedIds(brands(), "pitched")).toHaveLength(7);
+    expect(brandReachedIds(brands(), "paid")).toEqual(["w0"]);
+  });
+
+  it("is empty without brands", () => {
+    const e = brandFunnel(inputsWith(), window);
+    expect(e.rows.every((r) => r.count === 0)).toBe(true);
+    expect(e.biggestDrop).toBeNull();
+    expect(e.lost).toEqual([]);
   });
 });

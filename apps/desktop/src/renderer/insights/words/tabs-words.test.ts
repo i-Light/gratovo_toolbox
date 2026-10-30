@@ -165,6 +165,9 @@ describe("tiles", () => {
   });
   it("words the pipeline headline by the furthest step reached", () => {
     expect(pipelineHeadline(overviewReport.pipeline)).toBe(
+      "Of 162,400 channels found, 9 creators have been paid.",
+    );
+    expect(pipelineHeadline(funnelRows({ firstDeal: 0, firstPayout: 0 }))).toBe(
       "Of 162,400 channels found, 16 have signed.",
     );
     expect(pipelineHeadline(funnelRows({ ...allZero, found: 10 }))).toBe(

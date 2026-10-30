@@ -9,6 +9,7 @@ import { insightsReport, reportTabs } from "@gratovo/core/insights";
 import type { InsightsInputs, InsightsReport } from "@gratovo/core/insights";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import { replaceMemberAccess } from "../data/repositories/member-access";
 import { migrate } from "../db/migrate";
 import { createSqliteSource } from "../data/sqlite-source";
 import { createCatalog } from "../find/catalog";
@@ -163,6 +164,17 @@ beforeAll(async () => {
   insertRows("outreach_messages", g.messages);
   insertRows("outreach_sequences", g.sequences);
   insertRows("catalog_weeks", g.weeks);
+  // Brands and deals (P8b); the triggers stamped them with the wall clock too.
+  insertRows("brands", g.brands);
+  insertRows("brand_details", g.brandDetails);
+  insertRows("deals", g.deals);
+  insertRows("deal_details", g.dealDetails);
+  db.exec("DELETE FROM deal_events; DELETE FROM brand_events");
+  insertRows("deal_events", g.dealEvents);
+  insertRows("brand_events", g.brandEvents);
+  replaceMemberAccess(db, [
+    { profileId: "u1", roles: ["owner"], seesMoney: true, updatedAt: "2026-10-01T00:00:00Z" },
+  ]);
   const seed = exampleSeed(NOW);
   db.prepare("INSERT INTO local_settings (key, value) VALUES (?, ?)").run(
     "mail.settings",
@@ -255,7 +267,38 @@ describe("the six-month example history, read back", () => {
     near(count("emailed"), 1_150, 0.2);
     near(count("shortlisted"), 1_480, 0.2);
     near(count("replied"), 96, 0.25);
-    near(count("signed"), 16, 0.25);
+    // The history signed 16; the seed's six signed creators have deals too, and a creator with a
+    // deal counts as signed (this database holds no seed creators, only their deals).
+    near(count("signed"), 22, 0.25);
+  });
+
+  it("tells the money story: six months of paid revenue rising, late invoices, a payout due", () => {
+    const money = reports.get("money");
+    if (money?.tab !== "money") throw new Error("no money report");
+    expect(money.months).toHaveLength(6);
+    const paid = money.months.map((m) => m.paid);
+    // May to September rise, to about $25K; October is under way.
+    for (let i = 1; i < 5; i += 1) {
+      expect(paid[i] ?? 0).toBeGreaterThan(paid[i - 1] ?? 0);
+    }
+    near(paid[4] ?? 0, 25_000, 0.2);
+    expect(money.months[5]?.projected ?? 0).toBeGreaterThan(0.75 * 25_000);
+    expect(money.months[5]?.projected ?? 0).toBeLessThan(25_000);
+    expect(money.owed.late.length).toBeGreaterThanOrEqual(2);
+    expect(money.owed.buckets.find((b) => b.bucket === "late60")?.count ?? 0).toBeGreaterThan(0);
+    expect(money.payouts.due.length).toBeGreaterThanOrEqual(1);
+    near(money.margin.average ?? 0, 0.4, 0.1);
+    expect(money.margin.under.length).toBe(1);
+    near(money.dealSize.average ?? 0, 3_100, 0.2);
+    near(money.dealSize.before ?? 0, 2_600, 0.2);
+    expect(money.basket.brand?.share ?? 0).toBeGreaterThan(0.4);
+    expect(money.roster.filter((r) => r.idle)).toHaveLength(1);
+    expect(money.stuckDeals.filter((d) => d.step === 3)).toHaveLength(2);
+    expect(money.repeat.noNext).toHaveLength(2);
+    console.info(
+      `money: paid ${paid.join(", ")}; margin ${String(money.margin.average)}; ` +
+        `deal ${String(money.dealSize.average)}/${String(money.dealSize.before)}`,
+    );
   });
 
   it("builds every tab with its own tag", () => {

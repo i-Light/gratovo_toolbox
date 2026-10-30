@@ -43,8 +43,14 @@ function inputsWith(over: Partial<InsightsInputs> = {}): InsightsInputs {
     },
     weeks: [],
     runs: [],
-    goal: { signsPerMonth: 4, overrides: {} },
+    goal: { signsPerMonth: 4, revenuePerMonth: null, overrides: {} },
     hidden: {},
+    deals: [],
+    brands: [],
+    dealEvents: [],
+    brandEvents: [],
+    seesMoney: true,
+    marginFloorPct: 25,
     ...over,
   };
 }

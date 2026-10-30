@@ -111,7 +111,8 @@
 .ins-table td.num {
   text-align: end;
 }
-.ins-table tr:last-child td {
+.ins-table tr:last-child td,
+.ins-table tbody tr:last-child th {
   border-bottom: 0;
 }
 .ins-table-tools {

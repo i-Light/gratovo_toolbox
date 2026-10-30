@@ -1,17 +1,35 @@
 import { describe, expect, it } from "vitest";
 
 import type { InsightsInputs } from "./inputs";
-import { drillIds, insightsReport } from "./report";
+import { brandFunnel } from "./funnel";
+import { reportWindow } from "./stats";
+import { drillIds, drillRecord, insightsReport } from "./report";
 import {
   creatorSteps,
   liveGroups,
   reportTabs,
+  brandSteps,
+  type Drill,
   type EmailsReport,
   type FunnelReport,
+  type MoneyReport,
   type OverviewReport,
   type SearchReport,
 } from "./types";
-import { ch, DAY, emptyArchive, ev, incoming, inputs, L, NOW, out } from "./test-inputs";
+import {
+  brand,
+  ch,
+  DAY,
+  deal,
+  emptyArchive,
+  ev,
+  incoming,
+  inputs,
+  L,
+  moneyWorld,
+  NOW,
+  out,
+} from "./test-inputs";
 
 const TOMORROW = L(2026, 10, 29, 9);
 const long = (i: number): number => NOW - i * DAY;
@@ -204,5 +222,112 @@ describe("drillIds agrees with the number", () => {
   it("the emails tab is built from the same data", () => {
     const e = insightsReport("emails", i, "90d") as EmailsReport;
     expect(e.sent).toBeGreaterThan(0);
+  });
+});
+
+describe("the money tab and its drills", () => {
+  /** The money world, with brands that move through their statuses and deals that move through steps. */
+  function world(): InsightsInputs {
+    const base = moneyWorld();
+    const stays = Array.from({ length: 6 }, (_, n) => `s${String(n)}`);
+    const extra = [
+      ...stays.map((id) => deal(id, { brandId: "b2", creatorId: "c5", step: 1 })),
+      deal("stuck", { brandId: "b2", creatorId: "c5", step: 0 }),
+    ];
+    const dealEvents = [
+      ...stays.flatMap((id) => [
+        { dealId: id, step: 0, at: NOW - 30 * DAY },
+        { dealId: id, step: 1, at: NOW - 28 * DAY },
+      ]),
+      { dealId: "stuck", step: 0, at: NOW - 10 * DAY },
+    ];
+    const brandEvents = ["b1", "b2", "b3"].flatMap((id) => [
+      { brandId: id, status: "qualified" as const, at: NOW - 70 * DAY },
+      { brandId: id, status: "pitched" as const, at: NOW - 66 * DAY },
+    ]);
+    return {
+      ...base,
+      brands: [
+        brand("b1", { status: "won" }),
+        brand("b2", { status: "pitched" }),
+        brand("b3", { status: "pitched" }),
+      ],
+      brandEvents,
+      deals: [...base.deals, ...extra],
+      dealEvents,
+    };
+  }
+  const m = world();
+  const money = insightsReport("money", m, "30d") as MoneyReport;
+  const list = (drill: Drill) => drillIds(drill, m, "30d");
+
+  it("builds the money report", () => {
+    expect(money.tab).toBe("money");
+    expect(money.months).toHaveLength(6);
+  });
+
+  it("an empty report, never a throw, for a viewer who doesn't see money", () => {
+    const r = insightsReport("money", { ...m, seesMoney: false }, "30d") as MoneyReport;
+    expect(r.roster).toEqual([]);
+    expect(r.owed.late).toEqual([]);
+    for (const kind of ["lateInvoices", "payoutsDue", "underFloor"] as const) {
+      expect(drillIds({ kind }, { ...m, seesMoney: false }, "30d"), kind).toEqual([]);
+    }
+  });
+
+  it("lateInvoices: every late invoice, not only the ten shown", () => {
+    const late = money.owed.buckets
+      .filter((b) => b.bucket !== "notDue")
+      .reduce((s, b) => s + b.count, 0);
+    expect(late).toBe(2);
+    expect(list({ kind: "lateInvoices" })).toEqual(["d4", "d3"]);
+    expect(list({ kind: "lateInvoices" })).toHaveLength(late);
+  });
+
+  it("payoutsDue", () => {
+    expect(list({ kind: "payoutsDue" })).toHaveLength(money.payouts.due.length);
+    expect(list({ kind: "payoutsDue" })).toEqual(["d1"]);
+  });
+
+  it("underFloor", () => {
+    expect(list({ kind: "underFloor" })).toHaveLength(money.margin.under.length);
+    expect(list({ kind: "underFloor" })).toEqual(["d3"]);
+  });
+
+  it("stuckDeals: all, and each step", () => {
+    expect(money.stuckDeals).toHaveLength(1);
+    expect(list({ kind: "stuckDeals", step: null })).toEqual(["stuck"]);
+    for (const s of money.steps) {
+      expect(list({ kind: "stuckDeals", step: s.step }).length, String(s.step)).toBe(s.stuck);
+    }
+  });
+
+  it("idleCreators and noNextDeal", () => {
+    expect(list({ kind: "idleCreators" })).toHaveLength(money.roster.filter((x) => x.idle).length);
+    expect(list({ kind: "idleCreators" })).toEqual(["c4"]);
+    expect(list({ kind: "noNextDeal" })).toHaveLength(money.repeat.noNext.length);
+    expect(list({ kind: "noNextDeal" })).toEqual(["d1"]);
+  });
+
+  it("brandStep and brandStuck: each row of the brand funnel", () => {
+    const brands = (insightsReport("funnel", m, "30d") as FunnelReport).brands;
+    expect(brands).toEqual(brandFunnel(m, reportWindow("30d", NOW)));
+    for (const row of brands.rows) {
+      expect(list({ kind: "brandStep", step: row.step }).length, row.step).toBe(row.count);
+      expect(list({ kind: "brandStuck", step: row.step }).length, row.step).toBe(row.stuck ?? 0);
+    }
+    expect(brands.rows.map((r) => r.step)).toEqual([...brandSteps]);
+    expect(brands.rows.find((r) => r.step === "pitched")?.count).toBe(3);
+  });
+
+  it("drillRecord names the kind of record each drill lists", () => {
+    expect(drillRecord({ kind: "brandStep", step: "won" })).toBe("brand");
+    expect(drillRecord({ kind: "brandStuck", step: "won" })).toBe("brand");
+    for (const kind of ["lateInvoices", "payoutsDue", "underFloor", "noNextDeal"] as const) {
+      expect(drillRecord({ kind }), kind).toBe("deal");
+    }
+    expect(drillRecord({ kind: "stuckDeals", step: null })).toBe("deal");
+    expect(drillRecord({ kind: "idleCreators" })).toBe("creator");
+    expect(drillRecord({ kind: "fuel" })).toBe("creator");
   });
 });

@@ -34,9 +34,17 @@ export const liveWired = {
 
 /**
  * Parts inside a shown tab that wait for a later step: shown on example data, hidden on live.
- * Funnel's Brands view comes with deals (plan step P, part P8b).
+ * Funnel's Brands view, the Overview's revenue tile and the Goal's money field and lines come with
+ * deals and money (plan step 9, ADR 0021 D2). The Money tab itself is not in `liveWired`.
+ * `insights.deals` is the data side of the same wait: the `deals` table holds legacy deals on live,
+ * so Insights reads none of them (deals, brands, their events) until then.
  */
-export const liveHiddenParts = ["insights.funnel.brands"] as const;
+export const liveHiddenParts = [
+  "insights.deals",
+  "insights.funnel.brands",
+  "insights.overview.revenue",
+  "insights.goal.money",
+] as const;
 
 export type GatedPart = (typeof liveHiddenParts)[number];
 

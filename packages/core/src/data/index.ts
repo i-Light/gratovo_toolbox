@@ -167,6 +167,15 @@ export type {
 } from "./outreach-store";
 export type { InsightsLocal, InsightsLocalCreator, InsightsStore } from "./insights-store";
 export { exampleHistory } from "./example-history";
+export type {
+  ExampleDeals,
+  HistoryBrandDetailRow,
+  HistoryBrandEventRow,
+  HistoryBrandRow,
+  HistoryDealDetailRow,
+  HistoryDealEventRow,
+  HistoryDealRow,
+} from "./example-history-deals";
 export { exampleChannelId, exampleVideoId } from "./example-roster";
 export type { ExampleChannel, ExampleVideo } from "./example-roster";
 export type {

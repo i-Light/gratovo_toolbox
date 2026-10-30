@@ -3,7 +3,8 @@ import type { Drill, Period, ReportTab } from "@gratovo/core/insights";
 import { useCallback, useEffect, useState } from "react";
 
 import { useCatalogTick } from "./find-catalog";
-import { useApp } from "./store";
+import { appStore, useApp } from "./store";
+import { isPartShown } from "./wired";
 
 export type InsightsLoad = "loading" | "ready" | "failed";
 type Report = ChannelResponse<"insights:read">;
@@ -36,6 +37,8 @@ export function useInsightsReport(
 } {
   const tick = useCatalogTick();
   const newestLine = useApp((s) => s.data.log[0]?.id ?? "");
+  const source = useApp((s) => s.data.source);
+  const deals = isPartShown("insights.deals", source);
   const [beat, setBeat] = useState(0);
   const [held, setHeld] = useState<Held>({ report: null, period: null, failed: false });
   useEffect(() => {
@@ -48,7 +51,7 @@ export function useInsightsReport(
   }, []);
   useEffect(() => {
     let stopped = false;
-    window.gratovo.invoke("insights:read", { tab, period }).then(
+    window.gratovo.invoke("insights:read", { tab, period, deals }).then(
       (result) => {
         if (stopped) {
           return;
@@ -66,7 +69,7 @@ export function useInsightsReport(
     return () => {
       stopped = true;
     };
-  }, [tab, period, tick, newestLine, beat]);
+  }, [tab, period, deals, tick, newestLine, beat]);
   const reload = useCallback(() => {
     setBeat((n) => n + 1);
   }, []);
@@ -76,6 +79,11 @@ export function useInsightsReport(
   return { report, status, reload };
 }
 
+/** Whether Insights may read deals and money: on example data, not yet on live (B8). */
+export function dealsShown(): boolean {
+  return isPartShown("insights.deals", appStore().getState().data.source);
+}
+
 /** One page of the records behind a number; null when the read failed. */
 export async function insightsList(
   drill: Drill,
@@ -83,7 +91,7 @@ export async function insightsList(
   offset: number,
 ): Promise<ChannelResponse<"insights:list"> | null> {
   const result = await window.gratovo
-    .invoke("insights:list", { drill, period, offset })
+    .invoke("insights:list", { drill, period, offset, deals: dealsShown() })
     .catch(() => null);
   return result?.ok === true ? result.value : null;
 }

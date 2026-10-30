@@ -8,11 +8,11 @@ import type {
   SearchView,
 } from "@gratovo/core/insights";
 import { Btn, Empty } from "@gratovo/ui";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { peek } from "../lib/actions";
 import { bringBack } from "../lib/find-actions";
-import { hideAlert, insightsList, setGoal, useInsightsReport } from "../lib/insights";
+import { dealsShown, hideAlert, insightsList, setGoal, useInsightsReport } from "../lib/insights";
 import { screens } from "../lib/routes";
 import type { ScreenKey } from "../lib/routes";
 import { appStore, go, selectRoute, useApp } from "../lib/store";
@@ -25,9 +25,12 @@ import { EmailsTab } from "./emails-tab";
 import { FunnelTab } from "./funnel-tab";
 import { GoalTab } from "./goal-tab";
 import { InsightsScreen } from "./insights-screen";
+import { MoneyTab } from "./money-tab";
 import { OverviewTab } from "./overview-tab";
 import { SearchTab } from "./search-tab";
 import { drillTitle } from "./words/drill";
+import { namesFrom } from "./words/names";
+import type { Names } from "./words/names";
 import { summaryDocument } from "./words/summary";
 
 const text = strings.insights;
@@ -67,6 +70,22 @@ async function restoreMistakes(ids: readonly string[]): Promise<void> {
   }
 }
 
+/**
+ * A brand or deal row is named from the frame, which knows more than the list does (a deal has no
+ * channel name); a record the frame has is never listed as gone.
+ */
+function withName(row: DrillRow, names: Names): DrillRow {
+  if (row.record === undefined || row.record === "creator" || !names.known(row.record, row.id)) {
+    return row;
+  }
+  return {
+    ...row,
+    name: row.record === "deal" ? names.deal(row.id) : names.brand(row.id),
+    handle: null,
+    note: row.note?.kind === "gone" ? null : row.note,
+  };
+}
+
 /** One tab's report, read and wired to the screen's actions. */
 function Reader({
   tab,
@@ -86,6 +105,15 @@ function Reader({
   const { report, status, reload } = useInsightsReport(tab, period);
   const seesMoney = useApp((s) => s.data.seesMoney);
   const source = useApp((s) => s.data.source);
+  const brands = useApp((s) => s.data.brands);
+  const creators = useApp((s) => s.data.creators);
+  const deals = useApp((s) => s.data.deals);
+  const now = report?.window.now ?? 0;
+  const reportNames = report?.tab === "money" ? report.names : undefined;
+  const names = useMemo(
+    () => namesFrom({ brands, creators, deals }, now, reportNames),
+    [brands, creators, deals, now, reportNames],
+  );
   if (report === null) {
     return status === "failed" ? (
       <div className="card" data-ui="insights.failed">
@@ -108,7 +136,9 @@ function Reader({
           report={report}
           onGo={onGo}
           onDrill={onDrill}
-          seesMoney={seesMoney}
+          seesMoney={seesMoney && isPartShown("insights.overview.revenue", source)}
+          showDeals={isPartShown("insights.deals", source)}
+          names={names}
           onHide={(key) => {
             void hideAlert(key).then(reload);
           }}
@@ -121,10 +151,23 @@ function Reader({
           onGo={onGo}
           onDrill={onDrill}
           showBrands={isPartShown("insights.funnel.brands", source)}
+          showDeals={isPartShown("insights.deals", source)}
         />
       );
     case "emails":
       return <EmailsTab report={report} onGo={onGo} />;
+    case "money":
+      return (
+        <MoneyTab
+          report={report}
+          names={names}
+          onGo={onGo}
+          onDrill={onDrill}
+          onOpen={(record) => {
+            peek(record);
+          }}
+        />
+      );
     case "search":
       return (
         <SearchTab
@@ -143,6 +186,7 @@ function Reader({
         <GoalTab
           report={report}
           onGo={onGo}
+          showMoney={seesMoney && isPartShown("insights.goal.money", source)}
           onGoal={(patch) => {
             void setGoal(patch).then(reload);
           }}
@@ -162,6 +206,13 @@ export function InsightsHost() {
   const [period, setPeriod] = useState<Period>("30d");
   const [view, setView] = useState<SearchView>("live");
   const [sheet, setSheet] = useState<DrillState | null>(null);
+  const brands = useApp((s) => s.data.brands);
+  const creators = useApp((s) => s.data.creators);
+  const deals = useApp((s) => s.data.deals);
+  const sheetNames = useMemo(
+    () => namesFrom({ brands, creators, deals }, 0),
+    [brands, creators, deals],
+  );
   const pendingView = useRef<SearchView | null>(null);
   const drillToken = useRef(0);
 
@@ -232,14 +283,20 @@ export function InsightsHost() {
   };
 
   const copySummary = (): void => {
-    void window.gratovo.invoke("insights:read", { tab: "overview", period }).then(
-      (result) => {
-        if (result.ok && result.value.tab === "overview") {
-          void copyText(summaryDocument(result.value, period), text.summaryCopied);
-        }
-      },
-      () => undefined,
-    );
+    void window.gratovo
+      .invoke("insights:read", { tab: "overview", period, deals: dealsShown() })
+      .then(
+        (result) => {
+          if (result.ok && result.value.tab === "overview") {
+            const data = appStore().getState().data;
+            void copyText(
+              summaryDocument(result.value, period, namesFrom(data, result.value.window.now)),
+              text.summaryCopied,
+            );
+          }
+        },
+        () => undefined,
+      );
   };
 
   return (
@@ -259,7 +316,7 @@ export function InsightsHost() {
       {sheet === null ? null : (
         <DrillSheet
           title={drillTitle(sheet.drill)}
-          rows={sheet.rows}
+          rows={sheet.rows.map((row) => withName(row, sheetNames))}
           total={sheet.total}
           onMore={loadMore}
           {...(sheet.drill.kind === "step" &&
@@ -271,10 +328,12 @@ export function InsightsHost() {
                 },
               }
             : {})}
-          onOpen={(id) => {
+          onOpen={(row) => {
             peek(
-              { kind: "creator", id },
-              sheet.rows.map((r) => r.id),
+              { kind: row.record ?? "creator", id: row.id },
+              sheet.rows
+                .filter((r) => (r.record ?? "creator") === (row.record ?? "creator"))
+                .map((r) => r.id),
             );
             setSheet(null);
           }}

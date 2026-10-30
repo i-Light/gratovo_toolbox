@@ -144,7 +144,7 @@ function setup(overrides: Partial<Handlers> = {}) {
     "insights:read": () => Promise.reject(new Error("not used here")),
     "insights:list": () => ({ rows: [], total: 0 }),
     "insights:hide": () => ({ hidden: {} }),
-    "insights:goal": () => ({ signsPerMonth: 4, overrides: {} }),
+    "insights:goal": () => ({ signsPerMonth: 4, revenuePerMonth: null, overrides: {} }),
     ...overrides,
   };
   const onError = vi.fn();

@@ -19,10 +19,16 @@ export function insightsPeriodLabel(period: Period): string {
   return text.periods[period];
 }
 
+/** The Insights tabs that may show: Money only to those who see money (design 3.5). */
+function useInsightsTabs() {
+  const source = useApp((s) => s.data.source);
+  const seesMoney = useApp((s) => s.data.seesMoney);
+  return shownTabs("insights", source).filter((t) => t.key !== "money" || seesMoney);
+}
+
 /** The Insights tabs that may show. Arrow keys move between them. */
 function InsightsTabs({ tab }: { readonly tab: string }) {
-  const source = useApp((s) => s.data.source);
-  const tabs = shownTabs("insights", source);
+  const tabs = useInsightsTabs();
   if (tabs.length < 2) {
     return null;
   }
@@ -102,10 +108,9 @@ export interface InsightsScreenProps {
 
 /** The Insights screen: the header with its period switch, the tabs, and the tab panel. */
 export function InsightsScreen({ period, onPeriod, onCopySummary, children }: InsightsScreenProps) {
-  const source = useApp((s) => s.data.source);
   const routeTab = useApp((s) => selectRoute(s).tab);
   const tab = routeTab ?? "overview";
-  const tabsShown = shownTabs("insights", source);
+  const tabsShown = useInsightsTabs();
   if (!tabsShown.some((t) => t.key === tab)) {
     return <PlaceholderScreen screen="insights" />;
   }

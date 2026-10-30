@@ -411,7 +411,7 @@ describe("readInputs", () => {
     ]);
     // A damaged hidden entry is dropped; the goal is the default.
     expect(inputs.hidden).toEqual({ k: NOW + day });
-    expect(inputs.goal).toEqual({ signsPerMonth: 4, overrides: {} });
+    expect(inputs.goal).toEqual({ signsPerMonth: 4, revenuePerMonth: null, overrides: {} });
     expect(inputs.archiveDays).toBe(7);
   });
 

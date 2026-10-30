@@ -1,7 +1,7 @@
 # 0022. Insights without deals and money (P8a)
 
 - **Date:** 2026-10-28 (built 2026-10-28 and 10-29)
-- **Status:** accepted. Builds [product/insights-design.md](../product/insights-design.md) for plan step P, part P8a. P8b adds Money, Funnel › Brands and the deal and money parts after P1.
+- **Status:** accepted. Builds [product/insights-design.md](../product/insights-design.md) for plan step P, part P8a. P8b (2026-10-30, the addendum below) adds Money, Funnel › Brands and the deal and money parts after P1.
 
 ## Context
 
@@ -23,3 +23,16 @@ The owner split Insights in two on 2026-10-28. **P8a** comes first, before P1: e
 - The frame's creator read looked up each creator's reject line in a computed list of all of them: 16 s with 5,000 creators and 19,000 reject lines. It now uses the log's entity index (0.1 s), which helps any large catalog, not only the example.
 - A keyword's last run can't tell how many channels it met that were already live (the pipeline doesn't record it), so "worn out" reads the archived share only.
 - The archive search box on Search › Archive opens Toolbox › Archive; carrying the typed words there is left for later.
+
+## Addendum: deals and money (P8b, 2026-10-30)
+
+P8b adds the Money tab, Funnel › Brands, the Overview's revenue tile, the Goal's money lines, the creator funnel's First deal and First payout, and the money alerts. The decisions, B1 to B9 in `.router/PLAN.md`, in short:
+
+1. **Revenue is what brands paid**, counted on the invoice's paid date. Net is the price less the creator's payout. Bookings are the prices of deals made, counted on the day the deal was made.
+2. **The money goal is set as net and drawn as brand payments**: net over the usual margin (yours with enough paid deals, else the course's 40%), to the nearest $100. It is worked back to bookings, deals (over the average deal), brand pitches (over the brand close rate) and creators to sign, then P8a's chain. The levers gain "raise the average deal by $500". A close-rate lever was dropped: it never changes the first emails a day.
+3. **The month's pace is one figure**, shared by Overview's revenue tile and Money's chart: paid so far over the working days gone, never under what is paid. Its verdict is too early before 5 working days, on track at or over the goal, Watch under it.
+4. **Money stays with money viewers.** Main refuses the Money tab to anyone else. Their reports have no revenue tile, no money goal lines, none of the money alerts and no "pays fastest" win, and their deal amounts are null in the inputs.
+5. **Step and status times are recorded by the database**, as in P8a: migration 0009 adds `deal_events` and `brand_events`, written by triggers on `deals` and `brands`, filled backwards from each row's current step or status. Both are local only.
+6. **A money report names what it mentions** (`MoneyReport.names`), since the frame holds only some creators and brands. `insights:list` returns brand and deal rows for the new drills, with the same count-equals-list test per drill.
+7. **The example history gains 30 brands and 57 deals** over the six months. Revenue grows to about $25,000 paid a month. It includes one slow-paying brand, a few deals under the margin floor, one brand with over 40% of 90 days' revenue, one idle creator, and a money goal of $10,000 net a month. Brands pay about $40 per 1,000 views.
+8. **Live mode is unchanged:** Money, Funnel › Brands, the revenue tile and the Goal's money lines stay behind the live gate until step 9 wires deals and money. Live mode already has deals, synced down from the old app, so the gate works on the data too. Insights asks main for deals only when the `insights.deals` part is shown. Without it, main reads no deals or brands, so no deal or money alert, payout count or money list can show in live mode.

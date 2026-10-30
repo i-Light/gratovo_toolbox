@@ -1,4 +1,4 @@
-import { creatorSteps } from "@gratovo/core/insights";
+import { brandSteps, creatorSteps } from "@gratovo/core/insights";
 import type {
   Alert,
   AlertLine,
@@ -38,6 +38,8 @@ const counts: Readonly<Record<CreatorStep, number>> = {
   kit: 38,
   audience: 22,
   signed: 16,
+  firstDeal: 11,
+  firstPayout: 9,
 };
 
 export function funnelRows(over: Partial<Record<CreatorStep, number>> = {}): FunnelRow[] {
@@ -67,6 +69,8 @@ export const allZero: Partial<Record<CreatorStep, number>> = {
   kit: 0,
   audience: 0,
   signed: 0,
+  firstDeal: 0,
+  firstPayout: 0,
 };
 
 const alertLine = (
@@ -186,6 +190,7 @@ export const overviewReport: OverviewReport = {
     },
     signedPer1000: { now: r(1, 182), ninety: r(14, 3100), verdict: "early" },
     fuel: { ready: 58, firstPerDay: 22, days: 2.6, waitingConfirm: 24, verdict: "watch" },
+    revenue: null,
     repliesWaiting: { count: 4, oldestAt: now - 3 * day, verdict: "watch" },
   },
   attention: fullAlerts,
@@ -266,6 +271,26 @@ export const funnelReport: FunnelReport = {
     },
   ],
   cohortTrend: "chance",
+  brands: {
+    rows: brandSteps.map((step, i) => {
+      const counts = [140, 62, 48, 19, 12, 9, 7, 6];
+      const count = counts[i] ?? 0;
+      const above = i === 0 ? null : (counts[i - 1] ?? 0);
+      return {
+        step,
+        count,
+        fromPrev: above === null ? null : r(count, above),
+        before: above === null ? null : r(Math.round(count * 0.95), above),
+        medianDays: i < 2 ? null : 3 + i,
+        stuck: i < 2 ? null : step === "replied" ? 3 : 0,
+      };
+    }),
+    biggestDrop: "qualified",
+    lost: [
+      { step: "qualified", count: 4 },
+      { step: "pitched", count: 2 },
+    ],
+  },
 };
 
 const days30 = Array.from({ length: 30 }, (_, i) => {
