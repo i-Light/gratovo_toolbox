@@ -282,3 +282,39 @@ describe("migrate", () => {
     }).toThrow();
   });
 });
+
+describe("details (migration 8)", () => {
+  it("creates the three local detail tables", () => {
+    migrate(db);
+    expect(migrations[7]?.name).toBe("details");
+    expect(tables()).toEqual(
+      expect.arrayContaining(["brand_details", "deal_details", "creator_details"]),
+    );
+  });
+
+  it("gives a deal's detail row its defaults and refuses a wrong type", () => {
+    migrate(db);
+    db.exec("INSERT INTO deal_details (deal_id) VALUES ('d1')");
+    expect(db.prepare("SELECT * FROM deal_details").get()).toMatchObject({
+      checks: "[]",
+      video_count: 1,
+      videos_delivered: 0,
+      script_approved: 0,
+      clauses: "[]",
+      model: null,
+    });
+    db.exec("INSERT INTO brand_details (brand_id) VALUES ('b1')");
+    expect(db.prepare("SELECT seen, status FROM brand_details").get()).toMatchObject({
+      seen: "[]",
+      status: null,
+    });
+    db.exec("INSERT INTO creator_details (channel_id) VALUES ('UCa')");
+    expect(db.prepare("SELECT locks, socials FROM creator_details").get()).toMatchObject({
+      locks: "[]",
+      socials: "{}",
+    });
+    expect(() => {
+      db.exec("INSERT INTO deal_details (deal_id, due_at) VALUES ('d2', 'soon')");
+    }).toThrow(/cannot store TEXT/);
+  });
+});

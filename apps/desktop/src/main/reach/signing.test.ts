@@ -2,7 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import type { DataSource, DraftState } from "@gratovo/core/data";
+import { exampleChannelId as ch, type DataSource, type DraftState } from "@gratovo/core/data";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { contractNow } from "../data/data-source-contract";
@@ -104,22 +104,22 @@ describe("decline", () => {
       connected: () => Promise.resolve([]),
       emit: () => undefined,
     });
-    expect(await none.decline("c14")).toEqual({ ok: false, problem: "no_data" });
+    expect(await none.decline(ch("c14"))).toEqual({ ok: false, problem: "no_data" });
     expect(await service.decline("nobody")).toEqual({ ok: false, problem: "not_found" });
     // c1 is signed: it can't be declined.
-    expect(await service.decline("c1")).toEqual({ ok: false, problem: "wrong_state" });
-    expect((await stateOf("c1"))?.stage).toBe("signed");
+    expect(await service.decline(ch("c1"))).toEqual({ ok: false, problem: "wrong_state" });
+    expect((await stateOf(ch("c1")))?.stage).toBe("signed");
   });
 
   it("rejects with the reason, skips every open draft, logs, and queues the decline draft", async () => {
-    openDraft("d-first", "c14", "first", "ready");
-    openDraft("d-follow", "c14", "followUp", "failed");
-    const answer = await service.decline("c14");
+    openDraft("d-first", ch("c14"), "first", "ready");
+    openDraft("d-follow", ch("c14"), "followUp", "failed");
+    const answer = await service.decline(ch("c14"));
     expect(answer).toMatchObject({ ok: true, before: "kit", skipped: ["d-first", "d-follow"] });
     const draftId = answer.ok ? answer.draftId : null;
     expect(draftId).not.toBeNull();
 
-    const creator = await stateOf("c14");
+    const creator = await stateOf(ch("c14"));
     expect(creator?.stage).toBe("rejected");
     expect(creator?.rejectReason).toBe("audience");
     expect(source.outreach.draft("d-first")?.state).toBe("skipped");
@@ -129,7 +129,7 @@ describe("decline", () => {
 
     const draft = source.outreach.draft(draftId ?? "");
     expect(draft).toMatchObject({
-      creator: "c14",
+      creator: ch("c14"),
       kind: "reply",
       goal: "decline",
       replyTo: "msg7",
@@ -141,30 +141,30 @@ describe("decline", () => {
 
   it("queues no draft for a creator with nothing inbound", async () => {
     await source.write([
-      { kind: "creator.stage", id: "c8", stage: "replied", handle: "@shipai", name: "Ship AI" },
+      { kind: "creator.stage", id: ch("c8"), stage: "replied", handle: "@shipai", name: "Ship AI" },
     ]);
-    const answer = await service.decline("c8");
+    const answer = await service.decline(ch("c8"));
     expect(answer).toMatchObject({ ok: true, draftId: null, before: "replied" });
-    expect((await stateOf("c8"))?.stage).toBe("rejected");
+    expect((await stateOf(ch("c8")))?.stage).toBe("rejected");
   });
 });
 
 describe("undo decline", () => {
   it("puts the stage back, skips the decline draft and brings the skipped draft back as ready", async () => {
-    openDraft("d-first", "c14", "first", "approved");
-    const done = await service.decline("c14");
+    openDraft("d-first", ch("c14"), "first", "approved");
+    const done = await service.decline(ch("c14"));
     if (!done.ok) {
       throw new Error("decline failed");
     }
     expect(source.outreach.draft("d-first")?.state).toBe("skipped");
     const undo = await service.undoDecline({
-      creatorId: "c14",
+      creatorId: ch("c14"),
       draftId: done.draftId,
       before: "kit",
       skipped: done.skipped,
     });
     expect(undo).toEqual({ ok: true, kept: null });
-    const creator = await stateOf("c14");
+    const creator = await stateOf(ch("c14"));
     expect(creator?.stage).toBe("kit");
     expect(creator?.rejectReason).toBeNull();
     expect(source.outreach.draft(done.draftId ?? "")?.state).toBe("skipped");
@@ -174,22 +174,22 @@ describe("undo decline", () => {
   });
 
   it("skips even an approved decline draft, in the same commit as the stage", async () => {
-    openDraft("d-first", "c14", "first", "ready");
-    const done = await service.decline("c14");
+    openDraft("d-first", ch("c14"), "first", "ready");
+    const done = await service.decline(ch("c14"));
     if (!done.ok) {
       throw new Error("decline failed");
     }
     source.outreach.updateDraft(done.draftId ?? "", { state: "approved" }, clock);
     expect(
       await service.undoDecline({
-        creatorId: "c14",
+        creatorId: ch("c14"),
         draftId: done.draftId,
         before: "kit",
         skipped: done.skipped,
       }),
     ).toEqual({ ok: true, kept: null });
     expect(source.outreach.draft(done.draftId ?? "")?.state).toBe("skipped");
-    expect((await stateOf("c14"))?.stage).toBe("kit");
+    expect((await stateOf(ch("c14")))?.stage).toBe("kit");
     // The skipped first email comes back, since the decline draft no longer blocks it.
     expect(source.outreach.draft("d-first")?.state).toBe("ready");
   });
@@ -197,14 +197,14 @@ describe("undo decline", () => {
   it.each(["drafting", "ready", "failed", "approved", "scheduled"] as const)(
     "skips a decline draft that is %s",
     async (state) => {
-      const done = await service.decline("c14");
+      const done = await service.decline(ch("c14"));
       if (!done.ok) {
         throw new Error("decline failed");
       }
       source.outreach.updateDraft(done.draftId ?? "", { state }, clock);
       expect(
         await service.undoDecline({
-          creatorId: "c14",
+          creatorId: ch("c14"),
           draftId: done.draftId,
           before: "kit",
           skipped: [],
@@ -217,33 +217,33 @@ describe("undo decline", () => {
   it.each(["sending", "sent"] as const)(
     "says the decline draft was kept when it is %s",
     async (state) => {
-      const done = await service.decline("c14");
+      const done = await service.decline(ch("c14"));
       if (!done.ok) {
         throw new Error("decline failed");
       }
       source.outreach.updateDraft(done.draftId ?? "", { state }, clock);
       expect(
         await service.undoDecline({
-          creatorId: "c14",
+          creatorId: ch("c14"),
           draftId: done.draftId,
           before: "kit",
           skipped: [],
         }),
       ).toEqual({ ok: true, kept: state });
       expect(source.outreach.draft(done.draftId ?? "")?.state).toBe(state);
-      expect((await stateOf("c14"))?.stage).toBe("kit");
+      expect((await stateOf(ch("c14")))?.stage).toBe("kit");
     },
   );
 
   it("is refused once the stage moved", async () => {
-    const done = await service.decline("c14");
+    const done = await service.decline(ch("c14"));
     if (!done.ok) {
       throw new Error("decline failed");
     }
     await source.write([
       {
         kind: "creator.stage",
-        id: "c14",
+        id: ch("c14"),
         stage: "parked",
         handle: "@agentworks",
         name: "AgentWorks",
@@ -251,44 +251,44 @@ describe("undo decline", () => {
     ]);
     expect(
       await service.undoDecline({
-        creatorId: "c14",
+        creatorId: ch("c14"),
         draftId: done.draftId,
         before: "kit",
         skipped: [],
       }),
     ).toEqual({ ok: false, problem: "wrong_state" });
-    expect((await stateOf("c14"))?.stage).toBe("parked");
+    expect((await stateOf(ch("c14")))?.stage).toBe("parked");
   });
 });
 
 describe("ask", () => {
   it("refuses a wrong stage, nothing missing and an open draft", async () => {
-    expect(await service.ask("c1")).toEqual({ ok: false, problem: "wrong_state" });
+    expect(await service.ask(ch("c1"))).toEqual({ ok: false, problem: "wrong_state" });
     // c14 has every number.
-    expect(await service.ask("c14")).toEqual({ ok: false, problem: "nothing_missing" });
-    openDraft("d-open", "c16", "reply", "ready");
-    expect(await service.ask("c16")).toEqual({ ok: false, problem: "draft_open" });
+    expect(await service.ask(ch("c14"))).toEqual({ ok: false, problem: "nothing_missing" });
+    openDraft("d-open", ch("c16"), "reply", "ready");
+    expect(await service.ask(ch("c16"))).toEqual({ ok: false, problem: "draft_open" });
     expect(await service.ask("nobody")).toEqual({ ok: false, problem: "not_found" });
   });
 
   it("refuses with no_thread when the creator has no inbound message", async () => {
     await source.write([
-      { kind: "creator.stage", id: "c8", stage: "replied", handle: "@shipai", name: "Ship AI" },
+      { kind: "creator.stage", id: ch("c8"), stage: "replied", handle: "@shipai", name: "Ship AI" },
     ]);
-    expect(await service.ask("c8")).toEqual({ ok: false, problem: "no_thread" });
-    expect(draftsOf("c8")).toHaveLength(0);
+    expect(await service.ask(ch("c8"))).toEqual({ ok: false, problem: "no_thread" });
+    expect(draftsOf(ch("c8"))).toHaveLength(0);
   });
 
   it("treats a bounce as no message to answer", async () => {
     await source.write([
-      { kind: "creator.stage", id: "c8", stage: "replied", handle: "@shipai", name: "Ship AI" },
+      { kind: "creator.stage", id: ch("c8"), stage: "replied", handle: "@shipai", name: "Ship AI" },
     ]);
     source.outreach.commit({
       at: clock,
       messages: [
         {
           id: "bounce1",
-          creator: "c8",
+          creator: ch("c8"),
           direction: "in",
           kind: null,
           subject: "Delivery Status Notification (Failure)",
@@ -302,28 +302,28 @@ describe("ask", () => {
           mailbox: "outreach1@gratovo.example",
           peer: "mailer-daemon@googlemail.com",
           peerName: null,
-          conversationKey: "c:c8",
-          gmailThreadId: "gt-c8",
+          conversationKey: `c:${ch("c8")}`,
+          gmailThreadId: `gt-${ch("c8")}`,
           draftId: null,
           reading: null,
         },
       ],
     });
-    expect(await service.ask("c8")).toEqual({ ok: false, problem: "no_thread" });
+    expect(await service.ask(ch("c8"))).toEqual({ ok: false, problem: "no_thread" });
   });
 
   it("queues an ask_kit reply draft answering the newest inbound message", async () => {
-    const answer = await service.ask("c16");
+    const answer = await service.ask(ch("c16"));
     expect(answer.ok).toBe(true);
     const draft = source.outreach.draft(answer.ok ? answer.draftId : "");
     expect(draft).toMatchObject({
-      creator: "c16",
+      creator: ch("c16"),
       kind: "reply",
       goal: "ask_kit",
       replyTo: "msg13",
     });
-    expect(draftsOf("c16")).toHaveLength(1);
+    expect(draftsOf(ch("c16"))).toHaveLength(1);
     expect(await logTexts()).toContain("Asked Context Window for their missing numbers");
-    expect((await stateOf("c16"))?.stage).toBe("kit");
+    expect((await stateOf(ch("c16")))?.stage).toBe("kit");
   });
 });

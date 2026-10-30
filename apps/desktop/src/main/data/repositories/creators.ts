@@ -21,6 +21,8 @@ import type {
   RejectReason,
 } from "@gratovo/core/data";
 
+import { creatorDetailsMap, detailsPart, parseJson } from "./details";
+
 /**
  * Adds a creator or updates the one with the same id: the name goes to `channels`, the rest to
  * `channel_state`, with the legacy `vetting_status` and `pipeline_stage` written beside the app's
@@ -344,6 +346,7 @@ export function listCreators(db: DatabaseSync, o: { limit?: number } = {}): Crea
        ORDER BY k.rid`,
     )
     .all(limit);
+  const details = creatorDetailsMap(db);
   return rows.map((row) => {
     const handle = String(row["handle"]);
     return {
@@ -353,6 +356,7 @@ export function listCreators(db: DatabaseSync, o: { limit?: number } = {}): Crea
       ...storedFields(row),
       ...contactFacts(String(row["contacts"])),
       kit: rowKit(row),
+      ...detailsPart(details, String(row["channel_id"])),
     };
   });
 }
@@ -378,6 +382,7 @@ export function creatorStates(db: DatabaseSync): CreatorState[] {
        ORDER BY s.rowid`,
     )
     .all();
+  const details = creatorDetailsMap(db);
   return rows.map((row) => {
     const engagement = row["manual_engagement_rate"];
     return {
@@ -388,6 +393,7 @@ export function creatorStates(db: DatabaseSync): CreatorState[] {
       ...contactFacts(String(row["contacts"])),
       engagement: typeof engagement === "number" ? engagement : null,
       kit: rowKit(row),
+      ...detailsPart(details, String(row["channel_id"])),
       legacyPipelineStage: String(row["pipeline_stage"]),
       hasAppStage: isAppStage(row["creator_stage"]),
       lastActivity:
@@ -406,18 +412,6 @@ function rowKit(row: Readonly<Record<string, SQLOutputValue>>): CreatorKit | nul
     parseJson(row["provided_data"]),
     typeof engagement === "number" ? engagement : null,
   );
-}
-
-/** Stored JSON text as a value; bad JSON or a non-text column reads as null. */
-function parseJson(text: unknown): unknown {
-  if (typeof text !== "string") {
-    return null;
-  }
-  try {
-    return JSON.parse(text);
-  } catch {
-    return null;
-  }
 }
 
 /** A `creator.kit` write. */

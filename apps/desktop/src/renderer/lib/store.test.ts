@@ -1,5 +1,6 @@
 // @vitest-environment happy-dom
 import { act, cleanup, renderHook } from "@testing-library/react";
+import { exampleChannelId as ch } from "@gratovo/core/data";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { exampleData } from "./example-data";
@@ -258,28 +259,30 @@ describe("example records", () => {
     const data = exampleData(now);
     // c6 to c10 and c13 are Reach's (plan step 6): contacts, emailed creators and a reply;
     // c14 to c16 wait for an audience check (plan step 8).
-    expect(data.creators.map((c) => c.id)).toEqual([
-      "c1",
-      "c2",
-      "c3",
-      "c4",
-      "c5",
-      "c11",
-      "c12",
-      "c6",
-      "c7",
-      "c13",
-      "c8",
-      "c9",
-      "c10",
-      "c14",
-      "c15",
-      "c16",
+    // The first sixteen are the creators the seed always had; the roster adds v6's after them.
+    expect(data.creators.slice(0, 16).map((c) => c.id)).toEqual([
+      ch("c1"),
+      ch("c2"),
+      ch("c3"),
+      ch("c4"),
+      ch("c5"),
+      ch("c11"),
+      ch("c12"),
+      ch("c6"),
+      ch("c7"),
+      ch("c13"),
+      ch("c8"),
+      ch("c9"),
+      ch("c10"),
+      ch("c14"),
+      ch("c15"),
+      ch("c16"),
     ]);
-    expect(data.creators.filter((c) => c.stage === "new")).toHaveLength(2);
+    expect(data.creators).toHaveLength(46);
+    expect(data.creators.filter((c) => c.stage === "new")).toHaveLength(11);
     expect(data.creators[0]?.kit).toMatchObject({ rate: 3400, fromReply: false });
     expect(data.creators[0]).toEqual({
-      id: "c1",
+      id: ch("c1"),
       name: "Prompt Lab",
       handle: "@promptlab",
       stage: "signed",
@@ -293,9 +296,11 @@ describe("example records", () => {
       neverReason: null,
       archiveDueAt: null,
       kit: data.creators[0]?.kit ?? null,
+      details: data.creators[0]?.details,
     });
-    expect(data.creators.find((c) => c.id === "c12")?.email).toBeNull();
-    expect(data.brands.map((b) => b.name)).toEqual([
+    expect(data.creators.find((c) => c.id === ch("c12"))?.email).toBeNull();
+    // The first five brands and deals are the seed's own; v6's come after them.
+    expect(data.brands.slice(0, 5).map((b) => b.name)).toEqual([
       "Codewell",
       "Lumen AI",
       "VoxCraft",
@@ -303,7 +308,7 @@ describe("example records", () => {
       "Clipforge",
     ]);
     expect(data.brands[4]).toMatchObject({ sells: "AI video editor", status: "negotiating" });
-    expect(data.deals.map((d) => [d.id, d.step, d.price])).toEqual([
+    expect(data.deals.slice(0, 5).map((d) => [d.id, d.step, d.price])).toEqual([
       ["d1", 1, 4800],
       ["d2", 3, 2600],
       ["d3", 6, 3400],
@@ -333,11 +338,11 @@ describe("findRecord and names", () => {
   const data = exampleData(now);
 
   it("finds each kind of record, and nothing for a missing id", () => {
-    expect(findRecord(data, { kind: "creator", id: "c3" })).toBe(data.creators[2]);
+    expect(findRecord(data, { kind: "creator", id: ch("c3") })).toBe(data.creators[2]);
     expect(findRecord(data, { kind: "brand", id: "b2" })).toBe(data.brands[1]);
     expect(findRecord(data, { kind: "deal", id: "d1" })).toBe(data.deals[0]);
     expect(findRecord(data, { kind: "creator", id: "nope" })).toBeUndefined();
-    expect(findRecord(data, { kind: "deal", id: "c1" })).toBeUndefined();
+    expect(findRecord(data, { kind: "deal", id: ch("c1") })).toBeUndefined();
   });
 
   it("names a deal after its brand and creator", () => {
@@ -345,14 +350,14 @@ describe("findRecord and names", () => {
       "Codewell \u00d7 Code with Kai",
     );
     expect(recordName(data, { kind: "deal", id: "d5" })).toBe("Clipforge \u00d7 Tensor Talk");
-    expect(recordName(data, { kind: "creator", id: "c1" })).toBe("Prompt Lab");
+    expect(recordName(data, { kind: "creator", id: ch("c1") })).toBe("Prompt Lab");
     expect(recordName(data, { kind: "brand", id: "b4" })).toBe("Pagewise");
     expect(recordName(data, { kind: "brand", id: "zzz" })).toBe("?");
   });
 });
 
 describe("go with overlays", () => {
-  const ref = { kind: "creator", id: "c1" } as const;
+  const ref = { kind: "creator", id: ch("c1") } as const;
 
   function openOverlays(): void {
     appStore().ui((ui) => {
@@ -406,7 +411,7 @@ describe("go with overlays", () => {
   it("opens a record route with its record and origin", () => {
     go("record", null, { record: ref, from: "find" });
     expect(route()).toEqual({ screen: "record", tab: null, record: ref, from: "find" });
-    go("record", null, { record: { kind: "creator", id: "c2" }, from: "find" });
+    go("record", null, { record: { kind: "creator", id: ch("c2") }, from: "find" });
     expect(appStore().getState().ui.history.entries).toHaveLength(3);
   });
 });

@@ -43,6 +43,14 @@ const deviations: Record<string, Record<string, { value: string; why: string }>>
   ':root[data-theme="dark"]': insightsTokens,
   ":root": {
     ...insightsTokens,
+    "--faint": {
+      value: "#7d8fa2",
+      why: "Light theme (v6 changed it to #5d7083): the app runs dark only, and the light values stay as they were until the owner asks for light.",
+    },
+    "--good": {
+      value: "#17803a",
+      why: "Light theme (v6 changed it to #147433): same reason as --faint.",
+    },
     "--r-panel": { value: "16px", why: insightsWhy },
     "--muted": {
       value: "#566678",

@@ -28,7 +28,7 @@ export function ensureCreators(items: readonly CatalogItem[]): void {
       .getState()
       .data.creators.map((c) => c.id),
   );
-  const missing: (Creator & { readonly kit: null })[] = [];
+  const missing: (Creator & { readonly kit: null; readonly details?: never })[] = [];
   for (const item of items) {
     if (!held.has(item.id)) {
       held.add(item.id);

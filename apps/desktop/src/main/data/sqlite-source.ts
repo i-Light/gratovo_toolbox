@@ -20,6 +20,8 @@ import {
   getProfile,
   getSetting,
   setSetting,
+  brandWithoutMoney,
+  dealWithoutMoney,
   listBrands,
   listConflicts,
   markResolved,
@@ -135,6 +137,7 @@ export function createSqliteSource(db: DatabaseSync, options: SqliteSourceOption
     // Money is stripped here, so the page never holds a number it must hide.
     const money = seesMoney(access.get(me) ?? noAccess);
     const deals = listDeals(db);
+    const brands = listBrands(db);
     const notifications = listNotifications(db, { seesMoney: money });
     return {
       source: options.source,
@@ -152,8 +155,8 @@ export function createSqliteSource(db: DatabaseSync, options: SqliteSourceOption
         : listCreators(db).map((creator) =>
             creator.kit === null ? creator : { ...creator, kit: { ...creator.kit, rate: null } },
           ),
-      brands: listBrands(db),
-      deals: money ? deals : deals.map((deal) => ({ ...deal, price: null })),
+      brands: money ? brands : brands.map(brandWithoutMoney),
+      deals: money ? deals : deals.map(dealWithoutMoney),
       mateRun: extras.mateRun(),
       notify: getNotify(db),
       seesMoney: money,

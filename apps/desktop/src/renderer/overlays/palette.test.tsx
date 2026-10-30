@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { exampleChannelId as ch } from "@gratovo/core/data";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { App } from "../app/app";
@@ -73,7 +74,7 @@ describe("the command palette", () => {
   it("lists Recent first once a record was peeked", () => {
     render(<App />);
     act(() => {
-      peek({ kind: "creator", id: "c1" });
+      peek({ kind: "creator", id: ch("c1") });
     });
     const dialog = openPalette();
     expect(headings(dialog)).toEqual([text.groups.recent, text.groups.actions, text.groups.goTo]);
@@ -95,6 +96,7 @@ describe("the command palette", () => {
     await userEvent.type(input(), "neural");
     expect(options().map((o) => o.textContent)).toEqual([
       expect.stringContaining("Neural Notes"),
+      expect.stringContaining("Neural Nomad"),
       expect.stringContaining("Lumen AI × Neural Notes"),
     ]);
     await userEvent.clear(input());
@@ -202,6 +204,8 @@ describe("the command palette", () => {
     expect(screen.queryByRole("dialog", { name: text.label })).toBeNull();
     expect(document.body.querySelector(".body.has-peek")).not.toBeNull();
     const panel = screen.getByRole("complementary", { name: strings.peek.label });
-    expect(within(panel).getByRole("heading", { name: "Prompt Lab" })).toBeTruthy();
+    // The creator's id is a channel id now, so the peek asks the catalog first (and falls back
+    // to the page's own summary when the channel is not there).
+    expect(await within(panel).findByRole("heading", { name: "Prompt Lab" })).toBeTruthy();
   });
 });

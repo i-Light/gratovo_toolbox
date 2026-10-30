@@ -376,15 +376,16 @@ describe("the new write kinds", () => {
   });
 
   it("brand.set bounds the name, what it sells and the status", () => {
-    const base = { kind: "brand.set", id: "b1", name: "Quill AI", sells: "", status: "" };
+    const base = { kind: "brand.set", id: "b1", name: "Quill AI", sells: "", status: "found" };
     expect(ok(base)).toBe(true);
     expect(ok({ ...base, name: "" })).toBe(false);
     expect(ok({ ...base, name: "x".repeat(500) })).toBe(true);
     expect(ok({ ...base, name: "x".repeat(501) })).toBe(false);
     expect(ok({ ...base, sells: "x".repeat(500) })).toBe(true);
     expect(ok({ ...base, sells: "x".repeat(501) })).toBe(false);
-    expect(ok({ ...base, status: "x".repeat(40) })).toBe(true);
-    expect(ok({ ...base, status: "x".repeat(41) })).toBe(false);
+    expect(ok({ ...base, status: "lost" })).toBe(true);
+    expect(ok({ ...base, status: "" })).toBe(false);
+    expect(ok({ ...base, status: "active" })).toBe(false);
     expect(ok({ ...base, extra: 1 })).toBe(false);
   });
 

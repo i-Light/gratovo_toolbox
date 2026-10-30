@@ -1,4 +1,5 @@
 // @vitest-environment happy-dom
+import { exampleChannelId as ch } from "@gratovo/core/data";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { initPrefs } from "../lib/prefs";
@@ -35,7 +36,7 @@ describe("buildCommands", () => {
       [
         { kind: "brand", id: "b2" },
         { kind: "creator", id: "gone" },
-        { kind: "creator", id: "c1" },
+        { kind: "creator", id: ch("c1") },
       ],
       "",
     );
@@ -45,7 +46,7 @@ describe("buildCommands", () => {
   });
 
   it("shows at most five recent records", () => {
-    const refs = ["c1", "c2", "c3", "c4", "c5", "c11"].map((id) => ({
+    const refs = [ch("c1"), ch("c2"), ch("c3"), ch("c4"), ch("c5"), ch("c11")].map((id) => ({
       kind: "creator" as const,
       id,
     }));
@@ -58,6 +59,7 @@ describe("buildCommands", () => {
     expect(rows.map((r) => [r.group, r.label])).toEqual([
       [groups.creators, "Prompt Lab"],
       [groups.deals, "VoxCraft × Prompt Lab"],
+      [groups.deals, "Pagewise × Prompt Lab"],
     ]);
   });
 

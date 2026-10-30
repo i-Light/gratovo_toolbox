@@ -3,7 +3,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
+  bareBrand,
+  bareDeal,
   creatorStages,
+  exampleChannelId as ch,
   exampleFrame,
   mentionsMoney,
   nameMax,
@@ -159,7 +162,15 @@ export function describeDataSourceContract(
       setAccess(file, [{ profileId: "u1", roles: ["scout", "outreach"], seesMoney: false }]);
       const frame = await source.frame();
       expect(frame.seesMoney).toBe(false);
-      expect(frame.deals).toEqual(before.deals.map((deal) => ({ ...deal, price: null })));
+      expect(frame.deals).toEqual(
+        before.deals.map((deal) => ({
+          ...deal,
+          price: null,
+          payout: null,
+          cpm: null,
+          negotiation: null,
+        })),
+      );
       expect(frame.notifications).toEqual(
         before.notifications.filter(
           (n) => !isMoney(n) && !mentionsMoney(n.text) && !mentionsMoney(n.sub),
@@ -328,7 +339,7 @@ export function describeDataSourceContract(
       const source = start();
       const frame = await writeAll(
         source,
-        { kind: "creator.stage", id: "c1", stage: "emailed", handle: "", name: "" },
+        { kind: "creator.stage", id: ch("c1"), stage: "emailed", handle: "", name: "" },
         {
           kind: "brand.set",
           id: "b1",
@@ -336,19 +347,16 @@ export function describeDataSourceContract(
           sells: "AI code review",
           status: "won",
         },
-        { kind: "brand.set", id: "b9", name: "Tensorly", sells: "AI notebooks", status: "found" },
+        { kind: "brand.set", id: "b99", name: "Tensorly", sells: "AI notebooks", status: "found" },
         { kind: "deal.step", id: "d1", step: 4 },
         { kind: "deal.step", id: "nope", step: 4 },
       );
-      expect(frame.creators.find((c) => c.id === "c1")?.stage).toBe("emailed");
+      expect(frame.creators.find((c) => c.id === ch("c1"))?.stage).toBe("emailed");
       expect(frame.creators).toHaveLength(exampleFrame(contractNow).creators.length);
       expect(frame.brands.find((b) => b.id === "b1")?.name).toBe("Codewell Pro");
-      expect(frame.brands.find((b) => b.id === "b9")).toEqual({
-        id: "b9",
-        name: "Tensorly",
-        sells: "AI notebooks",
-        status: "found",
-      });
+      expect(frame.brands.find((b) => b.id === "b99")).toEqual(
+        bareBrand({ id: "b99", name: "Tensorly", sells: "AI notebooks", status: "found" }),
+      );
       expect(frame.deals.find((d) => d.id === "d1")?.step).toBe(4);
       expect(frame.deals).toHaveLength(exampleFrame(contractNow).deals.length);
       expect(frame.conflicts).toEqual([]);
@@ -485,13 +493,13 @@ export function describeDataSourceContract(
         for (let i = 0; i < 50; i += 1) {
           upsertDeal(
             db,
-            {
+            bareDeal({
               id: `bulk-deal-${String(i)}`,
               brand: "b1",
               creator: `bulk-${String(i)}`,
               step: 1,
               price: 1000,
-            },
+            }),
             contractNow,
           );
         }
@@ -705,15 +713,15 @@ export function describeDataSourceContract(
         const source = start();
         const frame = await writeAll(
           source,
-          stage("c11", "rejected", "posting"),
-          stage("c12", "rejected", "views"),
+          stage(ch("c11"), "rejected", "posting"),
+          stage(ch("c12"), "rejected", "views"),
           // Rejecting again adds nothing twice and keeps the date.
-          stage("c11", "rejected", "posting"),
+          stage(ch("c11"), "rejected", "posting"),
         );
-        expect(stored("c11").tags).toEqual(["inactive"]);
-        expect(stored("c12").tags).toEqual(["irrelevant"]);
-        expect(stored("c11").due).toBe(new Date(contractNow + 7 * day).toISOString());
-        const c11 = frame.creators.find((c) => c.id === "c11");
+        expect(stored(ch("c11")).tags).toEqual(["inactive"]);
+        expect(stored(ch("c12")).tags).toEqual(["irrelevant"]);
+        expect(stored(ch("c11")).due).toBe(new Date(contractNow + 7 * day).toISOString());
+        const c11 = frame.creators.find((c) => c.id === ch("c11"));
         expect(c11?.stage).toBe("rejected");
         expect(c11?.archiveDueAt).toBe(contractNow + 7 * day);
         // A channel only the pipeline knew is tagged the same way.
@@ -734,15 +742,16 @@ export function describeDataSourceContract(
       it("bringing a channel back takes the rejecting tags off and clears the date", async () => {
         const source = start();
         withDb(file, (db) => {
-          db.prepare("UPDATE channel_state SET channel_tags = ? WHERE channel_id = 'c11'").run(
+          db.prepare("UPDATE channel_state SET channel_tags = ? WHERE channel_id = ?").run(
             JSON.stringify(["qualified", "haramStuff"]),
+            ch("c11"),
           );
         });
-        await source.write([stage("c11", "rejected", "audience")]);
-        expect(stored("c11").tags).toEqual(["qualified", "haramStuff", "irrelevant"]);
-        const frame = await writeAll(source, stage("c11", "new"));
-        expect(stored("c11")).toMatchObject({ tags: ["qualified"], due: null });
-        expect(frame.creators.find((c) => c.id === "c11")).toMatchObject({
+        await source.write([stage(ch("c11"), "rejected", "audience")]);
+        expect(stored(ch("c11")).tags).toEqual(["qualified", "haramStuff", "irrelevant"]);
+        const frame = await writeAll(source, stage(ch("c11"), "new"));
+        expect(stored(ch("c11"))).toMatchObject({ tags: ["qualified"], due: null });
+        expect(frame.creators.find((c) => c.id === ch("c11"))).toMatchObject({
           stage: "new",
           archiveDueAt: null,
           kit: null,
@@ -751,49 +760,52 @@ export function describeDataSourceContract(
 
       it("never contact tags nothing and sets no date", async () => {
         const source = start();
-        const frame = await writeAll(source, stage("c12", "never"));
-        expect(stored("c12")).toMatchObject({ tags: [], due: null });
-        expect(frame.creators.find((c) => c.id === "c12")?.stage).toBe("never");
+        const frame = await writeAll(source, stage(ch("c12"), "never"));
+        expect(stored(ch("c12"))).toMatchObject({ tags: [], due: null });
+        expect(frame.creators.find((c) => c.id === ch("c12"))?.stage).toBe("never");
       });
 
       it("reads the reject reason and time from the newest visible reject or never line", async () => {
         const source = start();
         let frame = await writeAll(
           source,
-          line(idA, contractNow - 2000, "c11", "creator.reject", "views"),
-          stage("c11", "rejected", "views"),
+          line(idA, contractNow - 2000, ch("c11"), "creator.reject", "views"),
+          stage(ch("c11"), "rejected", "views"),
         );
-        expect(frame.creators.find((c) => c.id === "c11")).toMatchObject({
+        expect(frame.creators.find((c) => c.id === ch("c11"))).toMatchObject({
           rejectReason: "views",
           rejectedAt: contractNow - 2000,
           archiveDueAt: contractNow + 7 * day,
           kit: null,
         });
         // Other creators are untouched.
-        expect(frame.creators.find((c) => c.id === "c12")).toMatchObject({
+        expect(frame.creators.find((c) => c.id === ch("c12"))).toMatchObject({
           rejectReason: null,
           rejectedAt: null,
         });
         // A newer never line wins: its time, and no reject reason.
-        frame = await writeAll(source, line(idB, contractNow - 1000, "c11", "creator.never", null));
-        expect(frame.creators.find((c) => c.id === "c11")).toMatchObject({
+        frame = await writeAll(
+          source,
+          line(idB, contractNow - 1000, ch("c11"), "creator.never", null),
+        );
+        expect(frame.creators.find((c) => c.id === ch("c11"))).toMatchObject({
           rejectReason: null,
           rejectedAt: contractNow - 1000,
           neverReason: null,
         });
         // A brought-back creator carries no old reason or time.
-        frame = await writeAll(source, stage("c11", "new"));
-        expect(frame.creators.find((c) => c.id === "c11")).toMatchObject({
+        frame = await writeAll(source, stage(ch("c11"), "new"));
+        expect(frame.creators.find((c) => c.id === ch("c11"))).toMatchObject({
           rejectReason: null,
           rejectedAt: null,
           neverReason: null,
         });
-        expect((await source.creatorStates()).find((c) => c.id === "c11")).toMatchObject({
+        expect((await source.creatorStates()).find((c) => c.id === ch("c11"))).toMatchObject({
           rejectReason: null,
           rejectedAt: null,
           neverReason: null,
         });
-        await source.write([stage("c11", "rejected", "views")]);
+        await source.write([stage(ch("c11"), "rejected", "views")]);
         // An undo hides the never line, so the reject line is the newest visible one again.
         withDb(file, (db) => {
           insertLogRow(
@@ -806,7 +818,7 @@ export function describeDataSourceContract(
           );
         });
         frame = await source.frame();
-        expect(frame.creators.find((c) => c.id === "c11")).toMatchObject({
+        expect(frame.creators.find((c) => c.id === ch("c11"))).toMatchObject({
           rejectReason: "views",
           rejectedAt: contractNow - 2000,
         });
@@ -814,13 +826,13 @@ export function describeDataSourceContract(
 
       it("round-trips a log line's ref, action and detail, across a reopen", async () => {
         const first = start();
-        await first.write([line(idA, contractNow, "c11", "creator.reject", "audience")]);
+        await first.write([line(idA, contractNow, ch("c11"), "creator.reject", "audience")]);
         const expected = {
           id: idA,
           at: contractNow,
           who: "u1",
           text: `Line ${idA}`,
-          ref: "c11",
+          ref: ch("c11"),
           action: "creator.reject",
           detail: "audience",
         };
@@ -850,23 +862,25 @@ export function describeDataSourceContract(
       it("stores a creator's notes, and empty text clears them as the server does", async () => {
         const source = start();
         const before = await source.frame();
-        await source.write([notesWrite("c11", "Wants a demo of the agent before a quote.")]);
-        expect(await source.creatorNotes("c11")).toBe("Wants a demo of the agent before a quote.");
+        await source.write([notesWrite(ch("c11"), "Wants a demo of the agent before a quote.")]);
+        expect(await source.creatorNotes(ch("c11"))).toBe(
+          "Wants a demo of the agent before a quote.",
+        );
         // Notes aren't in the frame or the catalog's states, and the stage is untouched.
         expect(await source.frame()).toEqual(before);
-        expect((await source.creatorStates()).find((c) => c.id === "c11")).not.toHaveProperty(
+        expect((await source.creatorStates()).find((c) => c.id === ch("c11"))).not.toHaveProperty(
           "notes",
         );
-        await source.write([notesWrite("c11", "")]);
-        expect(storedRow("c11")?.["notes"]).toBeNull();
-        expect(await source.creatorNotes("c11")).toBeNull();
+        await source.write([notesWrite(ch("c11"), "")]);
+        expect(storedRow(ch("c11"))?.["notes"]).toBeNull();
+        expect(await source.creatorNotes(ch("c11"))).toBeNull();
         // A creator with no notes, an unknown id and a stored empty text all read as none.
-        expect(await source.creatorNotes("c12")).toBeNull();
+        expect(await source.creatorNotes(ch("c12"))).toBeNull();
         expect(await source.creatorNotes("c999")).toBeNull();
         withDb(file, (db) => {
-          db.prepare("UPDATE channel_state SET notes = '' WHERE channel_id = 'c12'").run();
+          db.prepare("UPDATE channel_state SET notes = '' WHERE channel_id = ?").run(ch("c12"));
         });
-        expect(await source.creatorNotes("c12")).toBeNull();
+        expect(await source.creatorNotes(ch("c12"))).toBeNull();
       });
 
       it("notes on a channel with no row create it as a stage write does, with no stage", async () => {
@@ -968,12 +982,12 @@ export function describeDataSourceContract(
         const source = start();
         const phone = { method: "phone", value: "+1 555 0100", primary: false };
         const other = { method: "email", value: "press@modelmatters.ai", primary: false };
-        setContacts("c11", [
+        setContacts(ch("c11"), [
           phone,
           { method: "email", value: "modelmatters.yt@gmail.com", primary: true },
           other,
         ]);
-        const frame = await writeAll(source, contact("c11", "biz@modelmatters.ai"));
+        const frame = await writeAll(source, contact(ch("c11"), "biz@modelmatters.ai"));
         // The old primary stays where it was, no longer primary; the new address goes last.
         const kept = [
           phone,
@@ -981,8 +995,8 @@ export function describeDataSourceContract(
           other,
           primary,
         ];
-        expect(storedContacts("c11")).toEqual(kept);
-        expect(frame.creators.find((c) => c.id === "c11")).toMatchObject({
+        expect(storedContacts(ch("c11"))).toEqual(kept);
+        expect(frame.creators.find((c) => c.id === ch("c11"))).toMatchObject({
           stage: "new",
           email: "biz@modelmatters.ai",
           emailConfirmed: true,
@@ -990,14 +1004,14 @@ export function describeDataSourceContract(
           contactSource: "about",
           contactConfidence: 0.95,
         });
-        expect((await source.creatorStates()).find((c) => c.id === "c11")).toMatchObject({
+        expect((await source.creatorStates()).find((c) => c.id === ch("c11"))).toMatchObject({
           email: "biz@modelmatters.ai",
           emailConfirmed: true,
           contactName: "Maya",
         });
         // The same contact again gives the same list.
-        await source.write([contact("c11", "biz@modelmatters.ai")]);
-        expect(storedContacts("c11")).toEqual(kept);
+        await source.write([contact(ch("c11"), "biz@modelmatters.ai")]);
+        expect(storedContacts(ch("c11"))).toEqual(kept);
       });
 
       it("confirming another address keeps the old one and its label, and undo swaps them back", async () => {
@@ -1009,8 +1023,8 @@ export function describeDataSourceContract(
           label: "manager",
         };
         const b = { method: "email", value: "press@modelmatters.ai", label: "press" };
-        setContacts("c11", [a, b]);
-        await source.write([contact("c11", "press@modelmatters.ai", { contactName: null })]);
+        setContacts(ch("c11"), [a, b]);
+        await source.write([contact(ch("c11"), "press@modelmatters.ai", { contactName: null })]);
         const confirmed = [
           { ...a, primary: false },
           {
@@ -1023,27 +1037,27 @@ export function describeDataSourceContract(
             confidence: 0.95,
           },
         ];
-        expect(storedContacts("c11")).toEqual(confirmed);
+        expect(storedContacts(ch("c11"))).toEqual(confirmed);
         // The label of a confirmed address is its contact name.
-        expect((await source.frame()).creators.find((c) => c.id === "c11")).toMatchObject({
+        expect((await source.frame()).creators.find((c) => c.id === ch("c11"))).toMatchObject({
           email: "press@modelmatters.ai",
           emailConfirmed: true,
           contactName: "press",
         });
         // The same write again changes nothing, down to the text.
-        const text = readStoredText("c11");
-        await source.write([contact("c11", "press@modelmatters.ai", { contactName: null })]);
-        expect(readStoredText("c11")).toBe(text);
+        const text = readStoredText(ch("c11"));
+        await source.write([contact(ch("c11"), "press@modelmatters.ai", { contactName: null })]);
+        expect(readStoredText(ch("c11"))).toBe(text);
         // Undo writes the old address back unconfirmed.
         await source.write([
-          contact("c11", "team@modelmatters.ai", {
+          contact(ch("c11"), "team@modelmatters.ai", {
             confirmed: false,
             contactName: null,
             source: null,
             confidence: null,
           }),
         ]);
-        expect(storedContacts("c11")).toEqual([
+        expect(storedContacts(ch("c11"))).toEqual([
           {
             method: "email",
             value: "team@modelmatters.ai",
@@ -1055,7 +1069,7 @@ export function describeDataSourceContract(
           },
           { ...confirmed[1], primary: false },
         ]);
-        expect((await source.frame()).creators.find((c) => c.id === "c11")).toMatchObject({
+        expect((await source.frame()).creators.find((c) => c.id === ch("c11"))).toMatchObject({
           email: "team@modelmatters.ai",
           emailConfirmed: false,
           contactName: null,
@@ -1065,31 +1079,31 @@ export function describeDataSourceContract(
       it("a bare-string old primary stays, as an email entry that is not primary", async () => {
         const source = start();
         const phone = { method: "phone", value: "+1 555 0100" };
-        setContacts("c11", ["team@modelmatters.ai", phone]);
-        await source.write([contact("c11", "biz@modelmatters.ai")]);
-        expect(storedContacts("c11")).toEqual([
+        setContacts(ch("c11"), ["team@modelmatters.ai", phone]);
+        await source.write([contact(ch("c11"), "biz@modelmatters.ai")]);
+        expect(storedContacts(ch("c11"))).toEqual([
           { method: "email", value: "team@modelmatters.ai", primary: false },
           phone,
           primary,
         ]);
-        expect((await source.frame()).creators.find((c) => c.id === "c11")?.email).toBe(
+        expect((await source.frame()).creators.find((c) => c.id === ch("c11"))?.email).toBe(
           "biz@modelmatters.ai",
         );
       });
 
       it("undo puts the old address back unconfirmed, and a null address removes the primary", async () => {
         const source = start();
-        await source.write([contact("c12", "hi@promptdaily.ai", { contactName: null })]);
+        await source.write([contact(ch("c12"), "hi@promptdaily.ai", { contactName: null })]);
         await source.write([
-          contact("c12", null, {
+          contact(ch("c12"), null, {
             confirmed: false,
             contactName: null,
             source: null,
             confidence: null,
           }),
         ]);
-        expect(storedContacts("c12")).toEqual([]);
-        expect((await source.frame()).creators.find((c) => c.id === "c12")).toMatchObject({
+        expect(storedContacts(ch("c12"))).toEqual([]);
+        expect((await source.frame()).creators.find((c) => c.id === ch("c12"))).toMatchObject({
           email: null,
           emailConfirmed: false,
           contactName: null,
@@ -1097,14 +1111,14 @@ export function describeDataSourceContract(
           contactConfidence: null,
         });
         await source.write([
-          contact("c11", "modelmatters.yt@gmail.com", {
+          contact(ch("c11"), "modelmatters.yt@gmail.com", {
             confirmed: false,
             contactName: null,
             source: null,
             confidence: null,
           }),
         ]);
-        const c11 = (await source.frame()).creators.find((c) => c.id === "c11");
+        const c11 = (await source.frame()).creators.find((c) => c.id === ch("c11"));
         expect(c11).toMatchObject({
           email: "modelmatters.yt@gmail.com",
           emailConfirmed: false,
@@ -1114,14 +1128,14 @@ export function describeDataSourceContract(
 
       it("a typed address keeps its source and no confidence; a repeat of it is not listed twice", async () => {
         const source = start();
-        setContacts("c11", [
+        setContacts(ch("c11"), [
           { method: "email", value: "modelmatters.yt@gmail.com", primary: true },
           "hello@modelmatters.ai",
         ]);
         await source.write([
-          contact("c11", "hello@modelmatters.ai", { source: "typed", confidence: null }),
+          contact(ch("c11"), "hello@modelmatters.ai", { source: "typed", confidence: null }),
         ]);
-        expect(storedContacts("c11")).toEqual([
+        expect(storedContacts(ch("c11"))).toEqual([
           { method: "email", value: "modelmatters.yt@gmail.com", primary: false },
           {
             ...primary,
@@ -1130,7 +1144,7 @@ export function describeDataSourceContract(
             confidence: null,
           },
         ]);
-        expect((await source.frame()).creators.find((c) => c.id === "c11")).toMatchObject({
+        expect((await source.frame()).creators.find((c) => c.id === ch("c11"))).toMatchObject({
           contactSource: "typed",
           contactConfidence: null,
         });
@@ -1138,22 +1152,24 @@ export function describeDataSourceContract(
 
       it("reads a name only from a confirmed contact, and odd stored fields as none", async () => {
         const source = start();
-        setContacts("c11", [{ ...primary, confirmed: false }]);
-        expect((await source.frame()).creators.find((c) => c.id === "c11")).toMatchObject({
+        setContacts(ch("c11"), [{ ...primary, confirmed: false }]);
+        expect((await source.frame()).creators.find((c) => c.id === ch("c11"))).toMatchObject({
           emailConfirmed: false,
           contactName: null,
           contactSource: "about",
           contactConfidence: 0.95,
         });
-        setContacts("c11", [
+        setContacts(ch("c11"), [
           { ...primary, label: `  ${"N".repeat(120)} `, source: "guess", confidence: 7 },
         ]);
-        const read = (await source.frame()).creators.find((c) => c.id === "c11");
+        const read = (await source.frame()).creators.find((c) => c.id === ch("c11"));
         expect(read?.contactName).toBe("N".repeat(80));
         expect(read).toMatchObject({ contactSource: null, contactConfidence: null });
         expect(frameSchema.safeParse(await source.frame()).success).toBe(true);
-        setContacts("c11", [{ ...primary, label: "   " }]);
-        expect((await source.frame()).creators.find((c) => c.id === "c11")?.contactName).toBeNull();
+        setContacts(ch("c11"), [{ ...primary, label: "   " }]);
+        expect(
+          (await source.frame()).creators.find((c) => c.id === ch("c11"))?.contactName,
+        ).toBeNull();
       });
 
       it("a contact on a channel with no row creates it as a stage write does, with no stage", async () => {
@@ -1179,9 +1195,9 @@ export function describeDataSourceContract(
         const idC = "00000000-0000-4000-8000-00000000000c";
         const idD = "00000000-0000-4000-8000-00000000000d";
         await source.write([
-          line(idA, contractNow - 3000, "c11", "creator.shortlist", null),
-          line(idB, contractNow - 1000, "c11", "creator.reject", "views"),
-          line(idC, contractNow - 2000, "c12", "creator.never", null),
+          line(idA, contractNow - 3000, ch("c11"), "creator.shortlist", null),
+          line(idB, contractNow - 1000, ch("c11"), "creator.reject", "views"),
+          line(idC, contractNow - 2000, ch("c12"), "creator.never", null),
           {
             kind: "log.add",
             id: idD,
@@ -1201,7 +1217,7 @@ export function describeDataSourceContract(
               actor_name: "Sara",
               action: "emailSent",
               entity_type: "channel",
-              entity_id: "c11",
+              entity_id: ch("c11"),
               entity_label: "Model Matters",
             }),
           );
@@ -1209,26 +1225,26 @@ export function describeDataSourceContract(
             db,
             logRow("deal1", "2026-10-20T11:59:59.900Z", {
               entity_type: "deal",
-              entity_id: "c11",
+              entity_id: ch("c11"),
               detail: { text: "Not a creator line" },
             }),
           );
         });
-        const lines = await source.logFor("c11", 10);
+        const lines = await source.logFor(ch("c11"), 10);
         expect(lines.map((l) => l.id)).toEqual(["old1", idB, idA]);
         expect(lines[1]).toEqual({
           id: idB,
           at: contractNow - 1000,
           who: "u1",
           text: `Line ${idB}`,
-          ref: "c11",
+          ref: ch("c11"),
           action: "creator.reject",
           detail: "views",
         });
-        expect(lines[0]).toMatchObject({ who: "Sara", ref: "c11", action: null });
+        expect(lines[0]).toMatchObject({ who: "Sara", ref: ch("c11"), action: null });
         // The same lines the frame shows for this creator, in the same order.
-        expect(lines).toEqual((await source.frame()).log.filter((l) => l.ref === "c11"));
-        expect((await source.logFor("c11", 2)).map((l) => l.id)).toEqual(["old1", idB]);
+        expect(lines).toEqual((await source.frame()).log.filter((l) => l.ref === ch("c11")));
+        expect((await source.logFor(ch("c11"), 2)).map((l) => l.id)).toEqual(["old1", idB]);
         expect(await source.logFor("c999", 10)).toEqual([]);
         // An undo hides a line here too.
         withDb(file, (db) => {
@@ -1241,7 +1257,7 @@ export function describeDataSourceContract(
             }),
           );
         });
-        expect((await source.logFor("c11", 10)).map((l) => l.id)).toEqual(["old1", idA]);
+        expect((await source.logFor(ch("c11"), 10)).map((l) => l.id)).toEqual(["old1", idA]);
       });
 
       it("hides a creator's money lines from a member without money", async () => {
@@ -1251,7 +1267,7 @@ export function describeDataSourceContract(
             db,
             logRow("m1", "2026-10-20T11:00:00Z", {
               entity_type: "channel",
-              entity_id: "c11",
+              entity_id: ch("c11"),
               detail: { text: "Shortlisted Model Matters" },
             }),
           );
@@ -1260,7 +1276,7 @@ export function describeDataSourceContract(
             logRow("m2", "2026-10-20T11:01:00Z", {
               action: "updated",
               entity_type: "channel",
-              entity_id: "c11",
+              entity_id: ch("c11"),
               field: "brand_price",
               old_value: "1",
               new_value: "2",
@@ -1270,15 +1286,15 @@ export function describeDataSourceContract(
             db,
             logRow("m3", "2026-10-20T11:02:00Z", {
               entity_type: "channel",
-              entity_id: "c11",
+              entity_id: ch("c11"),
               detail: { text: "Agreed $4,000 with Model Matters" },
             }),
           );
         });
         setAccess(file, [{ profileId: "u1", roles: ["owner"], seesMoney: true }]);
-        expect((await source.logFor("c11", 10)).map((l) => l.id)).toEqual(["m3", "m2", "m1"]);
+        expect((await source.logFor(ch("c11"), 10)).map((l) => l.id)).toEqual(["m3", "m2", "m1"]);
         setAccess(file, [{ profileId: "u1", roles: ["scout"], seesMoney: false }]);
-        expect((await source.logFor("c11", 10)).map((l) => l.id)).toEqual(["m1"]);
+        expect((await source.logFor(ch("c11"), 10)).map((l) => l.id)).toEqual(["m1"]);
       });
 
       it("pages the whole log, with its people and the lines since a time", async () => {
@@ -1315,30 +1331,30 @@ export function describeDataSourceContract(
         const source = start();
         withDb(file, (db) => {
           db.prepare(
-            "UPDATE channel_state SET manual_engagement_rate = 0.042 WHERE channel_id = 'c11'",
-          ).run();
+            "UPDATE channel_state SET manual_engagement_rate = 0.042 WHERE channel_id = ?",
+          ).run(ch("c11"));
           insertLogRow(
             db,
             logRow("old1", "2026-10-19T09:00:00Z", {
               actor_name: "Sara",
               action: "emailSent",
               entity_type: "channel",
-              entity_id: "c11",
+              entity_id: ch("c11"),
               entity_label: "Model Matters",
             }),
           );
         });
         await source.write([
           { kind: "me.name", name: "Ada" },
-          stage("c11", "rejected", "ai"),
-          line(idA, contractNow - 500, "c11", "creator.reject", "ai"),
+          stage(ch("c11"), "rejected", "ai"),
+          line(idA, contractNow - 500, ch("c11"), "creator.reject", "ai"),
         ]);
         const states = await source.creatorStates();
         const examples = exampleFrame(contractNow).creators;
         expect(states.map((c) => c.id)).toEqual(examples.map((c) => c.id));
-        const c11 = examples.find((c) => c.id === "c11");
-        expect(states.find((c) => c.id === "c11")).toEqual({
-          id: "c11",
+        const c11 = examples.find((c) => c.id === ch("c11"));
+        expect(states.find((c) => c.id === ch("c11"))).toEqual({
+          id: ch("c11"),
           handle: c11?.handle,
           name: c11?.name,
           stage: "rejected",
@@ -1351,6 +1367,8 @@ export function describeDataSourceContract(
           rejectedAt: contractNow - 500,
           neverReason: null,
           archiveDueAt: contractNow + 7 * day,
+          // The seed's details come with the state (a live file holds them from the sync, plan P1).
+          details: c11?.details,
           engagement: 0.042,
           kit: {
             ageBand: null,
@@ -1366,25 +1384,29 @@ export function describeDataSourceContract(
           lastActivity: { at: contractNow - 500, who: "Ada" },
         });
         // A creator with no line of its own has no activity; the old app's lines count.
-        const c12 = states.find((c) => c.id === "c12");
+        const c12 = states.find((c) => c.id === ch("c12"));
         expect(c12).toMatchObject({ engagement: null, lastActivity: null, archiveDueAt: null });
         // Never reports its time and the reason the person wrote (D39); a reject line on a
         // creator now at another stage reports nothing.
         const frame = await writeAll(
           source,
-          stage("c12", "never"),
-          line(idB, contractNow - 400, "c12", "creator.never", "Asked us to stop"),
+          stage(ch("c12"), "never"),
+          line(idB, contractNow - 400, ch("c12"), "creator.never", "Asked us to stop"),
         );
-        expect((await source.creatorStates()).find((c) => c.id === "c12")).toMatchObject({
+        expect((await source.creatorStates()).find((c) => c.id === ch("c12"))).toMatchObject({
           rejectReason: null,
           rejectedAt: contractNow - 400,
           neverReason: "Asked us to stop",
         });
-        expect(frame.creators.find((c) => c.id === "c12")?.neverReason).toBe("Asked us to stop");
+        expect(frame.creators.find((c) => c.id === ch("c12"))?.neverReason).toBe(
+          "Asked us to stop",
+        );
         withDb(file, (db) => {
           db.prepare("DELETE FROM activity_log WHERE id = ?").run(idA);
         });
-        expect((await source.creatorStates()).find((c) => c.id === "c11")?.lastActivity).toEqual({
+        expect(
+          (await source.creatorStates()).find((c) => c.id === ch("c11"))?.lastActivity,
+        ).toEqual({
           at: Date.parse("2026-10-19T09:00:00Z"),
           who: "Sara",
         });

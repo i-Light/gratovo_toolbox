@@ -2,7 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import type { DataSource, DraftState } from "@gratovo/core/data";
+import { exampleChannelId as ch, type DataSource, type DraftState } from "@gratovo/core/data";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { contractNow } from "../data/data-source-contract";
@@ -173,19 +173,19 @@ describe("replies on example data", () => {
 
   it("pastes a reply: the creator moves to replied, a stand-in answer is drafted and read", async () => {
     await service.overlay({ ...(await source.frame()), myName: "Moustafa" });
-    expect(await service.pasteReply("c9", "Thanks! My rate is $900 per video.")).toEqual({
+    expect(await service.pasteReply(ch("c9"), "Thanks! My rate is $900 per video.")).toEqual({
       ok: true,
     });
-    expect(await stageOf("c9")).toBe("replied");
-    expect(source.outreach.sequence("c9")?.stopped).toBe("replied");
+    expect(await stageOf(ch("c9"))).toBe("replied");
+    expect(source.outreach.sequence(ch("c9"))?.stopped).toBe("replied");
     await vi.waitFor(() => {
-      expect(answersOf("c9")[0]?.state).toBe("ready");
+      expect(answersOf(ch("c9"))[0]?.state).toBe("ready");
     });
-    const answer = answersOf("c9")[0];
+    const answer = answersOf(ch("c9"))[0];
     expect(answer).toMatchObject({ kind: "reply", approvedBy: null, sendAt: null });
     expect(answer?.body.startsWith("Hi Theo,")).toBe(true);
     const frame = await source.frame();
-    const thread = frame.reach.threads.find((t) => t.creator === "c9");
+    const thread = frame.reach.threads.find((t) => t.creator === ch("c9"));
     expect(thread?.lastIn?.reading).toMatchObject({
       replyType: "inf.gives_rate",
       corrected: false,
@@ -200,12 +200,12 @@ describe("replies on example data", () => {
 
   it("changes a reading and writes the answer again with the stand-in", async () => {
     await service.overlay({ ...(await source.frame()), myName: "Moustafa" });
-    await service.pasteReply("c9", "Maybe later.");
+    await service.pasteReply(ch("c9"), "Maybe later.");
     await vi.waitFor(() => {
-      expect(answersOf("c9")[0]?.state).toBe("ready");
+      expect(answersOf(ch("c9"))[0]?.state).toBe("ready");
     });
     const message = source.outreach
-      .thread("c9", 10)
+      .thread(ch("c9"), 10)
       .filter((m) => m.direction === "in")
       .at(-1);
     expect(await service.reclassify(message?.id ?? "none", "inf.not_interested")).toEqual({
@@ -218,9 +218,9 @@ describe("replies on example data", () => {
       corrected: true,
     });
     await vi.waitFor(() => {
-      expect(answersOf("c9")[0]).toMatchObject({ state: "ready", rewriting: null });
+      expect(answersOf(ch("c9"))[0]).toMatchObject({ state: "ready", rewriting: null });
     });
-    expect(answersOf("c9")[0]?.steer?.note).toBe(
+    expect(answersOf(ch("c9"))[0]?.steer?.note).toBe(
       "Read their reply as: Not interested / no partnerships",
     );
     expect(call).not.toHaveBeenCalled();
@@ -231,7 +231,7 @@ describe("replies on example data", () => {
       ok: true,
       situations: [{ id: "inf.gives_rate", side: "influencer" }, {}, {}],
     });
-    expect(await service.pasteReply("c6", "Hi")).toEqual({ ok: false, problem: "no_outbound" });
+    expect(await service.pasteReply(ch("c6"), "Hi")).toEqual({ ok: false, problem: "no_outbound" });
     expect(await service.reclassify("nope", "inf.gives_rate")).toEqual({
       ok: false,
       problem: "not_found",
@@ -240,12 +240,12 @@ describe("replies on example data", () => {
 
   it("saves a fact from the seeded reply of Vector Vlog and shows it saved", async () => {
     const message = source.outreach
-      .thread("c10", 10)
+      .thread(ch("c10"), 10)
       .find((m) => m.direction === "in" && m.reading !== null);
     expect(message?.reading?.facts.map((f) => f.key)).toEqual(["rate", "countries", "age"]);
     await source.write([{ kind: "reply.fact", messageId: message?.id ?? "none", key: "rate" }]);
-    const reading = (await source.frame()).reach.threads.find((t) => t.creator === "c10")?.lastIn
-      ?.reading;
+    const reading = (await source.frame()).reach.threads.find((t) => t.creator === ch("c10"))
+      ?.lastIn?.reading;
     expect(reading?.facts.map((f) => [f.key, f.saved])).toEqual([
       ["rate", true],
       ["countries", false],
@@ -301,8 +301,8 @@ describe("the sweep on live data", () => {
   const reply = {
     type: "reply",
     account: "outreach1@gratovo.example",
-    conversationKey: "c:c8",
-    channelId: "c8",
+    conversationKey: `c:${ch("c8")}`,
+    channelId: ch("c8"),
     messageId: "gm-live-1",
     from: "team@shipai.dev",
     fromName: "Mia",
@@ -357,14 +357,14 @@ describe("the sweep on live data", () => {
     expect(await live.checkReplies()).toEqual({ ok: true, stored: 1 });
     expect(started.map((j) => j.kind)).toEqual(["mail.replies", "mail.ack"]);
     expect(started[1]).toEqual({ kind: "mail.ack", messageIds: ["gm-live-1"] });
-    expect(await stageOf("c8")).toBe("replied");
+    expect(await stageOf(ch("c8"))).toBe("replied");
     // The page is told of the log, the creators and the notification.
     expect(emitted.some((more) => more?.includes("notify") === true)).toBe(true);
     await vi.waitFor(() => {
-      expect(answersOf("c8")[0]?.state).toBe("ready");
+      expect(answersOf(ch("c8"))[0]?.state).toBe("ready");
     });
     const message = source.outreach
-      .thread("c8", 10)
+      .thread(ch("c8"), 10)
       .filter((m) => m.direction === "in")
       .at(-1);
     expect(message?.reading).toMatchObject({
@@ -392,17 +392,17 @@ describe("the sweep on live data", () => {
     await live.overlay({ ...(await source.frame()), myName: "Moustafa" });
     await live.checkReplies();
     await vi.waitFor(() => {
-      expect(answersOf("c8")[0]?.state).toBe("ready");
+      expect(answersOf(ch("c8"))[0]?.state).toBe("ready");
     });
     const message = source.outreach
-      .thread("c8", 10)
+      .thread(ch("c8"), 10)
       .filter((m) => m.direction === "in")
       .at(-1);
     await live.reclassify(message?.id ?? "none", "inf.not_interested");
     await vi.waitFor(() => {
-      expect(answersOf("c8")[0]?.rewriting).toBeNull();
+      expect(answersOf(ch("c8"))[0]?.rewriting).toBeNull();
     });
-    await live.pasteReply("c9", "One from here too.");
+    await live.pasteReply(ch("c9"), "One from here too.");
     expect(
       drafts().some((d) => ["approved", "scheduled", "sending", "sent"].includes(d.state)),
     ).toBe(false);

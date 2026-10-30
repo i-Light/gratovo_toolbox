@@ -13,9 +13,10 @@ import {
   setMeta,
   setNotify,
   setSetting,
-  upsertBrand,
+  upsertBrandDetails,
   upsertCreator,
-  upsertDeal,
+  upsertCreatorDetails,
+  upsertDealDetails,
   upsertNotification,
   upsertProfile,
 } from "./repositories";
@@ -39,6 +40,9 @@ const dataTables = [
   "outreach_sequences",
   "stage_events",
   "catalog_weeks",
+  "brand_details",
+  "deal_details",
+  "creator_details",
 ] as const;
 
 /** The `local_settings` key the seed writes its `health` to (the "Something broke" scenario). */
@@ -147,6 +151,9 @@ function seed(db: DatabaseSync, now: number, scenario: Scenario): void {
     );
     for (const creator of fixtures.creators) {
       upsertCreator(db, creator, now);
+      if (creator.details !== undefined) {
+        upsertCreatorDetails(db, creator.id, creator.details);
+      }
     }
     for (const [id, kit] of Object.entries(fixtures.kits)) {
       db.prepare(
@@ -160,10 +167,10 @@ function seed(db: DatabaseSync, now: number, scenario: Scenario): void {
       );
     }
     for (const brand of fixtures.brands) {
-      upsertBrand(db, brand, now);
+      upsertBrandDetails(db, brand, now);
     }
     for (const deal of fixtures.deals) {
-      upsertDeal(db, deal, now);
+      upsertDealDetails(db, deal, now);
     }
     for (const notification of fixtures.notifications) {
       upsertNotification(db, notification);

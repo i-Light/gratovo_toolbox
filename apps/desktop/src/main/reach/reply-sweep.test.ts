@@ -2,7 +2,13 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import type { DataSource, DraftProposal, DraftState, StoredDraft } from "@gratovo/core/data";
+import {
+  exampleChannelId as ch,
+  type DataSource,
+  type DraftProposal,
+  type DraftState,
+  type StoredDraft,
+} from "@gratovo/core/data";
 import type { ChannelResponse, FramePart } from "@gratovo/ipc";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -82,8 +88,8 @@ function reply(over: Partial<ReplyMessage> = {}): ReplyMessage {
   return {
     type: "reply",
     account: "outreach1@gratovo.example",
-    conversationKey: "c:c8",
-    channelId: "c8",
+    conversationKey: `c:${ch("c8")}`,
+    channelId: ch("c8"),
     messageId: "gm-r1",
     from: "team@shipai.dev",
     fromName: "Mia",
@@ -326,7 +332,7 @@ describe("the sweep stores a reply and what it brings", () => {
   it("stores the reply as an in message, then acknowledges exactly its id", async () => {
     replies = [reply({ bodyCut: true })];
     expect(await sweep.check()).toEqual({ ok: true, stored: 1 });
-    const message = real.outreach.thread("c8", 10).find((m) => m.direction === "in");
+    const message = real.outreach.thread(ch("c8"), 10).find((m) => m.direction === "in");
     expect(message).toMatchObject({
       direction: "in",
       source: "sweep",
@@ -346,16 +352,19 @@ describe("the sweep stores a reply and what it brings", () => {
   });
 
   it("moves the stage, stops the sequence, skips the follow-up, tells and logs, and queues an answer", async () => {
-    followUp("c8");
+    followUp(ch("c8"));
     replies = [reply()];
     await sweep.check();
-    expect((await creator("c8"))?.stage).toBe("replied");
-    expect(real.outreach.sequence("c8")).toMatchObject({
+    expect((await creator(ch("c8")))?.stage).toBe("replied");
+    expect(real.outreach.sequence(ch("c8"))).toMatchObject({
       stopped: "replied",
       // The drafted step goes back to planned: its draft is skipped.
       steps: [{ n: 1, state: "planned" }, { n: 2 }, { n: 3 }],
     });
-    expect(real.outreach.draft("fu-c8")).toMatchObject({ state: "skipped", problem: null });
+    expect(real.outreach.draft(`fu-${ch("c8")}`)).toMatchObject({
+      state: "skipped",
+      problem: null,
+    });
     const frame = await real.frame();
     expect(frame.notifications.find((n) => n.id.startsWith("reply-"))).toMatchObject({
       icon: "reply",
@@ -364,14 +373,14 @@ describe("the sweep stores a reply and what it brings", () => {
       go: { screen: "reach", tab: "inbox" },
       read: false,
     });
-    expect(frame.log.find((l) => l.text === "Ship AI replied")).toMatchObject({ ref: "c8" });
-    const answer = answers("c8");
+    expect(frame.log.find((l) => l.text === "Ship AI replied")).toMatchObject({ ref: ch("c8") });
+    const answer = answers(ch("c8"));
     expect(answer).toHaveLength(1);
     expect(answer[0]).toMatchObject({
       kind: "reply",
       state: "drafting",
       mailbox: "outreach1@gratovo.example",
-      replyTo: real.outreach.thread("c8", 10).find((m) => m.direction === "in")?.id,
+      replyTo: real.outreach.thread(ch("c8"), 10).find((m) => m.direction === "in")?.id,
       approvedBy: null,
       sendAt: null,
     });
@@ -384,13 +393,13 @@ describe("the sweep stores a reply and what it brings", () => {
     replies = [
       reply({
         channelId: null,
-        conversationKey: "c:c9",
+        conversationKey: `c:${ch("c9")}`,
         from: "someone@else.example",
         messageId: "gm-k",
       }),
     ];
     expect(await sweep.check()).toEqual({ ok: true, stored: 1 });
-    expect((await creator("c9"))?.stage).toBe("replied");
+    expect((await creator(ch("c9")))?.stage).toBe("replied");
     expect(acked()).toEqual(["gm-k"]);
   });
 
@@ -404,8 +413,8 @@ describe("the sweep stores a reply and what it brings", () => {
       }),
     ];
     expect(await sweep.check()).toEqual({ ok: true, stored: 1 });
-    expect((await creator("c9"))?.stage).toBe("replied");
-    expect(real.outreach.thread("c9", 10).find((m) => m.direction === "in")?.peer).toBe(
+    expect((await creator(ch("c9")))?.stage).toBe("replied");
+    expect(real.outreach.thread(ch("c9"), 10).find((m) => m.direction === "in")?.peer).toBe(
       "BIZ@DiffusionDiaries.com",
     );
   });
@@ -435,8 +444,8 @@ describe("the sweep stores a reply and what it brings", () => {
     await sweep.check();
     const afterFirst = (await real.frame()).notifications.length;
     expect(await sweep.check()).toEqual({ ok: true, stored: 0 });
-    expect(real.outreach.thread("c8", 10).filter((m) => m.direction === "in")).toHaveLength(1);
-    expect(answers("c8")).toHaveLength(1);
+    expect(real.outreach.thread(ch("c8"), 10).filter((m) => m.direction === "in")).toHaveLength(1);
+    expect(answers(ch("c8"))).toHaveLength(1);
     expect((await real.frame()).notifications).toHaveLength(afterFirst);
     // Stored, so safe to acknowledge, and a lost ack is made good.
     expect(acked()).toEqual(["gm-r1", "gm-r1"]);
@@ -455,7 +464,7 @@ describe("the sweep stores a reply and what it brings", () => {
     ];
     await sweep.check();
     const times = real.outreach
-      .thread("c8", 10)
+      .thread(ch("c8"), 10)
       .filter((m) => m.direction === "in")
       .map((m) => m.at);
     expect(times).toEqual([contractNow, contractNow]);
@@ -471,13 +480,13 @@ describe("the sweep stores a reply and what it brings", () => {
       }),
     ];
     expect(await sweep.check()).toEqual({ ok: true, stored: 2 });
-    expect(answers("c8")).toHaveLength(1);
+    expect(answers(ch("c8"))).toHaveLength(1);
     // The answer replies to the newest.
     const newest = real.outreach
-      .thread("c8", 10)
+      .thread(ch("c8"), 10)
       .filter((m) => m.direction === "in")
       .at(-1);
-    expect(answers("c8")[0]?.replyTo).toBe(newest?.id);
+    expect(answers(ch("c8"))[0]?.replyTo).toBe(newest?.id);
     expect(
       (await real.frame()).notifications.filter((n) => n.id.startsWith("reply-")),
     ).toHaveLength(1);
@@ -489,13 +498,13 @@ describe("the sweep stores a reply and what it brings", () => {
     await sweep.check();
     replies = [reply({ messageId: "gm-b" })];
     await sweep.check();
-    expect(answers("c8")).toHaveLength(1);
+    expect(answers(ch("c8"))).toHaveLength(1);
   });
 
   it("moves a parked creator to replied too, and leaves a sequence stopped by you as it is", async () => {
     const parked = await real.frame();
-    expect(parked.creators.find((c) => c.id === "c9")?.stage).toBe("emailed");
-    const sequence = real.outreach.sequence("c9");
+    expect(parked.creators.find((c) => c.id === ch("c9"))?.stage).toBe("emailed");
+    const sequence = real.outreach.sequence(ch("c9"));
     if (sequence === null) throw new Error("c9 has a sequence");
     real.outreach.commit({
       at: clock,
@@ -503,7 +512,7 @@ describe("the sweep stores a reply and what it brings", () => {
       writes: [
         {
           kind: "creator.stage",
-          id: "c9",
+          id: ch("c9"),
           stage: "parked",
           handle: "@diffusiondiaries",
           name: "Diffusion Diaries",
@@ -512,27 +521,27 @@ describe("the sweep stores a reply and what it brings", () => {
     });
     replies = [
       reply({
-        channelId: "c9",
-        conversationKey: "c:c9",
+        channelId: ch("c9"),
+        conversationKey: `c:${ch("c9")}`,
         from: "biz@diffusiondiaries.com",
         messageId: "gm-p",
       }),
     ];
     await sweep.check();
-    expect((await creator("c9"))?.stage).toBe("replied");
-    expect(real.outreach.sequence("c9")?.stopped).toBe("you");
+    expect((await creator(ch("c9")))?.stage).toBe("replied");
+    expect(real.outreach.sequence(ch("c9"))?.stopped).toBe("you");
   });
 
   it("stores the reply of a creator set to never contact and does nothing more", async () => {
     await real.write([
-      { kind: "creator.stage", id: "c8", stage: "never", handle: "@shipai", name: "Ship AI" },
+      { kind: "creator.stage", id: ch("c8"), stage: "never", handle: "@shipai", name: "Ship AI" },
     ]);
     replies = [reply()];
     expect(await sweep.check()).toEqual({ ok: true, stored: 1 });
-    expect((await creator("c8"))?.stage).toBe("never");
-    expect(answers("c8")).toEqual([]);
+    expect((await creator(ch("c8")))?.stage).toBe("never");
+    expect(answers(ch("c8"))).toEqual([]);
     // The sequence still stops, so no follow-up goes out to someone who must not be written to.
-    expect(real.outreach.sequence("c8")?.stopped).toBe("replied");
+    expect(real.outreach.sequence(ch("c8"))?.stopped).toBe("replied");
     expect((await real.frame()).notifications.some((n) => n.id.startsWith("reply-"))).toBe(false);
     expect(acked()).toEqual(["gm-r1"]);
   });
@@ -560,7 +569,7 @@ describe("a reply that can't be stored is not acknowledged", () => {
     expect(jobs.map((j) => j.kind)).toEqual(["mail.replies"]);
     expect(lines).toEqual(["Reach: storing the replies failed."]);
     expect(real.outreach.storedGmailIds(["gm-r1"]).size).toBe(0);
-    expect((await creator("c8"))?.stage).toBe("emailed");
+    expect((await creator(ch("c8")))?.stage).toBe("emailed");
     // The reply is offered again, and the next sweep stores it.
     open = real;
     expect(await sweep.check()).toEqual({ ok: true, stored: 1 });
@@ -595,12 +604,12 @@ describe("a bounce", () => {
     });
 
   it("stops the sequence as bounced, skips the follow-up, marks the address not confirmed, tells, and drafts no answer", async () => {
-    followUp("c8");
+    followUp(ch("c8"));
     replies = [bounce()];
     expect(await sweep.check()).toEqual({ ok: true, stored: 1 });
-    expect(real.outreach.sequence("c8")?.stopped).toBe("bounced");
-    expect(real.outreach.draft("fu-c8")?.state).toBe("skipped");
-    const now = await creator("c8");
+    expect(real.outreach.sequence(ch("c8"))?.stopped).toBe("bounced");
+    expect(real.outreach.draft(`fu-${ch("c8")}`)?.state).toBe("skipped");
+    const now = await creator(ch("c8"));
     expect(now).toMatchObject({
       stage: "emailed",
       email: "team@shipai.dev",
@@ -614,54 +623,54 @@ describe("a bounce", () => {
       go: { screen: "reach", tab: "inbox" },
     });
     expect(frame.log.some((l) => l.text === "Ship AI's email bounced")).toBe(true);
-    expect(answers("c8")).toEqual([]);
-    expect(drafts().filter((d) => d.creator === "c8" && d.state !== "skipped")).toEqual([]);
+    expect(answers(ch("c8"))).toEqual([]);
+    expect(drafts().filter((d) => d.creator === ch("c8") && d.state !== "skipped")).toEqual([]);
     // The thread shows it as a bounce.
-    expect(frame.reach.threads.find((t) => t.creator === "c8")?.lastIn?.bounce).toBe(true);
+    expect(frame.reach.threads.find((t) => t.creator === ch("c8"))?.lastIn?.bounce).toBe(true);
     expect(acked()).toEqual(["gm-b1"]);
   });
 
   it("is recognised from postmaster@ too, and an unconfirmed address is not written again", async () => {
     replies = [bounce({ from: "Postmaster <postmaster@shipai.dev>" })];
     await sweep.check();
-    expect(real.outreach.sequence("c8")?.stopped).toBe("bounced");
+    expect(real.outreach.sequence(ch("c8"))?.stopped).toBe("bounced");
     const writes = vi.spyOn(real, "write");
     replies = [bounce({ messageId: "gm-b2" })];
     await sweep.check();
     expect(writes).not.toHaveBeenCalled();
-    expect(real.outreach.thread("c8", 10).filter((m) => m.direction === "in")).toHaveLength(2);
+    expect(real.outreach.thread(ch("c8"), 10).filter((m) => m.direction === "in")).toHaveLength(2);
   });
 
   it("is a reply when a real answer comes in the same sweep", async () => {
     replies = [bounce(), reply({ messageId: "gm-real" })];
     await sweep.check();
-    expect((await creator("c8"))?.stage).toBe("replied");
-    expect((await creator("c8"))?.emailConfirmed).toBe(true);
-    expect(real.outreach.sequence("c8")?.stopped).toBe("replied");
-    expect(answers("c8")).toHaveLength(1);
+    expect((await creator(ch("c8")))?.stage).toBe("replied");
+    expect((await creator(ch("c8")))?.emailConfirmed).toBe(true);
+    expect(real.outreach.sequence(ch("c8"))?.stopped).toBe("replied");
+    expect(answers(ch("c8"))).toHaveLength(1);
   });
 });
 
 describe("the sweep never sends and never approves", () => {
   it("leaves every draft out of approved, scheduled and sending, and asks for no mail.send", async () => {
-    followUp("c8", "approved");
-    followUp("c9", "scheduled");
+    followUp(ch("c8"), "approved");
+    followUp(ch("c9"), "scheduled");
     const before = drafts().filter((d) => ["approved", "scheduled"].includes(d.state)).length;
     expect(before).toBe(2);
     replies = [
       reply(),
       reply({
         messageId: "gm-9",
-        channelId: "c9",
-        conversationKey: "c:c9",
+        channelId: ch("c9"),
+        conversationKey: `c:${ch("c9")}`,
         from: "biz@diffusiondiaries.com",
       }),
     ];
     await sweep.check();
-    await sweep.paste("c8", "Another thought.");
-    await sweep.paste("c9", "And one from here.");
+    await sweep.paste(ch("c8"), "Another thought.");
+    await sweep.paste(ch("c9"), "And one from here.");
     const newest = real.outreach
-      .thread("c8", 10)
+      .thread(ch("c8"), 10)
       .filter((m) => m.direction === "in")
       .at(-1);
     await sweep.reclassify(newest?.id ?? noDraft, "inf.not_interested");
@@ -670,13 +679,14 @@ describe("the sweep never sends and never approves", () => {
     );
     expect(
       drafts()
-        .filter((d) => d.kind === "reply")
+        // The seed's own two answers (dr6, dr7) wait for a person, ready.
+        .filter((d) => d.kind === "reply" && !["dr6", "dr7"].includes(d.id))
         .every((d) => d.state === "drafting"),
     ).toBe(true);
     expect(jobs.filter((j) => j.kind === "mail.send")).toEqual([]);
     // The approved and scheduled follow-ups were skipped, not sent.
-    expect(real.outreach.draft("fu-c8")?.state).toBe("skipped");
-    expect(real.outreach.draft("fu-c9")?.state).toBe("skipped");
+    expect(real.outreach.draft(`fu-${ch("c8")}`)?.state).toBe("skipped");
+    expect(real.outreach.draft(`fu-${ch("c9")}`)?.state).toBe("skipped");
   });
 });
 
@@ -752,24 +762,24 @@ describe("the timer", () => {
 describe("Paste a reply", () => {
   it("refuses with no data, an unknown creator and a creator with nothing sent", async () => {
     open = null;
-    expect(await sweep.paste("c8", "Hi")).toEqual({ ok: false, problem: "no_data" });
+    expect(await sweep.paste(ch("c8"), "Hi")).toEqual({ ok: false, problem: "no_data" });
     open = real;
     expect(await sweep.paste("UCnobody0000000000000000", "Hi")).toEqual({
       ok: false,
       problem: "not_found",
     });
-    expect(await sweep.paste("c6", "Hi")).toEqual({ ok: false, problem: "no_outbound" });
-    expect(real.outreach.thread("c6", 10)).toEqual([]);
+    expect(await sweep.paste(ch("c6"), "Hi")).toEqual({ ok: false, problem: "no_outbound" });
+    expect(real.outreach.thread(ch("c6"), 10)).toEqual([]);
   });
 
   it("stores a pasted in message and does what a swept reply does, minus the notification", async () => {
-    followUp("c9");
+    followUp(ch("c9"));
     const before = (await real.frame()).notifications.length;
-    expect(await sweep.paste("c9", "  Thanks Moustafa. My rate is $900 per video.  ")).toEqual({
+    expect(await sweep.paste(ch("c9"), "  Thanks Moustafa. My rate is $900 per video.  ")).toEqual({
       ok: true,
     });
     const message = real.outreach
-      .thread("c9", 10)
+      .thread(ch("c9"), 10)
       .filter((m) => m.direction === "in")
       .at(-1);
     expect(message).toMatchObject({
@@ -784,13 +794,13 @@ describe("Paste a reply", () => {
       reading: null,
     });
     expect(real.outreach.message(message?.id ?? noDraft)?.gmailMessageId).toBeNull();
-    expect((await creator("c9"))?.stage).toBe("replied");
-    expect(real.outreach.sequence("c9")?.stopped).toBe("replied");
-    expect(real.outreach.draft("fu-c9")?.state).toBe("skipped");
+    expect((await creator(ch("c9")))?.stage).toBe("replied");
+    expect(real.outreach.sequence(ch("c9"))?.stopped).toBe("replied");
+    expect(real.outreach.draft(`fu-${ch("c9")}`)?.state).toBe("skipped");
     const frame = await real.frame();
     expect(frame.notifications).toHaveLength(before);
     expect(frame.log.some((l) => l.text === "Added Diffusion Diaries's reply by hand")).toBe(true);
-    expect(answers("c9")).toMatchObject([
+    expect(answers(ch("c9"))).toMatchObject([
       { state: "drafting", replyTo: message?.id, mailbox: "outreach3@gratovo.example" },
     ]);
     expect(jobs).toEqual([]);
@@ -798,16 +808,16 @@ describe("Paste a reply", () => {
   });
 
   it("puts Re: before the subject of the last email out", async () => {
-    await sweep.paste("c8", "First");
-    expect(real.outreach.thread("c8", 10).at(-1)?.subject).toBe(
+    await sweep.paste(ch("c8"), "First");
+    expect(real.outreach.thread(ch("c8"), 10).at(-1)?.subject).toBe(
       "Re: Your video on shipping AI features",
     );
   });
 
   it("keeps the longest paste the page allows whole", async () => {
-    await sweep.paste("c8", "a".repeat(20_000));
+    await sweep.paste(ch("c8"), "a".repeat(20_000));
     const message = real.outreach
-      .thread("c8", 10)
+      .thread(ch("c8"), 10)
       .filter((m) => m.direction === "in")
       .at(-1);
     expect(message).toMatchObject({ bodyCut: false });
@@ -835,8 +845,8 @@ describe("the reading", () => {
   });
 
   async function pasted(text: string): Promise<{ draft: StoredDraft; messageId: string }> {
-    await sweep.paste("c9", text);
-    const draft = answers("c9").at(-1);
+    await sweep.paste(ch("c9"), text);
+    const draft = answers(ch("c9")).at(-1);
     if (draft === undefined || draft.replyTo === null) throw new Error("no answer draft");
     return { draft, messageId: draft.replyTo };
   }
@@ -865,7 +875,7 @@ describe("the reading", () => {
         { key: "age", band: "25-34", saved: false },
       ],
     });
-    const thread = (await real.frame()).reach.threads.find((t) => t.creator === "c9");
+    const thread = (await real.frame()).reach.threads.find((t) => t.creator === ch("c9"));
     expect(thread?.lastIn?.reading?.label).toBe("Gives their rate or rate card");
     expect(thread?.lastIn?.bounce).toBe(false);
   });
@@ -911,9 +921,9 @@ describe("the reading", () => {
   });
 
   it("treats any.bounce as a bounce: stops the sequence as bounced, unconfirms the address, tells, and says so", async () => {
-    followUp("c9");
+    followUp(ch("c9"));
     const { draft, messageId } = await pasted("Undeliverable: the address was not found.");
-    expect(real.outreach.sequence("c9")?.stopped).toBe("replied");
+    expect(real.outreach.sequence(ch("c9"))?.stopped).toBe("replied");
     expect(
       await sweep.reading(
         draft,
@@ -926,8 +936,8 @@ describe("the reading", () => {
       replyType: "any.bounce",
       label: "Bounce / address does not exist",
     });
-    expect(real.outreach.sequence("c9")?.stopped).toBe("bounced");
-    expect((await creator("c9"))?.emailConfirmed).toBe(false);
+    expect(real.outreach.sequence(ch("c9"))?.stopped).toBe("bounced");
+    expect((await creator(ch("c9")))?.emailConfirmed).toBe(false);
     expect(
       (await real.frame()).notifications.some(
         (n) => n.text === "Diffusion Diaries's email bounced",
@@ -942,8 +952,8 @@ describe("the reading", () => {
 
 describe("That's not it", () => {
   async function aReply(): Promise<{ messageId: string; draftId: string }> {
-    await sweep.paste("c9", "Thanks, maybe later this year.");
-    const draft = answers("c9").at(-1);
+    await sweep.paste(ch("c9"), "Thanks, maybe later this year.");
+    const draft = answers(ch("c9")).at(-1);
     if (draft?.replyTo == null) throw new Error("no answer draft");
     real.outreach.updateDraft(draft.id, { state: "ready", subject: "Re: x", body: "Hi" }, clock);
     real.outreach.commit({
@@ -967,7 +977,7 @@ describe("That's not it", () => {
 
   it("refuses a message that is not an in message, an unknown type and the other side's type", async () => {
     const { messageId } = await aReply();
-    const out = real.outreach.thread("c9", 10).find((m) => m.direction === "out");
+    const out = real.outreach.thread(ch("c9"), 10).find((m) => m.direction === "out");
     expect(await sweep.reclassify(out?.id ?? noDraft, "inf.gives_rate")).toEqual({
       ok: false,
       problem: "not_found",
@@ -1072,11 +1082,11 @@ describe("That's not it", () => {
     });
     expect(rereads).toEqual([]);
     expect(real.outreach.draft(draftId)?.state).toBe("skipped");
-    expect(real.outreach.sequence("c9")?.stopped).toBe("bounced");
-    expect((await creator("c9"))?.emailConfirmed).toBe(false);
-    expect((await real.frame()).reach.threads.find((t) => t.creator === "c9")?.lastIn?.bounce).toBe(
-      true,
-    );
+    expect(real.outreach.sequence(ch("c9"))?.stopped).toBe("bounced");
+    expect((await creator(ch("c9")))?.emailConfirmed).toBe(false);
+    expect(
+      (await real.frame()).reach.threads.find((t) => t.creator === ch("c9"))?.lastIn?.bounce,
+    ).toBe(true);
   });
 });
 
@@ -1112,20 +1122,20 @@ describe("review fixes (6d)", () => {
   }
 
   it("clears parkUntil when a parked creator replies (sweep and paste)", async () => {
-    park("c8");
+    park(ch("c8"));
     replies = [reply()];
     await sweep.check();
-    expect(real.outreach.sequence("c8")).toMatchObject({ stopped: "replied", parkUntil: null });
-    park("c9");
-    await sweep.paste("c9", "Thanks!");
-    expect(real.outreach.sequence("c9")).toMatchObject({ stopped: "replied", parkUntil: null });
+    expect(real.outreach.sequence(ch("c8"))).toMatchObject({ stopped: "replied", parkUntil: null });
+    park(ch("c9"));
+    await sweep.paste(ch("c9"), "Thanks!");
+    expect(real.outreach.sequence(ch("c9"))).toMatchObject({ stopped: "replied", parkUntil: null });
   });
 
   it("clears parkUntil when a reading turns a reply into a bounce", async () => {
-    await sweep.paste("c9", "Undeliverable.");
-    const draft = answers("c9").at(-1);
+    await sweep.paste(ch("c9"), "Undeliverable.");
+    const draft = answers(ch("c9")).at(-1);
     if (draft === undefined) throw new Error("no answer");
-    park("c9");
+    park(ch("c9"));
     await sweep.reading(draft, {
       status: "ready",
       why: "",
@@ -1135,17 +1145,17 @@ describe("review fixes (6d)", () => {
       situation: { side: "any", stage: "replied", replyType: "any.bounce", summary: "Bounced." },
       model: "gemini",
     });
-    expect(real.outreach.sequence("c9")).toMatchObject({ stopped: "bounced", parkUntil: null });
+    expect(real.outreach.sequence(ch("c9"))).toMatchObject({ stopped: "bounced", parkUntil: null });
   });
 
   it("puts the stage back to emailed and swaps the replied notice for the bounce one when a reading finds a bounce", async () => {
     replies = [reply()];
     await sweep.check();
-    expect((await creator("c8"))?.stage).toBe("replied");
-    const draft = answers("c8")[0];
+    expect((await creator(ch("c8")))?.stage).toBe("replied");
+    const draft = answers(ch("c8"))[0];
     if (draft === undefined) throw new Error("no answer");
     await sweep.reclassify(draft.replyTo ?? noDraft, "any.bounce");
-    expect((await creator("c8"))?.stage).toBe("emailed");
+    expect((await creator(ch("c8")))?.stage).toBe("emailed");
     const notices = (await real.frame()).notifications;
     expect(notices.filter((n) => n.text === "Ship AI replied")).toEqual([]);
     expect(notices.filter((n) => n.text === "Ship AI's email bounced")).toHaveLength(1);
@@ -1158,16 +1168,16 @@ describe("review fixes (6d)", () => {
     await sweep.check();
     replies = [reply({ messageId: "gm-b" })];
     await sweep.check();
-    const bounced = real.outreach.thread("c8", 10).filter((m) => m.direction === "in")[1];
+    const bounced = real.outreach.thread(ch("c8"), 10).filter((m) => m.direction === "in")[1];
     await sweep.reclassify(bounced?.id ?? noDraft, "any.bounce");
-    expect((await creator("c8"))?.stage).toBe("replied");
+    expect((await creator(ch("c8")))?.stage).toBe("replied");
   });
 
   it("keeps the address's source and confidence when a bounce unconfirms it", async () => {
     await real.write([
       {
         kind: "creator.contact",
-        id: "c8",
+        id: ch("c8"),
         email: "team@shipai.dev",
         confirmed: true,
         contactName: null,
@@ -1179,7 +1189,7 @@ describe("review fixes (6d)", () => {
     ]);
     replies = [daemon()];
     await sweep.check();
-    expect(await creator("c8")).toMatchObject({
+    expect(await creator(ch("c8"))).toMatchObject({
       emailConfirmed: false,
       contactSource: "about",
       contactConfidence: 0.8,
@@ -1187,22 +1197,28 @@ describe("review fixes (6d)", () => {
   });
 
   it("stops the sequence and skips follow-ups of a rejected creator who replies, with no stage, notice or answer", async () => {
-    followUp("c8");
+    followUp(ch("c8"));
     await real.write([
-      { kind: "creator.stage", id: "c8", stage: "rejected", handle: "@shipai", name: "Ship AI" },
+      {
+        kind: "creator.stage",
+        id: ch("c8"),
+        stage: "rejected",
+        handle: "@shipai",
+        name: "Ship AI",
+      },
     ]);
     replies = [reply()];
     await sweep.check();
-    expect(real.outreach.sequence("c8")).toMatchObject({ stopped: "replied", parkUntil: null });
-    expect(real.outreach.draft("fu-c8")?.state).toBe("skipped");
-    expect((await creator("c8"))?.stage).toBe("rejected");
-    expect(answers("c8")).toEqual([]);
+    expect(real.outreach.sequence(ch("c8"))).toMatchObject({ stopped: "replied", parkUntil: null });
+    expect(real.outreach.draft(`fu-${ch("c8")}`)?.state).toBe("skipped");
+    expect((await creator(ch("c8")))?.stage).toBe("rejected");
+    expect(answers(ch("c8"))).toEqual([]);
     expect((await real.frame()).notifications.some((n) => n.id.startsWith("reply-"))).toBe(false);
   });
 
   it("says rewritten false when the answer is still drafting", async () => {
-    await sweep.paste("c9", "Maybe later.");
-    const messageId = answers("c9")[0]?.replyTo ?? noDraft;
+    await sweep.paste(ch("c9"), "Maybe later.");
+    const messageId = answers(ch("c9"))[0]?.replyTo ?? noDraft;
     expect(await sweep.reclassify(messageId, "inf.gives_rate")).toEqual({
       ok: true,
       rewritten: false,
@@ -1232,7 +1248,7 @@ describe("review fixes (6d)", () => {
     await real.write([
       {
         kind: "creator.contact",
-        id: "c9",
+        id: ch("c9"),
         email: "team@shipai.dev",
         confirmed: false,
         contactName: null,
@@ -1251,9 +1267,9 @@ describe("review fixes (6d)", () => {
   it("stores and acknowledges a reply older than 30 days with no stage, notice or answer", async () => {
     replies = [reply({ receivedAt: new Date(contractNow - 31 * 24 * hour).toISOString() })];
     expect(await sweep.check()).toEqual({ ok: true, stored: 1 });
-    expect((await creator("c8"))?.stage).toBe("emailed");
-    expect(answers("c8")).toEqual([]);
-    expect(real.outreach.sequence("c8")?.stopped).toBeNull();
+    expect((await creator(ch("c8")))?.stage).toBe("emailed");
+    expect(answers(ch("c8"))).toEqual([]);
+    expect(real.outreach.sequence(ch("c8"))?.stopped).toBeNull();
     expect((await real.frame()).notifications.some((n) => n.id.startsWith("reply-"))).toBe(false);
     expect(lines).toEqual(["Reach: 1 old replies were stored without action."]);
     expect(acked()).toEqual(["gm-r1"]);
@@ -1264,8 +1280,8 @@ describe("review fixes (6d)", () => {
       situations: { list: () => Promise.resolve([]), labelOf: () => Promise.resolve(null) },
     });
     expect(await bare.situations()).toEqual({ ok: true, situations: [] });
-    await sweep.paste("c9", "Hello");
-    const messageId = answers("c9")[0]?.replyTo ?? noDraft;
+    await sweep.paste(ch("c9"), "Hello");
+    const messageId = answers(ch("c9"))[0]?.replyTo ?? noDraft;
     expect(await bare.reclassify(messageId, "inf.gives_rate")).toEqual({
       ok: false,
       problem: "unknown_type",

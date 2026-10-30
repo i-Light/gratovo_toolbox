@@ -510,8 +510,13 @@ describe("the invariants", () => {
     const seed = exampleSeed(now);
     const taken = new Set<string>(seed.creators.map((c) => c.id));
     for (const m of seed.outreach.messages) taken.add(m.creator);
+    // The seed's creators are catalog channels too (plan P1, F6): they are the history's
+    // channels' only legitimate overlap, and each is there exactly once.
+    const seedIds = new Set(seed.creators.map((c) => c.id));
+    const inCatalog = history.pipeline.channels.map((c) => c.channel_id);
+    for (const id of seedIds) expect(inCatalog.filter((x) => x === id)).toHaveLength(1);
     const ids = [
-      ...history.pipeline.channels.map((c) => c.channel_id),
+      ...inCatalog.filter((id) => !seedIds.has(id)),
       ...history.pipeline.archive.tuples.map((t) => `UC${t[0]}`),
     ];
     const seen = new Set<string>();
@@ -604,4 +609,69 @@ describe("the scenarios", () => {
     });
     expect(tomorrow.length).toBeGreaterThanOrEqual(9);
   });
+});
+
+describe("the seed's creators as catalog channels (plan P1, F6)", () => {
+  const seed = exampleSeed(now);
+  const seedIds = new Set(seed.creators.map((c) => c.id));
+
+  it("puts every seed creator in the catalog with its facts and a keyword link", () => {
+    const channels = new Map(history.pipeline.channels.map((c) => [c.channel_id, c]));
+    const linked = new Set(history.pipeline.links.map((l) => l.channel_id));
+    seed.channels.forEach((channel, i) => {
+      const row = channels.get(channel.id);
+      expect(row, channel.id).toBeDefined();
+      expect(row?.name).toBe(seed.creators[i]?.name);
+      expect(row?.handle).toBe(seed.creators[i]?.handle);
+      expect(row?.subscribers).toBe(String(channel.subscribers));
+      expect(row?.median_views_last_30).toBe(channel.medianViews);
+      expect(row?.videos_last_30).toBe(channel.uploads30);
+      expect(JSON.parse(row?.seen_brands ?? "[]")).toEqual(channel.sponsors);
+      expect(JSON.parse(row?.found_emails ?? "[]")).toEqual(channel.emails);
+      expect(linked.has(channel.id)).toBe(true);
+    });
+    // None of them is a tombstone, and none has a history creator row of its own.
+    for (const t of history.pipeline.archive.tuples.slice(0, 2000)) {
+      expect(seedIds.has(`UC${t[0]}`)).toBe(false);
+    }
+    for (const c of history.gratovo.creators) expect(seedIds.has(c.channel_id)).toBe(false);
+  });
+
+  it("keeps the seed's names and handles out of the history's", () => {
+    const names = new Set(seed.creators.map((c) => c.name.toLowerCase()));
+    for (const n of history.gratovo.names) expect(names.has(n.name.toLowerCase())).toBe(false);
+  });
+
+  it("carries the seed's videos: real ids, ISO dates, views as text, newest at the latest upload", () => {
+    const videos = history.pipeline.videos;
+    expect(new Set(videos.map((v) => v.video_id)).size).toBe(videos.length);
+    const perChannel = new Map<string, typeof videos>();
+    for (const v of videos) {
+      expect(v.video_id).toMatch(/^[A-Za-z0-9_-]{11}$/);
+      expect(v.published_at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
+      expect(Date.parse(v.published_at)).toBeLessThanOrEqual(now);
+      expect(v.view_count).toMatch(/^\d+$/);
+      expect(v.title.length).toBeGreaterThan(0);
+      perChannel.set(v.channel_id, [...(perChannel.get(v.channel_id) ?? []), v]);
+    }
+    expect(new Set(perChannel.keys())).toEqual(seedIds);
+    const channels = new Map(history.pipeline.channels.map((c) => [c.channel_id, c]));
+    for (const [id, list] of perChannel) {
+      expect(list.length).toBeGreaterThanOrEqual(6);
+      expect(list.length).toBeLessThanOrEqual(12);
+      const newest = list.map((v) => v.published_at).sort()[list.length - 1];
+      expect(newest).toBe(channels.get(id)?.latest_upload_at);
+    }
+  });
+
+  it("counts the seed's channels as live in the weekly totals, and the other scenarios too", () => {
+    const last = history.gratovo.weeks[history.gratovo.weeks.length - 1];
+    const waiting = groups(history)["waiting"] ?? 0;
+    expect(last?.live).toBe(history.pipeline.channels.length - waiting);
+    for (const scenario of ["later", "broke"] as const) {
+      const other = required(exampleHistory(now, scenario));
+      const videoChannels = new Set(other.pipeline.videos.map((v) => v.channel_id));
+      expect(videoChannels.size).toBe(seedIds.size);
+    }
+  }, 20_000);
 });

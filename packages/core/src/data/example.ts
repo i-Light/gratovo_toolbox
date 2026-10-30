@@ -5,6 +5,10 @@ import { seesMoney, sortRoles } from "./access";
 import { brokeSeed, firstSeed } from "./example-scenarios";
 import type { NewDraft, NewMessage } from "./outreach-store";
 import { threadPreviewMax } from "./reach-types";
+import { moreDrafts, moreMessages, moreSequences } from "./example-reach-more";
+import { exampleChannelId, exampleRoster } from "./example-roster";
+import type { ExampleChannel } from "./example-roster";
+import { exampleBrands, exampleDeals } from "./example-work";
 import type {
   DraftProposal,
   DraftState,
@@ -33,7 +37,7 @@ import type {
  */
 
 /** Bump it when the fixtures change: an older example database is then seeded again. */
-export const exampleSeedVersion = 8;
+export const exampleSeedVersion = 9;
 
 /** The example copies prototype mode starts from (ADR 0004). The same list as the IPC's `scenarioKeys`. */
 export const scenarios = ["normal", "first", "later", "broke"] as const;
@@ -80,6 +84,12 @@ export interface ExampleSeed {
   >;
   readonly counts: RailCounts;
   readonly creators: readonly Creator[];
+  /**
+   * Each creator's channel as the search found it (subscribers, uploads, sponsors seen, videos).
+   * Prototype mode writes them into the example catalog (plan step P1, F6); the plain example
+   * copy keeps no catalog rows.
+   */
+  readonly channels: readonly ExampleChannel[];
   /**
    * By creator id: the stored audience numbers (`channel_state.media_kit`, `provided_data` and
    * `manual_engagement_rate`) the audience check reads. Not part of the Creator row.
@@ -139,6 +149,7 @@ export function exampleSeed(now: number, scenario: Scenario = "normal"): Example
 }
 
 function normalSeed(now: number): ExampleSeed {
+  const people = exampleRoster(now);
   return {
     me,
     profiles: team.map(({ id, displayName, role }) => ({ id, displayName, role })),
@@ -149,7 +160,7 @@ function normalSeed(now: number): ExampleSeed {
     })),
     presence: Object.fromEntries(team.map(({ id, status, doing }) => [id, { status, doing }])),
     counts: { today: 28, plannedMinutes: 90, find: 15, reach: 10, close: 6, deliver: 7 },
-    creators: creators.map((creator) => ({
+    creators: people.map(({ creator }) => ({
       ...creator,
       kit: kitView(
         kits[creator.id]?.mediaKit ?? null,
@@ -157,16 +168,17 @@ function normalSeed(now: number): ExampleSeed {
         kits[creator.id]?.engagement ?? null,
       ),
     })),
+    channels: people.map(({ channel }) => channel),
     kits,
-    brands,
-    deals,
+    brands: exampleBrands(now),
+    deals: exampleDeals(now),
     notifications: notifications(now),
     mailSettings: mailSettings(now),
     reachMailboxes: { "outreach3@gratovo.example": { paused: false, slowed: true } },
     outreach: {
-      drafts: drafts(now),
-      messages: [...messages(now), ...history(now)],
-      sequences: sequences(now),
+      drafts: [...drafts(now), ...moreDrafts(now)],
+      messages: [...messages(now), ...moreMessages(now), ...history(now)],
+      sequences: [...sequences(now), ...moreSequences(now)],
     },
     mateRun: (at) => mateRun(dayTime(at, 0, 9, 2)),
     health: null,
@@ -335,137 +347,8 @@ function notifications(now: number): readonly FrameNotification[] {
   ];
 }
 
-/** Five signed creators and two new finds, as in the prototype's data.js. */
-const creators: readonly Creator[] = [
-  {
-    id: "c1",
-    name: "Prompt Lab",
-    handle: "@promptlab",
-    stage: "signed",
-    email: "hello@promptlab.tv",
-    emailConfirmed: false,
-    contactName: null,
-    contactSource: null,
-    contactConfidence: null,
-    rejectReason: null,
-    rejectedAt: null,
-    neverReason: null,
-    archiveDueAt: null,
-    kit: null,
-  },
-  {
-    id: "c2",
-    name: "Neural Notes",
-    handle: "@neuralnotes",
-    stage: "signed",
-    email: "team@neuralnotes.io",
-    emailConfirmed: false,
-    contactName: null,
-    contactSource: null,
-    contactConfidence: null,
-    rejectReason: null,
-    rejectedAt: null,
-    neverReason: null,
-    archiveDueAt: null,
-    kit: null,
-  },
-  {
-    id: "c3",
-    name: "Code with Kai",
-    handle: "@codewithkai",
-    stage: "signed",
-    email: "kai@codewithkai.dev",
-    emailConfirmed: false,
-    contactName: null,
-    contactSource: null,
-    contactConfidence: null,
-    rejectReason: null,
-    rejectedAt: null,
-    neverReason: null,
-    archiveDueAt: null,
-    kit: null,
-  },
-  {
-    id: "c4",
-    name: "Tensor Talk",
-    handle: "@tensortalk",
-    stage: "signed",
-    email: "biz@tensortalk.com",
-    emailConfirmed: false,
-    contactName: null,
-    contactSource: null,
-    contactConfidence: null,
-    rejectReason: null,
-    rejectedAt: null,
-    neverReason: null,
-    archiveDueAt: null,
-    kit: null,
-  },
-  {
-    id: "c5",
-    name: "The AI Desk",
-    handle: "@theaidesk",
-    stage: "signed",
-    email: "desk@theaidesk.news",
-    emailConfirmed: false,
-    contactName: null,
-    contactSource: null,
-    contactConfidence: null,
-    rejectReason: null,
-    rejectedAt: null,
-    neverReason: null,
-    archiveDueAt: null,
-    kit: null,
-  },
-  {
-    id: "c11",
-    name: "Model Matters",
-    handle: "@modelmatters",
-    stage: "new",
-    email: "modelmatters.yt@gmail.com",
-    emailConfirmed: false,
-    contactName: null,
-    contactSource: null,
-    contactConfidence: null,
-    rejectReason: null,
-    rejectedAt: null,
-    neverReason: null,
-    archiveDueAt: null,
-    kit: null,
-  },
-  {
-    id: "c12",
-    name: "Prompt Daily",
-    handle: "@promptdaily",
-    stage: "new",
-    email: null,
-    emailConfirmed: false,
-    contactName: null,
-    contactSource: null,
-    contactConfidence: null,
-    rejectReason: null,
-    rejectedAt: null,
-    neverReason: null,
-    archiveDueAt: null,
-    kit: null,
-  },
-  confirmed("c6", "Agent Weekly", "@agentweekly", "contact", "hello@agentweekly.ai", "Jonas"),
-  confirmed("c7", "LLM Lowdown", "@llmlowdown", "contact", "partners@llmlowdown.com", "Ravi"),
-  confirmed("c13", "Token Tuesday", "@tokentuesday", "contact", "hi@tokentuesday.ai", "Dana"),
-  confirmed("c8", "Ship AI", "@shipai", "emailed", "team@shipai.dev", "Mia"),
-  confirmed(
-    "c9",
-    "Diffusion Diaries",
-    "@diffusiondiaries",
-    "emailed",
-    "biz@diffusiondiaries.com",
-    "Theo",
-  ),
-  confirmed("c10", "Vector Vlog", "@vectorvlog", "replied", "hi@vectorvlog.io", "Noor"),
-  confirmed("c14", "AgentWorks", "@agentworks", "kit", "hello@agentworks.ai", "Elena"),
-  confirmed("c15", "Silicon Sage", "@siliconsage", "kit", "team@siliconsage.io", "Arjun"),
-  confirmed("c16", "Context Window", "@contextwindow", "kit", "hi@contextwindow.dev", "Sam"),
-];
+/** A creator's id from its short key ("c1"). */
+const id = exampleChannelId;
 
 const typedKit = (
   countries: readonly (readonly [string, number])[],
@@ -485,7 +368,7 @@ const typedKit = (
 
 /** The stored audience numbers: typed kits for the signed and two kit-stage creators, a reply's for the third. */
 const kits: Readonly<Record<string, ExampleKit>> = {
-  c1: typedKit(
+  [id("c1")]: typedKit(
     [
       ["US", 52],
       ["GB", 14],
@@ -496,7 +379,7 @@ const kits: Readonly<Record<string, ExampleKit>> = {
     3400,
     "https://promptlab.tv/kit",
   ),
-  c2: typedKit(
+  [id("c2")]: typedKit(
     [
       ["US", 47],
       ["CA", 12],
@@ -507,7 +390,7 @@ const kits: Readonly<Record<string, ExampleKit>> = {
     2600,
     "https://neuralnotes.tv/kit",
   ),
-  c3: typedKit(
+  [id("c3")]: typedKit(
     [
       ["US", 58],
       ["GB", 11],
@@ -518,7 +401,7 @@ const kits: Readonly<Record<string, ExampleKit>> = {
     4800,
     "https://codewithkai.dev/kit",
   ),
-  c4: typedKit(
+  [id("c4")]: typedKit(
     [
       ["US", 44],
       ["GB", 16],
@@ -529,7 +412,7 @@ const kits: Readonly<Record<string, ExampleKit>> = {
     5200,
     "https://tensortalk.tv/kit",
   ),
-  c5: typedKit(
+  [id("c5")]: typedKit(
     [
       ["US", 41],
       ["CA", 13],
@@ -540,7 +423,29 @@ const kits: Readonly<Record<string, ExampleKit>> = {
     2200,
     "https://theaidesk.tv/kit",
   ),
-  c14: typedKit(
+  [id("c17")]: typedKit(
+    [
+      ["US", 37],
+      ["GB", 12],
+      ["CA", 9],
+    ],
+    "18-34",
+    5.4,
+    1900,
+    "https://agentarena.gg/kit",
+  ),
+  [id("c45")]: typedKit(
+    [
+      ["US", 49],
+      ["GB", 13],
+      ["CA", 9],
+    ],
+    "25-34",
+    4.8,
+    1700,
+    "https://openweights.dev/kit",
+  ),
+  [id("c14")]: typedKit(
     [
       ["US", 55],
       ["GB", 12],
@@ -551,7 +456,7 @@ const kits: Readonly<Record<string, ExampleKit>> = {
     900,
     "https://agentworks.ai/kit",
   ),
-  c15: typedKit(
+  [id("c15")]: typedKit(
     [
       ["IN", 46],
       ["US", 17],
@@ -562,7 +467,7 @@ const kits: Readonly<Record<string, ExampleKit>> = {
     650,
     "https://siliconsage.io/kit",
   ),
-  c16: {
+  [id("c16")]: {
     provided: {
       rate: 900,
       countries: [
@@ -574,52 +479,9 @@ const kits: Readonly<Record<string, ExampleKit>> = {
   },
 };
 
-const brands: readonly Brand[] = [
-  { id: "b1", name: "Codewell", sells: "AI code review", status: "won" },
-  { id: "b2", name: "Lumen AI", sells: "AI writing assistant", status: "won" },
-  { id: "b3", name: "VoxCraft", sells: "AI voice-over", status: "won" },
-  { id: "b4", name: "Pagewise", sells: "AI notes and docs", status: "won" },
-  { id: "b5", name: "Clipforge", sells: "AI video editor", status: "negotiating" },
-];
-
-const deals: readonly Deal[] = [
-  { id: "d1", brand: "b1", creator: "c3", step: 1, price: 4800 },
-  { id: "d2", brand: "b2", creator: "c2", step: 3, price: 2600 },
-  { id: "d3", brand: "b3", creator: "c1", step: 6, price: 3400 },
-  { id: "d4", brand: "b4", creator: "c5", step: 7, price: 2200 },
-  { id: "d5", brand: "b5", creator: "c4", step: 0, price: 5200 },
-];
-
 /** A teammate's search in progress (Omar, keyword 12 of 40), started at `at`. */
 function mateRun(at: number): MateRun {
   return { by: "u3", at, current: 12, total: 40 };
-}
-
-/** A creator whose address a person confirmed (read off the About page). */
-function confirmed(
-  id: string,
-  name: string,
-  handle: string,
-  stage: Creator["stage"],
-  email: string,
-  contactName: string,
-): Creator {
-  return {
-    id,
-    name,
-    handle,
-    stage,
-    email,
-    emailConfirmed: true,
-    contactName,
-    contactSource: "about",
-    contactConfidence: 0.9,
-    rejectReason: null,
-    rejectedAt: null,
-    neverReason: null,
-    archiveDueAt: null,
-    kit: null,
-  };
 }
 
 const hour = 60 * 60 * 1000;
@@ -646,7 +508,7 @@ function firstProposal(why: string, summary: string): DraftProposal {
   return {
     status: "ready",
     why,
-    rules: ["INF-FIRST-02", "FND-WRITE-11"],
+    rules: [],
     findings: [],
     gates: [],
     situation: { side: "creator", stage: "first", replyType: null, summary },
@@ -667,7 +529,7 @@ function drafts(now: number): readonly ExampleDraft[] {
     {
       ...base,
       id: "dr1",
-      creator: "c6",
+      creator: id("c6"),
       at: now - 3 * hour,
       subject: "Your inbox agent video",
       body: 'Hi Jonas,\n\nI watched "I Let an AI Agent Run My Inbox for a Week" and the moment it booked its own meeting stuck with me. Your viewers clearly want tools tried on real work, not demos.\n\nWe work with AI tool brands that look for that kind of honest test. Would you be open to hearing about a paid sponsorship?\n\nMoustafa',
@@ -679,7 +541,7 @@ function drafts(now: number): readonly ExampleDraft[] {
     {
       ...base,
       id: "dr2",
-      creator: "c13",
+      creator: id("c13"),
       at: now - 2 * hour,
       subject: "Which model reviews code best?",
       body: 'Hi Dana,\n\nYour video "Which AI Model Reviews Code Best?" was the clearest comparison I have seen, and the test with the broken pull request was a smart choice.\n\nWe represent AI developer tools and think a few of them fit your channel. Can I send you a short note on one?\n\nMoustafa',
@@ -691,14 +553,14 @@ function drafts(now: number): readonly ExampleDraft[] {
     {
       ...base,
       id: "dr3",
-      creator: "c7",
+      creator: id("c7"),
       at: now - hour,
       subject: "Open models on a laptop",
       body: 'Hi Ravi,\n\n"Five Open Models You Can Run on a Laptop" is the video I send people when they ask where to start. The benchmark table at the end was useful.\n\nWe worked with Lumen AI before, and a similar brand is looking for channels like yours. Would you want to hear the details?\n\nMoustafa',
       proposal: {
         status: "needs_human",
         why: "Points at the video and asks one question; one claim needs a person to confirm it.",
-        rules: ["INF-FIRST-02", "FND-WRITE-11"],
+        rules: [],
         findings: [],
         gates: [
           {
@@ -793,7 +655,7 @@ function kitMessages(now: number): readonly NewMessage[] {
   return [
     ...pair(
       6,
-      "c14",
+      id("c14"),
       "outreach1@gratovo.example",
       "hello@agentworks.ai",
       "Elena",
@@ -804,7 +666,7 @@ function kitMessages(now: number): readonly NewMessage[] {
     ),
     ...pair(
       9,
-      "c15",
+      id("c15"),
       "outreach2@gratovo.example",
       "team@siliconsage.io",
       "Arjun",
@@ -815,7 +677,7 @@ function kitMessages(now: number): readonly NewMessage[] {
     ),
     ...pair(
       12,
-      "c16",
+      id("c16"),
       "outreach1@gratovo.example",
       "hi@contextwindow.dev",
       "Sam",
@@ -823,6 +685,17 @@ function kitMessages(now: number): readonly NewMessage[] {
       "Hi Sam,\n\nYour test of what happens when you fill a model's whole context window was a good watch.\n\nWe work with AI tool brands. Would you be open to hearing about a sponsorship?\n\nMoustafa",
       "Hi Moustafa,\n\nOpen to it. A dedicated video is $900. Most of my viewers are in the US and Canada, ages 25-34.\n\nSam",
       "Thanks Sam, that helps. I will come back to you in a day or two.\n\nMoustafa",
+    ),
+    ...pair(
+      15,
+      id("c45"),
+      "outreach2@gratovo.example",
+      "hello@openweights.dev",
+      "Kira",
+      "Your open weights series",
+      "Hi Kira,\n\nYour weekly walk through which open model to pick, with the same test run on each, was easy to trust.\n\nWe work with AI tool brands and think one fits your channel. Would you be open to a paid sponsorship?\n\nMoustafa",
+      "Hi Moustafa,\n\nHappy to hear more. My media kit and the audience numbers are here: https://openweights.dev/kit\n\nKira",
+      "Thanks Kira, the audience numbers look strong. I will match them against our open briefs and come back to you this week.\n\nMoustafa",
     ),
   ];
 }
@@ -862,7 +735,7 @@ function messages(now: number): readonly NewMessage[] {
   return [
     out(
       "msg1",
-      "c8",
+      id("c8"),
       now - 2 * dayMs,
       "outreach1@gratovo.example",
       "team@shipai.dev",
@@ -872,7 +745,7 @@ function messages(now: number): readonly NewMessage[] {
     ),
     out(
       "msg2",
-      "c9",
+      id("c9"),
       now - 5 * dayMs,
       "outreach3@gratovo.example",
       "biz@diffusiondiaries.com",
@@ -882,7 +755,7 @@ function messages(now: number): readonly NewMessage[] {
     ),
     out(
       "msg3",
-      "c10",
+      id("c10"),
       now - 6 * dayMs,
       "outreach1@gratovo.example",
       "hi@vectorvlog.io",
@@ -892,7 +765,7 @@ function messages(now: number): readonly NewMessage[] {
     ),
     {
       id: "msg5",
-      creator: "c9",
+      creator: id("c9"),
       direction: "out",
       kind: "followUp",
       followUp: 1,
@@ -903,9 +776,9 @@ function messages(now: number): readonly NewMessage[] {
       mailbox: "outreach3@gratovo.example",
       peer: "biz@diffusiondiaries.com",
       peerName: "Theo",
-      conversationKey: "c:c9",
+      conversationKey: `c:${id("c9")}`,
       gmailMessageId: "gm-msg5",
-      gmailThreadId: "gt-c9",
+      gmailThreadId: `gt-${id("c9")}`,
       draftId: null,
       by: me,
       source: "app",
@@ -914,7 +787,7 @@ function messages(now: number): readonly NewMessage[] {
     ...kitMessages(now),
     {
       id: "msg4",
-      creator: "c10",
+      creator: id("c10"),
       direction: "in",
       kind: null,
       followUp: null,
@@ -925,9 +798,9 @@ function messages(now: number): readonly NewMessage[] {
       mailbox: "outreach1@gratovo.example",
       peer: "hi@vectorvlog.io",
       peerName: "Noor",
-      conversationKey: "c:c10",
+      conversationKey: `c:${id("c10")}`,
       gmailMessageId: "gm-msg4",
-      gmailThreadId: "gt-c10",
+      gmailThreadId: `gt-${id("c10")}`,
       draftId: null,
       by: null,
       source: "sweep",
@@ -959,7 +832,7 @@ function sequences(now: number): readonly Sequence[] {
   });
   return [
     {
-      creator: "c8",
+      creator: id("c8"),
       mailbox: "outreach1@gratovo.example",
       startedAt: now - 2 * dayMs,
       steps: [
@@ -971,7 +844,7 @@ function sequences(now: number): readonly Sequence[] {
       parkUntil: null,
     },
     {
-      creator: "c9",
+      creator: id("c9"),
       mailbox: "outreach3@gratovo.example",
       startedAt: now - 5 * dayMs,
       steps: [
@@ -1148,11 +1021,9 @@ function previewOf(body: string): string {
 }
 
 /**
- * The country of the example creators who have a draft, by creator id, for Send later's "Their
- * morning" (D21). The example data has no Find catalog to ask.
+ * The country of every example creator, by creator id, for Send later's "Their morning" (D21).
+ * The plain example copy has no Find catalog to ask.
  */
-export const exampleCountries: Readonly<Record<string, string>> = {
-  c6: "US",
-  c13: "GB",
-  c7: "IN",
-};
+export const exampleCountries: Readonly<Record<string, string>> = Object.fromEntries(
+  exampleRoster(0).map(({ creator, channel }) => [creator.id, channel.country]),
+);

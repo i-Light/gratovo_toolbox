@@ -32,6 +32,7 @@ export function firstSeed(base: ExampleSeed, now: number): ExampleSeed {
     presence: Object.fromEntries(Object.entries(base.presence).filter(([id]) => id === base.me)),
     counts: { today: 0, plannedMinutes: 0, find: 0, reach: 0, close: 0, deliver: 0 },
     creators: [],
+    channels: [],
     kits: {},
     brands: [],
     deals: [],

@@ -48,6 +48,7 @@ _CHANNEL_COLUMNS: Final = (
     "median_known",
     "videos_last_30_known",
 )
+_VIDEO_COLUMNS: Final = ("video_id", "channel_id", "title", "published_at", "view_count")
 _KEYWORD_COLUMNS: Final = ("keyword", "status", "channels_found", "added_at", "completed_at")
 _LINK_COLUMNS: Final = ("channel_id", "keyword", "discovered_at", "source")
 _RUN_COLUMNS: Final = (
@@ -181,6 +182,8 @@ def expand_archive(archive: dict[str, Any], pending: list[dict[str, Any]]) -> li
 def load(conn: sqlite3.Connection, history: dict[str, Any]) -> ExampleLoadData:
     """Writes the history in one transaction (BEGIN IMMEDIATE, as the store's `_atomic`)."""
     channels = cast("list[dict[str, Any]]", history["channels"])
+    # The seed creators' videos: absent in a history written before they existed.
+    videos = cast("list[dict[str, Any]]", history.get("videos", []))
     keywords = cast("list[dict[str, Any]]", history["keywords"])
     links = cast("list[dict[str, Any]]", history["links"])
     runs = cast("list[dict[str, Any]]", history["runs"])
@@ -189,6 +192,19 @@ def load(conn: sqlite3.Connection, history: dict[str, Any]) -> ExampleLoadData:
     conn.execute("BEGIN IMMEDIATE")
     try:
         conn.executemany(_insert("channels", _CHANNEL_COLUMNS), _rows(channels, _CHANNEL_COLUMNS))
+        # The stamp a read leaves: the channel's own `videos_fetched_at` (or the video's date).
+        fetched = {c["channel_id"]: c["videos_fetched_at"] for c in channels}
+        conn.executemany(
+            "INSERT INTO videos (video_id, channel_id, title, published_at, view_count,"
+            " last_fetched_at, last_fetch_status) VALUES (?, ?, ?, ?, ?, ?, 'success')",
+            [
+                (
+                    *(v[c] for c in _VIDEO_COLUMNS),
+                    fetched.get(v["channel_id"]) or v["published_at"],
+                )
+                for v in videos
+            ],
+        )
         conn.executemany(_insert("keywords", _KEYWORD_COLUMNS), _rows(keywords, _KEYWORD_COLUMNS))
         conn.executemany(_insert("channel_keywords", _LINK_COLUMNS), _rows(links, _LINK_COLUMNS))
         conn.executemany(_insert("runs", _RUN_COLUMNS), _rows(runs, _RUN_COLUMNS))

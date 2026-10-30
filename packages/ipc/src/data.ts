@@ -1,6 +1,7 @@
 import { DEAL_FLOW } from "@gratovo/core";
 import {
   agencyRoles,
+  brandStatuses,
   draftBodyMax,
   draftSubjectMax,
   personDraftStates,
@@ -18,10 +19,8 @@ import {
   notificationIcons,
   rejectReasons,
   replyFactKeys,
-  type Brand,
   type Creator,
   type DataWrite,
-  type Deal,
   type EditConflict,
   type Frame,
   type FrameNotification,
@@ -35,6 +34,9 @@ import {
 import { z } from "zod";
 
 import { reachDataSchema } from "./reach";
+import { brandSchema, creatorDetailsSchema, dealSchema } from "./work";
+
+export { brandSchema, creatorDetailsSchema, dealSchema } from "./work";
 
 /**
  * The schemas of the data channels. Each is typed against the core type it describes, so the
@@ -194,22 +196,7 @@ export const creatorSchema: z.ZodType<Creator, Creator> = z.strictObject({
   neverReason: z.string().max(neverReasonMax).nullable(),
   archiveDueAt: time.nullable(),
   kit: kitSchema.nullable(),
-});
-
-export const brandSchema: z.ZodType<Brand> = z.strictObject({
-  id,
-  name: text,
-  sells: text,
-  status: text,
-});
-
-export const dealSchema: z.ZodType<Deal> = z.strictObject({
-  id,
-  brand: id,
-  creator: id,
-  step: count,
-  // Null when the member may not see money: the main process strips it before the frame leaves.
-  price: z.number().nonnegative().nullable(),
+  details: z.exactOptional(creatorDetailsSchema),
 });
 
 export const mateRunSchema: z.ZodType<MateRun> = z.strictObject({
@@ -344,7 +331,7 @@ export const dataWriteSchema: z.ZodType<DataWrite> = z.discriminatedUnion("kind"
     id,
     name: z.string().min(1).max(textMax),
     sells: z.string().max(500),
-    status: z.string().max(40),
+    status: z.enum(brandStatuses),
   }),
   z.strictObject({
     kind: z.literal("deal.step"),

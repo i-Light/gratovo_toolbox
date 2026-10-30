@@ -1,4 +1,10 @@
-import { exampleFrame, type DataSource, type Frame, type StoredDraft } from "@gratovo/core/data";
+import {
+  exampleChannelId as ch,
+  exampleFrame,
+  type DataSource,
+  type Frame,
+  type StoredDraft,
+} from "@gratovo/core/data";
 import { describe, expect, it, vi } from "vitest";
 
 import { zoneOf } from "@gratovo/core/reach";
@@ -18,7 +24,7 @@ const frame = exampleFrame(Date.UTC(2026, 9, 20));
 function draft(over: Partial<StoredDraft>): StoredDraft {
   return {
     id: "d",
-    creator: "c1",
+    creator: ch("c1"),
     kind: "first",
     state: "ready",
     ...over,
@@ -88,7 +94,8 @@ describe("the Reach service", () => {
         draft({ id: "f", kind: "reply", state: "skipped" }),
       ]),
     );
-    expect(out.counts.reach).toBe(3);
+    // The three drafts above, and the two replies the seed leaves waiting for an answer.
+    expect(out.counts.reach).toBe(5);
     expect(out.reach.gemini).toBe("no_sender");
     expect(out.reach.mailboxes).toEqual([]);
   });
@@ -115,7 +122,7 @@ describe("the Reach service", () => {
 
   it("strips a reply's rate from the readings when the member can't see money", async () => {
     const { service } = make();
-    const creator = frame.creators[0]?.id ?? "c1";
+    const creator = frame.creators[0]?.id ?? ch("c1");
     const reading = {
       replyType: "inf.gives_rate",
       label: "Rate",
@@ -158,10 +165,10 @@ describe("the Reach service", () => {
 
   it("answers no_data with no source, and the thread with one", async () => {
     const none = make({ source: () => null, mode: () => null });
-    expect(await none.service.thread("c1")).toEqual({ ok: false, problem: "no_data" });
+    expect(await none.service.thread(ch("c1"))).toEqual({ ok: false, problem: "no_data" });
     expect(await none.service.refreshMailboxes()).toEqual({ ok: false, problem: "no_data" });
     const some = make();
-    expect(await some.service.thread("c1")).toEqual({ ok: true, messages: [] });
+    expect(await some.service.thread(ch("c1"))).toEqual({ ok: true, messages: [] });
   });
 
   it("tells the page at most once per gap", async () => {
@@ -463,17 +470,17 @@ describe("reach:send-test", () => {
 
 describe("the zones overlay", () => {
   const open = [
-    draft({ id: "a", creator: "c6", state: "ready" }),
-    draft({ id: "b", creator: "c13", state: "approved" }),
-    draft({ id: "c", creator: "c7", state: "sent" }),
+    draft({ id: "a", creator: ch("c6"), state: "ready" }),
+    draft({ id: "b", creator: ch("c13"), state: "approved" }),
+    draft({ id: "c", creator: ch("c7"), state: "sent" }),
     draft({ id: "d", creator: "cx", state: "ready" }),
   ];
 
   it("gives the example creators with an open draft their zone", async () => {
     const { service } = make();
     const out = await service.overlay(withDrafts(open));
-    expect(Object.keys(out.reach.zones)).toEqual(["c6", "c13"]);
-    expect(out.reach.zones["c6"]).toBe(zoneOf("US"));
+    expect(Object.keys(out.reach.zones)).toEqual([ch("c6"), ch("c13")]);
+    expect(out.reach.zones[ch("c6")]).toBe(zoneOf("US"));
   });
 
   it("asks the catalog for the creators with an open draft and skips unknown countries", async () => {
@@ -484,15 +491,15 @@ describe("the zones overlay", () => {
         asked.push(ids);
         return Promise.resolve(
           new Map([
-            ["c6", "DE"],
-            ["c13", "ZZ"],
+            [ch("c6"), "DE"],
+            [ch("c13"), "ZZ"],
           ]),
         );
       },
     });
     const out = await service.overlay(withDrafts(open));
-    expect(asked).toEqual([["c6", "c13", "cx"]]);
-    expect(out.reach.zones).toEqual({ c6: zoneOf("DE") });
+    expect(asked).toEqual([[ch("c6"), ch("c13"), "cx"]]);
+    expect(out.reach.zones).toEqual({ [ch("c6")]: zoneOf("DE") });
   });
 
   it("keeps the frame when the catalog fails", async () => {

@@ -1,3 +1,4 @@
+import { bareBrand } from "@gratovo/core/data";
 import type { DataWrite } from "@gratovo/core/data";
 import type { Bridge, InvokeResult } from "@gratovo/ipc/bridge";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -353,8 +354,8 @@ describe("diffData", () => {
 
   it("writes a new or changed brand, but not a removed one", () => {
     const b0 = base.brands[0] as AppData["brands"][number];
-    const changed = { ...b0, status: b0.status === "won" ? "found" : "won" };
-    const fresh = { id: "b-new", name: "Nova", sells: "AI notes", status: "found" };
+    const changed = { ...b0, status: b0.status === "won" ? ("found" as const) : ("won" as const) };
+    const fresh = bareBrand({ id: "b-new", name: "Nova", sells: "AI notes", status: "found" });
     const after = { ...base, brands: [changed, ...base.brands.slice(1), fresh] };
     expect(diffData(base, after)).toEqual({
       writes: [

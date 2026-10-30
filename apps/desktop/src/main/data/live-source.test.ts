@@ -13,9 +13,10 @@ import { openLiveSource } from "./live-source";
 import {
   listProfiles,
   replaceMemberAccess,
-  upsertBrand,
+  upsertBrandDetails,
   upsertCreator,
-  upsertDeal,
+  upsertCreatorDetails,
+  upsertDealDetails,
   upsertNotification,
   upsertProfile,
 } from "./repositories";
@@ -38,6 +39,9 @@ function seedLiveFile(file: string, now: number): void {
     );
     for (const creator of fixtures.creators) {
       upsertCreator(db, creator, now);
+      if (creator.details !== undefined) {
+        upsertCreatorDetails(db, creator.id, creator.details);
+      }
     }
     // The sync would bring each creator's kit columns too.
     for (const [id, kit] of Object.entries(fixtures.kits)) {
@@ -51,10 +55,10 @@ function seedLiveFile(file: string, now: number): void {
       );
     }
     for (const brand of fixtures.brands) {
-      upsertBrand(db, brand, now);
+      upsertBrandDetails(db, brand, now);
     }
     for (const deal of fixtures.deals) {
-      upsertDeal(db, deal, now);
+      upsertDealDetails(db, deal, now);
     }
     for (const notification of fixtures.notifications) {
       upsertNotification(db, notification);
