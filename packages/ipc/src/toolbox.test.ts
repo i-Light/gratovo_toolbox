@@ -36,6 +36,11 @@ const item = {
   hasNumbers: true,
   uploadsRead: true,
   readFailed: false,
+  trimmedAverage: null,
+  viewStability: null,
+  stars: null,
+  format: null,
+  botRisk: null,
   dueAt: null,
 };
 

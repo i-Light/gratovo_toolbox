@@ -40,18 +40,80 @@ One part per session (plan §10 rule 5). Each part starts by writing its own con
 | P9 | Team work on example data, Toolbox › Notifications | M | P4 |
 | P10 | Full prototype flow suite, review, owner walk-through | M | all |
 
-## P1 task outline (its session writes the contracts first)
+## P1: foundations (contracts written 2026-10-30)
 
-| id | Task | Tier |
+Owner, 2026-10-30: "Finish step P". The parts run one after another, each its own pull request, in the plan's order (P1, P8b, P2 to P7, P9, P10).
+
+### Decisions
+
+- **F1. Contracts in code.** `packages/core/src/data/work-types.ts` (the full `Brand`, `Deal`, `CreatorDetails`, `AgencyFacts`, the clause and check lists, `bareBrand`/`bareDeal`), `packages/core/src/close/engine-types.ts` (pricing, packages, matching, `NextAction`), `packages/ipc/src/work.ts` (their schemas). Builders change them only by asking the lead.
+- **F2. Local-only tables**, migration `0008-details.ts`: `brand_details`, `deal_details`, `creator_details` (columns below). The sync's lists (`mirror-tables.ts`, `whole-tables.ts`) never name them; a test says so. The synced columns stay the source for what they hold (name, sells, status, category, country, website, contacts, budget (the low end), brand_price, influencer_payout, deliverables, payment_terms, invoice sent and paid, payout paid, payment reference, tracking link, owner, created_at, flow_step); the detail tables hold the rest.
+- **F3. Absent is "not known".** A brand or deal with no detail row reads as `bareBrand`/`bareDeal` over its synced columns; a creator with no detail row has no `details`. Never 0 or "".
+- **F4. Money stripped in main.** For a viewer who doesn't see money: `Brand.budget`, `Deal.price`, `payout`, `cpm` and `negotiation` are null (the `*Known` flag stays), as `Deal.price` was.
+- **F5. Channel facts are computed, not stored**, where the pipeline has the numbers: `trimmedAverage`, `viewStability` and `stars` come from the catalog's videos and medians in core (`find/channel-facts.ts`). `format` and `botRisk` can't be computed from what the pipeline reads, so they are stored in `creator_details` (example data now; the pipeline later).
+- **F6. The seed's creators become catalog channels** in prototype mode: their ids change to the pipeline's shape (`UC` + 22 characters), and the history's `pipeline` part carries their channels and videos, so Find, the record and the Close engine see one creator, not two. The plain example copy (signed out, the Electron tests) keeps no pipeline rows, as before.
+- **F7. v6's rule codes stay out of the app's words** ("(BRD-CONTRACT-09)", "HC-24" and the like): the owner's writing rule is plain words, no jargon. The DEAL_FLOW port and its drift test strip them.
+- **F9. The engine's prices are money.** `Match.price`, `Package.price`, `priceFor` and `payoutFor` are worked out from views and the agency's CPM, so a screen shows them only when `Frame.seesMoney` (the renderer hides them; the engine stays pure). A viewer without money matches without budgets (they are stripped), so their best brand can differ: acceptable, because pitching a brand is the owner's and the deal lead's work, who see money (P1 review, 2026-10-30).
+- **F10. Synced values are cleaned to the schema's limits when read** (P1 review): a country that isn't two letters, a category over 40 characters, an over-long text, a negative amount read as not known or cut, so one odd legacy row can never stop the frame from loading.
+- **F8. Today's day state** (snooze, done, the day's budget and note, hand-offs) is P4's to design: P1 adds no table for it.
+
+### Tables (migration 0008, local only)
+
+```sql
+CREATE TABLE brand_details (
+  brand_id TEXT PRIMARY KEY,
+  headcount INTEGER, recommended_title TEXT, paid_spender_verified INTEGER,
+  past_campaign_hook TEXT, budget_high REAL, seen TEXT NOT NULL DEFAULT '[]',
+  since INTEGER, pitched TEXT, owner_id TEXT, status TEXT
+) STRICT;  -- status: the full BrandStatus ("lost" included); overrides brands.status when set
+CREATE TABLE deal_details (
+  deal_id TEXT PRIMARY KEY,
+  model TEXT, checks TEXT NOT NULL DEFAULT '[]', video_count INTEGER NOT NULL DEFAULT 1,
+  videos_delivered INTEGER NOT NULL DEFAULT 0, creator_deadline INTEGER, go_live_at INTEGER,
+  due_at INTEGER, placement TEXT, invoice_number TEXT, invoice_due_at INTEGER, report TEXT,
+  live_url TEXT, clauses TEXT NOT NULL DEFAULT '[]', redlines TEXT NOT NULL DEFAULT '[]',
+  shipping TEXT, script_approved INTEGER NOT NULL DEFAULT 0, qc TEXT NOT NULL DEFAULT '[]',
+  hype TEXT, whitelisting_until INTEGER, cpm TEXT, negotiation TEXT
+) STRICT;  -- JSON in the TEXT columns, shaped as the core types
+CREATE TABLE creator_details (
+  channel_id TEXT PRIMARY KEY,
+  owner_id TEXT, relationship TEXT, last_update_at INTEGER, locks TEXT NOT NULL DEFAULT '[]',
+  next_open_slot INTEGER, onboarding TEXT, format TEXT, bot_risk TEXT, bot_note TEXT,
+  socials TEXT NOT NULL DEFAULT '{}'
+) STRICT;
+```
+
+Times in the new tables are ms integers. A JSON column that doesn't parse, or an enum value the app doesn't know, reads as not known (null or empty), never throws.
+
+### Engine (`packages/core/src/close/`, types in `engine-types.ts`)
+
+| File | Exports | From v6 |
 |---|---|---|
-| P1-0 | Contracts: the full `Brand`, `Deal`, creator extras and day-state types in `packages/core/src/data/types.ts`; the local tables (migration 0007); the frame and IPC shapes that carry them. Written into this file before building | H |
-| P1-1 | Migration 0007: local-only `brand_details`, `deal_details`, `creator_details`, `day_state` (or columns, per P1-0), with migrate tests; confirm the sync never reads them | N |
-| P1-2 | Core types and readers: main reads the new fields into the frame; live rows without them read as "not known", never 0 | N |
-| P1-3 | The example seed at v6's size, the four scenarios, `example.test.ts` updated | N |
-| P1-4 | Core engine ports with tests: `match`, `priceFor`, `payoutFor`, `buildPackagesFor`, `bestBrandFor`, `nextFor` (`engine.js:62-192`) | N |
-| P1-5 | The no-drift check (D3) | E |
-| P1-6 | Drift tests to v6 (D7) | N |
-| P1-7 | Review, docs (architecture, status table, PROGRESS), pull request | H |
+| `pricing.ts` | `priceFor(c: PriceInput, facts, opts?): number`; `payoutFor(c: PriceInput, gross, facts): number`; `packagesFor(cs: readonly (PriceInput & { id: string })[], facts): Package[]` (single, bundle of 3, takeover) | `engine.js:62-102`; markup and commission from `facts`; round to $50 |
+| `match.ts` | `matchOf(brand, c: MatchCreator, world: MatchWorld): Match`; `bestBrandFor(c, world): { brandId: string; match: Match } or null` (qualified or won brands, no warnings, best score) | `engine.js:104-136, 193-197` |
+| `next.ts` | `nextFor(ref: RecordRef, world: NextWorld): NextAction or null` | `engine.js:139-192`; drafts and sequences from `ReachData` (creator drafts only until P5 adds brand drafts) |
+
+### Channel facts (`packages/core/src/find/channel-facts.ts`)
+
+- `trimmedAverage(views: readonly (number | null)[]): number | null`: the newest 12 known counts (the list is newest first); with 5 or more, drop the highest and the lowest; the mean, rounded. Null under 3 known.
+- `viewStability(views): "stable" | "volatile" | null`: the same newest 12 known; volatile when the (population) standard deviation is over half the mean. Null under 3 known.
+- `starRating({ medianViews, engagement, uploads30 }): 1 | 2 | 3 | 4 | 5`: 5 when median at least 60K, engagement at least 4.5% and 3 to 12 uploads; 4 when median at least 45K and 3+ uploads; 3 when median at least 30K; else 2. Unknown engagement is not 4.5% or more. `CatalogItem.stars` is null when its numbers aren't read (`hasNumbers` false or uploads unread).
+- `CatalogItem` gains `trimmedAverage`, `viewStability`, `stars`, `format`, `botRisk` (the last two from the creator state's `details`; null without).
+
+### Tasks
+
+Tiers per plan §10. Agents don't stage, commit or stash; the lead commits named paths once no agent runs.
+
+| id | Task | Tier | Depends | Files | Done-check |
+|---|---|---|---|---|---|
+| P1-0 | Contracts (F1) | H | — | core/data/work-types.ts, core/close/engine-types.ts, ipc/work.ts | typecheck: **done** |
+| P1-1 | Migration 0008, repositories that read and write the detail tables, the frame's full brands and deals (money stripped, F4), creators' and creator states' `details`, the sync-lists test; fix the type fixtures this breaks in main and the renderer | N | P1-0 | main/db, main/data, main/sync test, renderer test fixtures | vitest on main/data, main/db, main/sync |
+| P1-2 | Channel facts in core with tests; `CatalogItem`'s new fields filled in `main/find/catalog.ts` | N | P1-0 | core/find, main/find | vitest on core/find, main/find |
+| P1-3 | The example seed at v6's size (F6): v6's creators (stages, details, videos), brands and deals with every field, the four scenarios, `example.test.ts`; the seed writes the detail tables; the history's pipeline part carries the seed's channels | N | P1-1, P1-6 | core/data/example*.ts, main/data/example-source.ts, main/insights/example-history.ts | vitest on core/data, main/data, main/insights |
+| P1-4 | Engine ports with tests (pricing, match, next) | N | P1-0 | core/close | vitest on core/close, 100% branches |
+| P1-5 | The no-drift check (ADR 0021 D3) | E | — | renderer/no-drift.test.ts | vitest |
+| P1-6 | Drift tests to v6 (D7); DEAL_FLOW from v6 with F7 | N | — | core/deal-flow*, ui tests, ui/testing | vitest on core and ui |
+| P1-7 | Review, docs (architecture, the status table, PROGRESS), `pnpm verify`, pull request, merge | H | all | docs | `pnpm verify --status` |
 
 Done-check for P1: `pnpm lint`, `pnpm typecheck`, `pnpm test` pass; prototype mode opens all four scenarios with the larger seed; live mode unchanged (`wired.test.ts`, the existing Electron tests).
 

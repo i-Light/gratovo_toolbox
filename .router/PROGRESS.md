@@ -1,6 +1,6 @@
 # Progress
 
-The owner asked for the full prototype on 2026-10-27 (ADR 0021, migration plan step P). It runs now; steps 7 to 9 are built inside it and then wired.
+The owner asked for the full prototype on 2026-10-27 (ADR 0021, migration plan step P). It runs now; steps 7 to 9 are built inside it and then wired. On 2026-10-30 the owner asked to finish step P: the parts run one after another, each its own pull request.
 
 ## Step P (in progress)
 
@@ -10,8 +10,8 @@ Working plan: [PLAN.md](PLAN.md). Gap list and conflicts: [GAPS.md](GAPS.md).
 |---|---|---|
 | plan | ADR 0021, the plan change, this working plan, the gap map of v6 against the app | **Done** 2026-10-27, branch `feat/full-prototype` |
 | P8a | Insights without deals and money, with its example history; live on real data | **Done** 2026-10-29 (ADR 0022). Owner split P8 in two on 2026-10-28: P8a first, then P1, then P8b |
-| P1 | Foundations | **Next.** Start with P1-0 (the contracts, Tier H) and write them into PLAN.md before building |
-| P8b | Insights' deals and money (Money, Funnel › Brands, the deal and money parts of Overview and Goal) | **After P1** |
+| P1 | Foundations | **Done** 2026-10-30, branch `feat/p1-foundations` (PLAN.md "P1: foundations", decisions F1-F10). Left for P2: the plain example copy (signed out) has no pipeline rows, so a creator record there shows little beyond the summary |
+| P8b | Insights' deals and money (Money, Funnel › Brands, the deal and money parts of Overview and Goal) | **Next** |
 | P2 to P7, P9, P10 | See PLAN.md | Not started |
 
 Owner answers so far are in ADR 0021 D6. Still to put to the owner when their part starts: the creator record's tab names beyond Overview, Emails, Deals, Notes and Activity (proposed: Channel, Videos, Sponsors, Contacts, Audience), checked in prototype mode after P2.

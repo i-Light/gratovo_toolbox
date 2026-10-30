@@ -24,6 +24,7 @@ import {
   toggleTray,
   undo,
 } from "./actions";
+import { exampleData } from "./example-data";
 import { getPrefs, initPrefs, prefsKey } from "./prefs";
 import type { Route } from "./routes";
 import { appStore, resetAppStoreForTests, selectRoute } from "./store";
@@ -33,6 +34,9 @@ const now = new Date(2026, 9, 19, 10, 24, 0).getTime();
 
 const ui = () => appStore().getState().ui;
 const data = () => appStore().getState().data;
+/** The log lines the seed starts with; tests look only at the lines added after them. */
+const seedLines = exampleData(now).log.length;
+const added = () => data().log.slice(0, data().log.length - seedLines);
 const unread = () => data().notifications.filter((n) => !n.read).length;
 
 /** A recipe that changes the name, so each call is a recorded change. */
@@ -58,14 +62,14 @@ describe("act", () => {
     expect(act("Renamed", (d) => (setName("Ana")(d), 7))).toBe(7);
     expect(data().myName).toBe("Ana");
     act("Renamed again", setName("Bo"));
-    expect(data().log.map((l) => l.text)).toEqual(["Renamed again", "Renamed"]);
+    expect(added().map((l) => l.text)).toEqual(["Renamed again", "Renamed"]);
     expect(data().log[0]).toMatchObject({ at: now, who: "u1" });
   });
 
   it("gives each log line a UUID, so ids never collide with lines saved before a restart", () => {
     act("One", setName("Ana"));
     act("Two", setName("Bo"));
-    const ids = data().log.map((l) => l.id);
+    const ids = added().map((l) => l.id);
     for (const id of ids) {
       expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
     }
@@ -74,7 +78,7 @@ describe("act", () => {
 
   it("leaves out the log line with log: false", () => {
     act("Quiet", setName("Ana"), { log: false });
-    expect(data().log).toEqual([]);
+    expect(added()).toEqual([]);
     expect(data().myName).toBe("Ana");
   });
 
@@ -86,7 +90,7 @@ describe("act", () => {
       }),
     ).toBe(false);
     expect(data().myName).toBeNull();
-    expect(data().log).toEqual([]);
+    expect(added()).toEqual([]);
     expect(appStore().peekUndo()).toBeUndefined();
     expect(ui().saving).toBe(false);
     expect(ui().toasts).toEqual([]);
@@ -320,7 +324,7 @@ describe("notifications", () => {
     expect(unread()).toBe(3);
     markAllRead();
     expect(unread()).toBe(0);
-    expect(data().log).toEqual([]);
+    expect(added()).toEqual([]);
     undo();
     expect(unread()).toBe(3);
     expect(ui().toasts.at(-1)?.sub).toBe("Marked notifications read");
@@ -383,7 +387,7 @@ describe("setMyName", () => {
   it("is not undoable and leaves no log line", () => {
     act("Renamed", setName("Ana"));
     setMyName("Ada");
-    expect(data().log).toHaveLength(1);
+    expect(added()).toHaveLength(1);
     undo();
     expect(data().myName).toBe("Ada");
     undo();
@@ -438,7 +442,7 @@ describe("setNotify", () => {
   it("turns a kind off and on, with no log line, and flashes the row", () => {
     setNotify("reply", false);
     expect(data().settings.notify).toEqual({ reply: false });
-    expect(data().log).toEqual([]);
+    expect(added()).toEqual([]);
     expect(ui().settingFlash?.id).toBe("notify");
     setNotify("reply", true);
     expect(data().settings.notify).toEqual({ reply: true });

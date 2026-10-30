@@ -45,6 +45,11 @@ function item(id: string, name: string): CatalogItem {
     hasNumbers: true,
     uploadsRead: true,
     readFailed: false,
+    trimmedAverage: null,
+    viewStability: null,
+    stars: null,
+    format: null,
+    botRisk: null,
   };
 }
 

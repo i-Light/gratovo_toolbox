@@ -42,7 +42,11 @@ test.describe("the overlays", () => {
     page,
   }) => {
     await openPromptLabInPeek(page);
-    await expect(peekPanel(page).getByText(strings.record.fullRecordLater)).toBeVisible();
+    // Prompt Lab is in the catalog, so the peek shows the full creator record, not the summary.
+    await expect(
+      peekPanel(page).getByRole("tablist", { name: strings.creatorRecord.tabsLabel }),
+    ).toBeVisible();
+    await expect(peekPanel(page).getByText(strings.record.fullRecordLater)).toBeHidden();
 
     await page.keyboard.press("Escape");
     await expect(peekPanel(page)).toBeHidden();

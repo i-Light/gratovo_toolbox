@@ -62,6 +62,44 @@ export type {
   RejectReason,
   TeamMember,
 } from "./types";
+export {
+  bareBrand,
+  bareDeal,
+  botRiskLevels,
+  brandContactsMax,
+  brandStatuses,
+  contractClauses,
+  creatorFormats,
+  defaultAgencyFacts,
+  noDetails,
+  qcChecks,
+  redlineClauses,
+  relationshipModels,
+} from "./work-types";
+export type {
+  AgencyFacts,
+  BotRisk,
+  BotRiskLevel,
+  BrandContact,
+  BrandPitch,
+  BrandStatus,
+  BudgetRange,
+  ContractClause,
+  CreatorDetails,
+  CreatorFormat,
+  CreatorOnboarding,
+  DealCpm,
+  DealHype,
+  DealInvoice,
+  DealNegotiation,
+  DealOffer,
+  DealReport,
+  DealShipping,
+  ExclusivityLock,
+  QcCheck,
+  RedlineClause,
+  RelationshipModel,
+} from "./work-types";
 export { logPhrases, logText, logTextMax } from "./log-text";
 export type { LogTextRow } from "./log-text";
 export { mentionsMoney, moneyFields } from "./money";
@@ -129,6 +167,8 @@ export type {
 } from "./outreach-store";
 export type { InsightsLocal, InsightsLocalCreator, InsightsStore } from "./insights-store";
 export { exampleHistory } from "./example-history";
+export { exampleChannelId, exampleVideoId } from "./example-roster";
+export type { ExampleChannel, ExampleVideo } from "./example-roster";
 export type {
   ArchiveTuple,
   ExampleHistory,
@@ -145,5 +185,6 @@ export type {
   HistoryPendingRow,
   HistoryRunRow,
   HistorySequenceRow,
+  HistoryVideoRow,
   HistoryWeekRow,
 } from "./example-history";

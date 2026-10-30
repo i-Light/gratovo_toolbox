@@ -8,6 +8,9 @@
 import type { InsightsStore } from "./insights-store";
 import type { OutreachStore } from "./outreach-store";
 import type { PersonDraftState, ReachData, ReplyFactKey } from "./reach-types";
+import type { Brand, BrandStatus, CreatorDetails, Deal } from "./work-types";
+
+export type { Brand, Deal } from "./work-types";
 
 /** What a person may do in the app; the only roles Supabase's `profiles.role` knows. */
 export type AppRole = "unauthorized" | "basic" | "full";
@@ -256,6 +259,11 @@ export interface Creator {
    * nothing is known. `kit.rate` is null for a viewer who doesn't see money (D10).
    */
   readonly kit: CreatorKit | null;
+  /**
+   * What the app knows beyond the synced row (`creator_details`, plan step P1). Absent when there
+   * is no row: nothing is known.
+   */
+  readonly details?: CreatorDetails;
 }
 
 /**
@@ -293,29 +301,8 @@ export interface CreatorState {
   readonly hasAppStage: boolean;
   /** The newest visible activity line about the creator: when, and the actor's name. */
   readonly lastActivity: { readonly at: number; readonly who: string } | null;
-}
-
-/** A company that sponsors creators. */
-export interface Brand {
-  readonly id: string;
-  readonly name: string;
-  /** What the brand sells, in a few words. */
-  readonly sells: string;
-  /** Where the brand is: found, qualified, pitched, negotiating or won. */
-  readonly status: string;
-}
-
-/** A sponsorship between one brand and one creator. */
-export interface Deal {
-  readonly id: string;
-  /** A brand id. */
-  readonly brand: string;
-  /** A creator id. */
-  readonly creator: string;
-  /** An index into DEAL_FLOW. */
-  readonly step: number;
-  /** What the brand pays, in dollars; null when the signed-in member may not see money. */
-  readonly price: number | null;
+  /** As `Creator.details`. */
+  readonly details?: CreatorDetails;
 }
 
 /** A change of yours that met a different value on the server: you choose which one stays. */
@@ -461,7 +448,7 @@ export type DataWrite =
       readonly id: string;
       readonly name: string;
       readonly sells: string;
-      readonly status: string;
+      readonly status: BrandStatus;
     }
   /** A deal's step: an index into DEAL_FLOW, 0 to DEAL_FLOW.length - 1. */
   | { readonly kind: "deal.step"; readonly id: string; readonly step: number }

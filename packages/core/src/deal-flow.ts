@@ -28,8 +28,9 @@ export interface DealStep {
  * The deal journey, from agreeing the price to pitching the next creator. Money is tracked beside
  * the steps, and "Pay creator" stays locked until the brand has paid.
  *
- * Ported from the prototype's `W.DEAL_FLOW` (design/workbench-prototype/js/data.js), with `k`
- * renamed to `key`. A test keeps the two in step while the prototype is the spec.
+ * Ported from the design's `W.DEAL_FLOW` (design/workbench-v6/js/data.js), with `k` renamed to
+ * `key` and the design's rule codes left out of the words (P1 decision F7). A test keeps the two
+ * in step while the design is the spec.
  */
 export const DEAL_FLOW: readonly DealStep[] = [
   {
@@ -46,57 +47,72 @@ export const DEAL_FLOW: readonly DealStep[] = [
     key: "contracts",
     name: "Contracts",
     items: [
-      "Brand's contract received",
-      "Mirrored for the creator",
-      "Creator signed",
-      "Agency signed with the brand",
+      "Brand's order (insertion order) received and marked up",
+      "Brand signed the order first",
+      "Matching creator contract written",
+      "Creator signed the matching agreement",
     ],
     ordered: true,
-    note: "Runs in order: the creator signs before the agency signs with the brand.",
+    note: "Runs in strict order. The brand signs its order first (or locks the terms). Then the creator signs the matching agreement, with a draft deadline 5 days earlier than the brand's.",
   },
   {
     key: "brief",
-    name: "Brief",
-    items: ["Brief sent to the creator", "Creator confirmed the date"],
+    name: "Brief & Ship",
+    items: [
+      "Brief translated into creator voice",
+      "Product shipped, and tracking or a demo account confirmed",
+      "Creator confirmed a firm draft deadline, 5 days early",
+    ],
   },
   {
     key: "draft",
-    name: "Draft review",
-    items: ["Draft received", "Checked against the brief", "Brand approved the draft"],
+    name: "Draft and checks",
+    items: [
+      "Script or outline approved before filming",
+      "Unlisted video draft received from creator",
+      "Our 5-point check passed (no music, #ad shown)",
+      "Brand approved the draft (within 2 rounds of changes)",
+    ],
   },
   {
     key: "prelive",
     name: "Pre-live checks",
     items: [
-      "Tracking link opens the right page",
-      "Placement matches the brief",
-      "Promo code works",
+      "Tracking link opens the landing page cleanly",
+      "Integration placed in first third of video",
+      "Promo code and the link in the first 3 lines of the description checked",
     ],
   },
   {
     key: "golive",
     name: "Go-live",
-    items: ["Video is live, link saved", "Go-live email sent to the brand"],
+    items: [
+      "Video is live, public link saved",
+      "Same-day go-live email and PDF invoice sent to the brand",
+    ],
   },
   {
     key: "invoice",
     name: "Invoice",
-    items: ["Invoice sent on go-live day (Net 30)"],
+    items: ["Invoice sent on go-live day (Net 30 clock running)"],
   },
   {
     key: "report",
     name: "30-day report",
-    items: ["Views and clicks read", "Report sent to the brand"],
+    items: [
+      "YouTube Studio 30-day retention and link clicks pulled",
+      "30-day results report sent to the brand (or an offer to fix it, if results fell short)",
+    ],
   },
   {
     key: "pay",
     name: "Pay creator",
-    items: ["Creator paid"],
+    items: ["Creator payout released via Wise/PayPal/ACH"],
     lockedUntilPaid: true,
   },
   {
     key: "next",
     name: "Next deal",
-    items: ["Next creator pitched to this brand"],
+    items: ["Pitch for the next creator sent to the brand (ongoing deal or one-off)"],
   },
 ];

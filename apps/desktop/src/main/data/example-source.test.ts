@@ -93,6 +93,51 @@ describe("example source", () => {
     }
   });
 
+  it("writes the details of every creator, brand and deal into the local-only tables", async () => {
+    const source = start();
+    const seed = exampleSeed(contractNow);
+    source.close();
+    open.length = 0;
+    const db = openDatabase(file);
+    try {
+      const count = (table: string): number =>
+        Number(db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get()?.["n"]);
+      expect(count("creator_details")).toBe(seed.creators.length);
+      expect(count("brand_details")).toBe(seed.brands.length);
+      expect(count("deal_details")).toBe(seed.deals.length);
+      // The deals are priced and dated in the synced columns too.
+      const rows = db.prepare("SELECT brand_price, created_at FROM deals").all();
+      expect(rows).toHaveLength(seed.deals.length);
+      for (const row of rows) {
+        expect(Number(row["brand_price"])).toBeGreaterThan(0);
+        expect(Number.isNaN(Date.parse(String(row["created_at"])))).toBe(false);
+      }
+    } finally {
+      db.close();
+    }
+    // Reading them back gives the seed's creators with their details, all of them.
+    const frame = await start().frame();
+    expect(frame.creators.every((c) => c.details !== undefined)).toBe(true);
+    expect(frame.creators).toEqual(seed.creators);
+  });
+
+  it("seeds the first day with no details, and a fresh open clears the old ones", async () => {
+    start({ fresh: true });
+    const first = start({ fresh: true, scenario: "first" });
+    const frame = await first.frame();
+    expect([frame.creators, frame.brands, frame.deals]).toEqual([[], [], []]);
+    first.close();
+    open.length = 0;
+    const db = openDatabase(file);
+    try {
+      for (const table of ["creator_details", "brand_details", "deal_details"]) {
+        expect(db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get()?.["n"]).toBe(0);
+      }
+    } finally {
+      db.close();
+    }
+  });
+
   it("seeds again on a fresh open, even when the stored seed is current", async () => {
     const first = start();
     await first.write([{ kind: "me.name", name: "Ada" }]);

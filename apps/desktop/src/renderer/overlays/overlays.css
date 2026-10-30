@@ -24,8 +24,9 @@
   flex-direction: column;
   gap: 14px;
   min-height: 0;
+  container-type: inline-size;
 }
-@media (max-width: 1180px) {
+@media (max-width: 1039px) {
   .body.has-peek {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -124,8 +125,8 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: min(var(--mw, 620px), calc(100vw - 32px));
-  max-height: calc(100vh - 64px);
+  width: min(var(--mw, 640px), calc(100vw - 32px));
+  max-height: calc(100vh - 56px);
   overflow-y: auto;
   background: var(--panel);
   border-radius: 18px;
@@ -223,7 +224,7 @@
 }
 .toast .ti.good {
   background: var(--good);
-  color: #fff;
+  color: var(--good-ink);
 }
 .toast .ti .ic {
   width: 13px;

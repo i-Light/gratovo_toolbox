@@ -3,6 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { bareDeal } from "@gratovo/core/data";
 import type { FrameNotification } from "@gratovo/core/data";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -27,9 +28,12 @@ const t0 = Date.UTC(2026, 9, 20, 10, 0, 0);
 
 describe("deals", () => {
   it("round trips and writes the flow step and the legacy stage", () => {
-    upsertDeal(db, { id: "d1", brand: "b1", creator: "UC1", step: 6, price: 4500 }, t0);
+    upsertDeal(db, bareDeal({ id: "d1", brand: "b1", creator: "UC1", step: 6, price: 4500 }), t0);
     expect(listDeals(db)).toEqual([
-      { id: "d1", brand: "b1", creator: "UC1", step: 6, price: 4500 },
+      {
+        ...bareDeal({ id: "d1", brand: "b1", creator: "UC1", step: 6, price: 4500 }),
+        createdAt: t0,
+      },
     ]);
     expect(db.prepare("SELECT stage, flow_step, brand_price FROM deals").get()).toMatchObject({
       stage: "live",
@@ -39,12 +43,22 @@ describe("deals", () => {
   });
 
   it("updates in place and keeps order", () => {
-    upsertDeal(db, { id: "d1", brand: "b1", creator: "UC1", step: 0, price: 1000 }, t0);
-    upsertDeal(db, { id: "d2", brand: "b1", creator: "UC2", step: 9, price: 2000 }, t0);
-    upsertDeal(db, { id: "d1", brand: "b1", creator: "UC1", step: 3, price: 1200.5 }, t0 + 1000);
+    upsertDeal(db, bareDeal({ id: "d1", brand: "b1", creator: "UC1", step: 0, price: 1000 }), t0);
+    upsertDeal(db, bareDeal({ id: "d2", brand: "b1", creator: "UC2", step: 9, price: 2000 }), t0);
+    upsertDeal(
+      db,
+      bareDeal({ id: "d1", brand: "b1", creator: "UC1", step: 3, price: 1200.5 }),
+      t0 + 1000,
+    );
     expect(listDeals(db)).toEqual([
-      { id: "d1", brand: "b1", creator: "UC1", step: 3, price: 1200.5 },
-      { id: "d2", brand: "b1", creator: "UC2", step: 9, price: 2000 },
+      {
+        ...bareDeal({ id: "d1", brand: "b1", creator: "UC1", step: 3, price: 1200.5 }),
+        createdAt: t0,
+      },
+      {
+        ...bareDeal({ id: "d2", brand: "b1", creator: "UC2", step: 9, price: 2000 }),
+        createdAt: t0,
+      },
     ]);
     expect(db.prepare("SELECT stage FROM deals WHERE id = 'd2'").get()?.["stage"]).toBe("closed");
   });

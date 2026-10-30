@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import postcss, { AtRule, type Root } from "postcss";
 import { expect } from "vitest";
 
-const prototypeFile = new URL("../../../../design/workbench-prototype/index.html", import.meta.url);
+const prototypeFile = new URL("../../../../design/workbench-v6/index.html", import.meta.url);
 
 /** Writes a value the same way whatever the formatting: `.10` and `0.1` compare equal. */
 export function normalizeValue(value: string): string {

@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { icons } from "./icons";
 
-const prototypeFile = new URL("../../../design/workbench-prototype/js/core.js", import.meta.url);
+const prototypeFile = new URL("../../../design/workbench-v6/js/core.js", import.meta.url);
 
 /** Reads the `var I = { ... };` block of the prototype: `name:["...", ...]` entries, several to a line. */
 function prototypeIcons(): [string, string[]][] {

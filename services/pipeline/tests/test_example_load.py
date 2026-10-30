@@ -46,9 +46,25 @@ def channel(channel_id: str, handle: str) -> dict[str, Any]:
     }
 
 
+def video(video_id: str, title: str, views: str, published: str) -> dict[str, Any]:
+    return {
+        "video_id": video_id,
+        "channel_id": UC_LIVE,
+        "title": title,
+        "published_at": published,
+        "view_count": views,
+    }
+
+
 def history() -> dict[str, Any]:
     return {
         "channels": [channel(UC_LIVE, "@aitoolsweekly")],
+        "videos": [
+            video("abcdefghijk", "I let 5 AI agents run my week", "71000", "2026-05-18T09:00:00Z"),
+            video(
+                "lmnopqrs-_Z", "The AI calendar that finally works", "58000", "2026-05-10T09:00:00Z"
+            ),
+        ],
         "keywords": [
             {
                 "keyword": "ai video editor",
@@ -156,6 +172,15 @@ def test_the_job_fills_every_table_and_deletes_the_file(
     assert len(table(conn, "runs")) == 1
     assert len(table(conn, "archive_keyword_pending")) == 1
     assert len(table(conn, "channel_archive")) == 3
+    videos = table(conn, "videos")
+    assert [(v["video_id"], v["channel_id"], v["title"], v["view_count"]) for v in videos] == [
+        ("abcdefghijk", UC_LIVE, "I let 5 AI agents run my week", "71000"),
+        ("lmnopqrs-_Z", UC_LIVE, "The AI calendar that finally works", "58000"),
+    ]
+    assert videos[0]["published_at"] == "2026-05-18T09:00:00Z"
+    # A read leaves the channel's own stamp and a success status.
+    assert {v["last_fetched_at"] for v in videos} == {"2026-05-01T10:05:00Z"}
+    assert {v["last_fetch_status"] for v in videos} == {"success"}
 
     row = conn.execute(
         "SELECT * FROM channel_archive WHERE channel_id=?", ("UC" + SUFFIX_A,)
@@ -260,3 +285,14 @@ def test_it_does_not_load_on_top_of_channels(tmp_path: Path) -> None:
     assert len(table(conn, "channels")) == len(history()["channels"])
     conn.close()
     assert not (tmp_path / "history.json").exists()  # the file goes all the same
+
+
+def test_a_history_without_videos_still_loads(tmp_path: Path) -> None:
+    data = history()
+    del data["videos"]
+    conn = store.get_connection(tmp_path / "pipeline.db")
+    store.init_db(conn)
+    counts = example_load.load(conn, data)
+    assert counts["channels"] == 1
+    assert table(conn, "videos") == []
+    conn.close()

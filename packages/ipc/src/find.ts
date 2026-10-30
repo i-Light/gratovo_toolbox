@@ -1,5 +1,7 @@
 import {
+  botRiskLevels,
   contactNameMax,
+  creatorFormats,
   creatorStages,
   emailMax,
   emailPattern,
@@ -222,6 +224,13 @@ export const catalogItemShape = {
   hasNumbers: z.boolean(),
   uploadsRead: z.boolean(),
   readFailed: z.boolean(),
+  trimmedAverage: amount.nullable(),
+  viewStability: z.enum(["stable", "volatile"]).nullable(),
+  stars: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)]).nullable(),
+  format: z.enum(creatorFormats).nullable(),
+  botRisk: z
+    .strictObject({ level: z.enum(botRiskLevels), note: catalogText.nullable() })
+    .nullable(),
 };
 
 export const catalogItemSchema: z.ZodType<CatalogItem> = z.strictObject(catalogItemShape);

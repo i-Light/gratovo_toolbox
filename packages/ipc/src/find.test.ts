@@ -151,6 +151,11 @@ describe("the catalog channels", () => {
     hasNumbers: true,
     uploadsRead: true,
     readFailed: false,
+    trimmedAverage: null,
+    viewStability: null,
+    stars: null,
+    format: null,
+    botRisk: null,
   };
   const fit = {
     score: 70,

@@ -7,15 +7,17 @@ import { restampStageEventsSql } from "../db/migrations/0007-insights";
 import { openDatabase } from "../db/open-database";
 
 import {
+  addLogEntry,
   createOutreachStore,
   getMeta,
   replaceMemberAccess,
   setMeta,
   setNotify,
   setSetting,
-  upsertBrand,
+  upsertBrandDetails,
   upsertCreator,
-  upsertDeal,
+  upsertCreatorDetails,
+  upsertDealDetails,
   upsertNotification,
   upsertProfile,
 } from "./repositories";
@@ -39,6 +41,9 @@ const dataTables = [
   "outreach_sequences",
   "stage_events",
   "catalog_weeks",
+  "brand_details",
+  "deal_details",
+  "creator_details",
 ] as const;
 
 /** The `local_settings` key the seed writes its `health` to (the "Something broke" scenario). */
@@ -147,6 +152,9 @@ function seed(db: DatabaseSync, now: number, scenario: Scenario): void {
     );
     for (const creator of fixtures.creators) {
       upsertCreator(db, creator, now);
+      if (creator.details !== undefined) {
+        upsertCreatorDetails(db, creator.id, creator.details);
+      }
     }
     for (const [id, kit] of Object.entries(fixtures.kits)) {
       db.prepare(
@@ -159,11 +167,24 @@ function seed(db: DatabaseSync, now: number, scenario: Scenario): void {
         id,
       );
     }
+    // The reject and never lines the readers take a creator's reasons from, and the date a
+    // rejected creator leaves (the server's 7 days after the reject).
+    for (const entry of fixtures.log) {
+      addLogEntry(db, entry.who, entry);
+    }
+    for (const creator of fixtures.creators) {
+      if (creator.archiveDueAt !== null) {
+        db.prepare("UPDATE channel_state SET archive_due_at = ? WHERE channel_id = ?").run(
+          new Date(creator.archiveDueAt).toISOString(),
+          creator.id,
+        );
+      }
+    }
     for (const brand of fixtures.brands) {
-      upsertBrand(db, brand, now);
+      upsertBrandDetails(db, brand, now);
     }
     for (const deal of fixtures.deals) {
-      upsertDeal(db, deal, now);
+      upsertDealDetails(db, deal, now);
     }
     for (const notification of fixtures.notifications) {
       upsertNotification(db, notification);

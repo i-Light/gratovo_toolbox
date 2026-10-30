@@ -5,6 +5,7 @@
  */
 
 import { creatorStages, type CreatorStage, type RejectReason } from "../data/types";
+import type { BotRisk, CreatorFormat } from "../data/work-types";
 
 /** One of a channel's videos. */
 export interface CatalogVideo {
@@ -34,6 +35,9 @@ export interface FoundEmail {
 
 /** The most found addresses a catalog item carries (D29). */
 export const foundEmailsMax = 10;
+
+/** How steady a channel's views are from video to video. */
+export type ViewStability = "stable" | "volatile";
 
 /** One channel in the catalog: the pipeline's numbers joined to the team's creator state. */
 export interface CatalogItem {
@@ -96,6 +100,16 @@ export interface CatalogItem {
    * "Couldn't read". Only means something while `uploadsRead` is false.
    */
   readonly readFailed: boolean;
+  /** The mean of the newest 12 known view counts, without the top and bottom from 5 on; null under 3 known. */
+  readonly trimmedAverage: number | null;
+  /** "volatile" when the views swing by over half their mean; null under 3 known counts. */
+  readonly viewStability: ViewStability | null;
+  /** One to five stars from median views, engagement and uploads; null when the numbers aren't read. */
+  readonly stars: 1 | 2 | 3 | 4 | 5 | null;
+  /** The creator's format, from the creator state's details; null without. */
+  readonly format: CreatorFormat | null;
+  /** The bot-risk reading, from the creator state's details; null without. */
+  readonly botRisk: BotRisk | null;
 }
 
 /** The lists Toolbox shows from the catalog (plan step 5, D36 and D39). */

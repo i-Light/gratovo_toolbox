@@ -99,8 +99,10 @@ export function RecordBody({
 }) {
   const held = useApp((s) => s.data.creators.some((c) => c.id === record.id));
   const example = useApp((s) => s.data.source === "example");
-  // Example creators (c1, c2 ...) are not in the catalog: asking would only flash a skeleton. The
-  // id decides, not whether the page holds it: an adopted channel keeps its full record.
+  // A creator id that isn't a channel can't be in the catalog: asking would only flash a skeleton.
+  // The example's creators have channel ids (step P1, F6): prototype mode's catalog holds them, and
+  // in the plain example copy, whose catalog is empty, the record falls back to the summary. The id
+  // decides, not whether the page holds it: an adopted channel keeps its full record.
   if (record.kind !== "creator" || (example && !isChannelId(record.id))) {
     return <RecordSummary record={record} {...(tab === undefined ? {} : { tab })} />;
   }

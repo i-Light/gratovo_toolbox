@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { avatarColor, hash, initials } from "./avatar";
 
 // Expected values were computed once by running the prototype's W.hash, W.initials and W.avColor
-// (design/workbench-prototype/js/core.js, lines 55-58) in Node.
+// (design/workbench-v6/js/core.js, lines 62-65) in Node.
 const cases: readonly (readonly [string, number, string, string])[] = [
   ["Ada Lovelace", 4267605246, "AL", "#86651a"],
   ["@mira_ai", 2133107659, "MI", "#a8452e"],

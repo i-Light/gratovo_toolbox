@@ -1,5 +1,6 @@
 import { exampleSeed } from "./example";
 import type { Scenario } from "./example";
+import { exampleVideoId } from "./example-roster";
 import { legacyCreatorFields } from "./legacy-mapping";
 import type { RewriteHow } from "./reach-types";
 import type { CreatorStage, RejectReason } from "./types";
@@ -31,7 +32,11 @@ import {
  * the anchor time and the scenario, seeded (mulberry32) so the same inputs give the same output.
  *
  * It is a layer added on top of `exampleSeed`: it never reuses the seed's ids, and it uses the
- * seed's mailboxes and team members. Main writes the `gratovo` part into the prototype copy of
+ * seed's mailboxes and team members. The seed's creators are catalog channels too (plan P1, F6):
+ * their channels and videos are in the `pipeline` part, so the catalog and the record see one
+ * creator, and they count as live in the weekly totals. The
+ * history's own numbers (its 16 signed creators and the rest) stand as planned; the seed's
+ * creators come on top of them. Main writes the `gratovo` part into the prototype copy of
  * `gratovo.db`, and hands the `pipeline` part to the Python job `example.load`.
  *
  * Rows are named by the columns of their tables, so they can be inserted as they are. Times in
@@ -239,6 +244,18 @@ export interface HistoryChannelRow {
   videos_last_30_known: number | null;
 }
 
+/** A video of a catalog channel (the pipeline's `videos` table). */
+export interface HistoryVideoRow {
+  /** 11 characters of `[A-Za-z0-9_-]`. */
+  video_id: string;
+  channel_id: string;
+  title: string;
+  /** ISO text `YYYY-MM-DDTHH:MM:SSZ`. */
+  published_at: string;
+  /** Text, as the pipeline stores it. */
+  view_count: string;
+}
+
 export interface HistoryKeywordRow {
   keyword: string;
   status: "done";
@@ -295,6 +312,8 @@ export interface ExampleHistory {
   };
   pipeline: {
     channels: HistoryChannelRow[];
+    /** The seed creators' videos; the history's other channels have none. */
+    videos: HistoryVideoRow[];
     keywords: HistoryKeywordRow[];
     links: HistoryLinkRow[];
     runs: HistoryRunRow[];
@@ -1446,12 +1465,12 @@ function build(now: number, broke: boolean): ExampleHistory {
     const actor = actorOf(by);
     const text =
       action === "creator.shortlist"
-        ? `Shortlisted ${label}`
+        ? `${label} shortlisted`
         : action === "creator.reject"
-          ? `Rejected ${label}`
+          ? `${label} rejected`
           : action === "creator.restore"
-            ? `Brought back ${label}`
-            : `Marked ${label} as never contact`;
+            ? `${label} is back in Review new`
+            : `${label} will never be emailed`;
     logN += 1;
     log.push({
       id: `hl-${str(logN)}`,
@@ -1844,6 +1863,55 @@ function build(now: number, broke: boolean): ExampleHistory {
     });
   }
 
+  // The seed's creators: catalog channels with their videos, found by the two best keywords.
+  const videos: HistoryVideoRow[] = [];
+  const seedKeywords = [kwIndex("local llm setup"), kwIndex("ai agents tutorial")];
+  seed.channels.forEach((channel, index) => {
+    const creator = seed.creators[index];
+    if (creator === undefined) return;
+    const kw = at(seedKeywords, index % seedKeywords.length);
+    const name = at(keywordNames, kw);
+    links.push({
+      channel_id: channel.id,
+      keyword: name,
+      discovered_at: iso(channel.foundAt),
+      source: "local",
+    });
+    extraCount[kw] = (extraCount[kw] ?? 0) + 1;
+    const sponsored = channel.sponsors.length > 0;
+    channels.push({
+      channel_id: channel.id,
+      handle: creator.handle,
+      name: creator.name,
+      country: channel.country,
+      subscribers: str(channel.subscribers),
+      first_seen_at: iso(channel.foundAt),
+      videos_fetched_at: iso(Math.min(now, channel.foundAt + 20 * MIN)),
+      videos_last_30: channel.uploads30,
+      median_views_last_30: channel.medianViews,
+      latest_upload_at: iso(channel.latestUploadAt),
+      sponsored_ratio: sponsored ? Math.round((0.15 + (index % 5) * 0.08) * 100) / 100 : 0,
+      seen_brands: JSON.stringify(channel.sponsors),
+      found_emails: JSON.stringify(channel.emails),
+      found_email_sources: JSON.stringify(
+        channel.emails.map((email) => ({ email, source: "about", videos: 0, business: true })),
+      ),
+      read_failures: 0,
+      unreadable_until: null,
+      median_known: null,
+      videos_last_30_known: null,
+    });
+    channel.videos.forEach((video, n) => {
+      videos.push({
+        video_id: exampleVideoId(channel.id, n),
+        channel_id: channel.id,
+        title: video.title,
+        published_at: iso(video.publishedAt),
+        view_count: str(video.views),
+      });
+    });
+  });
+
   // Archived channels a search found again this week.
   const pending: HistoryPendingRow[] = [];
   {
@@ -1937,6 +2005,11 @@ function build(now: number, broke: boolean): ExampleHistory {
   };
   let liveNow = 0;
   let waitingNow = 0;
+  // The seed's channels all count as live (the two it has rejected stay in Live with no date).
+  for (const channel of seed.channels) {
+    bump(liveDelta, channel.foundAt, 1);
+    liveNow += 1;
+  }
   for (const cr of crs) {
     if (cr.group === "waiting") {
       waitingNow += 1;
@@ -1991,6 +2064,7 @@ function build(now: number, broke: boolean): ExampleHistory {
     },
     pipeline: {
       channels,
+      videos,
       keywords: keywordRows,
       links,
       runs: runRows,

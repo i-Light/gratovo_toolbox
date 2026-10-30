@@ -22,7 +22,9 @@ export type {
   Signal,
   ToolboxItem,
   ToolboxList,
+  ViewStability,
 } from "./types";
+export { starRating, trimmedAverage, viewStability } from "./channel-facts";
 export { archiveDate } from "./archive";
 export { emailConfidence, sortFoundEmails } from "./email";
 export type { FoundEmailSource } from "./email";

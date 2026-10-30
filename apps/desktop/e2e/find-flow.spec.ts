@@ -23,6 +23,14 @@ async function tabCount(page: Page, name: string): Promise<number> {
   return Number(/(\d+)\s*$/.exec(text)?.[1] ?? "0");
 }
 
+/** The creators the example seed already holds as shortlisted: Contacts lists them too. */
+async function seedShortlisted(page: Page): Promise<number> {
+  const frame = (await page.evaluate(() => window.gratovo.invoke("frame:load", {}))) as {
+    readonly value?: { readonly creators: readonly { readonly stage: string }[] };
+  };
+  return (frame.value?.creators ?? []).filter((c) => c.stage === "shortlisted").length;
+}
+
 /** How many channels the gallery says it holds ("12 channels"). */
 async function channelCount(page: Page): Promise<number> {
   const line = page.getByText(/^\d+ channels?$/);
@@ -36,6 +44,7 @@ test.describe("Find flow", () => {
     errors,
   }) => {
     test.setTimeout(240_000);
+    const seeded = await seedShortlisted(page);
 
     await test.step("Search: paste two keywords, run, open the results", async () => {
       await page
@@ -168,12 +177,12 @@ test.describe("Find flow", () => {
     });
 
     await test.step("Contacts: Confirm all 90%+ moves a sure channel on; undo brings it back", async () => {
-      // Shortlist one more, so Contacts holds two: the sure one and another.
+      // Shortlist one more, so Contacts holds the seed's shortlisted creators and two found ones.
       await page.keyboard.press("s");
       await expect(page.getByText(findTriage.tally(2, 1))).toBeVisible();
 
       await tab(page, screens.find.tabs.contacts).click();
-      const total = 2;
+      const total = seeded + 2;
       await expect(page.getByText(findContacts.header(total))).toBeVisible(run);
       await expect(page.getByRole("article", { name: "Ship Fast with AI" })).toBeVisible();
 

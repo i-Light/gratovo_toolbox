@@ -3,6 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { bareBrand } from "@gratovo/core/data";
 import type { Creator } from "@gratovo/core/data";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
@@ -287,18 +288,22 @@ describe("brands", () => {
   it("round trips and updates in place", () => {
     upsertBrand(
       db,
-      { id: "b1", name: "Neuron Cloud", sells: "GPU hosting", status: "pitched" },
+      bareBrand({ id: "b1", name: "Neuron Cloud", sells: "GPU hosting", status: "pitched" }),
       t0,
     );
-    upsertBrand(db, { id: "b2", name: "Notely AI", sells: "Notes app", status: "found" }, t0);
     upsertBrand(
       db,
-      { id: "b1", name: "Neuron Cloud", sells: "GPU hosting", status: "won" },
+      bareBrand({ id: "b2", name: "Notely AI", sells: "Notes app", status: "found" }),
+      t0,
+    );
+    upsertBrand(
+      db,
+      bareBrand({ id: "b1", name: "Neuron Cloud", sells: "GPU hosting", status: "won" }),
       t0 + 1000,
     );
     expect(listBrands(db)).toEqual([
-      { id: "b1", name: "Neuron Cloud", sells: "GPU hosting", status: "won" },
-      { id: "b2", name: "Notely AI", sells: "Notes app", status: "found" },
+      bareBrand({ id: "b1", name: "Neuron Cloud", sells: "GPU hosting", status: "won" }),
+      bareBrand({ id: "b2", name: "Notely AI", sells: "Notes app", status: "found" }),
     ]);
     expect(row("SELECT created_at, updated_at FROM brands WHERE id = 'b1'")).toMatchObject({
       created_at: "2026-10-20T10:00:00.000Z",
@@ -311,7 +316,9 @@ describe("brands", () => {
       `INSERT INTO brands (id, name, created_at, updated_at)
        VALUES ('old', 'Old Brand', '2026-10-01T09:00:00+00:00', '2026-10-01T09:00:00+00:00')`,
     );
-    expect(listBrands(db)).toEqual([{ id: "old", name: "Old Brand", sells: "", status: "found" }]);
+    expect(listBrands(db)).toEqual([
+      bareBrand({ id: "old", name: "Old Brand", sells: "", status: "found" }),
+    ]);
   });
 
   it("is STRICT about types", () => {

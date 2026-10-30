@@ -37,10 +37,12 @@ const creatorOf = (id: string) =>
   appStore()
     .getState()
     .data.creators.find((c) => c.id === id);
+/** Ids of the log lines the seed starts with, so tests see only the lines they add. */
+let seedLogIds = new Set<string>();
 const lines = () =>
   appStore()
     .getState()
-    .data.log.filter((l) => l.ref !== null);
+    .data.log.filter((l) => l.ref !== null && !seedLogIds.has(l.id));
 const toast = () => appStore().getState().ui.toasts.at(-1);
 const card = (name: string) => within(screen.getByRole("article", { name }));
 
@@ -58,6 +60,11 @@ const none = aiChannel("UC-none", "Quiet Channel", { ...short, emails: [] });
 beforeEach(() => {
   resetFindForTests();
   resetAppStoreForTests({ screen: "find", tab: "contacts" });
+  seedLogIds = new Set(
+    appStore()
+      .getState()
+      .data.log.map((l) => l.id),
+  );
 });
 afterEach(cleanup);
 

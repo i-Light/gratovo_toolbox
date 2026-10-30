@@ -262,6 +262,65 @@ describe("the catalog", () => {
     expect(items.find((item) => item.id === c)).toMatchObject({ uploadsRead: false });
   });
 
+  it("works out the channel facts from the newest 12 videos and the creator details", async () => {
+    const day = (n: number) => `2026-10-${String(20 - n).padStart(2, "0")} 00:00:00`;
+    // 12 steady videos, then an older 13th with a huge count that the facts must not read.
+    const videos = Array.from({ length: 13 }, (_, n) => ({
+      id: `vid${String(n).padStart(8, "0")}`,
+      channel: a,
+      publishedAt: day(n),
+      views: n === 12 ? "9000000" : "1000",
+    }));
+    const catalog = open({
+      channels: [
+        { id: a, median: 70_000, uploads30: 6 },
+        { id: b, median: 70_000, uploads30: 6, fetched: null },
+        { id: c, median: 70_000, uploads30: 6 },
+      ],
+      videos,
+    });
+    states = [
+      creatorState(a, {
+        engagement: 5,
+        details: {
+          format: "shorts",
+          botRisk: { level: "watch", note: "Spiky" },
+        } as unknown as NonNullable<CreatorState["details"]>,
+      }),
+    ];
+    const items = await all(catalog);
+    expect(items.find((item) => item.id === a)).toMatchObject({
+      trimmedAverage: 1000,
+      viewStability: "stable",
+      stars: 5,
+      format: "shorts",
+      botRisk: { level: "watch", note: "Spiky" },
+    });
+    expect(items.find((item) => item.id === b)).toMatchObject({
+      stars: null,
+      trimmedAverage: null,
+      viewStability: null,
+      format: null,
+      botRisk: null,
+    });
+    expect(items.find((item) => item.id === c)).toMatchObject({ stars: 4, format: null });
+  });
+
+  it("reads the facts from videos with a known count, though the list shows the newest three", async () => {
+    const day = (n: number) => `2026-10-${String(28 - n).padStart(2, "0")} 00:00:00`;
+    // The 3 newest have no count yet; 12 older ones do.
+    const videos = Array.from({ length: 15 }, (_, n) => ({
+      id: `vid${String(n).padStart(8, "0")}`,
+      channel: a,
+      publishedAt: day(n),
+      views: n < 3 ? null : "2000",
+    }));
+    const catalog = open({ channels: [{ id: a, median: 70_000, uploads30: 6 }], videos });
+    const item = (await all(catalog)).find((row) => row.id === a);
+    expect(item?.videos.map((video) => video.views)).toEqual([null, null, null]);
+    expect(item).toMatchObject({ trimmedAverage: 2000, viewStability: "stable" });
+  });
+
   it("marks a channel the pipeline gave up on after three failed reads", async () => {
     const catalog = open({
       channels: [

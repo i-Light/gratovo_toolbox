@@ -735,13 +735,13 @@ describe("recordIntent", () => {
 
     it("brand.set writes locally and queues the four columns", async () => {
       await source.write([
-        { kind: "brand.set", id: "b1", name: "Acme AI", sells: "GPUs", status: "active" },
+        { kind: "brand.set", id: "b1", name: "Acme AI", sells: "GPUs", status: "qualified" },
       ]);
       expect(db.prepare("SELECT name FROM brands WHERE id = 'b1'").get()?.["name"]).toBe("Acme AI");
       expect(entries()).toEqual([
         {
           kind: "brand.set",
-          payload: { id: "b1", name: "Acme AI", sells: "GPUs", status: "active" },
+          payload: { id: "b1", name: "Acme AI", sells: "GPUs", status: "qualified" },
           target: { table: "brands", key: "b1" },
         },
       ]);

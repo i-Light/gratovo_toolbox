@@ -10,10 +10,11 @@ export {
   removeLogEntry,
 } from "./activity-log";
 export type { ActivityRow } from "./activity-log";
-export { listBrands, setBrand, upsertBrand } from "./brands";
+export { brandWithoutMoney, listBrands, setBrand, upsertBrand, upsertBrandDetails } from "./brands";
 export { listConflicts, markResolved, replaceOpenConflicts } from "./conflicts";
 export { listCreators, listMax, setCreatorStage, upsertCreator } from "./creators";
-export { listDeals, setDealStep, upsertDeal } from "./deals";
+export { dealWithoutMoney, listDeals, setDealStep, upsertDeal, upsertDealDetails } from "./deals";
+export { upsertCreatorDetails } from "./details";
 export { listMemberAccess, replaceMemberAccess } from "./member-access";
 export type { MemberAccessRow } from "./member-access";
 export { getMeta, setMeta } from "./meta";

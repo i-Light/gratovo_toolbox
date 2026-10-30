@@ -1,3 +1,4 @@
+import { bareBrand } from "@gratovo/core/data";
 import type { DataWrite } from "@gratovo/core/data";
 import type { Bridge, InvokeResult } from "@gratovo/ipc/bridge";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -130,6 +131,7 @@ describe("diffData", () => {
           action: "creator.reject",
           detail: "ai",
         },
+        ...base.log,
       ],
     };
     expect(diffData(base, after)).toEqual({
@@ -149,7 +151,7 @@ describe("diffData", () => {
       ],
       unsupported: [],
     });
-    expect(diffData(after, { ...after, myName: null, log: [] }).writes).toEqual([
+    expect(diffData(after, { ...after, myName: null, log: base.log }).writes).toEqual([
       { kind: "me.name", name: "" },
       { kind: "log.remove", id: "a" },
     ]);
@@ -161,7 +163,9 @@ describe("diffData", () => {
       { id: "a", at: 1, who: base.me, text: "First", ref: null, action: null, detail: null },
     ];
     expect(
-      diffData(base, { ...base, log }).writes.map((w) => w.kind === "log.add" && w.id),
+      diffData(base, { ...base, log: [...log, ...base.log] }).writes.map(
+        (w) => w.kind === "log.add" && w.id,
+      ),
     ).toEqual(["a", "b"]);
   });
 
@@ -353,8 +357,8 @@ describe("diffData", () => {
 
   it("writes a new or changed brand, but not a removed one", () => {
     const b0 = base.brands[0] as AppData["brands"][number];
-    const changed = { ...b0, status: b0.status === "won" ? "found" : "won" };
-    const fresh = { id: "b-new", name: "Nova", sells: "AI notes", status: "found" };
+    const changed = { ...b0, status: b0.status === "won" ? ("found" as const) : ("won" as const) };
+    const fresh = bareBrand({ id: "b-new", name: "Nova", sells: "AI notes", status: "found" });
     const after = { ...base, brands: [changed, ...base.brands.slice(1), fresh] };
     expect(diffData(base, after)).toEqual({
       writes: [

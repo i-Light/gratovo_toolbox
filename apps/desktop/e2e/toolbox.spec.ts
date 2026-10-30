@@ -42,12 +42,11 @@ test.describe("Toolbox", () => {
     await bringBack.click();
     await expect(bringBack).toBeHidden();
 
-    // The log has both lines, newest first.
+    // The log has both lines, newest first, above the example's own older lines.
     await page.getByRole("button", { name: new RegExp(`^${screens.toolbox.tabs.log}`) }).click();
-    await expect(page.locator(".tb-line")).toHaveText([
-      findActions.broughtBack(name),
-      findActions.rejected(name),
-    ]);
+    const lines = page.locator(".tb-line");
+    await expect(lines.nth(0)).toHaveText(findActions.broughtBack(name));
+    await expect(lines.nth(1)).toHaveText(findActions.rejected(name));
 
     expect(errors).toEqual([]);
   });

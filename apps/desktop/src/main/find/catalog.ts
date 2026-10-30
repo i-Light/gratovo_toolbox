@@ -14,6 +14,9 @@ import {
   foundEmailsMax,
   queryCatalog,
   sortFoundEmails,
+  starRating,
+  trimmedAverage,
+  viewStability,
   type CatalogItem,
   type CatalogVideo,
   type FoundEmail,
@@ -32,6 +35,8 @@ import { parseTime, readRunWindows, readRuns, runAt, type RunWindow } from "./ru
 const channelPattern = /^UC[A-Za-z0-9_-]{22}$/;
 const videoPattern = /^[A-Za-z0-9_-]{11}$/;
 const itemVideos = 15;
+/** Videos whose view counts the channel facts read (newest first). */
+const factVideos = 12;
 const listVideos = 3;
 const sponsorMax = 50;
 /** Failed reads after which the pipeline stops retrying a channel (`READ_GIVE_UP`). */
@@ -205,6 +210,8 @@ function emailedBefore(state: CreatorState | undefined): CatalogItem["emailedBef
 function build(dbPath: string | null, states: readonly CreatorState[], now: number): Built {
   const channels: ChannelRow[] = [];
   const videos = new Map<string, CatalogVideo[]>();
+  /** The newest `factVideos` view counts by channel, newest first. */
+  const viewCounts = new Map<string, (number | null)[]>();
   const keywords = new Map<string, KeywordRow>();
   /** `channel_archive.archived_at` as ms, by channel (D36); 0 for text that isn't a time. */
   const archived = new Map<string, number>();
@@ -232,18 +239,33 @@ function build(dbPath: string | null, states: readonly CreatorState[], now: numb
           )
           .all() as unknown as ChannelRow[]),
       );
+      // One pass over `videos`: the newest `listVideos` per channel for the list, and the newest
+      // `factVideos` with a known view count for the facts (a row with no count says nothing).
       const videoRows = db
         .prepare(
-          `SELECT ${videoColumns} FROM (
-             SELECT ${videoColumns}, ROW_NUMBER() OVER
-               (PARTITION BY channel_id ORDER BY published_at DESC, video_id) AS n FROM videos
-           ) WHERE n <= ${String(listVideos)}`,
+          `SELECT ${videoColumns}, n, k FROM (
+             SELECT ${videoColumns},
+               ROW_NUMBER() OVER
+                 (PARTITION BY channel_id ORDER BY published_at DESC, video_id) AS n,
+               CASE WHEN view_count IS NOT NULL THEN ROW_NUMBER() OVER
+                 (PARTITION BY channel_id, view_count IS NOT NULL
+                  ORDER BY published_at DESC, video_id) END AS k
+             FROM videos
+           ) WHERE n <= ${String(listVideos)} OR k <= ${String(factVideos)}
+           ORDER BY channel_id, n`,
         )
-        .all() as unknown as VideoRow[];
+        .all() as unknown as (VideoRow & { n: number; k: number | null })[];
       for (const row of videoRows) {
-        const list = videos.get(row.channel_id) ?? [];
-        list.push(videoOf(row));
-        videos.set(row.channel_id, list);
+        if (row.n <= listVideos) {
+          const list = videos.get(row.channel_id) ?? [];
+          list.push(videoOf(row));
+          videos.set(row.channel_id, list);
+        }
+        if (row.k !== null && row.k <= factVideos) {
+          const list = viewCounts.get(row.channel_id) ?? [];
+          list.push(count(row.view_count));
+          viewCounts.set(row.channel_id, list);
+        }
       }
       const keywordRows = db
         .prepare(
@@ -291,6 +313,11 @@ function build(dbPath: string | null, states: readonly CreatorState[], now: numb
       pictures.set(id, picture);
     }
     const handle = channel.handle ?? state?.handle ?? "";
+    const views = viewCounts.get(id) ?? [];
+    const medianViews = channel.median_views_last_30 ?? 0;
+    const uploads30 = channel.videos_last_30 ?? 0;
+    const uploadsRead =
+      channel.videos_fetched_at !== null && channel.videos_fetched_at.trim() !== "";
     rows.push({
       id,
       name: channel.name?.trim() || state?.name || handle || id,
@@ -301,8 +328,8 @@ function build(dbPath: string | null, states: readonly CreatorState[], now: numb
       email: state?.email ?? null,
       contactName: state?.contactName ?? null,
       subscribers: count(channel.subscribers),
-      medianViews: channel.median_views_last_30 ?? 0,
-      uploads30: channel.videos_last_30 ?? 0,
+      medianViews,
+      uploads30,
       country: countryOf(channel.country),
       sponsors: sponsorsOf(channel.seen_brands),
       emails: emailsOf(channel.found_emails, channel.found_email_sources),
@@ -319,8 +346,15 @@ function build(dbPath: string | null, states: readonly CreatorState[], now: numb
       archiveDueAt: state?.archiveDueAt ?? null,
       archivedAt: archived.get(id) ?? null,
       hasNumbers: true,
-      uploadsRead: channel.videos_fetched_at !== null && channel.videos_fetched_at.trim() !== "",
+      uploadsRead,
       readFailed: (channel.read_failures ?? 0) >= readGiveUp,
+      trimmedAverage: trimmedAverage(views),
+      viewStability: viewStability(views),
+      stars: uploadsRead
+        ? starRating({ medianViews, engagement: state?.engagement ?? null, uploads30 })
+        : null,
+      format: state?.details?.format ?? null,
+      botRisk: state?.details?.botRisk ?? null,
     });
   }
 
@@ -358,6 +392,11 @@ function build(dbPath: string | null, states: readonly CreatorState[], now: numb
       hasNumbers: false,
       uploadsRead: false,
       readFailed: false,
+      trimmedAverage: null,
+      viewStability: null,
+      stars: null,
+      format: state.details?.format ?? null,
+      botRisk: state.details?.botRisk ?? null,
     });
   }
   return { rows, pictures };
