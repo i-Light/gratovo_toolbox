@@ -22,6 +22,7 @@ import type {
   Frame,
   FrameSource,
   LogAction,
+  LogEntry,
   RejectReason,
 } from "@gratovo/core/data";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -38,6 +39,11 @@ import {
   upsertNotification,
 } from "./repositories";
 import type { ActivityRow, MemberAccessRow } from "./repositories";
+
+/** The seed's own reject and never lines: the tests that count the lines they write leave them out. */
+const seededLogIds = new Set(exampleFrame(Date.UTC(2026, 9, 20, 12, 0, 0)).log.map((l) => l.id));
+const ownLog = (frame: { readonly log: readonly LogEntry[] }): readonly LogEntry[] =>
+  frame.log.filter((l) => !seededLogIds.has(l.id));
 
 /** The fixed time the contract runs at. */
 export const contractNow = Date.UTC(2026, 9, 20, 12, 0, 0);
@@ -150,7 +156,7 @@ export function describeDataSourceContract(
       expect(frame.team.map(({ id, name, role, roles }) => ({ id, name, role, roles }))).toEqual(
         expected.team.map(({ id, name, role, roles }) => ({ id, name, role, roles })),
       );
-      expect(frame.log).toEqual([]);
+      expect(frame.log).toEqual(expected.log);
       expect(frame.notify).toEqual({});
       expect(frame.seesMoney).toBe(true);
     });
@@ -279,7 +285,7 @@ export function describeDataSourceContract(
           detail: null,
         },
       );
-      expect(frame.log).toEqual([
+      expect(ownLog(frame)).toEqual([
         {
           id: idB,
           at: contractNow - 1000,
@@ -300,7 +306,7 @@ export function describeDataSourceContract(
         },
       ]);
       frame = await writeAll(source, { kind: "log.remove", id: idB });
-      expect(frame.log.map((line) => line.id)).toEqual([idA]);
+      expect(ownLog(frame).map((line) => line.id)).toEqual([idA]);
     });
 
     it("keeps only the newest 50 log lines", async () => {
@@ -319,9 +325,9 @@ export function describeDataSourceContract(
         });
       }
       const frame = await writeAll(source, ...writes);
-      expect(frame.log).toHaveLength(50);
-      expect(frame.log[0]?.text).toBe("Line 54");
-      expect(frame.log[49]?.text).toBe("Line 5");
+      expect(ownLog(frame)).toHaveLength(50);
+      expect(ownLog(frame)[0]?.text).toBe("Line 54");
+      expect(ownLog(frame)[49]?.text).toBe("Line 5");
     });
 
     it("ignores unknown ids", async () => {
@@ -551,12 +557,12 @@ export function describeDataSourceContract(
         upsertNotification(db, { ...base, id: "nm2", text: "Got $4,000", sub: "x", icon: "check" });
       });
       const rich = await source.frame();
-      expect(rich.log.map((l) => l.id)).toEqual(["m3", "m2", "m1"]);
+      expect(ownLog(rich).map((l) => l.id)).toEqual(["m3", "m2", "m1"]);
       expect(rich.notifications.some((n) => n.id === "nm1")).toBe(true);
       setAccess(file, [{ profileId: "u1", roles: ["scout"], seesMoney: false }]);
       const frame = await source.frame();
-      expect(frame.log.map((l) => l.id)).toEqual(["m3"]);
-      expect(JSON.stringify(frame.log)).not.toContain("$4,000");
+      expect(ownLog(frame).map((l) => l.id)).toEqual(["m3"]);
+      expect(JSON.stringify(ownLog(frame))).not.toContain("$4,000");
       expect(frame.notifications.some((n) => n.id === "nm1" || n.id === "nm2")).toBe(false);
     });
 
@@ -574,7 +580,7 @@ export function describeDataSourceContract(
           });
         insertLogRow(db, marker("k1", "undo", "2026-10-20T10:02:00Z"));
       });
-      expect((await source.frame()).log.map((l) => l.id)).toEqual(["l1"]);
+      expect(ownLog(await source.frame()).map((l) => l.id)).toEqual(["l1"]);
       withDb(file, (db) => {
         insertLogRow(
           db,
@@ -586,7 +592,7 @@ export function describeDataSourceContract(
           }),
         );
       });
-      expect((await source.frame()).log.map((l) => l.id)).toEqual(["l2", "l1"]);
+      expect(ownLog(await source.frame()).map((l) => l.id)).toEqual(["l2", "l1"]);
     });
 
     describe("creator writes (plan step 5, D4 and D5)", () => {
@@ -836,9 +842,9 @@ export function describeDataSourceContract(
           action: "creator.reject",
           detail: "audience",
         };
-        expect((await first.frame()).log).toEqual([expected]);
+        expect(ownLog(await first.frame())).toEqual([expected]);
         first.close();
-        expect((await start().frame()).log).toEqual([expected]);
+        expect(ownLog(await start().frame())).toEqual([expected]);
       });
 
       function notesWrite(id: string, notes: string, handle = "", name = ""): DataWrite {
@@ -1243,7 +1249,7 @@ export function describeDataSourceContract(
         });
         expect(lines[0]).toMatchObject({ who: "Sara", ref: ch("c11"), action: null });
         // The same lines the frame shows for this creator, in the same order.
-        expect(lines).toEqual((await source.frame()).log.filter((l) => l.ref === ch("c11")));
+        expect(lines).toEqual(ownLog(await source.frame()).filter((l) => l.ref === ch("c11")));
         expect((await source.logFor(ch("c11"), 2)).map((l) => l.id)).toEqual(["old1", idB]);
         expect(await source.logFor("c999", 10)).toEqual([]);
         // An undo hides a line here too.
@@ -1421,7 +1427,7 @@ export function describeDataSourceContract(
         insertLogRow(db, logRow("z3", "2026-10-20T10:01:00Z", { detail: { text: "C" } }));
         insertLogRow(db, logRow("z4", "2026-10-20T10:01:30+00:00", { detail: { text: "D" } }));
       });
-      expect((await source.frame()).log.map((l) => l.id)).toEqual(["z4", "z3", "z2", "z1"]);
+      expect(ownLog(await source.frame()).map((l) => l.id)).toEqual(["z4", "z3", "z2", "z1"]);
     });
 
     describe("draft writes (plan step 6, D5)", () => {
@@ -1878,7 +1884,9 @@ export function describeDataSourceContract(
         await source.write([typed({ rate: 800, countries: [{ code: "GB", share: 70 }] })]);
         expect((await frameCreator(source))?.stage).toBe("kit");
         const frame = await source.frame();
-        expect(frame.log.filter((l) => l.text === "Media kit in for Kit Creator")).toHaveLength(1);
+        expect(ownLog(frame).filter((l) => l.text === "Media kit in for Kit Creator")).toHaveLength(
+          1,
+        );
       });
 
       it("does not move a creator that is not replied", async () => {
@@ -1886,7 +1894,7 @@ export function describeDataSourceContract(
         await seed(source, "emailed");
         await source.write([typed({ rate: 800, countries: [{ code: "GB", share: 70 }] })]);
         expect((await frameCreator(source))?.stage).toBe("emailed");
-        expect((await source.frame()).log.some((l) => l.text.startsWith("Media kit in"))).toBe(
+        expect(ownLog(await source.frame()).some((l) => l.text.startsWith("Media kit in"))).toBe(
           false,
         );
       });
@@ -1904,7 +1912,7 @@ export function describeDataSourceContract(
           fromReply: true,
         });
         expect(
-          (await source.frame()).log.some((l) => l.text === "Media kit in for Kit Creator"),
+          ownLog(await source.frame()).some((l) => l.text === "Media kit in for Kit Creator"),
         ).toBe(true);
       });
 

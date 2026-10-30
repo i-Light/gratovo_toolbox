@@ -25,6 +25,7 @@ import type {
   Deal,
   Frame,
   FrameNotification,
+  LogEntry,
   MateRun,
   RailCounts,
 } from "./types";
@@ -90,6 +91,11 @@ export interface ExampleSeed {
    * copy keeps no catalog rows.
    */
   readonly channels: readonly ExampleChannel[];
+  /**
+   * The log lines of the creators turned down (a reject or a never-contact line each), newest
+   * first: the database reads a creator's reject reason, time and never reason back from them.
+   */
+  readonly log: readonly LogEntry[];
   /**
    * By creator id: the stored audience numbers (`channel_state.media_kit`, `provided_data` and
    * `manual_engagement_rate`) the audience check reads. Not part of the Creator row.
@@ -169,6 +175,7 @@ function normalSeed(now: number): ExampleSeed {
       ),
     })),
     channels: people.map(({ channel }) => channel),
+    log: turnedDownLog(people.map(({ creator }) => creator)),
     kits,
     brands: exampleBrands(now),
     deals: exampleDeals(now),
@@ -183,6 +190,35 @@ function normalSeed(now: number): ExampleSeed {
     mateRun: (at) => mateRun(dayTime(at, 0, 9, 2)),
     health: null,
   };
+}
+
+/** A creator's id from its short key ("c1"). */
+const id = exampleChannelId;
+
+/** Who turned each rejected or never-contact creator down (v6), by roster key. */
+const turnedDownBy: Readonly<Record<string, string>> = {
+  [id("c42")]: "u3",
+  [id("c43")]: "u1",
+  [id("c44")]: "u2",
+};
+
+/** The reject or never line of every creator that was turned down, newest first. */
+function turnedDownLog(list: readonly Creator[]): readonly LogEntry[] {
+  const lines: LogEntry[] = [];
+  list.forEach((c, i) => {
+    if (c.rejectedAt === null) return;
+    const never = c.stage === "never";
+    lines.push({
+      id: `00000000-0000-4000-8000-${String(100 + i).padStart(12, "0")}`,
+      at: c.rejectedAt,
+      who: turnedDownBy[c.id] ?? me,
+      text: never ? `Marked ${c.name} as never contact` : `Rejected ${c.name}`,
+      ref: c.id,
+      action: never ? "creator.never" : "creator.reject",
+      detail: never ? c.neverReason : c.rejectReason,
+    });
+  });
+  return lines.sort((a, b) => b.at - a.at);
 }
 
 /** What a freshly seeded example source returns at `now`. */
@@ -205,7 +241,7 @@ export function exampleFrame(now: number): Frame {
     })),
     counts: seed.counts,
     notifications: [...seed.notifications].sort(newestFirst),
-    log: [],
+    log: seed.log,
     creators: seed.creators,
     brands: seed.brands,
     deals: seed.deals,
@@ -346,9 +382,6 @@ function notifications(now: number): readonly FrameNotification[] {
     },
   ];
 }
-
-/** A creator's id from its short key ("c1"). */
-const id = exampleChannelId;
 
 const typedKit = (
   countries: readonly (readonly [string, number])[],

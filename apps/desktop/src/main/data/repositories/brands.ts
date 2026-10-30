@@ -3,7 +3,22 @@ import type { DatabaseSync, SQLInputValue } from "node:sqlite";
 import { bareBrand, brandContactsMax, brandStatuses } from "@gratovo/core/data";
 import type { Brand, BrandContact, BrandPitch, BrandStatus } from "@gratovo/core/data";
 
-import { flag, isRecord, jsonOrNull, ms, num, oneOf, parseJson, str, strings } from "./details";
+import {
+  amountOf,
+  countOf,
+  countryCode,
+  flag,
+  idOrNull,
+  isRecord,
+  jsonOrNull,
+  ms,
+  num,
+  oneOf,
+  parseJson,
+  strMax,
+  strings,
+  textMax,
+} from "./details";
 import type { Row } from "./details";
 
 /** Adds a brand or updates the one with the same id. `now` is in ms; the table stores ISO text. */
@@ -71,7 +86,8 @@ export function upsertBrandDetails(db: DatabaseSync, brand: Brand, now: number):
 /**
  * Adds a brand (`created_at` and `updated_at` set to `now`) or sets the name, `sells` and
  * `status` of the one with that id, leaving its `updated_at`. `now` is in ms. A status kept in
- * `brand_details` follows, or it would hide the new one.
+ * `brand_details` follows, or it would hide the new one (the reader prefers `brands.status`
+ * anyway).
  */
 export function setBrand(
   db: DatabaseSync,
@@ -93,23 +109,49 @@ export function setBrand(
   );
 }
 
-/** The contacts a brand's synced `contacts` column holds: the ones with a name, at most four. */
-function readContacts(json: unknown): BrandContact[] {
+/** True when a stored contact is flagged as the primary one (the legacy app's `isPrimary`). */
+function isPrimaryContact(item: Readonly<Record<string, unknown>>): boolean {
+  return item["isPrimary"] === true || item["primary"] === true;
+}
+
+/**
+ * The contacts a brand's synced `contacts` column holds: the ones with a name, the legacy primary
+ * first, at most `brandContactsMax`, each cut to the schema's limits (F10). With none usable, the
+ * single `contact_name` and `contact_email` columns stand in.
+ */
+function readContacts(json: unknown, columnName: unknown, columnEmail: unknown): BrandContact[] {
   const list = parseJson(json);
-  if (!Array.isArray(list)) {
-    return [];
-  }
-  return list
-    .flatMap((item: unknown): BrandContact[] => {
+  const found: { contact: BrandContact; primary: boolean }[] = [];
+  if (Array.isArray(list)) {
+    for (const item of list as unknown[]) {
       if (!isRecord(item)) {
-        return [];
+        continue;
       }
-      const name = str(item["name"]);
-      return name === null || name === ""
-        ? []
-        : [{ name, role: str(item["role"]) ?? str(item["title"]), email: str(item["email"]) }];
-    })
-    .slice(0, brandContactsMax);
+      const name = strMax(item["name"]);
+      if (name === null || name === "") {
+        continue;
+      }
+      found.push({
+        contact: {
+          name,
+          role: strMax(item["role"]) ?? strMax(item["title"]),
+          email: strMax(item["email"]),
+        },
+        primary: isPrimaryContact(item),
+      });
+    }
+  }
+  if (found.length === 0) {
+    const name = strMax(columnName);
+    if (name === null || name.trim() === "") {
+      return [];
+    }
+    return [{ name, role: null, email: strMax(columnEmail) }];
+  }
+  // A stable sort: the primary first, the rest in the order stored.
+  return [...found.filter((f) => f.primary), ...found.filter((f) => !f.primary)]
+    .slice(0, brandContactsMax)
+    .map((f) => f.contact);
 }
 
 function readPitch(json: unknown): BrandPitch | null {
@@ -119,50 +161,65 @@ function readPitch(json: unknown): BrandPitch | null {
   }
   const at = num(value["at"]);
   const mode = oneOf(["cold", "warm"] as const, value["mode"]);
-  return at === null || mode === null ? null : { at, creators: strings(value["creators"]), mode };
+  if (at === null || mode === null) {
+    return null;
+  }
+  const creators = strings(value["creators"])
+    .filter((c) => idOrNull(c) !== null)
+    .slice(0, seenMax);
+  return { at, creators, mode };
 }
 
+/** The most creators a brand lists as seen or pitched (the schema's limit). */
+const seenMax = 200;
+
 function brandFromRow(row: Row, detail: Row | undefined): Brand {
+  // `brands.status` is local too (no Supabase column): the newest write, so it comes first.
   const status: BrandStatus =
-    oneOf(brandStatuses, detail?.["status"] ?? null) ??
-    oneOf(brandStatuses, row["status"]) ??
-    "found";
+    oneOf(brandStatuses, row["status"]) ?? oneOf(brandStatuses, detail?.["status"]) ?? "found";
   const base = bareBrand({
     id: String(row["id"]),
-    name: String(row["name"]),
-    sells: row["sells"] === null ? "" : String(row["sells"]),
+    name: String(row["name"]).slice(0, textMax),
+    sells: strMax(row["sells"]) ?? "",
     status,
   });
-  const low = num(row["budget"]);
-  const high = num(detail?.["budget_high"]);
+  const low = amountOf(row["budget"]);
+  const highStored = amountOf(detail?.["budget_high"]);
   return {
     ...base,
-    category: str(row["category"]),
-    country: str(row["country"]),
-    site: str(row["website"]),
-    contacts: readContacts(row["contacts"]),
-    budget: low === null ? null : { low, high: high ?? low },
+    category: categoryOf(row["category"]),
+    country: countryCode(row["country"]),
+    site: strMax(row["website"]),
+    contacts: readContacts(row["contacts"], row["contact_name"], row["contact_email"]),
+    budget: low === null ? null : { low, high: highStored ?? low },
     budgetKnown: low !== null,
     ...(detail === undefined
       ? {}
       : {
-          headcount: ms(detail["headcount"]),
-          recommendedTitle: str(detail["recommended_title"]),
+          headcount: countOf(detail["headcount"]),
+          recommendedTitle: strMax(detail["recommended_title"]),
           paidSpenderVerified: flag(detail["paid_spender_verified"]),
-          pastCampaignHook: str(detail["past_campaign_hook"]),
-          seen: strings(parseJson(detail["seen"])),
+          pastCampaignHook: strMax(detail["past_campaign_hook"]),
+          seen: strings(parseJson(detail["seen"]))
+            .filter((id) => idOrNull(id) !== null)
+            .slice(0, seenMax),
           since: ms(detail["since"]),
           pitched: readPitch(detail["pitched"]),
-          owner: str(detail["owner_id"]),
+          owner: idOrNull(detail["owner_id"]),
         }),
   };
 }
 
+/** A category the schema takes (40 characters at most); longer is not known (F10). */
+function categoryOf(value: unknown): string | null {
+  return typeof value === "string" && value.length <= 40 ? value : null;
+}
+
 /**
- * Every brand in the order added, the synced columns merged with `brand_details` (F2, F3). A
- * brand the old app wrote has no `sells` (read as an empty string) and no `status` (read as
- * "found"); a status the app does not know reads as "found" too. A brand with no detail row is
- * `bareBrand` over its synced columns.
+ * Every brand in the order added, the synced columns merged with `brand_details` (F2, F3), each
+ * value cleaned to the frame schema's limits (F10). A brand the old app wrote has no `sells` (read
+ * as an empty string) and no `status` (read as "found"); a status the app does not know reads as
+ * "found" too. A brand with no detail row is `bareBrand` over its synced columns.
  */
 export function listBrands(db: DatabaseSync): Brand[] {
   const details = new Map<string, Row>();
@@ -171,7 +228,8 @@ export function listBrands(db: DatabaseSync): Brand[] {
   }
   const rows = db
     .prepare(
-      `SELECT id, name, sells, status, category, country, website, contacts, budget
+      `SELECT id, name, sells, status, category, country, website, contacts, budget,
+              contact_name, contact_email
        FROM brands ORDER BY rowid`,
     )
     .all();

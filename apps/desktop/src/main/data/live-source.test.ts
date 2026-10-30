@@ -13,6 +13,7 @@ import { openLiveSource } from "./live-source";
 import {
   listProfiles,
   replaceMemberAccess,
+  addLogEntry,
   upsertBrandDetails,
   upsertCreator,
   upsertCreatorDetails,
@@ -53,6 +54,17 @@ function seedLiveFile(file: string, now: number): void {
         kit.engagement ?? null,
         id,
       );
+    }
+    for (const entry of fixtures.log) {
+      addLogEntry(db, entry.who, entry);
+    }
+    for (const creator of fixtures.creators) {
+      if (creator.archiveDueAt !== null) {
+        db.prepare("UPDATE channel_state SET archive_due_at = ? WHERE channel_id = ?").run(
+          new Date(creator.archiveDueAt).toISOString(),
+          creator.id,
+        );
+      }
     }
     for (const brand of fixtures.brands) {
       upsertBrandDetails(db, brand, now);

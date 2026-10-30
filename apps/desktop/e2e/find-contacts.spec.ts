@@ -1,3 +1,5 @@
+import type { Page } from "@playwright/test";
+
 import { strings } from "../src/renderer/strings";
 import { expect, test } from "./fixtures";
 
@@ -8,12 +10,21 @@ const keywords = ["ai agents explained", "claude code tutorial"];
 // The example run takes a few seconds; CI is slower.
 const run = { timeout: 60_000 };
 
+/** The creators the example seed already holds as shortlisted: Contacts lists them too. */
+async function seedShortlisted(page: Page): Promise<number> {
+  const frame = (await page.evaluate(() => window.gratovo.invoke("frame:load", {}))) as {
+    readonly value?: { readonly creators: readonly { readonly stage: string }[] };
+  };
+  return (frame.value?.creators ?? []).filter((c) => c.stage === "shortlisted").length;
+}
+
 test.describe("Find › Contacts", () => {
   test("two shortlisted channels reach Contacts; Confirm all 90%+ moves the sure one on", async ({
     page,
     errors,
   }) => {
     test.setTimeout(120_000);
+    const seeded = await seedShortlisted(page);
     await page
       .getByRole("navigation", { name: strings.rail.label })
       .getByRole("button", { name: new RegExp(`^${screens.find.name}`) })
@@ -36,8 +47,8 @@ test.describe("Find › Contacts", () => {
 
     // Both wait in Contacts, each with its addresses.
     await page.getByRole("tab", { name: new RegExp(`^${screens.find.tabs.contacts}`) }).click();
-    await expect(page.getByText(findContacts.header(2))).toBeVisible(run);
-    await expect(page.getByRole("article")).toHaveCount(2);
+    await expect(page.getByText(findContacts.header(seeded + 2))).toBeVisible(run);
+    await expect(page.getByRole("article")).toHaveCount(seeded + 2);
 
     // Ship Fast with AI has a business address in its About text (95% sure); Pair Programmer AI
     // has none. Open the first in the peek: it stays open while the channel leaves the list.
@@ -52,9 +63,9 @@ test.describe("Find › Contacts", () => {
     const all = page.getByRole("button", { name: /^Confirm all 90%\+/ });
     await expect(all).toBeVisible();
     await all.click();
-    await expect(page.getByRole("article")).toHaveCount(1);
+    await expect(page.getByRole("article")).toHaveCount(seeded + 1);
     await expect(page.getByRole("article", { name: "Pair Programmer AI" })).toBeVisible();
-    await expect(page.getByText(findContacts.header(1))).toBeVisible();
+    await expect(page.getByText(findContacts.header(seeded + 1))).toBeVisible();
 
     // The record says the contact is confirmed.
     await expect(peek.getByText(/^Contact confirmed:/)).toBeVisible();

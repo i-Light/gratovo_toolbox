@@ -36,10 +36,10 @@ export interface FoundEmail {
 /** The most found addresses a catalog item carries (D29). */
 export const foundEmailsMax = 10;
 
-/** One channel in the catalog: the pipeline's numbers joined to the team's creator state. */
 /** How steady a channel's views are from video to video. */
 export type ViewStability = "stable" | "volatile";
 
+/** One channel in the catalog: the pipeline's numbers joined to the team's creator state. */
 export interface CatalogItem {
   readonly id: string;
   readonly name: string;

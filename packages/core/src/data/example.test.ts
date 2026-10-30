@@ -113,6 +113,29 @@ describe("exampleSeed", () => {
     expect(new Set(seed.notifications.map((n) => n.id)).size).toBe(seed.notifications.length);
   });
 
+  it("keeps the reason and date of every rejected and never-contact creator", () => {
+    const day = 86_400_000;
+    const byName = (name: string) => seed.creators.find((c) => c.name === name);
+    const crypto = byName("Crypto AI Signals");
+    expect(crypto).toMatchObject({ stage: "rejected", rejectReason: "ai", neverReason: null });
+    expect(crypto?.rejectedAt).toBe(now - 2 * day);
+    expect(crypto?.archiveDueAt).toBe(now - 2 * day + 7 * day);
+    expect(byName("AI Gossip Hour")).toMatchObject({ stage: "rejected", rejectReason: "views" });
+    const never = byName("Hype Machine AI");
+    expect(never).toMatchObject({
+      stage: "never",
+      rejectReason: null,
+      neverReason: "Asked us to stop emailing",
+      archiveDueAt: null,
+    });
+    expect(never?.rejectedAt).toBe(now - 30 * day);
+    for (const c of seed.creators.filter((c) => c.stage === "rejected")) {
+      expect(c.rejectReason, c.name).not.toBeNull();
+      expect(c.rejectedAt, c.name).not.toBeNull();
+      expect(c.archiveDueAt, c.name).not.toBeNull();
+    }
+  });
+
   it("is about AI creators and the brands that sponsor them", () => {
     expect(seed.brands.every((b) => b.sells.startsWith("AI "))).toBe(true);
     // The creators the seed always had keep their names and their order; v6's come after.
@@ -403,7 +426,7 @@ describe("exampleFrame", () => {
       ],
       counts: { today: 28, plannedMinutes: 90, find: 15, reach: 10, close: 6, deliver: 7 },
       notifications: seed.notifications,
-      log: [],
+      log: seed.log,
       creators: seed.creators,
       brands: seed.brands,
       deals: seed.deals,
@@ -561,7 +584,7 @@ describe("the full roster (plan step P1-3)", () => {
     const formats = new Set(seed.creators.map((c) => c.details?.format));
     expect(formats).toEqual(new Set(["talking_head", "long_form", "shorts"]));
     const levels = new Set(seed.creators.map((c) => c.details?.botRisk?.level));
-    expect(levels).toEqual(new Set(["clean", "high"]));
+    expect(levels).toEqual(new Set(["clean", "watch", "high"]));
   });
 
   it("gives every signed creator a relationship, an open slot and onboarding", () => {
@@ -688,6 +711,23 @@ describe("the full roster (plan step P1-3)", () => {
       scan(exampleSeed(now, scenario), scenario);
     }
     expect(found).toEqual([]);
+  });
+
+  it("logs the creators turned down: a reject or never line each, newest first", () => {
+    const turned = seed.creators.filter((c) => c.rejectedAt !== null);
+    expect(turned.map((c) => c.stage).sort()).toEqual(["never", "rejected", "rejected"]);
+    expect(seed.log.map((l) => l.ref).sort()).toEqual(turned.map((c) => c.id).sort());
+    const times = seed.log.map((l) => l.at);
+    expect(times).toEqual([...times].sort((a, b) => b - a));
+    for (const c of turned) {
+      const line = seed.log.find((l) => l.ref === c.id);
+      expect(line?.at).toBe(c.rejectedAt);
+      expect(line?.action).toBe(c.stage === "never" ? "creator.never" : "creator.reject");
+      expect(line?.detail).toBe(c.stage === "never" ? c.neverReason : c.rejectReason);
+      expect(line?.detail).not.toBeNull();
+      expect(c.archiveDueAt === null).toBe(c.stage === "never");
+    }
+    expect(exampleSeed(now, "first").log).toEqual([]);
   });
 
   it("keeps every cross-reference in the reach rows pointing at a creator", () => {

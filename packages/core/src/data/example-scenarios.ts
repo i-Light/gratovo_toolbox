@@ -33,6 +33,7 @@ export function firstSeed(base: ExampleSeed, now: number): ExampleSeed {
     counts: { today: 0, plannedMinutes: 0, find: 0, reach: 0, close: 0, deliver: 0 },
     creators: [],
     channels: [],
+    log: [],
     kits: {},
     brands: [],
     deals: [],

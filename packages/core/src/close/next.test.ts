@@ -413,6 +413,11 @@ describe("nextFor: deals", () => {
     });
   });
 
+  it("names item 0 for a deal with no checks row", () => {
+    // Unknown checks are not "all ticked": the deal still has its first item to do.
+    expect(dealNext({ step: 3, checks: [] })).toMatchObject({ kind: "dealStep", item: 0 });
+  });
+
   it("names the first unticked item of the step, counting missing checks as unticked", () => {
     const count = DEAL_FLOW[0]?.items.length ?? 0;
     expect(count).toBeGreaterThan(1);

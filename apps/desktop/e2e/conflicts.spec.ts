@@ -125,7 +125,7 @@ test.describe("edits with the compare-and-set, against a fake Supabase", () => {
           id: brand.id,
           name: brand.name,
           sells: "An AI writing assistant",
-          status: "contacted",
+          status: "pitched",
         },
         { kind: "deal.step", id: deal.id, step: 3 },
       ]),
@@ -134,7 +134,7 @@ test.describe("edits with the compare-and-set, against a fake Supabase", () => {
     await expect.poll(() => supabase.sent("POST", "/rest/v1/brands").length).toBe(1);
     const [brandPost] = supabase.sent("POST", "/rest/v1/brands");
     expect(brandPost?.body).toEqual([
-      { id: brand.id, name: brand.name, sells: "An AI writing assistant", status: "contacted" },
+      { id: brand.id, name: brand.name, sells: "An AI writing assistant", status: "pitched" },
     ]);
     await expect.poll(() => supabase.sent("PATCH", "/rest/v1/deals").length).toBe(1);
     const [dealPatch] = supabase.sent("PATCH", "/rest/v1/deals");

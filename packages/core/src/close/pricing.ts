@@ -11,6 +11,16 @@ const formatMultiplier: Record<PriceFormat, number> = {
   short: 0.65,
 };
 
+/** Views of 0 or less are unknown, so they price like no views at all. */
+function knownViews(views: number | null): number {
+  return views !== null && views > 0 ? views : defaultViews;
+}
+
+/** A rate of 0 or less is unknown. */
+function knownRate(rate: number | null): number | null {
+  return rate !== null && rate > 0 ? rate : null;
+}
+
 /** Rounds to the nearest $50. */
 function round50(value: number): number {
   return Math.round(value / 50) * 50;
@@ -18,9 +28,9 @@ function round50(value: number): number {
 
 /** What a brand pays for one integration by this creator (ported from v6 `W.priceFor`). */
 export function priceFor(c: PriceInput, facts: AgencyFacts, opts: PriceOptions = {}): number {
-  const views = c.views ?? defaultViews;
+  const views = knownViews(c.views);
   const cpmBase = round50((views / 1000) * facts.cpm);
-  const rate = c.rate ?? 0;
+  const rate = knownRate(c.rate) ?? 0;
   let base: number;
   if (c.relationship === "exclusive_25") {
     // The creator's rate is the creator's share of the brand's price: gross = rate / (1 - commission).
@@ -45,7 +55,7 @@ export function payoutFor(c: PriceInput, gross: number, facts: AgencyFacts): num
   if (c.relationship === "exclusive_25") {
     return round50(gross * (1 - facts.commissionPct / 100));
   }
-  return c.rate ?? round50(gross * 0.62);
+  return knownRate(c.rate) ?? round50(gross * 0.62);
 }
 
 /** The three packages a pitch offers: single, 3-video bundle and takeover. Empty for no creators. */

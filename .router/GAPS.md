@@ -32,6 +32,7 @@ C16. Rail subtitle and live gating: app hides unwired screens in live mode (`lib
 C17. Sub-line for Today on the rail: v6 "N planned" duration (`W.dur(planned)`) and counts per screen from `phaseCounts(items)` (`engine.js:303`); app takes `Frame.counts` from the seed ("Until the Today engine computes them", `core/data/types.ts:145`). Needs the Today engine.
 C18. Undo/redo: app has `Ctrl Z / Ctrl Shift Z / Ctrl Y` and a toast "Undo" (BUILT); v6 `W.act(label, fn, {toast, log})` wraps every change in an undoable step with an activity-log line; app undo exists for its writes only (`lib/actions.ts`). Each new Today/Close/Deliver action must register with the same undo store.
 
+C19. Deal step words (P1, 2026-10-30): v6's DEAL_FLOW items use rule codes and trade shorthand (IO, UTM, QC, ROI, Make-Good, Droplet, "-5d buffer"). The app keeps v6's ten steps and item counts but says them in plain words (the owner's writing rule): e.g. "Brand's order (insertion order) received and marked up", "Our 5-point check passed (no music, #ad shown)", step "Draft and checks". The full old-to-new list is the `rewritten` map in `packages/core/src/deal-flow.test.ts`. [Owner to check the wording in prototype mode.]
 ---
 ## 2. Frame and overlays
 - Rail: BUILT. Collapse `[`, counts with bump animation (check), account block. v6 extras: "viewing as" line, "Add your name" prompt (BUILT in profile hero). `app.js:35-62`

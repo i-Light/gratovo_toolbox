@@ -8,6 +8,17 @@ function creator(over: Partial<PriceInput> = {}): PriceInput {
 }
 
 describe("priceFor", () => {
+  it("treats views of 0 or less as unknown", () => {
+    expect(priceFor(creator({ views: 0 }), facts)).toBe(1800);
+    expect(priceFor(creator({ views: -5 }), facts)).toBe(1800);
+  });
+
+  it("treats a rate of 0 or less as no rate", () => {
+    expect(priceFor(creator({ rate: 0 }), facts)).toBe(4000);
+    expect(priceFor(creator({ rate: -100 }), facts)).toBe(4000);
+    expect(priceFor(creator({ rate: 0, relationship: "exclusive_25" }), facts)).toBe(4000);
+  });
+
   it("prices on views at the CPM when there is no rate", () => {
     expect(priceFor(creator(), facts)).toBe(4000);
   });
@@ -57,6 +68,11 @@ describe("priceFor", () => {
 });
 
 describe("payoutFor", () => {
+  it("falls back to 62% of the price for a rate of 0 or less", () => {
+    expect(payoutFor(creator({ rate: 0 }), 4000, facts)).toBe(2500);
+    expect(payoutFor(creator({ rate: -1 }), 4000, facts)).toBe(2500);
+  });
+
   it("pays an exclusive creator the gross less our commission", () => {
     expect(payoutFor(creator({ relationship: "exclusive_25", rate: 1 }), 4000, facts)).toBe(3000);
   });

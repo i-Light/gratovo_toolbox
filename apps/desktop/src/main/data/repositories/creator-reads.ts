@@ -1,0 +1,349 @@
+import type { DatabaseSync, SQLOutputValue } from "node:sqlite";
+
+import {
+  contactNameMax,
+  contactSources,
+  creatorStageFrom,
+  creatorStages,
+  neverReasonMax,
+  primaryEmail,
+  rejectReasons,
+} from "@gratovo/core/data";
+import { kitView } from "@gratovo/core/close";
+import type {
+  ContactSource,
+  Creator,
+  CreatorKit,
+  CreatorStage,
+  CreatorState,
+  RejectReason,
+} from "@gratovo/core/data";
+
+import { creatorDetailsMap, detailsPart, parseJson } from "./details";
+
+/** The most creators a frame carries (the IPC list limit, `listMax` in the ipc package). */
+export const listMax = 5000;
+
+/**
+ * At most `limit` creators, in the order added. When there are more than that, the ones kept are:
+ * every creator a deal names, then creators past `new` (the app stage set, or the legacy fields
+ * not `newlyFound`/`new`), then the most recently pulled. The recency proxy is `rowid`, not
+ * `updated_at`: pulled rows arrive in cursor order, and `updated_at` text with mixed offsets
+ * (`Z` and `+00:00`) does not sort as time. The name falls back to the handle; stage and email
+ * are derived, and only the kept rows have their email read.
+ */
+export function listCreators(db: DatabaseSync, o: { limit?: number } = {}): Creator[] {
+  const limit = Math.max(0, Math.min(Math.floor(o.limit ?? listMax), listMax));
+  const rows = db
+    .prepare(
+      // Each kept creator's newest visible reject or never line is looked up through the log's
+      // entity index, one creator at a time: joining a computed list of every creator's line
+      // instead took 16 s with 5,000 creators and 19,000 reject lines (plan P8a).
+      `WITH ${hiddenLines}
+       SELECT k.*, r.action AS reject_action, r.detail AS reject_detail, r.at_ms AS reject_at_ms,
+              r.at AS reject_at
+       FROM (
+         SELECT s.rowid AS rid, s.channel_id, s.handle, s.vetting_status, s.pipeline_stage,
+                s.creator_stage, s.contacts, s.archive_due_at, c.name, s.media_kit,
+                s.provided_data, s.manual_engagement_rate
+         FROM channel_state s LEFT JOIN channels c ON c.channel_id = s.channel_id
+         ORDER BY
+           CASE
+             WHEN EXISTS (SELECT 1 FROM deals d WHERE d.channel_id = s.channel_id) THEN 0
+             WHEN s.creator_stage IS NOT NULL
+               OR NOT (s.vetting_status = 'newlyFound' AND s.pipeline_stage = 'new') THEN 1
+             ELSE 2
+           END,
+           s.rowid DESC
+         LIMIT ?
+       ) k LEFT JOIN activity_log r ON r.id = (
+         SELECT a.id FROM activity_log a
+         WHERE a.entity_type = 'channel' AND a.entity_id = k.channel_id
+           AND a.action IN ('creator.reject', 'creator.never')
+           AND a.id NOT IN (SELECT line FROM hidden)
+         ORDER BY a.at_ms DESC, a.id DESC
+         LIMIT 1
+       )
+       ORDER BY k.rid`,
+    )
+    .all(limit);
+  const details = creatorDetailsMap(db);
+  return rows.map((row) => {
+    const handle = String(row["handle"]);
+    return {
+      id: String(row["channel_id"]),
+      name: row["name"] === null ? handle : String(row["name"]),
+      handle,
+      ...storedFields(row),
+      ...contactFacts(String(row["contacts"])),
+      kit: rowKit(row),
+      ...detailsPart(details, String(row["channel_id"])),
+    };
+  });
+}
+
+/**
+ * Every creator's stored state, for the Find catalog to join to the pipeline's channels (plan
+ * step 5, D1): every `channel_state` row, not capped as the frame is, in the order added. `name`
+ * is null when `channels` has none. `lastActivity` is the newest visible line about the creator.
+ * Notes are left out: the detail reads one creator's with `readNotes`.
+ */
+export function creatorStates(db: DatabaseSync): CreatorState[] {
+  const rows = db
+    .prepare(
+      `WITH ${hiddenLines}, ${rejectLines}, ${latestLines}
+       SELECT s.channel_id, s.handle, s.vetting_status, s.pipeline_stage, s.creator_stage,
+              s.contacts, s.archive_due_at, s.manual_engagement_rate, s.media_kit, s.provided_data, c.name,
+              r.action AS reject_action, r.detail AS reject_detail, r.at_ms AS reject_at_ms,
+              r.at AS reject_at, l.at_ms AS last_at_ms, l.at AS last_at, l.actor_name AS last_who
+       FROM channel_state s
+         LEFT JOIN channels c ON c.channel_id = s.channel_id
+         LEFT JOIN rejects r ON r.entity_id = s.channel_id
+         LEFT JOIN latest l ON l.entity_id = s.channel_id
+       ORDER BY s.rowid`,
+    )
+    .all();
+  const details = creatorDetailsMap(db);
+  return rows.map((row) => {
+    const engagement = row["manual_engagement_rate"];
+    return {
+      id: String(row["channel_id"]),
+      handle: String(row["handle"]),
+      name: row["name"] === null ? null : String(row["name"]),
+      ...storedFields(row),
+      ...contactFacts(String(row["contacts"])),
+      engagement: typeof engagement === "number" ? engagement : null,
+      kit: rowKit(row),
+      ...detailsPart(details, String(row["channel_id"])),
+      legacyPipelineStage: String(row["pipeline_stage"]),
+      hasAppStage: isAppStage(row["creator_stage"]),
+      lastActivity:
+        row["last_who"] === null
+          ? null
+          : { at: lineMs(row["last_at_ms"], row["last_at"]), who: String(row["last_who"]) },
+    };
+  });
+}
+
+/** The merged kit of a row that selected `media_kit`, `provided_data` and `manual_engagement_rate`. */
+function rowKit(row: Readonly<Record<string, SQLOutputValue>>): CreatorKit | null {
+  const engagement = row["manual_engagement_rate"];
+  return kitView(
+    parseJson(row["media_kit"]),
+    parseJson(row["provided_data"]),
+    typeof engagement === "number" ? engagement : null,
+  );
+}
+
+/**
+ * What the automatic replied to kit move needs (step 8, D4): the creator's stage, the merged kit
+ * (unstripped) and the handle and name for the stage write. Undefined when there is no row.
+ */
+export function readKitState(
+  db: DatabaseSync,
+  id: string,
+):
+  | {
+      readonly stage: CreatorStage;
+      readonly kit: CreatorKit | null;
+      readonly handle: string;
+      readonly name: string;
+    }
+  | undefined {
+  const row = db
+    .prepare(
+      `SELECT s.handle, s.vetting_status, s.pipeline_stage, s.creator_stage, s.media_kit,
+              s.provided_data, s.manual_engagement_rate, c.name
+       FROM channel_state s LEFT JOIN channels c ON c.channel_id = s.channel_id
+       WHERE s.channel_id = ?`,
+    )
+    .get(id);
+  if (row === undefined) {
+    return undefined;
+  }
+  return {
+    stage: creatorStageFrom({
+      creatorStage: row["creator_stage"] === null ? null : String(row["creator_stage"]),
+      vettingStatus: String(row["vetting_status"]),
+      pipelineStage: String(row["pipeline_stage"]),
+    }),
+    kit: rowKit(row),
+    handle: String(row["handle"]),
+    name: row["name"] === null || row["name"] === "" ? String(row["handle"]) : String(row["name"]),
+  };
+}
+
+// The parts the two reads share. An undo hides a line while its newest undo or redo marker is an
+// undo, as `newestLog` reads it; each window keeps one creator's newest line, in one pass.
+
+/** `hidden(line)`: the ids of the lines an undo hides. */
+const hiddenLines = `hidden AS (
+  SELECT line FROM (
+    SELECT entity_id AS line, action,
+           ROW_NUMBER() OVER (PARTITION BY entity_id ORDER BY at_ms DESC, id DESC) AS n
+    FROM activity_log
+    WHERE entity_type = 'activity_log' AND action IN ('undo', 'redo')
+  ) WHERE n = 1 AND action = 'undo'
+)`;
+
+/** `rejects`: each creator's newest visible reject or never line. */
+const rejectLines = `rejects AS (
+  SELECT entity_id, action, detail, at_ms, at FROM (
+    SELECT a.entity_id, a.action, a.detail, a.at_ms, a.at,
+           ROW_NUMBER() OVER (PARTITION BY a.entity_id ORDER BY a.at_ms DESC, a.id DESC) AS n
+    FROM activity_log a
+    WHERE a.entity_type = 'channel' AND a.action IN ('creator.reject', 'creator.never')
+      AND a.id NOT IN (SELECT line FROM hidden)
+  ) WHERE n = 1
+)`;
+
+/** `latest`: each creator's newest visible line of any kind. */
+const latestLines = `latest AS (
+  SELECT entity_id, at_ms, at, actor_name FROM (
+    SELECT a.entity_id, a.at_ms, a.at, a.actor_name,
+           ROW_NUMBER() OVER (PARTITION BY a.entity_id ORDER BY a.at_ms DESC, a.id DESC) AS n
+    FROM activity_log a
+    WHERE a.entity_type = 'channel' AND a.entity_id IS NOT NULL
+      AND a.id NOT IN (SELECT line FROM hidden)
+  ) WHERE n = 1
+)`;
+
+/** The fields both reads derive the same way from a row and its reject line. */
+function storedFields(
+  row: Readonly<Record<string, SQLOutputValue>>,
+): Pick<
+  Creator,
+  | "stage"
+  | "email"
+  | "emailConfirmed"
+  | "contactName"
+  | "rejectReason"
+  | "rejectedAt"
+  | "neverReason"
+  | "archiveDueAt"
+> {
+  const contacts = String(row["contacts"]);
+  const primary = primaryEntry(contacts);
+  const confirmed = primary?.["confirmed"] === true;
+  const label = primary?.["label"];
+  const action = row["reject_action"];
+  const due = row["archive_due_at"] === null ? NaN : Date.parse(String(row["archive_due_at"]));
+  const stage = creatorStageFrom({
+    creatorStage: row["creator_stage"] === null ? null : String(row["creator_stage"]),
+    vettingStatus: String(row["vetting_status"]),
+    pipelineStage: String(row["pipeline_stage"]),
+  });
+  // The line outlives the stage: once a creator is brought back, its old reason no longer holds.
+  const rejected = stage === "rejected";
+  return {
+    stage,
+    email: primaryEmail(contacts),
+    emailConfirmed: confirmed,
+    // A name on an address nobody confirmed is only a guess: it is not shown.
+    contactName:
+      confirmed && typeof label === "string" && label.trim() !== ""
+        ? label.trim().slice(0, contactNameMax)
+        : null,
+    // A never line has no reason: only a reject line gives one.
+    rejectReason: rejected && action === "creator.reject" ? reasonFrom(row["reject_detail"]) : null,
+    rejectedAt:
+      (rejected || stage === "never") && action !== null
+        ? lineMs(row["reject_at_ms"], row["reject_at"])
+        : null,
+    // The reason the person wrote, while the creator is still at never (D39).
+    neverReason:
+      stage === "never" && action === "creator.never"
+        ? neverReasonFrom(row["reject_detail"])
+        : null,
+    archiveDueAt: Number.isNaN(due) ? null : due,
+  };
+}
+
+/** Whether a stored `creator_stage` is one of the app's stages (one the stage is read from). */
+function isAppStage(value: unknown): boolean {
+  return typeof value === "string" && (creatorStages as readonly string[]).includes(value);
+}
+
+/** A line's time in ms: `at_ms`, else its ISO text (0 when that doesn't read either). */
+function lineMs(atMs: unknown, at: unknown): number {
+  if (typeof atMs === "number") {
+    return atMs;
+  }
+  const ms = Date.parse(String(at));
+  return Number.isNaN(ms) ? 0 : ms;
+}
+
+/** The reason in a line's stored detail (`{"reason": …}`); null when it isn't one of the four. */
+function reasonFrom(detail: unknown): RejectReason | null {
+  const reason = storedReason(detail);
+  return rejectReasons.find((known) => known === reason) ?? null;
+}
+
+/** A never line's reason, cut to `neverReasonMax`; null when it has none. */
+function neverReasonFrom(detail: unknown): string | null {
+  const reason = storedReason(detail)?.trim() ?? "";
+  return reason === "" ? null : reason.slice(0, neverReasonMax);
+}
+
+/** The text in a line's stored detail (`{"reason": …}`); null when there is none. */
+function storedReason(detail: unknown): string | null {
+  if (typeof detail !== "string") {
+    return null;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(detail);
+  } catch {
+    return null;
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    return null;
+  }
+  const reason = (parsed as Readonly<Record<string, unknown>>)["reason"];
+  return typeof reason === "string" ? reason : null;
+}
+
+/**
+ * The contact `primaryEmail` picks, as stored: the email entry with its value, the primary one
+ * first. Null when there is none, or for a bare string (it has no fields). Bad JSON reads as none.
+ */
+function primaryEntry(contactsJson: string): Readonly<Record<string, unknown>> | null {
+  const email = primaryEmail(contactsJson);
+  if (email === null) {
+    return null;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(contactsJson);
+  } catch {
+    return null;
+  }
+  const contacts = Array.isArray(parsed) ? (parsed as readonly unknown[]) : [];
+  const entry = contacts
+    .filter(
+      (item): item is Readonly<Record<string, unknown>> =>
+        typeof item === "object" && item !== null,
+    )
+    .filter(
+      (c) =>
+        c["method"] === "email" && typeof c["value"] === "string" && c["value"].trim() === email,
+    )
+    // The primary one first, as `primaryEmail` chooses it.
+    .sort((a, b) => Number(b["primary"] === true) - Number(a["primary"] === true))[0];
+  return entry ?? null;
+}
+
+/**
+ * Where the primary address came from and how sure the finder was, as stored on it (D31); null
+ * for anything that isn't one of the sources or a number from 0 to 1.
+ */
+function contactFacts(contactsJson: string): Pick<Creator, "contactSource" | "contactConfidence"> {
+  const primary = primaryEntry(contactsJson);
+  const source = primary?.["source"];
+  const confidence = primary?.["confidence"];
+  return {
+    contactSource: contactSources.find((known): known is ContactSource => known === source) ?? null,
+    contactConfidence:
+      typeof confidence === "number" && confidence >= 0 && confidence <= 1 ? confidence : null,
+  };
+}

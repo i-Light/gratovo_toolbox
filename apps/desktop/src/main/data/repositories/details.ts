@@ -45,6 +45,49 @@ export function str(value: unknown): string | null {
   return typeof value === "string" ? value : null;
 }
 
+/** The longest free text the frame's schema takes (`textMax` in the ipc package's `work.ts`). */
+export const textMax = 500;
+/** The longest id the frame's schema takes. */
+export const idMax = 100;
+/** The most entries a list on a creator's details keeps. */
+const entriesMax = 30;
+
+/** Text cut to `max` characters (the schema's limit; F10); null when it is not text. */
+export function strMax(value: unknown, max: number = textMax): string | null {
+  return typeof value === "string" ? value.slice(0, max) : null;
+}
+
+/** An id the schema takes (1 to 100 characters); null otherwise. */
+export function idOrNull(value: unknown): string | null {
+  return typeof value === "string" && value.length >= 1 && value.length <= idMax ? value : null;
+}
+
+/** A two-letter country code, upper case; anything else is none (F10). */
+export function countryCode(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const code = value.trim().toUpperCase();
+  return /^[A-Z]{2}$/.test(code) ? code : null;
+}
+
+/** An amount of money or a count the schema takes: finite and not negative; else null. */
+export function amountOf(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null;
+}
+
+/** A whole number, not negative; else null. */
+export function countOf(value: unknown): number | null {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0 ? value : null;
+}
+
+/** A percentage from 0 to 100; else null. */
+export function pctOf(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 100
+    ? value
+    : null;
+}
+
 export function num(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
@@ -55,6 +98,13 @@ export function oneOf<T extends string>(list: readonly T[], value: unknown): T |
 
 export function strings(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string") : [];
+}
+
+/** Texts cut to the schema's text limit and kept to `max` of them. */
+export function textList(value: unknown, max: number = entriesMax): string[] {
+  return strings(value)
+    .slice(0, max)
+    .map((v) => v.slice(0, textMax));
 }
 
 /** An integer column as a boolean; null when the column is null. */
@@ -116,40 +166,42 @@ export function isoOrNull(at: number | null): string | null {
 function readCreatorDetails(row: Row): CreatorDetails {
   const lockList = parseJson(row["locks"]);
   const locks: ExclusivityLock[] = Array.isArray(lockList)
-    ? lockList.flatMap((item: unknown) => {
-        if (!isRecord(item)) {
-          return [];
-        }
-        const category = str(item["category"]);
-        const brand = str(item["brand"]);
-        const until = num(item["until"]);
-        return category === null || brand === null || until === null
-          ? []
-          : [{ category, brand, until }];
-      })
+    ? lockList
+        .flatMap((item: unknown) => {
+          if (!isRecord(item)) {
+            return [];
+          }
+          const category = strMax(item["category"], 40);
+          const brand = strMax(item["brand"]);
+          const until = num(item["until"]);
+          return category === null || brand === null || until === null
+            ? []
+            : [{ category, brand, until }];
+        })
+        .slice(0, entriesMax)
     : [];
   const onboardingJson = parseJson(row["onboarding"]);
   const onboarding: CreatorOnboarding | null = isRecord(onboardingJson)
     ? {
-        dreamBrands: strings(onboardingJson["dreamBrands"]),
-        hardNos: strings(onboardingJson["hardNos"]),
-        paymentRail: str(onboardingJson["paymentRail"]),
-        taxForm: str(onboardingJson["taxForm"]),
+        dreamBrands: textList(onboardingJson["dreamBrands"]),
+        hardNos: textList(onboardingJson["hardNos"]),
+        paymentRail: strMax(onboardingJson["paymentRail"]),
+        taxForm: strMax(onboardingJson["taxForm"]),
       }
     : null;
   const level = oneOf(botRiskLevels, row["bot_risk"]);
-  const botRisk: BotRisk | null = level === null ? null : { level, note: str(row["bot_note"]) };
+  const botRisk: BotRisk | null = level === null ? null : { level, note: strMax(row["bot_note"]) };
   const socialsJson = parseJson(row["socials"]);
   const socials: Record<string, string> = {};
   if (isRecord(socialsJson)) {
     for (const [platform, handle] of Object.entries(socialsJson)) {
-      if (typeof handle === "string") {
-        socials[platform] = handle;
+      if (typeof handle === "string" && platform.length <= 20) {
+        socials[platform] = handle.slice(0, 100);
       }
     }
   }
   return {
-    owner: str(row["owner_id"]),
+    owner: idOrNull(row["owner_id"]),
     relationship: oneOf(relationshipModels, row["relationship"]),
     lastUpdateAt: ms(row["last_update_at"]),
     locks,

@@ -47,40 +47,40 @@ export const DEAL_FLOW: readonly DealStep[] = [
     key: "contracts",
     name: "Contracts",
     items: [
-      "Brand's IO received & redlined",
-      "Brand signed IO first",
-      "Mirrored creator contract generated",
-      "Creator countersigned mirrored agreement",
+      "Brand's order (insertion order) received and marked up",
+      "Brand signed the order first",
+      "Matching creator contract written",
+      "Creator signed the matching agreement",
     ],
     ordered: true,
-    note: "Runs in strict order: Brand signs IO first (or locks terms), then Creator signs mirrored agreement with 5-day earlier draft buffer.",
+    note: "Runs in strict order. The brand signs its order first (or locks the terms). Then the creator signs the matching agreement, with a draft deadline 5 days earlier than the brand's.",
   },
   {
     key: "brief",
     name: "Brief & Ship",
     items: [
       "Brief translated into creator voice",
-      "Product shipped / tracking or demo account confirmed",
-      "Creator confirmed firm draft deadline (-5d buffer)",
+      "Product shipped, and tracking or a demo account confirmed",
+      "Creator confirmed a firm draft deadline, 5 days early",
     ],
   },
   {
     key: "draft",
-    name: "Draft & QC",
+    name: "Draft and checks",
     items: [
-      "Script / outline approved before filming",
+      "Script or outline approved before filming",
       "Unlisted video draft received from creator",
-      "5-point agency QC passed (no music, #ad shown)",
-      "Brand approved the draft (within 2-round limit)",
+      "Our 5-point check passed (no music, #ad shown)",
+      "Brand approved the draft (within 2 rounds of changes)",
     ],
   },
   {
     key: "prelive",
     name: "Pre-live checks",
     items: [
-      "UTM tracking link opens landing page cleanly",
+      "Tracking link opens the landing page cleanly",
       "Integration placed in first third of video",
-      "Promo code & top-3-line description link verified",
+      "Promo code and the link in the first 3 lines of the description checked",
     ],
   },
   {
@@ -88,7 +88,7 @@ export const DEAL_FLOW: readonly DealStep[] = [
     name: "Go-live",
     items: [
       "Video is live, public link saved",
-      "Same-day go-live email + PDF invoice sent to brand",
+      "Same-day go-live email and PDF invoice sent to the brand",
     ],
   },
   {
@@ -100,8 +100,8 @@ export const DEAL_FLOW: readonly DealStep[] = [
     key: "report",
     name: "30-day report",
     items: [
-      "YouTube Studio 30d retention & link clicks pulled",
-      "30-day ROI report (or proactive Make-Good) sent to brand",
+      "YouTube Studio 30-day retention and link clicks pulled",
+      "30-day results report sent to the brand (or an offer to fix it, if results fell short)",
     ],
   },
   {
@@ -113,6 +113,6 @@ export const DEAL_FLOW: readonly DealStep[] = [
   {
     key: "next",
     name: "Next deal",
-    items: ["Retainer / Droplet next-creator pitch sent to brand"],
+    items: ["Pitch for the next creator sent to the brand (ongoing deal or one-off)"],
   },
 ];

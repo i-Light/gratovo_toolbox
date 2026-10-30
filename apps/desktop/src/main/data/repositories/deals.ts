@@ -12,8 +12,11 @@ import type {
 } from "@gratovo/core/data";
 
 import {
+  amountOf,
   boolList,
   clauseList,
+  countOf,
+  idOrNull,
   flag,
   isRecord,
   isoMs,
@@ -23,9 +26,10 @@ import {
   num,
   oneOf,
   parseJson,
+  pctOf,
   qcList,
   redlineList,
-  str,
+  strMax,
 } from "./details";
 import type { Row } from "./details";
 
@@ -145,13 +149,13 @@ function readReport(json: unknown): DealReport | null {
   return {
     dueAt,
     sentAt: num(v["sentAt"]),
-    views: num(v["views"]),
-    targetViews: num(v["targetViews"]),
-    clicks: num(v["clicks"]),
-    ctr: num(v["ctr"]),
-    retention: num(v["retention"]),
+    views: countOf(v["views"]),
+    targetViews: countOf(v["targetViews"]),
+    clicks: countOf(v["clicks"]),
+    ctr: pctOf(v["ctr"]),
+    retention: pctOf(v["retention"]),
     verdict: oneOf(["over", "under"] as const, v["verdict"]),
-    makeGood: str(v["makeGood"]),
+    makeGood: strMax(v["makeGood"]),
   };
 }
 
@@ -162,13 +166,13 @@ function readShipping(json: unknown): DealShipping | null {
   }
   return {
     required: v["required"],
-    item: str(v["item"]),
-    carrier: str(v["carrier"]),
-    tracking: str(v["tracking"]),
+    item: strMax(v["item"]),
+    carrier: strMax(v["carrier"]),
+    tracking: strMax(v["tracking"], 100),
     shippedAt: num(v["shippedAt"]),
     deliveredAt: num(v["deliveredAt"]),
-    promoCode: str(v["promoCode"]),
-    utmLink: str(v["utmLink"]),
+    promoCode: strMax(v["promoCode"], 60),
+    utmLink: strMax(v["utmLink"]),
   };
 }
 
@@ -189,21 +193,24 @@ function readCpm(json: unknown): DealCpm | null {
   if (!isRecord(v)) {
     return null;
   }
-  const rate = num(v["rate"]);
-  const cap = num(v["cap"]);
-  const viewGuarantee = num(v["viewGuarantee"]);
+  const rate = amountOf(v["rate"]);
+  const cap = amountOf(v["cap"]);
+  const viewGuarantee = countOf(v["viewGuarantee"]);
   return rate === null || cap === null || viewGuarantee === null
     ? null
     : { rate, cap, viewGuarantee };
 }
+
+/** The most offers a negotiation keeps (the schema's limit). */
+const offersMax = 50;
 
 function readNegotiation(json: unknown): DealNegotiation | null {
   const v = parseJson(json);
   if (!isRecord(v)) {
     return null;
   }
-  const ask = num(v["ask"]);
-  const floorPct = num(v["floorPct"]);
+  const ask = amountOf(v["ask"]);
+  const floorPct = pctOf(v["floorPct"]);
   if (ask === null || floorPct === null) {
     return null;
   }
@@ -213,14 +220,26 @@ function readNegotiation(json: unknown): DealNegotiation | null {
           return [];
         }
         const who = oneOf(["us", "brand", "creator"] as const, item["who"]);
-        const amount = num(item["amount"]);
+        const amount = amountOf(item["amount"]);
         const at = num(item["at"]);
         return who === null || amount === null || at === null
           ? []
-          : [{ who, amount, at, note: str(item["note"]) }];
+          : [{ who, amount, at, note: strMax(item["note"]) }];
       })
     : [];
-  return { ask, offer: num(v["offer"]), creatorRate: num(v["creatorRate"]), floorPct, history };
+  return {
+    ask,
+    offer: amountOf(v["offer"]),
+    creatorRate: amountOf(v["creatorRate"]),
+    floorPct,
+    history: history.slice(0, offersMax),
+  };
+}
+
+/** A synced amount: 0 is the column's "nothing yet" and, like a negative or odd one, is not known. */
+function moneyOrNull(value: unknown): number | null {
+  const amount = amountOf(value);
+  return amount === null || amount === 0 ? null : amount;
 }
 
 function dealFromRow(row: Row, detail: Row | undefined): Deal {
@@ -232,17 +251,15 @@ function dealFromRow(row: Row, detail: Row | undefined): Deal {
       flowStep: row["flow_step"] === null ? null : Number(row["flow_step"]),
       stage: String(row["stage"]),
     }),
-    price: Number(row["brand_price"]),
+    price: moneyOrNull(row["brand_price"]),
   });
-  // The synced column cannot be null: 0 is its "nothing yet", and reads as not known (F3).
-  const payout = num(row["influencer_payout"]);
   const synced: Deal = {
     ...base,
-    payout: payout === null || payout === 0 ? null : payout,
-    owner: str(row["owner_id"]),
+    payout: moneyOrNull(row["influencer_payout"]),
+    owner: idOrNull(row["owner_id"]),
     createdAt: isoMs(row["created_at"]),
-    deliverable: str(row["deliverables"]),
-    terms: str(row["payment_terms"]),
+    deliverable: strMax(row["deliverables"]),
+    terms: strMax(row["payment_terms"]),
     invoice: {
       number: null,
       sentAt: isoMs(row["brand_invoice_sent_at"]),
@@ -250,7 +267,7 @@ function dealFromRow(row: Row, detail: Row | undefined): Deal {
       paidAt: isoMs(row["brand_invoice_paid_at"]),
     },
     paidCreatorAt: isoMs(row["creator_payout_paid_at"]),
-    payRef: str(row["payment_reference"]),
+    payRef: strMax(row["payment_reference"], 100),
   };
   if (detail === undefined) {
     return synced;
@@ -258,20 +275,20 @@ function dealFromRow(row: Row, detail: Row | undefined): Deal {
   return {
     ...synced,
     model: oneOf(relationshipModels, detail["model"]),
-    checks: boolList(parseJson(detail["checks"]), null),
-    videoCount: ms(detail["video_count"]) ?? 1,
-    videosDelivered: ms(detail["videos_delivered"]) ?? 0,
+    checks: boolList(parseJson(detail["checks"]), null).slice(0, checksMax),
+    videoCount: countOf(detail["video_count"]) ?? 1,
+    videosDelivered: countOf(detail["videos_delivered"]) ?? 0,
     creatorDeadline: ms(detail["creator_deadline"]),
     goLiveAt: ms(detail["go_live_at"]),
     dueAt: ms(detail["due_at"]),
-    placement: str(detail["placement"]),
+    placement: strMax(detail["placement"]),
     invoice: {
       ...synced.invoice,
-      number: str(detail["invoice_number"]),
+      number: strMax(detail["invoice_number"], 60),
       dueAt: ms(detail["invoice_due_at"]),
     },
     report: readReport(detail["report"]),
-    liveUrl: str(detail["live_url"]),
+    liveUrl: strMax(detail["live_url"]),
     clauses: clauseList(parseJson(detail["clauses"])),
     redlines: redlineList(parseJson(detail["redlines"])),
     shipping: readShipping(detail["shipping"]),
@@ -283,6 +300,9 @@ function dealFromRow(row: Row, detail: Row | undefined): Deal {
     negotiation: readNegotiation(detail["negotiation"]),
   };
 }
+
+/** The most checklist items a deal keeps (the schema's limit). */
+const checksMax = 10;
 
 /**
  * Every deal in the order added, the synced columns merged with `deal_details` (F2, F3). A deal

@@ -1,4 +1,4 @@
-import type { Creator, ContactSource, CreatorStage } from "./types";
+import type { Creator, ContactSource, CreatorStage, RejectReason } from "./types";
 import type { CreatorDetails } from "./work-types";
 
 /**
@@ -102,6 +102,12 @@ interface RosterSpec {
     readonly contactConfidence: number | null;
   };
   readonly details: CreatorDetails;
+  /** Why and when a rejected or never-contact creator was turned down (days ago). */
+  readonly turnedDown?: {
+    readonly rejectReason?: RejectReason;
+    readonly neverReason?: string;
+    readonly daysAgo: number;
+  };
   readonly channel: {
     readonly subscribers: number;
     readonly country: string;
@@ -173,6 +179,25 @@ function videosOf(spec: RosterSpec, now: number): readonly ExampleVideo[] {
   return base;
 }
 
+/** The reject or never-contact facts of a creator; all empty for one nobody turned down. */
+function turnedDownOf(
+  spec: RosterSpec,
+  now: number,
+): Pick<Creator, "rejectReason" | "rejectedAt" | "neverReason" | "archiveDueAt"> {
+  const t = spec.turnedDown;
+  if (t === undefined) {
+    return { rejectReason: null, rejectedAt: null, neverReason: null, archiveDueAt: null };
+  }
+  const at = now - t.daysAgo * DAY;
+  return {
+    rejectReason: t.rejectReason ?? null,
+    rejectedAt: at,
+    neverReason: t.neverReason ?? null,
+    // The archive sweep takes a rejected creator 7 days after the reject; never ones stay.
+    archiveDueAt: spec.stage === "rejected" ? at + 7 * DAY : null,
+  };
+}
+
 /**
  * The roster at `now`: every example creator with its details and channel, in the order the
  * seed lists them (the first sixteen are the creators the seed always had).
@@ -189,10 +214,7 @@ export function exampleRoster(now: number): readonly ExampleRosterEntry[] {
         handle: spec.handle,
         stage: spec.stage,
         ...spec.creator,
-        rejectReason: null,
-        rejectedAt: null,
-        neverReason: null,
-        archiveDueAt: null,
+        ...turnedDownOf(spec, now),
         kit: null,
         details: spec.details,
       },
@@ -2080,6 +2102,7 @@ function rosterSpecs(now: number): readonly RosterSpec[] {
         contactSource: null,
         contactConfidence: null,
       },
+      turnedDown: { rejectReason: "ai", daysAgo: 2 },
       details: {
         owner: "u1",
         relationship: null,
@@ -2089,8 +2112,8 @@ function rosterSpecs(now: number): readonly RosterSpec[] {
         onboarding: null,
         format: "talking_head",
         botRisk: {
-          level: "clean",
-          note: "Organic developer comment threads verified",
+          level: "watch",
+          note: "Comments are mostly one-word coin replies, and few viewers write more",
         },
         socials: {
           x: "@cryptoaisignals",
@@ -2124,6 +2147,7 @@ function rosterSpecs(now: number): readonly RosterSpec[] {
         contactSource: null,
         contactConfidence: null,
       },
+      turnedDown: { rejectReason: "views", daysAgo: 1 },
       details: {
         owner: "u1",
         relationship: null,
@@ -2168,6 +2192,7 @@ function rosterSpecs(now: number): readonly RosterSpec[] {
         contactSource: null,
         contactConfidence: null,
       },
+      turnedDown: { neverReason: "Asked us to stop emailing", daysAgo: 30 },
       details: {
         owner: "u1",
         relationship: null,

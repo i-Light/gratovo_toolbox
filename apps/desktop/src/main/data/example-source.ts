@@ -7,6 +7,7 @@ import { restampStageEventsSql } from "../db/migrations/0007-insights";
 import { openDatabase } from "../db/open-database";
 
 import {
+  addLogEntry,
   createOutreachStore,
   getMeta,
   replaceMemberAccess,
@@ -165,6 +166,19 @@ function seed(db: DatabaseSync, now: number, scenario: Scenario): void {
         kit.engagement ?? null,
         id,
       );
+    }
+    // The reject and never lines the readers take a creator's reasons from, and the date a
+    // rejected creator leaves (the server's 7 days after the reject).
+    for (const entry of fixtures.log) {
+      addLogEntry(db, entry.who, entry);
+    }
+    for (const creator of fixtures.creators) {
+      if (creator.archiveDueAt !== null) {
+        db.prepare("UPDATE channel_state SET archive_due_at = ? WHERE channel_id = ?").run(
+          new Date(creator.archiveDueAt).toISOString(),
+          creator.id,
+        );
+      }
     }
     for (const brand of fixtures.brands) {
       upsertBrandDetails(db, brand, now);

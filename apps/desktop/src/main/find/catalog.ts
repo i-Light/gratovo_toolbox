@@ -239,31 +239,33 @@ function build(dbPath: string | null, states: readonly CreatorState[], now: numb
           )
           .all() as unknown as ChannelRow[]),
       );
+      // One pass over `videos`: the newest `listVideos` per channel for the list, and the newest
+      // `factVideos` with a known view count for the facts (a row with no count says nothing).
       const videoRows = db
         .prepare(
-          `SELECT ${videoColumns} FROM (
-             SELECT ${videoColumns}, ROW_NUMBER() OVER
-               (PARTITION BY channel_id ORDER BY published_at DESC, video_id) AS n FROM videos
-           ) WHERE n <= ${String(listVideos)}`,
+          `SELECT ${videoColumns}, n, k FROM (
+             SELECT ${videoColumns},
+               ROW_NUMBER() OVER
+                 (PARTITION BY channel_id ORDER BY published_at DESC, video_id) AS n,
+               CASE WHEN view_count IS NOT NULL THEN ROW_NUMBER() OVER
+                 (PARTITION BY channel_id, view_count IS NOT NULL
+                  ORDER BY published_at DESC, video_id) END AS k
+             FROM videos
+           ) WHERE n <= ${String(listVideos)} OR k <= ${String(factVideos)}
+           ORDER BY channel_id, n`,
         )
-        .all() as unknown as VideoRow[];
+        .all() as unknown as (VideoRow & { n: number; k: number | null })[];
       for (const row of videoRows) {
-        const list = videos.get(row.channel_id) ?? [];
-        list.push(videoOf(row));
-        videos.set(row.channel_id, list);
-      }
-      const viewRows = db
-        .prepare(
-          `SELECT channel_id, view_count FROM (
-             SELECT channel_id, view_count, ROW_NUMBER() OVER
-               (PARTITION BY channel_id ORDER BY published_at DESC, video_id) AS n FROM videos
-           ) WHERE n <= ${String(factVideos)} ORDER BY channel_id, n`,
-        )
-        .all() as unknown as { channel_id: string; view_count: string | number | null }[];
-      for (const row of viewRows) {
-        const list = viewCounts.get(row.channel_id) ?? [];
-        list.push(count(row.view_count));
-        viewCounts.set(row.channel_id, list);
+        if (row.n <= listVideos) {
+          const list = videos.get(row.channel_id) ?? [];
+          list.push(videoOf(row));
+          videos.set(row.channel_id, list);
+        }
+        if (row.k !== null && row.k <= factVideos) {
+          const list = viewCounts.get(row.channel_id) ?? [];
+          list.push(count(row.view_count));
+          viewCounts.set(row.channel_id, list);
+        }
       }
       const keywordRows = db
         .prepare(
