@@ -52,7 +52,12 @@ describe("exampleData", () => {
     });
     expect(data.notifications).toHaveLength(6);
     expect(data.notifications.filter((n) => !n.read)).toHaveLength(3);
-    expect(data.log).toEqual([]);
+    // The seed turns three creators down (two rejects, one never contact): one log line each.
+    expect(data.log.map((line) => line.action).sort()).toEqual([
+      "creator.never",
+      "creator.reject",
+      "creator.reject",
+    ]);
   });
 
   it("puts notification times on the right calendar days", () => {

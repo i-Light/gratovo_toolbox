@@ -66,7 +66,9 @@ const bo = item("UC-bo", "Bo Builds Agents");
 const data = () => appStore().getState().data;
 const find = (id: string) => data().creators.find((c) => c.id === id);
 const toasts = () => appStore().getState().ui.toasts;
-const lines = () => data().log.filter((l) => l.ref !== null);
+/** Ids of the log lines the seed starts with, so tests see only the lines they add. */
+let seedLogIds = new Set<string>();
+const lines = () => data().log.filter((l) => l.ref !== null && !seedLogIds.has(l.id));
 
 let writes: DataWrite[][] = [];
 let uninstall: () => void = () => undefined;
@@ -81,6 +83,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(now);
   resetAppStoreForTests({ screen: "find", tab: "triage" }, now);
+  seedLogIds = new Set(data().log.map((l) => l.id));
   writes = [];
   const invoke = (_channel: string, input: unknown): Promise<InvokeResult<"data:write">> => {
     writes.push([...(input as { writes: DataWrite[] }).writes]);

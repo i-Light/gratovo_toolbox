@@ -131,6 +131,7 @@ describe("diffData", () => {
           action: "creator.reject",
           detail: "ai",
         },
+        ...base.log,
       ],
     };
     expect(diffData(base, after)).toEqual({
@@ -150,7 +151,7 @@ describe("diffData", () => {
       ],
       unsupported: [],
     });
-    expect(diffData(after, { ...after, myName: null, log: [] }).writes).toEqual([
+    expect(diffData(after, { ...after, myName: null, log: base.log }).writes).toEqual([
       { kind: "me.name", name: "" },
       { kind: "log.remove", id: "a" },
     ]);
@@ -162,7 +163,9 @@ describe("diffData", () => {
       { id: "a", at: 1, who: base.me, text: "First", ref: null, action: null, detail: null },
     ];
     expect(
-      diffData(base, { ...base, log }).writes.map((w) => w.kind === "log.add" && w.id),
+      diffData(base, { ...base, log: [...log, ...base.log] }).writes.map(
+        (w) => w.kind === "log.add" && w.id,
+      ),
     ).toEqual(["a", "b"]);
   });
 
