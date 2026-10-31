@@ -69,6 +69,17 @@ describe("IconBtn", () => {
 });
 
 describe("Btn", () => {
+  it("writes dataUi as data-ui on the button, and nothing without it", () => {
+    const { rerender } = render(
+      <Btn dataUi="record.audience.sign" onClick={vi.fn()}>
+        Sign
+      </Btn>,
+    );
+    expect(screen.getByRole("button").getAttribute("data-ui")).toBe("record.audience.sign");
+    rerender(<Btn onClick={vi.fn()}>Sign</Btn>);
+    expect(screen.getByRole("button").hasAttribute("data-ui")).toBe(false);
+  });
+
   it("joins kind and size into the classes and shows the key hint of a primary button", () => {
     render(
       <Btn kind="pri" size="sm" icon="plus" kbd="Enter" tip="Add" onClick={vi.fn()}>

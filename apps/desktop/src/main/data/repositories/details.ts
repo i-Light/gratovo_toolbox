@@ -4,6 +4,7 @@ import {
   botRiskLevels,
   contractClauses,
   creatorFormats,
+  notesMax,
   qcChecks,
   redlineClauses,
   relationshipModels,
@@ -262,4 +263,48 @@ export function upsertCreatorDetails(
         format, bot_risk, bot_note, socials)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(...values);
+}
+
+/**
+ * A brand's or deal's notes as the frame shows them (R7): the local note when there is one (even
+ * an empty one, which clears the synced text), else the synced `notes` column. Text over
+ * `notesMax` comes back cut, with `notesCut` set so the page shows it read only.
+ */
+export function noteView(
+  local: unknown,
+  synced: unknown,
+): { readonly notes: string; readonly notesCut: boolean } {
+  const full = typeof local === "string" ? local : typeof synced === "string" ? synced : "";
+  return { notes: full.slice(0, notesMax), notesCut: full.length > notesMax };
+}
+
+const noteTargets = {
+  brand: { table: "brands", key: "id", details: "brand_details", detailKey: "brand_id" },
+  deal: { table: "deals", key: "id", details: "deal_details", detailKey: "deal_id" },
+} as const;
+
+/**
+ * A brand's or deal's notes write (R7): the local `notes` column of its details row, created when
+ * missing. Local only: nothing goes to the outbox. `base` is the text the person started editing
+ * from; it is kept for step T, when these notes sync and a clash can be told. Until then the newest
+ * save wins: the note lives on this computer only, so nothing can have changed it underneath. An
+ * unknown id does nothing. Returns whether the note was written.
+ */
+export function writeNotes(
+  db: DatabaseSync,
+  kind: "brand" | "deal",
+  write: { readonly id: string; readonly base: string; readonly notes: string },
+): boolean {
+  const t = noteTargets[kind];
+  const row = db.prepare(`SELECT notes FROM ${t.table} WHERE ${t.key} = ?`).get(write.id);
+  if (row === undefined) {
+    return false;
+  }
+  // The newest save wins: these notes live on this computer only, so no teammate can have changed
+  // them underneath (`base` matters once step T syncs them). Dropping a save would lose typing.
+  db.prepare(
+    `INSERT INTO ${t.details} (${t.detailKey}, notes) VALUES (?, ?)
+     ON CONFLICT (${t.detailKey}) DO UPDATE SET notes = excluded.notes`,
+  ).run(write.id, write.notes);
+  return true;
 }

@@ -35,14 +35,14 @@ const openFromPalette = async (name: string) => {
 };
 
 describe("the peek", () => {
-  it("says what kind of record it shows", () => {
+  it("shows the brand record for a brand", () => {
     render(<App />);
     act(() => {
       peek({ kind: "brand", id: "b4" });
     });
     const side = panel();
     if (side === null) throw new Error("no peek");
-    expect(within(side).getByText(strings.record.kinds.brand)).toBeTruthy();
+    expect(within(side).getByRole("tablist", { name: strings.brandRecord.tabsLabel })).toBeTruthy();
     expect(within(side).getByRole("heading", { name: "Pagewise" })).toBeTruthy();
   });
 

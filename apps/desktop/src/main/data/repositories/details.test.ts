@@ -9,7 +9,7 @@ import { openDatabase } from "../../db/open-database";
 import { brandWithoutMoney, listBrands, setBrand, upsertBrandDetails } from "./brands";
 import { creatorStates, listCreators } from "./creators";
 import { dealWithoutMoney, listDeals, upsertDealDetails } from "./deals";
-import { upsertCreatorDetails } from "./details";
+import { upsertCreatorDetails, writeNotes } from "./details";
 
 const t0 = Date.UTC(2026, 9, 20, 10, 0, 0);
 
@@ -245,5 +245,69 @@ describe("creator details", () => {
       lastUpdateAt: t0,
       nextOpenSlot: t0 + 2,
     });
+  });
+});
+
+describe("notes on brands and deals (R7)", () => {
+  function seed(): void {
+    db.exec(
+      `INSERT INTO brands (id, name, notes, created_at, updated_at) VALUES ('b1', 'Notely AI', 'Synced note', 'x', 'x');
+       INSERT INTO deals (id, brand_id, channel_id, flow_step, notes, created_at, updated_at)
+       VALUES ('d1', 'b1', 'UCa', 2, NULL, 'x', 'x')`,
+    );
+  }
+  const brandNote = () => listBrands(db)[0];
+  const dealNote = () => listDeals(db)[0];
+  const outbox = () => Number(db.prepare("SELECT COUNT(*) AS c FROM _outbox").get()?.["c"]);
+
+  it("reads the synced note, then the local note over it", () => {
+    seed();
+    expect(brandNote()).toMatchObject({ notes: "Synced note", notesCut: false });
+    expect(dealNote()).toMatchObject({ notes: "", notesCut: false });
+    expect(writeNotes(db, "brand", { id: "b1", base: "Synced note", notes: "Mine" })).toBe(true);
+    expect(brandNote()?.notes).toBe("Mine");
+    // The synced column is untouched, and nothing waits to be sent.
+    expect(db.prepare("SELECT notes FROM brands").get()).toEqual({ notes: "Synced note" });
+    expect(outbox()).toBe(0);
+  });
+
+  it("creates the details row for a deal and keeps the other detail columns", () => {
+    seed();
+    expect(writeNotes(db, "deal", { id: "d1", base: "", notes: "Check the go-live date." })).toBe(
+      true,
+    );
+    expect(dealNote()).toMatchObject({ notes: "Check the go-live date.", videoCount: 1 });
+    expect(db.prepare("SELECT COUNT(*) AS c FROM deal_details").get()).toEqual({ c: 1 });
+  });
+
+  it("clears the note with empty text, and the synced text does not come back", () => {
+    seed();
+    writeNotes(db, "brand", { id: "b1", base: "Synced note", notes: "" });
+    expect(brandNote()?.notes).toBe("");
+  });
+
+  it("keeps the newest save even from an older base, and skips an unknown id", () => {
+    seed();
+    expect(writeNotes(db, "brand", { id: "b1", base: "Older text", notes: "Mine" })).toBe(true);
+    expect(brandNote()?.notes).toBe("Mine");
+    expect(writeNotes(db, "brand", { id: "nope", base: "", notes: "Mine" })).toBe(false);
+    expect(
+      db.prepare("SELECT COUNT(*) AS c FROM brand_details WHERE brand_id = 'nope'").get(),
+    ).toEqual({ c: 0 });
+  });
+
+  it("returns a note over the limit cut, with notesCut set", () => {
+    seed();
+    db.prepare("UPDATE deals SET notes = ? WHERE id = 'd1'").run("x".repeat(50_001));
+    const deal = dealNote();
+    expect(deal?.notes).toHaveLength(50_000);
+    expect(deal?.notesCut).toBe(true);
+  });
+
+  it("round trips the seed's notes through the detail rows", () => {
+    upsertBrandDetails(db, { ...fullBrand, notes: "Asks for a demo first." }, t0);
+    upsertDealDetails(db, { ...fullDeal, notes: "One round of changes." }, t0);
+    expect(listBrands(db)[0]?.notes).toBe("Asks for a demo first.");
+    expect(listDeals(db)[0]?.notes).toBe("One round of changes.");
   });
 });

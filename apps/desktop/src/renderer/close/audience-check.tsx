@@ -88,6 +88,7 @@ export function AudienceCheck({
     buttons = (
       <>
         <Btn
+          dataUi="record.audience.sign"
           kind="pri"
           icon="pen"
           disabled={busy}
@@ -95,9 +96,7 @@ export function AudienceCheck({
             sign(creator.id);
           }}
         >
-          <span data-ui="record.audience.sign">
-            {kit?.rate == null ? text.signNoRate : text.sign(rateWords(kit) ?? "")}
-          </span>
+          {kit?.rate == null ? text.signNoRate : text.sign(rateWords(kit) ?? "")}
         </Btn>
         <span className="hint">{text.signHint}</span>
       </>
@@ -106,6 +105,7 @@ export function AudienceCheck({
     buttons = (
       <>
         <Btn
+          dataUi="record.audience.decline"
           kind="pri"
           icon="mail"
           disabled={busy}
@@ -113,16 +113,17 @@ export function AudienceCheck({
             run(() => decline(creator.id));
           }}
         >
-          <span data-ui="record.audience.decline">{text.decline}</span>
+          {text.decline}
         </Btn>
         <Btn
+          dataUi="record.audience.park"
           icon="alarm"
           disabled={busy}
           onClick={() => {
             run(() => parkForAudience(creator.id));
           }}
         >
-          <span data-ui="record.audience.park">{text.park}</span>
+          {text.park}
         </Btn>
         <span className="hint">{text.failHint}</span>
       </>
@@ -130,13 +131,14 @@ export function AudienceCheck({
   } else if (here && result.verdict === "missing" && askable) {
     buttons = (
       <Btn
+        dataUi="record.audience.ask"
         icon="mail"
         disabled={busy}
         onClick={() => {
           run(() => askMissing(creator.id));
         }}
       >
-        <span data-ui="record.audience.ask">{text.ask}</span>
+        {text.ask}
       </Btn>
     );
   }

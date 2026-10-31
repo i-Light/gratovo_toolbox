@@ -197,3 +197,10 @@ export type {
   HistoryVideoRow,
   HistoryWeekRow,
 } from "./example-history";
+export {
+  creatorOverviewBlockKeys,
+  creatorOverviewBlocks,
+  creatorStepIndex,
+  creatorSteps,
+} from "./record";
+export type { CreatorOverviewBlock, CreatorStep, OverviewFacts } from "./record";

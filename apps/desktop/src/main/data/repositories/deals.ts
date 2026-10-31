@@ -27,6 +27,7 @@ import {
   oneOf,
   parseJson,
   pctOf,
+  noteView,
   qcList,
   redlineList,
   strMax,
@@ -125,13 +126,14 @@ export function upsertDealDetails(db: DatabaseSync, deal: Deal, now: number): vo
     deal.whitelistingUntil,
     jsonOrNull(deal.cpm),
     jsonOrNull(deal.negotiation),
+    deal.notes === "" ? null : deal.notes,
   ];
   db.prepare(
     `INSERT OR REPLACE INTO deal_details
        (deal_id, model, checks, video_count, videos_delivered, creator_deadline, go_live_at,
         due_at, placement, invoice_number, invoice_due_at, report, live_url, clauses, redlines,
-        shipping, script_approved, qc, hype, whitelisting_until, cpm, negotiation)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        shipping, script_approved, qc, hype, whitelisting_until, cpm, negotiation, notes)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(...detail);
 }
 
@@ -268,6 +270,7 @@ function dealFromRow(row: Row, detail: Row | undefined): Deal {
     },
     paidCreatorAt: isoMs(row["creator_payout_paid_at"]),
     payRef: strMax(row["payment_reference"], 100),
+    ...noteView(detail?.["notes"], row["notes"]),
   };
   if (detail === undefined) {
     return synced;
@@ -321,7 +324,7 @@ export function listDeals(db: DatabaseSync): Deal[] {
     .prepare(
       `SELECT id, brand_id, channel_id, stage, brand_price, flow_step, influencer_payout,
               deliverables, payment_terms, brand_invoice_sent_at, brand_invoice_paid_at,
-              creator_payout_paid_at, payment_reference, owner_id, created_at
+              creator_payout_paid_at, payment_reference, owner_id, created_at, notes
        FROM deals ORDER BY rowid`,
     )
     .all();

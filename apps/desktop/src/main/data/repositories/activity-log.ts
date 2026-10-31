@@ -1,5 +1,6 @@
 import type { DatabaseSync, SQLOutputValue } from "node:sqlite";
 
+import { DEAL_FLOW } from "@gratovo/core";
 import { logActions, logText, mentionsMoney, moneyFields } from "@gratovo/core/data";
 import type { LogEntry } from "@gratovo/core/data";
 
@@ -174,7 +175,71 @@ export function linesFor(
   ref: string,
   o: { seesMoney: boolean; limit: number },
 ): LogEntry[] {
-  return readLines(db, { seesMoney: o.seesMoney, count: capped(o.limit, linesForCap), ref });
+  const count = capped(o.limit, linesForCap);
+  const lines = readLines(db, { seesMoney: o.seesMoney, count, ref });
+  const events = eventLines(db, ref, o.seesMoney, count);
+  if (events.length === 0) {
+    return lines;
+  }
+  return [...lines, ...events]
+    .sort((x, y) => y.at - x.at || (x.id < y.id ? 1 : -1))
+    .slice(0, count);
+}
+
+/** How a brand status reads in a line. */
+const statusWords: Readonly<Record<string, string>> = {
+  found: "Found",
+  qualified: "Qualified",
+  pitched: "Pitched",
+  negotiating: "Negotiating",
+  won: "Won",
+  lost: "Not a fit",
+};
+
+/**
+ * The step and status lines of a deal or a brand (R8), from `deal_events` and `brand_events`:
+ * "Moved to Contracts", "Status set to Negotiating". The first row a backfill wrote has no real
+ * time, so it makes no line. The events hold no author, so `who` is empty. An id that is neither
+ * a deal nor a brand gives nothing. A member without money gets no line that mentions money.
+ */
+function eventLines(db: DatabaseSync, ref: string, seesMoney: boolean, count: number): LogEntry[] {
+  const lines: LogEntry[] = [];
+  const add = (kind: string, id: unknown, at: unknown, text: string): void => {
+    if (seesMoney || !mentionsMoney(text)) {
+      lines.push({
+        id: `${kind}-event-${String(id)}`,
+        at: Number(at),
+        who: "",
+        text,
+        ref: null,
+        action: null,
+        detail: null,
+      });
+    }
+  };
+  const deals = db
+    .prepare(
+      "SELECT id, step, at FROM deal_events WHERE deal_id = ? AND source <> 'backfill' ORDER BY at DESC, id DESC LIMIT ?",
+    )
+    .all(ref, count);
+  for (const row of deals) {
+    const step = DEAL_FLOW[Number(row["step"])];
+    if (step !== undefined) {
+      add("deal", row["id"], row["at"], `Moved to ${step.name}`);
+    }
+  }
+  const brands = db
+    .prepare(
+      "SELECT id, status, at FROM brand_events WHERE brand_id = ? AND source <> 'backfill' ORDER BY at DESC, id DESC LIMIT ?",
+    )
+    .all(ref, count);
+  for (const row of brands) {
+    const status = statusWords[String(row["status"])];
+    if (status !== undefined) {
+      add("brand", row["id"], row["at"], `Status set to ${status}`);
+    }
+  }
+  return lines;
 }
 
 function capped(limit: number, cap: number): number {

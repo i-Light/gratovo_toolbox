@@ -157,6 +157,7 @@ describe("parts of a tab", () => {
       "insights.overview.revenue",
       "insights.goal.money",
       "insights.deals",
+      "record.deals",
     ] as const) {
       expect(isPartShown(part, "example")).toBe(true);
       expect(isPartShown(part, "live")).toBe(false);

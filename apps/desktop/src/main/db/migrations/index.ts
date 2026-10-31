@@ -8,6 +8,7 @@ import { draftGoal } from "./0006-draft-goal";
 import { insights } from "./0007-insights";
 import { details } from "./0008-details";
 import { dealEvents } from "./0009-deal-events";
+import { recordNotes } from "./0010-record-notes";
 
 /** Every migration, numbered 1..n with no gap. Add new ones at the end. */
 export const migrations: readonly Migration[] = [
@@ -20,4 +21,5 @@ export const migrations: readonly Migration[] = [
   insights,
   details,
   dealEvents,
+  recordNotes,
 ];

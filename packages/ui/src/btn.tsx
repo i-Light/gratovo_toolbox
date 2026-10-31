@@ -22,6 +22,8 @@ export interface BtnProps {
   readonly expanded?: boolean;
   /** The button element, to send focus back to it. */
   readonly ref?: Ref<HTMLButtonElement>;
+  /** Written as `data-ui` on the button, so the comment tool can anchor to it. */
+  readonly dataUi?: string;
   readonly onClick: MouseEventHandler<HTMLButtonElement>;
   readonly children?: ReactNode;
 }
@@ -38,6 +40,7 @@ export function Btn({
   disabled,
   expanded,
   ref,
+  dataUi,
   onClick,
   children,
 }: BtnProps) {
@@ -52,6 +55,7 @@ export function Btn({
       data-kbd={tip === undefined ? undefined : kbd}
       aria-label={label}
       aria-expanded={expanded}
+      data-ui={dataUi}
     >
       {icon === undefined ? null : <Icon name={icon} className={iconClassName} />}
       {children}

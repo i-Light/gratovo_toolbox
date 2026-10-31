@@ -216,3 +216,237 @@
   width: 80px;
   height: 22px;
 }
+.tabs .cr-count {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.cr-deals {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cr-deal {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: var(--r-md, 10px);
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.cr-deal:hover {
+  background: var(--sunk);
+}
+.cr-deal b {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.cr-deal .n {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.cr-found {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}
+.cr-found li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  align-items: baseline;
+  overflow-wrap: anywhere;
+}
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  gap: 3px;
+  min-width: 0;
+}
+.steps .st {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.steps .st i {
+  display: block;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--sunk-2);
+}
+.steps .st.done i {
+  background: color-mix(in srgb, var(--hue, var(--accent)) 55%, var(--panel));
+}
+.steps .st.now {
+  color: var(--ink);
+  font-weight: 600;
+}
+.steps .st.now i {
+  background: var(--hue, var(--accent));
+}
+.steps .st span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.steps-cap {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+/* Ten tabs don't fit the peek's width: they wrap to a second row instead of hiding off the edge. */
+[data-ui="record.tabs"] {
+  flex-wrap: wrap;
+  overflow: visible;
+}
+.cr-stars {
+  display: inline-flex;
+  gap: 1px;
+  color: var(--sunk-2);
+}
+.cr-stars .on {
+  color: var(--warn);
+}
+.cr-stars .ic {
+  fill: currentColor;
+  stroke: none;
+}
+.cr-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.cr-block p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.cr-flow {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.cr-flow > li {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  gap: 4px 10px;
+  align-items: start;
+  padding: 10px 2px;
+  border-top: 1px solid var(--line);
+}
+.cr-flow > li:first-child {
+  border-top: 0;
+}
+.cr-flow .mark {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line);
+  display: grid;
+  place-items: center;
+  color: var(--good);
+  margin-top: 1px;
+}
+.cr-flow .done > .mark {
+  border-color: var(--good);
+  background: color-mix(in srgb, var(--good) 14%, transparent);
+}
+.cr-flow .now > .mark {
+  border-color: var(--deliver);
+}
+.cr-flow b {
+  font-weight: 600;
+}
+.cr-flow .later {
+  color: var(--muted);
+}
+.cr-checks {
+  grid-column: 2 / 4;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12.5px;
+}
+.cr-checks li {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  overflow-wrap: anywhere;
+}
+.cr-checks .ic {
+  flex: none;
+  align-self: center;
+}
+.cr-checks .open {
+  color: var(--muted);
+}
+.cr-checks .done .ic {
+  color: var(--good);
+}
+.cr-people {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cr-people li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  align-items: baseline;
+  overflow-wrap: anywhere;
+}
+.cr-link-btn {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  cursor: pointer;
+  text-align: left;
+}
+.cr-link-btn:hover {
+  text-decoration: underline;
+}
+.cr-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.cr-tile {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-md, 10px);
+  background: var(--sunk);
+  display: grid;
+  place-items: center;
+  flex: none;
+  color: var(--ink-2, var(--ink));
+}

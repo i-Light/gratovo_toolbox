@@ -12,6 +12,7 @@ import {
   isRecord,
   jsonOrNull,
   ms,
+  noteView,
   num,
   oneOf,
   parseJson,
@@ -74,12 +75,13 @@ export function upsertBrandDetails(db: DatabaseSync, brand: Brand, now: number):
     jsonOrNull(brand.pitched),
     brand.owner,
     brand.status,
+    brand.notes === "" ? null : brand.notes,
   ];
   db.prepare(
     `INSERT OR REPLACE INTO brand_details
        (brand_id, headcount, recommended_title, paid_spender_verified, past_campaign_hook,
-        budget_high, seen, since, pitched, owner_id, status)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        budget_high, seen, since, pitched, owner_id, status, notes)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(...detail);
 }
 
@@ -193,6 +195,7 @@ function brandFromRow(row: Row, detail: Row | undefined): Brand {
     contacts: readContacts(row["contacts"], row["contact_name"], row["contact_email"]),
     budget: low === null ? null : { low, high: highStored ?? low },
     budgetKnown: low !== null,
+    ...noteView(detail?.["notes"], row["notes"]),
     ...(detail === undefined
       ? {}
       : {
@@ -229,7 +232,7 @@ export function listBrands(db: DatabaseSync): Brand[] {
   const rows = db
     .prepare(
       `SELECT id, name, sells, status, category, country, website, contacts, budget,
-              contact_name, contact_email
+              contact_name, contact_email, notes
        FROM brands ORDER BY rowid`,
     )
     .all();

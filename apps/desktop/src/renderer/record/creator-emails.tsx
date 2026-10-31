@@ -26,7 +26,7 @@ type Loaded =
   | { readonly id: string; readonly messages: null };
 
 /** The next step under the thread (D22): its words, with Stop and Park, or Resume or Wake now. */
-function SequenceLine({ creatorId }: { readonly creatorId: string }) {
+export function SequenceLine({ creatorId }: { readonly creatorId: string }) {
   const sequence = useApp((s) => s.data.reach.sequences.find((q) => q.creator === creatorId));
   const stage = useApp((s) => s.data.creators.find((c) => c.id === creatorId)?.stage);
   const now = useNow();

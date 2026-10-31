@@ -63,6 +63,7 @@ import {
   writeCreatorNotes,
   writeCreatorStage,
 } from "./repositories/creators";
+import { writeNotes } from "./repositories/details";
 import { readInsightsLocal } from "./repositories/insights";
 
 /** What the database has no table for: presence, rail counts and a teammate's running search. */
@@ -219,6 +220,12 @@ export function createSqliteSource(db: DatabaseSync, options: SqliteSourceOption
         }
         return;
       }
+      case "brand.notes":
+        writeNotes(db, "brand", write);
+        return;
+      case "deal.notes":
+        writeNotes(db, "deal", write);
+        return;
       case "brand.set":
         setBrand(db, write, clock());
         return;

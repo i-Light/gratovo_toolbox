@@ -27,6 +27,9 @@ export function exampleBrands(now: number): readonly Brand[] {
   return [
     {
       id: "b1",
+      notes:
+        "Marco answers fast on Tuesdays. They like coding-agent demos, not slide decks. Ask for the Q4 budget before we pitch a second creator.",
+      notesCut: false,
       name: "Codewell",
       sells: "AI code review",
       status: "won",
@@ -61,6 +64,8 @@ export function exampleBrands(now: number): readonly Brand[] {
     },
     {
       id: "b2",
+      notes: "",
+      notesCut: false,
       name: "Lumen AI",
       sells: "AI writing assistant",
       status: "won",
@@ -90,6 +95,9 @@ export function exampleBrands(now: number): readonly Brand[] {
     },
     {
       id: "b3",
+      notes:
+        "Wants a creator who shows the voice clone running live, with the raw audio. Legal has to read any script that names a real voice.",
+      notesCut: false,
       name: "VoxCraft",
       sells: "AI voice-over",
       status: "won",
@@ -119,6 +127,9 @@ export function exampleBrands(now: number): readonly Brand[] {
     },
     {
       id: "b4",
+      notes:
+        "Happy with the first spot. Hana wants to repeat it each quarter if the signup numbers hold. Send the report on the day it is due.",
+      notesCut: false,
       name: "Pagewise",
       sells: "AI notes and docs",
       status: "won",
@@ -148,6 +159,8 @@ export function exampleBrands(now: number): readonly Brand[] {
     },
     {
       id: "b5",
+      notes: "",
+      notesCut: false,
       name: "Clipforge",
       sells: "AI video editor",
       status: "negotiating",
@@ -182,6 +195,8 @@ export function exampleBrands(now: number): readonly Brand[] {
     },
     {
       id: "b6",
+      notes: "",
+      notesCut: false,
       name: "Sheetsmith",
       sells: "AI spreadsheets",
       status: "found",
@@ -202,6 +217,8 @@ export function exampleBrands(now: number): readonly Brand[] {
     },
     {
       id: "b7",
+      notes: "",
+      notesCut: false,
       name: "Inboxly",
       sells: "AI email triage",
       status: "qualified",
@@ -236,6 +253,8 @@ export function exampleBrands(now: number): readonly Brand[] {
     },
     {
       id: "b8",
+      notes: "",
+      notesCut: false,
       name: "Slidecraft",
       sells: "AI presentations",
       status: "pitched",
@@ -274,6 +293,8 @@ export function exampleBrands(now: number): readonly Brand[] {
     },
     {
       id: "b9",
+      notes: "",
+      notesCut: false,
       name: "Transcribo",
       sells: "AI transcription",
       status: "found",
@@ -294,6 +315,8 @@ export function exampleBrands(now: number): readonly Brand[] {
     },
     {
       id: "b10",
+      notes: "",
+      notesCut: false,
       name: "Agentic HQ",
       sells: "AI agent platform for teams",
       status: "qualified",
@@ -338,6 +361,9 @@ export function exampleDeals(now: number): readonly Deal[] {
   return [
     {
       id: "d1",
+      notes:
+        "The brand wants the agent demo in the first 60 seconds. Creator agreed to one round of changes on the script.",
+      notesCut: false,
       brand: "b1",
       creator: id("c3"),
       step: 1,
@@ -386,6 +412,9 @@ export function exampleDeals(now: number): readonly Deal[] {
     },
     {
       id: "d2",
+      notes:
+        "Invoice goes to their finance mailbox, not to Marco. Net 30, and they pay on the 15th of the month.",
+      notesCut: false,
       brand: "b2",
       creator: id("c2"),
       step: 3,
@@ -434,6 +463,9 @@ export function exampleDeals(now: number): readonly Deal[] {
     },
     {
       id: "d3",
+      notes:
+        "Creator wants to read the product docs before he commits to a go-live date. Check back after his next upload.",
+      notesCut: false,
       brand: "b3",
       creator: id("c1"),
       step: 6,
@@ -487,6 +519,8 @@ export function exampleDeals(now: number): readonly Deal[] {
     },
     {
       id: "d4",
+      notes: "",
+      notesCut: false,
       brand: "b4",
       creator: id("c5"),
       step: 7,
@@ -550,6 +584,8 @@ export function exampleDeals(now: number): readonly Deal[] {
     },
     {
       id: "d5",
+      notes: "",
+      notesCut: false,
       brand: "b5",
       creator: id("c4"),
       step: 0,
@@ -621,6 +657,8 @@ export function exampleDeals(now: number): readonly Deal[] {
     },
     {
       id: "d6",
+      notes: "",
+      notesCut: false,
       brand: "b2",
       creator: id("c5"),
       step: 8,
@@ -684,6 +722,8 @@ export function exampleDeals(now: number): readonly Deal[] {
     },
     {
       id: "d7",
+      notes: "",
+      notesCut: false,
       brand: "b3",
       creator: id("c4"),
       step: 4,
@@ -732,6 +772,8 @@ export function exampleDeals(now: number): readonly Deal[] {
     },
     {
       id: "d8",
+      notes: "",
+      notesCut: false,
       brand: "b4",
       creator: id("c1"),
       step: 9,
