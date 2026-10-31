@@ -1,10 +1,22 @@
 // @vitest-environment happy-dom
+import { DEAL_FLOW } from "@gratovo/core";
 import { formatCount, type Fit } from "@gratovo/core/find";
-import type { LogEntry } from "@gratovo/core/data";
+import {
+  emptyReach,
+  noDetails,
+  type Creator,
+  type CreatorDetails,
+  type Frame,
+  type LogEntry,
+  type OutreachDraft,
+} from "@gratovo/core/data";
 import type { Bridge } from "@gratovo/ipc/bridge";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { exampleFrame } from "@gratovo/core/data";
+import { toAppData } from "../lib/frame";
+import { initAppStore, selectRoute } from "../lib/store";
 import { RecordBody } from "../overlays/record-summary";
 import { RecordPage } from "../app/record-page";
 import { useGlobalKeys, useKeyListener } from "../app/global-keys";
@@ -298,8 +310,27 @@ describe("the tabs", () => {
     expect(tab(t.tabs.notes).getAttribute("tabindex")).toBe("-1");
     tab(t.tabs.overview).focus();
     fireEvent.keyDown(tab(t.tabs.overview), { key: "ArrowRight" });
-    expect(tab(t.tabs.emails).getAttribute("aria-selected")).toBe("true");
+    expect(tab(t.tabs.channel).getAttribute("aria-selected")).toBe("true");
+    fireEvent.keyDown(tab(t.tabs.channel), { key: "End" });
+    expect(tab(t.tabs.activity).getAttribute("aria-selected")).toBe("true");
+    fireEvent.keyDown(tab(t.tabs.activity), { key: "Home" });
+    expect(tab(t.tabs.overview).getAttribute("aria-selected")).toBe("true");
+    fireEvent.keyDown(tab(t.tabs.overview), { key: "ArrowLeft" });
+    expect(tab(t.tabs.activity).getAttribute("aria-selected")).toBe("true");
+    fireEvent.keyDown(tab(t.tabs.activity), { key: "Home" });
+    for (const key of [
+      "channel",
+      "videos",
+      "sponsors",
+      "contacts",
+      "audience",
+      "emails",
+    ] as const) {
+      fireEvent.keyDown(document.activeElement ?? tab(t.tabs.overview), { key: "ArrowRight" });
+      expect(tab(t.tabs[key]).getAttribute("aria-selected")).toBe("true");
+    }
     fireEvent.keyDown(tab(t.tabs.emails), { key: "ArrowRight" });
+    fireEvent.keyDown(tab(t.tabs.deals), { key: "ArrowRight" });
     expect(tab(t.tabs.notes).getAttribute("aria-selected")).toBe("true");
     expect(document.activeElement).toBe(tab(t.tabs.notes));
     fireEvent.keyDown(tab(t.tabs.notes), { key: "End" });
@@ -330,7 +361,7 @@ describe("the Emails tab", () => {
 });
 
 describe("Overview", () => {
-  it("shows the numbers, 6 videos as links, fit parts, sponsors and addresses", async () => {
+  it("shows the numbers that decide, 3 videos as links and the fit parts", async () => {
     const videos: CreatorDetail["videos"][number][] = Array.from({ length: 9 }, (_, i) => ({
       id: `video${String(i).padStart(6, "0")}`,
       title: `Agent video ${String(i)}`,
@@ -345,21 +376,20 @@ describe("Overview", () => {
     const links = screen
       .getAllByRole("link")
       .filter((l) => l.getAttribute("href")?.includes("watch?v="));
-    expect(links).toHaveLength(5);
+    expect(links).toHaveLength(2);
     expect(links[0]?.getAttribute("href")).toBe("https://www.youtube.com/watch?v=video000000");
-    expect(screen.getByText("Agent video 5")).toBeTruthy();
-    expect(screen.queryByText("Agent video 6")).toBeNull();
+    expect(screen.getByText("Agent video 2")).toBeTruthy();
+    expect(screen.queryByText("Agent video 3")).toBeNull();
     expect(screen.getByText("41K median")).toBeTruthy();
-    expect(
-      within(screen.getByText(t.sponsors).parentElement as HTMLElement).getByText("Notion AI"),
-    ).toBeTruthy();
-    expect(screen.getByText(t.addresses(2))).toBeTruthy();
-    expect(screen.getByText(/“ai agents”/)).toBeTruthy();
+    expect(screen.getByText(t.numbers.median)).toBeTruthy();
+    expect(screen.getByText(new RegExp(t.overview.trimmed))).toBeTruthy();
+    expect(screen.getByText(t.overview.engagement)).toBeTruthy();
   });
 
   it("cuts the description at 600 characters until Show all", async () => {
     const description = `${"a".repeat(590)}\n${"b".repeat(100)}`;
     await show("UC-a", { items: { "UC-a": detail("UC-a", { description }) } });
+    await click(tab(t.tabs.channel));
     const body = (): string => document.querySelector(".cr-desc")?.textContent ?? "";
     expect(body()).toHaveLength(600);
     await click(screen.getByRole("button", { name: t.showAll }));
@@ -394,7 +424,8 @@ describe("Overview", () => {
     await show("UC-a", { items: { "UC-a": worst } }, "page");
     expect(screen.getByRole("heading", { level: 2 }).textContent).toHaveLength(120);
     expect(screen.getByText(t.numbers.hidden)).toBeTruthy();
-    expect(document.querySelectorAll(".cr-vids .vid")).toHaveLength(6);
+    expect(document.querySelectorAll(".cr-vids .vid")).toHaveLength(3);
+    await click(tab(t.tabs.sponsors));
     expect(document.querySelectorAll(".cr-tags .tag")).toHaveLength(50);
     expect(document.querySelector(".cr")?.getAttribute("data-layout")).toBe("page");
   });
@@ -677,5 +708,293 @@ describe("example data", () => {
     await settle();
     expect(screen.queryByRole("tablist")).toBeNull();
     expect(calls.filter(([c]) => c === "find:item")).toHaveLength(0);
+  });
+});
+
+describe("the ten tabs", () => {
+  const dealsFor = (id: string, source: "example" | "live", seesMoney: boolean) => {
+    const frame = exampleFrame(Date.now());
+    const brand = frame.brands[0];
+    const deal = frame.deals[0];
+    if (brand === undefined || deal === undefined) throw new Error("no example deal");
+    initAppStore(
+      toAppData({
+        ...frame,
+        source,
+        seesMoney,
+        deals: [{ ...deal, brand: brand.id, creator: id, step: 1, price: 4000, payout: 3000 }],
+      }),
+      { screen: "find", tab: "triage" },
+    );
+    return brand.name;
+  };
+
+  it("lists them in order, and each fact sits on its own tab", async () => {
+    await show("UC-a", { items: { "UC-a": detail("UC-a", { sponsors: ["Notion AI"] }) } });
+    expect(screen.getAllByRole("tab").map((el) => el.textContent)).toEqual(Object.values(t.tabs));
+    await click(tab(t.tabs.videos));
+    expect(screen.getByRole("heading", { name: t.latestVideos })).toBeTruthy();
+    await click(tab(t.tabs.contacts));
+    expect(screen.getByText(t.contacts.found)).toBeTruthy();
+    await click(tab(t.tabs.sponsors));
+    expect(screen.getByText("Notion AI")).toBeTruthy();
+  });
+
+  it("shows a deal with its step and money, and opens its record", async () => {
+    const name = dealsFor("UC-a", "example", true);
+    await show("UC-a", { items: { "UC-a": detail("UC-a") } }, "page");
+    expect(screen.getByRole("tab", { name: /^Deals/ }).textContent).toContain("1");
+    await click(screen.getByRole("tab", { name: /^Deals/ }));
+    const button = screen.getByRole("button", { name: new RegExp(name) });
+    expect(button.textContent).toContain(t.deals.money("$4,000", "$3,000"));
+    await click(button);
+    expect(selectRoute(appStore().getState()).record?.kind).toBe("deal");
+  });
+
+  it("holds the money back from a viewer who does not see it, and says when there are no deals", async () => {
+    dealsFor("UC-a", "example", false);
+    await show("UC-a", { items: { "UC-a": detail("UC-a") } });
+    await click(screen.getByRole("tab", { name: /^Deals/ }));
+    expect(screen.getByRole("button", { name: /Open the deal/ }).textContent).not.toContain("$");
+    cleanup();
+    await show("UC-b", { items: { "UC-b": detail("UC-b", { stage: "signed" }) } });
+    await click(screen.getByRole("tab", { name: /^Deals/ }));
+    expect(screen.getByText(t.deals.none)).toBeTruthy();
+    expect(screen.getByText(t.deals.noneSigned)).toBeTruthy();
+  });
+
+  it("has no Deals tab on live data", async () => {
+    dealsFor("UC-a", "live", true);
+    await show("UC-a", { items: { "UC-a": detail("UC-a") } });
+    expect(screen.queryByRole("tab", { name: t.tabs.deals })).toBeNull();
+    expect(screen.getAllByRole("tab")).toHaveLength(9);
+  });
+});
+
+describe("the header and the stage-aware Overview", () => {
+  const o = t.overview;
+  const storeWith = (
+    over: Partial<Creator> = {},
+    extra: Partial<Frame> = {},
+    seesMoney = true,
+  ): void => {
+    const frame = exampleFrame(Date.now());
+    const first = frame.creators[0];
+    if (first === undefined) throw new Error("no example creator");
+    initAppStore(
+      toAppData({
+        ...frame,
+        seesMoney,
+        creators: [{ ...first, id: "UC-a", ...over }],
+        ...extra,
+      }),
+      { screen: "find", tab: "triage" },
+    );
+  };
+  const blocks = (): string[] =>
+    [...document.querySelectorAll("[data-ui^='record.block.']")].map((el) =>
+      (el.getAttribute("data-ui") ?? "").replace("record.block.", ""),
+    );
+
+  it("shows stars, format and bot risk for every creator", async () => {
+    await show("UC-a", {
+      items: {
+        "UC-a": detail("UC-a", {
+          stars: 4,
+          format: "talking_head",
+          botRisk: { level: "watch", note: "Comments look bought" },
+        }),
+      },
+    });
+    expect(screen.getByRole("img", { name: t.header.stars(4) })).toBeTruthy();
+    expect(screen.getAllByText(t.header.formats.talking_head).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(new RegExp(t.header.botRisk.watch)).length).toBeGreaterThan(0);
+  });
+
+  it("marks the current step, and shows a tag instead of steps for rejected, parked and never", async () => {
+    await show("UC-a", { items: { "UC-a": detail("UC-a", { stage: "contact" }) } });
+    const strip = screen.getByRole("list", { name: t.stepsLabel });
+    expect(within(strip).getAllByRole("listitem")).toHaveLength(8);
+    expect(strip.querySelector('[aria-current="step"]')?.textContent).toBe(t.steps.contact);
+    for (const stage of ["rejected", "parked", "never"] as const) {
+      cleanup();
+      await show("UC-a", { items: { "UC-a": detail("UC-a", { stage }) } });
+      expect(screen.queryByRole("list", { name: t.stepsLabel })).toBeNull();
+      expect(screen.getAllByText(strings.record.stages[stage]).length).toBeGreaterThan(0);
+    }
+  });
+
+  it("early stages: the numbers that decide, three videos, the fit and the warnings", async () => {
+    await show("UC-a", {
+      items: {
+        "UC-a": detail("UC-a", {
+          stage: "new",
+          trimmedAverage: 38_000,
+          viewStability: "volatile",
+          engagement: 3.2,
+          botRisk: { level: "high", note: null },
+        }),
+      },
+    });
+    expect(blocks()).toEqual(["numbers", "videos", "fit", "warnings"]);
+    expect(screen.getByText(`${o.trimmed}, ${o.volatile}`)).toBeTruthy();
+    expect(screen.getByText(o.engagementValue(3.2))).toBeTruthy();
+    expect(screen.getAllByText(new RegExp(t.header.botRisk.high)).length).toBe(2);
+  });
+
+  it("rejected: says why, never: says the reason written", async () => {
+    await show("UC-a", {
+      items: { "UC-a": detail("UC-a", { stage: "rejected", rejectReason: "views" }) },
+    });
+    expect(blocks()).toContain("reason");
+    expect(screen.getAllByText(strings.findActions.reasons.views).length).toBeGreaterThan(0);
+    cleanup();
+    await show("UC-a", {
+      items: { "UC-a": detail("UC-a", { stage: "never", neverReason: "Asked us to stop" }) },
+    });
+    expect(screen.getAllByText("Asked us to stop").length).toBeGreaterThan(0);
+  });
+
+  it("a shortlisted creator with an old reject reason shows no why-not block", async () => {
+    await show("UC-a", {
+      items: { "UC-a": detail("UC-a", { stage: "shortlisted", rejectReason: "views" }) },
+    });
+    expect(blocks()).not.toContain("reason");
+  });
+
+  it("contact: the confirmed address and the short numbers, nothing signed", async () => {
+    storeWith({
+      stage: "contact",
+      email: "kai@agentlab.test",
+      emailConfirmed: true,
+      contactName: "Kai",
+    });
+    await show("UC-a", { items: { "UC-a": detail("UC-a", { stage: "contact" }) } });
+    expect(blocks()).toEqual(["contact", "shortNumbers"]);
+    expect(screen.getByText(o.contactLine("kai@agentlab.test", "Kai"))).toBeTruthy();
+    expect(screen.queryByText(o.trimmed)).toBeNull();
+  });
+
+  it("replied: the latest reply and a waiting draft that opens Emails", async () => {
+    const lastIn = {
+      id: "m1",
+      at: Date.now() - 3_600_000,
+      reading: null,
+      preview: "Sounds good, what do you pay?",
+      bounce: false,
+    };
+    const draft: OutreachDraft = {
+      id: "d1",
+      creator: "UC-a",
+      kind: "reply",
+      followUp: null,
+      state: "ready",
+      subject: "Our rates",
+      body: "Hi Kai, our rates start at 1,200.",
+      mailbox: null,
+      sendAt: null,
+      proposal: null,
+      gatesOk: [],
+      edited: false,
+      checked: true,
+      rewriting: null,
+      replyTo: "m1",
+      goal: null,
+      problem: null,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+    storeWith(
+      { stage: "replied" },
+      {
+        reach: {
+          ...emptyReach,
+          threads: [
+            {
+              creator: "UC-a",
+              count: 2,
+              lastOutAt: Date.now() - 7_200_000,
+              lastIn,
+              answered: false,
+            },
+          ],
+          drafts: [draft],
+        },
+      },
+    );
+    await show("UC-a", { items: { "UC-a": detail("UC-a", { stage: "replied" }) } });
+    expect(blocks()).toEqual(["reply", "draft", "shortNumbers"]);
+    expect(screen.getByText("Sounds good, what do you pay?")).toBeTruthy();
+    expect(screen.getByText(o.draftLine("Our rates"))).toBeTruthy();
+    await click(screen.getByRole("button", { name: o.openEmails }));
+    expect(tab(t.tabs.emails).getAttribute("aria-selected")).toBe("true");
+  });
+
+  it("signed: relationship, update, locks, onboarding, deals and the rate for money viewers", async () => {
+    const details: CreatorDetails = {
+      ...noDetails,
+      relationship: "exclusive_25",
+      lastUpdateAt: Date.now() - 4 * 86_400_000,
+      nextOpenSlot: Date.now() + 10 * 86_400_000,
+      locks: [{ category: "code", brand: "Codewell", until: Date.now() + 40 * 86_400_000 }],
+      onboarding: {
+        dreamBrands: ["Notion AI"],
+        hardNos: ["Crypto"],
+        paymentRail: null,
+        taxForm: null,
+      },
+    };
+    const frame = exampleFrame(Date.now());
+    const brand = frame.brands[0];
+    const aDeal = frame.deals[0];
+    if (brand === undefined || aDeal === undefined) throw new Error("no example deal");
+    const kit = {
+      countries: [],
+      ageBand: null,
+      engagement: null,
+      rate: 1500,
+      rateKnown: true,
+      link: null,
+      fromReply: false,
+    };
+    const extra = {
+      deals: [
+        { ...aDeal, brand: brand.id, creator: "UC-a", step: 2 },
+        { ...aDeal, id: "done-deal", brand: brand.id, creator: "UC-a", step: 9 },
+      ],
+    };
+    storeWith({ stage: "signed", details, kit }, extra);
+    await show("UC-a", { items: { "UC-a": detail("UC-a", { stage: "signed" }) } });
+    expect(blocks()).toEqual([
+      "relationship",
+      "update",
+      "locks",
+      "onboarding",
+      "deals",
+      "rate",
+      "shortNumbers",
+    ]);
+    expect(screen.getAllByText(t.header.relationship.exclusive_25).length).toBeGreaterThan(1);
+    expect(
+      screen.getByText(o.lockLine("code", "Codewell", shortDate(details.locks[0]?.until ?? 0))),
+    ).toBeTruthy();
+    expect(screen.getByText("Notion AI")).toBeTruthy();
+    expect(screen.getByText("$1,500")).toBeTruthy();
+    // A deal at Next deal is finished, not in flight.
+    expect(
+      screen.getByText(`${o.dealsLine(1, DEAL_FLOW[2]?.name ?? "")}${o.dealsDone(1)}`),
+    ).toBeTruthy();
+    cleanup();
+    storeWith({ stage: "signed", details, kit: { ...kit, rate: null } }, extra, false);
+    await show("UC-a", { items: { "UC-a": detail("UC-a", { stage: "signed" }) } });
+    expect(blocks()).not.toContain("rate");
+    expect(document.body.textContent).not.toContain("$1,500");
+  });
+
+  it("signed without anything known still shows the short numbers", async () => {
+    storeWith({ stage: "signed", details: noDetails, kit: null });
+    await show("UC-a", { items: { "UC-a": detail("UC-a", { stage: "signed" }) } });
+    expect(blocks()).toEqual(["shortNumbers"]);
+    expect(screen.queryByText(o.empty)).toBeNull();
   });
 });

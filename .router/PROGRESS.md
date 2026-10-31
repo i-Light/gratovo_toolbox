@@ -12,8 +12,9 @@ Working plan: [PLAN.md](PLAN.md). Gap list and conflicts: [GAPS.md](GAPS.md).
 | P8a | Insights without deals and money, with its example history; live on real data | **Done** 2026-10-29 (ADR 0022). Owner split P8 in two on 2026-10-28: P8a first, then P1, then P8b |
 | P1 | Foundations | **Done** 2026-10-30, merged as #40 (PLAN.md "P1: foundations", decisions F1-F10). Left for P2: the plain example copy (signed out) has no pipeline rows, so a creator record there shows little beyond the summary |
 | P8b | Insights' deals and money (Money, Funnel › Brands, the deal and money parts of Overview and Goal) | **Done** 2026-10-30, branch `feat/insights-p8b` (PLAN.md "P8b", decisions B1-B9; ADR 0022 addendum). Money stays behind the live gate until step 9 |
-| P2 | Records | **Next** |
-| P3 to P7, P9, P10 | See PLAN.md | Not started |
+| P2 | Records: the creator record's ten tabs and stage-aware Overview, the brand record, the deal record frame | **Done** 2026-10-30, branch `feat/records-p2` (PLAN.md "P2", decisions R1-R10). R10's pipeline rows for the plain example copy moved to P10 |
+| P3 | Find, Reach and frame additions | **Next** |
+| P4 to P7, P9, P10 | See PLAN.md | Not started |
 
 Owner answers so far are in ADR 0021 D6. Still to put to the owner when their part starts: the creator record's tab names beyond Overview, Emails, Deals, Notes and Activity (proposed: Channel, Videos, Sponsors, Contacts, Audience), checked in prototype mode after P2.
 

@@ -31,8 +31,15 @@ function dayName(at: number, now: number): string {
   return shortDate(at);
 }
 
-/** The lines on this channel, newest first, grouped by day. Asks again when the catalog changes. */
-export function CreatorActivity({ id }: { readonly id: string }) {
+/** The lines on a record, newest first, grouped by day. Asks again when the catalog changes. */
+export function RecordActivity({
+  refId,
+  empty = text.activityNone,
+}: {
+  readonly refId: string;
+  /** What to say when there are no lines. */
+  readonly empty?: string;
+}) {
   const [tick, setTick] = useState(0);
   const [load, setLoad] = useState<Load>({ status: "loading" });
   const team = useApp((s) => s.data.team);
@@ -45,7 +52,7 @@ export function CreatorActivity({ id }: { readonly id: string }) {
   );
   useEffect(() => {
     let stopped = false;
-    window.gratovo.invoke("log:for", { ref: id, limit: 50 }).then(
+    window.gratovo.invoke("log:for", { ref: refId, limit: 50 }).then(
       (result) => {
         if (!stopped) {
           setLoad(
@@ -62,7 +69,7 @@ export function CreatorActivity({ id }: { readonly id: string }) {
     return () => {
       stopped = true;
     };
-  }, [id, tick]);
+  }, [refId, tick]);
   if (load.status === "loading") {
     return <p className="hint">{text.loading}</p>;
   }
@@ -70,7 +77,7 @@ export function CreatorActivity({ id }: { readonly id: string }) {
     return <p className="hint">{text.activityFailed}</p>;
   }
   if (load.lines.length === 0) {
-    return <p className="hint">{text.activityNone}</p>;
+    return <p className="hint">{empty}</p>;
   }
   const now = load.now;
   const days: { key: string; at: number; lines: Line[] }[] = [];
@@ -95,7 +102,9 @@ export function CreatorActivity({ id }: { readonly id: string }) {
             {day.lines.map((l) => (
               <li key={l.id}>
                 <span>{l.text}</span>
-                <span className="small muted">{text.lineBy(nameOf(l.who), clock(l.at))}</span>
+                <span className="small muted">
+                  {l.who === "" ? clock(l.at) : text.lineBy(nameOf(l.who), clock(l.at))}
+                </span>
               </li>
             ))}
           </ul>

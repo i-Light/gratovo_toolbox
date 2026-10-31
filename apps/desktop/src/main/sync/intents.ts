@@ -378,7 +378,10 @@ export function recordIntent(
       return;
     }
     case "notification.read":
-      // Stays local.
+    case "brand.notes":
+    case "deal.notes":
+      // Stay local: a brand's or deal's notes have no Supabase column yet (R7), so nothing is
+      // queued.
       applyLocal();
       return;
   }

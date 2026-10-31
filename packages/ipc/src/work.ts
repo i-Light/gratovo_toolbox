@@ -4,6 +4,7 @@ import {
   brandStatuses,
   contractClauses,
   creatorFormats,
+  notesMax,
   qcChecks,
   redlineClauses,
   relationshipModels,
@@ -68,6 +69,8 @@ export const brandSchema: z.ZodType<Brand> = z.strictObject({
     })
     .nullable(),
   owner: id.nullable(),
+  notes: z.string().max(notesMax),
+  notesCut: z.boolean(),
 });
 
 const offerSchema = z.strictObject({
@@ -149,6 +152,8 @@ export const dealSchema: z.ZodType<Deal> = z.strictObject({
       history: z.array(offerSchema).max(offersMax),
     })
     .nullable(),
+  notes: z.string().max(notesMax),
+  notesCut: z.boolean(),
 });
 
 export const creatorDetailsSchema: z.ZodType<CreatorDetails, CreatorDetails> = z.strictObject({

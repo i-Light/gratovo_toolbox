@@ -1,21 +1,39 @@
-import { Btn, Tag } from "@gratovo/ui";
-import { useId, useState, type KeyboardEvent, type ReactNode } from "react";
+import { creatorStepIndex, creatorSteps } from "@gratovo/core/data";
+import { Btn, Icon, Tag } from "@gratovo/ui";
+import type { ReactNode } from "react";
 
 import { FitChip } from "../find/fit-chip";
 import { ThumbAvatar } from "../find/thumb";
+import { isPartShown } from "../lib/wired";
+import { useApp } from "../lib/store";
 import { strings } from "../strings";
-import { CreatorActivity } from "./creator-activity";
 import { CreatorEmails } from "./creator-emails";
 import { CreatorNext } from "./creator-next";
 import { CreatorNotes } from "./creator-notes";
-import { CreatorOverview } from "./creator-overview";
+import { CreatorOverview } from "./creator-blocks";
+import { SponsorsSection, VideosSection } from "./creator-overview";
 import { channelUrl } from "./detail";
+import { CreatorAudience } from "./creator-audience";
+import { ChannelTab, ContactsTab, DealsTab } from "./creator-tabs";
+import { RecordActivity } from "./record-activity";
+import { RecordShell, type RecordTab } from "./record-shell";
+import { Steps } from "./steps";
 import { useCreatorItem } from "./use-creator-item";
 
 const text = strings.creatorRecord;
 
-const tabKeys = ["overview", "emails", "notes", "activity"] as const;
-type TabKey = (typeof tabKeys)[number];
+/** The star rating as five stars, filled up to the rating. */
+function Stars({ n }: { readonly n: number }) {
+  return (
+    <span className="cr-stars" role="img" aria-label={text.header.stars(n)} data-ui="record.stars">
+      {[1, 2, 3, 4, 5].map((i) => (
+        <span key={i} className={i <= n ? "on" : undefined}>
+          <Icon name="star" size={14} />
+        </span>
+      ))}
+    </span>
+  );
+}
 
 /** The header and the tab strip as grey shapes, for the moment before the channel arrives. */
 function Skeleton() {
@@ -55,8 +73,9 @@ export function CreatorRecord({
   readonly fallback?: ReactNode;
 }) {
   const { status, item, retry } = useCreatorItem(id);
-  const [tab, setTab] = useState<TabKey>(tabKeys.find((k) => k === wanted) ?? "overview");
-  const base = useId();
+  const source = useApp((s) => s.data.source);
+  const details = useApp((s) => s.data.creators.find((c) => c.id === id)?.details);
+  const dealCount = useApp((s) => s.data.deals.filter((d) => d.creator === id).length);
   if (status === "loading") {
     return <Skeleton />;
   }
@@ -75,113 +94,117 @@ export function CreatorRecord({
   if (item === null) {
     return fallback !== undefined ? <>{fallback}</> : <p className="hint">{text.notFound}</p>;
   }
-  const tabId = (key: TabKey): string => `${base}-tab-${key}`;
-  const panelId = (key: TabKey): string => `${base}-panel-${key}`;
-  const move = (event: KeyboardEvent<HTMLButtonElement>): void => {
-    const here = tabKeys.indexOf(tab);
-    const to =
-      event.key === "ArrowRight"
-        ? (here + 1) % tabKeys.length
-        : event.key === "ArrowLeft"
-          ? (here - 1 + tabKeys.length) % tabKeys.length
-          : event.key === "Home"
-            ? 0
-            : event.key === "End"
-              ? tabKeys.length - 1
-              : -1;
-    const next = tabKeys[to];
-    if (next === undefined) {
-      return;
-    }
-    event.preventDefault();
-    event.stopPropagation();
-    setTab(next);
-    document.getElementById(tabId(next))?.focus();
-  };
   const link = channelUrl(item.id);
+  const step = creatorStepIndex(item.stage);
+  const relationship = item.stage === "signed" ? (details?.relationship ?? null) : null;
+  const tabs: readonly RecordTab[] = [
+    { key: "overview", label: text.tabs.overview, render: () => <CreatorOverview item={item} /> },
+    { key: "channel", label: text.tabs.channel, render: () => <ChannelTab item={item} /> },
+    {
+      key: "videos",
+      label: text.tabs.videos,
+      render: () => <VideosSection item={item} />,
+    },
+    {
+      key: "sponsors",
+      label: text.tabs.sponsors,
+      render: () => <SponsorsSection item={item} />,
+    },
+    { key: "contacts", label: text.tabs.contacts, render: () => <ContactsTab item={item} /> },
+    {
+      key: "audience",
+      label: text.tabs.audience,
+      render: () => <CreatorAudience creatorId={item.id} />,
+    },
+    {
+      key: "emails",
+      label: text.tabs.emails,
+      render: () => <CreatorEmails creatorId={item.id} />,
+    },
+    ...(isPartShown("record.deals", source)
+      ? [
+          {
+            key: "deals",
+            label: text.tabs.deals,
+            count: dealCount,
+            render: () => (
+              <DealsTab
+                by="creator"
+                id={item.id}
+                signed={item.stage === "signed"}
+                layout={layout}
+              />
+            ),
+          },
+        ]
+      : []),
+    // Kept mounted, so leaving the tab with unsaved text still saves it on blur.
+    {
+      key: "notes",
+      label: text.tabs.notes,
+      keepMounted: true,
+      render: () => <CreatorNotes item={item} />,
+    },
+    {
+      key: "activity",
+      label: text.tabs.activity,
+      render: () => <RecordActivity refId={item.id} />,
+    },
+  ];
   return (
-    <div className="cr" data-layout={layout} data-ui="record.creator">
-      <div className="rec-h" data-ui="record.header">
-        <ThumbAvatar pic={item.pic} name={item.name} alt={text.avatarAlt(item.name)} />
-        <div className="t">
-          <h2>{item.name}</h2>
-          <div className="cr-meta">
-            <span className="muted small handle">{item.handle}</span>
-            {link === null ? null : (
-              <a className="cr-link" href={link} target="_blank" rel="noreferrer">
-                {text.openOnYouTube}
-              </a>
-            )}
-          </div>
-          <div className="cr-meta" style={{ marginTop: "6px" }}>
-            <Tag>{strings.record.stages[item.stage]}</Tag>
-            <FitChip fit={item.fit} />
-          </div>
-        </div>
-      </div>
-      <CreatorNext item={item} />
-      <div className="tabs" data-ui="record.tabs" role="tablist" aria-label={text.tabsLabel}>
-        {tabKeys.map((key) => (
-          <button
-            key={key}
-            id={tabId(key)}
-            data-ui={`record.tab.${key}`}
-            type="button"
-            role="tab"
-            aria-selected={tab === key}
-            aria-controls={panelId(key)}
-            tabIndex={tab === key ? 0 : -1}
-            onKeyDown={move}
-            onClick={() => {
-              setTab(key);
-            }}
-          >
-            {text.tabs[key]}
-          </button>
-        ))}
-      </div>
-      <div
-        id={panelId("overview")}
-        data-ui="record.panel.overview"
-        role="tabpanel"
-        aria-labelledby={tabId("overview")}
-        className="cr-panel"
-        hidden={tab !== "overview"}
-      >
-        <CreatorOverview item={item} />
-      </div>
-      <div
-        id={panelId("emails")}
-        data-ui="record.panel.emails"
-        role="tabpanel"
-        aria-labelledby={tabId("emails")}
-        className="cr-panel"
-        hidden={tab !== "emails"}
-      >
-        {tab === "emails" ? <CreatorEmails creatorId={item.id} /> : null}
-      </div>
-      {/* Always mounted, so leaving the tab with unsaved text still saves it on blur. */}
-      <div
-        id={panelId("notes")}
-        data-ui="record.panel.notes"
-        role="tabpanel"
-        aria-labelledby={tabId("notes")}
-        className="cr-panel"
-        hidden={tab !== "notes"}
-      >
-        <CreatorNotes item={item} />
-      </div>
-      {/* The panel stays so aria-controls resolves; the list inside loads only while shown. */}
-      <div
-        id={panelId("activity")}
-        data-ui="record.panel.activity"
-        role="tabpanel"
-        aria-labelledby={tabId("activity")}
-        className="cr-panel"
-        hidden={tab !== "activity"}
-      >
-        {tab === "activity" ? <CreatorActivity id={item.id} /> : null}
-      </div>
-    </div>
+    <RecordShell
+      dataUi="record.creator"
+      layout={layout}
+      face={<ThumbAvatar pic={item.pic} name={item.name} alt={text.avatarAlt(item.name)} />}
+      name={item.name}
+      nameExtra={item.stars === null ? undefined : <Stars n={item.stars} />}
+      sub={
+        <>
+          <span className="muted small handle">{item.handle}</span>
+          {link === null ? null : (
+            <a className="cr-link" href={link} target="_blank" rel="noreferrer">
+              {text.openOnYouTube}
+            </a>
+          )}
+        </>
+      }
+      tags={
+        <>
+          <Tag>{strings.record.stages[item.stage]}</Tag>
+          {relationship === null ? null : (
+            <Tag tone="info">{text.header.relationship[relationship]}</Tag>
+          )}
+          {item.format === null ? null : <Tag tone="line">{text.header.formats[item.format]}</Tag>}
+          {item.botRisk === null ? null : (
+            <Tag
+              tone={
+                item.botRisk.level === "clean"
+                  ? "good"
+                  : item.botRisk.level === "watch"
+                    ? "warn"
+                    : "crit"
+              }
+            >
+              {text.header.botRisk[item.botRisk.level]}
+            </Tag>
+          )}
+          <FitChip fit={item.fit} />
+        </>
+      }
+      steps={
+        step === null ? undefined : (
+          <Steps
+            label={text.stepsLabel}
+            steps={creatorSteps.map((k) => text.steps[k])}
+            at={step}
+            hue={item.stage === "signed" ? "var(--close)" : "var(--reach)"}
+          />
+        )
+      }
+      next={<CreatorNext item={item} />}
+      tabsLabel={text.tabsLabel}
+      tabs={tabs}
+      {...(wanted === undefined ? {} : { tab: wanted })}
+    />
   );
 }

@@ -259,6 +259,20 @@ describe("the new write kinds", () => {
     expect(ok({ ...base, stage: "new" })).toBe(false);
   });
 
+  it.each(["brand.notes", "deal.notes"])(
+    "%s carries up to 50,000 characters and the text it started from, and nothing else",
+    (kind) => {
+      const base = { kind, id: "b1", base: "", notes: "" };
+      expect(ok(base)).toBe(true);
+      expect(ok({ ...base, notes: "x".repeat(50_000) })).toBe(true);
+      expect(ok({ ...base, notes: "x".repeat(50_001) })).toBe(false);
+      expect(ok({ ...base, base: "x".repeat(50_001) })).toBe(false);
+      expect(ok({ ...base, id: "" })).toBe(false);
+      expect(ok({ kind, id: "b1", notes: "Hi" })).toBe(false);
+      expect(ok({ ...base, handle: "@a" })).toBe(false);
+    },
+  );
+
   it("creator.kit takes the audience numbers within their bounds", () => {
     const base = {
       kind: "creator.kit",

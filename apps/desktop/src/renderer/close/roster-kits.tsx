@@ -64,8 +64,14 @@ function KitRow({
           </span>
         </button>
         <Tag tone={verdict.tone}>{verdict.words}</Tag>
-        <Btn size="sm" expanded={open} icon={open ? "chevU" : "chevD"} onClick={onToggle}>
-          <span data-ui="close.roster.kit.toggle">{open ? text.hide : text.show}</span>
+        <Btn
+          dataUi="close.roster.kit.toggle"
+          size="sm"
+          expanded={open}
+          icon={open ? "chevU" : "chevD"}
+          onClick={onToggle}
+        >
+          {open ? text.hide : text.show}
         </Btn>
       </div>
       {open ? (

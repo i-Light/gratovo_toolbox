@@ -6,8 +6,7 @@ import { back } from "../lib/store";
 import { strings } from "../strings";
 
 /**
- * The full-page record: a Back button and the record's summary on a card. Until the real record
- * view comes with each screen (steps 4 to 9) the summary stands in for it.
+ * The full-page record: a Back button and the record (creator, brand or deal) on a card.
  */
 export function RecordPage({ record }: { readonly record: RecordRef | undefined }) {
   return (

@@ -4,7 +4,7 @@ import { openSetting, peek, setShortcuts, undo } from "../lib/actions";
 import { getPrefs, setPref } from "../lib/prefs";
 import { firstTab, goLetters, screenOrder, screens } from "../lib/routes";
 import type { RecordRef } from "../lib/routes";
-import { isRouteShown, isScreenShown } from "../lib/wired";
+import { isPartShown, isRouteShown, isScreenShown } from "../lib/wired";
 import type { FrameSource } from "@gratovo/core/data";
 import { getPrototype, setPanel, toggleCommenting } from "../lib/prototype";
 import { meIsOwner, rowsFor, settingsSections } from "../lib/settings";
@@ -152,8 +152,9 @@ export function settingCommands(
   });
 }
 
-/** Rows for every creator, brand and deal: opening one shows it in the peek. */
+/** Rows for every creator, and every brand and deal where deals are shown: opening one shows it in the peek. */
 export function recordCommands(data: AppData): readonly Command[] {
+  const withDeals = isPartShown("record.deals", data.source);
   const open = (kind: RecordRef["kind"], id: string) => () => {
     peek({ kind, id });
   };
@@ -166,14 +167,14 @@ export function recordCommands(data: AppData): readonly Command[] {
       sub: creatorSub(c),
       run: open("creator", c.id),
     })),
-    ...data.brands.map((b): Command => ({
+    ...(withDeals ? data.brands : []).map((b): Command => ({
       group: groups.brands,
       icon: "flag",
       label: b.name,
       sub: brandSub(b),
       run: open("brand", b.id),
     })),
-    ...data.deals.map((d): Command => ({
+    ...(withDeals ? data.deals : []).map((d): Command => ({
       group: groups.deals,
       icon: "box",
       label: dealName(data, d),
@@ -192,7 +193,11 @@ const recentIcons: Readonly<Record<RecordRef["kind"], IconName>> = {
 /** The records opened lately, newest first, at most five; ones that no longer exist are left out. */
 export function recentCommands(data: AppData, recent: readonly RecordRef[]): readonly Command[] {
   const rows: Command[] = [];
+  const withDeals = isPartShown("record.deals", data.source);
   for (const ref of recent) {
+    if (ref.kind !== "creator" && !withDeals) {
+      continue;
+    }
     if (findRecord(data, ref) === undefined) {
       continue;
     }

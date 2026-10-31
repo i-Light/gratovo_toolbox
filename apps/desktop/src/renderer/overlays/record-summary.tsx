@@ -1,23 +1,15 @@
-import { Avatar, Icon, avatarColor } from "@gratovo/ui";
-import type { CSSProperties } from "react";
+import { Avatar, avatarColor } from "@gratovo/ui";
 
 import type { RecordRef } from "../lib/routes";
-import { dealName, findRecord, useApp } from "../lib/store";
+import { findRecord, useApp } from "../lib/store";
+import { isPartShown } from "../lib/wired";
+import { BrandRecord } from "../record/brand-record";
+import { DealRecord } from "../record/deal-record";
 import { CreatorEmails } from "../record/creator-emails";
 import { CreatorRecord } from "../record/creator-record";
 import { isChannelId } from "../record/detail";
 import { strings } from "../strings";
-import { brandSub, creatorSub, dealSub } from "./record-text";
-
-const tileStyle: CSSProperties = {
-  width: "40px",
-  height: "40px",
-  borderRadius: "var(--r-md, 10px)",
-  background: "var(--sunk)",
-  display: "grid",
-  placeItems: "center",
-  flex: "none",
-};
+import { creatorSub } from "./record-text";
 
 /**
  * A short summary of one record: its kind, who or what it is, its main line and a note that the
@@ -37,38 +29,17 @@ export function RecordSummary({
   if (found === undefined) {
     return <p className="hint">{strings.record.notFound}</p>;
   }
-  let face;
-  let title: string;
-  let sub: string;
-  if (record.kind === "creator" && "handle" in found) {
-    face = <Avatar name={found.name} color={avatarColor(found.handle)} size="xl" decorative />;
-    title = found.name;
-    sub = creatorSub(found);
-  } else if (record.kind === "brand" && "sells" in found) {
-    face = (
-      <span style={tileStyle}>
-        <Icon name="flag" size={20} />
-      </span>
-    );
-    title = found.name;
-    sub = brandSub(found);
-  } else if ("brand" in found) {
-    face = (
-      <span style={tileStyle}>
-        <Icon name="box" size={20} />
-      </span>
-    );
-    title = dealName(data, found);
-    sub = dealSub(found);
-  } else {
+  if (!("handle" in found)) {
     return <p className="hint">{strings.record.notFound}</p>;
   }
+  const title = found.name;
+  const sub = creatorSub(found);
   return (
     <>
       <div className="row" style={{ gap: "12px" }}>
-        {face}
+        <Avatar name={found.name} color={avatarColor(found.handle)} size="xl" decorative />
         <div className="col tight" style={{ minWidth: 0 }}>
-          <span className="small muted">{strings.record.kinds[record.kind]}</span>
+          <span className="small muted">{strings.record.kinds.creator}</span>
           <h2 className="ell">{title}</h2>
           <span className="small muted">{sub}</span>
         </div>
@@ -83,8 +54,8 @@ export function RecordSummary({
 }
 
 /**
- * What the peek and the record page show for a record: the creator record for a creator, the
- * summary for a brand or a deal. An example-data creator that the page holds shows the summary
+ * What the peek and the record page show for a record: the creator, brand or deal record. A creator
+ * the catalog can't hold shows a short summary instead. An example-data creator that the page holds shows the summary
  * at once; on live data one the catalog lacks but the page still holds falls back to it.
  */
 export function RecordBody({
@@ -99,11 +70,22 @@ export function RecordBody({
 }) {
   const held = useApp((s) => s.data.creators.some((c) => c.id === record.id));
   const example = useApp((s) => s.data.source === "example");
+  const source = useApp((s) => s.data.source);
   // A creator id that isn't a channel can't be in the catalog: asking would only flash a skeleton.
   // The example's creators have channel ids (step P1, F6): prototype mode's catalog holds them, and
   // in the plain example copy, whose catalog is empty, the record falls back to the summary. The id
   // decides, not whether the page holds it: an adopted channel keeps its full record.
-  if (record.kind !== "creator" || (example && !isChannelId(record.id))) {
+  const dealsShown = isPartShown("record.deals", source);
+  if (record.kind !== "creator" && !dealsShown) {
+    return <p className="hint">{strings.record.notFound}</p>;
+  }
+  if (record.kind === "brand") {
+    return <BrandRecord id={record.id} layout={layout} {...(tab === undefined ? {} : { tab })} />;
+  }
+  if (record.kind === "deal") {
+    return <DealRecord id={record.id} layout={layout} {...(tab === undefined ? {} : { tab })} />;
+  }
+  if (example && !isChannelId(record.id)) {
     return <RecordSummary record={record} {...(tab === undefined ? {} : { tab })} />;
   }
   return (

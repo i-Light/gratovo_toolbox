@@ -10,18 +10,20 @@ const text = strings.creatorRecord;
 const counterAt = 1000;
 const flashMs = 1700;
 
-/** Writes a note straight through `data:write`; true when it was stored. */
-async function writeNotes(item: CreatorDetail, notes: string, base: string): Promise<boolean> {
-  try {
-    const result = await window.gratovo.invoke("data:write", {
-      writes: [
-        { kind: "creator.notes", id: item.id, notes, base, handle: item.handle, name: item.name },
-      ],
-    });
-    return result.ok;
-  } catch {
-    return false;
-  }
+/** Writes a creator's note straight through `data:write`; true when it was stored. */
+function creatorWriter(item: CreatorDetail): (notes: string, base: string) => Promise<boolean> {
+  return async (notes, base) => {
+    try {
+      const result = await window.gratovo.invoke("data:write", {
+        writes: [
+          { kind: "creator.notes", id: item.id, notes, base, handle: item.handle, name: item.name },
+        ],
+      });
+      return result.ok;
+    } catch {
+      return false;
+    }
+  };
 }
 
 /**
@@ -32,16 +34,52 @@ async function writeNotes(item: CreatorDetail, notes: string, base: string): Pro
  * and shows read-only, so a save can never drop the rest; so does an id the server can't keep.
  */
 export function CreatorNotes({ item }: { readonly item: CreatorDetail }) {
-  const [value, setValue] = useState(item.notes);
+  return (
+    <NotesBox
+      notes={item.notes}
+      cut={item.notesCut}
+      locked={!isChannelId(item.id)}
+      lockedHint={text.notesChannelOnly}
+      label={text.notesLabel}
+      hint={text.notesHint}
+      write={creatorWriter(item)}
+    />
+  );
+}
+
+/** The text a notes box starts from, and how it writes; creators, brands and deals each pass theirs. */
+export interface NotesBoxProps {
+  readonly notes: string;
+  /** The stored text was longer than the limit: shown cut and read only. */
+  readonly cut: boolean;
+  /** Read only for another reason, with its own hint. */
+  readonly locked?: boolean;
+  readonly lockedHint?: string;
+  readonly label: string;
+  readonly hint: string;
+  /** Stores the text; `base` is what the box started from. True when it was stored. */
+  readonly write: (notes: string, base: string) => Promise<boolean>;
+}
+
+export function NotesBox({
+  notes: stored,
+  cut,
+  locked = false,
+  lockedHint,
+  label,
+  hint,
+  write,
+}: NotesBoxProps) {
+  const [value, setValue] = useState(stored);
   const [saved, setSaved] = useState(false);
   const [changedUnder, setChangedUnder] = useState(false);
-  const readOnly = item.notesCut || !isChannelId(item.id);
+  const readOnly = cut || locked;
   // The text the box started from: the last text it was in step with the store on.
-  const base = useRef(item.notes);
+  const base = useRef(stored);
   // The latest text, and the text already on its way to the store (no second write for it).
-  const latest = useRef(item.notes);
+  const latest = useRef(stored);
   const sent = useRef<string | null>(null);
-  const itemRef = useRef(item);
+  const writeRef = useRef(write);
   const readOnlyRef = useRef(readOnly);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const fail = (): void => {
@@ -54,7 +92,7 @@ export function CreatorNotes({ item }: { readonly item: CreatorDetail }) {
     }
     const from = base.current;
     sent.current = notes;
-    void writeNotes(itemRef.current, notes, from).then((ok) => {
+    void writeRef.current(notes, from).then((ok) => {
       if (!ok) {
         sent.current = null;
         fail();
@@ -73,7 +111,7 @@ export function CreatorNotes({ item }: { readonly item: CreatorDetail }) {
   const sendRef = useRef(send);
   // Kept current after every render, so the unmount write sees the latest item and rules.
   useEffect(() => {
-    itemRef.current = item;
+    writeRef.current = write;
     readOnlyRef.current = readOnly;
     sendRef.current = send;
   });
@@ -89,24 +127,24 @@ export function CreatorNotes({ item }: { readonly item: CreatorDetail }) {
   // stays, the starting text stays (so the save clashes instead of overwriting), and a line says so.
   useEffect(() => {
     const before = base.current;
-    if (item.notes === before) {
+    if (stored === before) {
       return;
     }
     if (latest.current === before) {
-      base.current = item.notes;
-      latest.current = item.notes;
-      setValue(item.notes);
-    } else if (item.notes !== latest.current) {
+      base.current = stored;
+      latest.current = stored;
+      setValue(stored);
+    } else if (stored !== latest.current) {
       setChangedUnder(true);
     }
-  }, [item.notes]);
+  }, [stored]);
   const left = notesMax - value.length;
   return (
     <>
       <textarea
         className="cr-notes"
         data-ui="record.notes.text"
-        aria-label={text.notesLabel}
+        aria-label={label}
         value={value}
         maxLength={notesMax}
         readOnly={readOnly}
@@ -118,7 +156,7 @@ export function CreatorNotes({ item }: { readonly item: CreatorDetail }) {
       />
       <div className="cr-notes-foot small">
         <span className="muted">
-          {item.notesCut ? text.notesCut : readOnly ? text.notesChannelOnly : text.notesHint}
+          {cut ? text.notesCut : readOnly ? (lockedHint ?? hint) : hint}
         </span>
         {changedUnder && !readOnly ? <span className="small">{text.notesChanged}</span> : null}
         {left < counterAt && !readOnly ? (

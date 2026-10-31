@@ -22,3 +22,10 @@ allowBuilds:
 peerDependencyRules:
   allowedVersions:
     eslint-plugin-jsx-a11y>eslint: "10"
+
+# minimatch before 11.0.1 can be made to hang by a crafted pattern (GHSA-g3hv-75wg-m249, 2026-10-30).
+# The fix exists only in 11. ESLint's copy (10.x) moves to it. eslint-plugin-jsx-a11y's copy (3.x)
+# can't: the plugin calls 3.x's default export, which 11 doesn't have. That one is accepted in
+# osv-scanner.toml, with the reason.
+overrides:
+  minimatch@^10: 11.0.3

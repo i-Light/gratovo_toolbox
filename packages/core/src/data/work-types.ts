@@ -75,6 +75,13 @@ export interface Brand {
   readonly pitched: BrandPitch | null;
   /** A member id; null for nobody. */
   readonly owner: string | null;
+  /**
+   * Notes a person typed, at most `notesMax` (R7); "" for none. Local only: the local note, or
+   * else the synced one.
+   */
+  readonly notes: string;
+  /** The stored notes were longer than `notesMax`: `notes` holds the cut text, read only. */
+  readonly notesCut: boolean;
 }
 
 export const brandContactsMax = 4;
@@ -243,6 +250,13 @@ export interface Deal {
   readonly cpm: DealCpm | null;
   /** Null when there is no price talk, or hidden. */
   readonly negotiation: DealNegotiation | null;
+  /**
+   * Notes a person typed, at most `notesMax` (R7); "" for none. Local only: the local note, or
+   * else the synced one.
+   */
+  readonly notes: string;
+  /** The stored notes were longer than `notesMax`: `notes` holds the cut text, read only. */
+  readonly notesCut: boolean;
 }
 
 /** What a creator's videos look like. */
@@ -356,6 +370,8 @@ export function bareBrand(base: Pick<Brand, "id" | "name" | "sells" | "status">)
     since: null,
     pitched: null,
     owner: null,
+    notes: "",
+    notesCut: false,
   };
 }
 
@@ -390,5 +406,7 @@ export function bareDeal(base: Pick<Deal, "id" | "brand" | "creator" | "step" | 
     whitelistingUntil: null,
     cpm: null,
     negotiation: null,
+    notes: "",
+    notesCut: false,
   };
 }

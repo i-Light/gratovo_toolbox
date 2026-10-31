@@ -406,3 +406,38 @@ describe("deal and brand events (migration 9)", () => {
     expect(dealEvents()).toHaveLength(1);
   });
 });
+
+describe("record notes (migration 10)", () => {
+  it("adds a nullable notes column to the brand and deal detail rows", () => {
+    migrate(db);
+    expect(migrations[9]?.name).toBe("record-notes");
+    db.exec("INSERT INTO brand_details (brand_id) VALUES ('b1')");
+    db.exec("INSERT INTO deal_details (deal_id) VALUES ('d1')");
+    expect(db.prepare("SELECT notes FROM brand_details").get()).toEqual({ notes: null });
+    expect(db.prepare("SELECT notes FROM deal_details").get()).toEqual({ notes: null });
+    db.exec("UPDATE brand_details SET notes = 'Asks for a demo first.'");
+    expect(db.prepare("SELECT notes FROM brand_details").get()).toEqual({
+      notes: "Asks for a demo first.",
+    });
+  });
+
+  it("keeps the notes of rows that already exist when it upgrades from 9", () => {
+    migrate(db, migrations.slice(0, 9));
+    db.exec("INSERT INTO brand_details (brand_id, headcount) VALUES ('b1', 12)");
+    migrate(db);
+    expect(version()).toBe(migrations.length);
+    expect(db.prepare("SELECT headcount, notes FROM brand_details").get()).toEqual({
+      headcount: 12,
+      notes: null,
+    });
+  });
+
+  it("refuses a notes value of the wrong type", () => {
+    migrate(db);
+    expect(() => {
+      db.prepare("INSERT INTO deal_details (deal_id, notes) VALUES ('d1', ?)").run(
+        new Uint8Array([1]),
+      );
+    }).toThrow();
+  });
+});

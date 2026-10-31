@@ -261,6 +261,18 @@ export const dataWriteSchema: z.ZodType<DataWrite> = z.discriminatedUnion("kind"
     handle: text,
     name: text,
   }),
+  z.strictObject({
+    kind: z.literal("brand.notes"),
+    id,
+    base: z.string().max(notesMax),
+    notes: z.string().max(notesMax),
+  }),
+  z.strictObject({
+    kind: z.literal("deal.notes"),
+    id,
+    base: z.string().max(notesMax),
+    notes: z.string().max(notesMax),
+  }),
   z
     .strictObject({
       kind: z.literal("creator.kit"),

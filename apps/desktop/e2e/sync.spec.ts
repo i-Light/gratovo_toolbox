@@ -112,6 +112,28 @@ async function expectInPalette(
     .toBe(present);
 }
 
+/** Whether the copy holds a brand of this name, read from the frame main serves. */
+async function copyHasBrand(page: Page, name: string): Promise<boolean> {
+  const frame = (await page.evaluate(() => window.gratovo.invoke("frame:load", {}))) as {
+    readonly ok: boolean;
+    readonly value?: { readonly brands: readonly { readonly name: string }[] };
+  };
+  return frame.value?.brands.some((b) => b.name === name) ?? false;
+}
+
+/**
+ * `sync:now` until the copy has (or no longer has) this brand. Brands aren't in the palette in
+ * live mode (P2: brand and deal records wait for step 9), so the frame is read instead.
+ */
+async function expectBrand(page: Page, name: string, present: boolean): Promise<void> {
+  await expect
+    .poll(async () => {
+      await syncNow(page);
+      return copyHasBrand(page, name);
+    })
+    .toBe(present);
+}
+
 test.describe("the sync, against a fake Supabase", () => {
   test("after sign-in the palette finds a creator and a brand from the server", async ({
     supabase,
@@ -122,7 +144,9 @@ test.describe("the sync, against a fake Supabase", () => {
     const { page } = await signedInWithData(supabase, startSigned);
 
     await expectInPalette(page, "tokenwise", /@tokenwise/, true);
-    await expectInPalette(page, "draftwise", /Draftwise AI/, true);
+    await expectBrand(page, "Draftwise AI", true);
+    // The brand is in the copy, but live mode's palette doesn't offer brand records yet.
+    expect(await paletteHas(page, "draftwise", /Draftwise AI/)).toBe(false);
     // Something the server doesn't have is not made up.
     expect(await paletteHas(page, "zzzz-no-such", /zzzz/)).toBe(false);
 
@@ -189,7 +213,7 @@ test.describe("the sync, against a fake Supabase", () => {
     // A teammate adds a brand and edits a creator; the next pass brings them.
     supabase.addRows("brands", [{ id: "b-e2e-promptly", name: "Promptly Studio" }]);
     supabase.updateRow("channel_state", "UC-e2e-agentsdaily", { handle: "@agentsweekly" });
-    await expectInPalette(page, "promptly", /Promptly Studio/, true);
+    await expectBrand(page, "Promptly Studio", true);
     await expectInPalette(page, "agentsweekly", /@agentsweekly/, true);
     expect(await paletteHas(page, "agentsdaily", /@agentsdaily/)).toBe(false);
     await expect(reply).toHaveAttribute("aria-checked", after);
@@ -197,7 +221,7 @@ test.describe("the sync, against a fake Supabase", () => {
     // Undo is still there and still takes back the switch, not the teammate's work.
     await page.keyboard.press("Control+Z");
     await expect(reply).toHaveAttribute("aria-checked", before ?? "false");
-    expect(await paletteHas(page, "promptly", /Promptly Studio/)).toBe(true);
+    expect(await copyHasBrand(page, "Promptly Studio")).toBe(true);
     expect(supabase.deletes()).toEqual([]);
     expect(signedErrors).toEqual([]);
   });
@@ -209,15 +233,15 @@ test.describe("the sync, against a fake Supabase", () => {
   }) => {
     supabase.addUser({ email: "maya@example.com", role: "full", roles: ["owner"] });
     const { page } = await signedInWithData(supabase, startSigned);
-    await expectInPalette(page, "patchpilot", /Patchpilot/, true);
+    await expectBrand(page, "Patchpilot", true);
     await expectInPalette(page, "shipwithai", /@shipwithai/, true);
 
     supabase.deleteRow("brands", "b-e2e-patchpilot");
     supabase.deleteRow("channel_state", "UC-e2e-shipwithai");
-    await expectInPalette(page, "patchpilot", /Patchpilot/, false);
+    await expectBrand(page, "Patchpilot", false);
     await expectInPalette(page, "shipwithai", /@shipwithai/, false);
     // The others stay.
-    expect(await paletteHas(page, "draftwise", /Draftwise AI/)).toBe(true);
+    expect(await copyHasBrand(page, "Draftwise AI")).toBe(true);
     expect(await paletteHas(page, "tokenwise", /@tokenwise/)).toBe(true);
     expect(supabase.deletes()).toEqual([]);
     expect(signedErrors).toEqual([]);

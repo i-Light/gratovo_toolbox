@@ -412,6 +412,25 @@ export type DataWrite =
       readonly name: string;
     }
   /**
+   * A brand's notes, at most `notesMax` (R7). Like `creator.notes`: straight through, not
+   * undoable, `""` clears them, `base` is the text the person started editing from. Local only:
+   * they never reach the sync. When the stored text is no longer `base`, the write changes
+   * nothing (the stored text stands).
+   */
+  | {
+      readonly kind: "brand.notes";
+      readonly id: string;
+      readonly base: string;
+      readonly notes: string;
+    }
+  /** A deal's notes: as `brand.notes`. */
+  | {
+      readonly kind: "deal.notes";
+      readonly id: string;
+      readonly base: string;
+      readonly notes: string;
+    }
+  /**
    * A creator's primary email contact (plan step 5, D31): it becomes
    * `{method: "email", value: email, label: contactName, primary: true, confirmed, source,
    * confidence}` and every other contact is kept; a null `email` removes the primary email. Like

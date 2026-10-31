@@ -10,6 +10,7 @@ import { openDatabase } from "../../db/open-database";
 import {
   addLogEntry,
   insertLogRow,
+  linesFor,
   linesSince,
   logPage,
   peopleInLog,
@@ -216,5 +217,39 @@ describe("linesSince", () => {
     expect(linesSince(db, { seesMoney: true, since: t0 + 1000 })).toBe(2);
     expect(linesSince(db, { seesMoney: false, since: t0 + 1000 })).toBe(1);
     expect(linesSince(db, { seesMoney: true, since: t0 + 99999 })).toBe(0);
+  });
+});
+
+describe("linesFor on a deal or a brand", () => {
+  const event = (
+    table: string,
+    col: string,
+    id: string,
+    value: string | number,
+    at: number,
+    source = "change",
+  ): void => {
+    db.prepare(
+      `INSERT INTO ${table} (${col}, ${table === "deal_events" ? "step" : "status"}, at, source) VALUES (?, ?, ?, ?)`,
+    ).run(id, value, at, source);
+  };
+
+  it("words a deal's steps, newest first, and skips the backfill row", () => {
+    event("deal_events", "deal_id", "d9", 0, t0, "backfill");
+    event("deal_events", "deal_id", "d9", 1, t0 + 1000);
+    event("deal_events", "deal_id", "d9", 2, t0 + 2000);
+    event("deal_events", "deal_id", "d8", 3, t0 + 3000);
+    const lines = linesFor(db, "d9", { seesMoney: true, limit: 10 });
+    expect(lines.map((l) => l.text)).toEqual(["Moved to Brief & Ship", "Moved to Contracts"]);
+  });
+
+  it("words a brand's statuses and keeps to the limit", () => {
+    event("brand_events", "brand_id", "b9", "pitched", t0);
+    event("brand_events", "brand_id", "b9", "negotiating", t0 + 1000);
+    expect(linesFor(db, "b9", { seesMoney: true, limit: 10 }).map((l) => l.text)).toEqual([
+      "Status set to Negotiating",
+      "Status set to Pitched",
+    ]);
+    expect(linesFor(db, "b9", { seesMoney: true, limit: 1 })).toHaveLength(1);
   });
 });

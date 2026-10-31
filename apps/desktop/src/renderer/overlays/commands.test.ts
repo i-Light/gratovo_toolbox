@@ -123,6 +123,21 @@ describe("the live gate", () => {
     expect(actions).toContain(strings.palette.actions.confirmContacts);
   });
 
+  it("leaves brands and deals out of a search and the recent list, even when deals are synced", () => {
+    expect(liveData().deals.length).toBeGreaterThan(0);
+    const found = buildCommands(liveData(), [], "Lumen");
+    expect(found.some((r) => r.group === groups.brands || r.group === groups.deals)).toBe(false);
+    const recent = buildCommands(
+      liveData(),
+      [
+        { kind: "brand", id: "b2" },
+        { kind: "creator", id: ch("c1") },
+      ],
+      "",
+    ).filter((r) => r.group === groups.recent);
+    expect(recent.map((r) => r.label)).toEqual(["Prompt Lab"]);
+  });
+
   it("finds no hidden settings in a search", () => {
     const rows = buildCommands(liveData(), [], "Your day");
     expect(rows.some((r) => r.group === groups.settings)).toBe(false);

@@ -747,6 +747,19 @@ describe("recordIntent", () => {
       ]);
     });
 
+    it("brand.notes and deal.notes write locally and queue nothing", async () => {
+      await source.write([
+        { kind: "brand.set", id: "b1", name: "Acme AI", sells: "GPUs", status: "qualified" },
+      ]);
+      db.exec("DELETE FROM _outbox");
+      await source.write([{ kind: "brand.notes", id: "b1", base: "", notes: "Wants a demo." }]);
+      expect(
+        db.prepare("SELECT notes FROM brand_details WHERE brand_id = 'b1'").get()?.["notes"],
+      ).toBe("Wants a demo.");
+      expect((await source.frame()).brands[0]?.notes).toBe("Wants a demo.");
+      expect(entries()).toEqual([]);
+    });
+
     it("deal.step queues the step", async () => {
       await source.write([{ kind: "deal.step", id: "d1", step: 3 }]);
       expect(entries()).toEqual([

@@ -121,6 +121,50 @@ Order (owner, 2026-10-28): **P8a, then P1, then P8b**, then P2 onwards.
 
 For P1: P8a builds the six-month history as a layer on today's seed. P1-3 grows the seed to v6's size; the history layer must still agree with the snapshot's creators afterwards (P8a's history tests say what must hold). P8b then adds the brands, deals, invoices and payouts to the history.
 
+## P2: records (done 2026-10-30)
+
+Spec: ADR 0021 D6 ("the creator record"), GAPS C10, C11 and section 12, v6 `records.js:708-841` (questioned, not copied). Builds on P1's `Brand`, `Deal` and `CreatorDetails` (`packages/core/src/data/work-types.ts`).
+
+### Decisions
+
+- **R1. One record shell.** `renderer/record/record-shell.tsx` holds what the three records share: the header (face, name, sub line, tags), the steps strip, the one next step, the tab strip with its keys (arrows, Home, End), and the panels (`role="tabpanel"`, kept mounted only where a tab saves on blur). The creator record moves onto it. The peek and the record page both use it (D23).
+- **R2. The creator record's tabs** (owner, ADR 0021 D6): Overview, Channel, Videos, Sponsors, Contacts, Audience, Emails, Deals, Notes, Activity. Tab names beyond the owner's five are a proposal for the owner to check in prototype mode after P2. Nothing on today's Overview is lost; each fact moves to its tab.
+- **R3. The Overview matches the stage** (pure `creatorOverviewBlocks(stage, facts)` in `packages/core/src/data/record.ts`, returning block keys in order):
+  - new, shortlisted, rejected, parked, never: the numbers that decide (subscribers, median views, the 12-video trimmed average with its stability, uploads in 30 days, engagement), the three latest videos, the fit and its parts, the warnings (bot risk, Shorts), and the reject or never reason when there is one.
+  - contact, emailed: the contact (confirmed address, contact name), where the emails stand, and the short numbers.
+  - replied, kit, audience: the latest reply, a waiting draft (opens Emails), the audience check (kit), and the short numbers.
+  - signed: the relationship (brokered or exclusive 25%), the last update and the next open slot, category locks, the onboarding profile (dream brands, hard nos), the deals in flight (count and furthest step), and the rate for money viewers.
+- **R4. The header gains** stars, format and bot risk (P1's channel facts) for every creator, and the relationship tag for signed ones. The steps strip shows the creator steps (v6's `CREATOR_STEPS`) up to the stage. Rejected, parked and never show their state tag instead of a strip.
+- **R5. The brand record**, for the first time: header (name, what it sells, country, status tag, owner), the brand steps strip (found, qualified, pitched, negotiating, won; lost shows a tag), tabs **Overview, Contacts, Deals, Notes, Activity**.
+  - Overview: headcount and the title to pitch, paid-spender verified, the past campaign hook, the budget range (money viewers only), the creators it was seen sponsoring (each opens their record), since when, and the pitch so far.
+  - Contacts: up to four buyers with role and address.
+  - The Qualify form, the pitch picker, the talent packet and the call script come with Close (P5, P6); Emails comes with brand outreach (P5).
+- **R6. The deal record frame**: header (brand × creator, price → payout for money viewers, deliverable, step tag), the ten deal steps strip, tabs **Steps and money, Notes, Activity**.
+  - Steps and money, read only: each step with its checklist items ticked or not, the dates (creator draft due, go-live, due), terms, model, placement, links to the brand and the creator, and a money card (price, payout, margin, invoice sent, due and paid, creator paid) for money viewers only.
+  - Ticking, QC, shipping, hype and the two-thread deal room come with Deliver (P7).
+- **R7. Notes on brands and deals are local only.** Migration 0010 adds a `notes TEXT` column to `brand_details` and `deal_details` (no Supabase column yet). The read is the local note, or else the synced `brands.notes` / `deals.notes`. The writes are `data:write` kinds `brand.notes` and `deal.notes`, like `creator.notes`: straight through, not undoable, saved on blur, with `base` for clashes. The sync's lists don't change; the details-local-only test covers the column.
+- **R8. Activity is one component for all three** (`RecordActivity`, from `CreatorActivity`, over `log:for {ref}`). Brand and deal lines come from the activity log; the status and step times from 0009's events show as lines too, worded in plain English.
+- **R9. Live mode.** Live has deals (synced from the old app), but deals aren't wired until step 9. A gated part `record.deals` hides the creator record's Deals tab and every link to a deal or brand record in live. So in live the creator record shows its nine other tabs, and brand and deal records can't be reached. In prototype mode, everything shows.
+- **R10. Carried in:** `Btn` (`packages/ui`) passes `data-ui` through (PROGRESS), and the plain example copy's creators get pipeline rows, so a record there shows more than the summary (P1's note). **Moved to P10** (R-1 found it bigger than planned): those rows are written only by the Python job `example.load`, from inside the six-month history, and nothing runs it for the plain copy. P10's flow suite needs it, so it is built there. P2's smoke test turns prototype mode on instead.
+
+### IPC
+
+- `data:write` gains `{kind: "brand.notes", id, notes, base}` and `{kind: "deal.notes", id, notes, base}` (strict; notes at most `notesMax`).
+- The frame's `Brand` and `Deal` gain `notes: string` and `notesCut: boolean`, like the creator's.
+- No new read channel: brand and deal records read the frame; the creator record keeps `find:item`.
+
+### Tasks
+
+| id | Task | Tier | Depends | Files | Done-check |
+|---|---|---|---|---|---|
+| R0 | Contracts (this section) | H | — | PLAN.md | **done** |
+| R-1 | Data: migration 0010 with migrate tests; repositories read and write the notes (R7); `data:write` kinds, ipc schemas, core types; the details-local-only test; seed notes on a few example brands and deals; R10's pipeline rows for the plain example copy | N | R0 | main/db, main/data, core/data, ipc/data* | **done** |
+| R-2 | The shell (R1); the creator record on it with the ten tabs (R2), each fact moved to its tab; `Btn` `data-ui` (R10); `RecordActivity` (R8); the `record.deals` gate (R9) | N | R0 | renderer/record, packages/ui, lib/wired | **done** |
+| R-3 | Core `creatorOverviewBlocks` (R3) with a test per stage group; the stage-aware Overview and the header additions (R4) | N | R-2 | core/data/record*, renderer/record | **done** |
+| R-4 | The brand record (R5) and the deal record frame (R6), in the peek and on the record page, in place of `RecordSummary` for brands and deals; the Deals tab on the creator; notes boxes for both (R7) | N | R-1, R-2 | renderer/record, overlays/peek, app/record-page | **done** |
+| R-5 | One light Electron smoke test: a signed creator's Deals tab opens a deal, and the deal's brand link opens the brand | N | R-4 | e2e | **done** |
+| R-6 | Screens at 1440 dark against v6 and the UI skills; review; `pnpm verify`; docs (architecture, status, PROGRESS); PR; merge | H | all | docs | **done** |
+
 ## P8a: Insights without deals and money (done 2026-10-29, ADR 0022)
 
 Spec: `docs/product/insights-design.md` (sections 2, 2a, 3.1 to 3.4, 3.6, 4, 5, 6). Mockups: `design/insights/*.jpg` (look at the picture of the tab you build). Code map: `.router/CONTEXT.md`. P8b (after P1) adds Money, Funnel › Brands, and the deal and money parts.
