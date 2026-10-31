@@ -32,7 +32,7 @@ Every check CI used to run, on this computer, in this order (`tooling/verify.ts`
 |---|---|
 | deps | `pnpm install --frozen-lockfile` (the lockfile matches); uv runs with `UV_LOCKED=1` |
 | secrets | gitleaks over every local branch's history (known false positives in `.gitleaksignore`) |
-| audit | OSV-Scanner over `pnpm-lock.yaml` and `services/pipeline/uv.lock` |
+| audit | OSV-Scanner over `pnpm-lock.yaml` and `services/pipeline/uv.lock` (accepted advisories, each with its reason and a date to look again, in `osv-scanner.toml`) |
 | lint | ESLint, Prettier check, ruff |
 | typecheck | `tsc -b`, pyright |
 | test | Vitest, pytest |

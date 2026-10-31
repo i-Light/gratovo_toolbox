@@ -1,0 +1,10 @@
+# Advisories the audit step (pnpm verify) accepts, each with its reason and a date to look again.
+
+[[IgnoredVulns]]
+id = "GHSA-g3hv-75wg-m249"
+ignoreUntil = 2027-01-31
+reason = """minimatch before 11.0.1 can hang on a crafted glob pattern. The only copy left is 3.1.5, \
+used by eslint-plugin-jsx-a11y 6.10.2 at lint time to match component names from our own lint \
+settings: no untrusted pattern ever reaches it, and it never ships in the app. The fix exists only \
+in minimatch 11, which the plugin can't load (it calls 3.x's default export). ESLint's own copy \
+was moved to 11.0.3 (pnpm-workspace.yaml overrides). Look again when jsx-a11y updates, or by the date."""
