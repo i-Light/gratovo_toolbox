@@ -260,3 +260,14 @@
 .srch-profile th.num {
   text-align: end;
 }
+.srch-routes th[scope="row"] {
+  font-weight: 500;
+  text-align: start;
+}
+.srch-routes th.num {
+  text-align: end;
+}
+.srch-routes th .srch-link {
+  font: inherit;
+  color: inherit;
+}

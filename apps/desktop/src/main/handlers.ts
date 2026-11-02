@@ -298,6 +298,7 @@ function buildHandlers(context: HandlerContext): Handlers {
     "mail:check": () => connections.checkMailboxes(),
     "gateways:deploy": ({ regions }) => connections.deployGateways(regions),
     "gateways:remove": ({ region }) => connections.removeGateways(region),
+    "gateways:leak": () => connections.checkGatewayLeak(),
     "reach:thread": ({ creatorId }) => reach.thread(creatorId),
     "reach:draft-now": ({ creatorId }) => reach.draftNow(creatorId),
     "reach:rewrite": ({ draftId, how }) => reach.rewrite(draftId, how),

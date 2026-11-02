@@ -435,6 +435,14 @@ def test_failed_video_rows_do_not_count_as_stored_videos(conn: sqlite3.Connectio
 # --- saving what the API returned ---
 
 
+def test_videos_of_a_channel_that_is_gone_are_dropped(conn: sqlite3.Connection) -> None:
+    # A parallel run: the backlog read the channel's uploads, then another worker's keyword
+    # archived it. Saving must not break the channel link and crash the run.
+    videos = read_videos(FULL_VIDEO, ["v1"])
+    store.save_videos(conn, videos, ["v1", "v2"], {"v1": "UC1", "v2": "UC1"})
+    assert conn.execute("SELECT COUNT(*) FROM videos").fetchone()[0] == 0
+
+
 def test_the_new_fields_are_saved(conn: sqlite3.Connection) -> None:
     add_channel(conn)
     channel = read_channels(FULL_CHANNEL, {"@UC1": "UC1"})

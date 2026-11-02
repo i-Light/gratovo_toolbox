@@ -622,7 +622,8 @@ function start(): void {
         },
       });
       // A job in either lane or a Gemini bridge running at quit is asked to stop first (and
-      // killed after 5 s); then the app quits again. The flag keeps that second quit from looping.
+      // killed after 5 s, or 30 s for a gateway job deleting its AWS API); then the app quits
+      // again. The flag keeps that second quit from looping.
       let quitting = false;
       app.on("before-quit", (event) => {
         if (quitting || (!supervisor.running && !quickLane.running && gemini.state === "stopped")) {

@@ -13,6 +13,7 @@ describe("refusedWhileOn", () => {
         "mail:check",
         "gateways:deploy",
         "gateways:remove",
+        "gateways:leak",
         "import:candidates",
         "import:pick",
         "import:dry-run",

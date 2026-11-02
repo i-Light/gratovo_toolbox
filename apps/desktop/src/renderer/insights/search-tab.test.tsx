@@ -89,11 +89,45 @@ describe("the Search tab views", () => {
       "search.everything.weeks",
       "search.everything.keywords",
       "search.everything.profile",
+      "search.everything.routes",
     ]) {
       expect(s.has(id)).toBe(true);
     }
     expect(s.has("search.live.backlog")).toBe(false);
     expect(screen.getByText("Of 162,400 found, 1 in 81 is live.")).toBeTruthy();
+  });
+
+  it("Routes shows the kinds and a table that sorts", () => {
+    const s = setup("everything");
+    const r = t.routes;
+    const panel = s.container.querySelector('[data-ui="search.everything.routes"]') as HTMLElement;
+    for (const name of [r.kinds.aws, r.kinds.free]) {
+      expect(within(panel).getAllByText(name).length).toBeGreaterThan(0);
+    }
+    expect(within(panel).queryByText(r.kinds.direct)).toBeNull();
+    const body = (): string[] =>
+      within(panel)
+        .getAllByRole("row")
+        .slice(1)
+        .map((row) => row.querySelector("th")?.textContent ?? "");
+    expect(body()[0]).toBe("us-east-1");
+    expect(body()).toHaveLength(12);
+    const blocked = (): HTMLElement =>
+      within(panel).getByRole("button", { name: r.sortBy(r.columns.blockRate) });
+    fireEvent.click(blocked());
+    expect(body()[0]).toBe("203.0.113.153");
+    fireEvent.click(blocked());
+    expect(body()[0]).toBe("us-east-1");
+    fireEvent.click(within(panel).getByRole("button", { name: r.showAll("18") }));
+    expect(body()).toHaveLength(18);
+  });
+
+  it("Routes says there is no route data yet, or no searches in the period", () => {
+    const none = setup("everything", { report: searchReport({ routes: null }) });
+    expect(screen.getByText(t.routes.noData)).toBeTruthy();
+    none.unmount();
+    setup("everything", { report: searchReport({ routes: { byKind: [], routes: [] } }) });
+    expect(screen.getByText(t.routes.none)).toBeTruthy();
   });
 
   it("shows not known where a group has no value", () => {

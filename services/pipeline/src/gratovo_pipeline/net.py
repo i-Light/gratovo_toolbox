@@ -9,8 +9,11 @@ these hosts, and its address comes from the owner's own settings.
 A few jobs need more, and only those jobs get it (plan D20). The entry point calls
 `allow_job_hosts` once, with the job's kind, before the job runs: the mail jobs add Gmail's API
 and Google's token endpoint, the gateway jobs add AWS's API Gateway control plane (where gateways
-are made and deleted). A search can't reach those hosts, and it never holds a mailbox token or an
-AWS key, so a bug in it can't write to a mailbox or an AWS account. (Google's general API host,
+are made and deleted), and the leak test (`gateways.leak`, step S5 P0) alone also adds
+`checkip.amazonaws.com`, to read this computer's public address. A search adds
+`api.proxyscrape.com` (the free proxy list, step S5 P3) only when "Find free proxies" is on. A
+search can't reach the other hosts, and it never holds a mailbox token or an AWS key, so a bug in
+it can't write to a mailbox or an AWS account. (Google's general API host,
 which the Data API needs, also serves Gmail; without a token that does nothing.)
 
 Redirects a server sends are followed by the HTTP library and aren't checked here: the request
@@ -27,6 +30,8 @@ ALLOWED_HOSTS: Final = frozenset(
     {"www.youtube.com", "youtube.com", "www.googleapis.com", "youtube.googleapis.com"}
 )
 MAIL_HOSTS: Final = frozenset({"gmail.googleapis.com", "oauth2.googleapis.com"})
+LEAK_HOSTS: Final = frozenset({"checkip.amazonaws.com"})
+FREE_PROXY_HOSTS: Final = frozenset({"api.proxyscrape.com"})
 _GATEWAY_HOST: Final = re.compile(r"[a-z0-9]+\.execute-api\.[a-z]{2}(-[a-z]+)+-\d\.amazonaws\.com")
 # `[0-9]`, not `\d`: Python's `\d` also takes other scripts' digits.
 _CONTROL_PLANE_HOST: Final = re.compile(r"apigateway\.[a-z]{2}(-[a-z]+)+-[0-9]\.amazonaws\.com")
@@ -41,13 +46,18 @@ class HostNotAllowedError(ValueError):
     string can carry a key)."""
 
 
-def allow_job_hosts(kind: str) -> None:
+def allow_job_hosts(kind: str, *, free_proxies: bool = False) -> None:
     """Adds the hosts the job of this kind needs: `mail.*` Gmail's, `gateways.*` AWS's API
-    Gateway control plane; other kinds nothing. It replaces what an earlier call added, so a
+    Gateway control plane (`gateways.leak` checkip too), `search` the free proxy list's host when
+    `free_proxies` is on; other kinds nothing. It replaces what an earlier call added, so a
     second call never widens the rule beyond one job's needs."""
     global _job_hosts, _job_patterns  # one job per process: set once, at the start
-    if kind.startswith("mail."):
+    if kind == "search" and free_proxies:
+        _job_hosts, _job_patterns = FREE_PROXY_HOSTS, ()
+    elif kind.startswith("mail."):
         _job_hosts, _job_patterns = MAIL_HOSTS, ()
+    elif kind == "gateways.leak":
+        _job_hosts, _job_patterns = LEAK_HOSTS, (_CONTROL_PLANE_HOST,)
     elif kind.startswith("gateways."):
         _job_hosts, _job_patterns = frozenset(), (_CONTROL_PLANE_HOST,)
     else:

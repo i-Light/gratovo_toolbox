@@ -1,4 +1,4 @@
-import { insightsReport, reportTabs } from "@gratovo/core/insights";
+import { insightsReport, reportTabs, routesReport } from "@gratovo/core/insights";
 import type {
   ChannelFacts,
   InsightsInputs,
@@ -130,6 +130,7 @@ const inputs: InsightsInputs = {
   },
   weeks: [{ at: NOW - 7 * day, live: 3, waiting: 1, archive: 100 }],
   runs: [NOW - day],
+  routes: null,
   goal: { signsPerMonth: 4, revenuePerMonth: 20_000, overrides: { replied: 0.1 } },
   hidden: {},
   deals: [
@@ -530,5 +531,28 @@ describe("insights:goal", () => {
     expect(
       goalSettingsSchema.safeParse({ signsPerMonth: 4, revenuePerMonth: 5, overrides: {} }).success,
     ).toBe(false);
+  });
+
+  it("takes a routes report folded from 1500 routes", () => {
+    const facts = Array.from({ length: 1500 }, (_, i) => ({
+      runStartedAt: NOW - day,
+      kind: "free" as const,
+      label: `203.0.113.${String(i)}:8080`,
+      requests: 10 + i,
+      successes: 9,
+      blocks: 1,
+      connectionFailures: 0,
+      bytes: 1000,
+      keywordsFinished: 1,
+      channelsFound: 1,
+      inRangeFound: 1,
+      secondsUsed: 1,
+      secondsResting: 0,
+    }));
+    const routes = routesReport(facts, { from: NOW - 7 * day, to: NOW });
+    const report = insightsReport("search", { ...inputs, routes: facts }, "7d");
+    expect(routes?.routes.length).toBeLessThanOrEqual(1000);
+    const parsed = channels["insights:read"].response.safeParse(report);
+    if (!parsed.success) throw new Error(parsed.error.message);
   });
 });

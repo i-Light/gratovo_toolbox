@@ -1,5 +1,5 @@
 import type { ConnectionsStatus } from "@gratovo/ipc";
-import { Btn } from "@gratovo/ui";
+import { Btn, Switch } from "@gratovo/ui";
 import { useRef, useState } from "react";
 
 import { strings } from "../../strings";
@@ -45,6 +45,18 @@ export function ProxiesRow({ status }: { readonly status: ConnectionsStatus }) {
     });
   };
   const count = status.proxies.count;
+  const setFindFree = (enabled: boolean): void => {
+    void saveChange(
+      {
+        kind: "pipeline.settings",
+        pacing: status.pacing,
+        parallel: status.parallel,
+        proxies: { enabled: status.proxies.enabled, includeDirect: status.proxies.includeDirect },
+        freeProxies: { enabled },
+      },
+      { row: "connProxies" },
+    );
+  };
   return (
     <Row
       id="connProxies"
@@ -126,6 +138,17 @@ export function ProxiesRow({ status }: { readonly status: ConnectionsStatus }) {
       ) : (
         <span className="hint">{text.proxies.hint}</span>
       )}
+      <div className="col tight">
+        <div className="row" style={{ gap: "10px" }}>
+          <Switch
+            on={status.freeProxies.enabled}
+            label={text.proxies.findFree}
+            onChange={setFindFree}
+          />
+          <span>{text.proxies.findFree}</span>
+        </div>
+        <span className="hint">{text.proxies.findFreeHint}</span>
+      </div>
     </Row>
   );
 }

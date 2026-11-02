@@ -76,6 +76,7 @@ export function inputs(over: Partial<InsightsInputs> = {}): InsightsInputs {
     archive: emptyArchive,
     weeks: [],
     runs: [],
+    routes: null,
     goal: { signsPerMonth: 4, revenuePerMonth: null, overrides: {} },
     hidden: {},
     deals: [],

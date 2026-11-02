@@ -126,3 +126,35 @@ The keep list is the owner's (2026-11-02): the plan's "Recommend" column, every 
 - A7: the size has its own IPC (`toolbox:archive-size`), asked only by the Archive view, cached on the row counts and the file times; `dbstat` when available, else the estimate.
 - The import copies `archived_videos`.
 - For step T: page `get_unannounced_archives`; `unarchive` and `apply_catalog_unarchived` must go through restore.
+
+## S5. Free proxies next to AWS, with tracking (branch `feat/scraping-s5`)
+
+### Decisions
+
+- **P0. The leak test is a job and a button.** New job `gateways.leak`: deploy one HTTP API in one region (us-east-1) whose integration is `https://httpbin.org/{proxy}`, read this machine's own address from `https://checkip.amazonaws.com` (allowed for this job only, as the control plane is for `gateways.*`), call `<invoke>/headers` once, delete the API in `finally`, and answer `{leaked: bool, headers: [names that carried this machine's address]}` (names only, never an address). Settings › Connections › AWS gateways gets "Check for leaks" (confirm: "Creates one gateway for a minute, then deletes it."). The keys stay in the app; the owner approved the test on 2026-11-02. The result goes into ADR 0023 (S8). Evidence before the test: AWS lists `Forwarded` and `X-Forwarded-For` as reserved for HTTP API parameter mapping, and HTTP APIs send a `Forwarded: for=<client>` header; FireProx users report the client address in `X-Forwarded-For` through REST APIs too (2024).
+- **P1. Redirects never leave the gateway.** For a gateway candidate, `scrapetube.request` sends with redirects off; a 3xx whose `Location` is on youtube.com is followed by hand through the same gateway (at most 5 hops); a `Location` elsewhere is refused (`ScrapetubeError`). Proxies and this machine keep the library's redirect handling (a proxy carries the redirect too).
+- **P2. If the leak is real** (decided when the test has run; the owner chooses): (a) gateways only behind a free proxy (the proxy's address is what the header names), or (b) replace the HTTP API relay with a small Lambda function URL that fetches the page itself (no forwarding header; needs a wider AWS key: `lambda:*Function*`, `iam:PassRole` on one role), or (c) drop gateways. Until then the gateway switch stays as it is and the setup doc says to keep it off.
+- **P3. The free proxy provider** (`scrapetube/free_proxies.py`, off by default; Settings › Connections › Proxies › "Find free proxies"): fetch the ProxyScrape JSON list (host `api.proxyscrape.com`, allowed for the search job only when the switch is on), keep alive + ssl + elite/anonymous + http/socks4/socks5, health-check `https://www.youtube.com/generate_204` 10 at a time within 10 s, fastest first. The pool takes them as candidates of kind `free` (label = host:port; the URL carries no login). A failing free proxy is banned for every worker: 5 min, doubling to 60 min (the pool's cooldown with these bounds for kind `free`). The last good list is remembered in `free-proxies.json` in the data folder (addresses only) and tried first next run; the list is fetched again when fewer than 10 usable are left, at most once every 10 minutes.
+- **P4. Safety rules.** Free proxies carry page reads only (the Data API never uses a proxy: `youtube.py` already opens with `ProxyHandler({})`); no cookies beyond the consent cookie; certificates always checked (a test that `verify` is never turned off).
+- **P5. Workers follow routes.** Parallel search runs one worker per usable route up to the cap, re-counted between keywords: it grows when the free list refills and shrinks when routes are banned (never below 1).
+- **P6. AWS region rotation** (off by default, a switch and a cap): a gateway blocked past its third cooldown is removed and one is deployed in an unused region through the existing deploy and remove jobs. Built only if P2 keeps gateways.
+- **P7. Route tracking.** New table `run_routes` (schema v9): run_id, kind (`aws` | `proxy` | `free` | `direct`), label (region or host, never a URL or login), requests, successes, blocks, connection_failures, bytes, keywords_finished, channels_found, in_range_found, seconds_used, seconds_resting. The pool counts per candidate; the search job writes the rows at the end of each keyword (upsert) and of the run.
+- **P8. Insights › Search › Routes.** By kind and by route over the chosen period: block rate, in-range channels per 100 requests, MB per keyword. Live data reads `run_routes`; the example history gets example rows so prototype mode shows the section.
+
+### Tasks
+
+| id | title | tier | files | done-check |
+|---|---|---|---|---|
+| S5-a | P0 leak job + button | H (AWS, outward-facing) | `jobs/gateways.py`, `net.py`, protocol, desktop connections, tests | pytest with a fake AWS; Vitest; then the owner clicks it once (or the session, with the owner's go) |
+| S5-b | P1 redirects through the gateway | N | `scrapetube.py`, tests | pytest: a 302 to youtube.com goes through the gateway; elsewhere refused |
+| S5-c | P3, P4, P5 | N | `scrapetube/free_proxies.py`, `proxy_pool.py`, `config.py`, `jobs/search.py`, settings, protocol, tests | pytest on the fake clock: banned proxies not reused before their time; refill; workers follow routes |
+| S5-d | P7, P8 | N | `store.py`, `jobs/search.py`, desktop insights, example history, tests | pytest; Vitest; look at 1440 px |
+
+### Changed after review (S5)
+
+- P0: the leak result is `{outcome: leak|clean|unclear, headers, forwardingHeaders, region, removed}`; the echo is httpbin's `/anything?show_env=1` (proof the query reached it); checkip is read before and after over IPv4 only; a run first deletes any API named exactly `gratovo-leak-test`; a gateway left behind ends `aws_left_behind` and the page says how to delete it; quit gives `gateways.*` jobs 30 s.
+- P0 not run yet: running it needs the owner's AWS keys, which live in the app. Opening the app on the owner's profile from here could fire approved send-later emails and would move pipeline.db to the new schema before the merge, so the owner clicks Settings › Connections › AWS gateways › Check for leaks once S5 is merged.
+- P1: a gateway redirect is rebuilt as `https://www.youtube.com` + path + query and must go through the gateway; a `/sorry/` or consent redirect counts as a block.
+- P3: list entries are rebuilt from checked parts (public IP, port, known scheme, no login); remembered proxies are checked before use; the first fill is capped; the provider closes on every exit; with free proxies on and "Also search directly" off, this machine is never added.
+- P7: stats of a removed proxy are kept; a failed route write never ends a run; Insights keeps the top routes and folds the rest into one row per kind. The table always shows one decimal.
+- Found while checking: in a parallel run the backlog could read a channel another worker's keyword had just found and then archived, and its video write broke the channel link and crashed the run (seen twice in the full test run). `save_videos` now writes a video only while its channel exists, in the same statement.

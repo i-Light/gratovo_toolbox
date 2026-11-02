@@ -51,7 +51,7 @@ def run(start: Start, emitter: Emitter) -> None:
         from gratovo_pipeline.jobs import example_load
 
         example_load.run(start, emitter)
-    else:  # gateways.deploy, gateways.destroy, gateways.test
+    else:  # gateways.deploy, gateways.destroy, gateways.test, gateways.leak
         from gratovo_pipeline.jobs import gateways
 
         gateways.run(start, emitter)

@@ -36,6 +36,7 @@ const status = (patch: Partial<ConnectionsStatus> = {}): ConnectionsStatus => ({
   ],
   mail: { label: "gratovo", senderName: null },
   proxies: { count: 2, enabled: true, includeDirect: false },
+  freeProxies: { enabled: false },
   pacing: "normal",
   parallel: { enabled: false, maxWorkers: 4 },
   aws: { keys: false, enabled: false, regions: [] },
@@ -560,6 +561,25 @@ describe("Connections: search routing", () => {
     expect((sent("connections:set")[1] as { pacing: string }).pacing).toBe("fast");
   });
 
+  it("turns Find free proxies on from the Proxies row, with the hint beside it", async () => {
+    install({ "connections:status": status(), "connections:set": { ok: true } });
+    await show();
+    const proxies = within(row("connProxies"));
+    expect(proxies.getByText(text.proxies.findFreeHint)).toBeTruthy();
+    const toggle = proxies.getByRole("switch", { name: text.proxies.findFree });
+    expect(toggle.getAttribute("aria-checked")).toBe("false");
+    await click(toggle);
+    expect(sent("connections:set")).toEqual([
+      {
+        kind: "pipeline.settings",
+        pacing: "normal",
+        parallel: { enabled: false, maxWorkers: 4 },
+        proxies: { enabled: true, includeDirect: false },
+        freeProxies: { enabled: true },
+      },
+    ]);
+  });
+
   it("removes a region after a confirm and deploys after explaining the cost", async () => {
     install({
       "connections:status": status({
@@ -791,5 +811,129 @@ describe("first run", () => {
     expect(sent("connections:status")).toEqual([]);
     expect(route().screen).toBe("today");
     expect(appStore().getState().ui.importState).toBe("unknown");
+  });
+});
+
+describe("Connections: the gateway leak test", () => {
+  const withKeys = { aws: { keys: true, enabled: false, regions: ["us-east-1"] } };
+  const leakButton = (): HTMLButtonElement => button(text.aws.leakCheck) as HTMLButtonElement;
+  const leakLine = (): HTMLElement => within(row("connAws")).getByRole("status");
+
+  it("is off without keys", async () => {
+    install({ "connections:status": status() });
+    await show();
+    expect(leakButton().disabled).toBe(true);
+  });
+
+  it("asks first, then names the headers that carried the address", async () => {
+    install({
+      "connections:status": status(withKeys),
+      "gateways:leak": {
+        ok: true,
+        outcome: "leak",
+        headers: ["Forwarded", "X-Forwarded-For"],
+        removed: true,
+      },
+    });
+    await show();
+    await click(leakButton());
+    expect(sent("gateways:leak")).toEqual([]);
+    expect(screen.getByText(text.aws.leakSub)).toBeTruthy();
+    await click(button(text.aws.leakYes));
+    expect(sent("gateways:leak")).toEqual([{}]);
+    expect(leakLine().textContent).toBe("Leak: your address shows in Forwarded, X-Forwarded-For.");
+    expect(screen.queryByText(text.aws.leakSub)).toBeNull();
+  });
+
+  it("says when there is no leak", async () => {
+    install({
+      "connections:status": status(withKeys),
+      "gateways:leak": { ok: true, outcome: "clean", headers: [], removed: true },
+    });
+    await show();
+    await click(leakButton());
+    await click(button(text.aws.leakYes));
+    expect(leakLine().textContent).toBe(
+      "No header carried your address (one test gateway in us-east-1).",
+    );
+  });
+
+  it("says when the test couldn't tell, and when its gateway is still in AWS", async () => {
+    install({
+      "connections:status": status(withKeys),
+      "gateways:leak": { ok: true, outcome: "unclear", headers: [], removed: false },
+    });
+    await show();
+    await click(leakButton());
+    await click(button(text.aws.leakYes));
+    expect(leakLine().textContent).toBe(
+      "The test couldn't tell. Try again later. A test gateway named gratovo-leak-test is still " +
+        "in us-east-1. Delete it in the AWS console (API Gateway › APIs).",
+    );
+    expect(leakLine().className).toContain("set-err");
+  });
+
+  it("keeps a left-behind gateway on the page, not in a toast", async () => {
+    install({
+      "connections:status": status(withKeys),
+      "gateways:leak": { ok: false, reason: "left_behind" },
+    });
+    await show();
+    await click(leakButton());
+    await click(button(text.aws.leakYes));
+    expect(leakLine().textContent).toBe(text.aws.leakLeftBehind);
+  });
+
+  it("tells a refusal by AWS from no answer", async () => {
+    install({
+      "connections:status": status(withKeys),
+      "gateways:leak": { ok: false, reason: "network" },
+    });
+    await show();
+    await click(leakButton());
+    await click(button(text.aws.leakYes));
+    expect(toastText()).toContain("The test gateway or httpbin.org didn't answer in time.");
+    expect(toastText()).not.toContain(text.aws.leakReasons.aws);
+  });
+
+  it("holds every gateway button while the check runs", async () => {
+    install({ "connections:status": status(withKeys) });
+    const host = window as unknown as { gratovo: Bridge };
+    const invoke = host.gratovo.invoke as unknown as Invoke;
+    let finish: (value: unknown) => void = () => undefined;
+    const held: Invoke = (channel, input) =>
+      channel === "gateways:leak"
+        ? new Promise((resolve) => {
+            finish = (value) => {
+              resolve({ ok: true, value });
+            };
+          })
+        : invoke(channel, input);
+    host.gratovo = { ...host.gratovo, invoke: held as unknown as Bridge["invoke"] };
+    await show();
+    await click(leakButton());
+    await click(button(text.aws.leakYes));
+    expect((button(text.aws.leakChecking) as HTMLButtonElement).disabled).toBe(true);
+    expect((button(text.aws.removeRegion("us-east-1")) as HTMLButtonElement).disabled).toBe(true);
+    await act(async () => {
+      finish({ ok: true, outcome: "clean", headers: [], removed: true });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(leakButton().disabled).toBe(false);
+    expect(leakLine().textContent).toBe(text.aws.leakNone);
+  });
+
+  it("says why a check was refused", async () => {
+    install({
+      "connections:status": status(withKeys),
+      "gateways:leak": { ok: false, reason: "running" },
+    });
+    await show();
+    await click(leakButton());
+    await click(button(text.aws.leakYes));
+    expect(toastText()).toContain(text.aws.couldNotCheckLeak);
+    expect(toastText()).toContain(text.gatewayReasons.running);
+    expect(within(row("connAws")).queryByRole("status")).toBeNull();
   });
 });

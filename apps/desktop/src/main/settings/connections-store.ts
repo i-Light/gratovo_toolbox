@@ -48,6 +48,10 @@ const pipelineSettingsSchema = z.object({
     .unwrap()
     .catch({ enabled: false, includeDirect: false })
     .default({ enabled: false, includeDirect: false }),
+  freeProxies: settingsShape.freeProxies
+    .unwrap()
+    .catch({ enabled: false })
+    .default({ enabled: false }),
 });
 
 const courseSchema = z.object({

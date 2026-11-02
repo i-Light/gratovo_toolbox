@@ -1034,6 +1034,7 @@ describe("the step 4 handlers", () => {
       removeGateways: vi.fn<HandlerServices["connections"]["removeGateways"]>((region) =>
         stub.removeGateways(region),
       ),
+      checkGatewayLeak: vi.fn(() => stub.checkGatewayLeak()),
     };
     const mine = handlersWith(accountWith(), [], findWith(), { connections });
 
@@ -1051,6 +1052,8 @@ describe("the step 4 handlers", () => {
     expect(connections.deployGateways).toHaveBeenCalledWith(["us-east-1", "eu-west-2"]);
     await mine["gateways:remove"]({ region: "us-east-1" });
     expect(connections.removeGateways).toHaveBeenCalledWith("us-east-1");
+    expect(await mine["gateways:leak"]({})).toEqual({ ok: false, reason: "not_built" });
+    expect(connections.checkGatewayLeak).toHaveBeenCalledOnce();
   });
 
   it("pass the Gemini, writing-rules and mail-consent channels to their services", async () => {
@@ -1104,6 +1107,7 @@ describe("the stub services", () => {
       "mail:check": {},
       "gateways:deploy": { regions: ["us-east-1"] },
       "gateways:remove": { region: "us-east-1" },
+      "gateways:leak": {},
       "gemini:start": {},
       "gemini:stop": {},
       "gemini:open-window": { browser: null },
@@ -1201,6 +1205,7 @@ const refusedInputs: Record<string, unknown> = {
   "mail:check": {},
   "gateways:deploy": { regions: ["us-east-1"] },
   "gateways:remove": { region: "us-east-1" },
+  "gateways:leak": {},
   "import:candidates": {},
   "import:pick": {},
   "import:dry-run": { path: "C:/old/gratovo.db" },

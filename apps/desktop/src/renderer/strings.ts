@@ -902,6 +902,9 @@ export const strings = {
         count: (n: number): string =>
           n === 0 ? "No proxies" : n === 1 ? "1 proxy" : `${String(n)} proxies`,
         replace: "Replace list",
+        findFree: "Find free proxies",
+        findFreeHint:
+          "Fetches public proxies, checks them against YouTube, and refills the list during a run. Page reads only; never your API key or a sign-in.",
         label: "One proxy per line",
         placeholder: "http://user:password@host:port",
         save: "Save list",
@@ -953,6 +956,25 @@ export const strings = {
         deployedSub: "Turn on Use gateways to send searches through them.",
         couldNotDeploy: "Couldn't deploy the gateways",
         couldNotRemove: "Couldn't remove the gateways",
+        leakCheck: "Check for leaks",
+        leakChecking: "Checking…",
+        leakConfirm: "Check for leaks?",
+        leakSub:
+          "Creates one gateway in your AWS account for about a minute, sends one request through it, then deletes it.",
+        leakYes: "Check now",
+        leakNone: "No header carried your address (one test gateway in us-east-1).",
+        leakUnclear: "The test couldn't tell. Try again later.",
+        leakFound: (headers: readonly string[]): string =>
+          headers.length === 0
+            ? "Leak: your address got through the gateway."
+            : `Leak: your address shows in ${headers.join(", ")}.`,
+        leakLeftBehind:
+          "A test gateway named gratovo-leak-test is still in us-east-1. Delete it in the AWS console (API Gateway › APIs).",
+        couldNotCheckLeak: "Couldn't check for leaks",
+        leakReasons: {
+          aws: "AWS refused a step. Check the keys and their permissions.",
+          network: "The test gateway or httpbin.org didn't answer in time.",
+        },
         regionNames: {
           "us-east-1": "US East (N. Virginia)",
           "us-east-2": "US East (Ohio)",
@@ -3302,6 +3324,54 @@ export const strings = {
           person: "Archived by a person, by reason",
         },
         columns: ["Group", "Why", "Channels"] as readonly string[],
+      },
+      routes: {
+        counted:
+          "Search requests in this period, by how they left this computer: AWS regions, proxies, free proxies and this machine.",
+        what: "Each search request goes out through one route. A block is a request YouTube refused. In range counts the channels that passed your rules. MB per keyword credits a keyword to the route that served most of its requests, so a route that rarely leads a keyword reads high or n/a. Each list has its own scale.",
+        noData: "No route data yet. It appears after the first search run that tracks its routes.",
+        none: "No searches ran in this period.",
+        headline: (kind: string): string => `${kind} finds the most in-range channels per request.`,
+        headlineNone: "Routes used in this period.",
+        meaning: (blocked: string, requests: string): string =>
+          `${blocked} of ${requests} requests were blocked.`,
+        kinds: {
+          aws: "AWS",
+          proxy: "Proxies",
+          free: "Free proxies",
+          direct: "This machine",
+        },
+        otherRoutes: {
+          aws: "Other AWS regions",
+          proxy: "Other proxies",
+          free: "Other free proxies",
+          direct: "Other routes",
+        },
+        kindAria: "In-range channels per 100 requests, by kind of route",
+        kindLine: (blocked: string, mb: string, routes: string): string =>
+          `${blocked} blocked · ${mb} MB/keyword · ${routes}`,
+        routeCount: (n: string): string => (n === "1" ? "1 route" : `${n} routes`),
+        tableAria: "Routes, sortable",
+        sortBy: (column: string): string => `Sort by ${column}`,
+        showAll: (n: string): string => `Show all ${n} routes`,
+        showFewer: "Show fewer",
+        notKnown: "n/a",
+        columns: {
+          label: "Route",
+          kind: "Kind",
+          requests: "Requests",
+          blockRate: "Blocked",
+          inRangePer100: "In range per 100",
+          mbPerKeyword: "MB per keyword",
+        },
+        csvColumns: [
+          "Kind",
+          "Route",
+          "Requests",
+          "Blocked",
+          "In range per 100 requests",
+          "MB per keyword",
+        ] as readonly string[],
       },
       profile: {
         counted: "The usual channel in each group.",

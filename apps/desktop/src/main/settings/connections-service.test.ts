@@ -19,6 +19,7 @@ describe("the connections service", () => {
       mailboxes: [],
       mail: { label: "Gratovo Outreach", senderName: null },
       proxies: { count: 0, enabled: false, includeDirect: false },
+      freeProxies: { enabled: false },
       pacing: "normal",
       parallel: { enabled: false, maxWorkers: 4 },
       aws: { keys: false, enabled: false, regions: [] },
@@ -130,8 +131,25 @@ describe("the connections service", () => {
       pacing: "fast",
       parallel: { enabled: true, maxWorkers: 6 },
       proxies: { enabled: true, includeDirect: false },
+      freeProxies: { enabled: false },
     });
     expect(startSettings(null).pacing).toBe("normal");
+  });
+
+  it('keeps "Find free proxies" off until it is turned on, and across other changes', async () => {
+    expect((await h.service.status()).freeProxies).toEqual({ enabled: false });
+    const rest = {
+      kind: "pipeline.settings",
+      pacing: "normal",
+      parallel: { enabled: false, maxWorkers: 4 },
+      proxies: { enabled: true, includeDirect: false },
+    } as const;
+    await h.service.set({ ...rest, freeProxies: { enabled: true } });
+    expect(startSettings(h.source).freeProxies).toEqual({ enabled: true });
+    await h.service.set({ ...rest, pacing: "fast" });
+    expect((await h.service.status()).freeProxies).toEqual({ enabled: true });
+    await h.service.set({ ...rest, freeProxies: { enabled: false } });
+    expect(startSettings(h.source).freeProxies).toEqual({ enabled: false });
   });
 
   it("stores the AWS keys and flips the gateways without losing them", async () => {

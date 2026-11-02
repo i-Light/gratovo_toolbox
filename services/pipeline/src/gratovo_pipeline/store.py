@@ -33,15 +33,18 @@ import time
 from collections.abc import Callable, Generator, Iterable, Mapping
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Final, Literal, cast
+from typing import TYPE_CHECKING, Any, Final, Literal, cast
 
 from gratovo_pipeline.protocol import REFETCH_KEYWORD
+
+if TYPE_CHECKING:
+    from gratovo_pipeline.scrapetube.proxy_pool import RouteDelta
 
 type Discovered = dict[str, str]  # {handle: channel_id}
 type Row = dict[str, Any]
 type RunKind = Literal["search", "catch-up", "re-enrich"]
 
-SCHEMA_VERSION: Final = 8
+SCHEMA_VERSION: Final = 9
 
 # Version 7 columns, in the tables below (all nullable local facts, none shared):
 # - videos, from videos.list: like_count and comment_count are text like view_count (NULL when
@@ -375,6 +378,27 @@ CREATE TABLE IF NOT EXISTS archived_videos (
 CREATE INDEX IF NOT EXISTS idx_archived_videos_channel ON archived_videos (channel_id);
 """
 
+# Version 9 (S5, P7): how each run's requests left the computer, one row per run and route.
+# `label` is a region, host:port or "This machine": never a URL or a login.
+RUN_ROUTES: Final = """
+CREATE TABLE IF NOT EXISTS run_routes (
+    run_id INTEGER NOT NULL,
+    kind TEXT NOT NULL,
+    label TEXT NOT NULL,
+    requests INTEGER NOT NULL DEFAULT 0,
+    successes INTEGER NOT NULL DEFAULT 0,
+    blocks INTEGER NOT NULL DEFAULT 0,
+    connection_failures INTEGER NOT NULL DEFAULT 0,
+    bytes INTEGER NOT NULL DEFAULT 0,
+    keywords_finished INTEGER NOT NULL DEFAULT 0,
+    channels_found INTEGER NOT NULL DEFAULT 0,
+    in_range_found INTEGER NOT NULL DEFAULT 0,
+    seconds_used REAL,
+    seconds_resting REAL DEFAULT 0,
+    PRIMARY KEY (run_id, kind, label)
+);
+"""
+
 # A5: where each column of `channels`, `channel_keywords` and `videos` goes when its channel is
 # archived. Every column is in exactly one of KEPT and DROPPED (tests/test_archive_guard.py), so a
 # column added later can't be lost to an archive before someone decides it. The owner's keep list
@@ -563,6 +587,11 @@ def _add_archived_videos(conn: sqlite3.Connection) -> None:
             conn.execute(f"ALTER TABLE channels ADD COLUMN {name} TEXT")
 
 
+def _add_run_routes(conn: sqlite3.Connection) -> None:
+    """Version 9. The `run_routes` table."""
+    conn.executescript(RUN_ROUTES)
+
+
 # What each version adds to the one before it, run in order on a file older than it. Version 1 is
 # SCHEMA itself; a new file runs SCHEMA and then every step. Each step is safe to run twice.
 MIGRATIONS: Final[dict[int, Callable[[sqlite3.Connection], object]]] = {
@@ -573,6 +602,7 @@ MIGRATIONS: Final[dict[int, Callable[[sqlite3.Connection], object]]] = {
     6: _add_run_bytes,
     7: _add_more_facts,
     8: _add_archived_videos,
+    9: _add_run_routes,
 }
 
 # A second writer waits this long instead of failing at once with "database is locked". Far
@@ -1098,7 +1128,11 @@ def save_videos(
     video_batch: Iterable[str],
     video_id_to_channel_id: Mapping[str, str],
 ) -> None:
-    """Writes what the API returned for each requested video; a missing one is marked failed."""
+    """Writes what the API returned for each requested video; a missing one is marked failed.
+
+    A video whose channel is gone is dropped. In a parallel run the backlog can read a channel
+    that another worker's keyword has just found and then archives; the check sits in the same
+    statement, so no other connection can delete the channel between the check and the write."""
     now = utc_now()
     for vid in video_batch:
         info = video_info_by_id.get(vid)
@@ -1111,7 +1145,8 @@ def save_videos(
                                         category_id, live_content, like_count, comment_count,
                                         duration_s, has_captions, made_for_kids, topics,
                                         paid_placement)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'success', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                   SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, 'success', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+                   WHERE EXISTS (SELECT 1 FROM channels WHERE channel_id = ?)
                    ON CONFLICT(video_id) DO UPDATE SET
                        title=excluded.title, description=excluded.description,
                        thumbnail=excluded.thumbnail, tags=excluded.tags,
@@ -1145,15 +1180,17 @@ def save_videos(
                     info.get("MadeForKids"),
                     json.dumps(info.get("Topics") or []),
                     info.get("PaidPlacement"),
+                    channel_id,
                 ),
             )
         else:
             conn.execute(
                 """INSERT INTO videos (video_id, channel_id, last_fetched_at, last_fetch_status)
-                   VALUES (?, ?, ?, 'failed')
+                   SELECT ?, ?, ?, 'failed'
+                   WHERE EXISTS (SELECT 1 FROM channels WHERE channel_id = ?)
                    ON CONFLICT(video_id) DO UPDATE SET
                        last_fetched_at=excluded.last_fetched_at, last_fetch_status='failed'""",
-                (vid, channel_id, now),
+                (vid, channel_id, now, channel_id),
             )
     conn.commit()
 
@@ -2489,6 +2526,45 @@ def update_run_progress(
            WHERE run_id=?""",
         (keywords_done, channels_delta, videos_delta, bytes_downloaded, run_id),
     )
+    conn.commit()
+
+
+def add_run_routes(conn: sqlite3.Connection, run_id: int, deltas: Iterable[RouteDelta]) -> None:
+    """Adds each route's deltas to its row for the run (inserting it first). Commits."""
+    for delta in deltas:
+        s = delta.stats
+        conn.execute(
+            "INSERT INTO run_routes (run_id, kind, label, requests, successes, blocks,"
+            " connection_failures, bytes, keywords_finished, channels_found, in_range_found,"
+            " seconds_used, seconds_resting) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)"
+            " ON CONFLICT (run_id, kind, label) DO UPDATE SET"
+            " requests = requests + excluded.requests,"
+            " successes = successes + excluded.successes,"
+            " blocks = blocks + excluded.blocks,"
+            " connection_failures = connection_failures + excluded.connection_failures,"
+            " bytes = bytes + excluded.bytes,"
+            " keywords_finished = keywords_finished + excluded.keywords_finished,"
+            " channels_found = channels_found + excluded.channels_found,"
+            " in_range_found = in_range_found + excluded.in_range_found,"
+            " seconds_used = COALESCE(seconds_used, 0) + COALESCE(excluded.seconds_used, 0),"
+            " seconds_resting = COALESCE(seconds_resting, 0)"
+            " + COALESCE(excluded.seconds_resting, 0)",
+            (
+                run_id,
+                delta.kind,
+                delta.label,
+                s.requests,
+                s.successes,
+                s.blocks,
+                s.connection_failures,
+                s.bytes,
+                s.keywords_finished,
+                s.channels_found,
+                s.in_range_found,
+                s.seconds_used,
+                s.seconds_resting,
+            ),
+        )
     conn.commit()
 
 

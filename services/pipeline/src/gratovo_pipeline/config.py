@@ -171,6 +171,9 @@ class Config:
     backfill_batch_size: int = BACKFILL_BATCH_SIZE
     signal_bounds: SignalBounds | None = None
     continuous: bool = False  # `rules.continuous`: wait out a spent API quota (R6)
+    free_proxies: bool = False  # `settings.freeProxies.enabled`: find public proxies (S5, P3)
+    parallel_enabled: bool = False  # the parallel switch and cap, kept to re-count workers
+    parallel_max: int = parallel.DEFAULT_MAX_WORKERS
 
     @classmethod
     def from_start(cls, start: Start) -> Config:
@@ -235,6 +238,9 @@ class Config:
             rotating_connections=rotating,
             parallel_workers=workers,
             pacing=pacing,
+            free_proxies=settings.get("freeProxies", {"enabled": False})["enabled"],
+            parallel_enabled=parallel_setting["enabled"],
+            parallel_max=parallel_setting["maxWorkers"],
         )
 
     def delay(self, key: DelayKey) -> Delay:
@@ -246,11 +252,14 @@ class Config:
         """Where the run points, for the log. Never a secret: no key, no URL, no address."""
         gateways = len(self.gateway_urls)
         proxies = len(self.proxy_urls) if self.proxies_enabled else 0
+        # As ProxyPool.from_routes builds it: with free proxies on, only the owner's switch.
+        direct = self.include_direct or not (gateways or proxies or self.free_proxies)
         return (
             f"source: {self.source}; youtube key: {'set' if self.youtube_key else 'missing'}; "
             f"routes: {gateways} gateway(s), {proxies} proxy(ies), "
-            f"direct {'on' if self.include_direct or not (gateways or proxies) else 'off'}; "
-            f"workers: {self.parallel_workers}; pacing: {self.pacing}"
+            f"direct {'on' if direct else 'off'}; "
+            f"workers: {self.parallel_workers}; pacing: {self.pacing}; "
+            f"free proxies: {'on' if self.free_proxies else 'off'}"
         )
 
 

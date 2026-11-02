@@ -1,4 +1,4 @@
-import type { GatewaysDeployResult, GatewaysRemoveResult } from "@gratovo/ipc";
+import type { GatewaysDeployResult, GatewaysLeakResult, GatewaysRemoveResult } from "@gratovo/ipc";
 
 import {
   readAwsKeys,
@@ -6,6 +6,7 @@ import {
   removeGateways as dropGateways,
   saveDeployedGateways,
 } from "../pipeline/pipeline-secrets";
+import type { EndErrorCode } from "../pipeline/protocol";
 
 import { buildQuickStart } from "./connections-jobs";
 import type { ConnectionsDeps } from "./connections-service";
@@ -17,9 +18,18 @@ import type { ConnectionsDeps } from "./connections-service";
 
 const maxGateways = 100;
 
+/** The leak test's end codes the page tells apart: refused keys, no answer, a gateway left. */
+const leakReasons: Partial<Record<EndErrorCode, "no_keys" | "aws" | "network" | "left_behind">> = {
+  no_aws_keys: "no_keys",
+  aws: "aws",
+  network: "network",
+  aws_left_behind: "left_behind",
+};
+
 export interface Gateways {
   deploy: (regions: readonly string[]) => Promise<GatewaysDeployResult>;
   remove: (region: string) => Promise<GatewaysRemoveResult>;
+  leak: () => Promise<GatewaysLeakResult>;
 }
 
 export function createGateways(
@@ -157,5 +167,45 @@ export function createGateways(
     }
   }
 
-  return { deploy, remove };
+  /**
+   * The leak test (step S5, P0): `gateways.leak` builds one throwaway gateway in us-east-1, sends
+   * one request through it to httpbin.org and deletes it. Nothing is stored; the answer is header
+   * names only, never an address.
+   */
+  async function leak(): Promise<GatewaysLeakResult> {
+    const source = deps.source();
+    const blocked = await blocker();
+    if (blocked !== null || source === null) {
+      return { ok: false, reason: blocked ?? "no_data" };
+    }
+    const start = await buildQuickStart(deps, source, { kind: "gateways.leak" }, { aws: true });
+    if (start === null) {
+      return { ok: false, reason: "no_data" };
+    }
+    running = true;
+    try {
+      const outcome = await deps.runQuickJob(start);
+      if (!outcome.ok) {
+        return { ok: false, reason: outcome.problem === "no_python" ? "no_python" : "running" };
+      }
+      const exit = outcome.exit;
+      if (exit.kind !== "ended") {
+        return { ok: false, reason: "failed" };
+      }
+      const code = exit.end.error?.code;
+      const reason = code === undefined ? undefined : leakReasons[code];
+      if (reason !== undefined) {
+        return { ok: false, reason };
+      }
+      if (exit.end.state !== "done" || exit.result?.kind !== "gateways.leak") {
+        return { ok: false, reason: "failed" };
+      }
+      const { data } = exit.result;
+      return { ok: true, outcome: data.outcome, headers: data.headers, removed: data.removed };
+    } finally {
+      running = false;
+    }
+  }
+
+  return { deploy, remove, leak };
 }

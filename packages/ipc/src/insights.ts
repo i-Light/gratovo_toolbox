@@ -13,6 +13,7 @@ import {
   periods,
   readingKinds,
   reportTabs,
+  routeKinds,
   searchViews,
   verdicts,
 } from "@gratovo/core/insights";
@@ -50,6 +51,7 @@ import type {
   Ratio,
   ReportTab,
   ReportWindow,
+  RoutesReport,
   SearchReport,
   SummaryPart,
   Win,
@@ -315,6 +317,28 @@ const groupProfile: z.ZodType<GroupProfile> = z.strictObject({
 
 const reasonCount = z.strictObject({ reason, count });
 
+/** The most routes a Search report lists (a region or a host each, over the period). */
+export const insightsRoutesMax = 1000;
+
+const routeStats = {
+  requests: count,
+  successes: count,
+  blocks: count,
+  blockRate: amount.nullable(),
+  inRange: count,
+  inRangePer100: amount.nullable(),
+  mbPerKeyword: amount.nullable(),
+};
+
+const routesReport: z.ZodType<RoutesReport> = z.strictObject({
+  byKind: z
+    .array(z.strictObject({ kind: z.enum(routeKinds), routes: count, ...routeStats }))
+    .max(routeKinds.length),
+  routes: z
+    .array(z.strictObject({ kind: z.enum(routeKinds), label: text, ...routeStats }))
+    .max(insightsRoutesMax),
+});
+
 const searchReport: z.ZodType<SearchReport> = z.strictObject({
   tab: z.literal("search"),
   window,
@@ -375,6 +399,7 @@ const searchReport: z.ZodType<SearchReport> = z.strictObject({
     growthByRulesPerWeek: amount,
     profiles: z.array(groupProfile).max(4),
   }),
+  routes: routesReport.nullable(),
   everything: z.strictObject({
     found: count,
     swept: count,

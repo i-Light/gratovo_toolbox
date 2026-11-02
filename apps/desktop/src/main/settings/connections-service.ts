@@ -107,6 +107,7 @@ export function createConnectionsService(deps: ConnectionsDeps): ConnectionsServ
     checkMailboxes: mailboxes.check,
     deployGateways: gateways.deploy,
     removeGateways: gateways.remove,
+    checkGatewayLeak: gateways.leak,
     addMailbox: mailboxes.add,
     mailboxCount: mailboxes.count,
   };

@@ -23,7 +23,8 @@ import type { PythonCommand } from "./python-path";
  * bad line too. A result the end doesn't allow (any on `failed`; on `stopped`, any but refetch's
  * and backfill's) is noted and left out of the exit. Results and replies never reach the log file:
  * they carry mail and gateway URLs.
- * A stop asks first and kills 30 s later; on quit it asks, closes stdin and kills 5 s later.
+ * A stop asks first and kills 30 s later; on quit it asks, closes stdin and kills 5 s later, or
+ * 30 s later for a `gateways.*` job: it may have built an AWS API it must delete on the way out.
  */
 
 export interface ChildLike {
@@ -69,6 +70,8 @@ export interface PipelineSupervisor {
 
 export const stopGraceMs = 30_000;
 export const quitGraceMs = 5_000;
+/** A gateway job deletes what it built in AWS before it ends: quit gives it the stop's grace. */
+export const gatewayQuitGraceMs = stopGraceMs;
 const badLinesToFail = 3;
 const loggedLineLength = 200;
 /** The kinds whose partial counts are their answer when they stop (ADR 0015 §3). */
@@ -90,6 +93,7 @@ export function createPipelineSupervisor(o: {
 }): PipelineSupervisor {
   let job: {
     child: ChildLike;
+    kind: Start["job"]["kind"];
     stopping: boolean;
     killTimer: ReturnType<typeof setTimeout> | null;
     killedByUs: boolean;
@@ -134,6 +138,7 @@ export function createPipelineSupervisor(o: {
 
       const current = {
         child,
+        kind: start.job.kind,
         stopping: false,
         killTimer: null as ReturnType<typeof setTimeout> | null,
         killAt: Number.POSITIVE_INFINITY,
@@ -300,7 +305,7 @@ export function createPipelineSupervisor(o: {
         return Promise.resolve();
       }
       const current = job;
-      current.stopWithin(quitGraceMs);
+      current.stopWithin(current.kind.startsWith("gateways.") ? gatewayQuitGraceMs : quitGraceMs);
       current.child.stdin.end();
       return current.exited;
     },

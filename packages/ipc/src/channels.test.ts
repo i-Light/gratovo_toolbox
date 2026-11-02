@@ -138,6 +138,7 @@ const status = {
   ],
   mail: { label: "Gratovo", senderName: "Sam" },
   proxies: { count: 3, enabled: true, includeDirect: false },
+  freeProxies: { enabled: false },
   pacing: "normal",
   parallel: { enabled: true, maxWorkers: 4 },
   aws: { keys: true, enabled: true, regions: ["us-east-1"] },
@@ -453,6 +454,26 @@ describe("the other connections channels", () => {
     ).toBe(true);
     expect(accepts("gateways:remove", "response", { ok: true, removed: 1 })).toBe(true);
     expect(accepts("gateways:remove", "response", { ok: false, reason: "no_keys" })).toBe(true);
+    expect(parseRequest("gateways:leak", {}).ok).toBe(true);
+    expect(parseRequest("gateways:leak", { region: "us-east-1" }).ok).toBe(false);
+    const leak = {
+      ok: true,
+      outcome: "leak",
+      headers: ["Forwarded", "X-Forwarded-For"],
+      removed: true,
+    };
+    expect(accepts("gateways:leak", "response", leak)).toBe(true);
+    expect(accepts("gateways:leak", "response", { ...leak, outcome: "unclear" })).toBe(true);
+    expect(accepts("gateways:leak", "response", { ...leak, outcome: "maybe" })).toBe(false);
+    expect(accepts("gateways:leak", "response", { ...leak, leaked: true })).toBe(false);
+    expect(accepts("gateways:leak", "response", { ...leak, headers: ["203.0.113.7, x"] })).toBe(
+      false,
+    );
+    expect(accepts("gateways:leak", "response", { ok: false, reason: "running" })).toBe(true);
+    for (const reason of ["aws", "network", "left_behind"]) {
+      expect(accepts("gateways:leak", "response", { ok: false, reason })).toBe(true);
+      expect(accepts("gateways:deploy", "response", { ok: false, reason })).toBe(false);
+    }
   });
 
   it("the Gemini channels answer its status", () => {

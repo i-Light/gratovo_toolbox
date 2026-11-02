@@ -30,6 +30,7 @@ export function laneFor(kind: JobKind): Lane {
     case "gateways.deploy":
     case "gateways.destroy":
     case "gateways.test":
+    case "gateways.leak":
       return "quick";
   }
 }

@@ -9,9 +9,10 @@ The owner asked on 2026-11-02 to build the scraping upgrade, S1 to S8, one pull 
 | S1 | **Done** 2026-11-02, merged as #43 (PLAN.md "S1", decisions Q1-Q12). Left for the owner: the stored "Also search directly" setting keeps its saved value (likely on); this machine is now used only while every gateway cools down. The bot-wall markers are unproven until a real bot-wall page is captured |
 | S2 | **Done** 2026-11-02, merged as #44 (PLAN.md "S2", decisions R1-R7 and the review changes). To confirm with the owner: one worker with many proxies is slower now (it keeps one route a keyword and waits its gap); with this machine as the only route, a blocked address is tried again every cooldown without end |
 | S3 | **Done** 2026-11-02, merged as #45 (PLAN.md "S3", L1-L8 and the review changes). To ask the owner: Shorts counted at 60 s or less |
-| S4 | **Done** 2026-11-02, branch `feat/scraping-s4` (PLAN.md "S4", A1-A7 and the review changes). Checked on a copy of the dev pipeline.db: v4 to v8 in 0.08 s; 50 archived, 10 brought back, nothing lost |
-| S5 | **Next**: draft decisions P0-P8 ready. The leak test needs the AWS keys, which live in the app: build the "Check for leaks" button, then ask the owner to click it (or get the owner's go to run the app on their profile) |
-| S6 to S8 | Not started |
+| S4 | **Done** 2026-11-02, merged as #46 (PLAN.md "S4", A1-A7 and the review changes). Checked on a copy of the dev pipeline.db: v4 to v8 in 0.08 s; 50 archived, 10 brought back, nothing lost |
+| S5 | **Done** 2026-11-02, branch `feat/scraping-s5` (PLAN.md "S5", P0-P8 and the review changes). The leak test (P0) is built but not run: the owner clicks "Check for leaks" after the merge; P2 waits for its result |
+| S6 | **Next**: keywords at scale |
+| S7, S8 | Not started |
 
 Owner answers (2026-11-02): S4 keeps the recommended list without any tags (video tags and the channel's keywords are noise); the S5 gateway leak test may run.
 

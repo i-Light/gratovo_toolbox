@@ -218,6 +218,15 @@ const gatewaysDestroyJob = z.strictObject({
 const gatewaysTestJob = z.strictObject({ kind: z.literal("gateways.test") });
 
 /**
+ * Step S5, P0: does a gateway pass this computer's address on? One throwaway gateway in `region`
+ * (us-east-1 when absent) relays one request to httpbin.org, then it is deleted.
+ */
+const gatewaysLeakJob = z.strictObject({
+  kind: z.literal("gateways.leak"),
+  region: region.optional(),
+});
+
+/**
  * Step 4 (plan D3 to D5): copy the old app's `gratovo.db` into this app's `pipeline.db`. The old
  * file is opened read-only. A dry run writes nothing; a real import first backs up an existing
  * `pipeline.db` into `backupDir`. It sends a `progress` line per table and an `ImportReport`.
@@ -285,6 +294,7 @@ export const jobSchema = z.discriminatedUnion("kind", [
   gatewaysDeployJob,
   gatewaysDestroyJob,
   gatewaysTestJob,
+  gatewaysLeakJob,
   importLegacyJob,
   archiveSweepJob,
   archiveRestoreJob,
@@ -313,6 +323,8 @@ export const startSchema = z
         .strictObject({ enabled: z.boolean(), maxWorkers: z.number().int().min(1).max(16) })
         .optional(),
       proxies: z.strictObject({ enabled: z.boolean(), includeDirect: z.boolean() }).optional(),
+      /** Step S5, P3: find public proxies for page reads. Off unless the owner turns it on. */
+      freeProxies: z.strictObject({ enabled: z.boolean() }).optional(),
       /** The mail jobs': the label sent mail gets, the sender's name, each mailbox's daily cap. */
       mail: z
         .strictObject({
@@ -642,6 +654,25 @@ const gatewaysTestResult = z.strictObject({
   }),
 });
 
+/** An HTTP header's name (an RFC 9110 token). */
+const headerName = z.string().regex(/^[!#$%&'*+\-.^_`|~0-9A-Za-z]{1,64}$/);
+
+const gatewaysLeakResult = z.strictObject({
+  type: z.literal("result"),
+  kind: z.literal("gateways.leak"),
+  data: z.strictObject({
+    /** leak: the address showed; clean: it didn't and the echo proved itself; unclear: can't tell. */
+    outcome: z.enum(["leak", "clean", "unclear"]),
+    /** The names of the headers that carried this computer's address; never an address. */
+    headers: z.array(headerName).max(20),
+    /** The forwarding headers that arrived (Forwarded, X-Forwarded-For, Via, X-Amzn-*…): names. */
+    forwardingHeaders: z.array(headerName).max(20),
+    region,
+    /** Whether the test gateway was deleted. */
+    removed: z.boolean(),
+  }),
+});
+
 /** A table's name in the old file, as the import reports it. The pipeline cuts a longer one. */
 const tableName = z.string().min(1).max(64);
 
@@ -727,6 +758,7 @@ const resultSchema = z.discriminatedUnion("kind", [
   gatewaysDeployResult,
   gatewaysDestroyResult,
   gatewaysTestResult,
+  gatewaysLeakResult,
   importLegacyResult,
   archiveSweepResult,
   archiveRestoreResult,
@@ -749,6 +781,8 @@ export const endErrorCodes = [
   "not_found",
   "no_aws_keys",
   "aws",
+  // gateways.leak: a test gateway is still in the account; the owner must delete it by hand.
+  "aws_left_behind",
   // import.legacy: the old file is missing or can't be read, isn't SQLite, has no `channels`
   // table, or lies inside this app's data folder, or has an unfinished `-wal` beside
   // it (the old app is open); or pipeline.db is newer than this pipeline.

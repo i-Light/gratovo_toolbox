@@ -327,3 +327,47 @@ def test_rollup_keys_load_and_older_histories_load_as_null(tmp_path: Path) -> No
     row = table(conn, "channels")[0]
     assert all(row[k] is None for k in keys)
     conn.close()
+
+
+def _route(run_id: int, label: str) -> dict[str, Any]:
+    return {
+        "run_id": run_id, "kind": "aws", "label": label, "requests": 10, "successes": 9,
+        "blocks": 1, "connection_failures": 0, "bytes": 1000, "keywords_finished": 2,
+        "channels_found": 5, "in_range_found": 3, "seconds_used": 12.5, "seconds_resting": 1.0,
+    }  # fmt: skip
+
+
+def test_run_routes_load_against_the_inserted_run_ids(tmp_path: Path) -> None:
+    data = history()
+    data["runs"] = [data["runs"][0], data["runs"][0]]
+    data["runRoutes"] = [_route(1, "us-east-1"), _route(2, "eu-west-1")]
+    conn = store.get_connection(tmp_path / "pipeline.db")
+    store.init_db(conn)
+    example_load.load(conn, data)
+    rows = conn.execute("SELECT run_id, label, in_range_found FROM run_routes ORDER BY run_id")
+    ids = [r["run_id"] for r in conn.execute("SELECT run_id FROM runs ORDER BY run_id")]
+    assert [(r["run_id"], r["label"], r["in_range_found"]) for r in rows] == [
+        (ids[0], "us-east-1", 3),
+        (ids[1], "eu-west-1", 3),
+    ]
+    conn.close()
+
+
+def test_a_history_without_run_routes_loads_with_none(tmp_path: Path) -> None:
+    conn = store.get_connection(tmp_path / "pipeline.db")
+    store.init_db(conn)
+    example_load.load(conn, history())
+    assert table(conn, "run_routes") == []
+    conn.close()
+
+
+def test_the_desktop_reader_columns_exist_in_run_routes(tmp_path: Path) -> None:
+    conn = store.get_connection(tmp_path / "pipeline.db")
+    store.init_db(conn)
+    have = {r[1] for r in conn.execute("PRAGMA table_info(run_routes)")}
+    wanted = {
+        "kind", "label", "requests", "successes", "blocks", "connection_failures", "bytes",
+        "keywords_finished", "channels_found", "in_range_found", "seconds_used", "seconds_resting",
+    }  # fmt: skip
+    assert wanted <= have
+    conn.close()

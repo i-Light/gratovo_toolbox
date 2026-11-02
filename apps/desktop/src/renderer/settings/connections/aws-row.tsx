@@ -26,6 +26,8 @@ export function AwsRow({ status }: { readonly status: ConnectionsStatus }) {
   const [removing, setRemoving] = useState<string | null>(null);
   const [picked, setPicked] = useState<readonly string[]>([]);
   const [confirmDeploy, setConfirmDeploy] = useState(false);
+  const [confirmLeak, setConfirmLeak] = useState(false);
+  const [leak, setLeak] = useState<{ lines: readonly string[]; bad: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   const { aws } = status;
   const showKeys = !aws.keys || keysOpen;
@@ -91,6 +93,41 @@ export function AwsRow({ status }: { readonly status: ConnectionsStatus }) {
           tone: "good",
         });
         void loadConnections();
+      }
+    });
+  };
+  const checkLeak = (): void => {
+    setBusy(true);
+    setLeak(null);
+    void ask("gateways:leak", {}).then((answer) => {
+      setBusy(false);
+      setConfirmLeak(false);
+      if (answer === null) {
+        failToast(text.aws.couldNotCheckLeak, text.gatewayReasons.failed);
+      } else if (!answer.ok) {
+        const { reason } = answer;
+        if (reason === "left_behind") {
+          // It stays on the page: the owner has to act on it in the AWS console.
+          setLeak({ lines: [text.aws.leakLeftBehind], bad: true });
+        } else {
+          failToast(
+            text.aws.couldNotCheckLeak,
+            reason === "aws" || reason === "network"
+              ? text.aws.leakReasons[reason]
+              : text.gatewayReasons[reason],
+          );
+        }
+      } else {
+        const said =
+          answer.outcome === "leak"
+            ? text.aws.leakFound(answer.headers)
+            : answer.outcome === "clean"
+              ? text.aws.leakNone
+              : text.aws.leakUnclear;
+        setLeak({
+          lines: answer.removed ? [said] : [said, text.aws.leakLeftBehind],
+          bad: answer.outcome === "leak" || !answer.removed,
+        });
       }
     });
   };
@@ -277,6 +314,35 @@ export function AwsRow({ status }: { readonly status: ConnectionsStatus }) {
           }}
         />
       ) : null}
+      <div className="row wrap">
+        <Btn
+          size="sm"
+          icon="shield"
+          disabled={!aws.keys || busy}
+          onClick={() => {
+            setConfirmLeak(true);
+          }}
+        >
+          {busy && confirmLeak ? text.aws.leakChecking : text.aws.leakCheck}
+        </Btn>
+      </div>
+      {confirmLeak ? (
+        <Confirm
+          title={text.aws.leakConfirm}
+          sub={text.aws.leakSub}
+          yes={text.aws.leakYes}
+          busy={busy}
+          onYes={checkLeak}
+          onNo={() => {
+            setConfirmLeak(false);
+          }}
+        />
+      ) : null}
+      {leak === null ? null : (
+        <span className={leak.bad ? "hint set-err" : "hint"} role="status">
+          {leak.lines.join(" ")}
+        </span>
+      )}
     </Row>
   );
 }

@@ -16,6 +16,7 @@ import {
   gatewaysDeployResultSchema,
   gatewaysRemoveRequestSchema,
   gatewaysRemoveResultSchema,
+  gatewaysLeakResultSchema,
   mailCheckResultSchema,
   mailConnectResultSchema,
   pickFolderRequestSchema,
@@ -434,6 +435,11 @@ export const channels = {
   "gateways:remove": {
     request: gatewaysRemoveRequestSchema,
     response: gatewaysRemoveResultSchema,
+  },
+  /** Checks whether a gateway passes this computer's address on (step S5, P0). */
+  "gateways:leak": {
+    request: z.strictObject({}),
+    response: gatewaysLeakResultSchema,
   },
   /** One creator's thread, oldest first (plan step 6, D4). */
   "reach:thread": {
