@@ -404,7 +404,7 @@ const keywordSchema = z.strictObject({
   index,
   total: index,
   keyword,
-  state: z.enum(["started", "done", "failed"]),
+  state: z.enum(["started", "done", "incomplete", "failed"]),
   found: count.optional(),
   kept: count.optional(),
   error: message.optional(),

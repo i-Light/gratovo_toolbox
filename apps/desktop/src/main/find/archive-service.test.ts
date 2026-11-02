@@ -188,10 +188,12 @@ describe("dueChannels", () => {
       due("b", { handle: "ainews" }),
       due("c", { handle: "" }),
       due("d", { handle: "@名前" }),
+      due("e", { handle: channelId("e") }),
     ];
     expect(dueChannels(rows, 7, t0).map((c) => c.handle)).toEqual([
       "@ai_tools",
       "@ainews",
+      null,
       null,
       null,
     ]);

@@ -11,7 +11,11 @@ Rotation is a guarantee, not a tendency. For every request:
                          exists.
   a minimum gap          after a request through a gateway or proxy ends, that candidate rests
                          for `min_gap_seconds` (plus jitter, which only lengthens it). The direct
-                         connection has no gap: the pipeline's pacing governs it.
+                         connection has the same gap when other candidates exist, and none when
+                         it stands alone: the pipeline's pacing governs it then.
+  this machine last      the direct candidate is an option only while every gateway and proxy is
+                         cooling down. A healthy one that is resting or busy is waited for, so
+                         this machine's address is not spent while a gateway could serve.
   one at a time          a candidate serves one request at a time, so parallel workers never
                          share an address.
   wait, never spin       when every candidate is resting, busy or cooling down, `acquire` waits
@@ -46,6 +50,7 @@ CONNECTION_COOLDOWN_MAX: Final = 1200.0
 BLOCK_COOLDOWN_BASE: Final = 120.0  # seconds; doubles per consecutive block
 BLOCK_COOLDOWN_MAX: Final = 1800.0
 DIRECT_ID: Final = "direct"
+DIRECT_MIN_GAP_SECONDS: Final = 6.0  # the direct candidate's gap when it is not alone
 
 type Kind = Literal["aws", "proxy", "direct"]
 KIND_AWS: Final = "aws"
@@ -235,7 +240,14 @@ class ProxyPool:
                     )
                 )
         if include_direct or not candidates:
-            candidates.append(Candidate(id=DIRECT_ID, proxies={}, label="This machine"))
+            candidates.append(
+                Candidate(
+                    id=DIRECT_ID,
+                    proxies={},
+                    label="This machine",
+                    min_gap=DIRECT_MIN_GAP_SECONDS if candidates else 0.0,
+                )
+            )
         return cls(candidates, clock=clock, sleep=sleep, rng=rng, min_gap_jitter=min_gap_jitter)
 
     # --- what the pool holds ---
@@ -261,6 +273,9 @@ class ProxyPool:
         """Under the lock: `(candidate, 0, None)` if one may be used now, else `(None, seconds
         until something changes, why)`."""
         healthy = [c for c in self.candidates if c.cooldown_until <= now]
+        # This machine last: direct only while every gateway and proxy is cooling down.
+        if any(c.kind != KIND_DIRECT for c in healthy):
+            healthy = [c for c in healthy if c.kind != KIND_DIRECT]
         # Never the previous request's candidate while another healthy one exists, even one still
         # resting or busy: wait for it rather than repeat.
         options = [c for c in healthy if c is not self._last] or healthy

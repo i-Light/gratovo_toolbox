@@ -1067,6 +1067,7 @@
             "enum": [
               "started",
               "done",
+              "incomplete",
               "failed"
             ]
           },

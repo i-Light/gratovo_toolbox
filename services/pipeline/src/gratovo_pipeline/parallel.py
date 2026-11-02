@@ -8,7 +8,7 @@ What keeps it safe is the proxy pool (`scrapetube/proxy_pool.py`): every request
 makes it, goes through the same pool, so a gateway serves one request at a time, is never used
 twice in a row, and keeps its minimum gap. Workers never outnumber the rotating connections.
 
-Pacing is Normal whenever more than one worker runs (`config.Config.pacing`). Each worker has its
+Pacing is Normal unless the app sends Fast (`config.Config.pacing`). Each worker has its
 own SQLite connection, since a connection belongs to the thread that made it. Lines to the app
 stay whole without help here: the Emitter writes each message under a lock.
 """

@@ -8,6 +8,7 @@ fetching, and a proxy URL can carry a login.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any, Final, Literal
 
@@ -18,6 +19,7 @@ from gratovo_pipeline.scrapetube import scrapetube
 from gratovo_pipeline.search.context import (
     RECENT_VIDEOS,
     ChannelUnreadableError,
+    Found,
     SearchBlockedError,
 )
 from gratovo_pipeline.search.pacing import Pacer
@@ -30,11 +32,18 @@ def _dict(value: object) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}  # pyright: ignore[reportUnknownVariableType]
 
 
+_CHANNEL_ID: Final = re.compile(r"^UC[A-Za-z0-9_-]{22}$")
+
+
 def _handle_and_id(browse: Mapping[str, Any], channel_id: object) -> tuple[str, str] | None:
-    url = browse.get("canonicalBaseUrl")
-    if not (isinstance(url, str) and "@" in url and isinstance(channel_id, str) and channel_id):
+    if not (isinstance(channel_id, str) and _CHANNEL_ID.match(channel_id)):
         return None
-    return url.strip("/").split("/")[-1], channel_id
+    url = browse.get("canonicalBaseUrl")
+    if isinstance(url, str) and "@" in url:
+        return url.strip("/").split("/")[-1], channel_id
+    # No handle: the channel id stands in for it (`channels.handle` is NOT NULL); the details
+    # read fills the real handle in from the channel's customUrl.
+    return channel_id, channel_id
 
 
 def channel_from_item(
@@ -62,11 +71,11 @@ class LiveSweep:
         self._pacer = pacer
         self._log = log
 
-    def recent_video_ids(self, handle: str, *, limit: int = RECENT_VIDEOS) -> list[str]:
+    def recent_video_ids(self, channel_id: str, *, limit: int = RECENT_VIDEOS) -> list[str]:
         ids: list[str] = []
         try:
             for video in scrapetube.get_channel(
-                channel_url=f"https://www.youtube.com/{handle}",
+                channel_url=f"https://www.youtube.com/channel/{channel_id}",
                 limit=limit,
                 sleep=self._pacer.range("human_scroll_delay"),
                 session=self._session,
@@ -79,11 +88,13 @@ class LiveSweep:
         except net.HostNotAllowedError:
             raise
         except Exception as error:  # one channel's page must not end the run
-            self._log("warn", f"Couldn't read {handle}'s uploads ({type(error).__name__}).")
+            self._log(
+                "warn", f"Couldn't read the uploads of {channel_id} ({type(error).__name__})."
+            )
             # Not "no uploads": that would stamp the channel as read and drop it from the backlog
             # for good (the old app's way to lose a channel's videos on one bad page). The ids an
             # earlier page gave go with it, for the backfill job.
-            raise ChannelUnreadableError(handle, partial=ids) from error
+            raise ChannelUnreadableError(channel_id, partial=ids) from error
         return ids
 
     def close(self) -> None:
@@ -99,8 +110,9 @@ class LiveSource:
         self._pacer = pacer
         self._log = log
 
-    def find_channels(self, keyword: str, *, limit: int) -> dict[str, str]:
-        found: dict[str, str] = {}
+    def find_channels(self, keyword: str, *, limit: int) -> Found:
+        by_id: dict[str, str] = {}  # channel id -> handle (an @ handle beats the placeholder)
+        complete = True
         scanned = 0
         try:
             for item in scrapetube.get_search(
@@ -112,13 +124,13 @@ class LiveSource:
             ):
                 scanned += 1
                 pair = channel_from_item(item, self._cfg.results_type)
-                if pair:
-                    found[pair[0]] = pair[1]
+                if pair and (pair[1] not in by_id or "@" in pair[0]):
+                    by_id[pair[1]] = pair[0]
                 # Paginating a deep search is the longest quiet stretch of a run.
                 if scanned % _PROGRESS_EVERY == 0:
                     self._log(
                         "info",
-                        f"Scanned {scanned} search results, {len(found)} channel(s) so far.",
+                        f"Scanned {scanned} search results, {len(by_id)} channel(s) so far.",
                     )
         except scrapetube.BlockedError as error:
             # Not "this keyword found nothing": everything after it is more requests to an
@@ -128,7 +140,8 @@ class LiveSource:
             raise
         except Exception as error:  # keep what the pages already gave
             self._log("warn", f"The search stopped early ({type(error).__name__}).")
-        return found
+            complete = False
+        return Found({handle: cid for cid, handle in by_id.items()}, complete)
 
     def sweep(self) -> LiveSweep:
         return LiveSweep(self._pacer, self._log)

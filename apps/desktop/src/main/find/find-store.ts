@@ -52,8 +52,10 @@ export function pipelineRules(rules: FindRules): Omit<FindRules, "archiveDays"> 
 // A file written before step 4 has no median, uploads or archive rule: it keeps the rest of its
 // rules and takes the defaults for those three.
 const ruleShape = findRulesSchema.shape;
+const queueEntry = findStateSchema.shape.queue.element;
 const fileSchema = z.strictObject({
-  queue: findStateSchema.shape.queue,
+  // A file from before Q5 has no failure count: each entry starts at 0.
+  queue: z.array(queueEntry.extend({ failures: queueEntry.shape.failures.default(0) })).max(500),
   at: findStateSchema.shape.at,
   rules: findRulesSchema.extend({
     minMedianViews: ruleShape.minMedianViews.default(null),

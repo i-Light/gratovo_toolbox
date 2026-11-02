@@ -13,8 +13,8 @@ const t = strings.findSearch.ideas;
 
 const state: FindState = {
   queue: [
-    { keyword: "ai agents", state: "done", found: 10, kept: 3 },
-    { keyword: "claude code tutorial", state: "queued", found: 0, kept: 0 },
+    { keyword: "ai agents", state: "done", found: 10, kept: 3, failures: 0 },
+    { keyword: "claude code tutorial", state: "queued", found: 0, kept: 0, failures: 0 },
   ],
   at: 1,
   rules: {} as FindState["rules"],

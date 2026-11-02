@@ -46,7 +46,7 @@ describe("the find file", () => {
   it("round-trips a value, making the folder and leaving no temporary file", () => {
     const nested = join(folder, "a", "b");
     const value = {
-      queue: [{ keyword: "ai agents", state: "done" as const, found: 5, kept: 2 }],
+      queue: [{ keyword: "ai agents", state: "done" as const, found: 5, kept: 2, failures: 0 }],
       at: 1,
       rules: { ...defaultRules(), countries: ["US"] },
     };
@@ -73,6 +73,20 @@ describe("the find file", () => {
     });
   });
 
+  it("reads a queue from before the failure count with each entry at 0 failures", () => {
+    writeFileSync(
+      join(folder, findFileName),
+      JSON.stringify({
+        queue: [{ keyword: "ai news", state: "failed", found: 0, kept: 0 }],
+        at: 0,
+        rules: defaultRules(),
+      }),
+    );
+    expect(readFindFile(folder).queue).toEqual([
+      { keyword: "ai news", state: "failed", found: 0, kept: 0, failures: 0 },
+    ]);
+  });
+
   it("keeps the new rules a file names", () => {
     const rules = { ...defaultRules(), minMedianViews: 5000, minUploads30: 2, archiveDays: 30 };
     writeFindFile(folder, { queue: [], at: 0, rules });
@@ -82,7 +96,7 @@ describe("the find file", () => {
   it("reads an entry left running as queued", () => {
     mkdirSync(folder, { recursive: true });
     writeFindFile(folder, {
-      queue: [{ keyword: "ai news", state: "running", found: 0, kept: 0 }],
+      queue: [{ keyword: "ai news", state: "running", found: 0, kept: 0, failures: 0 }],
       at: 0,
       rules: defaultRules(),
     });
@@ -92,9 +106,9 @@ describe("the find file", () => {
   it("drops entries the start message would refuse (untrimmed, repeated in any case)", () => {
     writeFindFile(folder, {
       queue: [
-        { keyword: "ai news", state: "done", found: 1, kept: 1 },
-        { keyword: " ai agents", state: "queued", found: 0, kept: 0 },
-        { keyword: "AI News", state: "queued", found: 0, kept: 0 },
+        { keyword: "ai news", state: "done", found: 1, kept: 1, failures: 0 },
+        { keyword: " ai agents", state: "queued", found: 0, kept: 0, failures: 0 },
+        { keyword: "AI News", state: "queued", found: 0, kept: 0, failures: 0 },
       ],
       at: 3,
       rules: defaultRules(),

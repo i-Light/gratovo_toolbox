@@ -27,6 +27,7 @@ class KeywordResult:
     kept: int  # new channels read in full
     swept: int
     delayed: int
+    complete: bool = True  # false: the search stopped early; the keyword is searched again
 
 
 def process_keyword(search: Search, keyword: str) -> KeywordResult:
@@ -35,7 +36,8 @@ def process_keyword(search: Search, keyword: str) -> KeywordResult:
         f'Searching YouTube for "{keyword}": up to {cfg.handles_limit} {cfg.results_type} '
         f"results, by {cfg.sort_by.replace('_', ' ')}."
     )
-    discovered = search.source.find_channels(keyword, limit=cfg.handles_limit)
+    searched = search.source.find_channels(keyword, limit=cfg.handles_limit)
+    discovered = searched.channels
     search.info(f"Found {len(discovered)} channel(s).")
     search.pacer.pause("found_channels_delay", reason="reading the results")
 
@@ -74,11 +76,12 @@ def process_keyword(search: Search, keyword: str) -> KeywordResult:
     )
     for swept in gate.swept:
         details = info.get(swept.handle)
+        real_handle = (details or {}).get("Handle") or swept.handle
         search.events.channel(
             keyword=keyword,
             channel_id=swept.channel_id,
-            handle=swept.handle,
-            name=(details or {}).get("Name") or swept.handle,
+            handle=real_handle,
+            name=(details or {}).get("Name") or real_handle,
             subscribers=swept.subscribers,
             median_views=None,
             country=(details or {}).get("Country"),
@@ -98,17 +101,25 @@ def process_keyword(search: Search, keyword: str) -> KeywordResult:
     reading = {h: cid for h, cid in needing.items() if _in_countries(search, info.get(h), cid)}
     kept, signal_swept = _read_uploads(search, keyword, reading)
 
-    store.mark_keyword_done(conn, keyword, channels_found=found)
     outside = len(needing) - len(reading)
-    search.info(
-        f'"{keyword}" done: {found} found, {len(kept)} kept'
-        + (f", {outside} outside the countries." if outside else ".")
-    )
+    if searched.complete:
+        store.mark_keyword_done(conn, keyword, channels_found=found)
+        search.info(
+            f'"{keyword}" done: {found} found, {len(kept)} kept'
+            + (f", {outside} outside the countries." if outside else ".")
+        )
+    else:
+        store.mark_keyword_incomplete(conn, keyword, channels_found=found)
+        search.info(
+            f'"{keyword}": the search stopped early after {found} found, {len(kept)} kept. '
+            "The keyword will be searched again."
+        )
     return KeywordResult(
         found=found,
         kept=len(kept),
         swept=len(gate.swept) + len(signal_swept),
         delayed=len(gate.delayed),
+        complete=searched.complete,
     )
 
 
@@ -160,11 +171,11 @@ def _read_uploads(
     sweep = search.source.sweep()
     try:
         try:
-            for position, (handle, channel_id) in enumerate(reading.items(), 1):
+            for position, channel_id in enumerate(reading.values(), 1):
                 if every and position > 1 and (position - 1) % every == 0:
                     search.pacer.sweep_break(position - 1)
                 try:
-                    video_ids = sweep.recent_video_ids(handle)
+                    video_ids = sweep.recent_video_ids(channel_id)
                 except ChannelUnreadableError:
                     store.defer_unreadable_channel(search.conn, channel_id)  # the backlog's
                     # A failed read was still a page request: paced like one that worked.

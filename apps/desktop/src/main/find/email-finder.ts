@@ -72,8 +72,12 @@ const defaultLaneRetryMs = 5000;
 const handleShape = /^@[A-Za-z0-9._-]{1,100}$/;
 
 /** The handle as refetch takes it (`@name`), or null when it can't take this one. */
-function refetchHandle(handle: string): string | null {
+function refetchHandle(handle: string, channelId?: string): string | null {
   const trimmed = handle.trim();
+  // A placeholder handle is the channel id itself; it is not a handle.
+  if (/^UC[A-Za-z0-9_-]{22}$/.test(trimmed) || trimmed === channelId) {
+    return null;
+  }
   const at = trimmed.startsWith("@") ? trimmed : `@${trimmed}`;
   return handleShape.test(at) ? at : null;
 }
@@ -285,7 +289,7 @@ export function createEmailFinder(deps: EmailFinderDeps): EmailFinder {
         return true;
       }
       const channel = byId.get(id);
-      const handle = channel === undefined ? null : refetchHandle(channel.handle);
+      const handle = channel === undefined ? null : refetchHandle(channel.handle, id);
       if (
         channel === undefined ||
         channel.stage !== "shortlisted" ||

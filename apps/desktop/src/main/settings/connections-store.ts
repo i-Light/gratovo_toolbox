@@ -46,8 +46,8 @@ const pipelineSettingsSchema = z.object({
     .default({ enabled: false, maxWorkers: 4 }),
   proxies: settingsShape.proxies
     .unwrap()
-    .catch({ enabled: false, includeDirect: true })
-    .default({ enabled: false, includeDirect: true }),
+    .catch({ enabled: false, includeDirect: false })
+    .default({ enabled: false, includeDirect: false }),
 });
 
 const courseSchema = z.object({

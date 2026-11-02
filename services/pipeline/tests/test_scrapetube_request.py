@@ -177,6 +177,21 @@ def test_a_captcha_page_served_with_200_counts_as_a_block(pool: FakePool) -> Non
 
 
 @pytest.mark.usefixtures("logged")
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Sign in to confirm you're not a bot",
+        "Sign in to confirm you’re not a bot",  # noqa: RUF001
+        "Please confirm you’re not a bot",  # noqa: RUF001
+    ],
+)
+def test_the_bot_wall_counts_as_a_block(pool: FakePool, text: str) -> None:
+    wall = FakeResponse(headers={"content-type": "text/html"}, text=text)
+    scrapetube.request(FakeSession([wall, FakeResponse()]), "GET", "https://www.youtube.com/x")
+    assert pool.blocked == 1
+
+
+@pytest.mark.usefixtures("logged")
 def test_a_gateway_candidate_rewrites_the_url(pool: FakePool) -> None:
     pool.candidate.base_url = "https://g.execute-api.eu-west-1.amazonaws.com/p"
     session = FakeSession([FakeResponse()])

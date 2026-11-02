@@ -17,6 +17,7 @@ from importlib import resources
 from typing import Any, Final
 
 from gratovo_pipeline import run_control
+from gratovo_pipeline.search.context import Found
 from gratovo_pipeline.youtube import ChannelInfo, VideoInfo
 
 # A short pause per channel read, so a person (or a test) can watch the run and press Stop. Tests
@@ -93,9 +94,9 @@ def _video(channel: ExampleChannel, n: int, now: float) -> VideoInfo:
 
 
 class ExampleSweep:
-    def recent_video_ids(self, handle: str, *, limit: int = 15) -> list[str]:
+    def recent_video_ids(self, channel_id: str, *, limit: int = 15) -> list[str]:
         run_control.sleep(READ_PAUSE)
-        channel = _BY_HANDLE.get(handle)
+        channel = _BY_ID.get(channel_id)
         if channel is None:
             return []
         return [_video_id(channel, n) for n in range(channel.uploads)][:limit]
@@ -105,9 +106,9 @@ class ExampleSweep:
 
 
 class ExampleSource:
-    def find_channels(self, keyword: str, *, limit: int) -> dict[str, str]:
+    def find_channels(self, keyword: str, *, limit: int) -> Found:
         handles = _RESULTS.get(keyword.strip().lower()) or self._pick(keyword)
-        return {h: _BY_HANDLE[h].channel_id for h in handles[:limit]}
+        return Found({h: _BY_HANDLE[h].channel_id for h in handles[:limit]}, True)
 
     def sweep(self) -> ExampleSweep:
         return ExampleSweep()

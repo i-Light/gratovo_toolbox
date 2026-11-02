@@ -100,7 +100,7 @@ const handleShape = /^@[A-Za-z0-9._-]{1,100}$/;
 /** The handle as the protocol takes it (`@name`), or null when it can't take this one. */
 function protocolHandle(handle: string | null): string | null {
   const trimmed = handle?.trim() ?? "";
-  if (trimmed === "") {
+  if (trimmed === "" || channelIdShape.test(trimmed)) {
     return null;
   }
   const at = trimmed.startsWith("@") ? trimmed : `@${trimmed}`;

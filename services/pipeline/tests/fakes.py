@@ -10,7 +10,7 @@ from helpers import start_with
 from gratovo_pipeline import store
 from gratovo_pipeline.config import Config
 from gratovo_pipeline.protocol import LogLevel, Outcome
-from gratovo_pipeline.search.context import Search
+from gratovo_pipeline.search.context import Found, Search
 from gratovo_pipeline.search.pacing import Pacer
 from gratovo_pipeline.youtube import ChannelInfo, VideoInfo
 
@@ -48,7 +48,8 @@ class FakeSweep:
         self.source = source
         self.closed = False
 
-    def recent_video_ids(self, handle: str, *, limit: int | None = None) -> list[str]:
+    def recent_video_ids(self, channel_id: str, *, limit: int | None = None) -> list[str]:
+        handle = self.source.handle_of(channel_id)
         if self.source.on_read:
             self.source.on_read(handle)
         self.source.read.append(handle)
@@ -79,11 +80,31 @@ class FakeSource:
         self.channel_calls: list[list[str]] = []
         self.video_calls: list[list[str]] = []
         self.sweeps: list[FakeSweep] = []
+        self.conn: sqlite3.Connection | None = None  # lets a read find a held channel's handle
+        self.incomplete: set[str] = set()  # keywords whose search stops early (a page failed)
         self.on_read: Callable[[str], None] | None = None
         self.on_videos: Callable[[Sequence[str]], None] | None = None
 
-    def find_channels(self, keyword: str, *, limit: int) -> dict[str, str]:
-        return dict(list(self.results.get(keyword, {}).items())[:limit])
+    def find_channels(self, keyword: str, *, limit: int) -> Found:
+        channels = dict(list(self.results.get(keyword, {}).items())[:limit])
+        return Found(channels, keyword not in self.incomplete)
+
+    def handle_of(self, channel_id: str) -> str:
+        """The handle a channel id was found under (uploads and reads are keyed by handle)."""
+        for found in self.results.values():
+            for handle, cid in found.items():
+                if cid == channel_id:
+                    return handle
+        if channel_id in self.details:
+            return self.details[channel_id]["Handle"]
+        if self.conn is not None:
+            row = self.conn.execute(
+                "SELECT handle FROM channels WHERE channel_id=?", (channel_id,)
+            ).fetchone()
+            if row:
+                return str(row[0])
+        # The job tests' helpers add "UC_name" for "@name".
+        return channel_id.replace("UC_", "@", 1) if channel_id.startswith("UC_") else channel_id
 
     def sweep(self) -> FakeSweep:
         sweep = FakeSweep(self)
@@ -147,6 +168,7 @@ def make_search(
     """A search over source, with the example start's rules changed by `changes` (as
     `start_with` takes them). No pacing."""
     cfg = Config.from_start(start_with(**changes))
+    source.conn = conn
     store.seed_keywords(conn, cfg.keywords)
     return Search(
         conn=conn,

@@ -292,7 +292,7 @@ def test_each_auto_clean_verdict(run: Run) -> None:
         "@midaichannel": "kept",
         "@hiddenaichannel": "kept",  # nothing is archived on a count the run doesn't have
     }
-    assert source.read == ["@midaichannel", "@hiddenaichannel"]
+    assert source.read == ["UC12", "UC13"]
     conn = run.db()
     try:
         assert store.is_archived(conn, "UC10")

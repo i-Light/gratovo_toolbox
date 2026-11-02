@@ -41,9 +41,9 @@ def _version_1_file(path: Path) -> None:
     conn.close()
 
 
-def test_a_new_file_is_created_at_version_4(conn: sqlite3.Connection) -> None:
-    assert store.SCHEMA_VERSION == 4
-    assert _version(conn) == 4
+def test_a_new_file_is_created_at_version_5(conn: sqlite3.Connection) -> None:
+    assert store.SCHEMA_VERSION == 5
+    assert _version(conn) == store.SCHEMA_VERSION
     assert "video_transcripts" in _tables(conn)
 
 
@@ -72,13 +72,13 @@ def test_a_version_1_file_gains_video_transcripts_and_keeps_every_row(tmp_path: 
     conn.close()
 
 
-def test_a_file_newer_than_version_4_is_refused(tmp_path: Path) -> None:
+def test_a_file_newer_than_version_5_is_refused(tmp_path: Path) -> None:
     path = tmp_path / "pipeline.db"
     conn = store.get_connection(path)
-    conn.execute("PRAGMA user_version=5")
+    conn.execute("PRAGMA user_version=6")
     with pytest.raises(store.SchemaTooNewError):
         store.init_db(conn)
-    assert _version(conn) == 5, "the newer file is left as it was"
+    assert _version(conn) == 6, "the newer file is left as it was"
     assert "video_transcripts" not in _tables(conn)
     conn.close()
 
@@ -200,7 +200,7 @@ def test_a_version_3_file_gains_the_tombstone_facts_and_loses_nothing(tmp_path: 
     store.init_db(conn)
     store.init_db(conn)  # a second open runs nothing again
 
-    assert _version(conn) == 4
+    assert _version(conn) == store.SCHEMA_VERSION
     rows = [dict(r) for r in conn.execute("SELECT * FROM channel_archive ORDER BY 1")]
     assert len(rows) == len(old_rows)
     for old, new in zip(old_rows, rows, strict=True):
@@ -223,14 +223,14 @@ def test_a_version_4_file_from_before_the_read_columns_gains_them(tmp_path: Path
     conn.execute(
         "INSERT INTO channels (channel_id, handle, first_seen_at) VALUES ('UC_a', '@aitools', 'T')"
     )
+    conn.execute("PRAGMA user_version=3")
     conn.commit()
-    assert _version(conn) == 4
     conn.close()
 
     conn = store.get_connection(path)
     store.init_db(conn)
 
-    assert _version(conn) == 4
+    assert _version(conn) == store.SCHEMA_VERSION
     columns = {r[1] for r in conn.execute("PRAGMA table_info(channels)").fetchall()}
     assert {"read_failures", "median_known", "median_known_basis", "videos_last_30_known"} <= (
         columns
@@ -253,7 +253,37 @@ def test_a_version_3_file_that_already_has_some_facts_opens(tmp_path: Path) -> N
     conn = store.get_connection(path)
     store.init_db(conn)
 
-    assert _version(conn) == 4
+    assert _version(conn) == store.SCHEMA_VERSION
     columns = {r[1] for r in conn.execute("PRAGMA table_info(channel_archive)").fetchall()}
     assert {name for name, _ in store.ARCHIVE_FACTS} <= columns
     conn.close()
+
+
+def test_a_version_4_file_gains_the_keyword_failures_column(tmp_path: Path) -> None:
+    path = tmp_path / "pipeline.db"
+    conn = store.get_connection(path)
+    store.init_db(conn)
+    store.seed_keywords(conn, ["ai agents tutorial"])
+    conn.execute("ALTER TABLE keywords DROP COLUMN failures")
+    conn.execute("PRAGMA user_version=4")
+    conn.commit()
+    conn.close()
+
+    conn = store.get_connection(path)
+    store.init_db(conn)
+    store.init_db(conn)  # a second open runs nothing again
+
+    assert _version(conn) == store.SCHEMA_VERSION
+    row = conn.execute("SELECT * FROM keywords").fetchone()
+    assert (row["keyword"], row["status"], row["failures"]) == ("ai agents tutorial", "pending", 0)
+    conn.close()
+
+
+def test_a_failed_keyword_from_a_teammate_applies_without_error(conn: sqlite3.Connection) -> None:
+    store.apply_remote_keyword(
+        conn, {"keyword": "claude code review", "status": "failed", "completed_at": None}
+    )
+    row = store.get_keyword(conn, "claude code review")
+    assert row is not None
+    assert (row["status"], row["failures"], row["source"]) == ("failed", 0, "remote")
+    assert store.get_dirty_keywords(conn) == []

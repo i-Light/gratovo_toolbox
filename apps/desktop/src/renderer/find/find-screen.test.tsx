@@ -44,6 +44,7 @@ const kw = (
   state,
   found,
   kept,
+  failures: 0,
 });
 
 function makeState(over: Partial<FindState> = {}): FindState {
@@ -313,6 +314,27 @@ describe("keywords", () => {
     expect(calls).toContainEqual(["find:start-at", { index: 1 }]);
     await click(screen.getByRole("button", { name: "Remove four" }));
     expect(calls).toContainEqual(["find:remove", { index: 1 }]);
+  });
+
+  it("shows a failed entry with Retry, which calls find:retry", async () => {
+    setup(makeState({ at: 0, queue: [kw("three", "failed")] }));
+    await show();
+    await click(screen.getByRole("button", { name: "Retry three" }));
+    expect(calls).toContainEqual(["find:retry", { index: 0 }]);
+  });
+
+  it("offers to search the weak keywords again, asks first, and shows the result", async () => {
+    setup(makeState({ at: 0 }), {
+      "find:count-weak": { ok: true, value: { count: 7 } },
+      "find:requeue-weak": { ok: true, value: { ok: true, requeued: 4, added: 2, skipped: 1 } },
+    });
+    await show();
+    await click(screen.getByRole("button", { name: t.keywords.weak.action(7) }));
+    expect(calls.some(([channel]) => channel === "find:requeue-weak")).toBe(false);
+    expect(screen.getByText(t.keywords.weak.ask(7))).toBeTruthy();
+    await click(screen.getByRole("button", { name: t.keywords.weak.confirm }));
+    expect(calls).toContainEqual(["find:requeue-weak", {}]);
+    expect(screen.getByText(t.keywords.weak.done(4, 2, 1))).toBeTruthy();
   });
 
   it("says to pause first when main refuses an edit", async () => {

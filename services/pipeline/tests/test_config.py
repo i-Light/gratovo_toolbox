@@ -81,11 +81,11 @@ def test_no_rotation_is_normal_and_one_worker() -> None:
     assert cfg.pacing == "normal"
 
 
-def test_rotation_without_parallel_is_fast() -> None:
+def test_rotation_without_a_pacing_setting_is_normal() -> None:
     cfg = config(secrets__gatewayUrls=GATEWAYS)
     assert cfg.rotating_connections == 2
     assert cfg.parallel_workers == 1
-    assert cfg.pacing == "fast"
+    assert cfg.pacing == "normal"
 
 
 def test_parallel_on_uses_normal() -> None:
@@ -101,7 +101,7 @@ def test_parallel_on_with_one_connection_is_just_rotation() -> None:
         secrets__gatewayUrls=GATEWAYS[:1], settings={"parallel": {"enabled": True, "maxWorkers": 4}}
     )
     assert cfg.parallel_workers == 1
-    assert cfg.pacing == "fast"
+    assert cfg.pacing == "normal"
 
 
 def test_workers_are_capped_by_max_workers() -> None:
@@ -141,7 +141,26 @@ def test_blank_proxy_and_gateway_urls_dont_count() -> None:
 
 def test_an_explicit_pacing_wins() -> None:
     assert config(settings={"pacing": "fast"}).pacing == "fast"
+    assert config(secrets__gatewayUrls=GATEWAYS, settings={"pacing": "fast"}).pacing == "fast"
     assert config(secrets__gatewayUrls=GATEWAYS, settings={"pacing": "normal"}).pacing == "normal"
+
+
+def test_this_machine_is_out_by_default_when_a_route_is_set() -> None:
+    assert not config(secrets__gatewayUrls=GATEWAYS).include_direct
+    assert not config(secrets__proxyUrls=PROXIES).include_direct
+
+
+def test_this_machine_is_in_by_default_with_no_route() -> None:
+    assert config().include_direct
+    assert config(secrets__proxyUrls=[" "], secrets__gatewayUrls=["  "]).include_direct
+
+
+def test_an_explicit_include_direct_wins() -> None:
+    cfg = config(
+        secrets__gatewayUrls=GATEWAYS,
+        settings={"proxies": {"enabled": True, "includeDirect": True}},
+    )
+    assert cfg.include_direct
 
 
 # --- delays ---
@@ -152,13 +171,13 @@ def test_normal_pacing_reads_the_normal_profile() -> None:
 
 
 def test_fast_pacing_reads_the_fast_profile() -> None:
-    cfg = config(secrets__gatewayUrls=GATEWAYS)
+    cfg = config(settings={"pacing": "fast"})
     assert cfg.delay("jitter_delay") == FAST_PACING["jitter_delay"] == Delay(0.5, 1.5)
     assert cfg.delay("ip_cooldown") == Delay(5.0, 15.0, chance=10)
 
 
 def test_the_delays_outside_the_profiles_are_the_same_at_both_speeds() -> None:
-    normal, fast = config(), config(secrets__gatewayUrls=GATEWAYS)
+    normal, fast = config(), config(settings={"pacing": "fast"})
     assert (
         normal.delay("catchup_videos_delay")
         == fast.delay("catchup_videos_delay")
@@ -214,7 +233,7 @@ def test_a_job_other_than_search_keeps_the_routes_pacing_and_key() -> None:
     )
     assert cfg.gateway_urls == tuple(GATEWAYS)
     assert cfg.rotating_connections == 2
-    assert cfg.pacing == "fast"
+    assert cfg.pacing == "normal"
     assert cfg.youtube_key == "test-key"
 
 

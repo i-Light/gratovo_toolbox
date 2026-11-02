@@ -40,20 +40,40 @@ def channel_item(handle: str, channel_id: str) -> dict[str, Any]:
 
 
 def test_a_video_result_names_its_uploader() -> None:
-    assert discover.channel_from_item(video_item("@ai-tools-weekly", "UC1"), "video") == (
+    assert discover.channel_from_item(
+        video_item("@ai-tools-weekly", "UC1111111111111111111111"), "video"
+    ) == (
         "@ai-tools-weekly",
-        "UC1",
+        "UC1111111111111111111111",
     )
     assert discover.channel_from_item(
-        video_item("@ai-tools-weekly", "UC1", short_byline=False), "video"
-    ) == ("@ai-tools-weekly", "UC1")
+        video_item("@ai-tools-weekly", "UC1111111111111111111111", short_byline=False), "video"
+    ) == ("@ai-tools-weekly", "UC1111111111111111111111")
 
 
 def test_a_channel_result_names_itself() -> None:
-    assert discover.channel_from_item(channel_item("@llm-explained", "UC2"), "channel") == (
+    assert discover.channel_from_item(
+        channel_item("@llm-explained", "UC2222222222222222222222"), "channel"
+    ) == (
         "@llm-explained",
-        "UC2",
+        "UC2222222222222222222222",
     )
+
+
+def test_an_item_with_an_id_but_no_handle_uses_the_id_as_its_handle() -> None:
+    # A legacy /channel/ URL (or none) has no @ handle: the id stands in for it.
+    assert discover.channel_from_item(
+        video_item("channel/" + "UC9999999999999999999999", "UC9999999999999999999999"), "video"
+    ) == ("UC9999999999999999999999", "UC9999999999999999999999")
+    assert discover.channel_from_item(
+        {"channelId": "UC8888888888888888888888", "navigationEndpoint": {"browseEndpoint": {}}},
+        "channel",
+    ) == ("UC8888888888888888888888", "UC8888888888888888888888")
+
+
+@pytest.mark.parametrize("browse_id", ["VL" + "a" * 22, "FEwhat_to_watch", "UCshort", ""])
+def test_a_browse_id_that_is_not_a_channel_id_is_dropped(browse_id: str) -> None:
+    assert discover.channel_from_item(video_item("@x", browse_id), "video") is None
 
 
 @pytest.mark.parametrize(
@@ -61,8 +81,6 @@ def test_a_channel_result_names_itself() -> None:
     [
         {},
         {"shortBylineText": {"runs": []}},
-        # A legacy /channel/ URL has no handle to key on.
-        video_item("channel/UC9", "UC9"),
         {"shortBylineText": {"runs": ["junk"]}},
     ],
 )
@@ -110,15 +128,19 @@ def test_finding_channels_dedupes_by_handle_and_passes_the_rules(
     monkeypatch: pytest.MonkeyPatch, rec: Recorder
 ) -> None:
     fake = FakeSearch(
-        video_item("@ai-tools-weekly", "UC1"),
-        video_item("@ai-tools-weekly", "UC1"),
-        video_item("@llm-explained", "UC2"),
+        video_item("@ai-tools-weekly", "UC1111111111111111111111"),
+        video_item("@ai-tools-weekly", "UC1111111111111111111111"),
+        video_item("@llm-explained", "UC2222222222222222222222"),
     )
     monkeypatch.setattr(scrapetube, "get_search", fake)
 
     found = live(rec).find_channels("claude code tutorial", limit=50)
 
-    assert found == {"@ai-tools-weekly": "UC1", "@llm-explained": "UC2"}
+    assert found.channels == {
+        "@ai-tools-weekly": "UC1111111111111111111111",
+        "@llm-explained": "UC2222222222222222222222",
+    }
+    assert found.complete
     ((query, kwargs),) = fake.calls
     assert query == "claude code tutorial"
     assert (kwargs["limit"], kwargs["sort_by"], kwargs["results_type"]) == (
@@ -128,10 +150,29 @@ def test_finding_channels_dedupes_by_handle_and_passes_the_rules(
     )
 
 
+def test_the_at_handle_beats_the_placeholder_for_the_same_channel(
+    monkeypatch: pytest.MonkeyPatch, rec: Recorder
+) -> None:
+    for items in (
+        [
+            video_item("channel/UC1", "UC1111111111111111111111"),
+            video_item("@ai-tools-weekly", "UC1111111111111111111111"),
+        ],
+        [
+            video_item("@ai-tools-weekly", "UC1111111111111111111111"),
+            video_item("channel/UC1", "UC1111111111111111111111"),
+        ],
+    ):
+        monkeypatch.setattr(scrapetube, "get_search", FakeSearch(*items))
+        assert live(rec).find_channels("ai agents", limit=10).channels == {
+            "@ai-tools-weekly": "UC1111111111111111111111"
+        }
+
+
 def test_progress_is_told_every_twenty_results(
     monkeypatch: pytest.MonkeyPatch, rec: Recorder
 ) -> None:
-    items = [video_item(f"@ai-creator-{i}", f"UC{i}") for i in range(41)]
+    items = [video_item(f"@ai-creator-{i}", f"UC{i:022d}") for i in range(41)]
     monkeypatch.setattr(scrapetube, "get_search", FakeSearch(*items))
     live(rec).find_channels("ai agents", limit=100)
     assert [text for _, text in rec.lines] == [
@@ -160,10 +201,12 @@ def test_another_error_keeps_what_was_found_and_names_only_its_kind(
     monkeypatch: pytest.MonkeyPatch, rec: Recorder
 ) -> None:
     then = RuntimeError("proxy https://user:secret@proxy.example:8080 refused")
-    fake = FakeSearch(video_item("@ai-tools-weekly", "UC1"), then=then)
+    fake = FakeSearch(video_item("@ai-tools-weekly", "UC1111111111111111111111"), then=then)
     monkeypatch.setattr(scrapetube, "get_search", fake)
 
-    assert live(rec).find_channels("ai agents", limit=10) == {"@ai-tools-weekly": "UC1"}
+    found = live(rec).find_channels("ai agents", limit=10)
+    assert found.channels == {"@ai-tools-weekly": "UC1111111111111111111111"}
+    assert not found.complete
     assert rec.lines == [("warn", "The search stopped early (RuntimeError).")]
 
 
@@ -190,13 +233,13 @@ def test_a_sweep_reads_uploads_on_one_session(
     monkeypatch.setattr(scrapetube, "get_channel", fake_channel)
 
     sweep = live(rec).sweep()
-    assert sweep.recent_video_ids("@ai-tools-weekly") == ["a", "b"]
-    assert sweep.recent_video_ids("@llm-explained") == ["a", "b"]
+    assert sweep.recent_video_ids("UC1111111111111111111111") == ["a", "b"]
+    assert sweep.recent_video_ids("UC2222222222222222222222") == ["a", "b"]
     sweep.close()
 
     assert [url for url, _ in seen] == [
-        "https://www.youtube.com/@ai-tools-weekly",
-        "https://www.youtube.com/@llm-explained",
+        "https://www.youtube.com/channel/UC1111111111111111111111",
+        "https://www.youtube.com/channel/UC2222222222222222222222",
     ]
     assert all(s is session for _, s in seen)
     assert session.closed
@@ -215,8 +258,8 @@ def test_a_sweep_can_be_asked_for_more_than_the_search_window(
     monkeypatch.setattr(scrapetube, "get_channel", fake_channel)
 
     sweep = live(rec).sweep()
-    sweep.recent_video_ids("@ai-tools-weekly")
-    sweep.recent_video_ids("@ai-tools-weekly", limit=120)
+    sweep.recent_video_ids("UC1111111111111111111111")
+    sweep.recent_video_ids("UC1111111111111111111111", limit=120)
 
     assert limits == [15, 120]  # a search never passes one
 
@@ -232,15 +275,17 @@ def test_a_sweep_read_that_fails_is_unreadable_not_empty_and_a_block_stops(
     monkeypatch.setattr(scrapetube, "get_channel", broken)
     # Not an empty list: that would stamp the channel as read with no uploads, for good.
     with pytest.raises(ChannelUnreadableError):
-        live(rec).sweep().recent_video_ids("@ai-tools-weekly")
-    assert rec.lines == [("warn", "Couldn't read @ai-tools-weekly's uploads (ValueError).")]
+        live(rec).sweep().recent_video_ids("UC1111111111111111111111")
+    assert rec.lines == [
+        ("warn", "Couldn't read the uploads of UC1111111111111111111111 (ValueError).")
+    ]
 
     def blocked(**_kwargs: Any) -> Iterator[dict[str, Any]]:
         raise scrapetube.BlockedError("blocked")
 
     monkeypatch.setattr(scrapetube, "get_channel", blocked)
     with pytest.raises(SearchBlockedError):
-        live(rec).sweep().recent_video_ids("@ai-tools-weekly")
+        live(rec).sweep().recent_video_ids("UC1111111111111111111111")
 
 
 def test_a_later_page_failing_keeps_the_ids_already_read_on_the_error(
@@ -255,6 +300,6 @@ def test_a_later_page_failing_keeps_the_ids_already_read_on_the_error(
 
     monkeypatch.setattr(scrapetube, "get_channel", first_page_then_broken)
     with pytest.raises(ChannelUnreadableError) as caught:
-        live(rec).sweep().recent_video_ids("@ai-tools-weekly", limit=120)
+        live(rec).sweep().recent_video_ids("UC1111111111111111111111", limit=120)
     # Still unreadable for a search (a part read is not "read"); the backfill job uses the part.
     assert caught.value.partial == ["a", "b"]

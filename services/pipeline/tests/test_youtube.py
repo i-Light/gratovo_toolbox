@@ -348,3 +348,22 @@ def test_a_handle_lookup_names_failures_like_the_batch_call(rec: Recorder) -> No
 
     refused = FakeOpener(http_error(400, "invalidRequest"))
     assert api(refused, rec).channel_for_handle("@aitoolsweekly") is None
+
+
+def test_a_placeholder_handle_is_replaced_by_the_custom_url(rec: Recorder) -> None:
+    item = {
+        "id": CHANNEL["id"],
+        "snippet": {"title": "AI Tools Weekly", "customUrl": "@aitoolsweekly"},
+    }
+    cid = "UCaitools00000000000000a"
+    found = api(FakeOpener({"items": [item]}), rec).channels({cid: cid})
+    info = found[cid]  # still keyed by the handle the batch used
+    assert info["Handle"] == "@aitoolsweekly"
+    assert info["Link"] == "https://www.youtube.com/@aitoolsweekly"
+
+
+def test_a_placeholder_without_a_custom_url_links_by_channel_id(rec: Recorder) -> None:
+    cid = "UCaitools00000000000000a"
+    found = api(FakeOpener({"items": [CHANNEL]}), rec).channels({cid: cid})
+    assert found[cid]["Handle"] == cid
+    assert found[cid]["Link"] == f"https://www.youtube.com/channel/{cid}"

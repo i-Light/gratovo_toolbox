@@ -40,6 +40,7 @@ from gratovo_pipeline.scrapetube.proxy_pool import ProxyPool
 from gratovo_pipeline.search import auto_clean
 from gratovo_pipeline.search.context import (
     ChannelUnreadableError,
+    Found,
     Search,
     SearchBlockedError,
     Source,
@@ -64,7 +65,7 @@ class _LiveRefetchSource:
         self._live = live
         self._api = api
 
-    def find_channels(self, keyword: str, *, limit: int) -> dict[str, str]:
+    def find_channels(self, keyword: str, *, limit: int) -> Found:
         return self._live.find_channels(keyword, limit=limit)
 
     def sweep(self) -> Sweep:
@@ -241,7 +242,7 @@ def _refetch_one(
     collector = UploadCollector(search)
     try:
         try:
-            video_ids = sweep.recent_video_ids(handle)
+            video_ids = sweep.recent_video_ids(channel_id)
         except ChannelUnreadableError:
             # Left unstamped for the backlog, which tries again later (store.READ_BACKOFF_DAYS).
             store.defer_unreadable_channel(conn, channel_id)
