@@ -63,6 +63,21 @@ def _load() -> tuple[dict[str, tuple[str, ...]], tuple[ExampleChannel, ...]]:
     return keywords, channels
 
 
+# Made-up facts for the new fields (step S3): mostly English, a few other languages.
+_OTHER_LANGUAGES: Final = {4: "es", 13: "pt", 22: "hi", 27: "es"}
+_REGIONS: Final = {"en": "en-US", "es": "es-MX", "pt": "pt-BR", "hi": "hi-IN"}
+_TOPICS: Final = ("Technology", "Knowledge", "Software", "Society", "Entertainment")
+
+
+def _language(channel: ExampleChannel) -> str:
+    return _OTHER_LANGUAGES.get(channel.index, "en")
+
+
+def _topics(channel: ExampleChannel) -> list[str]:
+    first = _TOPICS[channel.index % 3]  # Technology, Knowledge or Software
+    return [first] if channel.index % 4 else [first, _TOPICS[3 + channel.index % 2]]
+
+
 _RESULTS, CHANNELS = _load()
 KEYWORDS: Final = tuple(_RESULTS)
 _BY_HANDLE: Final = {c.handle: c for c in CHANNELS}
@@ -81,7 +96,10 @@ def _video(channel: ExampleChannel, n: int, now: float) -> VideoInfo:
         if sponsored
         else f"{channel.name}: what changed in AI this week."
     )
+    views = str(channel.views * (70 + (n * 37 + channel.index * 11) % 60) // 100)
     published = time.strftime("%Y-%m-%dT15:00:00Z", time.gmtime(now - (n * 2 + 1) * _DAY))
+    language = _language(channel)
+    short = (n + channel.index) % 5 == 0
     return {
         "id": _video_id(channel, n),
         "Title": f"{channel.name} #{channel.uploads - n}: AI tools, tested",
@@ -89,7 +107,19 @@ def _video(channel: ExampleChannel, n: int, now: float) -> VideoInfo:
         "Thumbnail": None,
         "Tags": ["ai"],
         "PublishedAt": published,
-        "ViewCount": str(channel.views * (70 + (n * 37 + channel.index * 11) % 60) // 100),
+        "ViewCount": views,
+        # Most videos name their audio language; every sixth leaves it out
+        "AudioLanguage": None if (n + channel.index) % 6 == 0 else _REGIONS[language],
+        "DefaultLanguage": language,
+        "CategoryId": "28" if channel.index % 3 else "27",  # Science & Technology, Education
+        "LiveContent": "none",
+        "LikeCount": None if channel.index % 10 == 9 else str(int(views) // 25 + n),
+        "CommentCount": None if channel.index % 10 == 9 else str(int(views) // 400 + n),
+        "DurationS": 40 + n if short else 360 + (n * 97 + channel.index * 13) % 1200,
+        "HasCaptions": int(n % 4 != 3),
+        "MadeForKids": 0,
+        "Topics": _topics(channel),
+        "PaidPlacement": int(sponsored),
     }
 
 
@@ -108,7 +138,12 @@ class ExampleSweep:
 class ExampleSource:
     def find_channels(self, keyword: str, *, limit: int) -> Found:
         handles = _RESULTS.get(keyword.strip().lower()) or self._pick(keyword)
-        return Found({h: _BY_HANDLE[h].channel_id for h in handles[:limit]}, True)
+        shown = handles[:limit]
+        return Found(
+            {h: _BY_HANDLE[h].channel_id for h in shown},
+            True,
+            {_BY_HANDLE[h].channel_id: place for place, h in enumerate(shown, 1)},
+        )
 
     def sweep(self, *, end_on_block: bool = False) -> ExampleSweep:
         return ExampleSweep()
@@ -129,6 +164,14 @@ class ExampleSource:
                 "Profile_Picture": None,
                 "Banner": None,
                 "Country": channel.country,
+                "Total_Views": channel.views * channel.uploads * 4,
+                "Video_Count": channel.uploads * 7 + channel.index,
+                "Subscribers_Hidden": 0,
+                "Started_At": f"{2016 + channel.index % 8}-0{1 + channel.index % 9}-15T10:00:00Z",
+                "Default_Language": _language(channel),
+                "Topics": _topics(channel),
+                "Uploads_Playlist": "UU" + channel.channel_id[2:],
+                "Made_For_Kids": 0,
             }
         return found
 

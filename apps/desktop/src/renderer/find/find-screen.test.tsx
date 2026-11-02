@@ -33,6 +33,7 @@ const rules: FindState["rules"] = {
   minUploads30: null,
   archiveDays: 7,
   continuous: false,
+  languages: [],
 };
 
 type Queue = FindState["queue"];

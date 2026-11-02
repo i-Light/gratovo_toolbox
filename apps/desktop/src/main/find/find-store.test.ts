@@ -44,6 +44,17 @@ describe("the find file", () => {
     expect(pipelineRules(readFindFile(folder).rules)).toMatchObject({ continuous: false });
   });
 
+  it("reads a file written before the language rule with no language rule", () => {
+    const { languages, ...old } = defaultRules();
+    expect(languages).toEqual([]);
+    writeFileSync(join(folder, findFileName), JSON.stringify({ queue: [], at: 0, rules: old }));
+    expect(readFindFile(folder).rules.languages).toEqual([]);
+    const rules = { ...defaultRules(), languages: ["en", "es"] };
+    writeFindFile(folder, { queue: [], at: 0, rules });
+    expect(readFindFile(folder).rules.languages).toEqual(["en", "es"]);
+    expect(pipelineRules(rules)).toMatchObject({ languages: ["en", "es"] });
+  });
+
   it("gives the defaults when the file is not JSON or fails the schema", () => {
     writeFileSync(join(folder, findFileName), "{ not json");
     expect(readFindFile(folder).queue).toEqual([]);
@@ -132,7 +143,12 @@ describe("the rules schemas", () => {
   it("findRulesSchema without archiveDays and the pipeline's rulesSchema give the same JSON Schema", () => {
     expect(z.toJSONSchema(findRulesSchema.omit({ archiveDays: true }))).toEqual(
       z.toJSONSchema(
-        rulesSchema.required({ minMedianViews: true, minUploads30: true, continuous: true }),
+        rulesSchema.required({
+          minMedianViews: true,
+          minUploads30: true,
+          continuous: true,
+          languages: true,
+        }),
       ),
     );
   });

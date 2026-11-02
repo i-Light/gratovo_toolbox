@@ -12,12 +12,18 @@ Version 4 (5d-2, plan D42) gives a tombstone the rest of the channel's facts, so
 makes us know less.
 Version 5 (step S1, Q12) counts a keyword's incomplete searches (`keywords.failures`).
 Version 6 (step S2, R7) records what a run downloaded (`runs.bytes_downloaded`).
+Version 7 (step S3, L2 to L6) keeps more of what the same API calls return: video languages,
+likes, comments, duration, topics and paid placement; channel totals, start date, language and
+topics; the channel rollups over all stored videos (main language, topic counts, medians,
+engagement, Shorts and paid shares); and the search position of a channel's first hit
+(`channel_keywords.position`). All local facts: the channel blob does not carry them.
 """
 
 from __future__ import annotations
 
 import json
 import os
+import re
 import sqlite3
 import sys
 import time
@@ -32,8 +38,24 @@ type Discovered = dict[str, str]  # {handle: channel_id}
 type Row = dict[str, Any]
 type RunKind = Literal["search", "catch-up", "re-enrich"]
 
-SCHEMA_VERSION: Final = 6
+SCHEMA_VERSION: Final = 7
 
+# Version 7 columns, in the tables below (all nullable local facts, none shared):
+# - videos, from videos.list: like_count and comment_count are text like view_count (NULL when
+#   hidden); duration_s is NULL for a live stream or an unreadable duration; topics is a JSON list
+#   of Wikipedia topic names.
+# - channels, from channels.list: subscribers_hidden is 1 when the owner hides the count; topics as
+#   for videos. From `main_language` on they are rollups over every stored video
+#   (compute_channel_rollups): main_language is a primary subtag ('en') with its basis ('audio
+#   11/12', 'default 4/5' or 'channel'); topic_counts is JSON {name: n}; engagement_rate is the
+#   median of (likes + comments) / views, NULL under 3 videos; shorts_share is videos of 60 s or
+#   less over videos with a duration; paid_share is paid placements over videos with the field.
+# - channel_keywords.position: the 1-based place of the channel's first hit in the keyword's
+#   results.
+# - Also: channels.sponsored_ratio is the share of stored videos with a sponsorship signal;
+#   seen_brands and found_emails are JSON lists (found_emails from the About text and
+#   descriptions); videos.last_fetch_status is success | failed. (The columns a later version may
+#   drop carry no comment in the CREATE text: SQLite's DROP COLUMN trips over them.)
 SCHEMA: Final = """
 CREATE TABLE IF NOT EXISTS keywords (
     keyword TEXT PRIMARY KEY,
@@ -96,9 +118,26 @@ CREATE TABLE IF NOT EXISTS channels (
     announced_at TEXT,
     awaiting_peer_since TEXT,  -- a teammate read it; wait for their object (AWAITING_PEER_DAYS)
     -- Derived from the stored descriptions (search/signals.py). Never shared.
-    sponsored_ratio REAL,      -- share of stored videos with a sponsorship signal
-    seen_brands TEXT,          -- JSON list
-    found_emails TEXT          -- JSON list, from the About text and descriptions
+    sponsored_ratio REAL,
+    seen_brands TEXT,
+    found_emails TEXT,
+    total_views INTEGER,
+    video_count INTEGER,
+    subscribers_hidden INTEGER,
+    started_at TEXT,
+    default_language TEXT,
+    topics TEXT,
+    uploads_playlist TEXT,
+    made_for_kids INTEGER,
+    main_language TEXT,
+    main_language_basis TEXT,
+    topic_counts TEXT,
+    median_likes INTEGER,
+    median_comments INTEGER,
+    engagement_rate REAL,
+    median_duration_s INTEGER,
+    shorts_share REAL,
+    paid_share REAL
 );
 CREATE INDEX IF NOT EXISTS idx_channels_handle ON channels(handle);
 CREATE INDEX IF NOT EXISTS idx_channels_blob_pending
@@ -115,6 +154,7 @@ CREATE TABLE IF NOT EXISTS channel_keywords (
     -- 0 until written into a catalog segment. A flag, not a cursor: cursors are whole seconds,
     -- and a row written in the same second as the last segment would be missed or repeated.
     announced INTEGER NOT NULL DEFAULT 0,
+    position INTEGER,
     PRIMARY KEY (channel_id, keyword)
 );
 CREATE INDEX IF NOT EXISTS idx_channel_keywords_keyword ON channel_keywords(keyword);
@@ -129,7 +169,18 @@ CREATE TABLE IF NOT EXISTS videos (
     published_at TEXT,
     view_count TEXT,
     last_fetched_at TEXT,
-    last_fetch_status TEXT  -- success | failed
+    last_fetch_status TEXT,
+    audio_language TEXT,
+    default_language TEXT,
+    category_id TEXT,
+    live_content TEXT,
+    like_count TEXT,
+    comment_count TEXT,
+    duration_s INTEGER,
+    has_captions INTEGER,
+    made_for_kids INTEGER,
+    topics TEXT,
+    paid_placement INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_videos_channel_published ON videos (channel_id, published_at DESC);
 
@@ -278,6 +329,53 @@ def _add_run_bytes(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE runs ADD COLUMN bytes_downloaded INTEGER NOT NULL DEFAULT 0")
 
 
+# Version 7 (step S3): the columns added, each only when missing (as versions 3 to 6 do).
+_V7_COLUMNS: Final = {
+    "videos": (
+        ("audio_language", "TEXT"),
+        ("default_language", "TEXT"),
+        ("category_id", "TEXT"),
+        ("live_content", "TEXT"),
+        ("like_count", "TEXT"),
+        ("comment_count", "TEXT"),
+        ("duration_s", "INTEGER"),
+        ("has_captions", "INTEGER"),
+        ("made_for_kids", "INTEGER"),
+        ("topics", "TEXT"),
+        ("paid_placement", "INTEGER"),
+    ),
+    "channels": (
+        ("total_views", "INTEGER"),
+        ("video_count", "INTEGER"),
+        ("subscribers_hidden", "INTEGER"),
+        ("started_at", "TEXT"),
+        ("default_language", "TEXT"),
+        ("topics", "TEXT"),
+        ("uploads_playlist", "TEXT"),
+        ("made_for_kids", "INTEGER"),
+        ("main_language", "TEXT"),
+        ("main_language_basis", "TEXT"),
+        ("topic_counts", "TEXT"),
+        ("median_likes", "INTEGER"),
+        ("median_comments", "INTEGER"),
+        ("engagement_rate", "REAL"),
+        ("median_duration_s", "INTEGER"),
+        ("shorts_share", "REAL"),
+        ("paid_share", "REAL"),
+    ),
+    "channel_keywords": (("position", "INTEGER"),),
+}
+
+
+def _add_more_facts(conn: sqlite3.Connection) -> None:
+    """Version 7. The video, channel and search-position columns, each only when missing."""
+    for table, columns in _V7_COLUMNS.items():
+        have = {row[1] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+        for name, kind in columns:
+            if name not in have:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {kind}")
+
+
 # What each version adds to the one before it, run in order on a file older than it. Version 1 is
 # SCHEMA itself; a new file runs SCHEMA and then every step. Each step is safe to run twice.
 MIGRATIONS: Final[dict[int, Callable[[sqlite3.Connection], object]]] = {
@@ -286,6 +384,7 @@ MIGRATIONS: Final[dict[int, Callable[[sqlite3.Connection], object]]] = {
     4: _add_archive_facts,
     5: _add_keyword_failures,
     6: _add_run_bytes,
+    7: _add_more_facts,
 }
 
 # A second writer waits this long instead of failing at once with "database is locked". Far
@@ -447,11 +546,16 @@ def unarchive(conn: sqlite3.Connection, channel_id: str) -> None:
 
 
 def record_channel_discovery(
-    conn: sqlite3.Connection, handle: str, channel_id: str, keyword: str
+    conn: sqlite3.Connection,
+    handle: str,
+    channel_id: str,
+    keyword: str,
+    position: int | None = None,
 ) -> bool:
     """Records a discovered channel and the keyword that found it. Returns False, recording
     nothing, when the channel is archived: without that, the next search would add a rejected
-    channel back as new, spend quota on it, and put it in front of someone to vet again."""
+    channel back as new, spend quota on it, and put it in front of someone to vet again.
+    `position` is the channel's 1-based place in the keyword's results, kept on a new link only."""
     if is_archived(conn, channel_id):
         return False
     now = utc_now()
@@ -460,9 +564,9 @@ def record_channel_discovery(
         (channel_id, handle, now),
     )
     conn.execute(
-        "INSERT OR IGNORE INTO channel_keywords (channel_id, keyword, discovered_at) "
-        "VALUES (?, ?, ?)",
-        (channel_id, keyword, now),
+        "INSERT OR IGNORE INTO channel_keywords (channel_id, keyword, discovered_at, position) "
+        "VALUES (?, ?, ?, ?)",
+        (channel_id, keyword, now, position),
     )
     conn.commit()
     return True
@@ -509,16 +613,25 @@ def partition_discovered(
     return fresh, known, archived
 
 
-def record_keyword_links(conn: sqlite3.Connection, discovered: Discovered, keyword: str) -> None:
+def record_keyword_links(
+    conn: sqlite3.Connection,
+    discovered: Discovered,
+    keyword: str,
+    positions: Mapping[str, int] | None = None,
+) -> None:
     """Links already-known channels to the keyword that re-found them. Free (one local insert
-    each), and it keeps a keyword's results and a channel's "found by" honest."""
+    each), and it keeps a keyword's results and a channel's "found by" honest. `positions` is
+    {channel_id: place in the results}; a link that exists keeps its first position."""
     if not discovered:
         return
     now = utc_now()
     conn.executemany(
-        "INSERT OR IGNORE INTO channel_keywords (channel_id, keyword, discovered_at) "
-        "VALUES (?, ?, ?)",
-        [(channel_id, keyword, now) for channel_id in discovered.values()],
+        "INSERT OR IGNORE INTO channel_keywords (channel_id, keyword, discovered_at, position) "
+        "VALUES (?, ?, ?, ?)",
+        [
+            (channel_id, keyword, now, (positions or {}).get(channel_id))
+            for channel_id in discovered.values()
+        ],
     )
     conn.commit()
 
@@ -609,7 +722,9 @@ def save_channels(
                 """UPDATE channels SET
                        handle=?, name=?, description=?, subscribers=?, profile_picture=?,
                        banner=?, link=?, country=?, last_fetched_at=?, last_fetch_status='success',
-                       force_refetch=0
+                       force_refetch=0, total_views=?, video_count=?, subscribers_hidden=?,
+                       started_at=?, default_language=?, topics=?, uploads_playlist=?,
+                       made_for_kids=?
                    WHERE channel_id=?""",
                 (
                     info.get("Handle") or handle,
@@ -621,6 +736,14 @@ def save_channels(
                     info.get("Link"),
                     info.get("Country"),
                     now,
+                    info.get("Total_Views"),
+                    info.get("Video_Count"),
+                    info.get("Subscribers_Hidden"),
+                    info.get("Started_At"),
+                    info.get("Default_Language"),
+                    json.dumps(info.get("Topics") or []),
+                    info.get("Uploads_Playlist"),
+                    info.get("Made_For_Kids"),
                     channel_id,
                 ),
             )
@@ -794,13 +917,23 @@ def save_videos(
             conn.execute(
                 """INSERT INTO videos (video_id, channel_id, title, description, thumbnail, tags,
                                         published_at, view_count, last_fetched_at,
-                                        last_fetch_status)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'success')
+                                        last_fetch_status, audio_language, default_language,
+                                        category_id, live_content, like_count, comment_count,
+                                        duration_s, has_captions, made_for_kids, topics,
+                                        paid_placement)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'success', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                    ON CONFLICT(video_id) DO UPDATE SET
                        title=excluded.title, description=excluded.description,
                        thumbnail=excluded.thumbnail, tags=excluded.tags,
                        published_at=excluded.published_at, view_count=excluded.view_count,
-                       last_fetched_at=excluded.last_fetched_at, last_fetch_status='success'""",
+                       last_fetched_at=excluded.last_fetched_at, last_fetch_status='success',
+                       audio_language=excluded.audio_language,
+                       default_language=excluded.default_language,
+                       category_id=excluded.category_id, live_content=excluded.live_content,
+                       like_count=excluded.like_count, comment_count=excluded.comment_count,
+                       duration_s=excluded.duration_s, has_captions=excluded.has_captions,
+                       made_for_kids=excluded.made_for_kids, topics=excluded.topics,
+                       paid_placement=excluded.paid_placement""",
                 (
                     vid,
                     channel_id,
@@ -811,6 +944,17 @@ def save_videos(
                     info.get("PublishedAt"),
                     info.get("ViewCount"),
                     now,
+                    info.get("AudioLanguage"),
+                    info.get("DefaultLanguage"),
+                    info.get("CategoryId"),
+                    info.get("LiveContent"),
+                    info.get("LikeCount"),
+                    info.get("CommentCount"),
+                    info.get("DurationS"),
+                    info.get("HasCaptions"),
+                    info.get("MadeForKids"),
+                    json.dumps(info.get("Topics") or []),
+                    info.get("PaidPlacement"),
                 ),
             )
         else:
@@ -945,11 +1089,103 @@ def _median(values: list[int]) -> int | None:
     return ordered[mid] if len(ordered) % 2 else (ordered[mid - 1] + ordered[mid]) // 2
 
 
+def _median_float(values: list[float]) -> float | None:
+    if not values:
+        return None
+    ordered = sorted(values)
+    mid = len(ordered) // 2
+    return ordered[mid] if len(ordered) % 2 else (ordered[mid - 1] + ordered[mid]) / 2
+
+
+_OLD_LANGUAGE_CODES: Final = {"iw": "he", "in": "id", "ji": "yi"}
+_TWO_LETTERS: Final = re.compile(r"[a-z]{2}")
+
+
+def primary_language(code: object) -> str | None:
+    """`en-US` -> `en`; old codes map (`iw` -> `he`). Only a two-letter primary subtag counts:
+    blank, `und`, `zxx` and three-letter codes (`fil`, `yue`) are unknown."""
+    if not isinstance(code, str):
+        return None
+    primary = code.strip().replace("_", "-").split("-", 1)[0].lower()
+    primary = _OLD_LANGUAGE_CODES.get(primary, primary)
+    return primary if _TWO_LETTERS.fullmatch(primary) else None
+
+
+def _majority_language(
+    videos: list[sqlite3.Row], column: str, total: int
+) -> tuple[str, int] | None:
+    """The most common primary subtag of `column` over the videos that have one, when at least
+    half of all `total` stored videos have one. A tie goes to the language of the newest video
+    among the tied."""
+    counts: dict[str, int] = {}
+    newest: dict[str, str] = {}
+    for v in videos:
+        language = primary_language(v[column])
+        if language is None:
+            continue
+        counts[language] = counts.get(language, 0) + 1
+        newest[language] = max(newest.get(language, ""), v["published_at"] or "")
+    if not counts or total == 0 or sum(counts.values()) * 2 < total:
+        return None
+    best = max(counts, key=lambda language: (counts[language], newest[language]))
+    return best, counts[best]
+
+
+def _channel_rollup_columns(
+    videos: list[sqlite3.Row], channel_language: object, channel_topics: object
+) -> dict[str, Any]:
+    """The version 7 rollups over a channel's stored videos (L4)."""
+    videos = [v for v in videos if v["last_fetch_status"] != "failed"]
+    total = len(videos)
+    main_language: str | None = None
+    basis: str | None = None
+    for column, label in (("audio_language", "audio"), ("default_language", "default")):
+        won = _majority_language(videos, column, total)
+        if won:
+            main_language, basis = won[0], f"{label} {won[1]}/{total}"
+            break
+    if main_language is None:
+        main_language = primary_language(channel_language)
+        basis = "channel" if main_language else None
+
+    topic_counts: dict[str, int] = {}
+    for names in [*(_json_list(v["topics"]) for v in videos), _json_list(channel_topics)]:
+        for name in dict.fromkeys(n for n in names if isinstance(n, str)):
+            topic_counts[name] = topic_counts.get(name, 0) + 1
+    ordered = dict(sorted(topic_counts.items(), key=lambda kv: (-kv[1], kv[0])))
+
+    likes = [n for n in (_int_or_none(v["like_count"]) for v in videos) if n is not None]
+    comments = [n for n in (_int_or_none(v["comment_count"]) for v in videos) if n is not None]
+    rates: list[float] = []
+    for v in videos:
+        views = _int_or_none(v["view_count"])
+        like, comment = _int_or_none(v["like_count"]), _int_or_none(v["comment_count"])
+        if views and views > 0 and like is not None and comment is not None:
+            rates.append((like + comment) / views)
+    durations = [v["duration_s"] for v in videos if v["duration_s"] is not None]
+    paid = [v["paid_placement"] for v in videos if v["paid_placement"] is not None]
+    return {
+        "main_language": main_language,
+        "main_language_basis": basis,
+        "topic_counts": json.dumps(ordered, ensure_ascii=False) if ordered else None,
+        "median_likes": _median(likes),
+        "median_comments": _median(comments),
+        "engagement_rate": _median_float(rates) if len(rates) >= 3 else None,
+        "median_duration_s": _median(durations),
+        "shorts_share": sum(1 for d in durations if d <= 60) / len(durations)
+        if durations
+        else None,
+        "paid_share": sum(1 for p in paid if p == 1) / len(paid) if paid else None,
+    }
+
+
 def compute_channel_rollups(
     conn: sqlite3.Connection, channel_ids: Iterable[str] | None = None
 ) -> int:
     """Recomputes `videos_last_30`, `median_views_last_30` and `latest_upload_at` from the local
-    videos, for channel_ids or every channel.
+    videos, for channel_ids or every channel. Also the version 7 rollups over all stored videos,
+    not just the window: main language, topic counts, median likes, comments and duration,
+    engagement rate, Shorts share and paid share (`_channel_rollup_columns`).
 
     The window runs back from `COALESCE(videos_fetched_at, last_fetched_at)`, not from now: a
     channel nobody refetches keeps the numbers it had, rather than sliding to zero and reading as
@@ -964,33 +1200,43 @@ def compute_channel_rollups(
     else:
         where, params = "", []
     rows = conn.execute(
-        "SELECT channel_id, COALESCE(videos_fetched_at, last_fetched_at) AS anchor "
+        "SELECT channel_id, default_language, topics, "
+        "strftime('%Y-%m-%dT%H:%M:%SZ', "
+        "datetime(COALESCE(videos_fetched_at, last_fetched_at), ?)) AS cutoff "
         f"FROM channels {where}",
-        params,
+        [f"-{ROLLUP_WINDOW_DAYS} days", *params],
     ).fetchall()
     written = 0
     for row in rows:
-        anchor = row["anchor"]
+        cutoff = row["cutoff"]
         count: int = 0
         median: int | None = None
         latest: str | None = None
-        if anchor:
-            videos = conn.execute(
-                "SELECT view_count, published_at FROM videos "
-                "WHERE channel_id=? AND published_at IS NOT NULL AND published_at <> '' "
-                "  AND published_at > strftime('%Y-%m-%dT%H:%M:%SZ', datetime(?, ?))",
-                (row["channel_id"], anchor, f"-{ROLLUP_WINDOW_DAYS} days"),
-            ).fetchall()
+        all_videos = conn.execute(
+            "SELECT view_count, published_at, last_fetch_status, audio_language, "
+            "default_language, topics, like_count, comment_count, duration_s, paid_placement "
+            "FROM videos WHERE channel_id=?",
+            (row["channel_id"],),
+        ).fetchall()
+        if cutoff:
+            videos = [v for v in all_videos if v["published_at"] and v["published_at"] > cutoff]
             count = len(videos)
             median = _median(
                 [v for v in (_int_or_none(x["view_count"]) for x in videos) if v is not None]
             )
             latest = max((x["published_at"] for x in videos), default=None)
+        extra = _channel_rollup_columns(all_videos, row["default_language"], row["topics"])
+        values = {
+            "videos_last_30": count,
+            "median_views_last_30": median,
+            "latest_upload_at": latest,
+            **extra,
+        }
         cur = conn.execute(
-            "UPDATE channels SET videos_last_30=?, median_views_last_30=?, latest_upload_at=? "
-            "WHERE channel_id=? AND (videos_last_30 IS NOT ? OR median_views_last_30 IS NOT ? "
-            "                         OR latest_upload_at IS NOT ?)",
-            (count, median, latest, row["channel_id"], count, median, latest),
+            f"UPDATE channels SET {', '.join(f'{c}=?' for c in values)} WHERE channel_id=? AND ("
+            + " OR ".join(f"{c} IS NOT ?" for c in values)
+            + ")",
+            (*values.values(), row["channel_id"], *values.values()),
         )
         written += cur.rowcount
     return written

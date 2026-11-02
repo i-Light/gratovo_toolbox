@@ -65,3 +65,8 @@ export function clock(ts: number): string {
 export function shortDate(ts: number): string {
   return new Date(ts).toLocaleDateString(time.dateLocale, { month: "short", day: "numeric" });
 }
+
+/** A month as "Sep 2019", for dates that can be years back (a channel's start). */
+export function monthYear(ts: number): string {
+  return new Date(ts).toLocaleDateString(time.dateLocale, { month: "short", year: "numeric" });
+}

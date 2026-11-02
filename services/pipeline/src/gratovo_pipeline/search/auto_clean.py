@@ -36,6 +36,8 @@ class SignalSwept:
     subscribers: int | None
     median_views: int | None
     country: str | None
+    # Why, when it is the language rule: "main language es, not in the list". None otherwise.
+    reason: str | None = None
 
 
 @dataclasses.dataclass
@@ -80,6 +82,15 @@ def signals_verdict(bounds: SignalBounds | None, median: int | None, uploads: in
     return bounds.min_uploads_30 is not None and (uploads or 0) < bounds.min_uploads_30
 
 
+def language_verdict(bounds: SignalBounds | None, main_language: str | None) -> bool:
+    """True when the language rule is on and the channel's main language is known and outside
+    the list. An unknown language (None) is kept, never guessed."""
+    language = store.primary_language(main_language)
+    if bounds is None or bounds.languages is None or language is None:
+        return False
+    return language not in {store.primary_language(c) or c for c in bounds.languages}
+
+
 def sweep_by_signals(
     conn: sqlite3.Connection,
     bounds: SignalBounds | None,
@@ -107,7 +118,11 @@ def sweep_by_signals(
         ]
         if statuses and "success" not in statuses:
             continue
-        if not signals_verdict(bounds, row["median_views_last_30"], row["videos_last_30"]):
+        language = row.get("main_language")
+        by_language = language_verdict(bounds, language)
+        if not by_language and not signals_verdict(
+            bounds, row["median_views_last_30"], row["videos_last_30"]
+        ):
             continue
         subscribers = parse_subscribers(row["subscribers"])
         found_via = {"keyword": keyword, "limit": handles_limit, "discovered_at": store.utc_now()}
@@ -127,6 +142,7 @@ def sweep_by_signals(
                 subscribers,
                 row["median_views_last_30"],
                 row["country"],
+                f"main language {language}, not in the list" if by_language else None,
             )
         )
     return swept

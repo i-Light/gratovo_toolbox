@@ -60,10 +60,12 @@ def process_keyword(search: Search, keyword: str) -> KeywordResult:
     if never:
         discovered = {h: cid for h, cid in discovered.items() if h not in never}
     fresh, known, archived = store.partition_discovered(conn, discovered)
-    store.record_keyword_links(conn, known, keyword)
+    store.record_keyword_links(conn, known, keyword, searched.positions)
     store.record_archive_keyword_links(conn, archived, keyword, cfg.handles_limit)
     for handle, channel_id in fresh.items():
-        store.record_channel_discovery(conn, handle, channel_id, keyword)
+        store.record_channel_discovery(
+            conn, handle, channel_id, keyword, searched.positions.get(channel_id)
+        )
     if never:
         search.info(
             f"Skipped {len(known)} known, {len(archived)} archived and {len(never)} "
@@ -223,6 +225,8 @@ def _judge(
     )
     gone = {s.channel_id for s in swept}
     for s in swept:
+        if s.reason:
+            search.info(f"{s.handle}: {s.reason}; archived.")
         search.events.channel(
             keyword=keyword,
             channel_id=s.channel_id,

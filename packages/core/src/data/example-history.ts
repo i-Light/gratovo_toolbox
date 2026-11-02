@@ -244,6 +244,101 @@ export interface HistoryChannelRow {
   unreadable_until: string | null;
   median_known: number | null;
   videos_last_30_known: number | null;
+  /** S3 facts the pipeline's `example.load` reads (null: not known). */
+  main_language: string | null;
+  main_language_basis: string | null;
+  /** JSON `{topic: videos}`. */
+  topic_counts: string;
+  total_views: number;
+  video_count: number;
+  started_at: string;
+  median_likes: number;
+  median_comments: number;
+  engagement_rate: number;
+  median_duration_s: number;
+  shorts_share: number;
+  paid_share: number;
+}
+
+/** Deterministic unit floats from a channel id, so these facts never move the main generator's draws. */
+function factsUnits(key: string): () => number {
+  let h = 2166136261;
+  for (let i = 0; i < key.length; i++) {
+    h = Math.imul(h ^ key.charCodeAt(i), 16777619);
+  }
+  return () => {
+    h = (Math.imul(h ^ (h >>> 15), 2246822507) + 0x9e3779b9) | 0;
+    return ((h ^ (h >>> 13)) >>> 0) / 4294967296;
+  };
+}
+
+const factsTopics = [
+  "Technology",
+  "Knowledge",
+  "Software",
+  "Science",
+  "Entertainment",
+  "Education",
+];
+
+/** The S3 channel facts for an example channel, AI niche, from its id and subscriber text. */
+function channelFacts(
+  id: string,
+  subscribers: string,
+  firstSeenAt: string,
+): Pick<
+  HistoryChannelRow,
+  | "main_language"
+  | "main_language_basis"
+  | "topic_counts"
+  | "total_views"
+  | "video_count"
+  | "started_at"
+  | "median_likes"
+  | "median_comments"
+  | "engagement_rate"
+  | "median_duration_s"
+  | "shorts_share"
+  | "paid_share"
+> {
+  const u = factsUnits(id);
+  const subs = Number.parseInt(subscribers, 10) || 50_000;
+  const pickLang = u();
+  const language =
+    pickLang < 0.62
+      ? "en"
+      : pickLang < 0.72
+        ? "es"
+        : pickLang < 0.8
+          ? "pt"
+          : pickLang < 0.86
+            ? "hi"
+            : null;
+  const videoCount = 40 + Math.floor(u() * 460);
+  const basisN = 4 + Math.floor(u() * 9);
+  const basisOf = basisN + Math.floor(u() * 3);
+  const topicA = 6 + Math.floor(u() * 10);
+  const topicB = 1 + Math.floor(u() * 5);
+  const second = factsTopics[1 + Math.floor(u() * (factsTopics.length - 1))] ?? "Knowledge";
+  const medianViews = Math.round(subs * (0.03 + u() * 0.12));
+  const engagement = Math.round((0.01 + u() * 0.07) * 1000) / 1000;
+  const likes = Math.round(medianViews * engagement * 0.85);
+  return {
+    main_language: language,
+    main_language_basis: language === null ? null : `audio ${String(basisN)}/${String(basisOf)}`,
+    topic_counts: JSON.stringify({ Technology: topicA, [second]: topicB }),
+    total_views: medianViews * videoCount * 2,
+    video_count: videoCount,
+    started_at: new Date(Date.parse(firstSeenAt) - (200 + Math.floor(u() * 2600)) * 86_400_000)
+      .toISOString()
+      .replace(/\.\d+Z$/, "Z"),
+    median_likes: likes,
+    median_comments: Math.round(likes * (0.04 + u() * 0.08)),
+    engagement_rate: engagement,
+    median_duration_s: 240 + Math.floor(u() * 1200),
+    shorts_share: Math.round(u() * 0.6 * 100) / 100,
+    paid_share: Math.round(u() * 0.3 * 100) / 100,
+  };
 }
 
 /** A video of a catalog channel (the pipeline's `videos` table). */
@@ -1862,6 +1957,7 @@ function build(now: number, broke: boolean): ExampleHistory {
       unreadable_until: cr.read === 2 ? iso(now + rng.int(1, 3) * DAY) : null,
       median_known: cr.read >= 2 ? Math.round(rng.float(3_000, 60_000)) : null,
       videos_last_30_known: cr.read >= 2 ? rng.int(2, 12) : null,
+      ...channelFacts(cr.id, cr.subs === null ? "" : str(cr.subs), foundIso),
     });
   }
 
@@ -1902,6 +1998,7 @@ function build(now: number, broke: boolean): ExampleHistory {
       unreadable_until: null,
       median_known: null,
       videos_last_30_known: null,
+      ...channelFacts(channel.id, str(channel.subscribers), iso(channel.foundAt)),
     });
     channel.videos.forEach((video, n) => {
       videos.push({

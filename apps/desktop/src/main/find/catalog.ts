@@ -16,9 +16,11 @@ import {
   sortFoundEmails,
   starRating,
   trimmedAverage,
+  unknownLanguage,
   viewStability,
   type CatalogItem,
   type CatalogVideo,
+  type ChannelFacts,
   type FoundEmail,
 } from "@gratovo/core/find";
 
@@ -39,6 +41,8 @@ const itemVideos = 15;
 const factVideos = 12;
 const listVideos = 3;
 const sponsorMax = 50;
+/** Topics an item carries (the card shows the first). */
+const topicsShown = 3;
 /** Failed reads after which the pipeline stops retrying a channel (`READ_GIVE_UP`). */
 const readGiveUp = 3;
 const descriptionMax = 5000;
@@ -68,6 +72,108 @@ function countryOf(text: string | null): string | null {
   return countryPattern.test(code) ? code : null;
 }
 
+const languagePattern = /^[a-z]{2}$/;
+
+/** A language tag's two-letter primary subtag, lower case ("en-US" is "en"); anything else is none. */
+function languageOf(text: string | null | undefined): string | null {
+  const raw = (text ?? "").trim().toLowerCase().split(/[-_]/)[0] ?? "";
+  // YouTube still sends the retired ISO 639 codes for these three.
+  const code = ({ iw: "he", in: "id", ji: "yi" } as Record<string, string>)[raw] ?? raw;
+  return languagePattern.test(code) && code !== unknownLanguage ? code : null;
+}
+
+/** `{name: n}` as a list: the entries with a positive whole count, most common first, name breaking ties. */
+function topicCountsOf(text: string | null | undefined): { name: string; count: number }[] {
+  if (text === null || text === undefined) {
+    return [];
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return [];
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    return [];
+  }
+  const entries: { name: string; count: number }[] = [];
+  for (const [name, n] of Object.entries(parsed)) {
+    if (name.trim() !== "" && typeof n === "number" && Number.isInteger(n) && n > 0) {
+      entries.push({ name: name.trim().slice(0, 100), count: n });
+    }
+  }
+  return entries.sort((a, b) => b.count - a.count || (a.name < b.name ? -1 : 1));
+}
+
+/** The channel columns schema 7 added (S3); `item()` reads them defensively. */
+const factColumnNames = [
+  "main_language",
+  "main_language_basis",
+  "topic_counts",
+  "total_views",
+  "video_count",
+  "started_at",
+  "median_likes",
+  "median_comments",
+  "engagement_rate",
+  "median_duration_s",
+  "shorts_share",
+  "paid_share",
+] as const;
+
+/** `col` when the table has it, else `NULL AS col`, for each of the columns. */
+function selectColumns(present: ReadonlySet<string>, names: readonly string[]): string {
+  return names.map((name) => (present.has(name) ? name : `NULL AS ${name}`)).join(", ");
+}
+
+function channelColumnSet(db: DatabaseSync): Set<string> {
+  return new Set(
+    (db.prepare("PRAGMA table_info(channels)").all() as unknown as { name: string }[]).map(
+      (column) => column.name,
+    ),
+  );
+}
+
+/** A finite number of at least 0, or null. */
+function ratioOf(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null;
+}
+
+interface FactsRow {
+  main_language: string | null;
+  main_language_basis: string | null;
+  topic_counts: string | null;
+  total_views: string | number | null;
+  video_count: string | number | null;
+  started_at: string | null;
+  median_likes: string | number | null;
+  median_comments: string | number | null;
+  engagement_rate: number | null;
+  median_duration_s: string | number | null;
+  shorts_share: number | null;
+  paid_share: number | null;
+}
+
+/** The channel's facts as the record shows them; a value is null when its column is or is missing. */
+function factsOf(row: FactsRow | undefined): ChannelFacts {
+  const shorts = ratioOf(row?.shorts_share);
+  const paid = ratioOf(row?.paid_share);
+  return {
+    language: languageOf(row?.main_language),
+    languageBasis: row?.main_language_basis?.trim().slice(0, 40) || null,
+    topics: topicCountsOf(row?.topic_counts).slice(0, 20),
+    totalViews: count(row?.total_views ?? null),
+    videoCount: count(row?.video_count ?? null),
+    startedAt: parseTime(row?.started_at ?? null),
+    medianLikes: count(row?.median_likes ?? null),
+    medianComments: count(row?.median_comments ?? null),
+    engagementRate: ratioOf(row?.engagement_rate),
+    medianDurationS: count(row?.median_duration_s ?? null),
+    shortsShare: shorts === null ? null : Math.min(1, shorts),
+    paidShare: paid === null ? null : Math.min(1, paid),
+  };
+}
+
 interface ChannelRow {
   channel_id: string;
   handle: string | null;
@@ -86,6 +192,9 @@ interface ChannelRow {
   /** Null when the file is older than schema 3 and has no such column. */
   found_email_sources: string | null;
   read_failures: number | null;
+  /** Null when the file is older than schema 7. */
+  main_language: string | null;
+  topic_counts: string | null;
 }
 
 interface VideoRow {
@@ -220,11 +329,7 @@ function build(dbPath: string | null, states: readonly CreatorState[], now: numb
     const db = new DatabaseSync(dbPath, { readOnly: true });
     try {
       // Schema 3 added `found_email_sources`; an older file has no such column.
-      const channelColumns = new Set(
-        (db.prepare("PRAGMA table_info(channels)").all() as unknown as { name: string }[]).map(
-          (column) => column.name,
-        ),
-      );
+      const channelColumns = channelColumnSet(db);
       const hasSources = channelColumns.has("found_email_sources");
       // The pipeline's own count of failed reads (schema 4+); an older file has none.
       const hasFailures = channelColumns.has("read_failures");
@@ -234,7 +339,8 @@ function build(dbPath: string | null, states: readonly CreatorState[], now: numb
             `SELECT channel_id, handle, name, subscribers, profile_picture, country, first_seen_at,
                videos_fetched_at, videos_last_30, median_views_last_30, latest_upload_at, seen_brands, found_emails,
                ${hasSources ? "found_email_sources" : "NULL AS found_email_sources"},
-               ${hasFailures ? "read_failures" : "NULL AS read_failures"}
+               ${hasFailures ? "read_failures" : "NULL AS read_failures"},
+               ${selectColumns(channelColumns, ["main_language", "topic_counts"])}
              FROM channels`,
           )
           .all() as unknown as ChannelRow[]),
@@ -331,6 +437,10 @@ function build(dbPath: string | null, states: readonly CreatorState[], now: numb
       medianViews,
       uploads30,
       country: countryOf(channel.country),
+      language: languageOf(channel.main_language),
+      topics: topicCountsOf(channel.topic_counts)
+        .slice(0, topicsShown)
+        .map((topic) => topic.name),
       sponsors: sponsorsOf(channel.seen_brands),
       emails: emailsOf(channel.found_emails, channel.found_email_sources),
       latestUploadAt: parseTime(channel.latest_upload_at),
@@ -375,6 +485,8 @@ function build(dbPath: string | null, states: readonly CreatorState[], now: numb
       medianViews: 0,
       uploads30: 0,
       country: null,
+      language: null,
+      topics: [],
       sponsors: [],
       emails: [],
       latestUploadAt: null,
@@ -499,6 +611,7 @@ export function createCatalog(deps: CatalogDeps): Catalog {
       }
       let description = "";
       let videos = row.videos;
+      let channelFacts = factsOf(undefined);
       const path = deps.pipelineDbPath();
       if (row.hasNumbers && path !== null && existsSync(path)) {
         const db = new DatabaseSync(path, { readOnly: true });
@@ -507,6 +620,13 @@ export function createCatalog(deps: CatalogDeps): Catalog {
             .prepare("SELECT description FROM channels WHERE channel_id = ?")
             .get(id) as { description: string | null } | undefined;
           description = (text?.description ?? "").slice(0, descriptionMax);
+          channelFacts = factsOf(
+            db
+              .prepare(
+                `SELECT ${selectColumns(channelColumnSet(db), factColumnNames)} FROM channels WHERE channel_id = ?`,
+              )
+              .get(id) as unknown as FactsRow | undefined,
+          );
           videos = (
             db
               .prepare(
@@ -530,6 +650,7 @@ export function createCatalog(deps: CatalogDeps): Catalog {
           ...row,
           fit: fitOf(row),
           description,
+          channelFacts,
           videos: [...videos],
           notes: full.slice(0, notesMax),
           notesCut: full.length > notesMax,

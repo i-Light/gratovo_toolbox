@@ -96,6 +96,7 @@ export function filterIsActive(f: FindFilter): boolean {
     f.stages.length > 0 ||
     f.signals.length > 0 ||
     f.countries.length > 0 ||
+    f.languages.length > 0 ||
     f.minMedian > 0 ||
     f.maxMedian !== null ||
     f.minUploads > 0 ||

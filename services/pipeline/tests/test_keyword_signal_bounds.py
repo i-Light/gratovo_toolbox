@@ -10,6 +10,7 @@ from fakes import Events, FakeSource, channel_info, make_search
 from test_keyword import KW, MID, source_with
 
 from gratovo_pipeline import run_control, store
+from gratovo_pipeline.config import SignalBounds
 from gratovo_pipeline.search import auto_clean, keyword
 from gratovo_pipeline.search.context import Search, SearchBlockedError
 from gratovo_pipeline.youtube import YouTubeError
@@ -163,3 +164,61 @@ def test_a_failed_judgement_after_a_clean_sweep_propagates(
 
     with pytest.raises(sqlite3.OperationalError):
         run(conn, source_with(MID), minMedianViews=1)
+
+
+# --- the language rule (step S3, L7) ---
+
+
+def with_language(conn: sqlite3.Connection, language: str | None) -> None:
+    """Kept MID, its rollup already run, with `main_language` set by hand."""
+    run(conn, source_with(MID), minMedianViews=None, minUploads30=None)
+    if "main_language" not in {r[1] for r in conn.execute("PRAGMA table_info(channels)")}:
+        conn.execute("ALTER TABLE channels ADD COLUMN main_language TEXT")
+    conn.execute("UPDATE channels SET main_language=? WHERE channel_id='UC_mid'", (language,))
+
+
+def sweep(conn: sqlite3.Connection, languages: frozenset[str] | None, **bounds: int | None) -> int:
+    signal_bounds = SignalBounds(
+        bounds.get("median"), bounds.get("uploads"), "irrelevant", languages
+    )
+    swept = auto_clean.sweep_by_signals(
+        conn, signal_bounds, ["UC_mid"], keyword=KW, handles_limit=200
+    )
+    return len(swept)
+
+
+def test_a_known_language_outside_the_list_is_swept(conn: sqlite3.Connection) -> None:
+    with_language(conn, "es")
+    assert sweep(conn, frozenset({"en"})) == 1
+    assert store.is_archived(conn, "UC_mid")
+    assert label_of(conn) == "irrelevant"
+
+
+def test_the_language_sweep_says_why(conn: sqlite3.Connection) -> None:
+    with_language(conn, "es")
+    swept = auto_clean.sweep_by_signals(
+        conn,
+        SignalBounds(None, None, "irrelevant", frozenset({"en"})),
+        ["UC_mid"],
+        keyword=KW,
+        handles_limit=200,
+    )
+    assert swept[0].reason == "main language es, not in the list"
+
+
+def test_a_known_language_inside_the_list_is_kept(conn: sqlite3.Connection) -> None:
+    with_language(conn, "en")
+    assert sweep(conn, frozenset({"en", "es"})) == 0
+    assert not store.is_archived(conn, "UC_mid")
+
+
+def test_an_unknown_language_is_kept(conn: sqlite3.Connection) -> None:
+    with_language(conn, None)
+    assert sweep(conn, frozenset({"en"})) == 0
+    assert not store.is_archived(conn, "UC_mid")
+
+
+def test_no_languages_is_off(conn: sqlite3.Connection) -> None:
+    with_language(conn, "es")
+    assert sweep(conn, None, median=1) == 0
+    assert not store.is_archived(conn, "UC_mid")

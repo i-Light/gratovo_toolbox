@@ -16,6 +16,7 @@ import {
   type Draft,
   type Errors,
 } from "./search-rules/draft";
+import { LanguagesRow } from "./search-rules/languages-row";
 import { NumberField } from "./search-rules/number-field";
 import { Problem } from "./search-rules/problem";
 import { Row } from "./row";
@@ -124,6 +125,7 @@ export function SearchRulesSection() {
         )}
       </div>
       <CountriesRow draft={draft} rules={rules} countryList={countryList} set={set} />
+      <LanguagesRow draft={draft} rules={rules} set={set} />
       <Row
         id="rulesMedian"
         label={rows.rulesMedian.label}

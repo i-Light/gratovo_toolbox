@@ -39,6 +39,7 @@ export function defaultRules(): FindRules {
     minUploads30: null,
     archiveDays: 7,
     continuous: false,
+    languages: [],
   };
 }
 
@@ -63,6 +64,8 @@ const fileSchema = z.strictObject({
     minUploads30: ruleShape.minUploads30.default(null),
     archiveDays: ruleShape.archiveDays.default(7),
     continuous: ruleShape.continuous.default(false),
+    // A file from before S3 has no language rule.
+    languages: ruleShape.languages.default([]),
   }),
 });
 

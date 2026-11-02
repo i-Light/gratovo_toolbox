@@ -3,7 +3,13 @@ import { describe, expect, it } from "vitest";
 
 import { channels, parseRequest } from "./channels";
 import { appEvents } from "./events";
-import { catalogItemSchema, findQueryResultSchema, findStateSchema } from "./find";
+import {
+  catalogItemSchema,
+  facetsSchema,
+  findFilterSchema,
+  findQueryResultSchema,
+  findStateSchema,
+} from "./find";
 
 const state = {
   queue: [
@@ -28,6 +34,7 @@ const state = {
     minUploads30: null,
     archiveDays: 7,
     continuous: false,
+    languages: [],
   },
   run: { state: "paused", found: 12, kept: 4, swept: 3, error: null, wait: null },
   log: [{ at: 1_000, level: "info", text: "keyword done" }],
@@ -43,6 +50,49 @@ const state = {
     },
   ],
 };
+
+const noFacts = {
+  language: null,
+  languageBasis: null,
+  topics: [],
+  totalViews: null,
+  videoCount: null,
+  startedAt: null,
+  medianLikes: null,
+  medianComments: null,
+  engagementRate: null,
+  medianDurationS: null,
+  shortsShare: null,
+  paidShare: null,
+};
+
+describe("the language rule and facet", () => {
+  it("takes two-letter lower-case codes in the rules, at most 20", () => {
+    const rules = findStateSchema.shape.rules;
+    const base = { ...state.rules };
+    expect(rules.safeParse({ ...base, languages: ["en", "es"] }).success).toBe(true);
+    expect(rules.safeParse({ ...base, languages: ["EN"] }).success).toBe(false);
+    expect(rules.safeParse({ ...base, languages: ["eng"] }).success).toBe(false);
+    expect(rules.safeParse({ ...base, languages: Array(21).fill("en") }).success).toBe(false);
+  });
+
+  it("reads a saved filter without languages as any language", () => {
+    const { languages, ...old } = emptyFindFilter;
+    expect(languages).toEqual([]);
+    expect(findFilterSchema.parse(old)).toEqual(emptyFindFilter);
+    expect(findFilterSchema.safeParse({ ...old, languages: ["en", "xx"] }).success).toBe(true);
+    expect(findFilterSchema.safeParse({ ...old, languages: ["english"] }).success).toBe(false);
+  });
+
+  it("checks the language facet's keys", () => {
+    expect(facetsSchema.safeParse({ ...emptyFacets, languages: { en: 3, xx: 1 } }).success).toBe(
+      true,
+    );
+    expect(facetsSchema.safeParse({ ...emptyFacets, languages: { English: 3 } }).success).toBe(
+      false,
+    );
+  });
+});
 
 describe("findStateSchema", () => {
   it("takes the waiting state with its reason and time, and refuses a bad one", () => {
@@ -154,6 +204,8 @@ describe("the catalog channels", () => {
     medianViews: 52_000,
     uploads30: 8,
     country: "US",
+    language: "en",
+    topics: ["AI tools"],
     sponsors: ["Codewell"],
     emails: [
       {
@@ -243,6 +295,7 @@ describe("the catalog channels", () => {
       ...item,
       fit,
       description: "AI tools, weekly.",
+      channelFacts: noFacts,
       videos: Array(15).fill(video),
     };
     expect(response.safeParse({ item: detail }).success).toBe(false);

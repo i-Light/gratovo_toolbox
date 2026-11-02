@@ -1,9 +1,10 @@
 import type { CreatorStage } from "@gratovo/core/data";
 import type { ChannelResponse } from "@gratovo/ipc";
-import { findSignals, type Facets, type FindFilter } from "@gratovo/core/find";
+import { findSignals, unknownLanguage, type Facets, type FindFilter } from "@gratovo/core/find";
 import { Icon } from "@gratovo/ui";
 import type { ReactNode } from "react";
 
+import { languageName } from "../lib/language";
 import { patchGalleryFilter, runLabel, toggleIn } from "../lib/find-gallery-state";
 import { strings } from "../strings";
 
@@ -80,6 +81,18 @@ export function countryOptions(
   return [...top, ...chosen.filter((code) => !top.includes(code))];
 }
 
+/** The language codes to show: the most common first, the unknown group last, any chosen one kept. */
+export function languageOptions(
+  counts: Readonly<Record<string, number>>,
+  chosen: readonly string[],
+): string[] {
+  const codes = [...new Set([...Object.keys(counts), ...chosen])];
+  const rank = (code: string): number => (code === unknownLanguage ? 1 : 0);
+  return codes.sort(
+    (a, b) => rank(a) - rank(b) || (counts[b] ?? 0) - (counts[a] ?? 0) || a.localeCompare(b),
+  );
+}
+
 /** The filters beside the results (D20): each shows how many channels it would leave. */
 export function GalleryFacets({
   filter,
@@ -96,6 +109,7 @@ export function GalleryFacets({
     .filter((r) => r.kept > 0 || filter.runs.includes(r.id) || (facets.runs[String(r.id)] ?? 0) > 0)
     .sort((a, b) => b.startedAt - a.startedAt);
   const countries = countryOptions(facets.countries, filter.countries);
+  const languages = languageOptions(facets.languages, filter.languages);
   return (
     <aside className="facets" data-ui="find.gallery.facets" aria-label={text.filtersLabel}>
       <Facet title={text.facets.stage}>
@@ -149,6 +163,33 @@ export function GalleryFacets({
           })}
         </div>
       </Facet>
+      {languages.length === 0 ? null : (
+        <Facet title={text.facets.language}>
+          <div className="fchips">
+            {languages.map((code) => {
+              const n = facets.languages[code] ?? 0;
+              const on = filter.languages.includes(code);
+              const name = languageName(code);
+              return (
+                <button
+                  key={code}
+                  type="button"
+                  className="chip"
+                  aria-pressed={on}
+                  disabled={!on && n === 0}
+                  data-tip={text.facets.languageTip(name, n)}
+                  onClick={() => {
+                    patchGalleryFilter({ languages: toggleIn(filter.languages, code) });
+                  }}
+                >
+                  {name}
+                  <span className="c">{n}</span>
+                </button>
+              );
+            })}
+          </div>
+        </Facet>
+      )}
       <Facet title={text.facets.median}>
         <div className="fchips">
           {text.medianOptions.map(([value, label]) => (

@@ -29,6 +29,8 @@ export function aiChannel(id: string, name: string, over: Partial<CatalogItem> =
     medianViews: 41_000,
     uploads30: 6,
     country: "US",
+    language: "en",
+    topics: ["AI tools"],
     sponsors: ["Notion AI", "Descript"],
     emails: [
       { email: `biz@${slug}.ai`, source: "about", videos: 0, business: true, confidence: 0.95 },

@@ -123,7 +123,7 @@ def test_channels_are_asked_for_in_one_batched_call(rec: Recorder) -> None:
         "www.googleapis.com",
         "/youtube/v3/channels",
     )
-    assert opener.query() == {"id": ["UCa,UCb"], "part": ["snippet,statistics,brandingSettings"]}
+    assert opener.query() == {"id": ["UCa,UCb"], "part": [youtube.CHANNEL_PARTS]}
     assert opener.timeouts == [youtube.TIMEOUT]
 
 
@@ -131,7 +131,7 @@ def test_videos_are_asked_for_in_one_batched_call(rec: Recorder) -> None:
     opener = FakeOpener({"items": []})
     api(opener, rec).videos(["v1", "v2"])
     assert urlsplit(opener.requests[0].full_url).path == "/youtube/v3/videos"
-    assert opener.query() == {"id": ["v1,v2"], "part": ["snippet,statistics"]}
+    assert opener.query() == {"id": ["v1,v2"], "part": [youtube.VIDEO_PARTS]}
 
 
 def test_more_than_fifty_ids_is_a_caller_bug(rec: Recorder) -> None:
@@ -171,6 +171,14 @@ def test_a_channel_is_read_into_the_store_shape(rec: Recorder) -> None:
             "Profile_Picture": "https://yt3.example/ai.jpg",
             "Banner": "https://yt3.example/banner.jpg",
             "Country": "US",
+            "Total_Views": None,
+            "Video_Count": None,
+            "Subscribers_Hidden": None,
+            "Started_At": None,
+            "Default_Language": None,
+            "Topics": [],
+            "Uploads_Playlist": None,
+            "Made_For_Kids": None,
         }
     }
 
@@ -211,6 +219,17 @@ def test_a_video_is_read_into_the_store_shape(rec: Recorder) -> None:
             "Tags": ["ai agents", "coding"],
             "PublishedAt": "2026-10-01T12:00:00Z",
             "ViewCount": "120345",
+            "AudioLanguage": None,
+            "DefaultLanguage": None,
+            "CategoryId": None,
+            "LiveContent": None,
+            "LikeCount": None,
+            "CommentCount": None,
+            "DurationS": None,
+            "HasCaptions": None,
+            "MadeForKids": None,
+            "Topics": [],
+            "PaidPlacement": None,
         }
     }
 
@@ -318,7 +337,7 @@ def test_a_handle_is_looked_up_in_one_call(rec: Recorder) -> None:
     assert url.path == "/youtube/v3/channels"
     assert opener.query() == {
         "forHandle": ["@aitoolsweekly"],
-        "part": ["snippet,statistics,brandingSettings"],
+        "part": [youtube.CHANNEL_PARTS],
     }
     assert found is not None
     channel_id, info = found

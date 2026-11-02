@@ -1062,3 +1062,20 @@ def test_a_later_until_is_told_again_while_a_wait_is_out() -> None:
     counter.wait("routes", "2026-11-02T08:09:00Z")
     counter.wait("routes", "2026-11-02T08:07:00Z")
     assert [e[2] for e in told.events] == ["2026-11-02T08:05:00Z", "2026-11-02T08:09:00Z"]
+
+
+# --- the language rule (step S3, L7) ---
+
+
+def test_languages_parse_to_themselves(protocol_schema: dict[str, Any]) -> None:
+    message = changed("job.rules.languages", ["en", "es"])
+    assert schema_errors(protocol_schema["toPipeline"], message) == []
+    assert parse_start(json.dumps(message)) == message
+
+
+@pytest.mark.parametrize(
+    "value", [["EN"], ["eng"], ["e"], [1], "en", [f"a{chr(98 + i)}" for i in range(21)]]
+)
+def test_bad_languages_are_refused(value: object) -> None:
+    with pytest.raises(BadStartError):
+        parse_start(json.dumps(changed("job.rules.languages", value)))

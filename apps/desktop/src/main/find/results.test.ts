@@ -30,6 +30,7 @@ const open: FindState["rules"] = {
   minUploads30: null,
   archiveDays: 7,
   continuous: false,
+  languages: [],
 };
 
 describe("readKept", () => {

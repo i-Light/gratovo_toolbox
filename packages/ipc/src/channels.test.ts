@@ -168,6 +168,7 @@ describe("rules:set", () => {
     minUploads30: null,
     archiveDays: 7,
     continuous: false,
+    languages: [],
   };
 
   it("takes the whole rules, with the median, uploads and archive rules", () => {

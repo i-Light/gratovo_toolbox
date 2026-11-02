@@ -10,6 +10,7 @@ import {
   toggleIn,
   runLabels,
 } from "../lib/find-gallery-state";
+import { languageName } from "../lib/language";
 import { strings } from "../strings";
 import { SavedViews } from "./saved-views";
 
@@ -51,6 +52,15 @@ export function activeChips(
       label: text.chips.country(f.countries.join(text.chips.or)),
       remove: () => {
         patchGalleryFilter({ countries: [] });
+      },
+    });
+  }
+  if (f.languages.length > 0) {
+    chips.push({
+      key: "languages",
+      label: text.chips.language(f.languages.map(languageName).join(text.chips.or)),
+      remove: () => {
+        patchGalleryFilter({ languages: [] });
       },
     });
   }

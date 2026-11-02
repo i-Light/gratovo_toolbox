@@ -28,7 +28,7 @@ _PLAIN_FILE = re.compile(r"(?!.*\.\.)[A-Za-z0-9_-][A-Za-z0-9._-]{0,99}")
 _DEVICE = re.compile(r"(?i)(CON|PRN|AUX|NUL|COM[0-9]|LPT[0-9])(\..*)?")
 _NON_ALNUM = re.compile(r"[^a-z0-9]")
 
-_CHANNEL_COLUMNS: Final = (
+_CHANNEL_REQUIRED: Final = (
     "channel_id",
     "handle",
     "name",
@@ -48,6 +48,22 @@ _CHANNEL_COLUMNS: Final = (
     "median_known",
     "videos_last_30_known",
 )
+# Rollup columns an older history file lacks: they load as NULL.
+_CHANNEL_OPTIONAL: Final = (
+    "main_language",
+    "main_language_basis",
+    "topic_counts",
+    "total_views",
+    "video_count",
+    "started_at",
+    "median_likes",
+    "median_comments",
+    "engagement_rate",
+    "median_duration_s",
+    "shorts_share",
+    "paid_share",
+)
+_CHANNEL_COLUMNS: Final = (*_CHANNEL_REQUIRED, *_CHANNEL_OPTIONAL)
 _VIDEO_COLUMNS: Final = ("video_id", "channel_id", "title", "published_at", "view_count")
 _KEYWORD_COLUMNS: Final = ("keyword", "status", "channels_found", "added_at", "completed_at")
 _LINK_COLUMNS: Final = ("channel_id", "keyword", "discovered_at", "source")
@@ -90,8 +106,10 @@ def _insert(table: str, columns: tuple[str, ...]) -> str:
     return f"INSERT INTO {table} ({', '.join(columns)}) VALUES ({marks})"  # noqa: S608
 
 
-def _rows(items: list[dict[str, Any]], columns: tuple[str, ...]) -> list[tuple[Any, ...]]:
-    return [tuple(item[c] for c in columns) for item in items]
+def _rows(
+    items: list[dict[str, Any]], columns: tuple[str, ...], optional: tuple[str, ...] = ()
+) -> list[tuple[Any, ...]]:
+    return [tuple(item.get(c) if c in optional else item[c] for c in columns) for item in items]
 
 
 def _stamp(ms: int) -> str:
@@ -191,7 +209,10 @@ def load(conn: sqlite3.Connection, history: dict[str, Any]) -> ExampleLoadData:
     archive_rows = expand_archive(cast("dict[str, Any]", history["archive"]), pending)
     conn.execute("BEGIN IMMEDIATE")
     try:
-        conn.executemany(_insert("channels", _CHANNEL_COLUMNS), _rows(channels, _CHANNEL_COLUMNS))
+        conn.executemany(
+            _insert("channels", _CHANNEL_COLUMNS),
+            _rows(channels, _CHANNEL_COLUMNS, _CHANNEL_OPTIONAL),
+        )
         # The stamp a read leaves: the channel's own `videos_fetched_at` (or the video's date).
         fetched = {c["channel_id"]: c["videos_fetched_at"] for c in channels}
         conn.executemany(

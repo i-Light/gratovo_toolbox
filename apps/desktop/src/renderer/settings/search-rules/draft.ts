@@ -19,6 +19,7 @@ export const labelMax = 40;
 /** What the form holds: every number as the text typed, so a half-typed value is not lost. */
 export interface Draft {
   readonly countries: readonly string[];
+  readonly languages: readonly string[];
   readonly median: string;
   readonly uploads: string;
   readonly perKeyword: string;
@@ -32,12 +33,13 @@ export interface Draft {
   readonly label: string;
 }
 
-type Field = "median" | "uploads" | "perKeyword" | "archive" | "band";
+type Field = "languages" | "median" | "uploads" | "perKeyword" | "archive" | "band";
 export type Errors = Partial<Record<Field, string>>;
 
 export function draftOf(rules: Rules): Draft {
   return {
     countries: rules.countries,
+    languages: rules.languages,
     median: rules.minMedianViews === null ? "" : String(rules.minMedianViews),
     uploads: rules.minUploads30 === null ? "" : String(rules.minUploads30),
     perKeyword: String(rules.perKeyword),
@@ -86,6 +88,11 @@ export function checkDraft(
   if (archive === null) {
     errors.archive = text.errArchive;
   }
+  if (draft.languages.length > 20) {
+    errors.languages = text.languagesTooMany;
+  } else if (draft.languages.some((code) => !/^[a-z]{2}$/.test(code))) {
+    errors.languages = text.languagesCode;
+  }
   const minSubs = whole(draft.minSubs, 0, ruleCountMax);
   const maxSubs = whole(draft.maxSubs, 0, ruleCountMax);
   const label = draft.label.trim();
@@ -112,6 +119,7 @@ export function checkDraft(
     rules: {
       ...current,
       countries: [...draft.countries],
+      languages: [...draft.languages],
       perKeyword,
       minMedianViews: median,
       minUploads30: uploads,

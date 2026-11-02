@@ -17,6 +17,7 @@ import {
   viewNameMax,
   type CatalogItem,
   type CatalogVideo,
+  type ChannelFacts,
   type Facets,
   type FindFilter,
   type Fit,
@@ -32,6 +33,9 @@ const count = z.number().int().min(0).max(1_000_000);
 const ruleCount = z.number().int().min(0).max(100_000_000);
 /** A channel's subscribers or views, as main's protocol allows them. */
 const size = z.number().int().min(0).max(1_000_000_000_000);
+
+/** An ISO 639-1 language code, lower case. */
+const languageCode = z.string().regex(/^[a-z]{2}$/);
 
 const autoCleanAction = z.enum(["sweep", "delay", "off"]);
 
@@ -64,6 +68,8 @@ export const findRulesSchema = z.strictObject({
   archiveDays: z.number().int().min(1).max(90),
   /** Keep searching through an API quota stop: wait for the reset instead of ending the run. */
   continuous: z.boolean(),
+  /** Main language codes (ISO 639-1) a kept channel must have; empty = any (S3, L7). */
+  languages: z.array(languageCode).max(20),
 });
 
 /** A keyword the pipeline reports failed this many times stays `failed` until the owner retries. */
@@ -231,6 +237,8 @@ export const catalogItemShape = {
   medianViews: amount,
   uploads30: count,
   country: country.nullable(),
+  language: languageCode.nullable(),
+  topics: z.array(catalogText).max(3),
   sponsors: z.array(catalogText).max(50),
   emails: z.array(foundEmailSchema).max(foundEmailsMax),
   latestUploadAt: time.nullable(),
@@ -266,10 +274,26 @@ export const findQueryItemSchema: z.ZodType<CatalogItem & { fit: Fit }> = z.stri
 });
 
 /** `find:item`'s detail: the fit, the description, up to 15 videos and the notes (D24). */
+export const channelFactsSchema: z.ZodType<ChannelFacts> = z.strictObject({
+  language: languageCode.nullable(),
+  languageBasis: z.string().max(40).nullable(),
+  topics: z.array(z.strictObject({ name: catalogText, count })).max(20),
+  totalViews: size.nullable(),
+  videoCount: size.nullable(),
+  startedAt: time.nullable(),
+  medianLikes: size.nullable(),
+  medianComments: size.nullable(),
+  engagementRate: z.number().nonnegative().nullable(),
+  medianDurationS: size.nullable(),
+  shortsShare: z.number().min(0).max(1).nullable(),
+  paidShare: z.number().min(0).max(1).nullable(),
+});
+
 export const findItemDetailSchema: z.ZodType<
   CatalogItem & {
     fit: Fit;
     description: string;
+    channelFacts: ChannelFacts;
     videos: CatalogVideo[];
     notes: string;
     notesCut: boolean;
@@ -278,6 +302,7 @@ export const findItemDetailSchema: z.ZodType<
   ...catalogItemShape,
   fit: fitSchema,
   description: z.string().max(5000),
+  channelFacts: channelFactsSchema,
   videos: z.array(catalogVideoSchema).max(detailVideosMax),
   notes: z.string().max(notesMax),
   // True when the stored note is longer than `notesMax`: the page shows it read-only, so saving
@@ -285,10 +310,12 @@ export const findItemDetailSchema: z.ZodType<
   notesCut: z.boolean(),
 });
 
-export const findFilterSchema: z.ZodType<FindFilter, FindFilter> = z.strictObject({
+export const findFilterSchema: z.ZodType<FindFilter> = z.strictObject({
   stages: z.array(z.enum(creatorStages)).max(creatorStages.length),
   signals: z.array(z.enum(findSignals)).max(findSignals.length),
   countries: z.array(country).max(250),
+  // A filter saved before S3 has no languages.
+  languages: z.array(languageCode).max(250).default([]),
   minMedian: amount,
   maxMedian: amount.nullable(),
   minUploads: count,
@@ -297,7 +324,7 @@ export const findFilterSchema: z.ZodType<FindFilter, FindFilter> = z.strictObjec
 });
 
 /** A saved view: a trimmed name and a filter (D20). */
-export const savedViewSchema: z.ZodType<SavedView, SavedView> = z.strictObject({
+export const savedViewSchema: z.ZodType<SavedView> = z.strictObject({
   name: z.string().trim().min(1).max(viewNameMax),
   filter: findFilterSchema,
 });
@@ -334,6 +361,7 @@ export const facetsSchema: z.ZodType<Facets> = z.strictObject({
   stages: z.record(z.enum(creatorStages), facetCount),
   signals: z.record(z.enum(findSignals), facetCount),
   countries: openFacet(country),
+  languages: openFacet(languageCode),
   runs: openFacet(z.string().regex(/^\d{1,15}$/)),
 });
 

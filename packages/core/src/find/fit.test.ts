@@ -18,6 +18,8 @@ function makeItem(patch: Partial<CatalogItem> = {}): CatalogItem {
     medianViews: 41000,
     uploads30: 6,
     country: "US",
+    language: null,
+    topics: [],
     sponsors: [],
     emails: [],
     latestUploadAt: null,

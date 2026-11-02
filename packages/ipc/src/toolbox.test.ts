@@ -19,6 +19,8 @@ const item = {
   medianViews: 52_000,
   uploads30: 8,
   country: "US",
+  language: "en",
+  topics: ["AI tools"],
   sponsors: ["Codewell"],
   emails: [],
   latestUploadAt: 2,

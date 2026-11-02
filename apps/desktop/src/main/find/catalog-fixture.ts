@@ -19,6 +19,18 @@ CREATE TABLE channels (
     videos_last_30 INTEGER NOT NULL DEFAULT 0,
     median_views_last_30 INTEGER,
     latest_upload_at TEXT,
+    main_language TEXT,
+    main_language_basis TEXT,
+    topic_counts TEXT,
+    total_views INTEGER,
+    video_count INTEGER,
+    started_at TEXT,
+    median_likes INTEGER,
+    median_comments INTEGER,
+    engagement_rate REAL,
+    median_duration_s INTEGER,
+    shorts_share REAL,
+    paid_share REAL,
     sponsored_ratio REAL,
     seen_brands TEXT,
     found_emails TEXT,
@@ -81,8 +93,17 @@ CREATE TABLE archive_keyword_pending (
 );
 `;
 
+/** The channel columns schema 7 added (S3), as the DDL above lists them. */
+const factColumns =
+  /^ {4}(main_language|main_language_basis|topic_counts|total_views|video_count|started_at|median_likes|median_comments|engagement_rate|median_duration_s|shorts_share|paid_share) .*\n/gm;
+
+/** The tables as schema 6 had them: no language or channel-fact columns. */
+const ddlSchema6 = ddl.replace(/CREATE TABLE channels \([\s\S]*?\n\);/, (table) =>
+  table.replace(factColumns, ""),
+);
+
 /** The archive as schema 3 had it: none of the facts schema 4 added (D42). */
-const ddlSchema3Archive = ddl
+const ddlSchema3Archive = ddlSchema6
   .replace(",\n    read_failures INTEGER NOT NULL DEFAULT 0", "")
   .replace(
     /subscribers TEXT,\n {4}median_views_last_30 INTEGER,[\s\S]*?latest_upload_at TEXT\n\);\nCREATE TABLE runs/,
@@ -90,7 +111,7 @@ const ddlSchema3Archive = ddl
   );
 
 /** The tables as schema 2 had them: no `found_email_sources` column. */
-const ddlSchema2 = ddl.replace(
+const ddlSchema2 = ddlSchema6.replace(
   ",\n    found_email_sources TEXT,\n    read_failures INTEGER NOT NULL DEFAULT 0",
   "",
 );
@@ -115,6 +136,20 @@ export interface FixtureChannel {
   fetched?: string | null;
   /** `read_failures` (schema 4+); 3 or more means the pipeline gave up on it. */
   failures?: number;
+  /** The schema 7 columns (S3); ignored in a file built with `schema6`. */
+  language?: string | null;
+  languageBasis?: string | null;
+  /** The JSON in `topic_counts`, e.g. `{"Technology": 5}`. */
+  topicCounts?: string | null;
+  totalViews?: number | null;
+  videoCount?: number | null;
+  startedAt?: string | null;
+  medianLikes?: number | null;
+  medianComments?: number | null;
+  engagementRate?: number | null;
+  medianDuration?: number | null;
+  shortsShare?: number | null;
+  paidShare?: number | null;
 }
 
 export interface FixtureVideo {
@@ -161,6 +196,8 @@ export interface FixtureData {
   pending?: { channel: string; keyword: string; at: string }[];
   /** Build the archive as schema 3 had it, without the facts schema 4 added. */
   schema3?: boolean;
+  /** Build the file as schema 6 had it, without the language and channel-fact columns. */
+  schema6?: boolean;
   /** Build the file as schema 2 had it, without `found_email_sources`. */
   schema2?: boolean;
 }
@@ -171,13 +208,26 @@ export function writePipelineDb(path: string, data: FixtureData = {}): void {
   try {
     const old = data.schema2 === true;
     const hasFailures = !old && data.schema3 !== true;
-    db.exec(old ? ddlSchema2 : data.schema3 === true ? ddlSchema3Archive : ddl);
+    db.exec(
+      old
+        ? ddlSchema2
+        : data.schema3 === true
+          ? ddlSchema3Archive
+          : data.schema6 === true
+            ? ddlSchema6
+            : ddl,
+    );
+    const facts = !old && data.schema3 !== true && data.schema6 !== true;
     db.exec("BEGIN");
     const channel = db.prepare(
       `INSERT INTO channels (channel_id, handle, name, description, subscribers, profile_picture,
          country, first_seen_at, videos_fetched_at, videos_last_30, median_views_last_30, latest_upload_at,
-         seen_brands, found_emails${old ? "" : ", found_email_sources"}${hasFailures ? ", read_failures" : ""})
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?${old ? "" : ",?"}${hasFailures ? ",?" : ""})`,
+         seen_brands, found_emails${old ? "" : ", found_email_sources"}${hasFailures ? ", read_failures" : ""}${
+           facts
+             ? ", main_language, main_language_basis, topic_counts, total_views, video_count, started_at, median_likes, median_comments, engagement_rate, median_duration_s, shorts_share, paid_share"
+             : ""
+         })
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?${old ? "" : ",?"}${hasFailures ? ",?" : ""}${facts ? ",?,?,?,?,?,?,?,?,?,?,?,?" : ""})`,
     );
     for (const c of data.channels ?? []) {
       channel.run(
@@ -197,6 +247,22 @@ export function writePipelineDb(path: string, data: FixtureData = {}): void {
         c.emails ?? null,
         ...(old ? [] : [c.sources ?? null]),
         ...(hasFailures ? [c.failures ?? 0] : []),
+        ...(facts
+          ? [
+              c.language ?? null,
+              c.languageBasis ?? null,
+              c.topicCounts ?? null,
+              c.totalViews ?? null,
+              c.videoCount ?? null,
+              c.startedAt ?? null,
+              c.medianLikes ?? null,
+              c.medianComments ?? null,
+              c.engagementRate ?? null,
+              c.medianDuration ?? null,
+              c.shortsShare ?? null,
+              c.paidShare ?? null,
+            ]
+          : []),
       );
     }
     const video = db.prepare(

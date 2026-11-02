@@ -123,6 +123,8 @@ function row(id: string, over: Partial<CatalogItem> = {}): CatalogItem {
     medianViews: 0,
     uploads30: 0,
     country: null,
+    language: null,
+    topics: [],
     sponsors: [],
     emails: [],
     latestUploadAt: null,

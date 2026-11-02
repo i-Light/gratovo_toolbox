@@ -35,6 +35,8 @@ function item(id: string, name: string, stage: CatalogItem["stage"] = "new"): Ca
     medianViews: 40_000,
     uploads30: 6,
     country: "US",
+    language: null,
+    topics: [],
     sponsors: [],
     emails: [],
     latestUploadAt: null,

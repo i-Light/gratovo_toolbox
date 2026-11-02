@@ -113,6 +113,7 @@ describe("settingsRows", () => {
       "search/rulesPerKeyword",
       "search/rulesArchive",
       "search/rulesContinuous",
+      "search/rulesLanguages",
       "search/rulesBand",
       "writing/writingRules",
       "connections/connOld",
