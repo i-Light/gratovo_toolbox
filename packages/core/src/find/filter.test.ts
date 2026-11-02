@@ -17,6 +17,8 @@ function makeItem(patch: Partial<CatalogItem> = {}): CatalogItem {
     medianViews: 41000,
     uploads30: 6,
     country: "US",
+    language: null,
+    topics: [],
     sponsors: [],
     emails: [],
     latestUploadAt: null,
@@ -385,5 +387,24 @@ describe("queryCatalog", () => {
 
   it("returns an empty page for an empty catalog", () => {
     expect(queryCatalog([], emptyFindFilter, "fit", 0, 10)).toMatchObject({ total: 0, items: [] });
+  });
+});
+
+describe("the language filter and facet", () => {
+  const en = makeItem({ id: "en", language: "en" });
+  const es = makeItem({ id: "es", language: "es" });
+  const none = makeItem({ id: "none", language: null });
+
+  it("keeps the picked languages, and xx picks the unknown ones", () => {
+    expect(passes(en, filterWith({ languages: ["en"] }))).toBe(true);
+    expect(passes(es, filterWith({ languages: ["en"] }))).toBe(false);
+    expect(passes(none, filterWith({ languages: ["en"] }))).toBe(false);
+    expect(passes(none, filterWith({ languages: ["en", "xx"] }))).toBe(true);
+    expect(passes(none, filterWith({}))).toBe(true);
+  });
+
+  it("counts each language with the rest of the filter, ignoring its own pick", () => {
+    const counts = facetCounts([en, es, none], filterWith({ languages: ["en"] }));
+    expect(counts.languages).toEqual({ en: 1, es: 1, xx: 1 });
   });
 });

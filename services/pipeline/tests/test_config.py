@@ -278,3 +278,18 @@ def test_a_refetch_without_a_rule_or_with_it_off_cleans_nothing(clean: object) -
 def test_continuous_is_off_unless_the_rules_say_so() -> None:
     assert config().continuous is False
     assert config(job__rules__continuous=True).continuous is True
+
+
+# --- the language rule (step S3, L7) ---
+
+
+def test_languages_become_signal_bounds_with_the_band_off() -> None:
+    cfg = config(job__rules__languages=["en", "es"], job__rules__autoClean__enabled=False)
+    assert cfg.signal_bounds is not None
+    assert cfg.signal_bounds.languages == frozenset({"en", "es"})
+
+
+@pytest.mark.parametrize("languages", [[]])
+def test_no_languages_and_no_bounds_is_no_signal_bounds(languages: object) -> None:
+    cfg = config(job__rules__languages=languages, job__rules__minMedianViews=None)
+    assert cfg.signal_bounds is None or cfg.signal_bounds.languages is None

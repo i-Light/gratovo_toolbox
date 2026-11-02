@@ -168,6 +168,9 @@ class Rules(TypedDict):
     # them with `.get(...)`, so a start line from before step 4 still runs.
     minMedianViews: NotRequired[int | None]
     minUploads30: NotRequired[int | None]
+    # Step S3, L7: ISO 639-1 codes. A kept channel whose known main language is not in the list
+    # is archived like a signal-bound sweep. Absent or empty = off.
+    languages: NotRequired[list[str]]
     # Step S2, R6: keep searching through a spent API quota (wait for the reset). Absent = False.
     continuous: NotRequired[bool]
 
@@ -623,6 +626,7 @@ class BadStartError(ValueError):
 # --- reading the start line ---
 
 _COUNTRY = re.compile(r"[A-Z]{2}")
+_LANGUAGE = re.compile(r"[a-z]{2}")
 # The schema's patterns. `[0-9]`, not `\d`: Python's `\d` also takes other scripts' digits.
 _EMAIL = re.compile(r"[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+")
 _HANDLE = re.compile(r"@[A-Za-z0-9._-]{1,100}")
@@ -762,7 +766,7 @@ def _rules(value: object) -> Rules:
         value,
         "rules",
         {"countries", "perKeyword", "sortBy", "resultsType", "autoClean"},
-        frozenset({"minMedianViews", "minUploads30", "continuous"}),
+        frozenset({"minMedianViews", "minUploads30", "continuous", "languages"}),
     )
     countries: list[str] = []
     for item in _list(raw["countries"], "rules.countries", 250):
@@ -791,6 +795,13 @@ def _rules(value: object) -> Rules:
         )
     if "continuous" in raw:
         rules["continuous"] = _boolean(raw["continuous"], "rules.continuous")
+    if "languages" in raw:
+        languages: list[str] = []
+        for item in _list(raw["languages"], "rules.languages", 20):
+            if not isinstance(item, str) or not _LANGUAGE.fullmatch(item):
+                raise BadStartError("rules.languages must be two-letter lowercase language codes")
+            languages.append(item)
+        rules["languages"] = languages
     return rules
 
 

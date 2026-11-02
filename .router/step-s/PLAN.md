@@ -61,3 +61,36 @@ S2-a and S2-b both touch `scrapetube.py` and `jobs/search.py`: S2-a first, then 
 - R3/R5: backfill and refetch keep today's behaviour: their sweep (`sweep(end_on_block=True)`) ends the job when every attempt on a page was a block.
 - R5: rate limits (per second, not daily) ride the network breaker whenever it is on, with reason `api`. The quota wait sleeps in chunks of a minute and re-reads the wall clock, so a PC that slept wakes on time. `tzdata` is a pipeline dependency (Windows has no tz database).
 - Not built in S2: the Electron smoke test for a stubbed block (the example data has no route pool to block); the fake-clock tests cover it. The full Find flow suite in S8 covers the run states.
+
+## S3. More from the same API calls (branch `feat/scraping-s3`)
+
+### Decisions
+
+- **L1. Parts.** `videos.list` part = `snippet,statistics,contentDetails,topicDetails,status,paidProductPlacementDetails`; `channels.list` part = `snippet,statistics,brandingSettings,topicDetails,contentDetails,status` (also `channel_for_handle`). Still 50 ids a call: a test on recorded answers counts the calls and units before and after (same numbers).
+- **L2. Video fields** (`VideoInfo` keys, `videos` columns, all nullable): `audio_language` (`snippet.defaultAudioLanguage`), `default_language` (`snippet.defaultLanguage`), `category_id`, `live_content` (`snippet.liveBroadcastContent`), `like_count`, `comment_count` (TEXT like `view_count`; hidden = NULL), `duration_s` (INTEGER, from ISO-8601 `contentDetails.duration`; `P0D` or unparsable = NULL), `has_captions` (INTEGER 0/1 from `contentDetails.caption`), `made_for_kids` (INTEGER from `status.madeForKids`), `topics` (JSON list of the Wikipedia topic names, the last path segment of `topicDetails.topicCategories`, with `_` as spaces), `paid_placement` (INTEGER from `paidProductPlacementDetails.hasPaidProductPlacement`). Tags stay as they are on live rows (not archived, S4).
+- **L3. Channel fields** (`ChannelInfo` keys, `channels` columns): `total_views`, `video_count` (INTEGER), `subscribers_hidden` (INTEGER from `statistics.hiddenSubscriberCount`), `started_at` (`snippet.publishedAt`), `default_language` (`snippet.defaultLanguage`), `topics` (JSON, as L2), `uploads_playlist` (`contentDetails.relatedPlaylists.uploads`), `made_for_kids` (INTEGER from `status.madeForKids`). `customUrl` already fills the handle (S1). The channel's keywords are not stored (owner, 2026-11-02).
+- **L4. Rollups** in `compute_channel_rollups`, over the channel's stored videos (all of them, not the 30-day window; the window stays for views and uploads):
+  - `main_language` + `main_language_basis` ("audio 11/12", "default 4/5", "channel"): the most common `audio_language` (its primary subtag, `en-US` → `en`) over videos that have one, if at least half of the stored videos have one; else the most common `default_language` the same way; else the channel's `default_language`; else NULL. Ties go to the language of the newest video among the tied.
+  - `topic_counts` JSON `{name: n}` from video topics plus the channel's own topics (each channel topic counts once).
+  - `median_likes`, `median_comments` (over videos with a count), `engagement_rate` REAL = median over videos of (likes + comments) / views, for videos with views > 0 and both counts known; NULL with fewer than 3 such videos.
+  - `median_duration_s`, `shorts_share` REAL (videos with `duration_s` ≤ 60 over videos with a duration), `paid_share` REAL (videos with `paid_placement=1` over videos with the field known).
+- **L5. Search position.** `channel_keywords.position INTEGER` (nullable): the 1-based position of the channel's first hit in that keyword's results. `find_channels` returns positions with `Found` (`positions: dict[str, int]` by channel id). Kept on a new link only (an existing link keeps its first position).
+- **L6. Schema v7.** Every new column added only when missing (`MIGRATIONS[7]`). The new columns are local facts and are not shared (the channel blob keeps its listed columns; a test that the blob shape is unchanged).
+- **L7. The language rule.** `rules.languages: string[]` (ISO 639-1, empty = off) in the Find rules and the pipeline's rules. Applied with the signal bounds, after a kept channel's uploads are read: a channel whose `main_language` is known and not in the list is archived with the rule's label, announced as swept; an unknown language is kept ("Not known", never a guess). Settings › Search rules: "Main language is one of" with a short multi-pick (English, Spanish, Portuguese, German, French, Hindi, Arabic, Indonesian, Japanese, Korean, other codes typed).
+- **L8. The app.** The catalog item gains `language` (code or null) and `topics` (top 3 names). Find › Gallery gets a Language facet (codes with counts, "Not known" last) and the card shows the language and the top topic. The creator record's Channel tab shows main language with its basis ("English · 11 of 12 videos"), topics with counts, total views, video count, start date, median likes and comments, engagement rate, median duration, Shorts share and paid-placement share, each "Not known" when null.
+
+### Tasks
+
+| id | title | tier | files | done-check |
+|---|---|---|---|---|
+| S3-a | L1-L6 pipeline | N (schema H: these decisions) | `youtube.py`, `store.py`, `search/discover.py`, `search/keyword.py`, `search/context.py`, `example/__init__.py` (example values for the new fields, AI niche), tests | pytest incl. recorded-answer call/unit count, rollups, migration v6→v7, blob unchanged |
+| S3-b | L7 pipeline + protocol | N | `protocol.py`, schema json, `config.py`, `search/auto_clean.py`, tests | pytest; schema snapshot test |
+| S3-c | L7 app + L8 | N | ipc `find.ts`, `pipeline/protocol.ts`, `catalog.ts`, `results.ts`, gallery facet and card, record Channel tab, search rules editor, `strings.ts`, tests | Vitest; typecheck; lint; look at 1440 px |
+
+### Changed after review (S3)
+
+- L4/L7: a language is a two-letter ISO 639-1 code after mapping YouTube's old codes (iw→he, in→id, ji→yi); anything else (fil, yue, und, zxx) is unknown, so the language rule keeps it and the app shows "Not known".
+- L4: rollups read each channel's videos once, only the columns they need.
+- L8: the record shows the basis with its source ("English · audio, 11 of 12 videos"). The app's example history carries the new channel facts, so prototype mode shows them.
+- To ask the owner: Shorts share counts videos of 60 s or less. YouTube allows Shorts up to 3 minutes since October 2024, and the API can't tell a Short from a short video, so 60 s undercounts and 180 s would overcount.
+- For step T: a teammate's channel blob carries no S3 video fields, so applying one resets that channel's language and engagement rollups until it is read here again.

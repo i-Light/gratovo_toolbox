@@ -6,6 +6,7 @@ import { money } from "../lib/format";
 import { useApp } from "../lib/store";
 import { strings } from "../strings";
 import { channelUrl, type CreatorDetail } from "./detail";
+import { ChannelFactsSection } from "./creator-channel-facts";
 import { DescriptionSection, FitSection, NumbersSection } from "./creator-overview";
 import { openFrom } from "./open-record";
 
@@ -17,6 +18,7 @@ export function ChannelTab({ item }: { readonly item: CreatorDetail }) {
   return (
     <>
       <NumbersSection item={item} />
+      <ChannelFactsSection item={item} />
       {link === null ? null : (
         <a className="cr-link" href={link} target="_blank" rel="noreferrer">
           {text.openOnYouTube}

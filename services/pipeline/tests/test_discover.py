@@ -343,3 +343,21 @@ def test_a_sweep_that_ends_on_a_block_defers_a_channel_that_failed_otherwise(
     _blocked_channel(monkeypatch, all_blocked=False)
     with pytest.raises(ChannelUnreadableError):
         live(rec).sweep(end_on_block=True).recent_video_ids("UC1111111111111111111111")
+
+
+def test_a_search_gives_each_channels_first_position(
+    monkeypatch: pytest.MonkeyPatch, rec: Recorder
+) -> None:
+    items = [
+        video_item("@ai-tools-weekly", "UC1111111111111111111111"),
+        video_item("@llm-explained", "UC2222222222222222222222"),
+        video_item("@ai-tools-weekly", "UC1111111111111111111111"),
+        video_item("@agent-lab", "UC3333333333333333333333"),
+    ]
+    monkeypatch.setattr(scrapetube, "get_search", FakeSearch(*items))
+    found = live(rec).find_channels("claude code tutorial", limit=50)
+    assert found.positions == {
+        "UC1111111111111111111111": 1,
+        "UC2222222222222222222222": 2,
+        "UC3333333333333333333333": 4,
+    }

@@ -92,6 +92,11 @@ export const rulesSchema = z.strictObject({
   minUploads30: index.nullable().optional(),
   /** Keep searching through an API quota stop: wait for the reset instead of ending (default off). */
   continuous: z.boolean().optional(),
+  /** Main language codes (ISO 639-1) a kept channel must have; absent or empty = any (S3, L7). */
+  languages: z
+    .array(z.string().regex(/^[a-z]{2}$/))
+    .max(20)
+    .optional(),
 });
 
 const searchJob = z

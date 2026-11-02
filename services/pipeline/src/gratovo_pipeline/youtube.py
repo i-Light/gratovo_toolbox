@@ -27,9 +27,9 @@ import threading
 import urllib.request
 from collections.abc import Callable, Mapping, Sequence
 from datetime import UTC, datetime, time, timedelta
-from typing import Any, Final, Literal, NoReturn, Protocol, TypedDict, cast
+from typing import Any, Final, Literal, NoReturn, NotRequired, Protocol, TypedDict, cast
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
+from urllib.parse import unquote, urlencode
 from zoneinfo import ZoneInfo
 
 from gratovo_pipeline import net, run_control
@@ -67,6 +67,13 @@ KEY_REASONS: Final = frozenset(
     }
 )
 _SAFE_REASON: Final = re.compile(r"[a-z][A-Za-z]{0,39}|[A-Z][A-Z_]{0,39}")
+# What each call asks for (step S3, L1). A call still costs one unit for up to 50 ids: the cost is
+# the method, not the number of parts.
+CHANNEL_PARTS: Final = "snippet,statistics,brandingSettings,topicDetails,contentDetails,status"
+VIDEO_PARTS: Final = (
+    "snippet,statistics,contentDetails,topicDetails,status,paidProductPlacementDetails"
+)
+_DURATION: Final = re.compile(r"P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?")
 
 type ErrorCode = Literal["quota", "no_youtube_key", "network"]
 type Call = Literal["channels", "videos"]
@@ -74,6 +81,8 @@ type LogSink = Callable[[LogLevel, str], None]
 
 
 # The store's shapes, keyed as the old pipeline keyed them.
+# The keys from Total_Views and AudioLanguage on are step S3's: this module always sets them, but
+# a caller that builds the older shape (a fixture) may leave them out.
 class ChannelInfo(TypedDict):
     Name: str | None
     Handle: str
@@ -84,6 +93,14 @@ class ChannelInfo(TypedDict):
     Profile_Picture: str | None
     Banner: str | None
     Country: str | None  # ISO 3166 alpha-2, when the owner set one
+    Total_Views: NotRequired[int | None]
+    Video_Count: NotRequired[int | None]
+    Subscribers_Hidden: NotRequired[int | None]  # 1 when the owner hides the count
+    Started_At: NotRequired[str | None]
+    Default_Language: NotRequired[str | None]
+    Topics: NotRequired[list[str]]
+    Uploads_Playlist: NotRequired[str | None]
+    Made_For_Kids: NotRequired[int | None]
 
 
 class VideoInfo(TypedDict):
@@ -94,6 +111,17 @@ class VideoInfo(TypedDict):
     Tags: list[str]
     PublishedAt: str | None
     ViewCount: str | None
+    AudioLanguage: NotRequired[str | None]
+    DefaultLanguage: NotRequired[str | None]
+    CategoryId: NotRequired[str | None]
+    LiveContent: NotRequired[str | None]
+    LikeCount: NotRequired[str | None]  # None when the owner hides it
+    CommentCount: NotRequired[str | None]
+    DurationS: NotRequired[int | None]  # None for a live stream (P0D) or an unreadable duration
+    HasCaptions: NotRequired[int | None]
+    MadeForKids: NotRequired[int | None]
+    Topics: NotRequired[list[str]]
+    PaidPlacement: NotRequired[int | None]
 
 
 class YouTubeError(RuntimeError):
@@ -204,7 +232,7 @@ class YouTubeApi:
         """{handle: info} for a {handle: channel_id} batch. A channel the API didn't return is
         left out (the store marks it failed)."""
         handle_by_id = {channel_id: handle for handle, channel_id in batch.items()}
-        items = self._list("channels", list(handle_by_id), "snippet,statistics,brandingSettings")
+        items = self._list("channels", list(handle_by_id), CHANNEL_PARTS)
         found: dict[str, ChannelInfo] = {}
         for item in items:
             channel_id = _str(item.get("id"))
@@ -216,9 +244,7 @@ class YouTubeApi:
     def channel_for_handle(self, handle: str) -> tuple[str, ChannelInfo] | None:
         """(channel_id, info) for a handle the store doesn't know yet, in one call; None when
         YouTube has no such channel (or the answer was unusable). `handle` is `@name`."""
-        items = self._query(
-            "channels", {"forHandle": handle}, "snippet,statistics,brandingSettings"
-        )
+        items = self._query("channels", {"forHandle": handle}, CHANNEL_PARTS)
         for item in items:
             channel_id = _str(item.get("id"))
             if channel_id:
@@ -228,7 +254,7 @@ class YouTubeApi:
     def videos(self, video_ids: Sequence[str]) -> dict[str, VideoInfo]:
         """{video_id: info}. A video the API didn't return is left out."""
         found: dict[str, VideoInfo] = {}
-        for item in self._list("videos", list(video_ids), "snippet,statistics"):
+        for item in self._list("videos", list(video_ids), VIDEO_PARTS):
             video_id = _str(item.get("id"))
             if video_id:
                 found[video_id] = _video_info(item, video_id)
@@ -406,6 +432,60 @@ def _str(value: object) -> str | None:
     return value if isinstance(value, str) else None
 
 
+def _count(value: object) -> str | None:
+    """A count the API sends as a string (or a number), kept as text; anything else is unknown."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return str(value)
+    return value if isinstance(value, str) and value.strip() else None
+
+
+def _int(value: object) -> int | None:
+    text = _count(value)
+    try:
+        return int(text) if text is not None else None
+    except ValueError:
+        return None
+
+
+def _flag(value: object) -> int | None:
+    """0 or 1 from a JSON boolean or a "true"/"false" string; anything else is unknown."""
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, str) and value.lower() in ("true", "false"):
+        return int(value.lower() == "true")
+    return None
+
+
+def parse_duration(value: object) -> int | None:
+    """Seconds from an ISO-8601 duration (`PT1H2M3S`, `P1DT2H`); None for zero (`P0D`, a live
+    stream), for garbage, and for anything that is not text."""
+    if not isinstance(value, str):
+        return None
+    match = _DURATION.fullmatch(value.strip())
+    if not match or not any(match.groups()):
+        return None
+    days, hours, minutes, seconds = (int(g or 0) for g in match.groups())
+    total = ((days * 24 + hours) * 60 + minutes) * 60 + seconds
+    return total or None
+
+
+def topic_names(details: object) -> list[str]:
+    """The Wikipedia page names in `topicDetails.topicCategories`, `_` as a space, once each."""
+    urls = _dict(details).get("topicCategories")
+    names: list[str] = []
+    if isinstance(urls, list):
+        for url in cast("list[object]", urls):
+            if not isinstance(url, str):
+                continue
+            last = url.split("?", 1)[0].rstrip("/").rsplit("/", 1)[-1]
+            name = unquote(last).replace("_", " ").strip()
+            if name and name not in names:
+                names.append(name)
+    return names
+
+
 def _thumbnail(snippet: Mapping[str, Any], *sizes: str) -> str | None:
     thumbnails = _dict(snippet.get("thumbnails"))
     for size in sizes:
@@ -437,12 +517,23 @@ def _channel_info(item: Mapping[str, Any], handle: str, channel_id: str) -> Chan
         "Profile_Picture": _thumbnail(snippet, "high"),
         "Banner": _str(image.get("bannerExternalUrl")),
         "Country": _str(snippet.get("country")),
+        "Total_Views": _int(stats.get("viewCount")),
+        "Video_Count": _int(stats.get("videoCount")),
+        "Subscribers_Hidden": _flag(stats.get("hiddenSubscriberCount")),
+        "Started_At": _str(snippet.get("publishedAt")),
+        "Default_Language": _str(snippet.get("defaultLanguage")),
+        "Topics": topic_names(item.get("topicDetails")),
+        "Uploads_Playlist": _str(
+            _dict(_dict(_dict(item.get("contentDetails")).get("relatedPlaylists"))).get("uploads")
+        ),
+        "Made_For_Kids": _flag(_dict(item.get("status")).get("madeForKids")),
     }
 
 
 def _video_info(item: Mapping[str, Any], video_id: str) -> VideoInfo:
     snippet = _dict(item.get("snippet"))
     stats = _dict(item.get("statistics"))
+    content = _dict(item.get("contentDetails"))
     tags = snippet.get("tags")
     return {
         "id": video_id,
@@ -454,4 +545,17 @@ def _video_info(item: Mapping[str, Any], video_id: str) -> VideoInfo:
         else [],
         "PublishedAt": _str(snippet.get("publishedAt")),
         "ViewCount": _str(stats.get("viewCount")),
+        "AudioLanguage": _str(snippet.get("defaultAudioLanguage")),
+        "DefaultLanguage": _str(snippet.get("defaultLanguage")),
+        "CategoryId": _str(snippet.get("categoryId")),
+        "LiveContent": _str(snippet.get("liveBroadcastContent")),
+        "LikeCount": _count(stats.get("likeCount")),
+        "CommentCount": _count(stats.get("commentCount")),
+        "DurationS": parse_duration(content.get("duration")),
+        "HasCaptions": _flag(content.get("caption")),
+        "MadeForKids": _flag(_dict(item.get("status")).get("madeForKids")),
+        "Topics": topic_names(item.get("topicDetails")),
+        "PaidPlacement": _flag(
+            _dict(item.get("paidProductPlacementDetails")).get("hasPaidProductPlacement")
+        ),
     }

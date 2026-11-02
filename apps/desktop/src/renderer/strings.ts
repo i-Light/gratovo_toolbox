@@ -6,6 +6,24 @@ const openComments = (n: number): string => `${String(n)} open comment${n === 1 
 
 export const strings = {
   appName: "Gratovo Toolbox",
+  /** Languages by their two-letter code (ISO 639-1); `Intl` names any other. */
+  languages: {
+    names: {
+      en: "English",
+      es: "Spanish",
+      pt: "Portuguese",
+      de: "German",
+      fr: "French",
+      hi: "Hindi",
+      ar: "Arabic",
+      id: "Indonesian",
+      ja: "Japanese",
+      ko: "Korean",
+    } as Readonly<Record<string, string>>,
+    /** The codes the rules editor offers, in this order. */
+    common: ["en", "es", "pt", "de", "fr", "hi", "ar", "id", "ja", "ko"] as readonly string[],
+    notKnown: "Not known",
+  },
   /** A channel whose uploads were never read shows this, never a 0 (step 5d-2, D45). */
   unread: {
     label: "Not read yet",
@@ -556,6 +574,12 @@ export const strings = {
         words: "search rules continuous keep going quota wait reset",
         desc: "Waits for the API quota to reset instead of stopping.",
       },
+      rulesLanguages: {
+        label: "Main language is one of",
+        words:
+          "search rules language languages english spanish portuguese german french hindi arabic indonesian japanese korean",
+        desc: "A channel whose main language is known and not in the list is archived. A channel with no known language is kept.",
+      },
       rulesBand: {
         label: "Subscriber band",
         words: "search rules subscribers minimum maximum auto-clean sweep archive",
@@ -1076,6 +1100,14 @@ export const strings = {
       continuousOff: "Stops when the API quota is spent",
       bandOff: "Auto-clean is off",
       countriesGroup: "Audience countries",
+      languagesGroup: "Main languages",
+      languagesAny: "Any language",
+      languagesOther: "Another language code",
+      languagesPlaceholder: "nl",
+      languagesAdd: "Add",
+      languagesRemove: (name: string): string => `Remove ${name}`,
+      languagesCode: "Use a two-letter language code, such as nl.",
+      languagesTooMany: "Pick at most 20 languages.",
       numberHint: "Leave empty for no minimum.",
       autoClean: "Auto-clean by subscribers",
       minSubscribers: "Fewest subscribers",
@@ -1270,6 +1302,7 @@ export const strings = {
     rules: {
       title: "Rules for every run",
       noCountries: "Any country",
+      languagesChip: (list: string): string => `Language: ${list}`,
       perKeyword: (n: number) => `${String(n)} channels per keyword`,
       archiveUnder: (size: string) => `Archive under ${size} subscribers`,
       archiveOver: (size: string) => `Archive over ${size} subscribers`,
@@ -1370,12 +1403,15 @@ export const strings = {
       stage: "Stage",
       signals: "Signals",
       country: "Channel country",
+      language: "Main language",
       median: "Median views at least",
       uploads: "Uploads in 30 days",
       runs: "Found by",
       any: "Any",
       countryTip: (country: string, n: number): string =>
         `${country}: ${String(n)} ${n === 1 ? "channel" : "channels"}`,
+      languageTip: (language: string, n: number): string =>
+        `${language}: ${String(n)} ${n === 1 ? "channel" : "channels"}`,
       todaysSearch: "Today’s search",
     },
     signals: {
@@ -1402,6 +1438,7 @@ export const strings = {
       clearAll: "Clear all",
       none: "No filters. Rejected and never-contact channels are hidden.",
       country: (list: string): string => `Channel country: ${list}`,
+      language: (list: string): string => `Main language: ${list}`,
       or: " or ",
       median: (n: string): string => `${n}+ median`,
       medianMax: (n: string): string => `Up to ${n} median`,
@@ -3733,6 +3770,28 @@ export const strings = {
         [keyword === null ? null : `“${keyword}”`, when].filter((x) => x !== null).join(" · "),
     },
     noNumbers: "No numbers yet: this channel was found on another machine.",
+    facts: {
+      title: "Language and videos",
+      notKnown: "Not known",
+      language: "Main language",
+      languageWith: (name: string, basis: string): string => `${name} · ${basis}`,
+      basisAudio: (n: number, of: number): string => `audio, ${String(n)} of ${String(of)} videos`,
+      basisDefault: (n: number, of: number): string =>
+        `language tag, ${String(n)} of ${String(of)} videos`,
+      basisChannel: "channel setting",
+      topics: "Topics",
+      topicCount: (name: string, n: number): string => `${name} ${String(n)}`,
+      totalViews: "Total views",
+      videoCount: "Videos",
+      started: "Started",
+      medianLikes: "Median likes",
+      medianComments: "Median comments",
+      engagement: "Engagement rate",
+      duration: "Median length",
+      shorts: "Shorts",
+      paid: "Paid placements",
+      percent: (n: string): string => `${n}%`,
+    },
     latestVideos: "Latest videos",
     noVideos: "No videos read yet.",
     videoMeta: (views: string, when: string): string => `${views} · ${when}`,

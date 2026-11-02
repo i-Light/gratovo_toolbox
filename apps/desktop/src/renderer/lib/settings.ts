@@ -63,6 +63,7 @@ export type RowId =
   | "rulesPerKeyword"
   | "rulesArchive"
   | "rulesContinuous"
+  | "rulesLanguages"
   | "rulesBand"
   | "writingRules"
   | "connOld"
@@ -103,6 +104,7 @@ export const settingsRows: readonly SettingsRow[] = [
   { section: "search", id: "rulesPerKeyword" },
   { section: "search", id: "rulesArchive" },
   { section: "search", id: "rulesContinuous" },
+  { section: "search", id: "rulesLanguages" },
   { section: "search", id: "rulesBand" },
   { section: "writing", id: "writingRules" },
   { section: "connections", id: "connOld" },

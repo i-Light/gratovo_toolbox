@@ -41,8 +41,8 @@ def _version_1_file(path: Path) -> None:
     conn.close()
 
 
-def test_a_new_file_is_created_at_version_6(conn: sqlite3.Connection) -> None:
-    assert store.SCHEMA_VERSION == 6
+def test_a_new_file_is_created_at_version_7(conn: sqlite3.Connection) -> None:
+    assert store.SCHEMA_VERSION == 7
     assert _version(conn) == store.SCHEMA_VERSION
     assert "video_transcripts" in _tables(conn)
 
@@ -72,13 +72,13 @@ def test_a_version_1_file_gains_video_transcripts_and_keeps_every_row(tmp_path: 
     conn.close()
 
 
-def test_a_file_newer_than_version_6_is_refused(tmp_path: Path) -> None:
+def test_a_file_newer_than_version_7_is_refused(tmp_path: Path) -> None:
     path = tmp_path / "pipeline.db"
     conn = store.get_connection(path)
-    conn.execute("PRAGMA user_version=7")
+    conn.execute("PRAGMA user_version=8")
     with pytest.raises(store.SchemaTooNewError):
         store.init_db(conn)
-    assert _version(conn) == 7, "the newer file is left as it was"
+    assert _version(conn) == 8, "the newer file is left as it was"
     assert "video_transcripts" not in _tables(conn)
     conn.close()
 

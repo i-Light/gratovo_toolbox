@@ -824,4 +824,121 @@ describe("the catalog", () => {
       expect(query).toBeLessThan(150);
     }
   });
+
+  describe("language and channel facts (S3)", () => {
+    const [x, y, z] = ["lx", "ly", "lz"].map(channelId);
+
+    it("gives each item its main language and its top three topics", async () => {
+      const catalog = open({
+        channels: [
+          {
+            id: x ?? "",
+            language: "en-US",
+            topicCounts: JSON.stringify({
+              Technology: 5,
+              Software: 5,
+              Music: 2,
+              Gaming: 1,
+              Film: 4,
+            }),
+          },
+          { id: y ?? "", language: "es" },
+          { id: z ?? "", language: "english", topicCounts: "{ not json" },
+        ],
+      });
+      const items = await all(catalog);
+      const by = (id: string | undefined) => items.find((item) => item.id === id);
+      expect(by(x)).toMatchObject({ language: "en", topics: ["Software", "Technology", "Film"] });
+      expect(by(y)).toMatchObject({ language: "es", topics: [] });
+      expect(by(z)).toMatchObject({ language: null, topics: [] });
+    });
+
+    it("counts the languages as a facet, the unknown ones under xx, and filters by them", async () => {
+      const catalog = open({
+        channels: [
+          { id: x ?? "", language: "en" },
+          { id: y ?? "", language: "en" },
+          { id: z ?? "" },
+        ],
+      });
+      const page = await catalog.query({
+        ...everything,
+        filter: { ...emptyFindFilter, stages: ["new"] },
+        offset: 0,
+        limit: 10,
+      });
+      expect(page.facets.languages).toEqual({ en: 2, xx: 1 });
+      const unknown = await catalog.query({
+        ...everything,
+        filter: { ...emptyFindFilter, languages: ["xx"] },
+        offset: 0,
+        limit: 10,
+      });
+      expect(unknown.items.map((item) => item.id)).toEqual([z]);
+      const english = await catalog.query({
+        ...everything,
+        filter: { ...emptyFindFilter, languages: ["en"] },
+        offset: 0,
+        limit: 10,
+      });
+      expect(english.total).toBe(2);
+    });
+
+    it("reads the channel facts for the detail, and every fact as null from a file without them", async () => {
+      const full = open({
+        channels: [
+          {
+            id: x ?? "",
+            language: "en",
+            languageBasis: "audio 11/12",
+            topicCounts: JSON.stringify({ Technology: 9, Science: 3 }),
+            totalViews: 1_200_000,
+            videoCount: 84,
+            startedAt: "2019-03-02T10:00:00Z",
+            medianLikes: 1500,
+            medianComments: 90,
+            engagementRate: 0.041,
+            medianDuration: 754,
+            shortsShare: 0.1,
+            paidShare: 0.25,
+          },
+        ],
+      });
+      expect((await full.item(x ?? "")).item?.channelFacts).toEqual({
+        language: "en",
+        languageBasis: "audio 11/12",
+        topics: [
+          { name: "Technology", count: 9 },
+          { name: "Science", count: 3 },
+        ],
+        totalViews: 1_200_000,
+        videoCount: 84,
+        startedAt: Date.parse("2019-03-02T10:00:00Z"),
+        medianLikes: 1500,
+        medianComments: 90,
+        engagementRate: 0.041,
+        medianDurationS: 754,
+        shortsShare: 0.1,
+        paidShare: 0.25,
+      });
+      path = join(folder, "old.db");
+      const old = open({ channels: [{ id: y ?? "" }], schema6: true });
+      const items = await all(old);
+      expect(items[0]).toMatchObject({ language: null, topics: [] });
+      expect((await old.item(y ?? "")).item?.channelFacts).toEqual({
+        language: null,
+        languageBasis: null,
+        topics: [],
+        totalViews: null,
+        videoCount: null,
+        startedAt: null,
+        medianLikes: null,
+        medianComments: null,
+        engagementRate: null,
+        medianDurationS: null,
+        shortsShare: null,
+        paidShare: null,
+      });
+    });
+  });
 });

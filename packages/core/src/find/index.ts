@@ -6,12 +6,14 @@ export {
   foundEmailsMax,
   savedViewsMax,
   toolboxLists,
+  unknownLanguage,
   viewNameMax,
 } from "./types";
 export type {
   ArchivedChannel,
   CatalogItem,
   CatalogVideo,
+  ChannelFacts,
   Facets,
   FindFilter,
   FindSort,

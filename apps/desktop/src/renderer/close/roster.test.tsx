@@ -27,6 +27,8 @@ const catalogItem = (id: string, name: string, over: Partial<CatalogItem> = {}):
   medianViews: 48_000,
   uploads30: 6,
   country: "US",
+  language: null,
+  topics: [],
   sponsors: [],
   emails: [],
   latestUploadAt: null,

@@ -24,7 +24,7 @@ import { aiChannel } from "../lib/find-test-bridge";
 import { appStore, resetAppStoreForTests } from "../lib/store";
 import { peek } from "../lib/actions";
 import { Peek } from "../overlays/peek";
-import { shortDate } from "../lib/format";
+import { monthYear, shortDate } from "../lib/format";
 import { strings } from "../strings";
 import { CreatorRecord } from "./creator-record";
 import type { CreatorDetail } from "./detail";
@@ -46,11 +46,27 @@ const fit: Fit = {
   ],
 };
 
+const noFacts: CreatorDetail["channelFacts"] = {
+  language: null,
+  languageBasis: null,
+  topics: [],
+  totalViews: null,
+  videoCount: null,
+  startedAt: null,
+  medianLikes: null,
+  medianComments: null,
+  engagementRate: null,
+  medianDurationS: null,
+  shortsShare: null,
+  paidShare: null,
+};
+
 function detail(id: string, over: Partial<CreatorDetail> = {}): CreatorDetail {
   return {
     ...aiChannel(id, "Agent Lab"),
     fit,
     description: "We test AI agents.",
+    channelFacts: noFacts,
     notes: "",
     notesCut: false,
     ...over,
@@ -996,5 +1012,56 @@ describe("the header and the stage-aware Overview", () => {
     await show("UC-a", { items: { "UC-a": detail("UC-a", { stage: "signed" }) } });
     expect(blocks()).toEqual(["shortNumbers"]);
     expect(screen.queryByText(o.empty)).toBeNull();
+  });
+});
+
+describe("the channel facts", () => {
+  const facts = t.facts;
+
+  it("shows the language with its basis, the topics and every figure", async () => {
+    await show(channelId, {
+      items: {
+        [channelId]: detail(channelId, {
+          channelFacts: {
+            language: "en",
+            languageBasis: "audio 11/12",
+            topics: [
+              { name: "Technology", count: 9 },
+              { name: "Science", count: 3 },
+            ],
+            totalViews: 1_200_000,
+            videoCount: 84,
+            startedAt: Date.parse("2019-03-02T10:00:00Z"),
+            medianLikes: 1500,
+            medianComments: 90,
+            engagementRate: 0.041,
+            medianDurationS: 754,
+            shortsShare: 0.1,
+            paidShare: 0.25,
+          },
+        }),
+      },
+    });
+    await click(tab(t.tabs.channel));
+    const section = screen.getByRole("region", { name: facts.title });
+    const inside = within(section);
+    expect(inside.getByText("English · audio, 11 of 12 videos")).toBeTruthy();
+    expect(inside.getByText("Technology 9")).toBeTruthy();
+    expect(inside.getByText("Science 3")).toBeTruthy();
+    expect(inside.getByText(formatCount(1_200_000))).toBeTruthy();
+    expect(inside.getByText("84")).toBeTruthy();
+    expect(inside.getByText(monthYear(Date.parse("2019-03-02T10:00:00Z")))).toBeTruthy();
+    expect(inside.getByText("4.1%")).toBeTruthy();
+    expect(inside.getByText("12:34")).toBeTruthy();
+    expect(inside.getByText("10%")).toBeTruthy();
+    expect(inside.getByText("25%")).toBeTruthy();
+  });
+
+  it("says Not known for every fact the pipeline has none for", async () => {
+    await show(channelId, { items: { [channelId]: detail(channelId) } });
+    await click(tab(t.tabs.channel));
+    const section = within(screen.getByRole("region", { name: facts.title }));
+    // Ten figures and the topics.
+    expect(section.getAllByText(facts.notKnown)).toHaveLength(11);
   });
 });

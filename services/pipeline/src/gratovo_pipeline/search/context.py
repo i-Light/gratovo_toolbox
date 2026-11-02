@@ -53,6 +53,8 @@ class Found(NamedTuple):
 
     channels: dict[str, str]
     complete: bool
+    # {channel_id: 1-based place of the channel's first hit in the results} (step S3, L5)
+    positions: dict[str, int] = {}  # noqa: RUF012 - never written to; one empty default is shared
 
 
 class Source(Protocol):

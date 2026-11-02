@@ -39,6 +39,32 @@ export const foundEmailsMax = 10;
 /** How steady a channel's views are from video to video. */
 export type ViewStability = "stable" | "volatile";
 
+/** What the pipeline works out about a channel's language, topics and videos (S3, L4); null = not known. */
+export interface ChannelFacts {
+  /** ISO 639-1. */
+  readonly language: string | null;
+  /** How it was worked out, as the pipeline words it: "audio 11/12", "default 4/5" or "channel". */
+  readonly languageBasis: string | null;
+  /** Most common first. */
+  readonly topics: readonly { readonly name: string; readonly count: number }[];
+  readonly totalViews: number | null;
+  readonly videoCount: number | null;
+  /** In ms: when the channel started. */
+  readonly startedAt: number | null;
+  readonly medianLikes: number | null;
+  readonly medianComments: number | null;
+  /** A ratio: (likes + comments) / views. */
+  readonly engagementRate: number | null;
+  readonly medianDurationS: number | null;
+  /** 0 to 1. */
+  readonly shortsShare: number | null;
+  /** 0 to 1. */
+  readonly paidShare: number | null;
+}
+
+/** The language filter and facet key for a channel whose main language is not known. */
+export const unknownLanguage = "xx";
+
 /** One channel in the catalog: the pipeline's numbers joined to the team's creator state. */
 export interface CatalogItem {
   readonly id: string;
@@ -58,6 +84,10 @@ export interface CatalogItem {
   readonly uploads30: number;
   /** ISO-2, the channel's own country. */
   readonly country: string | null;
+  /** ISO 639-1 code of the channel's main language (S3, L4); null when not known. */
+  readonly language: string | null;
+  /** The channel's top 3 topic names by count, most common first. */
+  readonly topics: readonly string[];
   readonly sponsors: readonly string[];
   /** The addresses the email finder found, most sure first, at most `foundEmailsMax` (D29). */
   readonly emails: readonly FoundEmail[];
@@ -179,6 +209,8 @@ export interface FindFilter {
   readonly stages: readonly CreatorStage[];
   readonly signals: readonly Signal[];
   readonly countries: readonly string[];
+  /** Main language codes, `unknownLanguage` for channels with none; empty means any. */
+  readonly languages: readonly string[];
   readonly minMedian: number;
   /** Null means no upper bound. */
   readonly maxMedian: number | null;
@@ -193,6 +225,7 @@ export const emptyFindFilter: FindFilter = {
   stages: [],
   signals: [],
   countries: [],
+  languages: [],
   minMedian: 0,
   maxMedian: null,
   minUploads: 0,
@@ -222,6 +255,7 @@ export interface Facets {
   readonly stages: Readonly<Record<CreatorStage, number>>;
   readonly signals: Readonly<Record<Signal, number>>;
   readonly countries: Readonly<Record<string, number>>;
+  readonly languages: Readonly<Record<string, number>>;
   /** Keyed by the run id, as text. */
   readonly runs: Readonly<Record<string, number>>;
 }
@@ -234,5 +268,6 @@ export const emptyFacets: Facets = {
   >,
   signals: Object.fromEntries(findSignals.map((signal) => [signal, 0])) as Record<Signal, number>,
   countries: {},
+  languages: {},
   runs: {},
 };

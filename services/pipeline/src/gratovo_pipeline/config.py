@@ -96,6 +96,9 @@ class SignalBounds:
     min_median_views: int | None
     min_uploads_30: int | None
     label: AutoCleanLabel
+    # `rules.languages`: a channel whose known main language is not in the set is archived too.
+    # None is off (absent or empty); an unknown language is never judged.
+    languages: frozenset[str] | None = None
 
 
 def _label(value: str) -> AutoCleanLabel:
@@ -120,9 +123,10 @@ def _auto_clean(clean: AutoClean | None) -> AutoCleanRule | None:
 
 def _signal_bounds(rules: Mapping[str, Any]) -> SignalBounds | None:
     median, uploads = rules.get("minMedianViews"), rules.get("minUploads30")
-    if median is None and uploads is None:
+    languages = frozenset(rules.get("languages") or ()) or None
+    if median is None and uploads is None and languages is None:
         return None
-    return SignalBounds(median, uploads, _label(rules["autoClean"]["label"]))
+    return SignalBounds(median, uploads, _label(rules["autoClean"]["label"]), languages)
 
 
 @dataclasses.dataclass(frozen=True)

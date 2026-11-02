@@ -31,6 +31,7 @@ const baseRules: FindState["rules"] = {
   minUploads30: null,
   archiveDays: 7,
   continuous: false,
+  languages: [],
 };
 
 const findState = (rules: FindState["rules"] = baseRules): FindState => ({

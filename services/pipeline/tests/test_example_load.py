@@ -296,3 +296,34 @@ def test_a_history_without_videos_still_loads(tmp_path: Path) -> None:
     assert counts["channels"] == 1
     assert table(conn, "videos") == []
     conn.close()
+
+
+def test_rollup_keys_load_and_older_histories_load_as_null(tmp_path: Path) -> None:
+    keys = {
+        "main_language": "en",
+        "main_language_basis": "audio 4/5",
+        "topic_counts": '{"Technology": 5}',
+        "total_views": 1000,
+        "video_count": 50,
+        "started_at": "2020-01-01T00:00:00Z",
+        "median_likes": 10,
+        "median_comments": 2,
+        "engagement_rate": 0.04,
+        "median_duration_s": 600,
+        "shorts_share": 0.1,
+        "paid_share": 0.2,
+    }
+    with_keys = history()
+    with_keys["channels"][0].update(keys)
+    conn = store.get_connection(tmp_path / "pipeline.db")
+    store.init_db(conn)
+    example_load.load(conn, with_keys)
+    row = table(conn, "channels")[0]
+    assert {k: row[k] for k in keys} == keys
+    conn.close()
+    conn = store.get_connection(tmp_path / "second.db")
+    store.init_db(conn)
+    example_load.load(conn, history())
+    row = table(conn, "channels")[0]
+    assert all(row[k] is None for k in keys)
+    conn.close()

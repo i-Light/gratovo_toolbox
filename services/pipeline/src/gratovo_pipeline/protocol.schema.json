@@ -162,6 +162,14 @@
                       },
                       "continuous": {
                         "type": "boolean"
+                      },
+                      "languages": {
+                        "maxItems": 20,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "pattern": "^[a-z]{2}$"
+                        }
                       }
                     },
                     "required": [

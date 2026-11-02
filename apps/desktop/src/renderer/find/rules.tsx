@@ -3,6 +3,7 @@ import { Btn, Tag } from "@gratovo/ui";
 
 import { openSetting } from "../lib/actions";
 import { compactCount } from "../lib/find";
+import { languageNames } from "../lib/language";
 import { strings } from "../strings";
 
 const text = strings.findSearch.rules;
@@ -48,6 +49,9 @@ export function Rules({ rules }: { readonly rules: FindState["rules"] }) {
         <Tag icon="globe">
           {rules.countries.length > 0 ? rules.countries.join(" · ") : text.noCountries}
         </Tag>
+        {rules.languages.length > 0 ? (
+          <Tag icon="globe">{text.languagesChip(languageNames(rules.languages))}</Tag>
+        ) : null}
         <Tag tone="good" icon="check">
           {rules.minMedianViews === null
             ? text.medianAny

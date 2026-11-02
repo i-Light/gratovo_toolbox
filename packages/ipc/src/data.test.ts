@@ -605,6 +605,7 @@ describe("the data channels through the dispatcher", () => {
           minUploads30: null,
           archiveDays: 7,
           continuous: false,
+          languages: [],
         },
         run: { state: "ready" as const, found: 0, kept: 0, swept: 0, error: null, wait: null },
         log: [],

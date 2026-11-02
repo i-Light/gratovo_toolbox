@@ -124,6 +124,7 @@ class LiveSource:
     def find_channels(self, keyword: str, *, limit: int) -> Found:
         by_id: dict[str, str] = {}  # channel id -> handle (an @ handle beats the placeholder)
         complete = True
+        positions: dict[str, int] = {}  # channel id -> place of its first hit (1-based)
         scanned = 0
         try:
             for item in scrapetube.get_search(
@@ -135,6 +136,8 @@ class LiveSource:
             ):
                 scanned += 1
                 pair = channel_from_item(item, self._cfg.results_type)
+                if pair:
+                    positions.setdefault(pair[1], scanned)
                 if pair and (pair[1] not in by_id or "@" in pair[0]):
                     by_id[pair[1]] = pair[0]
                 # Paginating a deep search is the longest quiet stretch of a run.
@@ -148,7 +151,7 @@ class LiveSource:
         except Exception as error:  # a page failed on every route: keep what the pages gave
             self._log("warn", f"The search stopped early ({type(error).__name__}).")
             complete = False
-        return Found({handle: cid for cid, handle in by_id.items()}, complete)
+        return Found({handle: cid for cid, handle in by_id.items()}, complete, positions)
 
     def sweep(self, *, end_on_block: bool = False) -> LiveSweep:
         return LiveSweep(self._pacer, self._log, end_on_block=end_on_block)

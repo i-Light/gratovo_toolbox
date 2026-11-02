@@ -14,10 +14,12 @@ import {
   type FindSort,
   type Fit,
   type Signal,
+  unknownLanguage,
 } from "./types";
 
 /** Which facet to leave out, so its own counts show what picking another value would give. */
-export type FilterSkip = "stages" | "signals" | "countries" | "median" | "uploads" | "runs";
+export type FilterSkip =
+  "stages" | "signals" | "countries" | "languages" | "median" | "uploads" | "runs";
 
 /** Stages from which a creator has already been mailed or worked past that. */
 const pastEmail: readonly CreatorStage[] = ["emailed", "replied", "kit", "audience", "signed"];
@@ -62,6 +64,13 @@ export function passes(item: CatalogItem, filter: FindFilter, skip?: FilterSkip)
     skip !== "countries" &&
     filter.countries.length > 0 &&
     (item.country === null || !filter.countries.includes(item.country))
+  ) {
+    return false;
+  }
+  if (
+    skip !== "languages" &&
+    filter.languages.length > 0 &&
+    !filter.languages.includes(item.language ?? unknownLanguage)
   ) {
     return false;
   }
@@ -139,11 +148,13 @@ export function facetCounts(items: readonly CatalogItem[], filter: FindFilter): 
     number
   >;
   const countries: Record<string, number> = {};
+  const languages: Record<string, number> = {};
   const runs: Record<string, number> = {};
 
-  // Every country and run seen gets a key, even when the other facets leave it at zero.
+  // Every country, language and run seen gets a key, even when the other facets leave it at zero.
   for (const item of items) {
     if (item.country !== null) countries[item.country] ??= 0;
+    languages[item.language ?? unknownLanguage] ??= 0;
     if (item.run !== null) runs[String(item.run)] ??= 0;
   }
 
@@ -160,12 +171,16 @@ export function facetCounts(items: readonly CatalogItem[], filter: FindFilter): 
     if (item.country !== null && passes(item, filter, "countries")) {
       countries[item.country] = (countries[item.country] ?? 0) + 1;
     }
+    if (passes(item, filter, "languages")) {
+      const code = item.language ?? unknownLanguage;
+      languages[code] = (languages[code] ?? 0) + 1;
+    }
     if (item.run !== null && passes(item, filter, "runs")) {
       const key = String(item.run);
       runs[key] = (runs[key] ?? 0) + 1;
     }
   }
-  return { stages, signals, countries, runs };
+  return { stages, signals, countries, languages, runs };
 }
 
 export interface CatalogPage {

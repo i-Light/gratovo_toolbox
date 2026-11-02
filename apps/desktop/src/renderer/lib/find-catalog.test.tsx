@@ -28,6 +28,8 @@ function item(id: string, name: string): CatalogItem {
     medianViews: 30_000,
     uploads30: 5,
     country: "US",
+    language: null,
+    topics: [],
     sponsors: [],
     emails: [],
     latestUploadAt: null,

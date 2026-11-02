@@ -3,6 +3,7 @@ import { cx, Icon, Tag } from "@gratovo/ui";
 import { memo, useMemo, useRef, useState, type MouseEvent } from "react";
 
 import { ago, unreadWords } from "../lib/format";
+import { languageName } from "../lib/language";
 import { strings } from "../strings";
 import { FitChip } from "./fit-chip";
 import { Thumb, ThumbAvatar } from "./thumb";
@@ -176,6 +177,16 @@ export const GalleryCard = memo(function GalleryCard({
           {item.country === null ? null : (
             <span>
               <b>{item.country}</b>
+            </span>
+          )}
+          {item.language === null ? null : (
+            <span data-ui="find.card.language">
+              <b>{languageName(item.language)}</b>
+            </span>
+          )}
+          {item.topics[0] === undefined ? null : (
+            <span className="ell" data-ui="find.card.topic">
+              {item.topics[0]}
             </span>
           )}
         </span>
