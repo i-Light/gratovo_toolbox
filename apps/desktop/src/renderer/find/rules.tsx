@@ -69,6 +69,7 @@ export function Rules({ rules }: { readonly rules: FindState["rules"] }) {
           ))
         )}
         <Tag icon="trash">{text.archiveAfter(rules.archiveDays)}</Tag>
+        {rules.continuous ? <Tag icon="refresh">{text.continuousOn}</Tag> : null}
       </div>
       <p className="hint">{text.hint}</p>
     </section>

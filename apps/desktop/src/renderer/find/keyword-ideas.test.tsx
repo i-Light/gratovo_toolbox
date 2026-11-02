@@ -18,7 +18,7 @@ const state: FindState = {
   ],
   at: 1,
   rules: {} as FindState["rules"],
-  run: { state: "paused", found: 0, kept: 0, swept: 0, error: null },
+  run: { state: "paused", found: 0, kept: 0, swept: 0, error: null, wait: null },
   log: [],
   kept: [],
 };

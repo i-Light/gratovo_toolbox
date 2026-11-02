@@ -273,3 +273,8 @@ def test_a_refetch_brings_its_own_auto_clean_rule() -> None:
 def test_a_refetch_without_a_rule_or_with_it_off_cleans_nothing(clean: object) -> None:
     job = {"kind": "refetch", "handles": ["@aitoolsweekly"], "autoClean": clean}
     assert job_config(job).auto_clean is None
+
+
+def test_continuous_is_off_unless_the_rules_say_so() -> None:
+    assert config().continuous is False
+    assert config(job__rules__continuous=True).continuous is True

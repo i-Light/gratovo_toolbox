@@ -3,14 +3,14 @@
 Each keyword is committed as it goes, so `end.at` (the first keyword not done) is where a resume
 starts. How the run ends:
 - every keyword done: `done`;
-- a keyword whose search stopped early (a page failed, not a block): a `keyword` `incomplete`
+- a keyword whose search stopped early (a page failed on every route): a `keyword` `incomplete`
   ("The search stopped early."; its channels are kept, it stays pending), left out of the
   finished ones so `end.at` can point at it, and the run goes on with the next keyword;
-  the run itself is not failed;
+  the run itself is not failed. A block never ends a run: it cools its route (scrapetube);
 - a stop (the app's `stop` line, or stdin closing): `stopped`, keeping what the keyword in
   progress had read;
-- blocked, quota, network or a refused key: `failed` with that code, after a `keyword` `failed`
-  for the keyword it happened in;
+- quota (unless `rules.continuous` waits it out) or a refused key: `failed` with that code, after
+  a `keyword` `failed` for the keyword it happened in;
 - anything else: `failed` with `crash`. The message and stderr name the error's kind and where
   it happened, never its text, which can carry a URL with a login in it.
 """
@@ -25,11 +25,11 @@ from typing import Final, Literal
 
 from gratovo_pipeline import example, parallel, run_control, store
 from gratovo_pipeline.config import Config
-from gratovo_pipeline.protocol import Emitter, EndErrorCode, EndState, Start
+from gratovo_pipeline.protocol import Emitter, EndErrorCode, EndState, Start, WaitCounter
 from gratovo_pipeline.scrapetube import scrapetube
 from gratovo_pipeline.scrapetube.proxy_pool import ProxyPool
 from gratovo_pipeline.search import keyword as keyword_step
-from gratovo_pipeline.search.context import Search, SearchBlockedError, Source
+from gratovo_pipeline.search.context import Search, Source
 from gratovo_pipeline.search.discover import LiveSource
 from gratovo_pipeline.search.keyword import KeywordResult
 from gratovo_pipeline.search.pacing import Pacer
@@ -49,8 +49,6 @@ def _failure(error: BaseException) -> _EndError:
     """The `end` error for what stopped the run."""
     if isinstance(error, _EndError):
         return error
-    if isinstance(error, SearchBlockedError):
-        return _EndError("blocked", "YouTube stopped answering this computer. Try again later.")
     if isinstance(error, YouTubeError):
         return _EndError(error.code, str(error))
     # Kind and frames only: the message itself can carry a proxy URL.
@@ -74,7 +72,15 @@ def _live_source(cfg: Config, emitter: Emitter) -> tuple[Source, Pacer]:
         )
     )
     pacer = Pacer(cfg.delay, log=emitter.log)
-    api = YouTubeApi(cfg.youtube_key, log=emitter.log)
+    waits = WaitCounter(emitter)  # one `wait` and one `resume` per reason, however many workers
+    scrapetube.set_wait_sink(waits)
+    api = YouTubeApi(
+        cfg.youtube_key,
+        log=emitter.log,
+        wait_on_network=True,
+        wait_on_quota=cfg.continuous,
+        waits=waits,
+    )
     return LiveSource(cfg, api, pacer, log=emitter.log), pacer
 
 
@@ -134,6 +140,7 @@ def run(start: Start, emitter: Emitter, *, source: Source | None = None) -> None
         conn.close()
         end("failed", _failure(error))
         return
+    scrapetube.reset_total_bytes()
     emitter.run(total=total, start_at=cfg.start_at)
     settings = {
         "perKeyword": cfg.handles_limit,
@@ -155,41 +162,62 @@ def run(start: Start, emitter: Emitter, *, source: Source | None = None) -> None
 
     def work(worker_conn: sqlite3.Connection, index: int, keyword: str) -> None:
         search = Search(worker_conn, run_id, cfg, source, pacer, emitter, skip)
+        scrapetube.take_thread_bytes()  # this keyword's traffic starts from zero
         store.mark_keyword_started(worker_conn, keyword, cfg.worker, settings)
         emitter.keyword(index=index, total=total, keyword=keyword, state="started")
-        try:
-            result = keyword_step.process_keyword(search, keyword)
-        except KeyboardInterrupt:
-            raise
-        except BaseException:
+        # One route per keyword while it is healthy: the search, the sweep and the details.
+        with scrapetube.route_affinity():
+            result = _search_keyword(search, index, keyword)
+            if result is None or not result.complete:
+                note_incomplete_keyword(index, keyword, result)
+                if result is not None:
+                    keyword_step.after_keyword(search)
+                return
             with lock:
-                failed[index] = keyword
-            raise
-        if not result.complete:
+                results[index] = result
             emitter.keyword(
                 index=index,
                 total=total,
                 keyword=keyword,
-                state="incomplete",
+                state="done",
                 found=result.found,
                 kept=result.kept,
-                error="The search stopped early.",
             )
-            with lock:
-                incomplete[0] += 1
             keyword_step.after_keyword(search)
-            return
-        with lock:
-            results[index] = result
+
+    def _search_keyword(search: Search, index: int, keyword: str) -> KeywordResult | None:
+        """The keyword's result; None when a scraper error escaped (the keyword is incomplete)."""
+        try:
+            return keyword_step.process_keyword(search, keyword)
+        except KeyboardInterrupt:
+            raise
+        except scrapetube.ScrapetubeError as error:
+            emitter.log("warn", f'"{keyword}": the search stopped early ({type(error).__name__}).')
+            row = store.get_keyword(search.conn, keyword)
+            store.mark_keyword_incomplete(
+                search.conn, keyword, channels_found=int(row["channels_found"]) if row else 0
+            )
+            return None
+        except BaseException:
+            with lock:
+                failed[index] = keyword
+            raise
+
+    def note_incomplete_keyword(index: int, keyword: str, result: KeywordResult | None) -> None:
         emitter.keyword(
             index=index,
             total=total,
             keyword=keyword,
-            state="done",
-            found=result.found,
-            kept=result.kept,
+            state="incomplete",
+            found=result.found if result else 0,
+            kept=result.kept if result else 0,
+            error="The search stopped early.",
         )
-        keyword_step.after_keyword(search)
+        with lock:
+            incomplete[0] += 1
+
+    def note_failed_keyword(_index: int, keyword: str, error: BaseException) -> None:
+        emitter.log("warn", f'"{keyword}": the keyword failed ({type(error).__name__}).')
 
     def on_done(_index: int, _keyword: str) -> None:
         with lock:
@@ -204,6 +232,8 @@ def run(start: Start, emitter: Emitter, *, source: Source | None = None) -> None
             work,
             on_done,
             connect=lambda: store.get_connection(cfg.data_dir / DB_NAME),
+            quota_fatal=not cfg.continuous,
+            on_failed=note_failed_keyword,
         )
     except KeyboardInterrupt:  # RunAborted too: a stop
         # "stopped", not "interrupted": the person paused it, so the history shows a pause, not a
@@ -239,7 +269,9 @@ def _finish(
     status: Literal["done", "stopped", "interrupted"],
 ) -> None:
     try:
-        store.update_run_progress(conn, run_id, keywords_done=len(results))
+        store.update_run_progress(
+            conn, run_id, keywords_done=len(results), bytes_downloaded=scrapetube.total_bytes()
+        )
         store.finish_run(conn, run_id, status)
     finally:
         conn.close()

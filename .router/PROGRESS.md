@@ -6,9 +6,10 @@ The owner asked on 2026-11-02 to build the scraping upgrade, S1 to S8, one pull 
 
 | Part | State |
 |---|---|
-| S1 | **Done** 2026-11-02, branch `feat/scraping-s1` (PLAN.md "S1", decisions Q1-Q12). Left for the owner: the stored "Also search directly" setting keeps its saved value (likely on); this machine is now used only while every gateway cools down. The bot-wall markers are unproven until a real bot-wall page is captured |
-| S2 | **Next** |
-| S3 to S8 | Not started |
+| S1 | **Done** 2026-11-02, merged as #43 (PLAN.md "S1", decisions Q1-Q12). Left for the owner: the stored "Also search directly" setting keeps its saved value (likely on); this machine is now used only while every gateway cools down. The bot-wall markers are unproven until a real bot-wall page is captured |
+| S2 | **Done** 2026-11-02, branch `feat/scraping-s2` (PLAN.md "S2", decisions R1-R7 and the review changes). To confirm with the owner: one worker with many proxies is slower now (it keeps one route a keyword and waits its gap); with this machine as the only route, a blocked address is tried again every cooldown without end |
+| S3 | **Next**: draft decisions L1-L8 ready |
+| S4 to S8 | Not started |
 
 Owner answers (2026-11-02): S4 keeps the recommended list without any tags (video tags and the channel's keywords are noise); the S5 gateway leak test may run.
 

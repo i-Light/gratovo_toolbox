@@ -219,6 +219,25 @@ export function SearchRulesSection() {
         )}
       </Row>
       <Row
+        id="rulesContinuous"
+        label={rows.rulesContinuous.label}
+        scope="team"
+        desc={rows.rulesContinuous.desc}
+        ui="settings.search.continuous"
+      >
+        {draft === null ? (
+          <Tag icon="refresh">{rules.continuous ? text.continuousOn : text.continuousOff}</Tag>
+        ) : (
+          <Switch
+            on={draft.continuous}
+            label={rows.rulesContinuous.label}
+            onChange={(continuous) => {
+              set({ continuous });
+            }}
+          />
+        )}
+      </Row>
+      <Row
         id="rulesBand"
         label={rows.rulesBand.label}
         scope="team"

@@ -68,8 +68,8 @@ class _LiveRefetchSource:
     def find_channels(self, keyword: str, *, limit: int) -> Found:
         return self._live.find_channels(keyword, limit=limit)
 
-    def sweep(self) -> Sweep:
-        return self._live.sweep()
+    def sweep(self, *, end_on_block: bool = False) -> Sweep:
+        return self._live.sweep(end_on_block=end_on_block)
 
     def channels(self, batch: Mapping[str, str]) -> dict[str, ChannelInfo]:
         return self._live.channels(batch)
@@ -304,7 +304,7 @@ def run(start: Start, emitter: Emitter, *, source: RefetchSource | None = None) 
     stopped = False
     failure: _EndError | None = None
     try:
-        sweep = source.sweep()
+        sweep = source.sweep(end_on_block=True)
         try:
             for index, handle in enumerate(handles):
                 run_control.check_stop()

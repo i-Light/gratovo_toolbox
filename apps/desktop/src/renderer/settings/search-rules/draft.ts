@@ -23,6 +23,7 @@ export interface Draft {
   readonly uploads: string;
   readonly perKeyword: string;
   readonly archive: string;
+  readonly continuous: boolean;
   readonly clean: boolean;
   readonly minSubs: string;
   readonly maxSubs: string;
@@ -41,6 +42,7 @@ export function draftOf(rules: Rules): Draft {
     uploads: rules.minUploads30 === null ? "" : String(rules.minUploads30),
     perKeyword: String(rules.perKeyword),
     archive: String(rules.archiveDays),
+    continuous: rules.continuous,
     clean: rules.autoClean.enabled,
     minSubs: String(rules.autoClean.minSubscribers),
     maxSubs: String(rules.autoClean.maxSubscribers),
@@ -114,6 +116,7 @@ export function checkDraft(
       minMedianViews: median,
       minUploads30: uploads,
       archiveDays: archive,
+      continuous: draft.continuous,
       autoClean: draft.clean
         ? {
             enabled: true,

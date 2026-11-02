@@ -41,8 +41,8 @@ def _version_1_file(path: Path) -> None:
     conn.close()
 
 
-def test_a_new_file_is_created_at_version_5(conn: sqlite3.Connection) -> None:
-    assert store.SCHEMA_VERSION == 5
+def test_a_new_file_is_created_at_version_6(conn: sqlite3.Connection) -> None:
+    assert store.SCHEMA_VERSION == 6
     assert _version(conn) == store.SCHEMA_VERSION
     assert "video_transcripts" in _tables(conn)
 
@@ -72,13 +72,13 @@ def test_a_version_1_file_gains_video_transcripts_and_keeps_every_row(tmp_path: 
     conn.close()
 
 
-def test_a_file_newer_than_version_5_is_refused(tmp_path: Path) -> None:
+def test_a_file_newer_than_version_6_is_refused(tmp_path: Path) -> None:
     path = tmp_path / "pipeline.db"
     conn = store.get_connection(path)
-    conn.execute("PRAGMA user_version=6")
+    conn.execute("PRAGMA user_version=7")
     with pytest.raises(store.SchemaTooNewError):
         store.init_db(conn)
-    assert _version(conn) == 6, "the newer file is left as it was"
+    assert _version(conn) == 7, "the newer file is left as it was"
     assert "video_transcripts" not in _tables(conn)
     conn.close()
 
@@ -276,6 +276,31 @@ def test_a_version_4_file_gains_the_keyword_failures_column(tmp_path: Path) -> N
     assert _version(conn) == store.SCHEMA_VERSION
     row = conn.execute("SELECT * FROM keywords").fetchone()
     assert (row["keyword"], row["status"], row["failures"]) == ("ai agents tutorial", "pending", 0)
+    conn.close()
+
+
+def test_a_version_5_file_gains_the_run_bytes_column_and_keeps_its_runs(tmp_path: Path) -> None:
+    path = tmp_path / "pipeline.db"
+    conn = store.get_connection(path)
+    store.init_db(conn)
+    run_id = store.start_run(conn, 3)
+    conn.execute("ALTER TABLE runs DROP COLUMN bytes_downloaded")
+    conn.execute("PRAGMA user_version=5")
+    conn.commit()
+    conn.close()
+
+    conn = store.get_connection(path)
+    store.init_db(conn)
+    store.init_db(conn)  # a second open runs nothing again
+
+    assert _version(conn) == store.SCHEMA_VERSION
+    run = store.get_run(conn, run_id)
+    assert run is not None
+    assert (run["keywords_total"], run["bytes_downloaded"]) == (3, 0)
+    store.update_run_progress(conn, run_id, bytes_downloaded=1234)
+    run = store.get_run(conn, run_id)
+    assert run is not None
+    assert run["bytes_downloaded"] == 1234
     conn.close()
 
 

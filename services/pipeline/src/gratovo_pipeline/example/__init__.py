@@ -110,7 +110,7 @@ class ExampleSource:
         handles = _RESULTS.get(keyword.strip().lower()) or self._pick(keyword)
         return Found({h: _BY_HANDLE[h].channel_id for h in handles[:limit]}, True)
 
-    def sweep(self) -> ExampleSweep:
+    def sweep(self, *, end_on_block: bool = False) -> ExampleSweep:
         return ExampleSweep()
 
     def channels(self, batch: Mapping[str, str]) -> dict[str, ChannelInfo]:

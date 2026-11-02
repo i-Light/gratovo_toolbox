@@ -112,6 +112,7 @@ describe("settingsRows", () => {
       "search/rulesUploads",
       "search/rulesPerKeyword",
       "search/rulesArchive",
+      "search/rulesContinuous",
       "search/rulesBand",
       "writing/writingRules",
       "connections/connOld",

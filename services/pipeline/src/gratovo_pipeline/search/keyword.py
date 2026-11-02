@@ -15,10 +15,18 @@ from collections.abc import Mapping, Sequence
 
 from gratovo_pipeline import store
 from gratovo_pipeline.protocol import Outcome
+from gratovo_pipeline.scrapetube import scrapetube
 from gratovo_pipeline.search import auto_clean, backfill
 from gratovo_pipeline.search.context import ChannelUnreadableError, Search
 from gratovo_pipeline.search.uploads import UploadCollector
 from gratovo_pipeline.youtube import BATCH_SIZE, ChannelInfo
+
+
+def downloaded_note() -> str:
+    """ " 1.4 MB downloaded." for the keyword the calling thread is working (its count since the job
+    took it at the keyword's start), or nothing when no page was fetched (the example source)."""
+    size = scrapetube.thread_bytes()
+    return f" {size / 1_000_000:.1f} MB downloaded." if size else ""
 
 
 @dataclasses.dataclass(frozen=True)
@@ -107,12 +115,13 @@ def process_keyword(search: Search, keyword: str) -> KeywordResult:
         search.info(
             f'"{keyword}" done: {found} found, {len(kept)} kept'
             + (f", {outside} outside the countries." if outside else ".")
+            + downloaded_note()
         )
     else:
         store.mark_keyword_incomplete(conn, keyword, channels_found=found)
         search.info(
             f'"{keyword}": the search stopped early after {found} found, {len(kept)} kept. '
-            "The keyword will be searched again."
+            "The keyword will be searched again." + downloaded_note()
         )
     return KeywordResult(
         found=found,

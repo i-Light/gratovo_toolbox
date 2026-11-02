@@ -8,6 +8,8 @@ from collections.abc import Iterator
 import pytest
 
 from gratovo_pipeline import parallel, run_control
+from gratovo_pipeline.scrapetube.scrapetube import ScrapetubeError
+from gratovo_pipeline.youtube import YouTubeError
 
 
 @pytest.fixture(autouse=True)
@@ -157,3 +159,87 @@ def test_a_stop_ends_the_run_between_keywords() -> None:
     finished = parallel.run_keywords([(1, "a"), (2, "b")], 1, work, nothing, connect=Conn)
     assert order == ["a"]
     assert finished == 1
+
+
+# --- only a fatal failure stops the others (step S2, R3) ---
+
+
+def test_a_scraper_error_that_escaped_costs_its_keyword_only() -> None:
+    from gratovo_pipeline.scrapetube.scrapetube import PageFailedError
+
+    worked: list[str] = []
+    failed: list[tuple[int, str]] = []
+    lock = threading.Lock()
+
+    def work(_conn: Conn, _position: int, keyword: str) -> None:
+        with lock:
+            worked.append(keyword)
+        if keyword == "kw2":
+            raise PageFailedError("/results failed after 3 attempts")
+
+    items = [(i, f"kw{i}") for i in range(1, 10)]
+    finished = parallel.run_keywords(
+        items,
+        3,
+        work,
+        nothing,
+        connect=Conn,
+        on_failed=lambda position, keyword, _exc: failed.append((position, keyword)),
+    )
+
+    assert finished == 8
+    assert sorted(worked) == sorted(k for _, k in items), "every keyword was tried"
+    assert failed == [(2, "kw2")]
+
+
+def test_a_single_worker_takes_the_next_keyword_after_a_scraper_error() -> None:
+    from gratovo_pipeline.scrapetube.scrapetube import BlockedError
+
+    order: list[str] = []
+
+    def work(_conn: Conn, _position: int, keyword: str) -> None:
+        order.append(keyword)
+        if keyword == "a":
+            raise BlockedError("innertube returned a non-JSON body")
+
+    assert parallel.run_keywords([(1, "a"), (2, "b")], 1, work, nothing, connect=Conn) == 1
+    assert order == ["a", "b"]
+
+
+@pytest.mark.parametrize(
+    ("error", "fatal"),
+    [
+        (run_control.RunAborted(), True),
+        (YouTubeError("no_youtube_key", "Google refused the key."), True),
+        (YouTubeError("quota", "The quota is spent."), True),
+        (YouTubeError("network", "Couldn't reach the API."), True),
+        (RuntimeError("a bug"), True),
+        (ScrapetubeError("a page"), False),
+    ],
+)
+def test_which_failures_are_fatal(error: BaseException, fatal: bool) -> None:
+    assert parallel.is_fatal(error) is fatal
+
+
+def test_a_spent_quota_is_not_fatal_when_it_is_waited_out() -> None:
+    quota = YouTubeError("quota", "The quota is spent.")
+    assert parallel.is_fatal(quota) is True
+    assert parallel.is_fatal(quota, quota_fatal=False) is False
+    assert parallel.is_fatal(RuntimeError("a bug"), quota_fatal=False) is True
+
+
+def test_a_fatal_failure_still_stops_the_others() -> None:
+    started: list[str] = []
+    lock = threading.Lock()
+
+    def work(_conn: Conn, _position: int, keyword: str) -> None:
+        with lock:
+            started.append(keyword)
+        if keyword == "kw2":
+            raise YouTubeError("no_youtube_key", "Google refused the key.")
+        for _ in range(100):
+            run_control.sleep(0.01)
+
+    with pytest.raises(YouTubeError):
+        parallel.run_keywords([(i, f"kw{i}") for i in range(1, 40)], 3, work, nothing, connect=Conn)
+    assert len(started) < 10

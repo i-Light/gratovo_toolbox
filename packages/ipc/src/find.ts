@@ -62,12 +62,22 @@ export const findRulesSchema = z.strictObject({
    * sent to the pipeline, so `pipelineRules` drops it from the search job.
    */
   archiveDays: z.number().int().min(1).max(90),
+  /** Keep searching through an API quota stop: wait for the reset instead of ending the run. */
+  continuous: z.boolean(),
 });
 
 /** A keyword the pipeline reports failed this many times stays `failed` until the owner retries. */
 export const failureLimit = 3;
 export const findKeywordStates = ["queued", "running", "done", "failed"] as const;
-export const findRunStates = ["ready", "running", "stopping", "paused", "done", "failed"] as const;
+export const findRunStates = [
+  "ready",
+  "running",
+  "waiting",
+  "stopping",
+  "paused",
+  "done",
+  "failed",
+] as const;
 /** Why a run failed. A code, never the pipeline's own text: the page words it. */
 export const findErrors = ["no_youtube_key", "blocked", "quota", "network", "crash"] as const;
 
@@ -94,6 +104,10 @@ export const findStateSchema = z.strictObject({
     kept: count,
     swept: count,
     error: z.enum(findErrors).nullable(),
+    /** Set while `state` is `waiting`: why the run is paused and when it tries again. */
+    wait: z
+      .strictObject({ reason: z.enum(["routes", "quota", "api"]), until: z.iso.datetime() })
+      .nullable(),
   }),
   /** Oldest first, the newest 200. */
   log: z

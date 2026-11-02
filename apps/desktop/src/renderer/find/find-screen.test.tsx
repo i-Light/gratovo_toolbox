@@ -6,6 +6,7 @@ import { emptyFacets, fitOf } from "@gratovo/core/find";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { resetAccountViewForTests, setAccountView } from "../lib/account";
+import { clock } from "../lib/format";
 import { resetFindForTests } from "../lib/find";
 import { aiChannel } from "../lib/find-test-bridge";
 import { exampleData } from "../lib/example-data";
@@ -31,6 +32,7 @@ const rules: FindState["rules"] = {
   minMedianViews: null,
   minUploads30: null,
   archiveDays: 7,
+  continuous: false,
 };
 
 type Queue = FindState["queue"];
@@ -56,7 +58,7 @@ function makeState(over: Partial<FindState> = {}): FindState {
     ],
     at: 1,
     rules,
-    run: { state: "paused", found: 40, kept: 10, swept: 12, error: null },
+    run: { state: "paused", found: 40, kept: 10, swept: 12, error: null, wait: null },
     log: [],
     kept: [],
     ...over,
@@ -67,7 +69,10 @@ const withRun = (
   extra: Partial<FindState["run"]> = {},
   over: Partial<FindState> = {},
 ): FindState =>
-  makeState({ run: { state, found: 40, kept: 10, swept: 12, error: null, ...extra }, ...over });
+  makeState({
+    run: { state, found: 40, kept: 10, swept: 12, error: null, wait: null, ...extra },
+    ...over,
+  });
 
 const runningState = (): FindState =>
   withRun("running", {}, { queue: [kw("ai agents", "running"), kw("llm news", "queued")], at: 0 });
@@ -138,8 +143,10 @@ const push = (state: FindState): void => {
 const headingText = (): string =>
   screen.getByRole("heading", {
     level: 3,
-    name: /Searching|Finished|Not started|Paused|Stopped|Stopping/,
+    name: /Searching|Finished|Not started|Paused|API quota|YouTube API|Stopped|Stopping/,
   }).textContent;
+
+const waitUntil = "2026-11-02T09:30:00Z";
 
 describe("the run headline and button, by state", () => {
   const cases: readonly [string, () => FindState, string, string | null][] = [
@@ -159,6 +166,14 @@ describe("the run headline and button, by state", () => {
     ["paused", () => withRun("paused"), t.live.paused(2), t.live.resume(2)],
     ["failed", () => withRun("failed", { error: "quota" }), t.live.failed(2), t.live.retry(2)],
     ["stopping", () => withRun("stopping"), t.live.stopping, t.live.pause],
+    ...(["routes", "quota", "api"] as const).map(
+      (reason): [string, () => FindState, string, string | null] => [
+        `waiting, ${reason}`,
+        () => withRun("waiting", { wait: { reason, until: waitUntil } }),
+        t.live.waiting[reason](clock(Date.parse(waitUntil))),
+        t.live.pause,
+      ],
+    ),
     // After a restart the run is "ready" again; the queue says how far it got.
     [
       "ready after a finished run",
@@ -566,7 +581,7 @@ describe("break-ui: worst case data", () => {
       makeState({
         queue: [],
         at: 0,
-        run: { state: "ready", found: 0, kept: 0, swept: 0, error: null },
+        run: { state: "ready", found: 0, kept: 0, swept: 0, error: null, wait: null },
       }),
     );
     await show();

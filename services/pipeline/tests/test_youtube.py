@@ -3,6 +3,8 @@ name each failure gets."""
 
 import io
 import json
+import threading
+from datetime import UTC, datetime, timedelta
 from email.message import Message
 from urllib.error import HTTPError, URLError
 from urllib.parse import parse_qs, urlsplit
@@ -367,3 +369,199 @@ def test_a_placeholder_without_a_custom_url_links_by_channel_id(rec: Recorder) -
     found = api(FakeOpener({"items": [CHANNEL]}), rec).channels({cid: cid})
     assert found[cid]["Handle"] == cid
     assert found[cid]["Link"] == f"https://www.youtube.com/channel/{cid}"
+
+
+# --- waiting instead of ending the run (step S2, R5) ---
+
+
+class Told:
+    def __init__(self) -> None:
+        self.events: list[tuple[str, ...]] = []
+
+    def wait(self, reason: str, until: str) -> None:
+        self.events.append(("wait", reason, until))
+
+    def resume(self, reason: str) -> None:
+        self.events.append(("resume", reason))
+
+
+class FakeTime:
+    """A clock whose sleeps advance it."""
+
+    def __init__(self, start: datetime) -> None:
+        self.now = start
+        self.slept: list[float] = []
+
+    def __call__(self) -> datetime:
+        return self.now
+
+    def sleep(self, seconds: float) -> None:
+        self.slept.append(seconds)
+        self.now += timedelta(seconds=seconds)
+
+
+def waiting(
+    opener: FakeOpener,
+    fake: FakeTime,
+    told: Told,
+    *,
+    wait_on_network: bool = False,
+    wait_on_quota: bool = False,
+) -> YouTubeApi:
+    return YouTubeApi(
+        KEY,
+        opener=opener,
+        sleep=fake.sleep,
+        clock=fake,
+        waits=told,
+        wait_on_network=wait_on_network,
+        wait_on_quota=wait_on_quota,
+    )
+
+
+def test_quota_reset_is_the_next_pacific_midnight_plus_five_minutes() -> None:
+    winter = youtube.quota_reset(datetime(2026, 1, 15, 20, 0, tzinfo=UTC))
+    assert winter == datetime(2026, 1, 16, 8, 5, tzinfo=UTC)  # 00:05 PST
+    summer = youtube.quota_reset(datetime(2026, 7, 15, 20, 0, tzinfo=UTC))
+    assert summer == datetime(2026, 7, 16, 7, 5, tzinfo=UTC)  # 00:05 PDT
+    after = youtube.quota_reset(datetime(2026, 11, 2, 8, 6, tzinfo=UTC))  # just past a reset
+    assert after == datetime(2026, 11, 3, 8, 5, tzinfo=UTC)
+
+
+def test_the_quota_reset_follows_pacific_daylight_time() -> None:
+    summer = youtube.quota_reset(datetime(2026, 7, 15, 20, 0, tzinfo=UTC))  # 13:00 PDT
+    winter = youtube.quota_reset(datetime(2026, 1, 15, 20, 0, tzinfo=UTC))  # 12:00 PST
+    assert summer == datetime(2026, 7, 16, 7, 5, tzinfo=UTC)
+    assert winter == datetime(2026, 1, 16, 8, 5, tzinfo=UTC)
+
+
+def test_a_waiting_client_sleeps_to_the_quota_reset_and_tries_again() -> None:
+    fake = FakeTime(datetime(2026, 11, 2, 20, 0, tzinfo=UTC))  # 12:00 PST
+    told = Told()
+    opener = FakeOpener(http_error(403, "quotaExceeded"), {"items": [VIDEO]})
+    got = waiting(opener, fake, told, wait_on_quota=True).videos(["vid00000001"])
+    assert list(got) == ["vid00000001"]
+    assert fake.now == datetime(2026, 11, 3, 8, 5, tzinfo=UTC)
+    assert told.events == [("wait", "quota", "2026-11-03T08:05:00Z"), ("resume", "quota")]
+
+
+def test_the_quota_still_ends_the_run_when_the_client_does_not_wait() -> None:
+    fake = FakeTime(datetime(2026, 11, 2, 20, 0, tzinfo=UTC))
+    told = Told()
+    opener = FakeOpener(http_error(403, "quotaExceeded"))
+    with pytest.raises(YouTubeError) as caught:
+        waiting(opener, fake, told, wait_on_network=True).videos(["v1"])
+    assert caught.value.code == "quota"
+    assert told.events == []
+    assert fake.slept == []
+
+
+def test_the_network_breaker_probes_at_60_120_to_600_then_resumes() -> None:
+    fake = FakeTime(datetime(2026, 11, 2, 8, 0, tzinfo=UTC))
+    told = Told()
+    down: list[Answer] = [URLError("down")] * 3  # one round of the ordinary retries
+    opener = FakeOpener(*(down * 6), {"items": [VIDEO]})
+    got = waiting(opener, fake, told, wait_on_network=True).videos(["vid00000001"])
+    assert list(got) == ["vid00000001"]
+    long = [s for s in fake.slept if s >= 60]  # waits sleep in pieces of at most a minute
+    assert set(long) == {60}
+    assert sum(long) == 60 + 120 + 240 + 480 + 600 + 600
+    waits = [e for e in told.events if e[0] == "wait"]
+    assert len(waits) == 6
+    assert waits[0] == ("wait", "api", "2026-11-02T08:01:10Z")  # after the 2 s and 8 s retries
+    assert told.events[-1] == ("resume", "api")
+    assert told.events.count(("resume", "api")) == 6, "one resume per wait"
+
+
+def test_a_network_that_stays_down_still_ends_the_run_when_the_client_does_not_wait() -> None:
+    fake = FakeTime(datetime(2026, 11, 2, 8, 0, tzinfo=UTC))
+    opener = FakeOpener(URLError("down"), URLError("down"), URLError("down"))
+    with pytest.raises(YouTubeError) as caught:
+        waiting(opener, fake, Told()).videos(["v1"])
+    assert caught.value.code == "network"
+
+
+def test_other_threads_wait_on_the_one_that_probes() -> None:
+    fake = FakeTime(datetime(2026, 11, 2, 8, 0, tzinfo=UTC))
+    told = Told()
+    probe_sleeping = threading.Event()
+    release = threading.Event()
+    calls: list[str] = []
+
+    def opener(_request: Request, _timeout: float) -> io.BytesIO:
+        calls.append(threading.current_thread().name)
+        if not release.is_set():
+            raise URLError("down")
+        return io.BytesIO(json.dumps({"items": []}).encode())
+
+    def sleep(seconds: float) -> None:
+        if seconds >= 60:
+            probe_sleeping.set()
+            assert release.wait(5)
+        else:
+            fake.sleep(seconds)
+
+    client = YouTubeApi(
+        KEY, opener=opener, sleep=sleep, clock=fake, waits=told, wait_on_network=True
+    )
+    probe = threading.Thread(target=client.videos, args=(["a"],), name="probe")
+    probe.start()
+    assert probe_sleeping.wait(5)
+    other = threading.Thread(target=client.videos, args=(["b"],), name="other")
+    other.start()
+    other.join(0.3)
+    assert other.is_alive(), "the second thread waits for the probe"
+    assert calls.count("other") == 3, "its own retries, then no call while the probe is out"
+    release.set()
+    probe.join(5)
+    other.join(5)
+    assert not probe.is_alive()
+    assert not other.is_alive()
+    assert told.events.count(("resume", "api")) == 1
+
+
+def test_a_quota_wait_sleeps_in_chunks_of_at_most_a_minute() -> None:
+    fake = FakeTime(datetime(2026, 11, 2, 20, 0, tzinfo=UTC))
+    opener = FakeOpener(http_error(403, "quotaExceeded"), {"items": [VIDEO]})
+    waiting(opener, fake, Told(), wait_on_quota=True).videos(["vid00000001"])
+    assert max(fake.slept) <= 60
+    assert len(fake.slept) > 100
+    assert fake.now == datetime(2026, 11, 3, 8, 5, tzinfo=UTC)
+
+
+def test_a_quota_wait_wakes_on_time_when_the_clock_jumps_during_a_sleep() -> None:
+    fake = FakeTime(datetime(2026, 11, 2, 20, 0, tzinfo=UTC))
+
+    def sleep_and_jump(seconds: float) -> None:
+        fake.sleep(seconds)
+        if seconds == youtube.QUOTA_SLEEP_CHUNK:  # the PC slept for hours in the first chunk
+            fake.now += timedelta(hours=13)
+
+    opener = FakeOpener(http_error(403, "quotaExceeded"), {"items": [VIDEO]})
+    told = Told()
+    client = YouTubeApi(
+        KEY, opener=opener, sleep=sleep_and_jump, clock=fake, waits=told, wait_on_quota=True
+    )
+    assert list(client.videos(["vid00000001"])) == ["vid00000001"]
+    assert fake.slept.count(youtube.QUOTA_SLEEP_CHUNK) == 1, (
+        "no more sleeping once the wall clock is past the reset"
+    )
+    assert told.events[-1] == ("resume", "quota")
+
+
+def test_a_rate_limit_goes_through_the_network_breaker_not_the_quota() -> None:
+    fake = FakeTime(datetime(2026, 11, 2, 8, 0, tzinfo=UTC))
+    told = Told()
+    limited: list[Answer] = [http_error(429)] * 3
+    opener = FakeOpener(*limited, {"items": [VIDEO]})
+    got = waiting(opener, fake, told, wait_on_network=True).videos(["vid00000001"])
+    assert list(got) == ["vid00000001"]
+    assert [e[:2] for e in told.events] == [("wait", "api"), ("resume", "api")]
+
+
+def test_a_rate_limit_still_ends_the_run_when_the_client_does_not_wait() -> None:
+    fake = FakeTime(datetime(2026, 11, 2, 8, 0, tzinfo=UTC))
+    opener = FakeOpener(*([http_error(429)] * 3))
+    with pytest.raises(YouTubeError) as caught:
+        waiting(opener, fake, Told(), wait_on_quota=True).videos(["v1"])
+    assert caught.value.code == "quota"

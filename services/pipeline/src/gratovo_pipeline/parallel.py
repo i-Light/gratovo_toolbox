@@ -11,6 +11,10 @@ twice in a row, and keeps its minimum gap. Workers never outnumber the rotating 
 Pacing is Normal unless the app sends Fast (`config.Config.pacing`). Each worker has its
 own SQLite connection, since a connection belongs to the thread that made it. Lines to the app
 stay whole without help here: the Emitter writes each message under a lock.
+
+Only a fatal exception stops the other workers (`is_fatal`): a stop, a missing YouTube key, the
+quota, or anything that is not a scraper error (a bug). A scraper error that escaped a worker
+costs that keyword only: it is reported to `on_failed` and the worker takes the next keyword.
 """
 
 from __future__ import annotations
@@ -21,6 +25,8 @@ from collections.abc import Callable, Iterable
 from typing import Literal, Protocol
 
 from gratovo_pipeline import run_control
+from gratovo_pipeline.scrapetube.scrapetube import ScrapetubeError
+from gratovo_pipeline.youtube import YouTubeError
 
 DEFAULT_MAX_WORKERS = 4
 MAX_WORKERS = 8
@@ -35,11 +41,23 @@ def worker_count(*, enabled: bool, max_workers: int, rotating_connections: int) 
     return max(1, min(cap, rotating_connections))
 
 
+def is_fatal(error: BaseException, *, quota_fatal: bool = True) -> bool:
+    """True when the other workers must stop too: a stop, a missing key, the quota (unless
+    `quota_fatal` is off: continuous mode waits for the reset inside the API client), and
+    anything that is not a scraper error (a bug). Only a scraper error that escaped a worker is
+    not fatal."""
+    if isinstance(error, run_control.RunAborted):
+        return True
+    if isinstance(error, YouTubeError) and error.code == "quota":
+        return quota_fatal
+    return not isinstance(error, ScrapetubeError)
+
+
 class Closeable(Protocol):
     def close(self) -> None: ...
 
 
-type _Result = tuple[Literal["done", "failed"], int, str, BaseException | None]
+type _Result = tuple[Literal["done", "failed", "skipped"], int, str, BaseException | None]
 
 
 def run_keywords[C: Closeable](
@@ -49,14 +67,17 @@ def run_keywords[C: Closeable](
     on_done: Callable[[int, str], None],
     *,
     connect: Callable[[], C],
+    on_failed: Callable[[int, str, BaseException], None] | None = None,
+    quota_fatal: bool = True,
 ) -> int:
     """Works `items`, `(position, keyword)` pairs in hand-out order, on `workers` threads.
 
     `work(conn, position, keyword)` runs on a worker with that worker's own connection from
     `connect`. `on_done(position, keyword)` runs on the calling thread after each keyword, in the
-    order they finish. The first failure on any worker stops the others at their next wait or
+    order they finish. The first fatal failure on any worker stops the others at their next wait or
     keyword and is raised here once they have all come back; a KeyboardInterrupt here does the
-    same. Returns how many keywords finished.
+    same. A non-fatal one (see `is_fatal`) goes to `on_failed(position, keyword, error)` on the
+    calling thread and the worker carries on. Returns how many keywords finished.
     """
     todo: queue.Queue[tuple[int, str]] = queue.Queue()
     for item in items:
@@ -75,6 +96,9 @@ def run_keywords[C: Closeable](
                 try:
                     work(conn, position, keyword)
                 except BaseException as exc:
+                    if not is_fatal(exc, quota_fatal=quota_fatal):
+                        results.put(("skipped", position, keyword, exc))
+                        continue
                     results.put(("failed", position, keyword, exc))
                     run_control.request_stop()
                     return
@@ -103,6 +127,9 @@ def run_keywords[C: Closeable](
             if kind == "done":
                 done += 1
                 on_done(position, keyword)
+            elif kind == "skipped":
+                if on_failed is not None and exc is not None:
+                    on_failed(position, keyword, exc)
             elif failure is None or (
                 isinstance(failure, run_control.RunAborted)
                 and not isinstance(exc, run_control.RunAborted)

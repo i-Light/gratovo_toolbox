@@ -162,7 +162,14 @@ describe("the find service", () => {
       const state = service.state();
       expect(state.queue).toEqual([]);
       expect(state.at).toBe(0);
-      expect(state.run).toEqual({ state: "ready", found: 0, kept: 0, swept: 0, error: null });
+      expect(state.run).toEqual({
+        state: "ready",
+        found: 0,
+        kept: 0,
+        swept: 0,
+        error: null,
+        wait: null,
+      });
       expect(state.rules.perKeyword).toBe(200);
     });
 
@@ -397,6 +404,7 @@ describe("the find service", () => {
         kept: 0,
         swept: 0,
         error: null,
+        wait: null,
       });
       expect(emitted.at(-1)?.run.state).toBe("running");
     });
@@ -557,6 +565,63 @@ describe("the find service", () => {
       supervisor.finish({ kind: "ended", result: null, end: endLine() });
       // There is no pipeline.db in this folder, so the list is what the database holds: none.
       expect(service.state().kept).toEqual([]);
+    });
+
+    describe("waiting", () => {
+      const until = "2026-11-02T09:30:00Z";
+
+      it("a wait message shows the reason and the time; resume clears it", () => {
+        supervisor.send({ type: "wait", reason: "quota", until });
+        expect(service.state().run).toMatchObject({
+          state: "waiting",
+          wait: { reason: "quota", until },
+        });
+        supervisor.send({ type: "resume", reason: "quota" });
+        expect(service.state().run).toMatchObject({ state: "running", wait: null });
+      });
+
+      it("a resume while running changes nothing", () => {
+        supervisor.send({ type: "resume", reason: "quota" });
+        expect(service.state().run).toMatchObject({ state: "running", wait: null });
+      });
+
+      it("one reason resuming leaves the others showing", () => {
+        const later = "2026-11-02T10:30:00Z";
+        supervisor.send({ type: "wait", reason: "quota", until: later });
+        supervisor.send({ type: "wait", reason: "routes", until });
+        expect(service.state().run.wait).toEqual({ reason: "quota", until: later });
+        supervisor.send({ type: "resume", reason: "routes" });
+        expect(service.state().run).toMatchObject({
+          state: "waiting",
+          wait: { reason: "quota", until: later },
+        });
+        supervisor.send({ type: "resume", reason: "api" });
+        expect(service.state().run.state).toBe("waiting");
+        supervisor.send({ type: "resume", reason: "quota" });
+        expect(service.state().run).toMatchObject({ state: "running", wait: null });
+      });
+
+      it("the exit clears the wait", () => {
+        supervisor.send({ type: "wait", reason: "routes", until });
+        supervisor.finish({ kind: "ended", result: null, end: endLine() });
+        expect(service.state().run).toMatchObject({ state: "done", wait: null });
+      });
+
+      it("stop while waiting stops, and a late wait does not undo it", () => {
+        supervisor.send({ type: "wait", reason: "api", until });
+        service.stop();
+        expect(supervisor.stops).toBe(1);
+        expect(service.state().run).toMatchObject({ state: "stopping", wait: null });
+        supervisor.send({ type: "wait", reason: "api", until });
+        expect(service.state().run.state).toBe("stopping");
+        supervisor.finish({ kind: "failed", reason: "killed" });
+        expect(service.state().run).toMatchObject({ state: "paused", wait: null });
+      });
+
+      it("still counts as busy while waiting", async () => {
+        supervisor.send({ type: "wait", reason: "routes", until });
+        expect(await service.start()).toMatchObject({ ok: false, problem: "running" });
+      });
     });
 
     it("emits when the run ends", () => {

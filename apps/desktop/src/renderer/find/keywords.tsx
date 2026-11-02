@@ -127,7 +127,10 @@ export function Keywords({ state }: { readonly state: FindState }) {
   const ideas = useIdeas();
   const suggest = useRef<HTMLButtonElement>(null);
   const { queue, at } = state;
-  const active = state.run.state === "running" || state.run.state === "stopping";
+  const active =
+    state.run.state === "running" ||
+    state.run.state === "waiting" ||
+    state.run.state === "stopping";
   const done = queue.filter((k) => k.state === "done").length;
   const ready = parseKeywords(draft);
 
@@ -170,6 +173,11 @@ export function Keywords({ state }: { readonly state: FindState }) {
   // How many finished keywords found too little; asked again when a run ends or the list changes.
   const [weak, setWeak] = useState(0);
   const [asking, setAsking] = useState(false);
+  // One flag, so running to waiting and back does not read the database again.
+  const runActive =
+    state.run.state === "running" ||
+    state.run.state === "stopping" ||
+    state.run.state === "waiting";
   useEffect(() => {
     let current = true;
     window.gratovo
@@ -183,7 +191,7 @@ export function Keywords({ state }: { readonly state: FindState }) {
     return () => {
       current = false;
     };
-  }, [state.run.state, queue.length]);
+  }, [runActive, queue.length]);
   const requeue = async (): Promise<void> => {
     setAsking(false);
     setNote(null);

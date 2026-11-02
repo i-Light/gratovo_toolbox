@@ -36,6 +36,14 @@ describe("the find file", () => {
     expect(file.rules.autoClean).toMatchObject({ minSubscribers: 50_000, label: "inactive" });
   });
 
+  it("reads a file written before the continuous rule with continuous off", () => {
+    const { continuous, ...old } = defaultRules();
+    expect(continuous).toBe(false);
+    writeFileSync(join(folder, findFileName), JSON.stringify({ queue: [], at: 0, rules: old }));
+    expect(readFindFile(folder).rules.continuous).toBe(false);
+    expect(pipelineRules(readFindFile(folder).rules)).toMatchObject({ continuous: false });
+  });
+
   it("gives the defaults when the file is not JSON or fails the schema", () => {
     writeFileSync(join(folder, findFileName), "{ not json");
     expect(readFindFile(folder).queue).toEqual([]);
@@ -120,10 +128,12 @@ describe("the find file", () => {
 });
 
 describe("the rules schemas", () => {
-  // The pipeline also takes a job without the two new rules (an older main); main always sends them.
+  // The pipeline also takes a job without the three newer rules (an older main); main always sends them.
   it("findRulesSchema without archiveDays and the pipeline's rulesSchema give the same JSON Schema", () => {
     expect(z.toJSONSchema(findRulesSchema.omit({ archiveDays: true }))).toEqual(
-      z.toJSONSchema(rulesSchema.required({ minMedianViews: true, minUploads30: true })),
+      z.toJSONSchema(
+        rulesSchema.required({ minMedianViews: true, minUploads30: true, continuous: true }),
+      ),
     );
   });
 

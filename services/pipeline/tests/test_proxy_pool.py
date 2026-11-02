@@ -457,3 +457,136 @@ def test_a_block_cools_down_longer_than_a_connection_failure() -> None:
     pool.report_blocked(blocked)
     pool.report_connection_failure(failed)
     assert blocked.cooldown_until - clock.now > failed.cooldown_until - clock.now
+
+
+# --- exclude and prefer (step S2, R1 and R2) ---
+
+
+def test_exclude_leaves_out_the_candidates_a_request_already_tried() -> None:
+    pool, _clock = make_pool(gateways=(GATEWAY, GATEWAY + "2"), include_direct=False, gap=0)
+    first = pool.acquire()
+    first.release()
+    second = pool.acquire(exclude=[first.candidate])
+    second.release()
+    assert second.candidate is not first.candidate
+    third = pool.acquire(exclude=[first.candidate, second.candidate])
+    third.release()
+    assert third.candidate in pool.candidates, "all excluded: the pool reuses one, not stalls"
+
+
+def test_one_route_alone_is_reused_after_its_cooldown() -> None:
+    sleeps: list[float] = []
+    pool, clock = make_pool(gap=0, sleeps=sleeps)
+    lease = pool.acquire()
+    lease.release()
+    pool.report_blocked(lease.candidate)
+    again = pool.acquire(exclude=[lease.candidate])
+    again.release()
+    assert again.candidate is lease.candidate
+    assert sum(sleeps) >= proxy_pool.BLOCK_COOLDOWN_BASE, "waited out its cooldown first"
+    assert clock.now >= 1000.0 + proxy_pool.BLOCK_COOLDOWN_BASE
+
+
+def test_a_healthy_preferred_route_is_taken_again_even_when_it_was_the_last() -> None:
+    pool, _clock = make_pool(gateways=(GATEWAY, GATEWAY + "2"), include_direct=False, gap=0)
+    first = pool.acquire()
+    first.release()
+    for _ in range(4):  # without a preference this would alternate
+        lease = pool.acquire(prefer=first.candidate)
+        lease.release()
+        assert lease.candidate is first.candidate
+
+
+def test_a_preferred_route_in_its_gap_is_waited_for() -> None:
+    sleeps: list[float] = []
+    pool, clock = make_pool(gateways=(GATEWAY, GATEWAY + "2"), include_direct=False, sleeps=sleeps)
+    first = pool.acquire()
+    first.release()
+    lease = pool.acquire(prefer=first.candidate)
+    lease.release()
+    assert lease.candidate is first.candidate
+    assert clock.now >= 1000.0 + 6.0
+    assert sleeps
+
+
+def test_a_preferred_route_busy_with_another_worker_yields_to_a_free_one() -> None:
+    pool, _clock = make_pool(gateways=(GATEWAY, GATEWAY + "2"), include_direct=False, gap=0)
+    held = pool.acquire()  # another worker is using it
+    lease = pool.acquire(prefer=held.candidate)
+    assert lease.candidate is not held.candidate
+    lease.release()
+    held.release()
+
+
+def test_a_preferred_route_busy_is_waited_for_when_no_other_is_free() -> None:
+    sleeps: list[float] = []
+    pool, _clock = make_pool(gateways=(GATEWAY, GATEWAY + "2"), include_direct=False, gap=0)
+    first = pool.acquire()
+    second = pool.acquire()
+    freed: list[Lease] = []
+
+    def sleep(_seconds: float) -> None:
+        sleeps.append(_seconds)
+        if not freed:
+            first.release()
+            freed.append(first)
+
+    pool._sleep = sleep  # pyright: ignore[reportPrivateUsage]
+    lease = pool.acquire(prefer=first.candidate)
+    assert lease.candidate is first.candidate
+    assert sleeps
+    lease.release()
+    second.release()
+
+
+def test_a_cooling_preferred_route_is_dropped_for_a_healthy_one() -> None:
+    pool, _clock = make_pool(gateways=(GATEWAY, GATEWAY + "2"), include_direct=False, gap=0)
+    first = pool.acquire()
+    first.release()
+    pool.report_blocked(first.candidate)
+    lease = pool.acquire(prefer=first.candidate)
+    lease.release()
+    assert lease.candidate is not first.candidate
+
+
+def test_direct_is_not_used_while_a_tried_gateway_is_healthy() -> None:
+    pool, _clock = make_pool(gateways=(GATEWAY, GATEWAY + "2"), include_direct=True, gap=0)
+    first = pool.acquire()
+    first.release()
+    second = pool.acquire(exclude=[first.candidate])
+    second.release()
+    third = pool.acquire(exclude=[first.candidate, second.candidate])
+    third.release()
+    assert third.candidate.kind != "direct"
+    assert third.candidate in (first.candidate, second.candidate)
+
+
+def test_a_tried_route_is_reused_at_once_while_the_other_is_cooling() -> None:
+    sleeps: list[float] = []
+    pool, _clock = make_pool(
+        gateways=(GATEWAY, GATEWAY + "2"), include_direct=True, gap=6.0, sleeps=sleeps
+    )
+    a, b = pool.candidates[0], pool.candidates[1]
+    first = pool.acquire(prefer=a)
+    first.release()
+    pool.report_blocked(b)
+    again = pool.acquire(exclude=[a])
+    again.release()
+    assert again.candidate is a
+    assert sum(sleeps) <= 6.0 + 1.0, "only the gap, never the cooldown"
+
+
+def test_without_direct_a_tried_healthy_route_beats_waiting_for_a_cooling_one() -> None:
+    sleeps: list[float] = []
+    pool, _clock = make_pool(
+        gateways=(GATEWAY, GATEWAY + "2"), include_direct=False, gap=0, sleeps=sleeps
+    )
+    a, b = pool.candidates
+    first = pool.acquire(prefer=a)
+    first.release()
+    pool.report_blocked(b)
+    seen: list[WaitInfo] = []
+    again = pool.acquire(exclude=[a], on_wait=seen.append)
+    again.release()
+    assert again.candidate is a
+    assert not seen

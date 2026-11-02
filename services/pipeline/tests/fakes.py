@@ -106,7 +106,7 @@ class FakeSource:
         # The job tests' helpers add "UC_name" for "@name".
         return channel_id.replace("UC_", "@", 1) if channel_id.startswith("UC_") else channel_id
 
-    def sweep(self) -> FakeSweep:
+    def sweep(self, *, end_on_block: bool = False) -> FakeSweep:
         sweep = FakeSweep(self)
         self.sweeps.append(sweep)
         return sweep

@@ -16,7 +16,8 @@ import json
 import re
 import threading
 from collections.abc import Callable, Mapping, Sequence
-from typing import Final, Literal, NotRequired, TextIO, TypedDict, cast, overload
+from datetime import UTC, datetime
+from typing import Final, Literal, NotRequired, Protocol, TextIO, TypedDict, cast, overload
 
 PROTOCOL: Final = 1
 # The longest line main reads from the pipeline (main's maxLineLength).
@@ -64,6 +65,8 @@ LogLevel = Literal["info", "warn", "error"]
 KeywordState = Literal["started", "done", "incomplete", "failed"]
 Outcome = Literal["kept", "swept", "delayed"]
 EndState = Literal["done", "stopped", "failed"]
+# Why a run is waiting (step S2, R4): every route cooling, the API quota spent, the API unreachable.
+WaitReason = Literal["routes", "quota", "api"]
 EndErrorCode = Literal[
     "bad_start",
     "no_youtube_key",
@@ -165,6 +168,8 @@ class Rules(TypedDict):
     # them with `.get(...)`, so a start line from before step 4 still runs.
     minMedianViews: NotRequired[int | None]
     minUploads30: NotRequired[int | None]
+    # Step S2, R6: keep searching through a spent API quota (wait for the reset). Absent = False.
+    continuous: NotRequired[bool]
 
 
 # --- the jobs ---
@@ -757,7 +762,7 @@ def _rules(value: object) -> Rules:
         value,
         "rules",
         {"countries", "perKeyword", "sortBy", "resultsType", "autoClean"},
-        frozenset({"minMedianViews", "minUploads30"}),
+        frozenset({"minMedianViews", "minUploads30", "continuous"}),
     )
     countries: list[str] = []
     for item in _list(raw["countries"], "rules.countries", 250):
@@ -784,6 +789,8 @@ def _rules(value: object) -> Rules:
         rules["minUploads30"] = (
             None if uploads is None else _integer(uploads, "rules.minUploads30", 0, _INDEX_MAX)
         )
+    if "continuous" in raw:
+        rules["continuous"] = _boolean(raw["continuous"], "rules.continuous")
     return rules
 
 
@@ -1232,6 +1239,46 @@ def _fit_import_report(report: dict[str, object]) -> None:
         ]
 
 
+class WaitSink(Protocol):
+    """Where a wait of 30 s or more is told: the Emitter, or a no-op."""
+
+    def wait(self, reason: WaitReason, until: str) -> None: ...
+    def resume(self, reason: WaitReason) -> None: ...
+
+
+class WaitCounter:
+    """A WaitSink that counts the waiters of each reason, so many workers waiting for the same
+    thing are one `wait` and one `resume`: `wait` goes through on the first waiter of a reason (or
+    when its `until` is later than the one told), `resume` when the last one is done. Every
+    `wait` must be matched by one `resume`."""
+
+    def __init__(self, sink: WaitSink) -> None:
+        self._sink = sink
+        self._lock = threading.Lock()
+        self._count: dict[str, int] = {}
+        self._told: dict[str, str] = {}
+
+    def wait(self, reason: WaitReason, until: str) -> None:
+        with self._lock:
+            self._count[reason] = self._count.get(reason, 0) + 1
+            if self._count[reason] == 1 or until > self._told.get(reason, ""):
+                self._told[reason] = until
+                self._sink.wait(reason, until)
+
+    def resume(self, reason: WaitReason) -> None:
+        with self._lock:
+            left = max(0, self._count.get(reason, 0) - 1)
+            self._count[reason] = left
+            if left == 0:
+                self._told.pop(reason, None)
+                self._sink.resume(reason)
+
+
+def utc_iso(moment: datetime) -> str:
+    """`2026-11-02T08:05:00Z`: the wire's form of an instant."""
+    return moment.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 class Emitter:
     """Writes messages to stdout, one line each. Safe to share between threads."""
 
@@ -1251,6 +1298,13 @@ class Emitter:
         from gratovo_pipeline import __version__
 
         self._send({"type": "ready", "protocol": PROTOCOL, "version": __version__})
+
+    def wait(self, reason: WaitReason, until: str) -> None:
+        """The job is waiting (30 s or more) until `until` (ISO-8601 UTC)."""
+        self._send({"type": "wait", "reason": reason, "until": until})
+
+    def resume(self, reason: WaitReason) -> None:
+        self._send({"type": "resume", "reason": reason})
 
     def run(self, *, total: int, start_at: int) -> None:
         self._send({"type": "run", "state": "running", "total": total, "startAt": start_at})

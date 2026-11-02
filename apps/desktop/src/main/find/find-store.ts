@@ -38,6 +38,7 @@ export function defaultRules(): FindRules {
     minMedianViews: null,
     minUploads30: null,
     archiveDays: 7,
+    continuous: false,
   };
 }
 
@@ -61,6 +62,7 @@ const fileSchema = z.strictObject({
     minMedianViews: ruleShape.minMedianViews.default(null),
     minUploads30: ruleShape.minUploads30.default(null),
     archiveDays: ruleShape.archiveDays.default(7),
+    continuous: ruleShape.continuous.default(false),
   }),
 });
 

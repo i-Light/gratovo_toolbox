@@ -62,6 +62,7 @@ export type RowId =
   | "rulesUploads"
   | "rulesPerKeyword"
   | "rulesArchive"
+  | "rulesContinuous"
   | "rulesBand"
   | "writingRules"
   | "connOld"
@@ -101,6 +102,7 @@ export const settingsRows: readonly SettingsRow[] = [
   { section: "search", id: "rulesUploads" },
   { section: "search", id: "rulesPerKeyword" },
   { section: "search", id: "rulesArchive" },
+  { section: "search", id: "rulesContinuous" },
   { section: "search", id: "rulesBand" },
   { section: "writing", id: "writingRules" },
   { section: "connections", id: "connOld" },

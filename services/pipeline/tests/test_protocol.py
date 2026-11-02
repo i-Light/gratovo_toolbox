@@ -121,6 +121,8 @@ def test_every_message_the_emitter_writes_matches_the_schema(check_from_pipeline
         outcome="kept",
     )
     emit.log("info", 'Searching "ai agents" — 12 channels')
+    emit.wait("routes", "2026-11-02T08:05:00Z")
+    emit.resume("routes")
     emit.end(state="failed", at=1, found=9, kept=4, error=("quota", "The YouTube quota ran out."))
     emit.end(state="done", at=2, found=9, kept=4)
 
@@ -134,9 +136,13 @@ def test_every_message_the_emitter_writes_matches_the_schema(check_from_pipeline
         "keyword",
         "channel",
         "log",
+        "wait",
+        "resume",
         "end",
         "end",
     ]
+    assert messages[8] == {"type": "wait", "reason": "routes", "until": "2026-11-02T08:05:00Z"}
+    assert messages[9] == {"type": "resume", "reason": "routes"}
     assert messages[0]["protocol"] == protocol.PROTOCOL
     assert messages[6]["channelId"] == "UCabc_123-x"
     assert "—" in out.getvalue()  # written as UTF-8, not \u escapes
@@ -996,3 +1002,63 @@ def test_the_entry_point_opens_the_job_s_hosts_then_runs_it(
 
     assert gratovo_main.main() == 0
     assert seen == ["mail.status"]
+
+
+def test_a_search_may_ask_to_keep_going_through_the_quota(
+    protocol_schema: dict[str, Any],
+) -> None:
+    start = changed("job.rules.continuous", True)
+    assert schema_errors(protocol_schema["toPipeline"], start) == []
+    job = parse_start(json.dumps(start))["job"]
+    assert job["kind"] == "search"
+    assert job["rules"].get("continuous") is True
+
+
+class _Told:
+    def __init__(self) -> None:
+        self.events: list[tuple[str, ...]] = []
+
+    def wait(self, reason: str, until: str) -> None:
+        self.events.append(("wait", reason, until))
+
+    def resume(self, reason: str) -> None:
+        self.events.append(("resume", reason))
+
+
+def test_two_workers_in_one_quota_wait_are_one_wait_and_one_resume() -> None:
+    told = _Told()
+    counter = protocol.WaitCounter(told)
+    counter.wait("quota", "2026-11-03T08:05:00Z")
+    counter.wait("quota", "2026-11-03T08:05:00Z")
+    counter.resume("quota")
+    assert told.events == [("wait", "quota", "2026-11-03T08:05:00Z")]
+    counter.resume("quota")
+    assert told.events[1:] == [("resume", "quota")]
+
+
+def test_routes_and_quota_waits_resume_independently() -> None:
+    told = _Told()
+    counter = protocol.WaitCounter(told)
+    counter.wait("routes", "2026-11-02T08:05:00Z")
+    counter.wait("quota", "2026-11-03T08:05:00Z")
+    counter.resume("routes")
+    counter.wait("routes", "2026-11-02T08:09:00Z")
+    counter.resume("quota")
+    counter.resume("routes")
+    assert told.events == [
+        ("wait", "routes", "2026-11-02T08:05:00Z"),
+        ("wait", "quota", "2026-11-03T08:05:00Z"),
+        ("resume", "routes"),
+        ("wait", "routes", "2026-11-02T08:09:00Z"),
+        ("resume", "quota"),
+        ("resume", "routes"),
+    ]
+
+
+def test_a_later_until_is_told_again_while_a_wait_is_out() -> None:
+    told = _Told()
+    counter = protocol.WaitCounter(told)
+    counter.wait("routes", "2026-11-02T08:05:00Z")
+    counter.wait("routes", "2026-11-02T08:09:00Z")
+    counter.wait("routes", "2026-11-02T08:07:00Z")
+    assert [e[2] for e in told.events] == ["2026-11-02T08:05:00Z", "2026-11-02T08:09:00Z"]

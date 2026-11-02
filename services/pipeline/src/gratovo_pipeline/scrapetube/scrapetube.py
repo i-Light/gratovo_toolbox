@@ -6,8 +6,12 @@ Two things get a machine blocked, and they are separate problems:
   cadence   a request every N seconds, the same N each time, is not a pattern a person makes.
             `_pause` samples every gap instead.
   deafness  far more dangerous. YouTube throttles long before it bans: 429s, or a captcha page.
-            `request` recognises both and backs off for progressively longer (capped at
-            MAX_BACKOFF), and keeps retrying: a rate limit is a reason to wait, not to stop.
+            `request` recognises both, cools that route and tries the page again on another
+            (MAX_ATTEMPTS in all); the pool's cooldowns and gaps are the wait. A page that fails
+            every attempt is a PageFailedError: the caller ends that search or channel, not the run.
+
+`route_affinity` keeps a keyword on one route for its pages while that route is healthy. Every
+page response is counted in bytes (`take_thread_bytes`, `total_bytes`).
 
 What a person watching should know (a wait, a refusal, which route served) goes to `_log`, which
 the job points at the protocol's log messages. Every URL passes `net.check_url` first.
@@ -15,11 +19,14 @@ the job points at the protocol's log messages. Every URL passes `net.check_url` 
 
 from __future__ import annotations
 
+import contextlib
 import functools
+import gzip
 import json
 import random
 import threading
 from collections.abc import Callable, Generator, Mapping, Sequence
+from datetime import UTC, datetime, timedelta
 from typing import Any, Final, Literal, Protocol
 from urllib.parse import quote_plus, urlsplit
 
@@ -27,8 +34,8 @@ import curl_cffi.requests as requests
 from curl_cffi.requests import exceptions as curl_errors
 
 from gratovo_pipeline import net, run_control
-from gratovo_pipeline.protocol import LogLevel
-from gratovo_pipeline.scrapetube.proxy_pool import ProxyPool, WaitInfo
+from gratovo_pipeline.protocol import LogLevel, WaitReason, WaitSink, utc_iso
+from gratovo_pipeline.scrapetube.proxy_pool import Candidate, ProxyPool, WaitInfo
 
 # curl_cffi's `impersonate=` matches a Chrome version's whole TLS and HTTP/2 fingerprint and
 # sends the headers that version sends. Sampled once per session (a client that changes its
@@ -41,16 +48,11 @@ IMPERSONATE_TARGETS: Final = tuple(
 
 REQUEST_TIMEOUT: Final = 30  # seconds; the default is none, which is how a run looks frozen
 
-# First backoff in seconds, doubled per attempt (capped), then jittered. A network blip deserves a
-# few seconds; a throttle deserves minutes, because retrying it quickly is more throttled traffic.
-TRANSIENT_BACKOFF: Final = 5.0
-THROTTLE_BACKOFF: Final = 45.0
-# A connection failure means "try another candidate now": the pool already cooled this one down.
-PROXY_FAILOVER_BACKOFF: Final = 3.0
+# A page gets this many attempts, each on a different route when the pool has another.
+MAX_ATTEMPTS: Final = 3
 # Each attempt already walks 30 redirects; this bounds how many attempts a loop gets.
 MAX_REDIRECT_LOOP_ATTEMPTS: Final = 2
-MAX_BACKOFF: Final = 900.0  # retrying is unbounded, but no single wait grows past 15 minutes
-BACKOFF_TICK: Final = 2.0
+GZIP_LEVEL: Final = 6  # what a compressed response is sized at: its body gzipped again
 
 # YouTube serves the captcha interstitial with a 200 as often as not.
 BLOCK_MARKERS: Final = (
@@ -81,8 +83,18 @@ class ThrottledError(ScrapetubeError):
 
 
 class BlockedError(ScrapetubeError):
-    """A response unusable in a way retrying can't fix: innertube answered with something that
-    isn't JSON. Callers treat it as "this run's address was noticed": the run stops."""
+    """Innertube answered with something that isn't JSON. Inside `request` it cools the route and
+    counts as an attempt; it never ends a run."""
+
+
+class PageFailedError(ScrapetubeError):
+    """A page failed MAX_ATTEMPTS times. Names the last cause (kind and path only). The search or
+    the channel it belonged to ends; the run goes on. `all_blocked`: every attempt was a throttle or
+    a block (a sweep that must end its job on a block reads it)."""
+
+    def __init__(self, message: str, *, all_blocked: bool = False) -> None:
+        super().__init__(message)
+        self.all_blocked = all_blocked
 
 
 class RedirectLoopError(ScrapetubeError):
@@ -124,24 +136,40 @@ def _skipped_since(epoch: int) -> bool:
     return _skip_epoch != epoch
 
 
-def _interruptible_wait(total: float, reason: str) -> None:
-    """Sleeps `total` seconds in short ticks, ended early by a stop or a skip."""
-    epoch = _skip_epoch
-    remaining = total
-    while remaining > 0:
-        tick = min(BACKOFF_TICK, remaining)
-        run_control.sleep(tick)
-        remaining -= tick
-        if _skipped_since(epoch):
-            _log("info", f"Trying again now, as asked ({reason}).")
-            return
-
-
 def _pause(sleep: Sleep) -> None:
     """Waits between paginated requests, for a length nobody could predict."""
     low, high = max(0.0, sleep[0]), max(sleep)
     if high > 0:
         run_control.sleep(random.uniform(low, high))  # noqa: S311 - pacing, not security
+
+
+# --- one route per keyword ---
+
+_affinity = threading.local()
+
+
+@contextlib.contextmanager
+def route_affinity() -> Generator[None]:
+    """Inside it, this thread's requests prefer the route that served its last page: the keyword's
+    pages, its sweep and its details stay on one route while it is healthy, and move to another
+    when it cools down (the new one then becomes the preferred route)."""
+    previous: list[Candidate | None] | None = getattr(_affinity, "preferred", None)
+    _affinity.preferred = [None]
+    try:
+        yield
+    finally:
+        _affinity.preferred = previous
+
+
+def _preferred() -> Candidate | None:
+    holder: list[Candidate | None] | None = getattr(_affinity, "preferred", None)
+    return holder[0] if holder else None
+
+
+def _remember_route(candidate: Candidate) -> None:
+    holder: list[Candidate | None] | None = getattr(_affinity, "preferred", None)
+    if holder is not None:
+        holder[0] = candidate
 
 
 # --- the session ---
@@ -229,6 +257,54 @@ class CurlSession:
         self._session.close()
 
 
+# --- bandwidth ---
+
+_traffic = threading.local()
+_TOTAL_LOCK = threading.Lock()
+_total_bytes = 0
+
+
+def response_bytes(response: Response) -> int:
+    """What a page response cost on the wire, as near as the library lets us tell: the body
+    gzipped again at level 6 when it came compressed, else its length, plus the headers."""
+    body = response.text.encode("utf-8", errors="replace")
+    if response.headers.get("content-encoding"):
+        body = gzip.compress(body, GZIP_LEVEL)
+    head = sum(len(name) + len(value) + 4 for name, value in response.headers.items())
+    return len(body) + head
+
+
+def _count_bytes(response: Response) -> None:
+    global _total_bytes
+    size = response_bytes(response)
+    _traffic.count = getattr(_traffic, "count", 0) + size
+    with _TOTAL_LOCK:
+        _total_bytes += size
+
+
+def thread_bytes() -> int:
+    """Bytes this thread has downloaded since it last took the count."""
+    return int(getattr(_traffic, "count", 0))
+
+
+def take_thread_bytes() -> int:
+    """This thread's count, which then starts again at zero (a keyword's start)."""
+    count = thread_bytes()
+    _traffic.count = 0
+    return count
+
+
+def total_bytes() -> int:
+    with _TOTAL_LOCK:
+        return _total_bytes
+
+
+def reset_total_bytes() -> None:
+    global _total_bytes
+    with _TOTAL_LOCK:
+        _total_bytes = 0
+
+
 def get_session() -> Session:
     """A session that looks like one browser and keeps looking like it. Its proxies are set per
     request from the pool: rotating within a session's life is the point."""
@@ -256,14 +332,49 @@ def set_pool(pool: ProxyPool) -> None:
 _ROTATION_ANNOUNCE_MIN: Final = 1.5  # a shorter gap wait isn't worth a line
 
 
+# --- telling the app about a long routes wait (step S2, R4) ---
+
+ROUTES_WAIT_MIN: Final = 30.0  # a shorter cooldown wait isn't worth a message
+
+
+class _NoWaits:
+    def wait(self, reason: WaitReason, until: str) -> None:
+        pass
+
+    def resume(self, reason: WaitReason) -> None:
+        pass
+
+
+_waits: WaitSink = _NoWaits()
+
+
+def set_wait_sink(sink: WaitSink | None) -> None:
+    """Where long routes waits are told: the job gives a counting sink (`WaitCounter`), so many
+    workers waiting are one `wait` and one `resume`. None is a no-op."""
+    global _waits
+    _waits = sink if sink is not None else _NoWaits()
+
+
 class WaitAnnouncer:
     """Says, once per wait, why `ProxyPool.acquire` is waiting: a cooldown (nothing healthy, can be
-    minutes) or a gap (every connection used moments ago). Waiting on a busy worker says nothing."""
+    minutes) or a gap (every connection used moments ago). Waiting on a busy worker says nothing.
+    A cooldown of 30 s or more is also told to the app, and `done` ends it."""
 
     def __init__(self) -> None:
         self._said = False
+        self._told = False
+
+    def done(self, *, resumed: bool) -> None:
+        """The wait is over: a lease came back (`resumed`), or the wait was cut short."""
+        if self._told:
+            self._told = False
+            _waits.resume("routes")
 
     def __call__(self, info: WaitInfo) -> None:
+        if info.reason == "cooldown" and not self._told and info.total >= ROUTES_WAIT_MIN:
+            self._told = True
+            until = utc_iso(datetime.now(UTC) + timedelta(seconds=info.remaining))
+            _waits.wait("routes", until)
         if self._said:
             return
         if info.reason == "cooldown":
@@ -290,15 +401,6 @@ def route_through_gateway(url: str, base_url: str) -> str:
 
 
 # --- one request ---
-
-
-def _retry_after(response: Response | None) -> float:
-    if response is None:
-        return 0.0
-    try:
-        return max(0.0, float(response.headers.get("retry-after", "")))
-    except ValueError:
-        return 0.0
 
 
 def _raise_if_blocked(response: Response) -> None:
@@ -333,77 +435,99 @@ def request(
     params: Mapping[str, str | int] | None = None,
     json: Json = None,
     headers: Mapping[str, str] | None = None,
+    expect_json: bool = False,
 ) -> Response:
-    """One request, retried with escalating (capped) backoff until it succeeds or the run stops.
+    """One request, at most MAX_ATTEMPTS attempts, each on a route not yet tried for it while the
+    pool holds another (one route alone is reused once its cooldown ends).
 
     Every attempt draws a candidate from the pool and points the session at it; a gateway rewrites
     the URL instead. The lease is released however the attempt ended, so the gap is measured from
-    the end of the request. Raises RedirectLoopError, net.HostNotAllowedError or RunAborted.
+    the end of the request. A throttle, a block (`expect_json`: a body that isn't JSON), a
+    connection failure or a bad status cools or skips that route and the next attempt goes
+    straight on: the pool's cooldowns and gaps are the wait. Raises PageFailedError after the last
+    attempt, RedirectLoopError, net.HostNotAllowedError or RunAborted.
     """
-    attempt = 0
     redirect_loops = 0
-    while True:
-        attempt += 1
+    tried: list[Candidate] = []
+    last_reason = ""
+    all_blocked = True
+    for attempt in range(1, MAX_ATTEMPTS + 1):
         pool = get_pool()
         epoch = _skip_epoch
-        lease = pool.acquire(
-            skip_requested=functools.partial(_skipped_since, epoch), on_wait=WaitAnnouncer()
-        )
-        candidate = lease.candidate
-        if candidate.base_url:
-            session.proxies = {}
-            target = route_through_gateway(url, candidate.base_url)
-        else:
-            session.proxies = candidate.proxies
-            target = url
-        response: Response | None = None
-        hinted = 0.0
+        announcer = WaitAnnouncer()
         try:
+            lease = pool.acquire(
+                skip_requested=functools.partial(_skipped_since, epoch),
+                on_wait=announcer,
+                exclude=tuple(tried),
+                prefer=_preferred(),
+            )
+        except BaseException:
+            announcer.done(resumed=False)
+            raise
+        candidate = lease.candidate
+        tried.append(candidate)
+        try:  # the lease is released however the attempt ends, `announcer.done` raising included
+            announcer.done(resumed=True)
+            if candidate.base_url:
+                session.proxies = {}
+                target = route_through_gateway(url, candidate.base_url)
+            else:
+                session.proxies = candidate.proxies
+                target = url
             net.check_url(target)
             response = session.request(
                 method, target, timeout=REQUEST_TIMEOUT, params=params, json=json, headers=headers
             )
+            _count_bytes(response)
             _raise_if_blocked(response)
+            if expect_json:
+                try:
+                    response.json()
+                except ValueError as exc:
+                    # Non-JSON from a JSON-only endpoint: an interstitial past the markers.
+                    raise BlockedError(f"innertube returned a non-JSON body ({exc})") from exc
             pool.report_success(candidate)
+            _remember_route(candidate)
             summary = pool.route_summary()
             if summary:
                 _log("info", summary)
             return response
-        except ThrottledError as exc:
+        except (ThrottledError, BlockedError) as exc:
             last: Exception = exc
-            base = THROTTLE_BACKOFF
-            hinted = _retry_after(response)
             pool.report_blocked(candidate)
         except curl_errors.TooManyRedirects as exc:
             # Raised mid-chain, before any response. Not the candidate's fault (see
             # RedirectLoopError), so its health is left alone, and the retries are bounded.
             redirect_loops += 1
+            all_blocked = False
             if redirect_loops >= MAX_REDIRECT_LOOP_ATTEMPTS:
                 raise RedirectLoopError(
                     f"{url.split('?')[0]} loops after {redirect_loops} attempt(s)"
                 ) from exc
-            last, base = exc, THROTTLE_BACKOFF
+            last = exc
         except (
             curl_errors.ProxyError,
             curl_errors.ConnectTimeout,
             curl_errors.SSLError,
             curl_errors.ConnectionError,
         ) as exc:
-            # No HTTP answer at all: this candidate is unreachable or broken. Try another, soon.
-            last, base = exc, PROXY_FAILOVER_BACKOFF
+            # No HTTP answer at all: this candidate is unreachable or broken. Try another, now.
+            last = exc
+            all_blocked = False
             pool.report_connection_failure(candidate)
         except (ScrapetubeError, curl_errors.RequestException) as exc:
-            last, base = exc, TRANSIENT_BACKOFF
+            last = exc
+            all_blocked = False
         finally:
             lease.release()
 
-        wait = min(max(hinted, base * (2 ** min(attempt - 1, 10))), MAX_BACKOFF)
-        wait = min(random.uniform(wait, wait * 1.4), MAX_BACKOFF)  # noqa: S311
-        reason = f"{candidate.label}: {_describe(last)}"
-        _log(
-            "warn", f"YouTube pushed back ({reason}); waiting {wait:.0f}s before try {attempt + 1}."
-        )
-        _interruptible_wait(wait, reason)
+        last_reason = _describe(last)
+        _log("warn", f"YouTube pushed back ({candidate.label}: {last_reason}); try {attempt}.")
+    raise PageFailedError(
+        f"{urlsplit(url).path or '/'} failed after {MAX_ATTEMPTS} attempts ({last_reason})",
+        all_blocked=all_blocked,
+    )
 
 
 # --- pages ---
@@ -557,12 +681,9 @@ def get_ajax_data(
             "Sec-Fetch-Site": "same-origin",
             "X-Origin": "https://www.youtube.com",
         },
+        expect_json=True,  # judged inside the attempt, where another route can follow
     )
-    try:
-        return response.json()
-    except ValueError as exc:
-        # Non-JSON from a JSON-only endpoint: an interstitial that slipped past the markers.
-        raise BlockedError(f"innertube returned a non-JSON body ({exc})") from exc
+    return response.json()
 
 
 def get_json_from_html(html: str, key: str, num_chars: int = 2, stop: str = '"') -> str:

@@ -11,6 +11,7 @@ Version 2 (3e-3, plan D7) adds `video_transcripts`, the subtitles and moments a 
 Version 4 (5d-2, plan D42) gives a tombstone the rest of the channel's facts, so archiving never
 makes us know less.
 Version 5 (step S1, Q12) counts a keyword's incomplete searches (`keywords.failures`).
+Version 6 (step S2, R7) records what a run downloaded (`runs.bytes_downloaded`).
 """
 
 from __future__ import annotations
@@ -31,7 +32,7 @@ type Discovered = dict[str, str]  # {handle: channel_id}
 type Row = dict[str, Any]
 type RunKind = Literal["search", "catch-up", "re-enrich"]
 
-SCHEMA_VERSION: Final = 5
+SCHEMA_VERSION: Final = 6
 
 SCHEMA: Final = """
 CREATE TABLE IF NOT EXISTS keywords (
@@ -190,7 +191,8 @@ CREATE TABLE IF NOT EXISTS runs (
     channels_upserted INTEGER NOT NULL DEFAULT 0,
     videos_upserted INTEGER NOT NULL DEFAULT 0,
     pid INTEGER,  -- so reconcile_stale_runs can tell a live run from a killed one
-    kind TEXT NOT NULL DEFAULT 'search'      -- search | catch-up | re-enrich
+    kind TEXT NOT NULL DEFAULT 'search',     -- search | catch-up | re-enrich
+    bytes_downloaded INTEGER NOT NULL DEFAULT 0  -- page traffic of the run (scrapetube), in bytes
 );
 """
 
@@ -269,6 +271,13 @@ def _add_keyword_failures(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE keywords ADD COLUMN failures INTEGER NOT NULL DEFAULT 0")
 
 
+def _add_run_bytes(conn: sqlite3.Connection) -> None:
+    """Version 6. `runs.bytes_downloaded`, added only when missing (as versions 3 to 5 do)."""
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(runs)").fetchall()}
+    if "bytes_downloaded" not in columns:
+        conn.execute("ALTER TABLE runs ADD COLUMN bytes_downloaded INTEGER NOT NULL DEFAULT 0")
+
+
 # What each version adds to the one before it, run in order on a file older than it. Version 1 is
 # SCHEMA itself; a new file runs SCHEMA and then every step. Each step is safe to run twice.
 MIGRATIONS: Final[dict[int, Callable[[sqlite3.Connection], object]]] = {
@@ -276,6 +285,7 @@ MIGRATIONS: Final[dict[int, Callable[[sqlite3.Connection], object]]] = {
     3: _add_found_email_sources,
     4: _add_archive_facts,
     5: _add_keyword_failures,
+    6: _add_run_bytes,
 }
 
 # A second writer waits this long instead of failing at once with "database is locked". Far
@@ -1809,14 +1819,16 @@ def update_run_progress(
     keywords_done: int | None = None,
     channels_delta: int = 0,
     videos_delta: int = 0,
+    bytes_downloaded: int | None = None,
 ) -> None:
     conn.execute(
         """UPDATE runs SET
                keywords_done = COALESCE(?, keywords_done),
                channels_upserted = channels_upserted + ?,
-               videos_upserted = videos_upserted + ?
+               videos_upserted = videos_upserted + ?,
+               bytes_downloaded = COALESCE(?, bytes_downloaded)
            WHERE run_id=?""",
-        (keywords_done, channels_delta, videos_delta, run_id),
+        (keywords_done, channels_delta, videos_delta, bytes_downloaded, run_id),
     )
     conn.commit()
 

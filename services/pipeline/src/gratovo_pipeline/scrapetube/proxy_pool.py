@@ -8,7 +8,14 @@ Rotation is a guarantee, not a tendency. For every request:
 
   least recently used    the healthy candidate that has waited longest goes next.
   never twice in a row   the previous request's candidate is left out while another healthy one
-                         exists.
+                         exists (only for a request with no preference, see next).
+  preferred route        a keyword's requests name the candidate that served its last page
+                         (`prefer`): it is waited for (its gap, or another worker using it) while
+                         healthy; a busy one is not waited for when another healthy candidate is
+                         free. A cooling one is dropped and the request takes the usual choice.
+  not again              `exclude` is a preference: of the healthy candidates, those a request
+                         has not tried go first; when none of them is healthy a tried healthy
+                         one is reused (never the direct one while a gateway or proxy is healthy).
   a minimum gap          after a request through a gateway or proxy ends, that candidate rests
                          for `min_gap_seconds` (plus jitter, which only lengthens it). The direct
                          connection has the same gap when other candidates exist, and none when
@@ -38,7 +45,7 @@ import random
 import re
 import threading
 import time
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Collection, Sequence
 from types import TracebackType
 from typing import Final, Literal, NamedTuple, Protocol, Self, TypedDict
 from urllib.parse import urlsplit
@@ -269,13 +276,33 @@ class ProxyPool:
 
     # --- handing candidates out ---
 
-    def _choose(self, now: float) -> tuple[Candidate | None, float, WaitReason | None]:
-        """Under the lock: `(candidate, 0, None)` if one may be used now, else `(None, seconds
-        until something changes, why)`."""
+    def _eligible(self, now: float, exclude: Collection[Candidate]) -> list[Candidate]:
+        """The healthy candidates a request may use. This machine last: direct only while every
+        gateway and proxy is cooling down (judged over all of them, tried or not). `exclude` is a
+        preference: untried candidates first, a tried healthy one when no untried is healthy."""
         healthy = [c for c in self.candidates if c.cooldown_until <= now]
-        # This machine last: direct only while every gateway and proxy is cooling down.
         if any(c.kind != KIND_DIRECT for c in healthy):
             healthy = [c for c in healthy if c.kind != KIND_DIRECT]
+        return [c for c in healthy if c not in exclude] or healthy
+
+    def _choose(
+        self,
+        now: float,
+        exclude: Collection[Candidate] = (),
+        prefer: Candidate | None = None,
+    ) -> tuple[Candidate | None, float, WaitReason | None]:
+        """Under the lock: `(candidate, 0, None)` if one may be used now, else `(None, seconds
+        until something changes, why)`."""
+        healthy = self._eligible(now, exclude)
+        if prefer is not None and prefer in healthy:
+            if not prefer.busy and prefer.ready_at <= now:
+                return prefer, 0.0, None
+            if prefer.busy:
+                free = [c for c in healthy if c is not prefer and not c.busy and c.ready_at <= now]
+                if free:  # busy with another worker: a free healthy one beats waiting
+                    return min(free, key=lambda c: c.last_used_seq), 0.0, None
+                return None, WAIT_TICK, WAIT_BUSY
+            return None, max(prefer.ready_at - now, 0.0), WAIT_GAP
         # Never the previous request's candidate while another healthy one exists, even one still
         # resting or busy: wait for it rather than repeat.
         options = [c for c in healthy if c is not self._last] or healthy
@@ -298,19 +325,22 @@ class ProxyPool:
         *,
         skip_requested: Callable[[], bool] | None = None,
         on_wait: Callable[[WaitInfo], None] | None = None,
+        exclude: Collection[Candidate] = (),
+        prefer: Candidate | None = None,
     ) -> Lease:
         """Blocks until a candidate may be used, then returns a Lease on it.
 
         `skip_requested` is polled during a cooldown wait only: when it answers True the soonest
         candidate's cooldown is cleared ("Try again now"). Never during a gap: the gap exists so a
         gateway is never hit in quick succession, and cutting it short would do exactly that.
-        `on_wait` gets a WaitInfo on every tick of a wait. Raises RunAborted on a stop.
+        `on_wait` gets a WaitInfo on every tick of a wait. `exclude` and `prefer` are described in
+        the module doc. Raises RunAborted on a stop.
         """
         first_remaining: float | None = None
         while True:
             run_control.check_stop()
             with self._lock:
-                chosen, wait, why = self._choose(self._clock())
+                chosen, wait, why = self._choose(self._clock(), exclude, prefer)
                 if chosen is not None:
                     self._take(chosen)
                     return Lease(self, chosen)
