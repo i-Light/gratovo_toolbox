@@ -522,7 +522,7 @@ def test_a_version_6_file_gains_the_columns_and_keeps_every_row(tmp_path: Path) 
     conn = store.get_connection(path)
     store.init_db(conn)
     store.init_db(conn)  # safe to run twice
-    assert conn.execute("PRAGMA user_version").fetchone()[0] == 7
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == store.SCHEMA_VERSION
     for table, names in NEW_COLUMNS.items():
         assert names <= columns(conn, table), table
     assert conn.execute("SELECT title FROM videos").fetchone()[0] == "kept"

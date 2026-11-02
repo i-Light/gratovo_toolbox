@@ -5,10 +5,11 @@ backlog, a downloaded object), so no path can leave them stale.
 
 from __future__ import annotations
 
+import json
 import re
 import sqlite3
-from collections.abc import Callable, Iterable
-from typing import Final
+from collections.abc import Callable, Iterable, Mapping
+from typing import Final, cast
 
 from gratovo_pipeline import store
 from gratovo_pipeline.found_emails import find_emails_with_sources
@@ -54,18 +55,34 @@ def detect_sponsorship(description: str | None) -> tuple[bool, list[str]]:
     return is_sponsored, brands
 
 
+def _stored_list(text: object) -> list[object]:
+    """A stored JSON list, or [] for NULL or anything unreadable."""
+    if not isinstance(text, str) or not text:
+        return []
+    try:
+        value: object = json.loads(text)
+    except ValueError:
+        return []
+    return list(cast("list[object]", value)) if isinstance(value, list) else []
+
+
 def compute_sponsorship(conn: sqlite3.Connection, channel_ids: Iterable[str]) -> None:
     """`sponsored_ratio` and `seen_brands` from the stored descriptions. The ratio is over every
     stored video (a failed fetch counts, as a video without a signal); no stored videos is a
-    null ratio, not zero. Commits."""
+    null ratio, not zero. A channel brought back from the archive keeps the brands its old
+    videos showed (their descriptions were dropped on purpose), and its ratio until it has
+    videos of its own again. Commits."""
     ids = list(dict.fromkeys(channel_ids))
     if not ids:
         return
     descriptions_by_channel = store.get_channel_video_descriptions(conn, ids)
+    brought_back = store.get_derived_facts_of_brought_back(conn, ids)
     for channel_id in ids:
         descriptions = descriptions_by_channel.get(channel_id, [])
+        kept = brought_back.get(channel_id)
         if not descriptions:
-            store.update_channel_sponsorship(conn, channel_id, None, [])
+            if kept is None:
+                store.update_channel_sponsorship(conn, channel_id, None, [])
             continue
         matched = 0
         brands: list[str] = []
@@ -73,22 +90,40 @@ def compute_sponsorship(conn: sqlite3.Connection, channel_ids: Iterable[str]) ->
             is_sponsored, found = detect_sponsorship(description)
             matched += is_sponsored
             brands.extend(b for b in found if b not in brands)
+        if kept is not None:
+            old = [b for b in _stored_list(kept["seen_brands"]) if isinstance(b, str)]
+            brands.extend(b for b in old if b not in brands)
         store.update_channel_sponsorship(conn, channel_id, matched / len(descriptions), brands)
     conn.commit()
 
 
 def compute_found_emails(conn: sqlite3.Connection, channel_ids: Iterable[str]) -> None:
     """`found_emails` and `found_email_sources` from the About text first, then the stored
-    descriptions. Commits."""
+    descriptions. A channel brought back from the archive also keeps the addresses found before
+    (in descriptions dropped on purpose), after the ones found now. Commits."""
     ids = list(dict.fromkeys(channel_ids))
     if not ids:
         return
     about = store.get_channel_about_texts(conn, ids)
     descriptions = store.get_channel_video_descriptions(conn, ids)
+    brought_back = store.get_derived_facts_of_brought_back(conn, ids)
     for channel_id in ids:
         if channel_id in about:
-            sources = find_emails_with_sources(about[channel_id], descriptions.get(channel_id, []))
-            emails = [source["email"] for source in sources]
+            sources: list[Mapping[str, object]] = list(
+                find_emails_with_sources(about[channel_id], descriptions.get(channel_id, []))
+            )
+            emails = [str(source["email"]) for source in sources]
+            kept = brought_back.get(channel_id)
+            if kept is not None:
+                for item in _stored_list(kept["found_email_sources"]):
+                    old = cast("dict[str, object]", item) if isinstance(item, dict) else {}
+                    email = old.get("email")
+                    if isinstance(email, str) and email not in emails:
+                        sources.append(old)
+                        emails.append(email)
+                for email in _stored_list(kept["found_emails"]):
+                    if isinstance(email, str) and email not in emails:
+                        emails.append(email)
             store.update_channel_found_emails(conn, channel_id, emails, sources)
     conn.commit()
 

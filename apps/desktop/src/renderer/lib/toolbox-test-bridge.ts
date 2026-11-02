@@ -17,7 +17,14 @@ export interface ToolboxFixture {
   readonly never?: readonly ToolboxItem[];
   /** Every tombstone; `toolbox:archived` filters them by `q` on handle or name and pages them. */
   readonly archived?: readonly ArchivedChannel[];
-  readonly counts?: { archive: number; never: number; archived: number; logToday: number };
+  readonly counts?: {
+    archive: number;
+    never: number;
+    archived: number;
+    logToday: number;
+  };
+  /** The answer to `toolbox:archive-size`, in bytes. */
+  readonly archiveBytes?: number;
   /** The answer to `toolbox:restore`. */
   readonly restore?: unknown;
   /** What `find:item` answers with. */
@@ -100,6 +107,8 @@ export function stubToolboxBridge(fixture: ToolboxFixture = {}): ToolboxBridge {
             logToday: 0,
           },
         });
+      case "toolbox:archive-size":
+        return Promise.resolve({ ok: true, value: { bytes: fixture.archiveBytes ?? 0 } });
       case "toolbox:sweep":
         return Promise.resolve({ ok: true, value: {} });
       case "toolbox:restore":

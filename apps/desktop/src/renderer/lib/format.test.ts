@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { ago, duration, money } from "./format";
+import { ago, bytes, duration, money } from "./format";
 
 describe("duration", () => {
   it("writes minutes under an hour", () => {
@@ -66,5 +66,14 @@ describe("money", () => {
   it("rounds to whole dollars", () => {
     expect(money(1199.6)).toBe("$1,200");
     expect(money(-0.2)).toBe("$0");
+  });
+});
+
+describe("bytes", () => {
+  it("writes KB under 1 MB, one decimal under 10 MB, whole MB above", () => {
+    expect(bytes(0)).toBe("0 KB");
+    expect(bytes(512_000)).toBe("512 KB");
+    expect(bytes(9_600_000)).toBe("9.6 MB");
+    expect(bytes(74_300_000)).toBe("74 MB");
   });
 });

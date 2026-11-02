@@ -42,7 +42,7 @@ from functools import cache, lru_cache
 from pathlib import Path
 from typing import Any, cast
 
-from gratovo_pipeline import paths
+from gratovo_pipeline import paths, store
 from gratovo_pipeline.comms import checks, engine, playbook
 
 TESTS = paths.COMMS_TESTS_DIR
@@ -208,12 +208,14 @@ def channel(handle: str) -> dict[str, Any]:
     if row is None:
         raise KeyError(f"{handle} is not in the channels database")
     cid, name, subs, median, v30, country, ratio, seen = row
+    # Never a video brought back from the archive (`archived`): it may be long old.
     videos = (
         _con()
         .execute(
             "select title, description, view_count, published_at from videos "
-            "where channel_id = ? order by published_at desc limit 5",
-            (cid,),
+            "where channel_id = ? and last_fetch_status is not ? "
+            "order by published_at desc limit 5",
+            (cid, store.ARCHIVED_STATUS),
         )
         .fetchall()
     )

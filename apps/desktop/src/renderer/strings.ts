@@ -3586,6 +3586,7 @@ export const strings = {
       bringBack: "Bring back",
       bringBackLabel: (name: string): string => `Bring back ${name}`,
       forGoodTitle: "Archived for good",
+      forGoodSize: (count: string, size: string): string => `${count} channels · ${size}`,
       forGoodHint: "Searches skip these channels. Bring one back and it returns to Review new.",
       searchLabel: "Search archived channels",
       searchPlaceholder: "Search by name or handle",

@@ -29,6 +29,8 @@ import sqlite3
 from datetime import date
 from typing import Any, cast
 
+from gratovo_pipeline import store
+
 from . import checks, readiness
 
 INCUBATOR_CLAIM = "We are part of a group of experienced agency owners who review our work."
@@ -241,11 +243,13 @@ def _creator(
         "videos_last_30_days": row["videos_last_30"],
         "country": row["country"],
     }
+    # A video brought back from the archive (`archived`) is left out: it may be long old, and the
+    # newest one gets its subtitles read (moments). A channel brought back waits for its read.
     videos = _rows(
         conn,
         "SELECT video_id, title, view_count, published_at FROM videos WHERE channel_id = ? "
-        "AND title IS NOT NULL ORDER BY published_at DESC LIMIT 5",
-        (channel_id,),
+        "AND title IS NOT NULL AND last_fetch_status IS NOT ? ORDER BY published_at DESC LIMIT 5",
+        (channel_id, store.ARCHIVED_STATUS),
     )
     facts["recent_videos"] = [v["title"] for v in videos]
     if videos:

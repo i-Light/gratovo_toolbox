@@ -14,7 +14,9 @@ from pathlib import Path
 import pytest
 
 from gratovo_pipeline import store
+from gratovo_pipeline.comms import live_case
 from gratovo_pipeline.protocol import REFETCH_KEYWORD
+from gratovo_pipeline.search import signals
 
 
 def archive(
@@ -323,29 +325,100 @@ EMAILS = '["team@aiagentslab.example"]'
 SOURCES = '[{"email": "team@aiagentslab.example", "source": "about"}]'
 
 
+# Every version 8 channel fact (A1), each known; shorts_share is a known 0.
+V8_FACTS: dict[str, object] = {
+    "description": "Hands-on reviews of AI agents. Business: team@aiagentslab.example",
+    "profile_picture": "https://yt3.ggpht.example/aiagentslab=s240",
+    "last_fetched_at": "2026-04-11T00:00:00Z",
+    "videos_fetched_at": "2026-04-11T00:00:00Z",
+    "sponsored_ratio": 0.25,
+    "default_language": "en",
+    "topics": '["Technology"]',
+    "total_views": 2400000,
+    "video_count": 180,
+    "subscribers_hidden": 0,
+    "started_at": "2023-05-02T00:00:00Z",
+    "uploads_playlist": "UU_aiagentslab",
+    "made_for_kids": 0,
+    "main_language": "en",
+    "main_language_basis": "audio 3/3",
+    "topic_counts": '{"Technology": 4}',
+    "median_likes": 600,
+    "median_comments": 40,
+    "engagement_rate": 0.045,
+    "median_duration_s": 840,
+    "shorts_share": 0.0,
+    "paid_share": 0.33,
+}
+
+
+def video(channel_id: str, n: int, views: str, published: str) -> dict[str, object]:
+    """One fully read video: every column `videos` has."""
+    return {
+        "video_id": f"{channel_id}_v{n}",
+        "channel_id": channel_id,
+        "title": f"Claude Code vs Cursor, part {n}",
+        "description": "Sponsored by Notion AI. Use code AGENTS for 20% off.",
+        "thumbnail": f"https://i.ytimg.com/vi/{channel_id}_v{n}/hqdefault.jpg",
+        "tags": '["ai agents", "claude code"]',
+        "published_at": published,
+        "view_count": views,
+        "last_fetched_at": "2026-04-11T00:00:00Z",
+        "last_fetch_status": "success",
+        "audio_language": "en-US",
+        "default_language": "en",
+        "category_id": "28",
+        "live_content": "none",
+        "like_count": str(int(views) // 25),
+        "comment_count": str(int(views) // 300),
+        "duration_s": 600 + n,
+        "has_captions": 1,
+        "made_for_kids": 0,
+        "topics": '["Technology"]',
+        "paid_placement": n % 2,
+    }
+
+
+def insert(conn: sqlite3.Connection, table: str, row: dict[str, object]) -> None:
+    columns, marks = ", ".join(row), ", ".join("?" * len(row))
+    conn.execute(f"INSERT INTO {table} ({columns}) VALUES ({marks})", tuple(row.values()))  # noqa: S608 - test names
+
+
 def full_channel(conn: sqlite3.Connection, channel_id: str = FULL) -> None:
     """A channel this machine read in full: every fact, three keywords found on different days,
-    and three videos."""
-    conn.execute(
-        "INSERT INTO channels (channel_id, handle, name, subscribers, country, first_seen_at, "
-        " videos_fetched_at, videos_last_30, median_views_last_30, latest_upload_at, "
-        " seen_brands, found_emails, found_email_sources) "
-        "VALUES (?, '@aiagentslab', 'AI Agents Lab', '48200', 'US', ?, '2026-04-11T00:00:00Z', "
-        " 2, 12000, '2026-04-09T15:00:00Z', '[\"Notion AI\"]', ?, ?)",
-        (channel_id, FIRST_SEEN, EMAILS, SOURCES),
+    and three videos with every field."""
+    insert(
+        conn,
+        "channels",
+        {
+            "channel_id": channel_id,
+            "handle": "@aiagentslab",
+            "name": "AI Agents Lab",
+            "subscribers": "48200",
+            "country": "US",
+            "first_seen_at": FIRST_SEEN,
+            "videos_last_30": 2,
+            "median_views_last_30": 12000,
+            "latest_upload_at": "2026-04-09T15:00:00Z",
+            "seen_brands": '["Notion AI"]',
+            "found_emails": EMAILS,
+            "found_email_sources": SOURCES,
+            "banner": "https://yt3.ggpht.example/aiagentslab-banner",
+            "link": "https://www.youtube.com/@aiagentslab",
+            "last_fetch_status": "success",
+            **V8_FACTS,
+        },
     )
     conn.executemany(
         "INSERT INTO channel_keywords (channel_id, keyword, discovered_at) VALUES (?, ?, ?)",
         [(channel_id, keyword, at) for keyword, at in LINKS],
     )
-    conn.executemany(
-        "INSERT INTO videos (video_id, channel_id, view_count, published_at) VALUES (?, ?, ?, ?)",
-        [
-            (f"{channel_id}_v1", channel_id, "15000", "2026-04-09T15:00:00Z"),
-            (f"{channel_id}_v2", channel_id, "9000", "2026-04-01T15:00:00Z"),
-            (f"{channel_id}_v3", channel_id, "30000", "2026-01-20T15:00:00Z"),
-        ],
-    )
+    for row in (
+        video(channel_id, 1, "15000", "2026-04-09T15:00:00Z"),
+        video(channel_id, 2, "9000", "2026-04-01T15:00:00Z"),
+        video(channel_id, 3, "30000", "2026-01-20T15:00:00Z"),
+    ):
+        insert(conn, "videos", row)
     conn.commit()
 
 
@@ -386,6 +459,7 @@ def test_archiving_keeps_every_fact_and_every_keyword(conn: sqlite3.Connection) 
         "seen_brands": '["Notion AI"]',
         "found_emails": EMAILS,
         "found_email_sources": SOURCES,
+        **V8_FACTS,
     }
     assert (row["median_views_last_30"], row["median_basis"], row["videos_found_count"]) == (
         12000,
@@ -529,6 +603,7 @@ def test_a_failure_while_archiving_leaves_the_channel_as_it_was(conn: sqlite3.Co
     assert not store.is_archived(conn, FULL)
     assert store.get_channel_row(conn, FULL) is not None
     assert count(conn, "SELECT count(*) FROM videos") == 3
+    assert count(conn, "SELECT count(*) FROM archived_videos") == 0, "one transaction (A6)"
     assert links(conn) == LINKS
 
 
@@ -660,7 +735,8 @@ def test_archive_restore_archive_loses_nothing(conn: sqlite3.Connection) -> None
     assert second["videos_found_count"] == 3
 
 
-@pytest.mark.parametrize(("read", "kept"), [(5, 5), (2, 3)])
+# The three videos brought back count beside the ones read since (A3).
+@pytest.mark.parametrize(("read", "kept"), [(5, 8), (2, 5)])
 def test_videos_read_after_a_restore_count_when_there_are_more(
     conn: sqlite3.Connection, read: int, kept: int
 ) -> None:
@@ -677,7 +753,7 @@ def test_videos_read_after_a_restore_count_when_there_are_more(
     store.archive_channel_locally(conn, FULL, "@aiagentslab", "rejected")
 
     row = tomb(conn)
-    assert row["videos_found_count"] == kept, "the larger count wins"
+    assert row["videos_found_count"] == kept, "brought back and newly read, both held"
     assert row["median_views_last_30"] is not None
 
 
@@ -909,3 +985,562 @@ def test_archiving_waits_for_another_writer_instead_of_failing(tmp_path: Path) -
         assert count(check, "SELECT COUNT(*) FROM channels WHERE channel_id='UC1'") == 0
     finally:
         check.close()
+
+
+# --- an archive that loses nothing the owner keeps (step S4, A1 to A6) ---
+
+VIDEO_KEPT = tuple(store.KEPT["videos"])
+FACT_NAMES = tuple(name for name, _ in store.ARCHIVE_FACTS)
+
+
+def channel_facts(conn: sqlite3.Connection, channel_id: str = FULL) -> dict[str, object]:
+    row = store.get_channel_row(conn, channel_id)
+    assert row is not None
+    return {name: row[name] for name in FACT_NAMES}
+
+
+def kept_videos(conn: sqlite3.Connection, table: str) -> dict[str, dict[str, object]]:
+    rows = conn.execute(f"SELECT {', '.join(VIDEO_KEPT)} FROM {table} ORDER BY video_id")  # noqa: S608 - test names
+    return {r["video_id"]: dict(r) for r in rows}
+
+
+def test_archive_then_bring_back_round_trips_every_kept_field(conn: sqlite3.Connection) -> None:
+    full_channel(conn)
+    facts_before = channel_facts(conn)
+    videos_before = kept_videos(conn, "videos")
+    assert all(v is not None for v in facts_before.values()), "the fixture knows every fact"
+    assert all(v is not None for row in videos_before.values() for v in row.values())
+
+    store.archive_channel_locally(conn, FULL, "@aiagentslab", "rejected")
+
+    assert {name: tomb(conn)[name] for name in FACT_NAMES} == facts_before
+    assert kept_videos(conn, "archived_videos") == videos_before
+    assert count(conn, "SELECT count(*) FROM videos") == 0
+
+    store.restore_channel_locally(conn, FULL)
+
+    row = store.get_channel_row(conn, FULL)
+    assert row is not None
+    # Every fact comes back but the two read stamps: the backlog reads the channel again (A3),
+    # and nothing takes it for fetched; the tombstone's times wait beside them.
+    assert channel_facts(conn) == {
+        **facts_before,
+        "videos_fetched_at": None,
+        "last_fetched_at": None,
+    }
+    assert (row["force_refetch"], row["videos_fetched_known"], row["last_fetched_known"]) == (
+        1,
+        "2026-04-11T00:00:00Z",
+        facts_before["last_fetched_at"],
+    )
+    assert FULL in store.get_video_backfill_candidates(conn, 10).values()
+    assert kept_videos(conn, "videos") == videos_before
+    assert {
+        tuple(r)
+        for r in conn.execute("SELECT last_fetch_status, description, tags, thumbnail FROM videos")
+    } == {("archived", None, None, None)}
+    assert count(conn, "SELECT count(*) FROM archived_videos") == 0, "moved, not copied"
+
+
+def test_archiving_again_only_adds(conn: sqlite3.Connection) -> None:
+    full_channel(conn)
+    store.archive_channel_locally(conn, FULL, "@aiagentslab", "rejected")
+    first = kept_videos(conn, "archived_videos")
+    # The channel is back as a row beside its tombstone (as an import can leave it), with one
+    # video seen again without its counts and a new title, and one new video.
+    conn.execute(
+        "INSERT INTO channels (channel_id, handle, first_seen_at) VALUES (?, '@aiagentslab', ?)",
+        (FULL, FIRST_SEEN),
+    )
+    conn.execute(
+        "INSERT INTO videos (video_id, channel_id, title, last_fetch_status) "
+        "VALUES (?, ?, 'Claude Code vs Cursor, part 1 (updated)', 'success')",
+        (f"{FULL}_v1", FULL),
+    )
+    insert(conn, "videos", video(FULL, 4, "21000", "2026-09-01T15:00:00Z"))
+    conn.commit()
+
+    store.archive_channel_locally(conn, FULL, "@aiagentslab", "rejected")
+
+    after = kept_videos(conn, "archived_videos")
+    assert set(after) == {*first, f"{FULL}_v4"}, "the second archive never drops a video"
+    v1 = after[f"{FULL}_v1"]
+    assert v1["title"] == "Claude Code vs Cursor, part 1 (updated)", "a newer known value wins"
+    assert {k: v1[k] for k in VIDEO_KEPT if k != "title"} == {
+        k: first[f"{FULL}_v1"][k] for k in VIDEO_KEPT if k != "title"
+    }, "a known value is never blanked"
+    assert after[f"{FULL}_v2"] == first[f"{FULL}_v2"]
+
+
+def test_a_failed_video_fetch_is_not_archived(conn: sqlite3.Connection) -> None:
+    full_channel(conn)
+    conn.execute(
+        "INSERT INTO videos (video_id, channel_id, last_fetch_status) "
+        "VALUES ('vfail', ?, 'failed')",
+        (FULL,),
+    )
+    conn.commit()
+    store.archive_channel_locally(conn, FULL, "@aiagentslab", "rejected")
+    assert "vfail" not in kept_videos(conn, "archived_videos")
+    assert count(conn, "SELECT count(*) FROM archived_videos") == 3
+
+
+def test_bring_back_then_archive_before_a_read_keeps_the_tombstone(
+    conn: sqlite3.Connection,
+) -> None:
+    full_channel(conn)
+    store.archive_channel_locally(conn, FULL, "@aiagentslab", "rejected")
+    first = tomb(conn)
+    first_videos = kept_videos(conn, "archived_videos")
+
+    store.restore_channel_locally(conn, FULL)
+    # The rollups run over every row meanwhile, the videos brought back included.
+    store.compute_channel_rollups(conn)
+    conn.commit()
+    store.archive_channel_locally(conn, FULL, "@aiagentslab", "rejected")
+
+    second = tomb(conn)
+    assert numbers(second) == numbers(first) == (12000, "window30", 3)
+    assert second["videos_last_30"] == first["videos_last_30"] == 2
+    assert {n: second[n] for n in FACT_NAMES if n not in ROLLUPS} == {
+        n: first[n] for n in FACT_NAMES if n not in ROLLUPS
+    }
+    assert kept_videos(conn, "archived_videos") == first_videos
+    assert count(conn, "SELECT count(*) FROM videos") == 0
+
+
+# Recomputed from the videos brought back when the rollups run; the rest must not move at all.
+ROLLUPS = frozenset(
+    {
+        "latest_upload_at",
+        "main_language",
+        "main_language_basis",
+        "topic_counts",
+        "median_likes",
+        "median_comments",
+        "engagement_rate",
+        "median_duration_s",
+        "shorts_share",
+        "paid_share",
+    }
+)
+
+
+def test_bring_back_then_archive_with_no_rollups_loses_nothing(conn: sqlite3.Connection) -> None:
+    full_channel(conn)
+    store.archive_channel_locally(conn, FULL, "@aiagentslab", "rejected")
+    first = tomb(conn)
+    store.restore_channel_locally(conn, FULL)
+    store.archive_channel_locally(conn, FULL, "@aiagentslab", "rejected")
+    second = tomb(conn)
+    for key in ("handle", "subscribers", "found_at", "found_via", *FACT_NAMES):
+        assert second[key] == first[key], key
+    assert numbers(second) == numbers(first)
+
+
+def test_videos_brought_back_and_then_read_count_as_read(conn: sqlite3.Connection) -> None:
+    full_channel(conn)
+    store.archive_channel_locally(conn, FULL, "@aiagentslab", "rejected")
+    store.restore_channel_locally(conn, FULL)
+    insert(conn, "videos", video(FULL, 4, "21000", store.utc_now()))
+    conn.commit()
+    store.mark_channels_videos_fetched(conn, [FULL])
+    row = store.get_channel_row(conn, FULL)
+    assert row is not None
+    # The window runs back from the new read: April's videos brought back are outside it.
+    assert (row["videos_last_30"], row["median_views_last_30"]) == (1, 21000)
+
+    store.archive_channel_locally(conn, FULL, "@aiagentslab", "rejected")
+
+    assert tomb(conn)["videos_last_30"] == 1, "the row's own count, now that it was read"
+    assert tomb(conn)["videos_fetched_at"] == row["videos_fetched_at"], "the later read"
+    assert numbers(tomb(conn)) == (21000, "window30", 4)
+    assert len(kept_videos(conn, "archived_videos")) == 4
+
+
+def test_a_channel_brought_back_keeps_the_brands_and_emails_of_its_old_videos(
+    conn: sqlite3.Connection,
+) -> None:
+    full_channel(conn)
+    store.archive_channel_locally(conn, FULL, "@aiagentslab", "rejected")
+    store.restore_channel_locally(conn, FULL)
+    conn.execute("UPDATE channels SET description=NULL WHERE channel_id=?", (FULL,))
+    new = video(FULL, 4, "21000", "2026-10-10T15:00:00Z")
+    new["description"] = "In partnership with Cursor. Questions: press@aiagentslab.example"
+    insert(conn, "videos", new)
+    conn.commit()
+
+    signals.derive(conn, [FULL])
+
+    row = store.get_channel_row(conn, FULL)
+    assert row is not None
+    assert json.loads(row["seen_brands"]) == ["Cursor", "Notion AI"]
+    assert row["sponsored_ratio"] == 1.0, "over the videos with a description, not the archived"
+    assert json.loads(row["found_emails"]) == [
+        "press@aiagentslab.example",
+        "team@aiagentslab.example",
+    ]
+
+
+def test_with_only_videos_brought_back_the_signals_stay(conn: sqlite3.Connection) -> None:
+    full_channel(conn)
+    store.archive_channel_locally(conn, FULL, "@aiagentslab", "rejected")
+    store.restore_channel_locally(conn, FULL)
+    signals.derive(conn, [FULL])
+    row = store.get_channel_row(conn, FULL)
+    assert row is not None
+    assert (row["sponsored_ratio"], row["seen_brands"]) == (0.25, '["Notion AI"]')
+    assert json.loads(row["found_emails"]) == ["team@aiagentslab.example"]
+
+
+# --- teammates' tombstones (A4) ---
+
+
+def test_a_teammates_archive_copies_the_videos_held_here(conn: sqlite3.Connection) -> None:
+    full_channel(conn)
+    videos_before = kept_videos(conn, "videos")
+    archive(conn, FULL, "@aiagentslab")
+    assert kept_videos(conn, "archived_videos") == videos_before
+    assert count(conn, "SELECT count(*) FROM videos") == 0
+    assert tomb(conn)["description"] == V8_FACTS["description"], "and the facts held here"
+
+
+def test_an_older_teammate_record_applies_and_blanks_nothing(conn: sqlite3.Connection) -> None:
+    full_channel(conn)
+    store.archive_channel_locally(conn, FULL, "@aiagentslab", "rejected")
+    facts = {name: tomb(conn)[name] for name in FACT_NAMES}
+    videos = kept_videos(conn, "archived_videos")
+    # A format-1 record: no version 8 facts, no videos, no archive_format.
+    archive(conn, FULL, "@aiagentslab")
+    assert {name: tomb(conn)[name] for name in FACT_NAMES} == facts
+    assert kept_videos(conn, "archived_videos") == videos
+
+
+def test_a_newer_teammate_record_applies_and_its_unknown_keys_are_ignored(
+    conn: sqlite3.Connection,
+) -> None:
+    full_channel(conn)
+    store.archive_channel_locally(conn, FULL, "@aiagentslab", "rejected")
+    record = store.get_unannounced_archives(conn)[0]
+    conn.execute("DELETE FROM channel_archive")
+    conn.execute("DELETE FROM archived_videos")
+    conn.commit()
+    record["archive_format"] = 3
+    record["thumbnail_style"] = "wide"  # a key from a newer pipeline
+    record["archived_videos"] = [
+        {**v, "chapters": [{"at": 0, "title": "Intro"}]} for v in record["archived_videos"]
+    ]
+    record["archived_videos"].append({"title": "no id: skipped"})
+
+    store.apply_remote_archive(conn, record)
+    conn.commit()
+
+    row = tomb(conn)
+    assert {name: row[name] for name in FACT_NAMES} == {name: record[name] for name in FACT_NAMES}
+    assert (row["source"], row["announced"]) == ("remote", 1)
+    assert set(kept_videos(conn, "archived_videos")) == {f"{FULL}_v1", f"{FULL}_v2", f"{FULL}_v3"}
+    assert kept_videos(conn, "archived_videos")[f"{FULL}_v2"] == {
+        k: record["archived_videos"][1][k] for k in VIDEO_KEPT
+    }
+
+
+def test_a_teammate_record_never_blanks_known_values_here(conn: sqlite3.Connection) -> None:
+    full_channel(conn)
+    store.archive_channel_locally(conn, FULL, "@aiagentslab", "rejected")
+    facts = {name: tomb(conn)[name] for name in FACT_NAMES}
+    videos = kept_videos(conn, "archived_videos")
+    store.apply_remote_archive(
+        conn,
+        {
+            "channel_id": FULL,
+            "handle": "@aiagentslab",
+            "label": "rejected",
+            "archive_format": 2,
+            **dict.fromkeys(FACT_NAMES),
+            "last_fetched_at": "2026-05-01T00:00:00Z",  # read after the copy here
+            "total_views": 2500000,  # a newer known value wins
+            "seen_brands": '["Cursor"]',  # lists keep both
+            "archived_videos": [
+                {"video_id": f"{FULL}_v1", "view_count": None, "title": None},
+                {"video_id": "vteam", "channel_id": "UC_other", "title": "Gemini 3 first look"},
+            ],
+        },
+    )
+    conn.commit()
+    row = tomb(conn)
+    assert row["total_views"] == 2500000
+    assert json.loads(str(row["seen_brands"])) == ["Notion AI", "Cursor"]
+    sent = ("total_views", "seen_brands", "last_fetched_at")
+    assert row["last_fetched_at"] == "2026-05-01T00:00:00Z", "the later time"
+    assert {n: row[n] for n in FACT_NAMES if n not in sent} == {
+        n: v for n, v in facts.items() if n not in sent
+    }
+    after = kept_videos(conn, "archived_videos")
+    assert after[f"{FULL}_v1"] == videos[f"{FULL}_v1"]
+    assert after["vteam"]["channel_id"] == FULL, "filed under the tombstone's channel"
+
+
+@pytest.mark.parametrize(
+    "sent_at",
+    [None, "2026-03-01T00:00:00Z"],
+    ids=["the sent record's time unknown", "the sent record older"],
+)
+def test_an_older_teammate_record_only_fills_blanks(
+    conn: sqlite3.Connection, sent_at: str | None
+) -> None:
+    full_channel(conn)
+    store.archive_channel_locally(conn, FULL, "@aiagentslab", "rejected")
+    conn.execute("UPDATE channel_archive SET video_count=NULL")
+    conn.commit()
+    facts = {name: tomb(conn)[name] for name in FACT_NAMES}
+    store.apply_remote_archive(
+        conn,
+        {
+            "channel_id": FULL,
+            "handle": "@aiagentslab",
+            "label": "rejected",
+            "archive_format": 2,
+            "last_fetched_at": sent_at,
+            "total_views": 1900000,  # older than the value here: loses
+            "video_count": 150,  # fills the blank here
+        },
+    )
+    conn.commit()
+    row = tomb(conn)
+    assert (row["total_views"], row["video_count"]) == (2400000, 150)
+    assert row["last_fetched_at"] == facts["last_fetched_at"]
+
+
+def test_a_newer_teammate_record_wins_when_the_time_here_is_unknown(
+    conn: sqlite3.Connection,
+) -> None:
+    full_channel(conn)
+    store.archive_channel_locally(conn, FULL, "@aiagentslab", "rejected")
+    conn.execute("UPDATE channel_archive SET last_fetched_at=NULL")
+    conn.commit()
+    store.apply_remote_archive(
+        conn,
+        {"channel_id": FULL, "handle": "@aiagentslab", "label": "rejected", "total_views": 1},
+    )
+    conn.commit()
+    assert tomb(conn)["total_views"] == 1
+
+
+def test_an_announced_tombstone_carries_its_format_and_videos(conn: sqlite3.Connection) -> None:
+    full_channel(conn)
+    store.archive_channel_locally(conn, FULL, "@aiagentslab", "rejected")
+    (record,) = store.get_unannounced_archives(conn)
+    assert record["archive_format"] == 2
+    assert [v["video_id"] for v in record["archived_videos"]] == [
+        f"{FULL}_v1",
+        f"{FULL}_v2",
+        f"{FULL}_v3",
+    ]
+    assert record["description"] == V8_FACTS["description"]
+
+
+def test_the_channel_object_leaves_out_videos_brought_back(conn: sqlite3.Connection) -> None:
+    full_channel(conn)
+    store.archive_channel_locally(conn, FULL, "@aiagentslab", "rejected")
+    store.restore_channel_locally(conn, FULL)
+    insert(conn, "videos", video(FULL, 4, "21000", store.utc_now()))
+    conn.commit()
+    store.mark_channels_videos_fetched(conn, [FULL])
+    blob = store.build_channel_blob(conn, FULL)
+    assert blob is not None
+    assert [v["video_id"] for v in blob["videos"]] == [f"{FULL}_v4"]
+    assert blob["failed_video_ids"] == []
+
+
+# --- review findings on S4 ---
+
+
+def test_search_positions_survive_an_archive_and_come_back(conn: sqlite3.Connection) -> None:
+    full_channel(conn)
+    (first, _), (second, _) = LINKS[0], LINKS[1]
+    conn.execute(
+        "UPDATE channel_keywords SET position=7 WHERE channel_id=? AND keyword=?", (FULL, first)
+    )
+    conn.commit()
+    store.archive_channel_locally(conn, FULL, "@aiagentslab", "rejected")
+    by_keyword = {e["keyword"]: e for e in found_via(conn, FULL)}
+    assert by_keyword[first]["position"] == 7
+    assert "position" not in by_keyword[second], "an unknown position is left out"
+
+    # Seen again by the same keywords, one at a better place: the lower one is kept.
+    conn.execute(
+        "INSERT INTO channels (channel_id, handle, first_seen_at) VALUES (?, '@aiagentslab', ?)",
+        (FULL, FIRST_SEEN),
+    )
+    conn.execute(
+        "INSERT INTO channel_keywords (channel_id, keyword, discovered_at, position) "
+        "VALUES (?, ?, '2026-06-01T00:00:00Z', 3), (?, ?, '2026-06-01T00:00:00Z', 9)",
+        (FULL, first, FULL, second),
+    )
+    conn.commit()
+    store.archive_channel_locally(conn, FULL, "@aiagentslab", "rejected")
+    by_keyword = {e["keyword"]: e for e in found_via(conn, FULL)}
+    assert (by_keyword[first]["position"], by_keyword[second]["position"]) == (3, 9)
+
+    store.restore_channel_locally(conn, FULL)
+    positions = dict(
+        conn.execute(
+            "SELECT keyword, position FROM channel_keywords WHERE channel_id=?", (FULL,)
+        ).fetchall()
+    )
+    assert (positions[first], positions[second]) == (3, 9)
+
+
+def test_a_restored_link_already_here_keeps_the_better_position(conn: sqlite3.Connection) -> None:
+    full_channel(conn)
+    keyword = LINKS[0][0]
+    conn.execute("UPDATE channel_keywords SET position=4 WHERE keyword=?", (keyword,))
+    conn.commit()
+    store.archive_channel_locally(conn, FULL, "@aiagentslab", "rejected")
+    conn.execute(
+        "INSERT INTO channels (channel_id, handle, first_seen_at) VALUES (?, '@aiagentslab', ?)",
+        (FULL, FIRST_SEEN),
+    )
+    conn.execute(
+        "INSERT INTO channel_keywords (channel_id, keyword, discovered_at, position) "
+        "VALUES (?, ?, '2026-06-01T00:00:00Z', 11)",
+        (FULL, keyword),
+    )
+    conn.commit()
+    store.restore_channel_locally(conn, FULL)
+    (position,) = conn.execute(
+        "SELECT position FROM channel_keywords WHERE keyword=?", (keyword,)
+    ).fetchone()
+    assert position == 4
+
+
+def test_bring_back_fills_a_video_row_already_here_and_loses_nothing(
+    conn: sqlite3.Connection,
+) -> None:
+    full_channel(conn)
+    archived = kept_videos(conn, "videos")[f"{FULL}_v1"]
+    store.archive_channel_locally(conn, FULL, "@aiagentslab", "rejected")
+    # The channel is back beside its tombstone, with one of its videos read again, partly.
+    conn.execute(
+        "INSERT INTO channels (channel_id, handle, first_seen_at) VALUES (?, '@aiagentslab', ?)",
+        (FULL, FIRST_SEEN),
+    )
+    conn.execute(
+        "INSERT INTO videos (video_id, channel_id, title, view_count, last_fetch_status) "
+        "VALUES (?, ?, 'Claude Code vs Cursor, part 1 (updated)', '16000', 'success')",
+        (f"{FULL}_v1", FULL),
+    )
+    conn.commit()
+
+    store.restore_channel_locally(conn, FULL)
+
+    row = conn.execute("SELECT * FROM videos WHERE video_id=?", (f"{FULL}_v1",)).fetchone()
+    assert (row["title"], row["view_count"], row["last_fetch_status"]) == (
+        "Claude Code vs Cursor, part 1 (updated)",
+        "16000",
+        "success",
+    ), "the values here and the status stay"
+    assert {k: row[k] for k in VIDEO_KEPT if k not in ("title", "view_count")} == {
+        k: archived[k] for k in VIDEO_KEPT if k not in ("title", "view_count")
+    }, "every blank is filled from the archive"
+    assert count(conn, "SELECT count(*) FROM archived_videos") == 0
+
+
+def test_archiving_again_before_a_fetch_keeps_the_tombstones_fetch_time(
+    conn: sqlite3.Connection,
+) -> None:
+    full_channel(conn)
+    store.archive_channel_locally(conn, FULL, "@aiagentslab", "rejected")
+    store.restore_channel_locally(conn, FULL)
+    row = store.get_channel_row(conn, FULL)
+    assert row is not None
+    assert row["last_fetched_at"] is None, "not taken for fetched"
+    store.archive_channel_locally(conn, FULL, "@aiagentslab", "rejected")
+    assert tomb(conn)["last_fetched_at"] == V8_FACTS["last_fetched_at"]
+    assert tomb(conn)["videos_fetched_at"] == V8_FACTS["videos_fetched_at"]
+
+
+def blob(channel_id: str, videos: list[dict[str, object]]) -> dict[str, object]:
+    return {
+        "v": 1,
+        "channel": {
+            "channel_id": channel_id,
+            "handle": "@aiagentslab",
+            "name": "AI Agents Lab",
+            "first_seen_at": FIRST_SEEN,
+            "last_fetched_at": "2026-10-01T00:00:00Z",
+            "videos_fetched_at": "2026-10-01T00:00:00Z",
+        },
+        "videos": videos,
+        "failed_video_ids": [],
+    }
+
+
+def test_a_teammates_object_never_brings_back_a_channel_archived_here(
+    conn: sqlite3.Connection,
+) -> None:
+    full_channel(conn)
+    store.archive_channel_locally(conn, FULL, "@aiagentslab", "rejected")
+    assert not store.apply_channel_blob(conn, blob(FULL, []), "2026-10-01T00:00:00Z")
+    assert count(conn, "SELECT count(*) FROM channels") == 0
+    assert count(conn, "SELECT count(*) FROM videos") == 0
+
+
+def test_a_teammates_object_keeps_the_videos_brought_back(conn: sqlite3.Connection) -> None:
+    full_channel(conn)
+    archived = kept_videos(conn, "videos")
+    store.archive_channel_locally(conn, FULL, "@aiagentslab", "rejected")
+    store.restore_channel_locally(conn, FULL)
+    sent: dict[str, object] = {
+        "video_id": f"{FULL}_v1",
+        "title": "Claude Code vs Cursor, part 1 (retitled)",
+        "description": "Sponsored by Notion AI.",
+        "thumbnail": None,
+        "tags": [],
+        "published_at": "2026-04-09T15:00:00Z",
+        "view_count": "18000",
+        "last_fetched_at": "2026-10-01T00:00:00Z",
+    }
+    assert store.apply_channel_blob(conn, blob(FULL, [sent]), "2026-10-01T00:00:00Z")
+
+    assert set(kept_videos(conn, "videos")) == set(archived), "archived rows it doesn't name stay"
+    v1 = conn.execute("SELECT * FROM videos WHERE video_id=?", (f"{FULL}_v1",)).fetchone()
+    assert (v1["title"], v1["view_count"], v1["last_fetch_status"]) == (
+        "Claude Code vs Cursor, part 1 (retitled)",
+        "18000",
+        "success",
+    )
+    assert v1["like_count"] == archived[f"{FULL}_v1"]["like_count"], "a column it lacks stays"
+    statuses = dict(conn.execute("SELECT video_id, last_fetch_status FROM videos").fetchall())
+    assert statuses[f"{FULL}_v2"] == "archived"
+
+
+def test_the_backfill_never_refetches_a_video_brought_back(conn: sqlite3.Connection) -> None:
+    full_channel(conn)
+    store.archive_channel_locally(conn, FULL, "@aiagentslab", "rejected")
+    store.restore_channel_locally(conn, FULL)
+    conn.execute("UPDATE videos SET title=NULL")  # a blank the backfill would chase
+    conn.execute(
+        "INSERT INTO videos (video_id, channel_id, last_fetch_status) "
+        "VALUES ('vread', ?, 'success')",
+        (FULL,),
+    )
+    conn.commit()
+    assert store.get_videos_needing_refetch(conn, ["title"]) == [("vread", FULL)]
+
+
+def test_the_latest_video_is_never_one_brought_back(conn: sqlite3.Connection) -> None:
+    full_channel(conn)
+    store.archive_channel_locally(conn, FULL, "@aiagentslab", "rejected")
+    store.restore_channel_locally(conn, FULL)
+    assert store.latest_video(conn, FULL) is None, "only archived rows: wait for the read"
+    creator = live_case._creator(conn, FULL, None)  # pyright: ignore[reportPrivateUsage]
+    assert creator is not None
+    assert "latest_video" not in creator
+    assert creator["recent_videos"] == []
+
+    insert(conn, "videos", video(FULL, 9, "4000", "2026-01-01T15:00:00Z"))
+    conn.commit()
+    latest = store.latest_video(conn, FULL)
+    assert latest is not None
+    assert latest["video_id"] == f"{FULL}_v9", "a read row, though older than the archived ones"

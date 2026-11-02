@@ -94,3 +94,35 @@ S2-a and S2-b both touch `scrapetube.py` and `jobs/search.py`: S2-a first, then 
 - L8: the record shows the basis with its source ("English · audio, 11 of 12 videos"). The app's example history carries the new channel facts, so prototype mode shows them.
 - To ask the owner: Shorts share counts videos of 60 s or less. YouTube allows Shorts up to 3 minutes since October 2024, and the API can't tell a Short from a short video, so 60 s undercounts and 180 s would overcount.
 - For step T: a teammate's channel blob carries no S3 video fields, so applying one resets that channel's language and engagement rollups until it is read here again.
+
+## S4. An archive that loses nothing the owner wants kept (branch `feat/scraping-s4`)
+
+The keep list is the owner's (2026-11-02): the plan's "Recommend" column, every tag dropped.
+
+### Decisions
+
+- **A1. Channel facts on the tombstone.** `ARCHIVE_FACTS` grows (each a nullable `channel_archive` column, schema v8, added only when missing): `description`, `profile_picture`, `last_fetched_at`, `videos_fetched_at`, `sponsored_ratio`, and every S3 channel fact: `default_language`, `topics`, `total_views`, `video_count`, `subscribers_hidden`, `started_at`, `uploads_playlist`, `made_for_kids`, and the S3 rollups `main_language`, `main_language_basis`, `topic_counts`, `median_likes`, `median_comments`, `engagement_rate`, `median_duration_s`, `shorts_share`, `paid_share`. They go through `_row_facts`, `_merge_facts` (newer known value wins, NULL never replaces a known one; `last_fetched_at`/`videos_fetched_at` keep the later time) and `_fill_facts` as the existing facts do.
+- **A2. Videos on archive: a new table `archived_videos`** (schema v8): `video_id` PK, `channel_id` NOT NULL (indexed), `title`, `published_at`, `view_count`, `like_count`, `comment_count`, `duration_s`, `audio_language`, `default_language`, `paid_placement`, `topics`, `category_id`, `live_content`, `has_captions`, `made_for_kids`, `last_fetched_at`. Archiving copies the channel's `videos` rows into it in the same transaction as the delete (`INSERT ... ON CONFLICT DO UPDATE` keeping known values over NULL: archiving again only adds). Dropped on purpose: description (emails and brands are already taken from it), tags (owner: noise), thumbnail (built from the id).
+- **A3. Bring back puts them back.** `restore_channel_locally` puts every new channel fact back on the row (as fills, like today's facts; `videos_fetched_at` stays NULL and `force_refetch=1` as today, so the backlog reads it again), and moves the channel's `archived_videos` rows back into `videos` (`INSERT OR IGNORE`, `last_fetch_status='archived'`, description/tags/thumbnail NULL), deleting them from `archived_videos`. `_row_facts`' "were its uploads read" check ignores `archived` video rows, so a channel brought back and archived again before it is read keeps its tombstone's 30-day count. Rollups and `measure_archive_numbers` use the restored rows (they are real numbers).
+- **A4. Teammates' tombstones** (`apply_remote_archive`): a record may carry the new channel facts and an `archived_videos` list; known values here are never replaced by NULL, missing keys are fine (an older sender), unknown keys are ignored (a newer sender). `get_unannounced_archives` adds `archive_format: 2` and the channel's archived videos to each record. Not sent anywhere until step T, the same as today.
+- **A5. The guard test.** A test lists every column of `channels` and `videos` (read from `PRAGMA table_info` on a fresh store) in exactly one of two maps: `KEPT` (column → where it lives: tombstone or `archived_videos`) or `DROPPED` (column → why). A column in neither fails with a message naming it. The two maps live in `store.py` beside `ARCHIVE_FACTS` (so the code that archives and the guard read the same list).
+- **A6. One transaction.** Archive = tombstone + archived videos + delete, inside the existing `_atomic` (`BEGIN IMMEDIATE`).
+- **A7. Toolbox › Archive shows its size:** "39,012 channels · 74 MB" from `SUM(LENGTH(...))` over `channel_archive` and `archived_videos` columns (an estimate, read-only, in main's toolbox reader), next to the existing count.
+
+### Tasks
+
+| id | title | tier | files | done-check |
+|---|---|---|---|---|
+| S4-a | A1-A6 | H (production data path) | `store.py`, `tests/test_archive.py`, `tests/test_store_migration.py`, new guard test | pytest; archive → bring back round-trips every kept field; re-archive only adds; a v7 file migrates; an older record (no new keys) and a newer one (unknown keys) apply |
+| S4-b | A7 | N | `apps/desktop/src/main/find/toolbox.ts`, the Archive view, ipc toolbox schema, `strings.ts`, tests | Vitest; typecheck; lint; look at 1440 px |
+
+### Changed after review (S4)
+
+- A2: the search position travels on the tombstone's `found_via` entries (lowest known per keyword) and comes back on restore; `channel_keywords` is in the guard.
+- A3: Bring back merges archived videos into any existing row (known values kept), then deletes them; the tombstone's read times come back beside the row (`videos_fetched_known`, `last_fetched_known`), not as read stamps.
+- A4: a teammate's record wins only when it was read later (`last_fetched_at`); an older one only fills blanks.
+- Readers: a teammate's channel object never lands beside a tombstone and never deletes `archived` video rows; the backfill never stamps a channel as read from `archived` rows; the comms readers skip `archived` rows for a channel not read since it came back.
+- A5: KEPT says how each channel column is kept (`fact`, or `as:<tombstone column>`), and the guard ties `fact` to ARCHIVE_FACTS.
+- A7: the size has its own IPC (`toolbox:archive-size`), asked only by the Archive view, cached on the row counts and the file times; `dbstat` when available, else the estimate.
+- The import copies `archived_videos`.
+- For step T: page `get_unannounced_archives`; `unarchive` and `apply_catalog_unarchived` must go through restore.

@@ -10,6 +10,7 @@ import type { FindIdeas } from "./find/ideas";
 import type { FindService } from "./find/find-service";
 import { readViews, writeViews } from "./find/saved-views";
 import {
+  createArchiveSize,
   countArchived,
   readArchived,
   toolboxCounts,
@@ -120,6 +121,7 @@ export function createHandlers(context: HandlerContext): Handlers {
 
 function buildHandlers(context: HandlerContext): Handlers {
   const { version, secrets, account, find, catalog, ideas } = context;
+  const archiveSize = createArchiveSize();
   const { importer, connections, gemini, writingRules, mailConsent, reach, prototype } = context;
 
   /** The account's open source. The page never asks for data while none is open. */
@@ -251,6 +253,7 @@ function buildHandlers(context: HandlerContext): Handlers {
       context.archive?.sweep();
       return {};
     },
+    "toolbox:archive-size": () => ({ bytes: archiveSize(pipelineDb()) }),
     "toolbox:counts": async () => {
       const midnight = new Date();
       midnight.setHours(0, 0, 0, 0);

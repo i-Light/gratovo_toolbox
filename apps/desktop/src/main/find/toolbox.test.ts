@@ -1,13 +1,21 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import type { CatalogItem } from "@gratovo/core/find";
 
 import { channelId, writePipelineDb } from "./catalog-fixture";
-import { countArchived, readArchived, toolboxCounts, toolboxList } from "./toolbox";
+import {
+  archiveBytes,
+  countArchived,
+  createArchiveSize,
+  readArchived,
+  toolboxCounts,
+  toolboxList,
+} from "./toolbox";
 
 const day = 86_400_000;
 const t0 = Date.UTC(2026, 9, 1);
@@ -93,7 +101,12 @@ describe("toolboxList", () => {
   });
 
   it("counts the two lists", () => {
-    expect(toolboxCounts(rows, 4, 9)).toEqual({ archive: 5, never: 3, archived: 4, logToday: 9 });
+    expect(toolboxCounts(rows, 4, 9)).toEqual({
+      archive: 5,
+      never: 3,
+      archived: 4,
+      logToday: 9,
+    });
   });
 });
 
@@ -294,5 +307,62 @@ describe("readArchived", () => {
     expect(readArchived(null, { q: "", offset: 0, limit: 5 }, none)).toEqual(empty);
     expect(countArchived(path)).toBe(3);
     expect(countArchived(join(folder, "none.db"))).toBe(0);
+  });
+
+  it("estimates the archive's bytes, with or without archived_videos", () => {
+    const base = archiveBytes(path);
+    expect(base).toBeGreaterThan(a.length + b.length + c.length);
+    expect(archiveBytes(join(folder, "none.db"))).toBe(0);
+    expect(archiveBytes(null)).toBe(0);
+    const db = new DatabaseSync(path);
+    db.exec("CREATE TABLE archived_videos (video_id TEXT, channel_id TEXT, title TEXT)");
+    db.exec("INSERT INTO archived_videos VALUES ('abcde', 'xy', 'hello world')");
+    db.close();
+    expect(archiveBytes(path, false)).toBeGreaterThan(0);
+    expect(archiveBytes(path)).toBeGreaterThan(0);
+  });
+
+  it("falls back to the length estimate when dbstat is missing", () => {
+    // Same bytes as the estimate: asking for it directly is what the catch in archiveBytes does.
+    const db = new DatabaseSync(path);
+    db.exec("CREATE TABLE archived_videos (video_id TEXT, channel_id TEXT, title TEXT)");
+    db.exec("INSERT INTO archived_videos VALUES ('abcde', 'xy', 'hello world')");
+    db.close();
+    const before = archiveBytes(path, false);
+    expect(before).toBeGreaterThanOrEqual(5 + 2 + 11);
+    let hasDbstat = true;
+    const probe = new DatabaseSync(path, { readOnly: true });
+    try {
+      probe.prepare("SELECT 1 FROM dbstat LIMIT 1").get();
+    } catch {
+      hasDbstat = false;
+    }
+    probe.close();
+    // With dbstat the answer is whole pages; without it the estimate is what archiveBytes gives.
+    expect(archiveBytes(path) % (hasDbstat ? 512 : 1)).toBe(0);
+    if (!hasDbstat) {
+      expect(archiveBytes(path)).toBe(before);
+    }
+  });
+
+  it("keeps the archive size until the archive changes", () => {
+    let measured = 0;
+    const size = createArchiveSize((p) => {
+      measured += 1;
+      return archiveBytes(p);
+    });
+    const first = size(path);
+    expect(size(path)).toBe(first);
+    expect(measured).toBe(1);
+    const db = new DatabaseSync(path);
+    db.exec("CREATE TABLE IF NOT EXISTS archived_videos (video_id TEXT)");
+    db.exec("INSERT INTO archived_videos VALUES ('abcde')");
+    db.close();
+    size(path);
+    expect(measured).toBe(2);
+    expect(size(path)).toBeGreaterThan(0);
+    expect(measured).toBe(2);
+    expect(size(join(folder, "none.db"))).toBe(0);
+    expect(measured).toBe(3);
   });
 });

@@ -50,9 +50,14 @@ COPIED: Final = (
     "channel_keywords",
     "videos",
     "channel_archive",
+    "archived_videos",
     "runs",
     "video_transcripts",
 )
+
+# Copied tables whose rows already here are merged with the old file's (each blank here filled)
+# rather than skipped. The tombstones merge through store.merge_archive_copies instead.
+MERGED: Final = frozenset({"archived_videos"})
 
 # The app's own tables, mirrored from Supabase: the sync brings them back.
 SYNCED: Final = frozenset(
@@ -282,14 +287,25 @@ def _copy_table(
     # A table without a separate identity (runs) needs the check in the query; for the others
     # the primary key and INSERT OR IGNORE do it.
     keep = f" AND NOT {present}" if table == "runs" else ""
+    insert = f"INSERT OR IGNORE INTO main.{_q(table)} ({names}) "
+    merge = ""
+    if table in MERGED:
+        # A video archived on both sides: the value here is kept, the old file's fills a blank.
+        insert = f"INSERT INTO main.{_q(table)} ({names}) "
+        fills = ", ".join(
+            f"{_q(c)}=COALESCE({_q(table)}.{_q(c)}, excluded.{_q(c)})"
+            for c in cols
+            if c not in keys
+        )
+        conflict = ", ".join(_q(k) for k in keys)
+        merge = f" ON CONFLICT({conflict}) DO UPDATE SET {fills}" if fills else ""
     conn.execute("BEGIN")
     try:
-        before = conn.total_changes
+        before = _count(conn, "main", table)
         conn.execute(
-            f"INSERT OR IGNORE INTO main.{_q(table)} ({names}) "
-            f"SELECT {picked} FROM old.{_q(table)} AS o WHERE 1{guard}{keep}"
+            f"{insert}SELECT {picked} FROM old.{_q(table)} AS o WHERE 1{guard}{keep}{merge}"
         )
-        added = conn.total_changes - before
+        added = _count(conn, "main", table) - before
         conn.execute("COMMIT")
     except BaseException:
         conn.execute("ROLLBACK")

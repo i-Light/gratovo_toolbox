@@ -17,6 +17,9 @@ likes, comments, duration, topics and paid placement; channel totals, start date
 topics; the channel rollups over all stored videos (main language, topic counts, medians,
 engagement, Shorts and paid shares); and the search position of a channel's first hit
 (`channel_keywords.position`). All local facts: the channel blob does not carry them.
+Version 8 (step S4, A1 to A6) makes the archive lose nothing the owner keeps: the tombstone takes
+the rest of the channel's facts, and a new table `archived_videos` keeps the archived channel's
+videos, so Bring back puts both back. KEPT and DROPPED say where every column goes.
 """
 
 from __future__ import annotations
@@ -38,7 +41,7 @@ type Discovered = dict[str, str]  # {handle: channel_id}
 type Row = dict[str, Any]
 type RunKind = Literal["search", "catch-up", "re-enrich"]
 
-SCHEMA_VERSION: Final = 7
+SCHEMA_VERSION: Final = 8
 
 # Version 7 columns, in the tables below (all nullable local facts, none shared):
 # - videos, from videos.list: like_count and comment_count are text like view_count (NULL when
@@ -52,6 +55,11 @@ SCHEMA_VERSION: Final = 7
 #   less over videos with a duration; paid_share is paid placements over videos with the field.
 # - channel_keywords.position: the 1-based place of the channel's first hit in the keyword's
 #   results.
+# Version 8 columns: channel_archive gains every fact in _ARCHIVE_FACTS_V8; channels gains
+# videos_fetched_known, the tombstone's `videos_fetched_at` kept beside a row brought back (whose
+# own stays NULL until it is read), read back if it is archived again first (as
+# videos_last_30_known); and last_fetched_known, the tombstone's `last_fetched_at` kept the same
+# way (the row's own stays as it was, so a channel brought back still reads as not yet fetched).
 # - Also: channels.sponsored_ratio is the share of stored videos with a sponsorship signal;
 #   seen_brands and found_emails are JSON lists (found_emails from the About text and
 #   descriptions); videos.last_fetch_status is success | failed. (The columns a later version may
@@ -137,7 +145,9 @@ CREATE TABLE IF NOT EXISTS channels (
     engagement_rate REAL,
     median_duration_s INTEGER,
     shorts_share REAL,
-    paid_share REAL
+    paid_share REAL,
+    videos_fetched_known TEXT,
+    last_fetched_known TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_channels_handle ON channels(handle);
 CREATE INDEX IF NOT EXISTS idx_channels_blob_pending
@@ -191,7 +201,7 @@ CREATE TABLE IF NOT EXISTS channel_archive (
     archived_at TEXT,
     subscribers TEXT,
     found_at TEXT,      -- the channel's first_seen_at, copied at archive time
-    found_via TEXT,     -- JSON: [{"keyword", "limit", "discovered_at"}, ...]
+    found_via TEXT,     -- JSON: [{"keyword", "limit", "discovered_at", "position"?}, ...]
     source TEXT,        -- 'local' (decided here) or 'remote'; only local rows are announced
     announced INTEGER NOT NULL DEFAULT 0,
     -- Frozen at archive time: the sweep deletes the videos they came from, so they can't be
@@ -206,7 +216,29 @@ CREATE TABLE IF NOT EXISTS channel_archive (
     latest_upload_at TEXT,
     seen_brands TEXT,             -- JSON list
     found_emails TEXT,            -- JSON list
-    found_email_sources TEXT      -- JSON list
+    found_email_sources TEXT,     -- JSON list
+    description TEXT,
+    profile_picture TEXT,
+    last_fetched_at TEXT,
+    videos_fetched_at TEXT,
+    sponsored_ratio REAL,
+    default_language TEXT,
+    topics TEXT,
+    total_views INTEGER,
+    video_count INTEGER,
+    subscribers_hidden INTEGER,
+    started_at TEXT,
+    uploads_playlist TEXT,
+    made_for_kids INTEGER,
+    main_language TEXT,
+    main_language_basis TEXT,
+    topic_counts TEXT,
+    median_likes INTEGER,
+    median_comments INTEGER,
+    engagement_rate REAL,
+    median_duration_s INTEGER,
+    shorts_share REAL,
+    paid_share REAL
 );
 CREATE INDEX IF NOT EXISTS idx_channel_archive_archived_at
     ON channel_archive (archived_at DESC, channel_id);
@@ -278,7 +310,7 @@ def _add_found_email_sources(conn: sqlite3.Connection) -> None:
 
 
 # Version 4: the channel facts a tombstone keeps beside its numbers (plan D42), all nullable.
-ARCHIVE_FACTS: Final = (
+_ARCHIVE_FACTS_V4: Final = (
     ("name", "TEXT"),
     ("country", "TEXT"),
     ("videos_last_30", "INTEGER"),
@@ -287,6 +319,146 @@ ARCHIVE_FACTS: Final = (
     ("found_emails", "TEXT"),
     ("found_email_sources", "TEXT"),
 )
+# Version 8 (step S4, A1): the rest of the channel row the owner keeps, all nullable.
+_ARCHIVE_FACTS_V8: Final = (
+    ("description", "TEXT"),
+    ("profile_picture", "TEXT"),
+    ("last_fetched_at", "TEXT"),
+    ("videos_fetched_at", "TEXT"),
+    ("sponsored_ratio", "REAL"),
+    ("default_language", "TEXT"),
+    ("topics", "TEXT"),
+    ("total_views", "INTEGER"),
+    ("video_count", "INTEGER"),
+    ("subscribers_hidden", "INTEGER"),
+    ("started_at", "TEXT"),
+    ("uploads_playlist", "TEXT"),
+    ("made_for_kids", "INTEGER"),
+    ("main_language", "TEXT"),
+    ("main_language_basis", "TEXT"),
+    ("topic_counts", "TEXT"),
+    ("median_likes", "INTEGER"),
+    ("median_comments", "INTEGER"),
+    ("engagement_rate", "REAL"),
+    ("median_duration_s", "INTEGER"),
+    ("shorts_share", "REAL"),
+    ("paid_share", "REAL"),
+)
+# Every channel fact a tombstone keeps, each a `channel_archive` column of the same name.
+ARCHIVE_FACTS: Final = (*_ARCHIVE_FACTS_V4, *_ARCHIVE_FACTS_V8)
+# The facts that merge as lists (everything either copy held) and as times (the later one).
+_LIST_FACTS: Final = frozenset({"seen_brands", "found_emails", "found_email_sources"})
+_TIME_FACTS: Final = frozenset({"latest_upload_at", "last_fetched_at", "videos_fetched_at"})
+
+# Version 8 (A2): an archived channel's videos, copied in the transaction that deletes them and
+# moved back by Bring back. The columns are KEPT["videos"]: no description, tags or thumbnail.
+ARCHIVED_VIDEOS: Final = """
+CREATE TABLE IF NOT EXISTS archived_videos (
+    video_id TEXT PRIMARY KEY,
+    channel_id TEXT NOT NULL,
+    title TEXT,
+    published_at TEXT,
+    view_count TEXT,
+    like_count TEXT,
+    comment_count TEXT,
+    duration_s INTEGER,
+    audio_language TEXT,
+    default_language TEXT,
+    paid_placement INTEGER,
+    topics TEXT,
+    category_id TEXT,
+    live_content TEXT,
+    has_captions INTEGER,
+    made_for_kids INTEGER,
+    last_fetched_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_archived_videos_channel ON archived_videos (channel_id);
+"""
+
+# A5: where each column of `channels`, `channel_keywords` and `videos` goes when its channel is
+# archived. Every column is in exactly one of KEPT and DROPPED (tests/test_archive_guard.py), so a
+# column added later can't be lost to an archive before someone decides it. The owner's keep list
+# (2026-11-02). A `channels` column is kept as a "fact" (an ARCHIVE_FACTS member: the tombstone
+# column of the same name) or "as:<column>" (that `channel_archive` column holds it); a link's
+# columns live in the tombstone's `found_via`; a video's in `archived_videos`.
+KEPT: Final[Mapping[str, Mapping[str, str]]] = {
+    "channels": {
+        "channel_id": "as:channel_id",
+        "handle": "as:handle",
+        "subscribers": "as:subscribers",
+        "first_seen_at": "as:found_at",
+        # The tombstone's median and videos_found_count come from these. The *_known columns are
+        # what a tombstone knew about a row brought back, read back into it if the row is
+        # archived again before it is read.
+        "median_views_last_30": "as:median_views_last_30",
+        "videos_known": "as:videos_found_count",
+        "median_known": "as:median_views_last_30",
+        "median_known_basis": "as:median_basis",
+        "videos_last_30_known": "as:videos_last_30",
+        "videos_fetched_known": "as:videos_fetched_at",
+        "last_fetched_known": "as:last_fetched_at",
+        **dict.fromkeys((name for name, _ in ARCHIVE_FACTS), "fact"),
+    },
+    "channel_keywords": dict.fromkeys(
+        ("channel_id", "keyword", "discovered_at", "position"), "found_via"
+    ),
+    "videos": dict.fromkeys(
+        (
+            "video_id",
+            "channel_id",
+            "title",
+            "published_at",
+            "view_count",
+            "like_count",
+            "comment_count",
+            "duration_s",
+            "audio_language",
+            "default_language",
+            "paid_placement",
+            "topics",
+            "category_id",
+            "live_content",
+            "has_captions",
+            "made_for_kids",
+            "last_fetched_at",
+        ),
+        "archived_videos",
+    ),
+}
+_SYNC_STATE: Final = "sync bookkeeping: this machine's state, not a fact about the channel"
+DROPPED: Final[Mapping[str, Mapping[str, str]]] = {
+    "channels": {
+        "banner": "big, and fetched again when the channel is read",
+        "link": "built from the id",
+        "last_fetch_status": "this machine's last try, not a fact; Bring back reads it again",
+        "force_refetch": "a request, not a fact; Bring back sets it",
+        "unreadable_until": "this machine's retry state; Bring back starts it fresh",
+        "read_failures": "this machine's retry state; Bring back starts it fresh",
+        "blob_uploaded_at": _SYNC_STATE,
+        "blob_version": _SYNC_STATE,
+        "blob_applied_version": _SYNC_STATE,
+        "blob_announced_version": _SYNC_STATE,
+        "announced_at": _SYNC_STATE,
+        "awaiting_peer_since": _SYNC_STATE,
+    },
+    "channel_keywords": {
+        "source": _SYNC_STATE,
+        "announced": _SYNC_STATE,
+    },
+    "videos": {
+        "description": "emails and brands are already taken from it (on the tombstone)",
+        "tags": "the owner: noise",
+        "thumbnail": "built from the id",
+        "last_fetch_status": "this machine's last try; a video brought back reads 'archived'",
+    },
+}
+_ARCHIVED_VIDEO_COLUMNS: Final = tuple(KEPT["videos"])
+# `videos.last_fetch_status` of a video brought back from `archived_videos`: real numbers, not
+# read since. Readers that ask "were its uploads read?" leave these rows out.
+ARCHIVED_STATUS: Final = "archived"
+# The shape of a shared tombstone record (get_unannounced_archives): 2 adds the version 8 facts
+# and `archived_videos`. A record without the key is format 1.
+ARCHIVE_FORMAT: Final = 2
 
 
 # Version 4: the columns `channels` gained (see SCHEMA). An old row reads NULL, or no failures.
@@ -306,7 +478,7 @@ def _add_archive_facts(conn: sqlite3.Connection) -> None:
     added, as version 3 does, so a crash between the columns and the version can't make the next
     open fail."""
     columns = {row[1] for row in conn.execute("PRAGMA table_info(channel_archive)").fetchall()}
-    for name, kind in ARCHIVE_FACTS:
+    for name, kind in _ARCHIVE_FACTS_V4:
         if name not in columns:
             conn.execute(f"ALTER TABLE channel_archive ADD COLUMN {name} {kind}")
     columns = {row[1] for row in conn.execute("PRAGMA table_info(channels)").fetchall()}
@@ -376,6 +548,21 @@ def _add_more_facts(conn: sqlite3.Connection) -> None:
                 conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {kind}")
 
 
+def _add_archived_videos(conn: sqlite3.Connection) -> None:
+    """Version 8. The tombstone's new fact columns and `channels.videos_fetched_known` and
+    `last_fetched_known`, each only when missing (as versions 3 to 7 do), and the
+    `archived_videos` table."""
+    conn.executescript(ARCHIVED_VIDEOS)  # first: executescript commits what is pending
+    have = {row[1] for row in conn.execute("PRAGMA table_info(channel_archive)").fetchall()}
+    for name, kind in _ARCHIVE_FACTS_V8:
+        if name not in have:
+            conn.execute(f"ALTER TABLE channel_archive ADD COLUMN {name} {kind}")
+    have = {row[1] for row in conn.execute("PRAGMA table_info(channels)").fetchall()}
+    for name in ("videos_fetched_known", "last_fetched_known"):
+        if name not in have:
+            conn.execute(f"ALTER TABLE channels ADD COLUMN {name} TEXT")
+
+
 # What each version adds to the one before it, run in order on a file older than it. Version 1 is
 # SCHEMA itself; a new file runs SCHEMA and then every step. Each step is safe to run twice.
 MIGRATIONS: Final[dict[int, Callable[[sqlite3.Connection], object]]] = {
@@ -385,6 +572,7 @@ MIGRATIONS: Final[dict[int, Callable[[sqlite3.Connection], object]]] = {
     5: _add_keyword_failures,
     6: _add_run_bytes,
     7: _add_more_facts,
+    8: _add_archived_videos,
 }
 
 # A second writer waits this long instead of failing at once with "database is locked". Far
@@ -540,7 +728,9 @@ def is_archived(conn: sqlite3.Connection, channel_id: str) -> bool:
 
 def unarchive(conn: sqlite3.Connection, channel_id: str) -> None:
     """Drops the local tombstone so the channel can be found again. No caller today: it loses
-    the tombstone's facts and keywords, which `restore_channel_locally` puts back (D44)."""
+    the tombstone's facts and keywords, which `restore_channel_locally` puts back (D44). It also
+    leaves the channel's `archived_videos` rows behind: before it gets a caller, route it through
+    `restore_channel_locally`, or delete those rows here too (S4)."""
     conn.execute("DELETE FROM channel_archive WHERE channel_id=?", (channel_id,))
     conn.commit()
 
@@ -972,25 +1162,52 @@ def get_channel_video_descriptions(
     conn: sqlite3.Connection, channel_ids: Iterable[str]
 ) -> dict[str, list[str | None]]:
     """{channel_id: [description, ...]} for every stored video, failed ones as None: a video
-    without a description still counts in the sponsorship denominator."""
+    without a description still counts in the sponsorship denominator. A video brought back from
+    the archive (`archived`) is left out: its description was dropped on purpose, which says
+    nothing about a sponsorship."""
     ids = list(channel_ids)
     if not ids:
         return {}
     result: dict[str, list[str | None]] = {cid: [] for cid in ids}
     for row in conn.execute(
-        f"SELECT channel_id, description FROM videos WHERE channel_id IN ({_placeholders(ids)})",
-        ids,
+        "SELECT channel_id, description FROM videos "
+        f"WHERE channel_id IN ({_placeholders(ids)}) AND last_fetch_status IS NOT ?",
+        [*ids, ARCHIVED_STATUS],
     ):
         result.setdefault(row["channel_id"], []).append(row["description"])
     return result
 
 
+def get_derived_facts_of_brought_back(
+    conn: sqlite3.Connection, channel_ids: Iterable[str]
+) -> dict[str, Row]:
+    """{channel_id: its sponsored_ratio, seen_brands, found_emails and found_email_sources} for
+    the given channels that hold videos brought back from the archive. Those videos lost their
+    descriptions on purpose (DROPPED), so what was derived from them lives only in these values,
+    and a new derivation adds to them rather than forgetting it (search/signals.py)."""
+    ids = list(channel_ids)
+    if not ids:
+        return {}
+    rows = conn.execute(
+        "SELECT channel_id, sponsored_ratio, seen_brands, found_emails, found_email_sources "
+        f"FROM channels WHERE channel_id IN ({_placeholders(ids)}) AND EXISTS ("
+        "  SELECT 1 FROM videos v WHERE v.channel_id = channels.channel_id"
+        "  AND v.last_fetch_status = ?)",
+        [*ids, ARCHIVED_STATUS],
+    )
+    return {r["channel_id"]: dict(r) for r in rows}
+
+
 def latest_video(conn: sqlite3.Connection, channel_id: str) -> Row | None:
-    """The channel's newest stored video (video_id, title, published_at), or None."""
+    """The channel's newest stored video (video_id, title, published_at), or None. A video
+    brought back from the archive (`archived`) is never it: it was the newest when the channel was
+    archived, maybe long ago, and a transcript spent on it is wasted. The rows a read leaves are
+    the ones to react to, so a channel brought back waits for its read (it is flagged for one)."""
     row = conn.execute(
         "SELECT video_id, title, published_at FROM videos WHERE channel_id = ? "
-        "AND video_id IS NOT NULL ORDER BY published_at DESC LIMIT 1",
-        (channel_id,),
+        "AND video_id IS NOT NULL AND last_fetch_status IS NOT ? "
+        "ORDER BY published_at DESC LIMIT 1",
+        (channel_id, ARCHIVED_STATUS),
     ).fetchone()
     return dict(row) if row else None
 
@@ -1258,10 +1475,12 @@ def measure_archive_numbers(conn: sqlite3.Connection, channel_id: str) -> Archiv
     machine can't see the videos; zero only when it ran or applied the video pass itself. The
     count is the larger of the rows held and `videos_known` (what a channel brought back from
     the archive had before its rows were deleted), so a restore never lowers it and a real read
-    that finds more takes over."""
+    that finds more takes over. The videos a channel brought back holds (`archived` rows, A3)
+    count as held; until its uploads are read again, the median its tombstone knew is the one,
+    since the rollups may have run over the rows since without the window they came from."""
     row = conn.execute(
         "SELECT median_views_last_30, videos_fetched_at, blob_applied_version, blob_uploaded_at, "
-        "       videos_known "
+        "       videos_known, median_known, median_known_basis "
         "FROM channels WHERE channel_id=?",
         (channel_id,),
     ).fetchone()
@@ -1281,6 +1500,12 @@ def measure_archive_numbers(conn: sqlite3.Connection, channel_id: str) -> Archiv
             return (None, None, known)
         return (None, None, 0 if held else None)
     count = max(stored, known or 0)
+    if (
+        row
+        and row["median_known"] is not None
+        and not _uploads_read(conn, channel_id, row["videos_fetched_at"])
+    ):
+        return (row["median_known"], row["median_known_basis"], count)
     window: int | None = row["median_views_last_30"] if row else None
     if window is not None:
         return (window, "window30", count)
@@ -1372,7 +1597,8 @@ def _atomic(conn: sqlite3.Connection) -> Generator[None]:
 
 def _merge_found_via(*sources: Iterable[object]) -> list[Any]:
     """The `found_via` lists as one, in order of first sight: one entry per keyword, with the
-    earliest known `discovered_at` and a known `limit` kept over an unknown one. An entry it
+    earliest known `discovered_at`, a known `limit` kept over an unknown one, and the lowest known
+    `position` (the best place the channel had in that keyword's results). An entry it
     can't read is kept as it is, never dropped. A manual refetch's entry is dropped: it is not a
     keyword that found the channel (D44), and tombstones are shared with the team."""
     out: list[Any] = []
@@ -1400,16 +1626,26 @@ def _merge_found_via(*sources: Iterable[object]) -> list[Any]:
                 known["discovered_at"] = at
             if known.get("limit") is None and item.get("limit") is not None:
                 known["limit"] = item["limit"]
+            place, known_place = _position(item.get("position")), _position(known.get("position"))
+            if place is not None and (known_place is None or place < known_place):
+                known["position"] = place
     return out
 
 
+def _position(value: object) -> int | None:
+    """A `found_via` entry's search position: a whole number from 1, anything else unknown."""
+    return value if isinstance(value, int) and not isinstance(value, bool) and value > 0 else None
+
+
 def _channel_links(conn: sqlite3.Connection, channel_id: str) -> list[dict[str, object]]:
-    """Every keyword that found the channel here, as `found_via` entries, oldest first. The
-    refetch job's own link is not one of them (D44)."""
+    """Every keyword that found the channel here, as `found_via` entries, oldest first, each with
+    the channel's place in that keyword's results (`position`) when it is known. The refetch
+    job's own link is not one of them (D44)."""
     return [
         {"keyword": r["keyword"], "limit": None, "discovered_at": r["discovered_at"]}
+        | ({"position": r["position"]} if _position(r["position"]) is not None else {})
         for r in conn.execute(
-            "SELECT keyword, discovered_at FROM channel_keywords WHERE channel_id=? "
+            "SELECT keyword, discovered_at, position FROM channel_keywords WHERE channel_id=? "
             "  AND keyword <> ? ORDER BY discovered_at, keyword",
             (channel_id, REFETCH_KEYWORD),
         )
@@ -1434,37 +1670,52 @@ def _union_json(old: object, new: object) -> str | None:
     return old if isinstance(old, str) and merged == before else json.dumps(merged)
 
 
+def _uploads_read(conn: sqlite3.Connection, channel_id: str, videos_fetched_at: object) -> bool:
+    """Whether the channel's uploads were read here: stamped, or holding a video row of its own.
+    The videos Bring back put back (`archived`, A3) are not a read: they are what the tombstone
+    held."""
+    if videos_fetched_at is not None:
+        return True
+    return (
+        conn.execute(
+            "SELECT 1 FROM videos WHERE channel_id=? AND last_fetch_status IS NOT ? LIMIT 1",
+            (channel_id, ARCHIVED_STATUS),
+        ).fetchone()
+        is not None
+    )
+
+
 def _row_facts(conn: sqlite3.Connection, row: sqlite3.Row | None) -> dict[str, Any]:
     """The facts a tombstone keeps from the channel row; all None without a row. The 30-day
     count is 0 by default on a row whose uploads were never read, so the row's count is kept only
     when they were: a NULL on the tombstone means "never known", never "zero". A row brought back
     from the archive and not read since keeps the count its tombstone knew, a known 0 included
-    (`videos_last_30_known`)."""
+    (`videos_last_30_known`), and the time its uploads were last read (`videos_fetched_known`).
+    A row not fetched since it was brought back keeps its tombstone's fetch time
+    (`last_fetched_known`)."""
     if row is None:
         return {name: None for name, _ in ARCHIVE_FACTS}
-    read = row["videos_fetched_at"] is not None or (
-        conn.execute(
-            "SELECT 1 FROM videos WHERE channel_id=? LIMIT 1", (row["channel_id"],)
-        ).fetchone()
-        is not None
-    )
     facts: dict[str, Any] = {name: row[name] for name, _ in ARCHIVE_FACTS}
-    if not read:
+    if facts["last_fetched_at"] is None:
+        facts["last_fetched_at"] = row["last_fetched_known"]
+    if not _uploads_read(conn, row["channel_id"], row["videos_fetched_at"]):
         known = row["videos_last_30_known"]
         facts["videos_last_30"] = known if known is not None else (facts["videos_last_30"] or None)
+        facts["videos_fetched_at"] = row["videos_fetched_known"]
     return facts
 
 
 def _merge_facts(old: Mapping[str, Any], new: Mapping[str, Any]) -> dict[str, Any]:
     """D43 for the facts: a known value is never replaced by NULL. When both are known the new
-    one (read from the row being archived now) is the fresher, except the latest upload, which
-    keeps the later time, and the lists, which keep everything either one held."""
+    one (read from the row being archived now) is the fresher, except the times (the latest
+    upload, the last reads), which keep the later one, and the lists, which keep everything
+    either one held."""
     out: dict[str, Any] = {}
     for name, _ in ARCHIVE_FACTS:
         before, after = old.get(name), new.get(name)
-        if name in ("seen_brands", "found_emails", "found_email_sources"):
+        if name in _LIST_FACTS:
             out[name] = _union_json(before, after)
-        elif name == "latest_upload_at" and before is not None and after is not None:
+        elif name in _TIME_FACTS and before is not None and after is not None:
             out[name] = max(str(before), str(after))
         else:
             out[name] = after if after is not None else before
@@ -1568,13 +1819,15 @@ def archive_channel_locally(
 ) -> bool:
     """Tombstones a channel this machine rejected (the auto-clean gate, the 7-day sweep, the
     refetch's rule): the tombstone first, carrying every fact and every keyword link itself
-    since the rows they come from are about to go, then the channel, its links and its videos
-    are deleted, in one transaction. A channel already archived is merged into, never blanked.
-    Returns whether the tombstone is new. Commits."""
+    since the rows they come from are about to go, and its videos copied into `archived_videos`
+    (A2); then the channel, its links and its videos are deleted, all in one transaction (A6). A
+    channel already archived is merged into, never blanked. Returns whether the tombstone is new.
+    Commits."""
     with _atomic(conn):
         new = _write_tombstone(
             conn, channel_id, handle, label, subscribers, found_at, found_via, announce=True
         )
+        _archive_videos(conn, channel_id)
         _delete_channel(conn, channel_id)
     conn.commit()
     return new
@@ -1606,13 +1859,13 @@ def fill_archive_from_channels(conn: sqlite3.Connection) -> int:
 def _fill_facts(here: Mapping[str, Any], other: Mapping[str, Any]) -> dict[str, Any]:
     """D43 for the facts, the other way round from `_merge_facts`: the value here is kept and
     the other copy only fills a NULL; the lists keep everything either held, this copy's first;
-    the latest upload keeps the later time."""
+    the times (the latest upload, the last reads) keep the later one."""
     out: dict[str, Any] = {}
     for name, _ in ARCHIVE_FACTS:
         mine, theirs = here.get(name), other.get(name)
-        if name in ("seen_brands", "found_emails", "found_email_sources"):
+        if name in _LIST_FACTS:
             out[name] = _union_json(mine, theirs)
-        elif name == "latest_upload_at" and mine is not None and theirs is not None:
+        elif name in _TIME_FACTS and mine is not None and theirs is not None:
             out[name] = max(str(mine), str(theirs))
         else:
             out[name] = mine if mine is not None else theirs
@@ -1687,9 +1940,10 @@ def restore_channel_locally(conn: sqlite3.Connection, channel_id: str) -> str | 
     is not a keyword that found it); and the tombstone goes, in one transaction. A channel row
     already there only has its blanks filled and its missing links added, and is flagged too
     when it was never read. What the tombstone knew that the row can't hold as a fact before it
-    is read (the median with its basis, the 30-day count, how many videos) is kept beside it, so
-    archiving it again says no less. Returns the tombstone's handle ('' when it had none), or None
-    when there is no tombstone. Commits."""
+    is read (the median with its basis, the 30-day count, how many videos, when its uploads were
+    last read) is kept beside it, so archiving it again says no less. Its archived videos move
+    back into `videos` as `archived` rows (A3). Returns the tombstone's handle ('' when it had
+    none), or None when there is no tombstone. Commits."""
     with _atomic(conn):
         tomb = conn.execute(
             "SELECT * FROM channel_archive WHERE channel_id=?", (channel_id,)
@@ -1757,6 +2011,37 @@ def restore_channel_locally(conn: sqlite3.Connection, channel_id: str) -> str | 
             "UPDATE channels SET videos_known=NULL WHERE channel_id=? AND videos_known=-1",
             (channel_id,),
         )
+        # The version 8 facts, as fills too (A3). The two read times stay as they were (NULL on
+        # a new row), so the backlog reads the channel again and nothing takes it for fetched;
+        # the tombstone's times wait beside them (videos_fetched_known, last_fetched_known).
+        times = {
+            "videos_fetched_at": "videos_fetched_known",
+            "last_fetched_at": "last_fetched_known",
+        }
+        fills = [name for name, _ in _ARCHIVE_FACTS_V8 if name not in times]
+        conn.execute(
+            "UPDATE channels SET "
+            + ", ".join(
+                [f"{name}=COALESCE({name}, ?)" for name in fills]
+                + [f"{beside}=COALESCE({beside}, ?)" for beside in times.values()]
+            )
+            + " WHERE channel_id=?",
+            (*(tomb[name] for name in fills), *(tomb[name] for name in times), channel_id),
+        )
+        # Its videos move back, marked as brought back rather than read. A row already here
+        # keeps its values and its status, and only its blanks are filled, so no archived value
+        # is lost.
+        columns = ", ".join(_ARCHIVED_VIDEO_COLUMNS)
+        fill = ", ".join(
+            f"{c}=COALESCE(videos.{c}, excluded.{c})" for c in _ARCHIVED_VIDEO_COLUMNS[1:]
+        )
+        conn.execute(
+            f"INSERT INTO videos ({columns}, last_fetch_status) "
+            f"SELECT {columns}, ? FROM archived_videos WHERE channel_id=? "
+            f"ON CONFLICT(video_id) DO UPDATE SET {fill}",
+            (ARCHIVED_STATUS, channel_id),
+        )
+        conn.execute("DELETE FROM archived_videos WHERE channel_id=?", (channel_id,))
         for entry in _merge_found_via(_json_list(tomb["found_via"])):
             if not isinstance(entry, dict):
                 continue
@@ -1765,14 +2050,117 @@ def restore_channel_locally(conn: sqlite3.Connection, channel_id: str) -> str | 
             if not isinstance(keyword, str) or not keyword or keyword == REFETCH_KEYWORD:
                 continue
             at = item.get("discovered_at")
+            # The link comes back with its search position; a link already here keeps the
+            # better (lower) of the two.
             conn.execute(
-                "INSERT OR IGNORE INTO channel_keywords (channel_id, keyword, discovered_at) "
-                "VALUES (?, ?, ?)",
-                (channel_id, keyword, at if isinstance(at, str) and at else first_seen),
+                "INSERT INTO channel_keywords (channel_id, keyword, discovered_at, position) "
+                "VALUES (?, ?, ?, ?) ON CONFLICT(channel_id, keyword) DO UPDATE SET "
+                "position=COALESCE(MIN(channel_keywords.position, excluded.position), "
+                "channel_keywords.position, excluded.position)",
+                (
+                    channel_id,
+                    keyword,
+                    at if isinstance(at, str) and at else first_seen,
+                    _position(item.get("position")),
+                ),
             )
         conn.execute("DELETE FROM channel_archive WHERE channel_id=?", (channel_id,))
     conn.commit()
     return handle
+
+
+def _video_upsert(source: str) -> str:
+    """The `archived_videos` upsert over `source` (a SELECT or a VALUES list giving the
+    KEPT["videos"] columns in order): a known value is never replaced by NULL, and a new known
+    value wins, so archiving again only adds (A2)."""
+    columns = _ARCHIVED_VIDEO_COLUMNS
+    updates = ", ".join(
+        f"{c}=COALESCE(excluded.{c}, archived_videos.{c})" for c in columns if c != "video_id"
+    )
+    return (
+        f"INSERT INTO archived_videos ({', '.join(columns)}) {source} "
+        f"ON CONFLICT(video_id) DO UPDATE SET {updates}"
+    )
+
+
+def _archive_videos(conn: sqlite3.Connection, channel_id: str) -> None:
+    """Copies the channel's videos into `archived_videos` before they are deleted (A2). A failed
+    fetch is left out: it holds no fact, only an id. Doesn't commit."""
+    columns = ", ".join(_ARCHIVED_VIDEO_COLUMNS)
+    conn.execute(
+        _video_upsert(
+            f"SELECT {columns} FROM videos WHERE channel_id=? AND last_fetch_status IS NOT 'failed'"
+        ),
+        (channel_id,),
+    )
+
+
+def _sent_value(value: object) -> object:
+    """A value from a teammate's record as a column takes it: text and numbers as they are, a
+    flag as 0/1, a list or an object as JSON text, anything else unknown (NULL)."""
+    if isinstance(value, bool):
+        return int(value)
+    if value is None or isinstance(value, str | int | float):
+        return value
+    if isinstance(value, list | dict):
+        return json.dumps(value, ensure_ascii=False)
+    return None
+
+
+def _apply_sent_facts(conn: sqlite3.Connection, channel_id: str, rec: Mapping[str, Any]) -> None:
+    """The channel facts a teammate's tombstone carries (A4), merged into the one here: a known
+    value here is never replaced by NULL, a key the sender didn't send (an older pipeline) is
+    unknown, and keys this pipeline doesn't know (a newer one) are never read. Where both know a
+    value, the newer record wins, by when each last fetched the channel (`last_fetched_at`): the
+    sent one when it is newer, or when the time here is unknown; the one here when it is newer,
+    or when only its time is known, the sent record then only filling blanks."""
+    old = conn.execute("SELECT * FROM channel_archive WHERE channel_id=?", (channel_id,)).fetchone()
+    if old is None:
+        return
+    sent = {name: _sent_value(rec.get(name)) for name, _ in ARCHIVE_FACTS}
+    sent_at, here_at = sent["last_fetched_at"], old["last_fetched_at"]
+    here_newer = here_at is not None and (sent_at is None or str(sent_at) < str(here_at))
+    facts = _fill_facts(dict(old), sent) if here_newer else _merge_facts(dict(old), sent)
+    changed = {k: v for k, v in facts.items() if v != old[k]}
+    if changed:
+        conn.execute(
+            "UPDATE channel_archive SET "
+            + ", ".join(f"{k}=?" for k in changed)
+            + " WHERE channel_id=?",
+            (*changed.values(), channel_id),
+        )
+
+
+def _apply_sent_videos(conn: sqlite3.Connection, channel_id: str, sent: object) -> None:
+    """A teammate's `archived_videos` list (A4), each video under the tombstone's channel. A video
+    without an id is skipped; a missing key is unknown and never blanks a value here; unknown keys
+    are never read. Doesn't commit."""
+    if not isinstance(sent, list):
+        return
+    rows: list[tuple[object, ...]] = []
+    for item in cast("list[object]", sent):
+        if not isinstance(item, dict):
+            continue
+        video = cast("dict[str, object]", item)
+        video_id = video.get("video_id")
+        if not isinstance(video_id, str) or not video_id:
+            continue
+        rows.append(
+            tuple(
+                video_id
+                if c == "video_id"
+                else channel_id
+                if c == "channel_id"
+                else _sent_value(video.get(c))
+                for c in _ARCHIVED_VIDEO_COLUMNS
+            )
+        )
+    if rows:
+        # WHERE true: SQLite's upsert after a SELECT needs it to parse.
+        conn.executemany(
+            _video_upsert(f"SELECT {_placeholders(list(_ARCHIVED_VIDEO_COLUMNS))} WHERE true"),
+            rows,
+        )
 
 
 def _delete_channel(conn: sqlite3.Connection, channel_id: str) -> None:
@@ -1787,8 +2175,11 @@ def _number(value: object) -> int | None:
 
 def apply_remote_archive(conn: sqlite3.Connection, rec: Mapping[str, Any]) -> None:
     """Applies another machine's tombstone: the archive row (its numbers through the merge, which
-    can't lose one), then the channel and its videos go. What this machine can see is measured
-    first: it may hold the very videos the sender never had. Doesn't commit."""
+    can't lose one; the facts and the archived videos it may carry, A4), then the channel and its
+    videos go, its videos copied into `archived_videos` first (A2). What this machine can see is
+    measured first: it may hold the very videos the sender never had. The facts and videos read
+    here are the freshest, then the sender's, then what an older tombstone here held. Doesn't
+    commit."""
     channel_id: str = rec["channel_id"]
     found_via = rec.get("found_via")
     if isinstance(found_via, dict | list):
@@ -1821,13 +2212,16 @@ def apply_remote_archive(conn: sqlite3.Connection, rec: Mapping[str, Any]) -> No
     )
     merge_archive_numbers(conn, channel_id, median, rec.get("median_basis"), count, announce=False)
     merge_archive_numbers(conn, channel_id, *mine)
+    _apply_sent_facts(conn, channel_id, rec)
     _keep_row_facts(conn, channel_id)
+    _apply_sent_videos(conn, channel_id, rec.get("archived_videos"))
+    _archive_videos(conn, channel_id)
     _delete_channel(conn, channel_id)
 
 
 def _keep_row_facts(conn: sqlite3.Connection, channel_id: str) -> None:
-    """Copies the channel row's facts onto a teammate's tombstone before the row goes (D42). They
-    are this machine's own and never shared, so the sender's identity and keywords stay as sent."""
+    """Copies the channel row's facts onto a teammate's tombstone before the row goes (D42); the
+    sender's identity and keywords stay as sent."""
     row = conn.execute("SELECT * FROM channels WHERE channel_id=?", (channel_id,)).fetchone()
     old = conn.execute("SELECT * FROM channel_archive WHERE channel_id=?", (channel_id,)).fetchone()
     if row is None or old is None:
@@ -1842,13 +2236,27 @@ def _keep_row_facts(conn: sqlite3.Connection, channel_id: str) -> None:
 
 
 def get_unannounced_archives(conn: sqlite3.Connection) -> list[Row]:
-    """Tombstones decided here that no catalog segment has named yet."""
-    return [
-        dict(r)
-        for r in conn.execute(
-            "SELECT * FROM channel_archive WHERE announced=0 AND source IS NOT 'remote'"
-        )
-    ]
+    """Tombstones decided here that no catalog segment has named yet, each with its archived
+    videos (`archived_videos`, newest first) and `archive_format` 2 (A4: a format-1 record has
+    neither the version 8 facts nor the videos). No caller until step T. It reads every
+    unannounced tombstone and all their videos at once: page it (a batch size and a cursor)
+    before step T wires it to the catalog, or a big first share holds it all in memory."""
+    out: list[Row] = []
+    for r in conn.execute(
+        "SELECT * FROM channel_archive WHERE announced=0 AND source IS NOT 'remote'"
+    ).fetchall():
+        record: Row = dict(r)
+        record["archive_format"] = ARCHIVE_FORMAT
+        record["archived_videos"] = [
+            dict(v)
+            for v in conn.execute(
+                "SELECT * FROM archived_videos WHERE channel_id=? "
+                "ORDER BY published_at DESC, video_id",
+                (r["channel_id"],),
+            )
+        ]
+        out.append(record)
+    return out
 
 
 def mark_archives_announced(conn: sqlite3.Connection, channel_ids: Iterable[str]) -> None:
@@ -1949,7 +2357,10 @@ def get_videos_needing_refetch(
     before: str | None = None,
 ) -> list[tuple[str, str]]:
     """[(video_id, channel_id)] for videos blank in any of `fields` (and fetched before `before`,
-    when given) plus every video whose last fetch failed, whatever `before` says."""
+    when given) plus every video whose last fetch failed, whatever `before` says. A video brought
+    back from the archive (`archived`) is left out: the backfill stamps the channels whose videos
+    it refetched as read (`videos_fetched_at`, force_refetch cleared), and a channel brought back
+    must stay flagged until its uploads are really read, which refreshes these rows anyway."""
     columns = [_ENRICH_VIDEO_FIELDS[f] for f in fields if f in _ENRICH_VIDEO_FIELDS]
     conditions: list[str] = []
     params: list[Any] = []
@@ -1963,12 +2374,14 @@ def get_videos_needing_refetch(
         else:
             conditions.append(f"({missing})")
     conditions.append("v.last_fetch_status = 'failed'")
+    params.append(ARCHIVED_STATUS)
     clause, handle_params = _handle_clause(handles, alias="c")
     params.extend(handle_params)
     rows = conn.execute(
         "SELECT v.video_id, v.channel_id FROM videos v "
         "JOIN channels c ON c.channel_id = v.channel_id "
-        f"WHERE ({' OR '.join(conditions)}){clause} ORDER BY v.channel_id, v.video_id",
+        f"WHERE ({' OR '.join(conditions)}) AND v.last_fetch_status IS NOT ?{clause} "
+        "ORDER BY v.channel_id, v.video_id",
         params,
     )
     return [(r["video_id"], r["channel_id"]) for r in rows]
@@ -2166,9 +2579,12 @@ def build_channel_blob(conn: sqlite3.Connection, channel_id: str) -> Row | None:
     channel = {k: row[k] for k in _BLOB_CHANNEL_FIELDS}
     videos: list[Row] = []
     failed: list[str] = []
+    # A video brought back from the archive is left out: it carries no description, and a
+    # teammate would store it as read, its blank description counting against the sponsorship.
     for v in conn.execute(
-        "SELECT * FROM videos WHERE channel_id=? ORDER BY published_at DESC, video_id",
-        (channel_id,),
+        "SELECT * FROM videos WHERE channel_id=? AND last_fetch_status IS NOT ? "
+        "ORDER BY published_at DESC, video_id",
+        (channel_id, ARCHIVED_STATUS),
     ):
         if v["last_fetch_status"] == "failed":
             failed.append(v["video_id"])
@@ -2219,10 +2635,15 @@ def apply_channel_blob(conn: sqlite3.Connection, blob: Mapping[str, Any], versio
     Skipped, returning False, when this machine's own read is at least as fresh. "At least" is
     inclusive for an empty object at the same stamp as videos held here: that is the same read
     seen from a machine that never had the videos, and replacing rows with nothing on its
-    strength is how a store loses what only it had."""
+    strength is how a store loses what only it had.
+
+    Skipped too when the channel is archived here: applying it would bring a rejected channel
+    back as a live row beside its tombstone. A channel brought back keeps the videos it holds
+    from the archive (`archived` rows): the object replaces the rows a read left, fills the
+    columns it carries on an archived row it names, and leaves the others alone."""
     channel: Mapping[str, Any] = blob.get("channel") or {}
     channel_id = channel.get("channel_id")
-    if not channel_id:
+    if not channel_id or is_archived(conn, channel_id):
         return False
     row = conn.execute(
         "SELECT videos_fetched_at, first_seen_at, "
@@ -2282,14 +2703,25 @@ def apply_channel_blob(conn: sqlite3.Connection, blob: Mapping[str, Any], versio
             utc_now(),
         ),
     )
-    conn.execute("DELETE FROM videos WHERE channel_id=?", (channel_id,))
+    conn.execute(
+        "DELETE FROM videos WHERE channel_id=? AND last_fetch_status IS NOT ?",
+        (channel_id, ARCHIVED_STATUS),
+    )
     now = utc_now()
     videos: list[Mapping[str, Any]] = blob.get("videos") or []
+    # Only an archived row (or another channel's) can still be here: the read's columns win, the
+    # columns the object doesn't carry (likes, duration, ...) keep the archived values.
     conn.executemany(
-        """INSERT OR REPLACE INTO videos (video_id, channel_id, title, description, thumbnail,
-                                          tags, published_at, view_count, last_fetched_at,
-                                          last_fetch_status)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'success')""",
+        """INSERT INTO videos (video_id, channel_id, title, description, thumbnail,
+                               tags, published_at, view_count, last_fetched_at,
+                               last_fetch_status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'success')
+           ON CONFLICT(video_id) DO UPDATE SET
+               channel_id=excluded.channel_id, title=excluded.title,
+               description=excluded.description, thumbnail=excluded.thumbnail,
+               tags=excluded.tags, published_at=excluded.published_at,
+               view_count=excluded.view_count, last_fetched_at=excluded.last_fetched_at,
+               last_fetch_status='success'""",
         [
             (
                 v.get("video_id"),
@@ -2307,9 +2739,10 @@ def apply_channel_blob(conn: sqlite3.Connection, blob: Mapping[str, Any], versio
         ],
     )
     failed: list[str] = blob.get("failed_video_ids") or []
+    # A failed id says nothing about the video: an archived row it names keeps its values.
     conn.executemany(
-        "INSERT OR REPLACE INTO videos (video_id, channel_id, last_fetched_at, last_fetch_status) "
-        "VALUES (?, ?, ?, 'failed')",
+        "INSERT INTO videos (video_id, channel_id, last_fetched_at, last_fetch_status) "
+        "VALUES (?, ?, ?, 'failed') ON CONFLICT(video_id) DO NOTHING",
         [(vid, channel_id, now) for vid in failed],
     )
     compute_channel_rollups(conn, [channel_id])
@@ -2575,7 +3008,10 @@ def apply_catalog_unarchived(conn: sqlite3.Connection, channel_id: str, handle: 
     Step T, before anything calls this or `unarchive_locally` (nothing does today): they delete
     the tombstone without putting its facts and keyword links back, and leave its
     `archive_keyword_pending` rows behind. Build them on `restore_channel_locally`, which does
-    both halves of D44, and clear the pending rows there too."""
+    both halves of D44 and moves the channel's `archived_videos` back, and clear the pending rows
+    there too. As they stand they also leave the channel's `archived_videos` rows behind, kept
+    for a channel that is no longer archived: route them through `restore_channel_locally`, or
+    delete those rows with the tombstone (S4)."""
     conn.execute("DELETE FROM channel_archive WHERE channel_id=?", (channel_id,))
     conn.execute(
         "INSERT INTO channels (channel_id, handle, first_seen_at, force_refetch, announced_at) "
