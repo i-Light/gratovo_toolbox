@@ -82,8 +82,9 @@ const findState: FindState = {
     minMedianViews: null,
     minUploads30: null,
     archiveDays: 7,
+    continuous: false,
   },
-  run: { state: "ready", found: 0, kept: 0, swept: 0, error: null },
+  run: { state: "ready", found: 0, kept: 0, swept: 0, error: null, wait: null },
   log: [],
   kept: [],
 };

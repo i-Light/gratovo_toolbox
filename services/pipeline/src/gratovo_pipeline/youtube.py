@@ -9,10 +9,12 @@ opener that follows no redirects, so it reaches Google and nowhere else. No mess
 writes carries it, or any text Google sent back beyond a plain reason word.
 
 A failure is named for what the run should do about it:
-- `quota`: the day's quota is spent; the run ends.
+- `quota`: the day's quota is spent; the run ends (a client built with `wait_on_quota` waits for
+  the reset instead, step S2 R5).
 - `no_youtube_key`: Google refused the key (wrong, expired, restricted, API not enabled); the run
   ends.
-- `network`: Google stayed unreachable or kept failing after the retries; the run ends.
+- `network`: Google stayed unreachable or kept failing after the retries; the run ends (a client
+  built with `wait_on_network` waits and tries the same call again, 60 s doubling to 600 s).
 - any other refusal fails just that batch: the store marks its channels or videos failed and the
   run moves on, as before.
 """
@@ -21,20 +23,30 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 import urllib.request
 from collections.abc import Callable, Mapping, Sequence
+from datetime import UTC, datetime, time, timedelta
 from typing import Any, Final, Literal, NoReturn, Protocol, TypedDict, cast
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
+from zoneinfo import ZoneInfo
 
 from gratovo_pipeline import net, run_control
-from gratovo_pipeline.protocol import LogLevel
+from gratovo_pipeline.protocol import LogLevel, WaitReason, WaitSink, utc_iso
 
 API: Final = "https://www.googleapis.com/youtube/v3"
 BATCH_SIZE: Final = 50
 TIMEOUT: Final = 30.0
 RETRY_WAITS: Final = (2.0, 8.0)  # seconds before the 2nd and 3rd attempts
 MAX_BODY: Final = 16 * 1024 * 1024
+# The network breaker (R5): the first wait, doubled up to the last.
+NETWORK_WAIT_FIRST: Final = 60.0
+NETWORK_WAIT_MAX: Final = 600.0
+# The quota resets at midnight Pacific time; a little after is safe.
+QUOTA_RESET_ZONE: Final = "America/Los_Angeles"
+QUOTA_RESET_MARGIN: Final = timedelta(minutes=5)
+QUOTA_SLEEP_CHUNK: Final = 60.0  # a quota wait sleeps in pieces, so a PC that slept wakes on time
 
 QUOTA_REASONS: Final = frozenset({"quotaExceeded", "dailyLimitExceeded"})
 RATE_REASONS: Final = frozenset(
@@ -87,9 +99,10 @@ class VideoInfo(TypedDict):
 class YouTubeError(RuntimeError):
     """A failure that ends the run. `code` is the protocol's end error code."""
 
-    def __init__(self, code: ErrorCode, message: str) -> None:
+    def __init__(self, code: ErrorCode, message: str, *, daily: bool = False) -> None:
         super().__init__(message)
         self.code: ErrorCode = code
+        self.daily = daily  # quota: the day's quota itself, not the per-second rate limit
 
 
 class Body(Protocol):
@@ -122,6 +135,26 @@ def _quiet(_level: LogLevel, _text: str) -> None:
     pass
 
 
+class _NoWaits:
+    def wait(self, reason: WaitReason, until: str) -> None:
+        pass
+
+    def resume(self, reason: WaitReason) -> None:
+        pass
+
+
+def _utc_now() -> datetime:
+    return datetime.now(UTC)
+
+
+def quota_reset(now: datetime) -> datetime:
+    """When the day's quota is back: the next midnight in America/Los_Angeles plus 5 minutes."""
+    zone = ZoneInfo(QUOTA_RESET_ZONE)  # Windows has no tz database: the tzdata package brings it
+    local = now.astimezone(zone)
+    midnight = datetime.combine(local.date() + timedelta(days=1), time(0), tzinfo=zone)
+    return midnight.astimezone(UTC) + QUOTA_RESET_MARGIN
+
+
 class _Retry(Exception):  # noqa: N818 - a signal inside this module, not an error
     """Worth another attempt; `code` and `message` name the failure if none is left."""
 
@@ -147,6 +180,10 @@ class YouTubeApi:
         opener: Opener = _open,
         sleep: Callable[[float], None] = run_control.sleep,
         log: LogSink = _quiet,
+        wait_on_network: bool = False,
+        wait_on_quota: bool = False,
+        waits: WaitSink | None = None,
+        clock: Callable[[], datetime] = _utc_now,
     ) -> None:
         if not key.strip():
             raise YouTubeError("no_youtube_key", "There is no YouTube API key.")
@@ -154,6 +191,14 @@ class YouTubeApi:
         self._opener = opener
         self._sleep = sleep
         self._log = log
+        self._wait_on_network = wait_on_network
+        self._wait_on_quota = wait_on_quota
+        self._waits: WaitSink = waits if waits is not None else _NoWaits()
+        self._clock = clock
+        # The network breaker, shared by every thread of this client: one thread probes (sleeps,
+        # then tries its call again), the others wait for it to close.
+        self._breaker = threading.Condition()
+        self._breaker_open = False
 
     def channels(self, batch: Mapping[str, str]) -> dict[str, ChannelInfo]:
         """{handle: info} for a {handle: channel_id} batch. A channel the API didn't return is
@@ -213,6 +258,73 @@ class YouTubeApi:
         ]
 
     def _get_with_retries(self, call: Call, url: str) -> object:
+        """`_attempts`, and where the client was built to wait, waiting instead of ending the run:
+        a spent quota until its reset, an unreachable API with the breaker (60 s doubling to
+        600 s), then the same call again. `wait` and `resume` tell the app."""
+        probing = False  # this thread holds the breaker open
+        delay = NETWORK_WAIT_FIRST
+        try:
+            while True:
+                try:
+                    return self._attempts(call, url)
+                except YouTubeError as error:
+                    reason = self._waitable(error)
+                    if reason is None:
+                        raise
+                    if reason == "quota":
+                        until = quota_reset(self._clock())
+                        self._log("warn", "YouTube API quota spent; waiting for the reset.")
+                    else:
+                        if not probing:
+                            probing = self._enter_breaker()
+                            if not probing:
+                                continue  # another thread probed and closed it: try again
+                        until = self._clock() + timedelta(seconds=delay)
+                        self._log("warn", f"YouTube API unreachable; trying again in {delay:g} s.")
+                        delay = min(delay * 2, NETWORK_WAIT_MAX)
+                    self._wait_until(reason, until)
+        finally:
+            if probing:
+                self._close_breaker()
+
+    def _wait_until(self, reason: WaitReason, until: datetime) -> None:
+        """One told wait: `wait`, sleep in chunks of at most a minute, re-reading the wall clock
+        each time (a PC that slept is back on time), then `resume`, even if a stop cut it."""
+        self._waits.wait(reason, utc_iso(until))
+        try:
+            while (left := (until - self._clock()).total_seconds()) > 0:
+                self._sleep(min(left, QUOTA_SLEEP_CHUNK))
+        finally:
+            self._waits.resume(reason)
+
+    def _waitable(self, error: YouTubeError) -> WaitReason | None:
+        """How to wait out `error`, or None when it ends the run (as it always did)."""
+        if error.code == "quota":
+            if not error.daily:  # the per-second rate limit eases in minutes: the breaker's job
+                return "api" if self._wait_on_network else None
+            return "quota" if self._wait_on_quota else None
+        if error.code == "network" and self._wait_on_network:
+            return "api"
+        return None
+
+    def _enter_breaker(self) -> bool:
+        """True: this thread opened the breaker and probes. False: another thread was probing and
+        has closed it now, so the caller tries its call again."""
+        with self._breaker:
+            if not self._breaker_open:
+                self._breaker_open = True
+                return True
+            while self._breaker_open:
+                self._breaker.wait(timeout=0.5)
+                run_control.check_stop()
+            return False
+
+    def _close_breaker(self) -> None:
+        with self._breaker:
+            self._breaker_open = False
+            self._breaker.notify_all()
+
+    def _attempts(self, call: Call, url: str) -> object:
         for attempt in range(len(RETRY_WAITS) + 1):
             try:
                 return self._get(call, url)
@@ -251,7 +363,7 @@ class YouTubeApi:
     def _raise_for_status(self, call: Call, error: HTTPError) -> NoReturn:
         reasons = _reasons(error)
         if reasons & QUOTA_REASONS:
-            raise YouTubeError("quota", "The YouTube API quota for today is spent.")
+            raise YouTubeError("quota", "The YouTube API quota for today is spent.", daily=True)
         if reasons & KEY_REASONS:
             raise YouTubeError("no_youtube_key", "Google refused the YouTube API key.")
         if reasons & RATE_REASONS or error.code == 429:

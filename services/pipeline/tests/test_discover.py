@@ -181,11 +181,24 @@ def test_progress_is_told_every_twenty_results(
     ]
 
 
-def test_a_block_ends_the_search_as_blocked(monkeypatch: pytest.MonkeyPatch, rec: Recorder) -> None:
-    then = scrapetube.BlockedError("YouTube is refusing requests")
-    monkeypatch.setattr(scrapetube, "get_search", FakeSearch(then=then))
-    with pytest.raises(SearchBlockedError):
-        live(rec).find_channels("ai agents", limit=10)
+def test_a_page_that_failed_on_every_route_ends_the_search_incomplete_not_the_run(
+    monkeypatch: pytest.MonkeyPatch, rec: Recorder
+) -> None:
+    then = scrapetube.PageFailedError("/results failed after 3 attempts (HTTP 429 from /results)")
+    monkeypatch.setattr(scrapetube, "get_search", FakeSearch(then=then))  # the first page fails
+    found = live(rec).find_channels("ai agents", limit=10)
+    assert (found.channels, found.complete) == ({}, False)
+    assert rec.lines == [("warn", "The search stopped early (PageFailedError).")]
+
+
+def test_a_later_page_failing_keeps_the_channels_and_is_incomplete(
+    monkeypatch: pytest.MonkeyPatch, rec: Recorder
+) -> None:
+    then = scrapetube.PageFailedError("/youtubei/v1/search failed after 3 attempts")
+    first = video_item("@ai-creator", "UC1111111111111111111111")
+    monkeypatch.setattr(scrapetube, "get_search", FakeSearch(first, then=then))
+    found = live(rec).find_channels("ai agents", limit=10)
+    assert (found.channels, found.complete) == ({"@ai-creator": "UC1111111111111111111111"}, False)
 
 
 def test_a_host_outside_the_rule_is_never_swallowed(
@@ -264,7 +277,7 @@ def test_a_sweep_can_be_asked_for_more_than_the_search_window(
     assert limits == [15, 120]  # a search never passes one
 
 
-def test_a_sweep_read_that_fails_is_unreadable_not_empty_and_a_block_stops(
+def test_a_sweep_read_that_fails_is_unreadable_not_empty_and_no_block_ends_the_run(
     monkeypatch: pytest.MonkeyPatch, rec: Recorder
 ) -> None:
     monkeypatch.setattr(scrapetube, "get_session", FakeSession)
@@ -280,11 +293,11 @@ def test_a_sweep_read_that_fails_is_unreadable_not_empty_and_a_block_stops(
         ("warn", "Couldn't read the uploads of UC1111111111111111111111 (ValueError).")
     ]
 
-    def blocked(**_kwargs: Any) -> Iterator[dict[str, Any]]:
-        raise scrapetube.BlockedError("blocked")
+    def page_failed(**_kwargs: Any) -> Iterator[dict[str, Any]]:
+        raise scrapetube.PageFailedError("/channel failed after 3 attempts")
 
-    monkeypatch.setattr(scrapetube, "get_channel", blocked)
-    with pytest.raises(SearchBlockedError):
+    monkeypatch.setattr(scrapetube, "get_channel", page_failed)
+    with pytest.raises(ChannelUnreadableError):  # the channel is deferred; no block ends the run
         live(rec).sweep().recent_video_ids("UC1111111111111111111111")
 
 
@@ -303,3 +316,30 @@ def test_a_later_page_failing_keeps_the_ids_already_read_on_the_error(
         live(rec).sweep().recent_video_ids("UC1111111111111111111111", limit=120)
     # Still unreadable for a search (a part read is not "read"); the backfill job uses the part.
     assert caught.value.partial == ["a", "b"]
+
+
+def _blocked_channel(monkeypatch: pytest.MonkeyPatch, *, all_blocked: bool) -> None:
+    monkeypatch.setattr(scrapetube, "get_session", FakeSession)
+
+    def page_failed(**_kwargs: Any) -> Iterator[dict[str, Any]]:
+        raise scrapetube.PageFailedError("/channel failed", all_blocked=all_blocked)
+
+    monkeypatch.setattr(scrapetube, "get_channel", page_failed)
+
+
+def test_a_sweep_that_ends_on_a_block_raises_it_when_every_attempt_was_blocked(
+    monkeypatch: pytest.MonkeyPatch, rec: Recorder
+) -> None:
+    _blocked_channel(monkeypatch, all_blocked=True)
+    with pytest.raises(SearchBlockedError):
+        live(rec).sweep(end_on_block=True).recent_video_ids("UC1111111111111111111111")
+    with pytest.raises(ChannelUnreadableError):  # the default: a channel is deferred
+        live(rec).sweep().recent_video_ids("UC1111111111111111111111")
+
+
+def test_a_sweep_that_ends_on_a_block_defers_a_channel_that_failed_otherwise(
+    monkeypatch: pytest.MonkeyPatch, rec: Recorder
+) -> None:
+    _blocked_channel(monkeypatch, all_blocked=False)
+    with pytest.raises(ChannelUnreadableError):
+        live(rec).sweep(end_on_block=True).recent_video_ids("UC1111111111111111111111")

@@ -66,8 +66,15 @@ def channel_from_item(
 
 
 class LiveSweep:
-    def __init__(self, pacer: Pacer, log: Callable[[LogLevel, str], None]) -> None:
+    def __init__(
+        self,
+        pacer: Pacer,
+        log: Callable[[LogLevel, str], None],
+        *,
+        end_on_block: bool = False,
+    ) -> None:
         self._session = scrapetube.get_session()
+        self._end_on_block = end_on_block
         self._pacer = pacer
         self._log = log
 
@@ -83,17 +90,21 @@ class LiveSweep:
                 video_id = video.get("videoId")
                 if isinstance(video_id, str):
                     ids.append(video_id)
-        except scrapetube.BlockedError as error:
-            raise SearchBlockedError(str(error)) from error
         except net.HostNotAllowedError:
             raise
-        except Exception as error:  # one channel's page must not end the run
+        except Exception as error:  # a failed page (PageFailedError) ends this channel, not the run
             self._log(
                 "warn", f"Couldn't read the uploads of {channel_id} ({type(error).__name__})."
             )
             # Not "no uploads": that would stamp the channel as read and drop it from the backlog
             # for good (the old app's way to lose a channel's videos on one bad page). The ids an
             # earlier page gave go with it, for the backfill job.
+            if (
+                self._end_on_block
+                and isinstance(error, scrapetube.PageFailedError)
+                and error.all_blocked
+            ):
+                raise SearchBlockedError("YouTube stopped answering this machine") from error
             raise ChannelUnreadableError(channel_id, partial=ids) from error
         return ids
 
@@ -132,19 +143,15 @@ class LiveSource:
                         "info",
                         f"Scanned {scanned} search results, {len(by_id)} channel(s) so far.",
                     )
-        except scrapetube.BlockedError as error:
-            # Not "this keyword found nothing": everything after it is more requests to an
-            # address YouTube has stopped answering.
-            raise SearchBlockedError(str(error)) from error
         except net.HostNotAllowedError:
             raise
-        except Exception as error:  # keep what the pages already gave
+        except Exception as error:  # a page failed on every route: keep what the pages gave
             self._log("warn", f"The search stopped early ({type(error).__name__}).")
             complete = False
         return Found({handle: cid for cid, handle in by_id.items()}, complete)
 
-    def sweep(self) -> LiveSweep:
-        return LiveSweep(self._pacer, self._log)
+    def sweep(self, *, end_on_block: bool = False) -> LiveSweep:
+        return LiveSweep(self._pacer, self._log, end_on_block=end_on_block)
 
     def channels(self, batch: Mapping[str, str]) -> dict[str, ChannelInfo]:
         return self._api.channels(batch)

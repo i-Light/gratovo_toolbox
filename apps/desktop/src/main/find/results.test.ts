@@ -29,6 +29,7 @@ const open: FindState["rules"] = {
   minMedianViews: null,
   minUploads30: null,
   archiveDays: 7,
+  continuous: false,
 };
 
 describe("readKept", () => {

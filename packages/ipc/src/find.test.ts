@@ -27,8 +27,9 @@ const state = {
     minMedianViews: 5_000,
     minUploads30: null,
     archiveDays: 7,
+    continuous: false,
   },
-  run: { state: "paused", found: 12, kept: 4, swept: 3, error: null },
+  run: { state: "paused", found: 12, kept: 4, swept: 3, error: null, wait: null },
   log: [{ at: 1_000, level: "info", text: "keyword done" }],
   kept: [
     {
@@ -44,6 +45,22 @@ const state = {
 };
 
 describe("findStateSchema", () => {
+  it("takes the waiting state with its reason and time, and refuses a bad one", () => {
+    const wait = { reason: "quota", until: "2026-11-02T09:30:00Z" };
+    const run = { ...state.run, state: "waiting", wait };
+    expect(findStateSchema.safeParse({ ...state, run }).success).toBe(true);
+    const bad = (w: unknown) =>
+      findStateSchema.safeParse({ ...state, run: { ...run, wait: w } }).success;
+    expect(bad({ ...wait, reason: "boom" })).toBe(false);
+    expect(bad({ ...wait, until: "tomorrow" })).toBe(false);
+  });
+
+  it("needs the continuous rule", () => {
+    const { continuous, ...rest } = state.rules;
+    expect(continuous).toBe(false);
+    expect(findStateSchema.safeParse({ ...state, rules: rest }).success).toBe(false);
+  });
+
   it("accepts a full state, and the event carries the same schema", () => {
     expect(findStateSchema.safeParse(state).success).toBe(true);
     // Kept channels come in every size: past a million subscribers is common.

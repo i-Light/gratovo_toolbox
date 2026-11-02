@@ -137,6 +137,7 @@ class _SearchFields:
     country_filter: frozenset[str] | None = None
     auto_clean: AutoCleanRule | None = None
     signal_bounds: SignalBounds | None = None
+    continuous: bool = False  # `rules.continuous`: wait out a spent API quota (R6)
 
 
 def _usable(urls: list[str]) -> tuple[str, ...]:
@@ -165,6 +166,7 @@ class Config:
     pacing: Pacing
     backfill_batch_size: int = BACKFILL_BATCH_SIZE
     signal_bounds: SignalBounds | None = None
+    continuous: bool = False  # `rules.continuous`: wait out a spent API quota (R6)
 
     @classmethod
     def from_start(cls, start: Start) -> Config:
@@ -203,6 +205,7 @@ class Config:
                 country_filter=frozenset(rules["countries"]) or None,
                 auto_clean=_auto_clean(rules["autoClean"]),
                 signal_bounds=_signal_bounds(rules),
+                continuous=bool(rules.get("continuous", False)),
             )
         else:
             clean = job["autoClean"] if job["kind"] == "refetch" else None
@@ -219,6 +222,7 @@ class Config:
             country_filter=search.country_filter,
             auto_clean=search.auto_clean,
             signal_bounds=search.signal_bounds,
+            continuous=search.continuous,
             youtube_key=secrets["youtubeKey"],
             proxies_enabled=proxies["enabled"],
             include_direct=proxies["includeDirect"],

@@ -57,12 +57,12 @@ S3 and S6 can run alongside S2 if two sessions work at once. They touch differen
 
 **Work:**
 1. **Fail fast, switch route.** Each page gets at most 3 attempts, each on a different route. Then the keyword fails and goes back to pending (S1.3), and the run takes the next keyword. This replaces the unlimited retries in `scrapetube.request`.
-2. **One route per keyword.** A worker keeps one route for every page of a keyword, its sweep included. If that route fails, it takes another and restarts the scrape from page 1 (Omar's `_run`). The pool's other guarantees stay as they are: one worker per route, the gap, the cooldowns.
+2. **One route per keyword.** A worker keeps one route for every page of a keyword, its sweep included. If that route fails, it takes another and carries on from the same page (Omar's `_run` restarts from page 1; carrying on costs fewer requests and loses nothing). The pool's other guarantees stay as they are: one worker per route, the gap, the cooldowns.
 3. **A block cools the route, not the run.** `BlockedError` cools that route and the worker carries on. Parallel workers no longer stop each other on one worker's failure (`parallel.py`). The run ends only on Stop, a refused key, or a person's choice.
 4. **All routes resting** shows "Paused, resuming at HH:MM" in the run panel instead of a silent wait. Stop still works at once.
 5. **The Data API breaker and the quota wait.** Port Omar's `core/breaker.py` and `core/quota.py` into `youtube.py`. A network failure means wait and probe (1 min, then doubling up to 10 min). An exhausted quota means "paused until the reset" (midnight Pacific plus 5 min), not the end of the run.
 6. **Continuous mode.** A setting under Find › search rules: "Keep searching until the list is done". The run picks up again after a quota reset or a route pause by itself. It stops at the end of the keyword list, or on Stop.
-7. **Bandwidth.** Count the compressed bytes of every page response, as in Omar's `traffic.py`. Show the total per keyword in the run log and store it on the run.
+7. **Bandwidth.** Count the compressed bytes of every page response, as in Omar's `traffic.py`. Show the total per keyword in the run log and store it on the run (schema v6).
 
 **Acceptance:**
 - On the fake clock: a blocked route never ends a run while another route is healthy.
@@ -104,7 +104,7 @@ S3 and S6 can run alongside S2 if two sessions work at once. They touch differen
    - the share of videos with a declared paid placement (next to the text signal `sponsored_ratio`)
 4. **Search position:** keep each hit's position in the results (Omar's `research_index`) on `channel_keywords`.
 5. **The app:** main language and topics on the creator record's Channel tab and on gallery cards. A Language facet in Find › Gallery. The auto-clean rule gets an optional "main language is one of …".
-6. Schema v6 for `pipeline.db` (S1 takes v5). The new channel and video columns are local facts and are not shared until step T, the same as today.
+6. Schema v7 for `pipeline.db` (S1 takes v5, S2 v6). The new channel and video columns are local facts and are not shared until step T, the same as today.
 
 **Acceptance:**
 - Recorded API answers show the same number of calls and units before and after.

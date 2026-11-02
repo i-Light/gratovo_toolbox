@@ -8,6 +8,7 @@ dependencies = [
   # The vendored scrapetube impersonates a browser's TLS handshake through it.
   "curl-cffi==0.16.3",
   # The Gemini bridge's local WebSocket server, which the browser extension dials.
+  "tzdata>=2026.6",
   "websockets==17.3",
   # Reads a video's published subtitles for a first email's moments (transcript.py, plan D12).
   "yt-dlp==2026.10.21",

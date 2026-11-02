@@ -300,7 +300,7 @@ def _backfill(work: _Work) -> None:
     months = work.job.get("months", BACKFILL_MONTHS)
     pending: list[str] = []
     owner: dict[str, str] = {}
-    sweep = work.source.sweep()
+    sweep = work.source.sweep(end_on_block=True)
     try:
         for channel_id in work.scope.values():
             run_control.check_stop()
@@ -309,8 +309,9 @@ def _backfill(work: _Work) -> None:
             if wanted == 0:
                 continue
             known = store.get_existing_video_ids(work.conn, channel_id)
-            # A block raises SearchBlockedError, which ends the job: another channel would only
-            # be another request to an address YouTube has stopped answering.
+            # This job's sweep ends it on a block (SearchBlockedError, when every page attempt was
+            # a throttle or a block): another channel would only be another request to routes
+            # YouTube has stopped answering. Any other failure defers just this channel.
             try:
                 scraped = sweep.recent_video_ids(channel_id, limit=wanted)
             except ChannelUnreadableError as error:

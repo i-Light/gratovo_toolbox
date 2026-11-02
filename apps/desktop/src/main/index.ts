@@ -415,7 +415,7 @@ function start(): void {
         searching: () => {
           try {
             const run = find.state().run.state;
-            return run === "running" || run === "stopping";
+            return run === "running" || run === "waiting" || run === "stopping";
           } catch {
             return false;
           }

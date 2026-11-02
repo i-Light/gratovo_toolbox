@@ -26,8 +26,12 @@ function shownState({ run, queue, at }: FindState): RunState {
   return run.state === "done" || at === 0 ? "ready" : "paused";
 }
 
+function waitingHeadline(wait: NonNullable<FindState["run"]["wait"]>): string {
+  return text.waiting[wait.reason](clock(Date.parse(wait.until)));
+}
+
 function headline(state: FindState): string {
-  const { queue, at } = state;
+  const { queue, at, run } = state;
   const n = Math.min(at, Math.max(queue.length - 1, 0)) + 1;
   switch (shownState(state)) {
     case "running": {
@@ -42,6 +46,8 @@ function headline(state: FindState): string {
       return text.paused(n);
     case "failed":
       return text.failed(n);
+    case "waiting":
+      return run.wait === null ? text.searching("") : waitingHeadline(run.wait);
     case "stopping":
       return text.stopping;
   }
@@ -50,7 +56,7 @@ function headline(state: FindState): string {
 /** Where the search stands: its headline, the tallies, the log and the Start / Pause button. */
 export function LiveRun({ state }: { readonly state: FindState }) {
   const { run, queue, at, log } = state;
-  const running = run.state === "running";
+  const running = run.state === "running" || run.state === "waiting";
   const stopping = run.state === "stopping";
   const done = queue.filter((k) => k.state === "done").length;
   const total = queue.length;
@@ -139,6 +145,11 @@ export function LiveRun({ state }: { readonly state: FindState }) {
           <small>{text.swept}</small>
         </div>
       </div>
+      {run.state === "waiting" && run.wait !== null ? (
+        <p className="hint" role="status">
+          {text.waitingWhy[run.wait.reason]}
+        </p>
+      ) : null}
       {run.state === "failed" && run.error !== null ? (
         <div className="callout crit" role="alert">
           <Icon name="alert" />

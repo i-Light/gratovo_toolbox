@@ -159,7 +159,14 @@ interface Session {
   kept: Kept[] | null;
 }
 
-const readyRun = (): Run => ({ state: "ready", found: 0, kept: 0, swept: 0, error: null });
+const readyRun = (): Run => ({
+  state: "ready",
+  found: 0,
+  kept: 0,
+  swept: 0,
+  error: null,
+  wait: null,
+});
 
 /** The proxies: a secret-store value holding a JSON list of URLs; anything else is no URLs. */
 async function urlList(secrets: Pick<SecretStore, "get">, name: string): Promise<string[]> {
@@ -197,6 +204,29 @@ export function createFindService(deps: FindServiceDeps): FindService {
   // store job (the email finder's refetch, the import): those are not a search to pause or guard.
   let searching = false;
   let stopRequested = false;
+  /** One wait per reason; the run shows the one with the latest end (ties: quota, api, routes). */
+  const waits = new Map<"routes" | "quota" | "api", string>();
+  const rank = { quota: 0, api: 1, routes: 2 } as const;
+  const showWaits = (run: Run): void => {
+    let best: { reason: "routes" | "quota" | "api"; until: string } | null = null;
+    for (const [reason, until] of waits) {
+      if (
+        best === null ||
+        Date.parse(until) > Date.parse(best.until) ||
+        (Date.parse(until) === Date.parse(best.until) && rank[reason] < rank[best.reason])
+      ) {
+        best = { reason, until };
+      }
+    }
+    run.wait = best;
+    if (best === null) {
+      if (run.state === "waiting") {
+        run.state = "running";
+      }
+    } else if (run.state === "running") {
+      run.state = "waiting";
+    }
+  };
   // Bumped by shutdown (sign-out, quit): a start still awaiting its key gives up when it changed.
   let generation = 0;
   // Where the running job began; `at` is the first keyword from here that isn't done.
@@ -384,6 +414,17 @@ export function createFindService(deps: FindServiceDeps): FindService {
           { at: deps.now(), level: m.level, text: redact(m.text, jobSecrets).slice(0, 500) },
         ].slice(-logMax);
         break;
+      case "wait":
+        if (s.run.state === "running" || s.run.state === "waiting") {
+          waits.set(m.reason, m.until);
+          showWaits(s.run);
+        }
+        break;
+      case "resume":
+        if (waits.delete(m.reason)) {
+          showWaits(s.run);
+        }
+        break;
       default:
         return;
     }
@@ -392,6 +433,8 @@ export function createFindService(deps: FindServiceDeps): FindService {
 
   function exit(s: Session, how: PipelineExit): void {
     searching = false;
+    waits.clear();
+    s.run.wait = null;
     if (how.kind === "ended") {
       const end = how.end;
       if (end.state === "done") {
@@ -638,7 +681,8 @@ export function createFindService(deps: FindServiceDeps): FindService {
           searching = false;
           return started;
         }
-        s.run = { state: "running", found: 0, kept: 0, swept: 0, error: null };
+        waits.clear();
+        s.run = { state: "running", found: 0, kept: 0, swept: 0, error: null, wait: null };
         s.log = [];
         s.kept = readKept(join(s.folder, "pipeline.db"), s.rules, keptMax);
         emitNow();
@@ -654,6 +698,8 @@ export function createFindService(deps: FindServiceDeps): FindService {
       }
       stopRequested = true;
       session.run.state = "stopping";
+      waits.clear();
+      session.run.wait = null;
       supervisor.stop();
       emitNow();
     },

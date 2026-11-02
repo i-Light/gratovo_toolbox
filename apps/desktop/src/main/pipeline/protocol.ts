@@ -90,6 +90,8 @@ export const rulesSchema = z.strictObject({
   minMedianViews: count.nullable().optional(),
   /** The same for a channel with fewer uploads than this in the last 30 days. */
   minUploads30: index.nullable().optional(),
+  /** Keep searching through an API quota stop: wait for the reset instead of ending (default off). */
+  continuous: z.boolean().optional(),
 });
 
 const searchJob = z
@@ -442,6 +444,16 @@ const logSchema = z.strictObject({
   text: z.string().max(500),
 });
 
+/** The job is waiting (30 s or more) and says until when; `resume` says the wait is over. */
+export const waitReasons = ["routes", "quota", "api"] as const;
+const waitSchema = z.strictObject({
+  type: z.literal("wait"),
+  reason: z.enum(waitReasons),
+  until: z.iso.datetime(),
+});
+
+const resumeSchema = z.strictObject({ type: z.literal("resume"), reason: z.enum(waitReasons) });
+
 /** One reply `mail.replies` found. A long body is cut so the line fits (`bodyCut`). */
 const replySchema = z.strictObject({
   type: z.literal("reply"),
@@ -764,6 +776,8 @@ export const fromPipelineSchema = z.discriminatedUnion("type", [
   channelSchema,
   progressSchema,
   logSchema,
+  waitSchema,
+  resumeSchema,
   replySchema,
   resultSchema,
   endSchema,

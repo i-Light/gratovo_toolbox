@@ -17,7 +17,8 @@ from gratovo_pipeline import __main__ as gratovo_main
 from gratovo_pipeline import example, protocol, run_control, store
 from gratovo_pipeline.jobs import search as search_job
 from gratovo_pipeline.protocol import Emitter, Start
-from gratovo_pipeline.search.context import SearchBlockedError
+from gratovo_pipeline.scrapetube import scrapetube
+from gratovo_pipeline.search.context import Found
 from gratovo_pipeline.youtube import ChannelInfo, YouTubeError
 
 KEYWORDS = list(example.KEYWORDS[:3])
@@ -239,7 +240,6 @@ class Failing(FakeSource):
 @pytest.mark.parametrize(
     ("error", "code"),
     [
-        (SearchBlockedError("YouTube is refusing requests"), "blocked"),
         (YouTubeError("quota", "The YouTube API quota for today is spent."), "quota"),
         (YouTubeError("network", "Couldn't reach YouTube's API."), "network"),
         (YouTubeError("no_youtube_key", "Google refused the YouTube API key."), "no_youtube_key"),
@@ -480,5 +480,86 @@ def test_a_keyword_that_stopped_early_is_incomplete_and_the_run_goes_on(
         second = store.get_keyword(conn, KEYWORDS[1])
         assert second is not None
         assert second["status"] == "done"
+    finally:
+        conn.close()
+
+
+# --- runs that keep going (step S2) ---
+
+
+class PageFails(FakeSource):
+    """A scraper error escapes the first keyword's search; the others read normally."""
+
+    def __init__(self, keywords: list[str]) -> None:
+        super().__init__(results={k: {} for k in keywords})
+        self.first = keywords[0]
+        self.affinity_open: list[bool] = []
+
+    def find_channels(self, keyword: str, *, limit: int) -> Found:
+        self.affinity_open.append(getattr(scrapetube._affinity, "preferred", None) is not None)  # pyright: ignore[reportPrivateUsage]
+        if keyword == self.first:
+            raise scrapetube.PageFailedError("/results failed after 3 attempts")
+        # A page of 2 MB came down for this keyword.
+        scrapetube._count_bytes(  # pyright: ignore[reportPrivateUsage]
+            FakeBytes(2_000_000)
+        )
+        return super().find_channels(keyword, limit=limit)
+
+
+class FakeBytes:
+    status_code = 200
+    url = "https://www.youtube.com/x"
+    headers: Mapping[str, str] = {}
+
+    def __init__(self, size: int) -> None:
+        self.text = "a" * size
+
+    def json(self) -> Any:
+        return {}
+
+
+def test_a_scraper_error_that_escapes_makes_that_keyword_incomplete_and_the_run_goes_on(
+    tmp_path: Path, run: Run
+) -> None:
+    source = PageFails(KEYWORDS)
+    go(run, start_for(tmp_path), source)
+
+    keywords = run.of("keyword")
+    assert not [k for k in keywords if k["state"] == "failed"]
+    assert [(k["index"], k["error"]) for k in keywords if k["state"] == "incomplete"] == [
+        (0, "The search stopped early.")
+    ]
+    assert {k["index"] for k in keywords if k["state"] == "done"} == {1, 2}
+    end = run.end()
+    assert (end["state"], end["at"]) == ("done", 0)
+    assert "error" not in end
+    conn = store.get_connection(tmp_path / "example-pipeline" / "pipeline.db")
+    try:
+        first = store.get_keyword(conn, KEYWORDS[0])
+        assert first is not None
+        assert (first["status"], first["failures"]) == ("pending", 1)
+    finally:
+        conn.close()
+
+
+def test_each_keyword_runs_inside_route_affinity(tmp_path: Path, run: Run) -> None:
+    source = PageFails(KEYWORDS)
+    go(run, start_for(tmp_path), source)
+    assert source.affinity_open == [True, True, True]
+    assert getattr(scrapetube._affinity, "preferred", None) is None  # pyright: ignore[reportPrivateUsage]
+
+
+def test_the_keyword_line_and_the_run_carry_the_megabytes_downloaded(
+    tmp_path: Path, run: Run
+) -> None:
+    go(run, start_for(tmp_path), PageFails(KEYWORDS))
+
+    lines = [m["text"] for m in run.of("log") if "done:" in m.get("text", "")]
+    assert len(lines) == 2
+    assert all(line.endswith(" 2.0 MB downloaded.") for line in lines), lines
+    conn = store.get_connection(tmp_path / "example-pipeline" / "pipeline.db")
+    try:
+        row = conn.execute("SELECT bytes_downloaded FROM runs").fetchone()
+        assert row[0] == 4_000_000
     finally:
         conn.close()

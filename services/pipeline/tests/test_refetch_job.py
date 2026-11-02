@@ -427,7 +427,7 @@ def test_blocked_ends_failed_with_no_result(run: Run) -> None:
 
 def test_a_sweep_that_cannot_open_still_ends(run: Run) -> None:
     class NoSweep(RefetchFake):
-        def sweep(self) -> Any:
+        def sweep(self, *, end_on_block: bool = False) -> Any:
             raise OSError("disk")
 
     go(run, start_for(run, ["@aitoolsweekly"]), NoSweep())
