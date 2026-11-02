@@ -98,7 +98,9 @@ A gateway is a small relay in your own AWS account. YouTube sees an Amazon addre
 
 To stop paying, click **Remove** next to a region. The gateways are deleted from your AWS account.
 
-**One check before you rely on gateways.** Step S5 starts with a test that your home address doesn't leak through a gateway. You approved it on 2026-11-02, and its result goes into ADR 0023. Until then, use gateways together with free proxies, not on their own.
+**Read this before you rely on gateways: they probably pass your home address on.** YouTube sees an Amazon address as the sender. But AWS's own documentation says these gateways add a `Forwarded` header naming the address the request came from, which is yours. AWS reserves that header, so the app can't remove it. People who use the older kind of gateway report the same in 2024 with `X-Forwarded-For`. Whether YouTube acts on that header is unknown.
+
+Step S5 starts with a test that checks this for real (you approved it on 2026-11-02), and its result goes into ADR 0023. If it confirms the leak, S5 changes how the relays work. Until then, prefer free proxies, keep **Use gateways** off, and keep **Also search directly** off.
 
 ## 3. Checking that it works
 
