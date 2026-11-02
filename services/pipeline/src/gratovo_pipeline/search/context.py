@@ -6,7 +6,7 @@ from __future__ import annotations
 import dataclasses
 import sqlite3
 from collections.abc import Mapping, Sequence
-from typing import Final, Protocol
+from typing import Final, NamedTuple, Protocol
 
 from gratovo_pipeline.config import Config
 from gratovo_pipeline.protocol import LogLevel, Outcome
@@ -30,8 +30,8 @@ class ChannelUnreadableError(RuntimeError):
     `partial` holds the ids read before a later page failed. A search must not take them as a
     read (the window may be short); the backfill job, which only adds older uploads, uses them."""
 
-    def __init__(self, handle: str, *, partial: Sequence[str] = ()) -> None:
-        super().__init__(handle)
+    def __init__(self, channel_id: str, *, partial: Sequence[str] = ()) -> None:
+        super().__init__(channel_id)
         self.partial: list[str] = list(partial)
 
 
@@ -39,7 +39,7 @@ class Sweep(Protocol):
     """Reads channels' recent uploads one after another, on one session (a browser opens the
     connection once and keeps it)."""
 
-    def recent_video_ids(self, handle: str, *, limit: int = RECENT_VIDEOS) -> list[str]:
+    def recent_video_ids(self, channel_id: str, *, limit: int = RECENT_VIDEOS) -> list[str]:
         """At most `limit` of the channel's newest upload ids (15 unless a job asks for more).
         Raises ChannelUnreadableError when the read failed; an empty list means no uploads."""
         ...
@@ -47,11 +47,19 @@ class Sweep(Protocol):
     def close(self) -> None: ...
 
 
+class Found(NamedTuple):
+    """What a keyword's search gave. `complete` is false when it stopped before the last page or
+    the limit (a page failed): the keyword is not finished and is searched again."""
+
+    channels: dict[str, str]
+    complete: bool
+
+
 class Source(Protocol):
     """Where a search reads YouTube from: the live site and API, or the example fixture."""
 
-    def find_channels(self, keyword: str, *, limit: int) -> dict[str, str]:
-        """{handle: channel_id} for a keyword's results."""
+    def find_channels(self, keyword: str, *, limit: int) -> Found:
+        """{handle: channel_id} for a keyword's results, and whether the search finished."""
         ...
 
     def sweep(self) -> Sweep: ...

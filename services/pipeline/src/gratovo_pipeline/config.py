@@ -41,7 +41,7 @@ class Delay:
     every: int | None = None
 
 
-# Normal unless rotation spreads one worker's requests over several addresses (see `pacing`).
+# The default pacing; Fast applies only when the app sends it (see `pacing`).
 NORMAL_PACING: Final[dict[DelayKey, Delay]] = {
     "human_scroll_delay": Delay(1.5, 3.5),
     "jitter_delay": Delay(2.5, 6.0),
@@ -175,7 +175,11 @@ class Config:
         proxy_urls = _usable(secrets["proxyUrls"])
         gateway_urls = _usable(secrets["gatewayUrls"])
         # No switch sent means the app set proxies up and wants them used.
-        proxies = settings.get("proxies", {"enabled": bool(proxy_urls), "includeDirect": True})
+        # And this machine stays out of the rotation when any gateway or proxy is set.
+        proxies = settings.get(
+            "proxies",
+            {"enabled": bool(proxy_urls), "includeDirect": not (proxy_urls or gateway_urls)},
+        )
         rotating = (len(proxy_urls) if proxies["enabled"] else 0) + len(gateway_urls)
         parallel_setting = settings.get(
             "parallel", {"enabled": False, "maxWorkers": parallel.DEFAULT_MAX_WORKERS}
@@ -185,12 +189,8 @@ class Config:
             max_workers=parallel_setting["maxWorkers"],
             rotating_connections=rotating,
         )
-        # Fast only while rotation spreads ONE worker's requests over several addresses. Several
-        # workers over the same addresses put each back at one worker's traffic, so they keep the
-        # Normal beat: the owner's rule, parallel on means normal speed.
-        pacing: Pacing = settings.get(
-            "pacing", "fast" if rotating > 0 and workers < 2 else "normal"
-        )
+        # Normal unless the app sends Fast: the app always sends the owner's choice.
+        pacing: Pacing = settings.get("pacing", "normal")
 
         if job["kind"] == "search":
             rules = job["rules"]

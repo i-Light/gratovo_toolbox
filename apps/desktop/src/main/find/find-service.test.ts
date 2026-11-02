@@ -1,6 +1,7 @@
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 
 import type { CreatorState } from "@gratovo/core/data";
 import { findStateSchema, type FindState } from "@gratovo/ipc";
@@ -14,6 +15,7 @@ import type {
   EndMessage,
 } from "../pipeline/supervisor";
 
+import { failureLimit } from "@gratovo/ipc";
 import { createFindService, type FindMode, type FindService } from "./find-service";
 
 const exampleKey = "example-key-not-real";
@@ -66,7 +68,7 @@ function fakeSupervisor(): FakeSupervisor {
 
 const keyword = (
   index: number,
-  state: "started" | "done" | "failed",
+  state: "started" | "done" | "incomplete" | "failed",
   extra: { found?: number; kept?: number } = {},
 ): PipelineMessage => ({
   type: "keyword",
@@ -346,7 +348,7 @@ describe("the find service", () => {
         source: "live",
         worker: "user-1",
         dataDir: join(userData, "pipeline"),
-        job: { startAt: 1 },
+        job: { keywords: ["local llm"], startAt: 0 },
         secrets: { youtubeKey: exampleKey, proxyUrls: [proxy], gatewayUrls: [gateway] },
       });
     });
@@ -411,7 +413,13 @@ describe("the find service", () => {
       expect(service.state().queue[0]?.state).toBe("running");
       supervisor.send(keyword(0, "done", { found: 12, kept: 4 }));
       const state = service.state();
-      expect(state.queue[0]).toEqual({ keyword: "ai agents", state: "done", found: 12, kept: 4 });
+      expect(state.queue[0]).toEqual({
+        keyword: "ai agents",
+        state: "done",
+        found: 12,
+        kept: 4,
+        failures: 0,
+      });
       expect(state.at).toBe(1);
       expect(state.run.found).toBe(12);
       expect(readFileSync(join(userData, "example-pipeline", "find.json"), "utf8")).toContain(
@@ -419,9 +427,25 @@ describe("the find service", () => {
       );
     });
 
-    it("marks a failed keyword", () => {
+    it("counts a keyword's incomplete searches: queued again twice, failed at the third", () => {
+      supervisor.send(keyword(1, "incomplete"));
+      expect(service.state().queue[1]).toMatchObject({ state: "queued", failures: 1 });
+      supervisor.send(keyword(1, "incomplete"));
+      expect(service.state().queue[1]).toMatchObject({ state: "queued", failures: 2 });
+      supervisor.send(keyword(1, "incomplete"));
+      expect(service.state().queue[1]).toMatchObject({ state: "failed", failures: failureLimit });
+    });
+
+    it("queues a keyword again on a run-ending error without counting a failure", () => {
+      supervisor.send(keyword(1, "started"));
       supervisor.send(keyword(1, "failed"));
-      expect(service.state().queue[1]?.state).toBe("failed");
+      expect(service.state().queue[1]).toMatchObject({ state: "queued", failures: 0 });
+    });
+
+    it("resets the failures when the keyword is done", () => {
+      supervisor.send(keyword(1, "incomplete"));
+      supervisor.send(keyword(1, "done", { found: 1, kept: 1 }));
+      expect(service.state().queue[1]).toMatchObject({ state: "done", failures: 0 });
     });
 
     it("counts kept and swept channels and prepends the kept ones, capped at 100", () => {
@@ -467,14 +491,24 @@ describe("the find service", () => {
     });
 
     it("done: takes at from the end line and puts running entries back to queued", () => {
+      supervisor.send(keyword(0, "done", { found: 1, kept: 1 }));
+      supervisor.send(keyword(1, "done", { found: 1, kept: 1 }));
+      supervisor.send(keyword(2, "done", { found: 1, kept: 1 }));
       supervisor.finish({ kind: "ended", result: null, end: endLine({ state: "done", at: 3 }) });
       const state = service.state();
       expect(state.run).toMatchObject({ state: "done", error: null });
       expect(state.at).toBe(3);
+    });
+
+    it("puts running entries back to queued and points at the first one not done", () => {
+      supervisor.finish({ kind: "ended", result: null, end: endLine({ state: "done", at: 3 }) });
+      const state = service.state();
       expect(state.queue[0]?.state).toBe("queued");
+      expect(state.at).toBe(0);
     });
 
     it("stopped: paused", () => {
+      supervisor.send(keyword(0, "done", { found: 1, kept: 1 }));
       supervisor.finish({ kind: "ended", result: null, end: endLine({ state: "stopped", at: 1 }) });
       expect(service.state().run).toMatchObject({ state: "paused", error: null });
       expect(service.state().at).toBe(1);
@@ -792,7 +826,7 @@ describe("the find service", () => {
       supervisor.send(channel("UC_b", "swept"));
       expect(changed).not.toHaveBeenCalled();
       supervisor.send(keyword(0, "done", { found: 1, kept: 1 }));
-      supervisor.send(keyword(1, "failed"));
+      supervisor.send(keyword(1, "incomplete"));
       expect(changed).toHaveBeenCalledTimes(2);
       supervisor.finish({ kind: "ended", result: null, end: endLine() });
       expect(changed).toHaveBeenCalledTimes(3);
@@ -813,6 +847,184 @@ describe("the find service", () => {
       mode = "example";
       expect(service.state().run.state).toBe("running");
       expect(service.state().queue[0]?.state).toBe("running");
+    });
+  });
+
+  describe("a run sends only what is left", () => {
+    it("sends the queued entries from at on, and maps the job index back to the queue", async () => {
+      service.add(["a one", "b two", "c three", "d four"]);
+      service.startAt(1);
+      expect(await service.start()).toEqual({ ok: true });
+      supervisor.send(keyword(0, "done", { found: 2, kept: 1 }));
+      supervisor.send(keyword(1, "started"));
+      supervisor.finish({ kind: "ended", result: null, end: endLine() });
+      expect(supervisor.starts[0]?.job).toMatchObject({
+        keywords: ["b two", "c three", "d four"],
+        startAt: 0,
+      });
+      expect(service.state().queue.map((q) => q.state)).toEqual([
+        "queued",
+        "done",
+        "queued",
+        "queued",
+      ]);
+      expect(service.state().at).toBe(2);
+    });
+
+    it("skips done and failed entries, and ignores an unknown index", async () => {
+      service.add(["a one", "b two", "c three"]);
+      expect(await service.start()).toEqual({ ok: true });
+      supervisor.send(keyword(9, "done"));
+      supervisor.send(keyword(0, "done", { found: 1, kept: 1 }));
+      for (let i = 0; i < failureLimit; i += 1) {
+        supervisor.send(keyword(1, "incomplete"));
+      }
+      supervisor.finish({ kind: "ended", result: null, end: endLine({ state: "stopped", at: 0 }) });
+      expect(service.state().at).toBe(2);
+      expect(service.state().queue.map((q) => q.state)).toEqual(["done", "failed", "queued"]);
+      expect(await service.start()).toEqual({ ok: true });
+      expect(supervisor.starts[1]?.job).toMatchObject({ keywords: ["c three"], startAt: 0 });
+    });
+
+    it("answers no_keywords when nothing is left to run", async () => {
+      service.add(["a one"]);
+      expect(await service.start()).toEqual({ ok: true });
+      supervisor.send(keyword(0, "done", { found: 1, kept: 1 }));
+      supervisor.finish({ kind: "ended", result: null, end: endLine({ state: "done", at: 1 }) });
+      expect(await service.start()).toEqual({ ok: false, problem: "no_keywords" });
+    });
+  });
+
+  describe("retry", () => {
+    async function failOne(): Promise<void> {
+      service.add(["a one", "b two"]);
+      expect(await service.start()).toEqual({ ok: true });
+      for (let i = 0; i < failureLimit; i += 1) {
+        supervisor.send(keyword(0, "incomplete"));
+      }
+      supervisor.finish({ kind: "ended", result: null, end: endLine() });
+    }
+
+    it("sets a failed entry back to queued with no failures", async () => {
+      await failOne();
+      expect(service.state().queue[0]).toMatchObject({ state: "failed", failures: failureLimit });
+      expect(service.retry(0)).toEqual({ ok: true });
+      expect(service.state().queue[0]).toMatchObject({ state: "queued", failures: 0 });
+      expect(service.state().at).toBe(0);
+    });
+
+    it("is refused while a search runs", async () => {
+      await failOne();
+      expect(await service.start()).toEqual({ ok: true });
+      expect(service.retry(0)).toEqual({ ok: false, problem: "running" });
+    });
+  });
+
+  describe("weak keywords", () => {
+    type Row = readonly [string, string, number, string | null];
+
+    function writeDb(rows: readonly Row[]): void {
+      const folder = join(userData, "example-pipeline");
+      mkdirSync(folder, { recursive: true });
+      const db = new DatabaseSync(join(folder, "pipeline.db"));
+      db.exec(
+        "CREATE TABLE keywords (keyword TEXT PRIMARY KEY, status TEXT NOT NULL, " +
+          "channels_found INTEGER NOT NULL DEFAULT 0, completed_at TEXT)",
+      );
+      const insert = db.prepare(
+        "INSERT INTO keywords (keyword, status, channels_found, completed_at) VALUES (?, ?, ?, ?)",
+      );
+      for (const row of rows) {
+        insert.run(...row);
+      }
+      db.close();
+    }
+
+    const rows: readonly Row[] = [
+      ["found none", "done", 0, "2026-10-01 10:00:00"],
+      ["honest none", "done", 0, "2026-11-03 09:00:00"],
+      ["cut short", "done", 4, "2026-09-14 10:00:00"],
+      ["fine early", "done", 4, "2026-09-20 10:00:00"],
+      ["found many", "done", 40, "2026-09-14 10:00:00"],
+      ["pending one", "pending", 0, null],
+    ];
+
+    it("counts none when there is no database or no table", () => {
+      expect(service.weakCount()).toEqual({ count: 0 });
+      const folder = join(userData, "example-pipeline");
+      mkdirSync(folder, { recursive: true });
+      new DatabaseSync(join(folder, "pipeline.db")).close();
+      expect(service.weakCount()).toEqual({ count: 0 });
+    });
+
+    it("counts the done keywords with no channels before S1's release, or too few in the cut-short days", () => {
+      writeDb(rows);
+      expect(service.weakCount()).toEqual({ count: 2 });
+    });
+
+    it("leaves out keywords still queued, running or failed in the queue", () => {
+      writeDb(rows);
+      service.add(["FOUND NONE", "cut short"]);
+      expect(service.weakCount()).toEqual({ count: 0 });
+      expect(service.requeueWeak()).toEqual({ ok: true, requeued: 0, added: 0, skipped: 0 });
+    });
+
+    it("counts none, and logs the kind only, when the database can't be read", () => {
+      const folder = join(userData, "example-pipeline");
+      mkdirSync(folder, { recursive: true });
+      writeFileSync(join(folder, "pipeline.db"), "not a database at all, just text".repeat(20));
+      const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+      expect(service.weakCount()).toEqual({ count: 0 });
+      expect(log).toHaveBeenCalledTimes(1);
+      expect(() => service.requeueWeak()).toThrow();
+      log.mockRestore();
+    });
+
+    it("requeues a done keyword already in the queue (any case) and appends the rest", async () => {
+      writeDb(rows);
+      service.add(["Found None", "found many"]);
+      expect(await service.start()).toEqual({ ok: true });
+      supervisor.send(keyword(0, "done", { found: 0, kept: 0 }));
+      supervisor.send(keyword(1, "done", { found: 40, kept: 1 }));
+      supervisor.finish({ kind: "ended", result: null, end: endLine({ state: "done", at: 2 }) });
+      expect(service.requeueWeak()).toEqual({ ok: true, requeued: 1, added: 1, skipped: 0 });
+      expect(service.state().queue.map((q) => [q.keyword, q.state])).toEqual([
+        ["Found None", "queued"],
+        ["found many", "done"],
+        ["cut short", "queued"],
+      ]);
+    });
+
+    it("puts a done entry back with found, kept and failures at 0, and moves at back to it", async () => {
+      writeDb(rows);
+      service.add(["found none"]);
+      expect(await service.start()).toEqual({ ok: true });
+      supervisor.send(keyword(0, "done", { found: 3, kept: 2 }));
+      supervisor.finish({ kind: "ended", result: null, end: endLine({ state: "done", at: 1 }) });
+      expect(service.state().at).toBe(1);
+      service.requeueWeak();
+      expect(service.state().queue[0]).toEqual({
+        keyword: "found none",
+        state: "queued",
+        found: 0,
+        kept: 0,
+        failures: 0,
+      });
+      expect(service.state().at).toBe(0);
+    });
+
+    it("stops at the queue's limit and counts what did not fit", () => {
+      writeDb(rows);
+      service.add(Array.from({ length: 499 }, (_, i) => `filler ${String(i)}`));
+      expect(service.requeueWeak()).toEqual({ ok: true, requeued: 0, added: 1, skipped: 1 });
+      expect(service.state().queue).toHaveLength(500);
+    });
+
+    it("is refused while a search runs", async () => {
+      writeDb(rows);
+      service.add(["a one"]);
+      expect(await service.start()).toEqual({ ok: true });
+      expect(service.requeueWeak()).toEqual({ ok: false, problem: "running" });
     });
   });
 });

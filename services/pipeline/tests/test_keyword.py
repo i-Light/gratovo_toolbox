@@ -112,6 +112,33 @@ def test_the_gate_sweeps_and_delays_before_any_upload_is_read(conn: sqlite3.Conn
     assert store.is_archived(conn, "UC_tiny")
 
 
+def test_a_swept_handle_less_channel_is_archived_under_its_real_handle(
+    conn: sqlite3.Connection,
+) -> None:
+    source = FakeSource(results={KW: {"UC_tiny": "UC_tiny"}}, details=[TINY])
+    search = make_search(conn, source)
+
+    keyword.process_keyword(search, KW)
+
+    row = conn.execute("SELECT handle FROM channel_archive WHERE channel_id='UC_tiny'").fetchone()
+    assert row["handle"] == "@prompt-tinkerer"
+    swept = next(c for c in events_of(search).channels if c["outcome"] == "swept")
+    assert swept["handle"] == "@prompt-tinkerer"
+
+
+def test_a_tombstone_reads_the_row_handle_when_given_the_channel_id(
+    conn: sqlite3.Connection,
+) -> None:
+    source = source_with(TINY)
+    search = make_search(conn, source, job__rules__autoClean__enabled=False)
+    keyword.process_keyword(search, KW)
+
+    store.archive_channel_locally(conn, "UC_tiny", "UC_tiny", "irrelevant")
+
+    row = conn.execute("SELECT handle FROM channel_archive WHERE channel_id='UC_tiny'").fetchone()
+    assert row["handle"] == "@prompt-tinkerer"
+
+
 def test_auto_clean_off_keeps_every_band(conn: sqlite3.Connection) -> None:
     source = source_with(MID, TINY, HUGE)
     search = make_search(conn, source, job__rules__autoClean__enabled=False)
@@ -331,3 +358,63 @@ def test_a_failed_upload_read_is_paced_like_one_that_works(conn: sqlite3.Connect
 
     assert source.read == ["@llm-explained"]
     assert pacer.pauses.count("recent_videos_delay") == 2  # one per page request, failed or not
+
+
+def _keyword_row(conn: sqlite3.Connection) -> dict[str, Any]:
+    row = store.get_keyword(conn, KW)
+    assert row is not None
+    return dict(row)
+
+
+def test_a_search_that_stopped_early_leaves_the_keyword_pending_and_counts_the_failure(
+    conn: sqlite3.Connection,
+) -> None:
+    source = source_with(MID)
+    source.incomplete.add(KW)
+    search = make_search(conn, source)
+
+    result = keyword.process_keyword(search, KW)
+
+    assert result.complete is False
+    assert result.found == 1  # what the pages gave is still processed
+    assert store.get_channel_row(conn, "UC_mid") is not None
+    row = _keyword_row(conn)
+    assert (row["status"], row["failures"], row["channels_found"]) == ("pending", 1, 1)
+    assert any("stopped early" in text for _, text in events_of(search).lines)
+
+
+def test_the_third_early_stop_marks_the_keyword_failed_and_a_finished_search_resets_it(
+    conn: sqlite3.Connection,
+) -> None:
+    source = source_with(MID)
+    source.incomplete.add(KW)
+    search = make_search(conn, source)
+
+    for failures, status in ((1, "pending"), (2, "pending"), (3, "failed")):
+        keyword.process_keyword(search, KW)
+        row = _keyword_row(conn)
+        assert (row["failures"], row["status"]) == (failures, status)
+
+    source.incomplete.clear()
+    assert keyword.process_keyword(search, KW).complete is True
+    row = _keyword_row(conn)
+    assert (row["failures"], row["status"]) == (0, "done")
+
+
+def test_a_result_with_no_handle_is_stored_by_id_and_the_handle_filled_from_the_details(
+    conn: sqlite3.Connection,
+) -> None:
+    real = channel_info("@ai-tools-weekly", "UC_mid", "250000", "US")
+    source = FakeSource(
+        results={KW: {"UC_mid": "UC_mid"}},  # the id stands in for the missing handle
+        details=[real],
+        uploads={"UC_mid": ["v0", "v1"]},
+    )
+
+    result = keyword.process_keyword(make_search(conn, source), KW)
+
+    assert (result.found, result.kept) == (1, 1)
+    row = store.get_channel_row(conn, "UC_mid")
+    assert row is not None
+    assert row["handle"] == "@ai-tools-weekly"
+    assert source.read == ["UC_mid"]  # the uploads were read by id

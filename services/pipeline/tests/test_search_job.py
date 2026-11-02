@@ -386,7 +386,7 @@ def test_a_keyword_outside_the_fixture_still_finds_the_same_channels_every_time(
     source = example.ExampleSource()
     first = source.find_channels("gemini for spreadsheets", limit=200)
     assert first == source.find_channels("gemini for spreadsheets", limit=200)
-    assert 3 <= len(first) <= 6
+    assert 3 <= len(first.channels) <= 6
 
 
 def test_a_start_line_longer_than_a_message_line_is_read_whole(
@@ -428,3 +428,57 @@ def test_the_example_source_honours_skip(tmp_path: Path, run: Run) -> None:
     ids = {c["channelId"] for c in again.of("channel")}
     assert skipped not in ids
     assert ids  # the others are still searched
+
+
+class StopsEarly(FakeSource):
+    """The first keyword's search stops early on every call; the others finish."""
+
+    def __init__(self, keywords: list[str]) -> None:
+        results = {k: {f"@ai-creator-{i}": f"UC_{i}"} for i, k in enumerate(keywords)}
+        infos: list[ChannelInfo] = [
+            {
+                "Name": f"Creator {i}",
+                "Handle": f"@ai-creator-{i}",
+                "Link": "",
+                "Channel_ID": f"UC_{i}",
+                "Description": None,
+                "Subscribers": "250000",
+                "Profile_Picture": None,
+                "Banner": None,
+                "Country": "US",
+            }
+            for i in range(len(keywords))
+        ]
+        super().__init__(
+            results=results, details=infos, uploads={i["Handle"]: ["v"] for i in infos}
+        )
+        self.incomplete.add(keywords[0])
+
+
+def test_a_keyword_that_stopped_early_is_incomplete_and_the_run_goes_on(
+    tmp_path: Path, run: Run
+) -> None:
+    go(run, start_for(tmp_path), StopsEarly(KEYWORDS))
+
+    keywords = run.of("keyword")
+    assert not [k for k in keywords if k["state"] == "failed"]
+    incomplete = [k for k in keywords if k["state"] == "incomplete"]
+    assert [(k["index"], k["error"]) for k in incomplete] == [(0, "The search stopped early.")]
+    assert any(
+        "1 keyword(s) stopped early and stay queued for the next run." in m.get("text", "")
+        for m in run.of("log")
+    )
+    assert {k["index"] for k in keywords if k["state"] == "done"} == {1, 2}
+    end = run.end()
+    assert end["state"] == "done"
+    assert end["at"] == 0  # the first keyword not finished
+    conn = store.get_connection(tmp_path / "example-pipeline" / "pipeline.db")
+    try:
+        first = store.get_keyword(conn, KEYWORDS[0])
+        assert first is not None
+        assert (first["status"], first["failures"]) == ("pending", 1)
+        second = store.get_keyword(conn, KEYWORDS[1])
+        assert second is not None
+        assert second["status"] == "done"
+    finally:
+        conn.close()

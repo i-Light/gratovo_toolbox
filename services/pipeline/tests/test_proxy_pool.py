@@ -3,6 +3,7 @@ pool takes its clock, sleep and random source as parameters, so its guarantees a
 fake clock rather than sampled for."""
 
 import itertools
+import random
 from collections.abc import Iterator
 
 import pytest
@@ -217,20 +218,69 @@ def test_a_gateway_is_not_used_again_within_its_gap() -> None:
     assert sleeps
 
 
-def test_with_direct_the_gateway_still_keeps_its_gap() -> None:
+def test_direct_is_not_used_while_a_gateway_is_resting() -> None:
+    # Direct is last: the pool waits out the gateway's gap rather than fall back to this machine.
     pool, clock = make_pool(gateways=("https://a.execute-api.us-east-1.amazonaws.com/p",))
-    times: dict[str, list[float]] = {}
-    order: list[str] = []
-    for _ in range(6):
+    times: list[float] = []
+    for _ in range(4):
         lease = pool.acquire()
-        order.append(lease.candidate.id)
-        times.setdefault(lease.candidate.id, []).append(clock.now)
+        assert lease.candidate.id == "gateway-0"
+        times.append(clock.now)
         clock.advance(0.5)
         lease.release()
-    assert all(a != b for a, b in itertools.pairwise(order)), order
-    uses = times["gateway-0"]
-    assert len(uses) == 3
-    assert all(b - a >= 6.0 for a, b in itertools.pairwise(uses))
+    assert all(b - a >= 6.0 for a, b in itertools.pairwise(times))
+
+
+def test_direct_gets_the_gap_only_when_it_is_not_alone() -> None:
+    with_gateway = ProxyPool.from_routes(gateway_urls=["https://g"])
+    assert with_gateway.candidates[-1].id == DIRECT_ID
+    assert with_gateway.candidates[-1].min_gap == proxy_pool.DIRECT_MIN_GAP_SECONDS == 6.0
+    assert ProxyPool.from_routes().candidates[0].min_gap == 0.0
+
+
+class SampledRng:
+    """Real jitter and pause sampling, seeded so the run is repeatable."""
+
+    def __init__(self) -> None:
+        self._rng = random.Random(7)  # noqa: S311
+
+    def uniform(self, a: float, b: float) -> float:
+        return self._rng.uniform(a, b)
+
+
+@pytest.mark.parametrize("pause", [(1.5, 3.5), (0.3, 0.9)], ids=["normal", "fast"])
+def test_no_request_goes_direct_while_a_gateway_is_healthy(pause: tuple[float, float]) -> None:
+    clock = FakeClock()
+    rng = SampledRng()
+    pool = ProxyPool.from_routes(
+        gateway_urls=["https://g1", "https://g2"],
+        include_direct=True,
+        clock=clock,
+        sleep=clock.advance,
+        rng=rng,
+    )
+    seen: list[str] = []
+    for _ in range(200):
+        lease = pool.acquire()
+        seen.append(lease.candidate.id)
+        clock.advance(0.8)
+        lease.release()
+        clock.advance(rng.uniform(*pause))
+    assert DIRECT_ID not in seen
+    assert pool.route_counts()["direct"] == 0
+
+    # Both gateways get blocked: now, and only now, this machine serves.
+    for gateway in pool.candidates[:2]:
+        pool.report_blocked(gateway)
+    first = pool.acquire()
+    assert first.candidate.id == DIRECT_ID
+    start = clock.now
+    clock.advance(0.8)
+    first.release()
+    second = pool.acquire()
+    assert second.candidate.id == DIRECT_ID
+    assert clock.now - start >= 0.8 + proxy_pool.DIRECT_MIN_GAP_SECONDS
+    second.release()
 
 
 def test_the_gap_is_a_floor_jitter_only_lengthens_it() -> None:

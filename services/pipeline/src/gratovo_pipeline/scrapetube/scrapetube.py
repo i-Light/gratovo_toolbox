@@ -59,6 +59,10 @@ BLOCK_MARKERS: Final = (
     "unusual traffic from your computer",
     "our systems have detected",
     "recaptcha",
+    "sign in to confirm you're not a bot",
+    "sign in to confirm you’re not a bot",  # noqa: RUF001
+    "confirm you're not a bot",
+    "confirm you’re not a bot",  # noqa: RUF001
 )
 
 YOUTUBE_ORIGIN: Final = "https://www.youtube.com"

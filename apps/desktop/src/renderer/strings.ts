@@ -1175,6 +1175,24 @@ export const strings = {
       addFailed: "Couldn't add the keywords. Try again.",
       editFailed: "Couldn't change the list. Try again.",
       editRunning: "Pause the search first.",
+      retry: "Retry",
+      retryLabel: (keyword: string) => `Retry ${keyword}`,
+      failedTip: (limit: number) =>
+        `Failed ${String(limit)} times. Retry puts it back in the queue.`,
+      weak: {
+        action: (n: number) => `Search again ${String(n)} weak ${n === 1 ? "keyword" : "keywords"}`,
+        ask: (n: number) =>
+          `${String(n)} finished ${n === 1 ? "keyword found" : "keywords found"} no channels, ` +
+          `or too few in the days the search was cut short. They go back in the queue ` +
+          `(new ones are added at the end) and run again on the next search.`,
+        confirm: "Queue them again",
+        cancel: "Cancel",
+        done: (requeued: number, added: number, skipped: number) =>
+          `${String(requeued)} put back in the queue, ${String(added)} added.` +
+          (skipped > 0 ? ` ${String(skipped)} didn't fit (the list holds 500).` : ""),
+        failed: "Couldn't queue them again. Try again.",
+        running: "Pause the search first.",
+      },
     },
     ideas: {
       suggest: "Suggest with Gemini",

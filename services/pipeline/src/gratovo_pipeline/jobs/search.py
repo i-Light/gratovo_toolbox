@@ -3,6 +3,10 @@
 Each keyword is committed as it goes, so `end.at` (the first keyword not done) is where a resume
 starts. How the run ends:
 - every keyword done: `done`;
+- a keyword whose search stopped early (a page failed, not a block): a `keyword` `incomplete`
+  ("The search stopped early."; its channels are kept, it stays pending), left out of the
+  finished ones so `end.at` can point at it, and the run goes on with the next keyword;
+  the run itself is not failed;
 - a stop (the app's `stop` line, or stdin closing): `stopped`, keeping what the keyword in
   progress had read;
 - blocked, quota, network or a refused key: `failed` with that code, after a `keyword` `failed`
@@ -140,6 +144,15 @@ def run(start: Start, emitter: Emitter, *, source: Source | None = None) -> None
     skip = frozenset(start["job"].get("skip", ()))  # built once, shared by every worker
     failed: dict[int, str] = {}  # the keyword a failure happened in (not those stopped by it)
 
+    incomplete = [0]  # keywords whose search stopped early (they stay queued)
+
+    def note_incomplete() -> None:
+        if incomplete[0]:
+            emitter.log(
+                "info",
+                f"{incomplete[0]} keyword(s) stopped early and stay queued for the next run.",
+            )
+
     def work(worker_conn: sqlite3.Connection, index: int, keyword: str) -> None:
         search = Search(worker_conn, run_id, cfg, source, pacer, emitter, skip)
         store.mark_keyword_started(worker_conn, keyword, cfg.worker, settings)
@@ -152,6 +165,20 @@ def run(start: Start, emitter: Emitter, *, source: Source | None = None) -> None
             with lock:
                 failed[index] = keyword
             raise
+        if not result.complete:
+            emitter.keyword(
+                index=index,
+                total=total,
+                keyword=keyword,
+                state="incomplete",
+                found=result.found,
+                kept=result.kept,
+                error="The search stopped early.",
+            )
+            with lock:
+                incomplete[0] += 1
+            keyword_step.after_keyword(search)
+            return
         with lock:
             results[index] = result
         emitter.keyword(
@@ -181,6 +208,7 @@ def run(start: Start, emitter: Emitter, *, source: Source | None = None) -> None
     except KeyboardInterrupt:  # RunAborted too: a stop
         # "stopped", not "interrupted": the person paused it, so the history shows a pause, not a
         # failure (plan step 5). A failure or a killed process stays "interrupted".
+        note_incomplete()
         _finish(conn, run_id, results, "stopped")
         end("stopped")
         return
@@ -199,6 +227,7 @@ def run(start: Start, emitter: Emitter, *, source: Source | None = None) -> None
         _finish(conn, run_id, results, "stopped")
         end("stopped")
         return
+    note_incomplete()
     _finish(conn, run_id, results, "done")
     end("done")
 

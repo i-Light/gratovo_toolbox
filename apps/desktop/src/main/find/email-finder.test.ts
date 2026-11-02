@@ -190,7 +190,9 @@ describe("the email finder", () => {
     creator("ch_confirmed", { confirmed: true });
     creator("ch_undone", { stage: "new" });
     creator("ch_bad", { handle: "@名前" });
-    finder.shortlisted(["ch_ok", "ch_confirmed", "ch_undone", "ch_bad", "ch_missing"]);
+    const placeholder = `UC${"a".repeat(22)}`;
+    creator(placeholder, { handle: placeholder });
+    finder.shortlisted(["ch_ok", "ch_confirmed", "ch_undone", "ch_bad", "ch_missing", placeholder]);
     await vi.advanceTimersByTimeAsync(2000);
     expect(handlesOf(lane.starts[0])).toEqual(["@ch_ok"]);
   });

@@ -108,6 +108,7 @@ def test_every_message_the_emitter_writes_matches_the_schema(check_from_pipeline
     emit.run(total=2, start_at=0)
     emit.keyword(index=0, total=2, keyword="ai agents", state="started")
     emit.keyword(index=0, total=2, keyword="ai agents", state="done", found=9, kept=4)
+    emit.keyword(index=0, total=2, keyword="ai news", state="incomplete", found=3, kept=1)
     emit.keyword(index=1, total=2, keyword="ai news", state="failed", error="YouTube said no.")
     emit.channel(
         keyword="ai agents",
@@ -130,13 +131,14 @@ def test_every_message_the_emitter_writes_matches_the_schema(check_from_pipeline
         "keyword",
         "keyword",
         "keyword",
+        "keyword",
         "channel",
         "log",
         "end",
         "end",
     ]
     assert messages[0]["protocol"] == protocol.PROTOCOL
-    assert messages[5]["channelId"] == "UCabc_123-x"
+    assert messages[6]["channelId"] == "UCabc_123-x"
     assert "—" in out.getvalue()  # written as UTF-8, not \u escapes
 
 

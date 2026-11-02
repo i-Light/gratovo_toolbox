@@ -10,6 +10,7 @@ alone, so its schema started clean at version 1 with every column the old migrat
 Version 2 (3e-3, plan D7) adds `video_transcripts`, the subtitles and moments a first email reads.
 Version 4 (5d-2, plan D42) gives a tombstone the rest of the channel's facts, so archiving never
 makes us know less.
+Version 5 (step S1, Q12) counts a keyword's incomplete searches (`keywords.failures`).
 """
 
 from __future__ import annotations
@@ -30,12 +31,12 @@ type Discovered = dict[str, str]  # {handle: channel_id}
 type Row = dict[str, Any]
 type RunKind = Literal["search", "catch-up", "re-enrich"]
 
-SCHEMA_VERSION: Final = 4
+SCHEMA_VERSION: Final = 5
 
 SCHEMA: Final = """
 CREATE TABLE IF NOT EXISTS keywords (
     keyword TEXT PRIMARY KEY,
-    status TEXT NOT NULL DEFAULT 'pending',  -- pending | in_progress | done
+    status TEXT NOT NULL DEFAULT 'pending',  -- pending | in_progress | done | failed
     added_at TEXT NOT NULL,
     started_at TEXT,
     completed_at TEXT,
@@ -43,7 +44,8 @@ CREATE TABLE IF NOT EXISTS keywords (
     claimed_by TEXT,        -- the worker (user id) who last worked this keyword
     search_settings TEXT,   -- JSON: the rules this keyword was last run with
     source TEXT NOT NULL DEFAULT 'local',  -- 'local' or 'remote' (from another machine's catalog)
-    dirty INTEGER NOT NULL DEFAULT 1       -- 1 = changed here since last announced
+    dirty INTEGER NOT NULL DEFAULT 1,      -- 1 = changed here since last announced
+    failures INTEGER NOT NULL DEFAULT 0    -- searches that stopped early; KEYWORD_GIVE_UP -> failed
 );
 
 CREATE TABLE IF NOT EXISTS channels (
@@ -260,12 +262,20 @@ def _add_archive_facts(conn: sqlite3.Connection) -> None:
             conn.execute(f"ALTER TABLE channels ADD COLUMN {name} {kind}")
 
 
+def _add_keyword_failures(conn: sqlite3.Connection) -> None:
+    """Version 5. `keywords.failures`, added only when missing (as versions 3 and 4 do)."""
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(keywords)").fetchall()}
+    if "failures" not in columns:
+        conn.execute("ALTER TABLE keywords ADD COLUMN failures INTEGER NOT NULL DEFAULT 0")
+
+
 # What each version adds to the one before it, run in order on a file older than it. Version 1 is
 # SCHEMA itself; a new file runs SCHEMA and then every step. Each step is safe to run twice.
 MIGRATIONS: Final[dict[int, Callable[[sqlite3.Connection], object]]] = {
     2: lambda conn: conn.executescript(VIDEO_TRANSCRIPTS),
     3: _add_found_email_sources,
     4: _add_archive_facts,
+    5: _add_keyword_failures,
 }
 
 # A second writer waits this long instead of failing at once with "database is locked". Far
@@ -285,6 +295,8 @@ AWAITING_PEER_DAYS: Final = 30
 # read; main reads "given up" as `read_failures >= READ_GIVE_UP` too.
 READ_BACKOFF_DAYS: Final = (1, 3, 7)
 READ_GIVE_UP: Final = 3
+# A keyword whose search stopped early this many times is `failed`, and no longer `pending`.
+KEYWORD_GIVE_UP: Final = 3
 ROLLUP_WINDOW_DAYS: Final = 30
 BLOB_SCHEMA: Final = 1
 
@@ -383,9 +395,22 @@ def mark_keyword_started(
 
 def mark_keyword_done(conn: sqlite3.Connection, keyword: str, channels_found: int) -> None:
     conn.execute(
-        "UPDATE keywords SET status='done', completed_at=?, channels_found=?, "
+        "UPDATE keywords SET status='done', completed_at=?, channels_found=?, failures=0, "
         "  source='local', dirty=1 WHERE keyword=?",
         (utc_now(), channels_found, keyword),
+    )
+    conn.commit()
+
+
+def mark_keyword_incomplete(conn: sqlite3.Connection, keyword: str, channels_found: int) -> None:
+    """The search stopped before its last page. One more failure; at KEYWORD_GIVE_UP the keyword
+    is `failed`, otherwise `pending` so the next run searches it again. The app's queue count
+    decides Retry and giving up; this count is the record."""
+    conn.execute(
+        "UPDATE keywords SET failures=failures+1, channels_found=?, "
+        "  status=CASE WHEN failures+1 >= ? THEN 'failed' ELSE 'pending' END, "
+        "  source='local', dirty=1 WHERE keyword=?",
+        (channels_found, KEYWORD_GIVE_UP, keyword),
     )
     conn.commit()
 
@@ -577,7 +602,7 @@ def save_channels(
                        force_refetch=0
                    WHERE channel_id=?""",
                 (
-                    handle,
+                    info.get("Handle") or handle,
                     info.get("Name"),
                     info.get("Description"),
                     info.get("Subscribers"),
@@ -1212,7 +1237,7 @@ def _write_tombstone(
         subscribers = row["subscribers"]
     if found_at is None and row is not None:
         found_at = row["first_seen_at"]
-    if not handle and row is not None:
+    if (not handle or handle == channel_id) and row is not None:
         handle = row["handle"]
     links = _channel_links(conn, channel_id)
     facts = _row_facts(conn, row)

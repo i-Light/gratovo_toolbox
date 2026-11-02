@@ -302,7 +302,7 @@ def _backfill(work: _Work) -> None:
     owner: dict[str, str] = {}
     sweep = work.source.sweep()
     try:
-        for handle, channel_id in work.scope.items():
+        for channel_id in work.scope.values():
             run_control.check_stop()
             stored, oldest, _ = store.get_channel_video_span(work.conn, channel_id)
             wanted = _ids_needed_for_window(stored, oldest, months)
@@ -312,7 +312,7 @@ def _backfill(work: _Work) -> None:
             # A block raises SearchBlockedError, which ends the job: another channel would only
             # be another request to an address YouTube has stopped answering.
             try:
-                scraped = sweep.recent_video_ids(handle, limit=wanted)
+                scraped = sweep.recent_video_ids(channel_id, limit=wanted)
             except ChannelUnreadableError as error:
                 # The ids read before a later page failed are still new uploads to save (the old
                 # enrich kept them); the next backfill asks again for what the window still

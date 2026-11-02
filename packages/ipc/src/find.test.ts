@@ -7,8 +7,8 @@ import { catalogItemSchema, findQueryResultSchema, findStateSchema } from "./fin
 
 const state = {
   queue: [
-    { keyword: "ai coding tools", state: "done", found: 12, kept: 4 },
-    { keyword: "local llm tutorials", state: "queued", found: 0, kept: 0 },
+    { keyword: "ai coding tools", state: "done", found: 12, kept: 4, failures: 0 },
+    { keyword: "local llm tutorials", state: "queued", found: 0, kept: 0, failures: 0 },
   ],
   at: 1,
   rules: {
@@ -62,7 +62,7 @@ describe("findStateSchema", () => {
     expect(
       findStateSchema.safeParse({
         ...state,
-        queue: [{ keyword: "", state: "queued", found: 0, kept: 0 }],
+        queue: [{ keyword: "", state: "queued", found: 0, kept: 0, failures: 0 }],
       }).success,
     ).toBe(false);
     expect(
@@ -97,8 +97,19 @@ describe("the find channels' requests", () => {
     }
   });
 
-  it("takes no input on find:state, find:start and find:stop", () => {
-    for (const channel of ["find:state", "find:start", "find:stop"]) {
+  it("limits the index of find:retry to 0..499", () => {
+    expect(parseRequest("find:retry", { index: 499 }).ok).toBe(true);
+    expect(parseRequest("find:retry", { index: 500 }).ok).toBe(false);
+  });
+
+  it("takes no input on find:state, find:start, find:stop, find:count-weak and find:requeue-weak", () => {
+    for (const channel of [
+      "find:state",
+      "find:start",
+      "find:stop",
+      "find:count-weak",
+      "find:requeue-weak",
+    ]) {
       expect(parseRequest(channel, {}).ok).toBe(true);
       expect(parseRequest(channel, { force: true }).ok).toBe(false);
     }

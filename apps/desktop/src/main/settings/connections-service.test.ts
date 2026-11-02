@@ -18,7 +18,7 @@ describe("the connections service", () => {
       mailApp: { set: false },
       mailboxes: [],
       mail: { label: "Gratovo Outreach", senderName: null },
-      proxies: { count: 0, enabled: false, includeDirect: true },
+      proxies: { count: 0, enabled: false, includeDirect: false },
       pacing: "normal",
       parallel: { enabled: false, maxWorkers: 4 },
       aws: { keys: false, enabled: false, regions: [] },

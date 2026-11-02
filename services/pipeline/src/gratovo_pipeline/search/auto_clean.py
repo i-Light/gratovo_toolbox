@@ -165,7 +165,7 @@ def apply_gate(
                 store.archive_channel_locally(
                     conn,
                     channel_id,
-                    handle,
+                    (info_by_handle.get(handle) or {}).get("Handle") or handle,
                     rule.label,
                     subscribers=subscribers,
                     found_via=[found_via],

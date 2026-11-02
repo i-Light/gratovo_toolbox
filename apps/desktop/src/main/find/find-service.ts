@@ -1,7 +1,9 @@
+import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 
 import type { CreatorState } from "@gratovo/core/data";
-import { findErrors, type FindState } from "@gratovo/ipc";
+import { failureLimit, findErrors, type FindState } from "@gratovo/ipc";
 
 import { redact, secretsOf } from "../pipeline/logs";
 import { gatewayUrlsForSearch } from "../pipeline/pipeline-secrets";
@@ -69,6 +71,14 @@ export interface FindService {
   add(keywords: readonly string[]): { added: number; skipped: number };
   remove(index: number): { ok: true } | { ok: false; problem: "running" };
   startAt(index: number): { ok: true } | { ok: false; problem: "running" };
+  /** Sets a failed keyword back to queued with no failures. */
+  retry(index: number): { ok: true } | { ok: false; problem: "running" };
+  /** How many finished keywords found too little (read only from `pipeline.db`). */
+  weakCount(): { count: number };
+  /** Queues the weak keywords again: the ones in the queue reset, the rest appended while room. */
+  requeueWeak():
+    | { ok: true; requeued: number; added: number; skipped: number }
+    | { ok: false; problem: "running" };
   /**
    * Replaces the rules (Settings › Search rules). A search already running keeps the rules it
    * started with; the next one uses these.
@@ -81,6 +91,47 @@ export interface FindService {
 }
 
 const queueMax = 500;
+// Finished with no channels, or with fewer than 10 in the days a bug cut the results short.
+// Zero results count as weak only before S1's release (2026-11-03): after it, a zero is honest.
+const zeroCutoff = "2026-11-03";
+const weakQuery =
+  `SELECT keyword FROM keywords WHERE status = 'done' AND ((channels_found = 0 AND completed_at < '${zeroCutoff}') OR ` +
+  "(channels_found < 10 AND completed_at >= '2026-09-13' AND completed_at < '2026-09-16'))";
+
+/**
+ * The weak keywords in `pipeline.db`, leaving out those whose queue entry is queued, running or
+ * failed. None when the file or the table is missing; any other error is thrown.
+ */
+function weakKeywords(dbPath: string, queue: FindFile["queue"]): string[] {
+  if (!existsSync(dbPath)) {
+    return [];
+  }
+  const open = new Set(
+    queue.filter((entry) => entry.state !== "done").map((entry) => entry.keyword.toLowerCase()),
+  );
+  let db: DatabaseSync | undefined;
+  try {
+    db = new DatabaseSync(dbPath, { readOnly: true });
+    const rows = db.prepare(weakQuery).all() as unknown as { keyword: unknown }[];
+    const seen = new Set<string>();
+    return rows.flatMap((row) => {
+      const keyword = typeof row.keyword === "string" ? row.keyword.trim() : "";
+      const key = keyword.toLowerCase();
+      if (keyword === "" || seen.has(key) || open.has(key)) {
+        return [];
+      }
+      seen.add(key);
+      return [keyword];
+    });
+  } catch (error) {
+    if (error instanceof Error && /no such table/i.test(error.message)) {
+      return [];
+    }
+    throw error;
+  } finally {
+    db?.close();
+  }
+}
 const skipMax = 20_000;
 const channelIdShape = /^UC[A-Za-z0-9_-]{22}$/;
 
@@ -150,6 +201,8 @@ export function createFindService(deps: FindServiceDeps): FindService {
   let generation = 0;
   // Where the running job began; `at` is the first keyword from here that isn't done.
   let runStart = 0;
+  // Job keyword index to queue index for the running job (only the entries still to do are sent).
+  let runIndexes: number[] = [];
   // The running job's secrets: blanked out of its log lines before they reach the page.
   let jobSecrets: string[] = [];
   let lastEmit = Number.NEGATIVE_INFINITY;
@@ -253,17 +306,31 @@ export function createFindService(deps: FindServiceDeps): FindService {
    * finish out of order, so "one after the last done" could skip one still unfinished. */
   function firstUndone(s: Session): number {
     for (let i = Math.min(runStart, s.queue.length); i < s.queue.length; i += 1) {
-      if (s.queue[i]?.state !== "done") {
+      const state = s.queue[i]?.state;
+      if (state !== "done" && state !== "failed") {
         return i;
       }
     }
     return s.queue.length;
   }
 
+  /** The queue indexes a run sends: from the next keyword on, only what is still to do. */
+  function todo(s: Session): number[] {
+    const indexes: number[] = [];
+    for (let i = s.at; i < s.queue.length; i += 1) {
+      const state = s.queue[i]?.state;
+      if (state === "queued" || state === "running") {
+        indexes.push(i);
+      }
+    }
+    return indexes;
+  }
+
   function message(s: Session, m: PipelineMessage): void {
     switch (m.type) {
       case "keyword": {
-        const entry = s.queue[m.index];
+        const queueIndex = runIndexes[m.index];
+        const entry = queueIndex === undefined ? undefined : s.queue[queueIndex];
         if (entry === undefined) {
           return;
         }
@@ -271,13 +338,21 @@ export function createFindService(deps: FindServiceDeps): FindService {
           entry.state = "running";
         } else if (m.state === "done") {
           entry.state = "done";
+          entry.failures = 0;
           entry.found = m.found ?? 0;
           entry.kept = m.kept ?? 0;
           s.at = firstUndone(s);
           s.run.found += m.found ?? 0;
           save(s);
+        } else if (m.state === "incomplete") {
+          // The search stopped early on an error, kept its channels and left the keyword pending.
+          entry.failures = Math.min(entry.failures + 1, 99);
+          entry.state = entry.failures >= failureLimit ? "failed" : "queued";
+          save(s);
         } else {
-          entry.state = "failed";
+          // A run-ending error during this keyword: it is not the keyword's fault.
+          entry.state = "queued";
+          save(s);
         }
         if (m.state !== "started") {
           deps.onPipelineChanged?.();
@@ -319,7 +394,6 @@ export function createFindService(deps: FindServiceDeps): FindService {
     searching = false;
     if (how.kind === "ended") {
       const end = how.end;
-      s.at = Math.min(end.at, s.queue.length);
       if (end.state === "done") {
         s.run.state = "done";
       } else if (end.state === "stopped") {
@@ -342,6 +416,7 @@ export function createFindService(deps: FindServiceDeps): FindService {
         entry.state = "queued";
       }
     }
+    s.at = firstUndone(s);
     s.kept = null;
     save(s);
     emitNow();
@@ -369,7 +444,7 @@ export function createFindService(deps: FindServiceDeps): FindService {
           continue;
         }
         seen.add(keyword.toLowerCase());
-        s.queue.push({ keyword, state: "queued", found: 0, kept: 0 });
+        s.queue.push({ keyword, state: "queued", found: 0, kept: 0, failures: 0 });
         added += 1;
       }
       save(s);
@@ -391,6 +466,65 @@ export function createFindService(deps: FindServiceDeps): FindService {
         emitNow();
       }
       return { ok: true };
+    },
+
+    retry(index) {
+      const { session: s } = open();
+      if (busy()) {
+        return { ok: false, problem: "running" };
+      }
+      const entry = s.queue[index];
+      if (entry?.state === "failed") {
+        entry.state = "queued";
+        entry.failures = 0;
+        s.at = Math.min(s.at, index);
+        save(s);
+        emitNow();
+      }
+      return { ok: true };
+    },
+
+    weakCount() {
+      const { session: s } = open();
+      try {
+        return { count: weakKeywords(join(s.folder, "pipeline.db"), s.queue).length };
+      } catch (error) {
+        console.error("weak keywords unreadable:", error instanceof Error ? error.name : "unknown");
+        return { count: 0 };
+      }
+    },
+
+    requeueWeak() {
+      const { session: s } = open();
+      if (busy()) {
+        return { ok: false, problem: "running" };
+      }
+      const weak = weakKeywords(join(s.folder, "pipeline.db"), s.queue);
+      const byKeyword = new Map(s.queue.map((entry) => [entry.keyword.toLowerCase(), entry]));
+      let requeued = 0;
+      let added = 0;
+      let skipped = 0;
+      let lowest = s.queue.length;
+      for (const keyword of weak) {
+        const key = keyword.toLowerCase();
+        const entry = byKeyword.get(key);
+        if (entry !== undefined) {
+          Object.assign(entry, { state: "queued", found: 0, kept: 0, failures: 0 });
+          lowest = Math.min(lowest, s.queue.indexOf(entry));
+          requeued += 1;
+        } else if (s.queue.length < queueMax && keyword.length <= 200) {
+          const created = { keyword, state: "queued" as const, found: 0, kept: 0, failures: 0 };
+          s.queue.push(created);
+          byKeyword.set(key, created);
+          added += 1;
+        } else {
+          skipped += 1;
+        }
+      }
+      s.at = Math.min(s.at, lowest);
+      save(s);
+      emitNow();
+      return { ok: true, requeued, added, skipped };
     },
 
     setRules(rules) {
@@ -420,7 +554,7 @@ export function createFindService(deps: FindServiceDeps): FindService {
         return { ok: false, problem: "running" };
       }
       const { session: s, mode, workerId } = open();
-      if (s.at >= s.queue.length) {
+      if (s.at >= s.queue.length || todo(s).length === 0) {
         return { ok: false, problem: "no_keywords" };
       }
       starting = true;
@@ -454,6 +588,10 @@ export function createFindService(deps: FindServiceDeps): FindService {
         if (s.at >= s.queue.length) {
           return { ok: false, problem: "no_keywords" };
         }
+        const indexes = todo(s);
+        if (indexes.length === 0) {
+          return { ok: false, problem: "no_keywords" };
+        }
         const skip = await skipList();
         // A lookup in the background gives way (plan D30): it stops between two channels and
         // comes back after the search. Nothing is awaited between this and the start below, so
@@ -466,6 +604,7 @@ export function createFindService(deps: FindServiceDeps): FindService {
         }
         stopRequested = false;
         runStart = s.at;
+        runIndexes = indexes;
         jobSecrets = secretsOf({ secrets: { youtubeKey, proxyUrls, gatewayUrls } });
         // Set before the start, so an exit that came at once would still clear it.
         searching = true;
@@ -478,8 +617,8 @@ export function createFindService(deps: FindServiceDeps): FindService {
             worker: workerId,
             job: {
               kind: "search",
-              keywords: s.queue.map((entry) => entry.keyword),
-              startAt: s.at,
+              keywords: indexes.map((i) => s.queue[i]?.keyword ?? ""),
+              startAt: 0,
               rules: pipelineRules(s.rules),
               ...(skip.length === 0 ? {} : { skip }),
             },

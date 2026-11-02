@@ -1,5 +1,17 @@
 # Progress
 
+## Step S (in progress, started 2026-11-02; step P paused at P3)
+
+The owner asked on 2026-11-02 to build the scraping upgrade, S1 to S8, one pull request each. Plan: [docs/scraping-upgrade-plan.md](../docs/scraping-upgrade-plan.md). Working files: [step-s/PLAN.md](step-s/PLAN.md), [step-s/CONTEXT.md](step-s/CONTEXT.md).
+
+| Part | State |
+|---|---|
+| S1 | **Done** 2026-11-02, branch `feat/scraping-s1` (PLAN.md "S1", decisions Q1-Q12). Left for the owner: the stored "Also search directly" setting keeps its saved value (likely on); this machine is now used only while every gateway cools down. The bot-wall markers are unproven until a real bot-wall page is captured |
+| S2 | **Next** |
+| S3 to S8 | Not started |
+
+Owner answers (2026-11-02): S4 keeps the recommended list without any tags (video tags and the channel's keywords are noise); the S5 gateway leak test may run.
+
 The owner asked for the full prototype on 2026-10-27 (ADR 0021, migration plan step P). It runs now; steps 7 to 9 are built inside it and then wired. On 2026-10-30 the owner asked to finish step P: the parts run one after another, each its own pull request.
 
 ## Step P (in progress)

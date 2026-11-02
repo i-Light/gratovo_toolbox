@@ -59,7 +59,9 @@ AUTO_CLEAN_DEFAULT_LABEL: Final = "irrelevant"
 
 AutoCleanAction = Literal["sweep", "delay", "off"]
 LogLevel = Literal["info", "warn", "error"]
-KeywordState = Literal["started", "done", "failed"]
+# `incomplete`: the keyword's search stopped early on an error; its channels were kept, it stays
+# pending and the run goes on. `failed`: only the keyword a run-ending error happened in.
+KeywordState = Literal["started", "done", "incomplete", "failed"]
 Outcome = Literal["kept", "swept", "delayed"]
 EndState = Literal["done", "stopped", "failed"]
 EndErrorCode = Literal[

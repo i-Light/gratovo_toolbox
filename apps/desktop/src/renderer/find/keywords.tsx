@@ -1,6 +1,6 @@
-import type { FindState } from "@gratovo/ipc";
+import { failureLimit, type FindState } from "@gratovo/ipc";
 import { Btn, Icon, cx } from "@gratovo/ui";
-import { memo, useCallback, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 
 import { addMax, keywordMax, parseKeywords } from "../lib/find";
 import { strings } from "../strings";
@@ -15,6 +15,8 @@ interface RowProps {
   readonly next: boolean;
   readonly canStartHere: boolean;
   readonly canRemove: boolean;
+  readonly canRetry: boolean;
+  readonly onRetry: (index: number) => void;
   readonly onStartHere: (index: number) => void;
   readonly onRemove: (index: number) => void;
 }
@@ -39,7 +41,11 @@ function Status({ item, next }: Pick<RowProps, "item" | "next">) {
     );
   }
   if (item.state === "failed") {
-    return <span className="yield kw-failed">{text.failed}</span>;
+    return (
+      <span className="yield kw-failed" data-tip={text.failedTip(failureLimit)}>
+        {text.failed}
+      </span>
+    );
   }
   return next ? (
     <span className="yield kw-next">{text.next}</span>
@@ -54,6 +60,8 @@ const Row = memo(function Row({
   next,
   canStartHere,
   canRemove,
+  canRetry,
+  onRetry,
   onStartHere,
   onRemove,
 }: RowProps) {
@@ -68,6 +76,19 @@ const Row = memo(function Row({
       </span>
       <span className="acts">
         <Status item={item} next={next} />
+        {canRetry ? (
+          <Btn
+            kind="ghost"
+            size="sm"
+            icon="refresh"
+            label={text.retryLabel(item.keyword)}
+            onClick={() => {
+              onRetry(index);
+            }}
+          >
+            {text.retry}
+          </Btn>
+        ) : null}
         {canStartHere ? (
           <Btn
             kind="ghost"
@@ -110,19 +131,22 @@ export function Keywords({ state }: { readonly state: FindState }) {
   const done = queue.filter((k) => k.state === "done").length;
   const ready = parseKeywords(draft);
 
-  const edit = useCallback(async (channel: "find:start-at" | "find:remove", index: number) => {
-    setNote(null);
-    try {
-      const result = await window.gratovo.invoke(channel, { index });
-      if (!result.ok) {
+  const edit = useCallback(
+    async (channel: "find:start-at" | "find:remove" | "find:retry", index: number) => {
+      setNote(null);
+      try {
+        const result = await window.gratovo.invoke(channel, { index });
+        if (!result.ok) {
+          setNote({ text: text.editFailed, bad: true });
+        } else if (!result.value.ok) {
+          setNote({ text: text.editRunning, bad: true });
+        }
+      } catch {
         setNote({ text: text.editFailed, bad: true });
-      } else if (!result.value.ok) {
-        setNote({ text: text.editRunning, bad: true });
       }
-    } catch {
-      setNote({ text: text.editFailed, bad: true });
-    }
-  }, []);
+    },
+    [],
+  );
   const startHere = useCallback(
     (index: number) => {
       void edit("find:start-at", index);
@@ -135,6 +159,48 @@ export function Keywords({ state }: { readonly state: FindState }) {
     },
     [edit],
   );
+
+  const retry = useCallback(
+    (index: number) => {
+      void edit("find:retry", index);
+    },
+    [edit],
+  );
+
+  // How many finished keywords found too little; asked again when a run ends or the list changes.
+  const [weak, setWeak] = useState(0);
+  const [asking, setAsking] = useState(false);
+  useEffect(() => {
+    let current = true;
+    window.gratovo
+      .invoke("find:count-weak", {})
+      .then((result) => {
+        if (current && result.ok) {
+          setWeak(result.value.count);
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      current = false;
+    };
+  }, [state.run.state, queue.length]);
+  const requeue = async (): Promise<void> => {
+    setAsking(false);
+    setNote(null);
+    try {
+      const result = await window.gratovo.invoke("find:requeue-weak", {});
+      if (!result.ok) {
+        setNote({ text: text.weak.failed, bad: true });
+      } else if (!result.value.ok) {
+        setNote({ text: text.weak.running, bad: true });
+      } else {
+        const { requeued, added, skipped } = result.value;
+        setNote({ text: text.weak.done(requeued, added, skipped), bad: false });
+      }
+    } catch {
+      setNote({ text: text.weak.failed, bad: true });
+    }
+  };
 
   const add = async (): Promise<void> => {
     if (ready.length === 0 || busy) {
@@ -222,6 +288,48 @@ export function Keywords({ state }: { readonly state: FindState }) {
           onAdd={addIdeas}
         />
       ) : null}
+      {weak > 0 ? (
+        <div className="col tight" data-ui="find.search.weak">
+          <div className="row wrap">
+            <Btn
+              size="sm"
+              icon="refresh"
+              disabled={active}
+              expanded={asking}
+              onClick={() => {
+                setAsking(!asking);
+              }}
+            >
+              {text.weak.action(weak)}
+            </Btn>
+          </div>
+          {asking ? (
+            <div className="col tight" role="group" aria-label={text.weak.action(weak)}>
+              <p className="hint">{text.weak.ask(weak)}</p>
+              <div className="row wrap">
+                <Btn
+                  size="sm"
+                  kind="pri"
+                  onClick={() => {
+                    void requeue();
+                  }}
+                >
+                  {text.weak.confirm}
+                </Btn>
+                <Btn
+                  size="sm"
+                  kind="ghost"
+                  onClick={() => {
+                    setAsking(false);
+                  }}
+                >
+                  {text.weak.cancel}
+                </Btn>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
       {queue.length === 0 ? (
         <p className="hint">{text.empty}</p>
       ) : (
@@ -234,6 +342,8 @@ export function Keywords({ state }: { readonly state: FindState }) {
               next={i === at && item.state !== "done"}
               canStartHere={item.state === "queued" && i !== at && !active}
               canRemove={item.state !== "running" && !active}
+              canRetry={item.state === "failed" && !active}
+              onRetry={retry}
               onStartHere={startHere}
               onRemove={remove}
             />

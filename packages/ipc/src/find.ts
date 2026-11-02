@@ -64,6 +64,8 @@ export const findRulesSchema = z.strictObject({
   archiveDays: z.number().int().min(1).max(90),
 });
 
+/** A keyword the pipeline reports failed this many times stays `failed` until the owner retries. */
+export const failureLimit = 3;
 export const findKeywordStates = ["queued", "running", "done", "failed"] as const;
 export const findRunStates = ["ready", "running", "stopping", "paused", "done", "failed"] as const;
 /** Why a run failed. A code, never the pipeline's own text: the page words it. */
@@ -78,6 +80,8 @@ export const findStateSchema = z.strictObject({
         state: z.enum(findKeywordStates),
         found: count,
         kept: count,
+        /** How many times the pipeline reported this keyword failed; 3 makes it `failed`. */
+        failures: z.number().int().min(0).max(99),
       }),
     )
     .max(500),
@@ -130,6 +134,12 @@ export const findAddRequestSchema = z.strictObject({
 export const findAddResultSchema = z.strictObject({ added: count, skipped: count });
 
 export const findIndexRequestSchema = z.strictObject({ index: queueIndex });
+export const findWeakResultSchema = z.strictObject({ count });
+export const findRequeueResultSchema = z.discriminatedUnion("ok", [
+  z.strictObject({ ok: z.literal(true), requeued: count, added: count, skipped: count }),
+  z.strictObject({ ok: z.literal(false), problem: z.literal("running") }),
+]);
+
 export const findEditResultSchema = z.discriminatedUnion("ok", [
   z.strictObject({ ok: z.literal(true) }),
   z.strictObject({ ok: z.literal(false), problem: z.literal("running") }),

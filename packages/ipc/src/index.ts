@@ -90,6 +90,7 @@ export {
   findIdeasRequestSchema,
   findIdeasResultSchema,
   findItemDetailSchema,
+  failureLimit,
   findKeywordStates,
   findPageMax,
   findQueryItemSchema,

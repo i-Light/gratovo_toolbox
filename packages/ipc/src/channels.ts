@@ -68,6 +68,8 @@ import {
   findAddRequestSchema,
   findAddResultSchema,
   findEditResultSchema,
+  findRequeueResultSchema,
+  findWeakResultSchema,
   findIdeasRequestSchema,
   findIdeasResultSchema,
   findIndexRequestSchema,
@@ -204,6 +206,21 @@ export const channels = {
   "find:remove": {
     request: findIndexRequestSchema,
     response: findEditResultSchema,
+  },
+  /** Sets a failed keyword back to queued. Refused while a search runs. */
+  "find:retry": {
+    request: findIndexRequestSchema,
+    response: findEditResultSchema,
+  },
+  /** How many finished keywords found too little (read from pipeline.db). */
+  "find:count-weak": {
+    request: z.strictObject({}),
+    response: findWeakResultSchema,
+  },
+  /** Queues the weak keywords again. Refused while a search runs. */
+  "find:requeue-weak": {
+    request: z.strictObject({}),
+    response: findRequeueResultSchema,
   },
   /** Sets where the next run begins. Refused while a search runs. */
   "find:start-at": {

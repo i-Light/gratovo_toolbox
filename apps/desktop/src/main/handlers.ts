@@ -214,6 +214,9 @@ function buildHandlers(context: HandlerContext): Handlers {
     "find:state": () => find.state(),
     "find:add": ({ keywords }) => find.add(keywords),
     "find:remove": ({ index }) => find.remove(index),
+    "find:retry": ({ index }) => find.retry(index),
+    "find:count-weak": () => find.weakCount(),
+    "find:requeue-weak": () => find.requeueWeak(),
     "find:start-at": ({ index }) => find.startAt(index),
     "find:start": () => find.start(),
     "find:stop": () => {

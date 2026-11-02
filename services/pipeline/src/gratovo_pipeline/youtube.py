@@ -307,10 +307,18 @@ def _channel_info(item: Mapping[str, Any], handle: str, channel_id: str) -> Chan
     snippet = _dict(item.get("snippet"))
     stats = _dict(item.get("statistics"))
     image = _dict(_dict(item.get("brandingSettings")).get("image"))
+    custom = snippet.get("customUrl")
+    if handle == channel_id and isinstance(custom, str) and custom.startswith("@"):
+        handle = custom  # a placeholder handle (the search result had none): the real one
+    link = (
+        f"https://www.youtube.com/channel/{channel_id}"
+        if handle == channel_id
+        else f"https://www.youtube.com/{handle}"
+    )
     return {
         "Name": _str(snippet.get("title")),
         "Handle": handle,
-        "Link": f"https://www.youtube.com/{handle}",
+        "Link": link,
         "Channel_ID": channel_id,
         "Description": _str(snippet.get("description")),
         "Subscribers": _str(stats.get("subscriberCount")) or "Hidden",
