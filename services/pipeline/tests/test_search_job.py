@@ -3,6 +3,7 @@ ends the run, and the real process on example data."""
 
 import io
 import json
+import sqlite3
 import subprocess
 import sys
 from collections.abc import Callable, Iterator, Mapping
@@ -19,6 +20,7 @@ from gratovo_pipeline.jobs import search as search_job
 from gratovo_pipeline.protocol import Emitter, Start
 from gratovo_pipeline.scrapetube import scrapetube
 from gratovo_pipeline.search.context import Found
+from gratovo_pipeline.search.pacing import Pacer
 from gratovo_pipeline.youtube import ChannelInfo, YouTubeError
 
 KEYWORDS = list(example.KEYWORDS[:3])
@@ -563,3 +565,64 @@ def test_the_keyword_line_and_the_run_carry_the_megabytes_downloaded(
         assert row[0] == 4_000_000
     finally:
         conn.close()
+
+
+# --- route rows and the free proxy provider (S5, after review) ---
+
+
+def test_a_failed_route_write_is_said_once_and_the_run_goes_on(
+    tmp_path: Path, run: Run, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def broken(*_args: object) -> None:
+        raise sqlite3.OperationalError("disk I/O error at C:\\Users\\someone")
+
+    monkeypatch.setattr(store, "add_run_routes", broken)
+    go(run, start_for(tmp_path))
+
+    assert run.end()["state"] == "done"
+    said = [m["text"] for m in run.of("log") if "route counts" in m["text"]]
+    assert said == ["The route counts couldn't be saved (OperationalError); the run carries on."]
+    conn = store.get_connection(tmp_path / "example-pipeline" / "pipeline.db")
+    try:
+        status = conn.execute("SELECT status FROM runs").fetchone()["status"]
+    finally:
+        conn.close()
+    assert status == "done"  # the run was still finished
+
+
+class FakeProvider:
+    def __init__(self, out: io.StringIO) -> None:
+        self.out = out
+        self.closed_after: int | None = None  # lines written when it was closed
+
+    def close(self) -> None:
+        if self.closed_after is None:
+            self.closed_after = len(self.out.getvalue().splitlines())
+
+
+@pytest.mark.parametrize("ending", ["done", "stopped", "crash", "source"])
+def test_the_free_proxy_provider_is_closed_before_end_on_every_way_out(
+    tmp_path: Path, run: Run, monkeypatch: pytest.MonkeyPatch, ending: str
+) -> None:
+    provider = FakeProvider(run.out)
+
+    def live_source(_cfg: object, _emitter: object, providers: list[Any]) -> Any:
+        providers.append(provider)
+        if ending == "source":
+            raise RuntimeError("the source failed after the provider started")
+        return example.ExampleSource(), Pacer.off()
+
+    monkeypatch.setattr(search_job, "_live_source", live_source)
+    if ending == "stopped":
+        run_control.request_stop()
+    if ending == "crash":
+
+        def boom(*_args: object, **_kwargs: object) -> None:
+            raise RuntimeError("boom")
+
+        monkeypatch.setattr(store, "mark_keyword_started", boom)
+    go(run, start_for(tmp_path, source="live", secrets__youtubeKey="k"))
+
+    lines = run.out.getvalue().splitlines()
+    assert provider.closed_after == len(lines) - 1  # closed, then only the `end` line
+    assert run.end()["state"] == {"done": "done", "stopped": "stopped"}.get(ending, "failed")

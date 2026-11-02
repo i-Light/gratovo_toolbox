@@ -405,6 +405,21 @@ describe("the pipeline supervisor", () => {
     expect(finished).toBe(true);
   });
 
+  it("on quit, gives a gateway job 30 s to delete what it built", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const pipeline = supervisor();
+    pipeline.start(liveStart({ kind: "gateways.leak" }), handlers);
+    void pipeline.shutdown();
+    await settle();
+
+    vi.advanceTimersByTime(29_000);
+    await settle();
+    expect(child.killed).toBe(false);
+    vi.advanceTimersByTime(1_000);
+    await settle();
+    expect(child.killed).toBe(true);
+  });
+
   it("runs one job at a time, and none without Python", async () => {
     const pipeline = supervisor();
     pipeline.start(startMessage("D:\\data"), handlers);

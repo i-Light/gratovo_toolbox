@@ -89,6 +89,7 @@ def allowed(url: str) -> bool:
         ("gateways.deploy", False, True),
         ("gateways.destroy", False, True),
         ("gateways.test", False, True),
+        ("gateways.leak", False, True),
     ],
 )
 def test_each_kind_adds_only_its_own_hosts(kind: str, gmail: bool, aws: bool) -> None:
@@ -139,3 +140,22 @@ def test_a_second_call_replaces_the_first() -> None:
     net.allow_job_hosts("gateways.test")
     assert not allowed(GMAIL)
     assert allowed(AWS)
+
+
+@pytest.mark.parametrize(
+    "kind",
+    [
+        "search",
+        "mail.send",
+        "gateways.deploy",
+        "gateways.destroy",
+        "gateways.test",
+        "gateways.leak",
+    ],
+)
+def test_only_the_leak_test_reads_this_computers_address(kind: str) -> None:
+    net.allow_job_hosts(kind)
+    assert allowed("https://checkip.amazonaws.com") == (kind == "gateways.leak")
+    # It never opens anything else of Amazon's, nor httpbin (the test gateway reaches that).
+    for url in ("https://httpbin.org/headers", "https://checkip.amazonaws.com.evil.example/"):
+        assert not allowed(url)

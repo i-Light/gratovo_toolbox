@@ -2,7 +2,7 @@ import type { AudienceKey } from "../close/audience";
 import type { CreatorStage, RejectReason } from "../data/types";
 import type { BrandStatus } from "../data/work-types";
 
-import type { GoalSettings, HiddenAlerts, ReadingKind } from "./types";
+import type { GoalSettings, HiddenAlerts, ReadingKind, RouteFact } from "./types";
 
 /**
  * What the Insights reports are worked out from (plan step P8a). Main reads it from `gratovo.db`
@@ -218,6 +218,8 @@ export interface InsightsInputs {
   readonly weeks: readonly CatalogWeek[];
   /** Start times of the search runs, newest first. */
   readonly runs: readonly number[];
+  /** The `run_routes` rows (S5); null when the table is not there. */
+  readonly routes: readonly RouteFact[] | null;
   readonly goal: GoalSettings;
   readonly hidden: HiddenAlerts;
   /** Every deal (P8b). */

@@ -7,6 +7,7 @@ import type {
   ConnectionsStatus,
   FolderPurpose,
   GatewaysDeployResult,
+  GatewaysLeakResult,
   GatewaysRemoveResult,
   GeminiStatus,
   ImportCandidates,
@@ -53,6 +54,8 @@ export interface ConnectionsService {
   checkMailboxes(): Promise<MailCheckResult>;
   deployGateways(regions: readonly string[]): Promise<GatewaysDeployResult>;
   removeGateways(region: string): Promise<GatewaysRemoveResult>;
+  /** The leak test (step S5, P0): one throwaway gateway, one request, then it is deleted. */
+  checkGatewayLeak(): Promise<GatewaysLeakResult>;
 }
 
 /** Starting and stopping the Gemini bridge (D12, D13). Owned by `main/gemini/` (task B7). */

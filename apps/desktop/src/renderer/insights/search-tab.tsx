@@ -20,6 +20,7 @@ import type { FlowEdge, FlowNode } from "./charts/flow-band";
 import { PairedColumns } from "./charts/paired-columns";
 import { SmallMultiples } from "./charts/small-multiples";
 import { Panel } from "./panel";
+import { RoutesPanel } from "./routes-panel";
 import { VerdictDot } from "./verdict";
 import { dayLabel, weekdayLabel } from "./words/format";
 import {
@@ -1537,6 +1538,7 @@ export function SearchTab(props: SearchTabProps) {
             onDrill={onDrill}
             dataUi="search.everything.keywords"
           />
+          <RoutesPanel report={report.routes} dataUi="search.everything.routes" />
           <Profile profiles={report.archive.profiles} dataUi="search.everything.profile" />
         </>
       );

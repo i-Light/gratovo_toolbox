@@ -249,6 +249,7 @@ export function readInputs(o: ReadInputsOptions): InsightsInputs {
     archive: archiveFacts(pipe, local.log, o.now),
     weeks: local.weeks,
     runs: pipe.runs,
+    routes: pipe.routes,
     goal: local.goal,
     hidden: local.hidden,
     deals: withDeals ? local.deals : [],

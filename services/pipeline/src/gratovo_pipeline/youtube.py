@@ -148,7 +148,13 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
-_OPENER: Final = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect())
+def _build_opener() -> urllib.request.OpenerDirector:
+    """The Data API's opener. `ProxyHandler({})`: never a proxy, not even one the environment
+    names (HTTPS_PROXY and the like), so the API key only ever goes straight to Google."""
+    return urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect())
+
+
+_OPENER: Final = _build_opener()
 
 
 def _open(request: urllib.request.Request, timeout: float) -> Body:

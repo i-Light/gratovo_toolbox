@@ -1,7 +1,8 @@
 import { existsSync, statSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 
-import { startOfWeek } from "@gratovo/core/insights";
+import { routeKinds, startOfWeek } from "@gratovo/core/insights";
+import type { RouteFact, RouteKind } from "@gratovo/core/insights";
 
 import { refetchKeyword } from "../pipeline/protocol";
 import { parseTime } from "../find/runs";
@@ -73,6 +74,8 @@ export interface PipelineFacts {
   }[];
   /** Search runs' start times, newest first. */
   readonly runs: readonly number[];
+  /** The `run_routes` rows (S5); null while the table is not there. */
+  readonly routes: readonly RouteFact[] | null;
 }
 
 export const emptyProfile: ProfileFacts = {
@@ -101,6 +104,7 @@ export const emptyPipeline: PipelineFacts = {
   linkTimes: new Map(),
   pending: [],
   runs: [],
+  routes: null,
 };
 
 /** The countries the fit score counts as the audience (`fit.ts`'s `homeCountries`). */
@@ -268,6 +272,50 @@ function readLinks(db: Db): Pick<PipelineFacts, "links" | "linkTimes"> {
   return { links, linkTimes };
 }
 
+const num = (v: unknown): number => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
+
+/** The `run_routes` rows with their run's start; throws while the table is not there. */
+export function readRoutes(db: Db): RouteFact[] {
+  return db
+    .prepare(
+      `SELECT r.started_at AS started_at, x.kind AS kind, x.label AS label,
+              x.requests AS requests, x.successes AS successes, x.blocks AS blocks,
+              x.connection_failures AS connection_failures, x.bytes AS bytes,
+              x.keywords_finished AS keywords_finished, x.channels_found AS channels_found,
+              x.in_range_found AS in_range_found, x.seconds_used AS seconds_used,
+              x.seconds_resting AS seconds_resting
+       FROM run_routes x JOIN runs r ON r.run_id = x.run_id`,
+    )
+    .all()
+    .flatMap((row) => {
+      const at = parseTime(row["started_at"]);
+      const kind = String(row["kind"]);
+      if (at === null || !(routeKinds as readonly string[]).includes(kind)) {
+        return [];
+      }
+      return [
+        {
+          runStartedAt: at,
+          kind: kind as RouteKind,
+          label: String(row["label"]),
+          requests: num(row["requests"]),
+          successes: num(row["successes"]),
+          blocks: num(row["blocks"]),
+          connectionFailures: num(row["connection_failures"]),
+          bytes: num(row["bytes"]),
+          keywordsFinished: num(row["keywords_finished"]),
+          channelsFound: num(row["channels_found"]),
+          inRangeFound: num(row["in_range_found"]),
+          secondsUsed: num(row["seconds_used"]),
+          secondsResting: num(row["seconds_resting"]),
+        },
+      ];
+    });
+}
+
 /** Reads what the reports need from the file; each part that can't be read is left empty. */
 function readFile(path: string): PipelineFacts {
   const db = new DatabaseSync(path, { readOnly: true });
@@ -334,6 +382,7 @@ function readFile(path: string): PipelineFacts {
             .sort((a, b) => b - a),
         [],
       ),
+      routes: part(() => readRoutes(db), null),
     };
   } finally {
     db.close();

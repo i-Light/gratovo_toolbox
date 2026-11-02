@@ -1,6 +1,8 @@
 import { exampleSeed } from "./example";
 import { exampleDeals } from "./example-history-deals";
 import type { ExampleDeals } from "./example-history-deals";
+import { exampleRunRoutes } from "./example-history-routes";
+import type { HistoryRouteRow } from "./example-history-routes";
 import type { Scenario } from "./example";
 import { exampleVideoId } from "./example-roster";
 import { legacyCreatorFields } from "./legacy-mapping";
@@ -414,6 +416,8 @@ export interface ExampleHistory {
     keywords: HistoryKeywordRow[];
     links: HistoryLinkRow[];
     runs: HistoryRunRow[];
+    /** `run_routes` rows; `run_id` is the run's place in `runs`, from 1. */
+    runRoutes: HistoryRouteRow[];
     archive: HistoryArchive;
     pending: HistoryPendingRow[];
   };
@@ -2206,6 +2210,7 @@ function build(now: number, broke: boolean): ExampleHistory {
       keywords: keywordRows,
       links,
       runs: runRows,
+      runRoutes: exampleRunRoutes(runRows.map((r) => r.keywords_done)),
       archive: { labels, keywords: keywordNames, names: archiveNames, tuples },
       pending,
     },

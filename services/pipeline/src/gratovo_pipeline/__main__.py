@@ -30,7 +30,8 @@ def main() -> int:
         emitter.end(state="failed", at=0, found=0, kept=0, error=("bad_start", str(error)))
         return 0
     # The job's own hosts (mail, AWS) join the network rule before anything can make a request.
-    net.allow_job_hosts(start["job"]["kind"])
+    free = start["settings"].get("freeProxies", {"enabled": False})["enabled"]
+    net.allow_job_hosts(start["job"]["kind"], free_proxies=free)
     protocol.listen_for_stop(sys.stdin, run_control.request_stop)
     jobs.run(start, emitter)
     return 0

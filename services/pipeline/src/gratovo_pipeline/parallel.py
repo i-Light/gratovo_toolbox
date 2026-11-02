@@ -7,6 +7,9 @@ workers would take turns on one address, a sequential run with extra overhead.
 What keeps it safe is the proxy pool (`scrapetube/proxy_pool.py`): every request, whichever worker
 makes it, goes through the same pool, so a gateway serves one request at a time, is never used
 twice in a row, and keeps its minimum gap. Workers never outnumber the rotating connections.
+The count is re-read between keywords (step S5, P5): it grows when more routes become usable
+(a free proxy list refilled), and shrinks when routes are banned (a worker exits after its
+keyword), never below one.
 
 Pacing is Normal unless the app sends Fast (`config.Config.pacing`). Each worker has its
 own SQLite connection, since a connection belongs to the thread that made it. Lines to the app
@@ -62,7 +65,7 @@ type _Result = tuple[Literal["done", "failed", "skipped"], int, str, BaseExcepti
 
 def run_keywords[C: Closeable](
     items: Iterable[tuple[int, str]],
-    workers: int,
+    workers: int | Callable[[], int],
     work: Callable[[C, int, str], None],
     on_done: Callable[[int, str], None],
     *,
@@ -70,7 +73,9 @@ def run_keywords[C: Closeable](
     on_failed: Callable[[int, str, BaseException], None] | None = None,
     quota_fatal: bool = True,
 ) -> int:
-    """Works `items`, `(position, keyword)` pairs in hand-out order, on `workers` threads.
+    """Works `items`, `(position, keyword)` pairs in hand-out order, on `workers` threads. A
+    callable `workers` is asked again between keywords: more are started when it grows (up to
+    MAX_WORKERS), and a worker exits after its keyword when it shrinks (never below one).
 
     `work(conn, position, keyword)` runs on a worker with that worker's own connection from
     `connect`. `on_done(position, keyword)` runs on the calling thread after each keyword, in the
@@ -83,12 +88,29 @@ def run_keywords[C: Closeable](
     for item in items:
         todo.put(item)
     results: queue.Queue[_Result] = queue.Queue()
+    active: set[int] = set()
+    active_lock = threading.Lock()
+
+    def wanted() -> int:
+        count = workers() if callable(workers) else workers
+        return max(1, min(MAX_WORKERS, count))
+
+    def surplus_leaves(number: int) -> bool:
+        """Under the lock: true (and this worker is no longer counted) when more are running
+        than wanted. Never the last one."""
+        with active_lock:
+            if len(active) > wanted():
+                active.discard(number)
+                return True
+            return False
 
     def worker(number: int) -> None:
         run_control.set_worker(number)
         conn = connect()
         try:
             while not run_control.stop_requested():
+                if surplus_leaves(number):
+                    return
                 try:
                     position, keyword = todo.get_nowait()
                 except queue.Empty:
@@ -104,22 +126,41 @@ def run_keywords[C: Closeable](
                     return
                 results.put(("done", position, keyword, None))
         finally:
+            with active_lock:
+                active.discard(number)
             try:
                 conn.close()
             finally:
                 run_control.set_worker(None)
 
-    threads = [
-        threading.Thread(target=worker, args=(n,), name=f"search-worker-{n}", daemon=True)
-        for n in range(1, workers + 1)
-    ]
-    for thread in threads:
+    threads: list[threading.Thread] = []
+
+    def start_worker() -> None:
+        with active_lock:
+            number = next(n for n in range(1, MAX_WORKERS + 2) if n not in active)
+            active.add(number)
+        thread = threading.Thread(
+            target=worker, args=(number,), name=f"search-worker-{number}", daemon=True
+        )
+        threads.append(thread)
         thread.start()
+
+    def grow() -> None:
+        """Starts workers up to the wanted count while keywords wait (main thread only)."""
+        while not todo.empty() and not run_control.stop_requested():
+            with active_lock:
+                if len(active) >= wanted():
+                    return
+            start_worker()
+
+    for _ in range(wanted()):
+        start_worker()
 
     done = 0
     failure: BaseException | None = None
     try:
         while any(t.is_alive() for t in threads) or not results.empty():
+            grow()
             try:
                 kind, position, keyword, exc = results.get(timeout=0.5)
             except queue.Empty:

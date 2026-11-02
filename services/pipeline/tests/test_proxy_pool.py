@@ -590,3 +590,76 @@ def test_without_direct_a_tried_healthy_route_beats_waiting_for_a_cooling_one() 
     again.release()
     assert again.candidate is a
     assert not seen
+
+
+def _stats_pool(clock: FakeClock) -> ProxyPool:
+    return ProxyPool.from_routes(
+        proxy_urls=["http://user:secret@10.0.0.1:8080"],
+        gateway_urls=[GATEWAY],
+        clock=clock,
+        sleep=clock.advance,
+        rng=LowRng(),
+    )
+
+
+def test_route_stats_count_per_route_with_safe_labels_and_reset() -> None:
+    clock = FakeClock()
+    pool = _stats_pool(clock)
+    with pool.acquire() as lease:
+        clock.advance(2.0)
+        pool.report_current_bytes(500)
+        pool.report_success(lease.candidate)
+    with pool.acquire() as lease:
+        pool.report_blocked(lease.candidate)
+    with pool.acquire() as lease:
+        pool.report_connection_failure(lease.candidate)
+    deltas = {(d.kind, d.label): d.stats for d in pool.take_route_stats()}
+    assert set(deltas) <= {
+        ("aws", "us-east-1"),
+        ("proxy", "10.0.0.1:8080"),
+        ("direct", "This machine"),
+    }
+    assert all("secret" not in label and "http" not in label for _, label in deltas)
+    total = list(deltas.values())
+    assert sum(s.requests for s in total) == 3
+    assert sum(s.successes for s in total) == 1
+    assert sum(s.blocks for s in total) == 1
+    assert sum(s.connection_failures for s in total) == 1
+    assert sum(s.bytes for s in total) == 500
+    assert sum(s.seconds_used for s in total) == pytest.approx(2.0)
+    assert pool.take_route_stats() == []
+
+
+def test_rest_time_counts_only_the_cooldown_that_overlaps() -> None:
+    clock = FakeClock()
+    pool = ProxyPool.from_routes(
+        gateway_urls=[GATEWAY], include_direct=False, clock=clock, rng=LowRng()
+    )
+    candidate = pool.candidates[0]
+    with pool.acquire() as lease:
+        pool.report_blocked(lease.candidate)
+    cooling = candidate.cooldown_until - clock.now
+    assert cooling > 0
+    clock.advance(cooling / 2)
+    first = pool.take_route_stats()[0].stats.seconds_resting
+    assert first == pytest.approx(cooling / 2)
+    clock.advance(cooling * 10)
+    second = pool.take_route_stats()[0].stats.seconds_resting
+    assert second == pytest.approx(cooling / 2)
+
+
+def test_a_keyword_goes_to_the_route_that_served_most_of_its_requests() -> None:
+    clock = FakeClock()
+    pool = _stats_pool(clock)
+    pool.take_thread_requests()
+    for _ in range(3):
+        with pool.acquire():
+            clock.advance(100)
+    counts = pool.take_thread_requests()
+    assert sum(counts.values()) == 3
+    main = max(counts, key=lambda c: counts[c])
+    pool.note_keyword(main, finished=True, found=7, kept=2)
+    deltas = {(d.kind, d.label): d.stats for d in pool.take_route_stats()}
+    got = deltas[(main.kind, main.route_label)]
+    assert (got.keywords_finished, got.channels_found, got.in_range_found) == (1, 7, 2)
+    assert pool.take_thread_requests() == {}

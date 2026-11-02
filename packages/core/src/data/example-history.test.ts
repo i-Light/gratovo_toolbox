@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import { exampleSeed } from "./example";
 import { exampleHistory } from "./example-history";
+import { exampleRunRoutes } from "./example-history-routes";
 import type { ExampleHistory } from "./example-history";
 import { creatorStages, rejectReasons } from "./types";
 
@@ -698,5 +699,59 @@ describe("the deals' usual views", () => {
     const mean = per1000.reduce((a, b) => a + b, 0) / per1000.length;
     expect(mean).toBeGreaterThan(30);
     expect(mean).toBeLessThan(50);
+  });
+});
+
+describe("the example history's run routes", () => {
+  it("has rows for the runs with the table's columns, in a plausible mix", () => {
+    const rows = history.pipeline.runRoutes;
+    expect(rows.length).toBeGreaterThan(0);
+    expect(Object.keys(rows[0] ?? {}).sort()).toEqual(
+      [
+        "run_id",
+        "kind",
+        "label",
+        "requests",
+        "successes",
+        "blocks",
+        "connection_failures",
+        "bytes",
+        "keywords_finished",
+        "channels_found",
+        "in_range_found",
+        "seconds_used",
+        "seconds_resting",
+      ].sort(),
+    );
+    const runs = history.pipeline.runs.length;
+    const keys = new Set<string>();
+    for (const r of rows) {
+      expect(r.run_id).toBeGreaterThanOrEqual(1);
+      expect(r.run_id).toBeLessThanOrEqual(runs);
+      expect(r.blocks + r.connection_failures + r.successes).toBe(r.requests);
+      expect(r.in_range_found).toBeLessThanOrEqual(r.channels_found);
+      keys.add(`${String(r.run_id)}/${r.kind}/${r.label}`);
+    }
+    expect(keys.size).toBe(rows.length);
+    const labels = (kind: string): Set<string> =>
+      new Set(rows.filter((r) => r.kind === kind).map((r) => r.label));
+    expect(labels("aws").size).toBe(4);
+    expect(labels("free").size).toBe(20);
+    expect(labels("direct").size).toBe(1);
+    expect(rows.filter((r) => r.kind === "direct").length).toBeLessThan(runs / 2);
+  });
+
+  it("labels free proxies with a port and skips runs with no keywords", () => {
+    for (const r of history.pipeline.runRoutes.filter((x) => x.kind === "free")) {
+      expect(r.label).toMatch(/^203\.0\.113\.\d+:\d+$/);
+    }
+    const rows = exampleRunRoutes([0, 5]);
+    expect(rows.every((r) => r.run_id === 2)).toBe(true);
+    expect(rows.every((r) => Object.values(r).every((v) => !Number.isNaN(v)))).toBe(true);
+  });
+
+  it("is the same every time", () => {
+    const again = required(exampleHistory(now, "normal"));
+    expect(again.pipeline.runRoutes).toEqual(history.pipeline.runRoutes);
   });
 });

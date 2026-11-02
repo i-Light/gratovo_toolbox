@@ -12,6 +12,7 @@ import {
   mailSecretShape,
   proxiesSecretName,
   readMailRows,
+  readPipelineSettings,
   readTokens,
   sameAddress,
 } from "./connections-store";
@@ -124,6 +125,7 @@ export async function applyChange(
         pacing: change.pacing,
         parallel: change.parallel,
         proxies: change.proxies,
+        freeProxies: change.freeProxies ?? readPipelineSettings(source).freeProxies,
       });
       return ok;
     case "aws.keys": {

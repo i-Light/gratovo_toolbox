@@ -31,6 +31,7 @@ export function emptyConnectionsStatus(): ConnectionsStatus {
     mailboxes: [],
     mail: { label: "Gratovo Outreach", senderName: null },
     proxies: { count: 0, enabled: false, includeDirect: false },
+    freeProxies: { enabled: false },
     pacing: "normal",
     parallel: { enabled: false, maxWorkers: 4 },
     aws: { keys: false, enabled: false, regions: [] },
@@ -79,6 +80,7 @@ export function createStubServices(): HandlerServices {
       checkMailboxes: () => Promise.resolve(notBuilt),
       deployGateways: () => Promise.resolve(notBuilt),
       removeGateways: () => Promise.resolve(notBuilt),
+      checkGatewayLeak: () => Promise.resolve(notBuilt),
     },
     gemini: {
       status: stoppedGemini,

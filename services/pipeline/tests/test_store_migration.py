@@ -42,7 +42,7 @@ def _version_1_file(path: Path) -> None:
 
 
 def test_a_new_file_is_created_at_version_8(conn: sqlite3.Connection) -> None:
-    assert store.SCHEMA_VERSION == 8
+    assert store.SCHEMA_VERSION == 9
     assert _version(conn) == store.SCHEMA_VERSION
     assert {"video_transcripts", "archived_videos"} <= _tables(conn)
 
@@ -72,13 +72,13 @@ def test_a_version_1_file_gains_video_transcripts_and_keeps_every_row(tmp_path: 
     conn.close()
 
 
-def test_a_file_newer_than_version_8_is_refused(tmp_path: Path) -> None:
+def test_a_file_newer_than_version_9_is_refused(tmp_path: Path) -> None:
     path = tmp_path / "pipeline.db"
     conn = store.get_connection(path)
-    conn.execute("PRAGMA user_version=9")
+    conn.execute("PRAGMA user_version=10")
     with pytest.raises(store.SchemaTooNewError):
         store.init_db(conn)
-    assert _version(conn) == 9, "the newer file is left as it was"
+    assert _version(conn) == 10, "the newer file is left as it was"
     assert "video_transcripts" not in _tables(conn)
     conn.close()
 
@@ -536,7 +536,7 @@ def test_a_version_7_file_migrates_to_8_and_loses_nothing(tmp_path: Path) -> Non
     store.init_db(conn)
     store.init_db(conn)  # safe to run twice
 
-    assert _version(conn) == 8
+    assert _version(conn) == store.SCHEMA_VERSION
     assert "archived_videos" in _tables(conn)
     tomb = dict(conn.execute("SELECT * FROM channel_archive").fetchone())
     assert {k: tomb[k] for k in old_tomb} == old_tomb, "every old value as it was"
@@ -591,3 +591,27 @@ def test_a_migrated_version_7_file_has_every_column_a_new_file_has(tmp_path: Pat
 
 def _column_names(conn: sqlite3.Connection, table: str) -> list[str]:
     return [r[1] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()]
+
+
+def test_a_version_8_file_gains_run_routes_and_keeps_its_runs(tmp_path: Path) -> None:
+    path = tmp_path / "pipeline.db"
+    conn = store.get_connection(path)
+    store.init_db(conn)
+    run_id = store.start_run(conn, 1)
+    conn.execute("DROP TABLE run_routes")
+    conn.execute("PRAGMA user_version=8")
+    conn.commit()
+    conn.close()
+
+    conn = store.get_connection(path)
+    store.init_db(conn)
+    assert _version(conn) == store.SCHEMA_VERSION
+    assert _count(conn, "runs") == 1
+    assert _count(conn, "run_routes") == 0
+    assert [c[1] for c in conn.execute("PRAGMA table_info(run_routes)")] == [
+        "run_id", "kind", "label", "requests", "successes", "blocks", "connection_failures",
+        "bytes", "keywords_finished", "channels_found", "in_range_found", "seconds_used",
+        "seconds_resting",
+    ]  # fmt: skip
+    assert run_id == 1
+    conn.close()

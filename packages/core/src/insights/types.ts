@@ -438,6 +438,58 @@ export interface GroupProfile {
   readonly addressFound: Ratio | null;
 }
 
+/** The ways a search request leaves this computer (`run_routes.kind`). */
+export const routeKinds = ["aws", "proxy", "free", "direct"] as const;
+export type RouteKind = (typeof routeKinds)[number];
+
+/** One `run_routes` row with the start of its run (S5, P7). Label: a region or a host, never a URL. */
+export interface RouteFact {
+  readonly runStartedAt: number;
+  readonly kind: RouteKind;
+  readonly label: string;
+  readonly requests: number;
+  readonly successes: number;
+  readonly blocks: number;
+  readonly connectionFailures: number;
+  readonly bytes: number;
+  readonly keywordsFinished: number;
+  readonly channelsFound: number;
+  readonly inRangeFound: number;
+  readonly secondsUsed: number;
+  readonly secondsResting: number;
+}
+
+/** What a route, or a kind of route, did over the period. A ratio is null when its divisor is 0. */
+export interface RouteStats {
+  readonly requests: number;
+  readonly successes: number;
+  readonly blocks: number;
+  /** blocks / requests. */
+  readonly blockRate: number | null;
+  readonly inRange: number;
+  /** In-range channels found per 100 requests. */
+  readonly inRangePer100: number | null;
+  /** Megabytes per finished keyword. */
+  readonly mbPerKeyword: number | null;
+}
+
+export interface RouteRow extends RouteStats {
+  readonly kind: RouteKind;
+  readonly label: string;
+}
+
+export interface KindRouteRow extends RouteStats {
+  readonly kind: RouteKind;
+  /** How many routes of this kind were used in the period. */
+  readonly routes: number;
+}
+
+/** Search › Routes (S5, P8): the period's traffic by kind and by route. */
+export interface RoutesReport {
+  readonly byKind: readonly KindRouteRow[];
+  readonly routes: readonly RouteRow[];
+}
+
 export interface SearchReport {
   readonly tab: "search";
   readonly window: ReportWindow;
@@ -544,6 +596,8 @@ export interface SearchReport {
     readonly growthByRulesPerWeek: number;
     readonly profiles: readonly GroupProfile[];
   };
+  /** Null while `pipeline.db` has no `run_routes` table (no route data yet). */
+  readonly routes: RoutesReport | null;
   readonly everything: {
     readonly found: number;
     readonly swept: number;

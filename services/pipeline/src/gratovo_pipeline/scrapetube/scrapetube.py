@@ -28,7 +28,7 @@ import threading
 from collections.abc import Callable, Generator, Mapping, Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Any, Final, Literal, Protocol
-from urllib.parse import quote_plus, urlsplit
+from urllib.parse import quote_plus, urljoin, urlsplit
 
 import curl_cffi.requests as requests
 from curl_cffi.requests import exceptions as curl_errors
@@ -52,6 +52,8 @@ REQUEST_TIMEOUT: Final = 30  # seconds; the default is none, which is how a run 
 MAX_ATTEMPTS: Final = 3
 # Each attempt already walks 30 redirects; this bounds how many attempts a loop gets.
 MAX_REDIRECT_LOOP_ATTEMPTS: Final = 2
+MAX_GATEWAY_HOPS: Final = 5
+_YOUTUBE_HOSTS: Final = frozenset({"youtube.com", "www.youtube.com"})
 GZIP_LEVEL: Final = 6  # what a compressed response is sized at: its body gzipped again
 
 # YouTube serves the captcha interstitial with a 200 as often as not.
@@ -200,6 +202,7 @@ class Requester(Protocol):
         params: Mapping[str, str | int] | None = None,
         json: Json = None,
         headers: Mapping[str, str] | None = None,
+        allow_redirects: bool = True,
     ) -> Response: ...
 
 
@@ -240,6 +243,7 @@ class CurlSession:
         params: Mapping[str, str | int] | None = None,
         json: Json = None,
         headers: Mapping[str, str] | None = None,
+        allow_redirects: bool = True,
     ) -> Response:
         response = self._session.request(  # pyright: ignore[reportUnknownMemberType] - curl_cffi leaves dict args untyped
             method,  # pyright: ignore[reportArgumentType] - curl_cffi types it as a Literal
@@ -250,6 +254,7 @@ class CurlSession:
             cookies=_CONSENT,
             proxies=dict(self.proxies) if self.proxies else None,  # pyright: ignore[reportArgumentType]
             timeout=timeout,
+            allow_redirects=allow_redirects,
         )
         return _CurlResponse(response)
 
@@ -278,6 +283,7 @@ def _count_bytes(response: Response) -> None:
     global _total_bytes
     size = response_bytes(response)
     _traffic.count = getattr(_traffic, "count", 0) + size
+    get_pool().report_current_bytes(size)
     with _TOTAL_LOCK:
         _total_bytes += size
 
@@ -400,6 +406,93 @@ def route_through_gateway(url: str, base_url: str) -> str:
     return url
 
 
+class _AtYouTube:
+    """A gateway's answer that reports the youtube.com form of its URL, so the block checks and
+    the callers never see the gateway's address."""
+
+    def __init__(self, response: Response, url: str) -> None:
+        self._response = response
+        self.url = url
+        self.status_code = response.status_code
+        self.headers = response.headers
+        self.text = response.text
+
+    def json(self) -> Json:
+        return self._response.json()
+
+
+def _through_gateway(
+    session: Requester,
+    method: str,
+    url: str,
+    base_url: str,
+    *,
+    params: Mapping[str, str | int] | None,
+    json: Json,
+    headers: Mapping[str, str] | None,
+) -> Response:
+    """Send via the gateway with redirects off and follow a 3xx by hand, only to youtube.com and
+    back through the same gateway, so no hop reaches YouTube from this machine's address."""
+    current = url
+    for hop in range(MAX_GATEWAY_HOPS + 1):
+        target = route_through_gateway(current, base_url)
+        if not _is_under(target, base_url):  # never sent anywhere but through the gateway
+            raise ScrapetubeError("a gateway request didn't go through the gateway")
+        net.check_url(target)
+        response = session.request(
+            method,
+            target,
+            timeout=REQUEST_TIMEOUT,
+            params=params,
+            json=json,
+            headers=headers,
+            allow_redirects=False,
+        )
+        _count_bytes(response)
+        location = response.headers.get("location")
+        if not (300 <= response.status_code < 400 and location):
+            if response.url.startswith(base_url):
+                return _AtYouTube(response, YOUTUBE_ORIGIN + response.url[len(base_url) :])
+            return response
+        if hop == MAX_GATEWAY_HOPS:
+            raise curl_errors.TooManyRedirects(f"Exceeded {MAX_GATEWAY_HOPS} gateway redirects.")
+        current = _redirect_target(current, location)
+        if response.status_code == 303 or (
+            response.status_code in (301, 302) and method.upper() == "POST"
+        ):
+            method, json = "GET", None
+        params = None  # the Location already carries the query
+    raise AssertionError("unreachable")  # pragma: no cover
+
+
+def _is_under(target: str, base_url: str) -> bool:
+    return target == base_url or target.startswith((base_url + "/", base_url + "?"))
+
+
+def _redirect_target(current: str, location: str) -> str:
+    """Where a gateway's 3xx points, rebuilt as `YOUTUBE_ORIGIN` + path + query. A `/sorry/` page
+    (any host) or the consent page is a block (ThrottledError); anything but https on youtube.com
+    or www.youtube.com, port 443 at most, with no login, is refused (ScrapetubeError)."""
+    try:
+        parts = urlsplit(urljoin(current, location))
+        port = parts.port
+    except ValueError:
+        raise ScrapetubeError("redirected to a malformed address") from None
+    host = (parts.hostname or "").lower()
+    if "/sorry/" in parts.path.lower() or host == "consent.youtube.com":
+        raise ThrottledError("redirected to YouTube's captcha or consent page")
+    if (
+        parts.scheme != "https"
+        or host not in _YOUTUBE_HOSTS
+        or port not in (None, 443)
+        or parts.username is not None
+        or parts.password is not None
+    ):
+        raise ScrapetubeError("redirected off YouTube")
+    query = f"?{parts.query}" if parts.query else ""
+    return f"{YOUTUBE_ORIGIN}{parts.path or '/'}{query}"
+
+
 # --- one request ---
 
 
@@ -471,15 +564,22 @@ def request(
             announcer.done(resumed=True)
             if candidate.base_url:
                 session.proxies = {}
-                target = route_through_gateway(url, candidate.base_url)
+                response = _through_gateway(
+                    session,
+                    method,
+                    url,
+                    candidate.base_url,
+                    params=params,
+                    json=json,
+                    headers=headers,
+                )
             else:
                 session.proxies = candidate.proxies
-                target = url
-            net.check_url(target)
-            response = session.request(
-                method, target, timeout=REQUEST_TIMEOUT, params=params, json=json, headers=headers
-            )
-            _count_bytes(response)
+                net.check_url(url)
+                response = session.request(
+                    method, url, timeout=REQUEST_TIMEOUT, params=params, json=json, headers=headers
+                )
+                _count_bytes(response)
             _raise_if_blocked(response)
             if expect_json:
                 try:
@@ -508,11 +608,12 @@ def request(
             last = exc
         except (
             curl_errors.ProxyError,
-            curl_errors.ConnectTimeout,
+            curl_errors.Timeout,
             curl_errors.SSLError,
             curl_errors.ConnectionError,
         ) as exc:
-            # No HTTP answer at all: this candidate is unreachable or broken. Try another, now.
+            # No HTTP answer at all (none in time included): this candidate is unreachable or
+            # broken. Try another, now.
             last = exc
             all_blocked = False
             pool.report_connection_failure(candidate)

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import type { EndErrorCode } from "../pipeline/protocol";
+
 import { done, keyId, useConnections } from "./connections-harness";
 
 describe("the connections service's gateways", () => {
@@ -105,5 +107,69 @@ describe("the connections service's gateways", () => {
     });
     expect((await h.service.status()).aws).toMatchObject({ enabled: false, regions: [] });
     expect(await h.service.removeGateways("eu-west-1")).toEqual({ ok: true, removed: 0 });
+  });
+
+  it("runs the leak test with the keys and answers header names only", async () => {
+    expect(await h.service.checkGatewayLeak()).toEqual({ ok: false, reason: "no_keys" });
+    expect(h.starts).toHaveLength(0);
+    await storeKeys();
+    h.job = () =>
+      done({
+        type: "result",
+        kind: "gateways.leak",
+        data: {
+          outcome: "leak",
+          headers: ["Forwarded"],
+          forwardingHeaders: ["Forwarded", "X-Amzn-Trace-Id"],
+          region: "us-east-1",
+          removed: false,
+        },
+      });
+    expect(await h.service.checkGatewayLeak()).toEqual({
+      ok: true,
+      outcome: "leak",
+      headers: ["Forwarded"],
+      removed: false,
+    });
+    expect(h.starts[0]?.job).toEqual({ kind: "gateways.leak" });
+    expect(h.starts[0]?.secrets.aws).toEqual({
+      accessKeyId: keyId,
+      secretAccessKey: "aws-secret-value",
+    });
+    expect(h.starts[0]?.secrets.gatewayUrls).toEqual([]);
+    // Nothing is kept: no gateway joins the list.
+    expect((await h.service.status()).aws.regions).toEqual([]);
+  });
+
+  it("says why the leak test failed: refused, no answer or a gateway left behind", async () => {
+    await storeKeys();
+    const failed = (code: EndErrorCode) => () => ({
+      ok: true as const,
+      replies: [],
+      exit: {
+        kind: "ended" as const,
+        end: {
+          type: "end" as const,
+          state: "failed" as const,
+          at: 0,
+          found: 0,
+          kept: 0,
+          error: { code, message: "The test gateway or httpbin.org didn't answer in time." },
+        },
+        result: null,
+      },
+    });
+    const cases = [
+      ["network", "network"],
+      ["aws", "aws"],
+      ["aws_left_behind", "left_behind"],
+      ["crash", "failed"],
+    ] as const;
+    for (const [code, reason] of cases) {
+      h.job = failed(code);
+      expect(await h.service.checkGatewayLeak()).toEqual({ ok: false, reason });
+    }
+    h.job = () => ({ ok: false, problem: "running" });
+    expect(await h.service.checkGatewayLeak()).toEqual({ ok: false, reason: "running" });
   });
 });

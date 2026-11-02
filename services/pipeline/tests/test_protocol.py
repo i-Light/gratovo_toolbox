@@ -253,6 +253,8 @@ GOOD_JOBS: list[dict[str, Any]] = [
     {"kind": "gateways.deploy", "regions": ["eu-west-1", "us-east-2", "ap-southeast-1"]},
     {"kind": "gateways.destroy", "gateways": [{"region": "eu-west-1", "apiId": "a1b2c3d4e5"}]},
     {"kind": "gateways.test"},
+    {"kind": "gateways.leak"},
+    {"kind": "gateways.leak", "region": "eu-west-1"},
     {
         "kind": "import.legacy",
         "source": "D:\\old\\gratovo_code\\data\\database\\gratovo.db",
@@ -361,6 +363,9 @@ BAD_JOBS: list[dict[str, Any]] = [
     {"kind": "gateways.destroy", "gateways": [{"region": "eu-west-1", "apiId": "A1/B2"}]},
     {"kind": "gateways.destroy", "gateways": [{"region": "eu-west-1"}]},
     {"kind": "gateways.test", "regions": ["eu-west-1"]},
+    {"kind": "gateways.leak", "region": "EU-WEST-1"},
+    {"kind": "gateways.leak", "region": "eu-west-1.evil.example"},
+    {"kind": "gateways.leak", "regions": ["eu-west-1"]},
     {"kind": "import.legacy", "source": "gratovo.db", "dryRun": True, "backupDir": None},
     {"kind": "import.legacy", "source": "", "dryRun": True, "backupDir": None},
     {"kind": "import.legacy", "source": "C:\\" + "x" * 1022, "dryRun": True, "backupDir": None},
@@ -750,6 +755,16 @@ RESULTS: list[tuple[protocol.ResultKind, dict[str, Any]]] = [
         },
     ),
     (
+        "gateways.leak",
+        {
+            "outcome": "leak",
+            "headers": ["Forwarded", "X-Forwarded-For"],
+            "forwardingHeaders": ["Forwarded", "X-Amzn-Trace-Id", "X-Forwarded-For"],
+            "region": "us-east-1",
+            "removed": True,
+        },
+    ),
+    (
         "import.legacy",
         {
             "source": "D:\\old\\gratovo_code\\data\\database\\gratovo.db",
@@ -958,6 +973,7 @@ JOB_MODULES: dict[str, str] = {
     "gateways.deploy": "gateways",
     "gateways.destroy": "gateways",
     "gateways.test": "gateways",
+    "gateways.leak": "gateways",
     "import.legacy": "import_legacy",
 }
 

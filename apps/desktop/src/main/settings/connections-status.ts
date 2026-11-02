@@ -84,6 +84,7 @@ export async function buildStatus(
       enabled: settings.proxies.enabled,
       includeDirect: settings.proxies.includeDirect,
     },
+    freeProxies: settings.freeProxies,
     pacing: settings.pacing,
     parallel: settings.parallel,
     aws: {

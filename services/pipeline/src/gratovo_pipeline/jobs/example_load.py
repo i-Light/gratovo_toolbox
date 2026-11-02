@@ -77,6 +77,20 @@ _RUN_COLUMNS: Final = (
     "videos_upserted",
     "kind",
 )
+_ROUTE_COLUMNS: Final = (
+    "kind",
+    "label",
+    "requests",
+    "successes",
+    "blocks",
+    "connection_failures",
+    "bytes",
+    "keywords_finished",
+    "channels_found",
+    "in_range_found",
+    "seconds_used",
+    "seconds_resting",
+)
 _PENDING_COLUMNS: Final = ("channel_id", "keyword", "handles_limit", "discovered_at")
 _ARCHIVE_COLUMNS: Final = (
     "channel_id",
@@ -228,7 +242,24 @@ def load(conn: sqlite3.Connection, history: dict[str, Any]) -> ExampleLoadData:
         )
         conn.executemany(_insert("keywords", _KEYWORD_COLUMNS), _rows(keywords, _KEYWORD_COLUMNS))
         conn.executemany(_insert("channel_keywords", _LINK_COLUMNS), _rows(links, _LINK_COLUMNS))
+        before = conn.execute("SELECT COALESCE(MAX(run_id), 0) FROM runs").fetchone()[0]
         conn.executemany(_insert("runs", _RUN_COLUMNS), _rows(runs, _RUN_COLUMNS))
+        # A history's `run_id` is the run's 1-based place in `runs`; map it to the id inserted.
+        run_ids = [
+            row[0]
+            for row in conn.execute(
+                "SELECT run_id FROM runs WHERE run_id > ? ORDER BY run_id", (before,)
+            )
+        ]
+        route_rows = [
+            (run_ids[int(r["run_id"]) - 1], *(r[c] for c in _ROUTE_COLUMNS))
+            for r in cast("list[dict[str, Any]]", history.get("runRoutes", []))
+            if 1 <= int(r["run_id"]) <= len(run_ids)
+        ]
+        conn.executemany(
+            _insert("run_routes", ("run_id", *_ROUTE_COLUMNS)),
+            route_rows,
+        )
         conn.executemany(_insert("channel_archive", _ARCHIVE_COLUMNS), archive_rows)
         conn.executemany(
             _insert("archive_keyword_pending", _PENDING_COLUMNS), _rows(pending, _PENDING_COLUMNS)

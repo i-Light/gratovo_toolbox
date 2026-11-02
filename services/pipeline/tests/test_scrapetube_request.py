@@ -41,10 +41,12 @@ class FakeSession:
     def __init__(self, answers: list[FakeResponse | Exception]) -> None:
         self.answers = answers
         self.calls: list[tuple[str, str]] = []
+        self.redirects: list[bool] = []
         self.proxies: dict[str, str] = {"http": "stale"}
 
-    def request(self, method: str, url: str, **_kwargs: Any) -> FakeResponse:
+    def request(self, method: str, url: str, **kwargs: Any) -> FakeResponse:
         self.calls.append((method, url))
+        self.redirects.append(kwargs.get("allow_redirects", True))
         answer = self.answers.pop(0)
         if isinstance(answer, Exception):
             raise answer
@@ -69,6 +71,9 @@ class FakePool:
         self.connection_failures = 0
         self.acquired = 0
         self.released = 0
+
+    def report_current_bytes(self, _size: int) -> None:
+        pass
 
     def acquire(self, **_kwargs: Any) -> FakeLease:
         self.acquired += 1
@@ -196,6 +201,142 @@ def test_a_gateway_candidate_rewrites_the_url(pool: FakePool) -> None:
     assert session.proxies == {}
 
 
+GW = "https://g.execute-api.eu-west-1.amazonaws.com/p"
+
+
+def hop(location: str) -> FakeResponse:
+    return FakeResponse(302, headers={"location": location})
+
+
+@pytest.mark.usefixtures("logged")
+def test_a_gateway_redirect_to_youtube_goes_back_through_the_gateway(pool: FakePool) -> None:
+    pool.candidate.base_url = GW
+    session = FakeSession([hop("https://www.YouTube.com/x"), FakeResponse(url=f"{GW}/x")])
+    response = scrapetube.request(session, "GET", "https://www.youtube.com/results")
+    assert [u for _, u in session.calls] == [f"{GW}/results", f"{GW}/x"]
+    assert session.redirects == [False, False]
+    assert response.url == "https://www.youtube.com/x"
+
+
+@pytest.mark.usefixtures("logged")
+def test_a_relative_gateway_redirect_works(pool: FakePool) -> None:
+    pool.candidate.base_url = GW
+    session = FakeSession([hop("/y?a=1"), FakeResponse()])
+    scrapetube.request(session, "GET", "https://www.youtube.com/results")
+    assert session.calls[1][1] == f"{GW}/y?a=1"
+
+
+@pytest.mark.usefixtures("logged")
+def test_a_gateway_redirect_off_youtube_is_refused_without_a_request(pool: FakePool) -> None:
+    pool.candidate.base_url = GW
+    session = FakeSession([hop("https://example.com/x")] * 3)
+    with pytest.raises(scrapetube.PageFailedError):
+        scrapetube.request(session, "GET", "https://www.youtube.com/results")
+    assert all(u.startswith(GW) for _, u in session.calls)
+    assert len(session.calls) == scrapetube.MAX_ATTEMPTS
+    assert pool.blocked == 0  # refused, not a block
+
+
+@pytest.mark.usefixtures("logged")
+@pytest.mark.parametrize(
+    "location",
+    [
+        "https://youtube.com/x?a=1",
+        "https://WWW.YOUTUBE.COM:443/x?a=1",
+        "https://www.youtube.com/x?a=1#frag",
+    ],
+)
+def test_a_gateway_redirect_is_rebuilt_on_youtube_and_routed(pool: FakePool, location: str) -> None:
+    pool.candidate.base_url = GW
+    session = FakeSession([hop(location), FakeResponse(url=f"{GW}/x?a=1")])
+    scrapetube.request(session, "GET", "https://www.youtube.com/results")
+    assert session.calls[1][1] == f"{GW}/x?a=1"
+
+
+@pytest.mark.usefixtures("logged")
+@pytest.mark.parametrize(
+    "location",
+    [
+        "http://www.youtube.com/x",  # not https: refused, not upgraded
+        "https://www.youtube.com:8443/x",
+        "https://user@www.youtube.com/x",
+        "https://www.youtube.com.evil.example/x",
+        "https://www.youtube.com:bad/x",
+    ],
+)
+def test_a_gateway_redirect_that_is_not_plain_youtube_is_refused(
+    pool: FakePool, location: str
+) -> None:
+    pool.candidate.base_url = GW
+    session = FakeSession([hop(location)] * 3)
+    with pytest.raises(scrapetube.PageFailedError):
+        scrapetube.request(session, "GET", "https://www.youtube.com/results")
+    assert [u for _, u in session.calls] == [f"{GW}/results"] * scrapetube.MAX_ATTEMPTS
+    assert pool.blocked == 0
+
+
+@pytest.mark.usefixtures("logged")
+@pytest.mark.parametrize(
+    "location",
+    [
+        "https://www.google.com/sorry/index?continue=x",
+        "https://www.youtube.com/sorry/index",
+        "https://consent.youtube.com/m?continue=x",
+    ],
+)
+def test_a_gateway_redirect_to_the_captcha_or_consent_is_a_block(
+    pool: FakePool, location: str
+) -> None:
+    pool.candidate.base_url = GW
+    session = FakeSession([hop(location)] * 3)
+    with pytest.raises(scrapetube.PageFailedError) as failed:
+        scrapetube.request(session, "GET", "https://www.youtube.com/results")
+    assert pool.blocked == scrapetube.MAX_ATTEMPTS
+    assert failed.value.all_blocked
+    assert len(session.calls) == scrapetube.MAX_ATTEMPTS
+
+
+@pytest.mark.usefixtures("logged")
+def test_a_gateway_request_off_youtube_is_never_sent(pool: FakePool) -> None:
+    pool.candidate.base_url = GW
+    session = FakeSession([])
+    with pytest.raises(scrapetube.PageFailedError):
+        scrapetube.request(session, "GET", "https://www.youtube.com.evil.example/x")
+    assert session.calls == []
+
+
+@pytest.mark.usefixtures("logged")
+@pytest.mark.parametrize(
+    "error",
+    [
+        curl_errors.ReadTimeout("slow"),
+        curl_errors.Timeout("slow"),
+        curl_errors.ConnectTimeout("slow"),
+    ],
+)
+def test_a_timeout_is_a_connection_failure(pool: FakePool, error: Exception) -> None:
+    session = FakeSession([error, FakeResponse()])
+    scrapetube.request(session, "GET", "https://www.youtube.com/results")
+    assert pool.connection_failures == 1
+    assert pool.blocked == 0
+
+
+@pytest.mark.usefixtures("logged")
+def test_six_gateway_hops_is_a_redirect_loop(pool: FakePool) -> None:
+    pool.candidate.base_url = GW
+    session = FakeSession([hop("/x")] * 12)
+    with pytest.raises(scrapetube.RedirectLoopError):
+        scrapetube.request(session, "GET", "https://www.youtube.com/results")
+    assert len(session.calls) == 12
+
+
+@pytest.mark.usefixtures("logged")
+def test_a_proxy_candidate_leaves_redirects_to_the_library(pool: FakePool) -> None:
+    session = FakeSession([FakeResponse()])
+    scrapetube.request(session, "GET", "https://www.youtube.com/results")
+    assert session.redirects == [True]
+
+
 def test_a_failed_attempt_logs_neither_the_gateway_nor_a_proxy_login(
     pool: FakePool, logged: list[str]
 ) -> None:
@@ -217,7 +358,7 @@ def test_a_failed_attempt_logs_neither_the_gateway_nor_a_proxy_login(
     for line in pushed_back:
         assert "execute-api" not in line
         assert "proxy-pass-123" not in line
-    assert "HTTP 403 from /p/results" in pushed_back[0]  # the stage path, not the host
+    assert "HTTP 403 from /results" in pushed_back[0]  # YouTube's path, not the gateway
     assert "This machine: ProxyError)" in pushed_back[1]
 
 

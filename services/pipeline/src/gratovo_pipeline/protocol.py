@@ -83,6 +83,9 @@ EndErrorCode = Literal[
     "not_found",
     "no_aws_keys",
     "aws",
+    # gateways.leak: a test gateway is still in the account (its delete failed); the owner must
+    # delete it by hand. It wins over the reason the test stopped.
+    "aws_left_behind",
     # import.legacy: the old file is missing or can't be read, isn't SQLite, has no `channels`
     # table, or lies inside this app's data folder, or has an unfinished `-wal` beside
     # it (the old app is open); or pipeline.db is newer than this pipeline.
@@ -110,6 +113,7 @@ ResultKind = Literal[
     "gateways.deploy",
     "gateways.destroy",
     "gateways.test",
+    "gateways.leak",
     "import.legacy",
     "archive.sweep",
     "archive.restore",
@@ -132,6 +136,7 @@ RESULT_KINDS: Final[tuple[ResultKind, ...]] = (
     "gateways.deploy",
     "gateways.destroy",
     "gateways.test",
+    "gateways.leak",
     "import.legacy",
     "archive.sweep",
     "archive.restore",
@@ -274,6 +279,14 @@ class GatewaysTestJob(TypedDict):
     kind: Literal["gateways.test"]
 
 
+class GatewaysLeakJob(TypedDict):
+    """Step S5, P0: does a gateway pass this computer's address on? One throwaway gateway in
+    `region` (us-east-1 when absent), one request through it, then it is deleted."""
+
+    kind: Literal["gateways.leak"]
+    region: NotRequired[str]
+
+
 class ImportLegacyJob(TypedDict):
     """Copy the old app's gratovo.db (opened read-only) into pipeline.db (plan D3 to D5)."""
 
@@ -325,6 +338,7 @@ type Job = (
     | GatewaysDeployJob
     | GatewaysDestroyJob
     | GatewaysTestJob
+    | GatewaysLeakJob
     | ImportLegacyJob
     | ArchiveSweepJob
     | ArchiveRestoreJob
@@ -345,6 +359,10 @@ class Proxies(TypedDict):
     includeDirect: bool
 
 
+class FreeProxies(TypedDict):
+    enabled: bool
+
+
 class MailboxSettings(TypedDict):
     address: str
     dailyCap: int
@@ -361,6 +379,7 @@ class Settings(TypedDict):
     pacing: NotRequired[Literal["normal", "fast"]]
     parallel: NotRequired[Parallel]
     proxies: NotRequired[Proxies]
+    freeProxies: NotRequired[FreeProxies]
     mail: NotRequired[MailSettings]
 
 
@@ -563,6 +582,20 @@ class GatewayTest(TypedDict):
 
 class GatewaysTestData(TypedDict):
     results: list[GatewayTest]
+
+
+# leak: the address showed; clean: it didn't, and the echo proved itself; unclear: can't tell.
+LeakOutcome = Literal["leak", "clean", "unclear"]
+
+
+class GatewaysLeakData(TypedDict):
+    outcome: LeakOutcome
+    headers: list[str]  # names of the headers that carried this computer's address; never a value
+    # names of the forwarding headers that arrived (Forwarded, X-Forwarded-For, X-Real-Ip, Via,
+    # X-Amzn-*), whatever they held; never a value
+    forwardingHeaders: list[str]
+    region: str
+    removed: bool  # the test gateway was deleted
 
 
 class ImportTable(TypedDict):
@@ -1007,6 +1040,12 @@ def _job(job: object) -> Job:
         raw = _object(value, "job", {"kind", "gateways"})
         gateways = _list(raw["gateways"], "job.gateways", 50, low=1)
         return {"kind": "gateways.destroy", "gateways": [_gateway_ref(g) for g in gateways]}
+    if kind == "gateways.leak":
+        raw = _object(value, "job", {"kind"}, frozenset({"region"}))
+        leak: GatewaysLeakJob = {"kind": "gateways.leak"}
+        if "region" in raw:
+            leak["region"] = _matching(raw["region"], "job.region", _REGION, "an AWS region")
+        return leak
     if kind == "import.legacy":
         return _import_legacy_job(_object(value, "job", {"kind", "source", "dryRun", "backupDir"}))
     if kind == "archive.sweep":
@@ -1060,7 +1099,12 @@ def _mail_settings(value: object) -> MailSettings:
 
 
 def _settings(value: object) -> Settings:
-    raw = _object(value, "settings", set(), frozenset({"pacing", "parallel", "proxies", "mail"}))
+    raw = _object(
+        value,
+        "settings",
+        set(),
+        frozenset({"pacing", "parallel", "proxies", "freeProxies", "mail"}),
+    )
     settings: Settings = {}
     if "pacing" in raw:
         settings["pacing"] = _choice(raw["pacing"], "settings.pacing", ("normal", "fast"))
@@ -1075,6 +1119,11 @@ def _settings(value: object) -> Settings:
         settings["proxies"] = {
             "enabled": _boolean(proxies["enabled"], "settings.proxies.enabled"),
             "includeDirect": _boolean(proxies["includeDirect"], "settings.proxies.includeDirect"),
+        }
+    if "freeProxies" in raw:
+        free = _object(raw["freeProxies"], "settings.freeProxies", {"enabled"})
+        settings["freeProxies"] = {
+            "enabled": _boolean(free["enabled"], "settings.freeProxies.enabled")
         }
     if "mail" in raw:
         settings["mail"] = _mail_settings(raw["mail"])
@@ -1456,6 +1505,8 @@ class Emitter:
     def result(self, kind: Literal["gateways.destroy"], data: GatewaysDestroyData) -> None: ...
     @overload
     def result(self, kind: Literal["gateways.test"], data: GatewaysTestData) -> None: ...
+    @overload
+    def result(self, kind: Literal["gateways.leak"], data: GatewaysLeakData) -> None: ...
     @overload
     def result(self, kind: Literal["import.legacy"], data: ImportReport) -> None: ...
     @overload

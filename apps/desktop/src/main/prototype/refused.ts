@@ -47,6 +47,7 @@ export const refusedWhileOn: ReadonlySet<Channel> = new Set<Channel>([
   "mail:check",
   "gateways:deploy",
   "gateways:remove",
+  "gateways:leak",
   // The old app's data: an open-file dialog, then writes to the live `pipeline.db`.
   "import:candidates",
   "import:pick",

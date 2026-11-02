@@ -44,6 +44,7 @@ const parallel = z.strictObject({
   maxWorkers: z.number().int().min(1).max(16),
 });
 const proxySwitches = z.strictObject({ enabled: z.boolean(), includeDirect: z.boolean() });
+const freeProxySwitch = z.strictObject({ enabled: z.boolean() });
 
 /** A proxy as the owner pastes it: one token, no spaces. As `pipeline.proxies` keeps them. */
 const proxyUrl = z.string().min(1).max(2000).regex(/^\S+$/);
@@ -76,6 +77,8 @@ export const connectionsStatusSchema = z.strictObject({
     enabled: z.boolean(),
     includeDirect: z.boolean(),
   }),
+  /** "Find free proxies" (step S5, P3): off unless the owner turns it on. */
+  freeProxies: freeProxySwitch,
   pacing,
   parallel,
   aws: z.strictObject({
@@ -126,6 +129,8 @@ export const connectionsChangeSchema = z.discriminatedUnion("kind", [
     pacing,
     parallel,
     proxies: proxySwitches,
+    /** Left out, the stored choice stays. */
+    freeProxies: freeProxySwitch.optional(),
   }),
   /** The AWS keys the gateway jobs sign with, as `aws.keys` keeps them. Secret. */
   z.strictObject({
@@ -236,3 +241,31 @@ export const gatewaysRemoveResultSchema = z.discriminatedUnion("ok", [
   z.strictObject({ ok: z.literal(false), reason: gatewayProblems }),
 ]);
 export type GatewaysRemoveResult = z.output<typeof gatewaysRemoveResultSchema>;
+
+/**
+ * The leak test (step S5, P0): one throwaway gateway relays one request, then is deleted. The
+ * answer names the headers that carried this computer's address; never the address. `removed`
+ * false means the test gateway is still in the account and must be deleted by hand.
+ */
+export const gatewaysLeakResultSchema = z.discriminatedUnion("ok", [
+  z.strictObject({
+    ok: z.literal(true),
+    /** leak: the address showed; clean: it didn't and the test proved itself; unclear: can't tell. */
+    outcome: z.enum(["leak", "clean", "unclear"]),
+    headers: z.array(z.string().regex(/^[!#$%&'*+\-.^_`|~0-9A-Za-z]{1,64}$/)).max(20),
+    removed: z.boolean(),
+  }),
+  z.strictObject({
+    ok: z.literal(false),
+    reason: z.enum([
+      ...gatewayProblems.options,
+      /** AWS refused a step (the keys, or their permissions). */
+      "aws",
+      /** The address, the test gateway or httpbin.org didn't answer. */
+      "network",
+      /** The test gateway is still in the account: its delete failed. */
+      "left_behind",
+    ]),
+  }),
+]);
+export type GatewaysLeakResult = z.output<typeof gatewaysLeakResultSchema>;
