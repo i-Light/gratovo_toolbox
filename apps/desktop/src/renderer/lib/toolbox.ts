@@ -47,6 +47,32 @@ export function useToolboxCounts(): Counts | null {
   return counts;
 }
 
+/**
+ * The archive's size in bytes, for the Archive view only: read on mount and again only when the
+ * archived count changes (main keeps the answer until the archive does). Null until it answers.
+ */
+export function useArchiveBytes(archived: number | null): number | null {
+  const [bytes, setBytes] = useState<number | null>(null);
+  useEffect(() => {
+    if (archived === null) {
+      return undefined;
+    }
+    let stopped = false;
+    window.gratovo.invoke("toolbox:archive-size", {}).then(
+      (result) => {
+        if (!stopped && result.ok) {
+          setBytes(result.value.bytes);
+        }
+      },
+      () => undefined,
+    );
+    return () => {
+      stopped = true;
+    };
+  }, [archived]);
+  return bytes;
+}
+
 /** One answer page: the items and the total behind them. */
 interface Page<T> {
   readonly total: number;

@@ -162,9 +162,15 @@ describe("Toolbox › Archived for good", () => {
       tomb(2, { label: "inactive", subscribers: null }),
       ...Array.from({ length: 58 }, (_, i) => tomb(i + 3)),
     ];
-    const bridge = stubToolboxBridge({ archived: rows });
+    const bridge = stubToolboxBridge({
+      archived: rows,
+
+      archiveBytes: 74_300_000,
+    });
     await show();
     const section = within(screen.getByRole("region", { name: t.forGoodTitle }));
+    expect(await section.findByText("60 channels · 74 MB")).toBeTruthy();
+    expect(bridge.calls.filter(([c]) => c === "toolbox:archive-size")).toHaveLength(1);
     expect(section.getAllByRole("button", { name: /^Bring back/ })).toHaveLength(50);
     expect(section.getByText("Agent Lab")).toBeTruthy();
     expect(section.getByText(/@aitools1 · Rejected/)).toBeTruthy();

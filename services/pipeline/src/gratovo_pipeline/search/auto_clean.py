@@ -116,7 +116,8 @@ def sweep_by_signals(
                 "SELECT last_fetch_status FROM videos WHERE channel_id=?", (channel_id,)
             )
         ]
-        if statuses and "success" not in statuses:
+        # Videos brought back from the archive are data too (A3), not a failed fetch.
+        if statuses and not {"success", store.ARCHIVED_STATUS} & set(statuses):
             continue
         language = row.get("main_language")
         by_language = language_verdict(bounds, language)

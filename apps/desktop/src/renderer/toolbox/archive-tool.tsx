@@ -5,8 +5,8 @@ import { useEffect, useMemo, useState } from "react";
 import { peek } from "../lib/actions";
 import { bringBack } from "../lib/find-actions";
 import { useFind } from "../lib/find";
-import { ago, shortDate } from "../lib/format";
-import { restoreForGood, useArchived, useToolboxList } from "../lib/toolbox";
+import { ago, bytes, shortDate } from "../lib/format";
+import { restoreForGood, useArchiveBytes, useArchived, useToolboxList } from "../lib/toolbox";
 import { strings } from "../strings";
 import { ThumbAvatar } from "../find/thumb";
 
@@ -176,6 +176,12 @@ function ArchivedRow({
 function ArchivedForGood() {
   const [q, setQ] = useState("");
   const archived = useArchived(q);
+  // The unfiltered total, kept while a search narrows the list: the line below and its size ask.
+  const [everyone, setEveryone] = useState<number | null>(null);
+  if (archived.asked === "" && archived.status === "ready" && everyone !== archived.total) {
+    setEveryone(archived.total);
+  }
+  const archiveBytes = useArchiveBytes(everyone);
   const [working, setWorking] = useState<ReadonlySet<string>>(new Set());
   const restore = (row: ArchivedChannel): void => {
     setWorking((cur) => new Set(cur).add(row.id));
@@ -198,6 +204,11 @@ function ArchivedForGood() {
       aria-labelledby="tb-gone-h"
     >
       <h3 id="tb-gone-h">{text.forGoodTitle}</h3>
+      {everyone !== null && everyone > 0 && archiveBytes !== null ? (
+        <p className="small ink2 num" data-ui="toolbox.archive.size">
+          {text.forGoodSize(everyone.toLocaleString("en-US"), bytes(archiveBytes))}
+        </p>
+      ) : null}
       <p className="hint">{text.forGoodHint}</p>
       <label className="tb-search">
         <Icon name="search" />

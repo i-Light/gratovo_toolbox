@@ -93,6 +93,7 @@ def test_dry_run_reports_and_writes_nothing(run: Run) -> None:
         "channel_keywords": (2, 2, 0),
         "videos": (3, 3, 0),
         "channel_archive": (1, 1, 0),
+        "archived_videos": (0, 0, 0),  # an old app's file has none
         "runs": (1, 1, 0),
         "video_transcripts": (1, 1, 0),
     }
@@ -180,6 +181,47 @@ def test_an_old_tombstone_merges_into_one_already_here(run: Run) -> None:
     assert row["found_at"] == "2026-01-15T00:00:00Z", "the earliest find"
     assert row["label"] == "inactive", "this app's decision stays"
     assert row["announced"] == 1, "an import announces nothing"
+    conn.close()
+
+
+def test_archived_videos_arrive_and_merge_into_those_already_here(run: Run) -> None:
+    # A file from this app (version 8) holds archived videos; one is archived here too, with a
+    # blank the old file knows and a value both know.
+    run.data_dir.mkdir(parents=True)
+    conn = store.get_connection(run.data_dir / "pipeline.db")
+    store.init_db(conn)
+    conn.execute(
+        "INSERT INTO archived_videos (video_id, channel_id, title, view_count, like_count) "
+        "VALUES ('vid_both', 'UCai0042', 'Claude Code agents, tested', '9000', NULL)"
+    )
+    conn.commit()
+    conn.close()
+    old = sqlite3.connect(run.source)
+    old.executescript(store.ARCHIVED_VIDEOS)
+    old.executemany(
+        "INSERT INTO archived_videos (video_id, channel_id, title, view_count, like_count) "
+        "VALUES (?, 'UCai0042', ?, ?, ?)",
+        [
+            ("vid_both", "Old title", "7000", "310"),
+            ("vid_old", "Gemini 3 vs GPT-5", "12000", "540"),
+        ],
+    )
+    old.commit()
+    old.close()
+
+    run.go()
+
+    assert run.end()["state"] == "done"
+    assert run.counts()["archived_videos"] == (2, 1, 1), "one new, one merged"
+    conn = run.dest()
+    rows = {
+        r[0]: r[1:]
+        for r in conn.execute("SELECT video_id, title, view_count, like_count FROM archived_videos")
+    }
+    assert rows == {
+        "vid_both": ("Claude Code agents, tested", "9000", "310"),  # kept here, blank filled
+        "vid_old": ("Gemini 3 vs GPT-5", "12000", "540"),
+    }
     conn.close()
 
 
@@ -370,7 +412,7 @@ def test_progress_lines(run: Run) -> None:
     run.go()
     progress = [m for m in run.messages() if m["type"] == "progress"]
     assert [(p["table"], p["done"], p["total"]) for p in progress] == [
-        (t, i, 7) for i, t in enumerate(import_legacy.COPIED, start=1)
+        (t, i, 8) for i, t in enumerate(import_legacy.COPIED, start=1)
     ]
 
 

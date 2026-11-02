@@ -198,6 +198,17 @@ describe("toolbox:restore", () => {
   });
 });
 
+describe("toolbox:archive-size", () => {
+  it("answers a whole number of bytes and nothing else", () => {
+    const parse = (value: unknown) =>
+      channels["toolbox:archive-size"].response.safeParse(value).success;
+    expect(parseRequest("toolbox:archive-size", {}).ok).toBe(true);
+    expect(parse({ bytes: 74_000_000 })).toBe(true);
+    expect(parse({ bytes: -1 })).toBe(false);
+    expect(parse({ bytes: 1, extra: 1 })).toBe(false);
+  });
+});
+
 describe("toolbox:sweep and toolbox:counts", () => {
   it("toolbox:sweep takes and answers nothing", () => {
     expect(parseRequest("toolbox:sweep", {}).ok).toBe(true);

@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 
 import type { CreatorStage } from "@gratovo/core/data";
@@ -125,6 +125,119 @@ export function countArchived(dbPath: string | null): number {
   } catch {
     return 0;
   }
+}
+
+/** The tables whose size counts toward the archive's (A7); a missing one counts 0. */
+const archiveTables = ["channel_archive", "archived_videos"] as const;
+
+/** The archive's tables and their indexes, for `dbstat`. */
+const archiveObjects = `SELECT name FROM sqlite_master WHERE tbl_name IN ('channel_archive', 'archived_videos')`;
+
+/**
+ * The archive's size in bytes (A7). First the pages its tables and indexes take (`dbstat`, fast);
+ * when this SQLite build has no `dbstat`, an estimate: `SUM(LENGTH(col))` over every column of
+ * `channel_archive` and, when the pipeline has it (schema v8), `archived_videos`. 0 for a missing
+ * file or table. `useDbstat: false` forces the estimate.
+ */
+export function archiveBytes(dbPath: string | null, useDbstat = true): number {
+  try {
+    const db = openRead(dbPath);
+    if (db === null) {
+      return 0;
+    }
+    try {
+      if (useDbstat) {
+        try {
+          const row = db
+            .prepare(
+              `SELECT COALESCE(SUM(pgsize), 0) AS n FROM dbstat WHERE name IN (${archiveObjects})`,
+            )
+            .get() as { n: number };
+          return row.n;
+        } catch {
+          // No dbstat in this build: the estimate below.
+        }
+      }
+      let total = 0;
+      for (const table of archiveTables) {
+        const names = (
+          db.prepare(`PRAGMA table_info("${table}")`).all() as unknown as { name: string }[]
+        ).map((c) => c.name);
+        if (names.length === 0) {
+          continue;
+        }
+        const sums = names.map((n) => `COALESCE(SUM(LENGTH("${n.replaceAll('"', '""')}")), 0)`);
+        const row = db.prepare(`SELECT ${sums.join(" + ")} AS n FROM "${table}"`).get() as {
+          n: number;
+        };
+        total += row.n;
+      }
+      return total;
+    } finally {
+      db.close();
+    }
+  } catch {
+    return 0;
+  }
+}
+
+/** What changes when the archive does: its row counts and the file's (and its journal's) times. */
+function archiveKey(dbPath: string | null): string | null {
+  const db = openRead(dbPath);
+  if (db === null || dbPath === null) {
+    return null;
+  }
+  try {
+    const one = (sql: string): number => {
+      try {
+        return (db.prepare(sql).get() as { n: number | null }).n ?? 0;
+      } catch {
+        return 0;
+      }
+    };
+    const mtime = (file: string): number => {
+      try {
+        return statSync(file).mtimeMs;
+      } catch {
+        return 0;
+      }
+    };
+    return [
+      one("SELECT COUNT(*) AS n FROM channel_archive"),
+      one("SELECT MAX(rowid) AS n FROM archived_videos"),
+      mtime(dbPath),
+      mtime(`${dbPath}-wal`),
+    ].join(":");
+  } finally {
+    db.close();
+  }
+}
+
+/**
+ * `archiveBytes` with the answer kept until the archive changes (the key of `archiveKey`), so the
+ * Archive view's repeat asks cost a few small reads, not a pass over the tables.
+ */
+export function createArchiveSize(
+  measure: (dbPath: string | null) => number = (p) => archiveBytes(p),
+): (dbPath: string | null) => number {
+  let last: { path: string | null; key: string; bytes: number } | null = null;
+  return (dbPath) => {
+    let key: string | null;
+    try {
+      key = archiveKey(dbPath);
+    } catch {
+      key = null;
+    }
+    if (key === null) {
+      return measure(dbPath);
+    }
+    if (last !== null && last.path === dbPath && last.key === key) {
+      return last.bytes;
+    }
+    const bytes = measure(dbPath);
+    last = { path: dbPath, key, bytes };
+    return bytes;
+  };
 }
 
 interface ArchiveRow {

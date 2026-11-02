@@ -111,6 +111,7 @@ import { syncStatusSchema } from "./sync";
 import {
   toolboxArchivedRequestSchema,
   toolboxArchivedResultSchema,
+  toolboxArchiveSizeSchema,
   toolboxCountsSchema,
   toolboxListRequestSchema,
   toolboxListResultSchema,
@@ -301,6 +302,11 @@ export const channels = {
   "toolbox:counts": {
     request: z.strictObject({}),
     response: toolboxCountsSchema,
+  },
+  /** The archive's size in bytes, kept until the archive changes (A7). */
+  "toolbox:archive-size": {
+    request: z.strictObject({}),
+    response: toolboxArchiveSizeSchema,
   },
   /** One Insights tab for a period (plan step P8a, A3): the report, worked out on this computer. */
   "insights:read": {

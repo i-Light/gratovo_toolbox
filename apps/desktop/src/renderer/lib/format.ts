@@ -54,6 +54,15 @@ export function money(n: number): string {
   return n < 0 && rounded > 0 ? `\u2212${text}` : text;
 }
 
+/** A size in bytes: "512 KB" under 1 MB, "9.6 MB" under 10 MB, "74 MB" above. */
+export function bytes(n: number): string {
+  const mb = n / 1_000_000;
+  if (mb < 1) {
+    return `${String(Math.round(n / 1000))} KB`;
+  }
+  return `${mb < 10 ? mb.toFixed(1) : String(Math.round(mb))} MB`;
+}
+
 /** A time of day as "09:02" (24 hours, local time). */
 export function clock(ts: number): string {
   const date = new Date(ts);

@@ -196,6 +196,7 @@ export {
   restoreMax,
   toolboxArchivedRequestSchema,
   toolboxArchivedResultSchema,
+  toolboxArchiveSizeSchema,
   toolboxCountsSchema,
   toolboxItemSchema,
   toolboxListRequestSchema,

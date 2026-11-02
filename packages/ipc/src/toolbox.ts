@@ -110,3 +110,6 @@ export const toolboxCountsSchema = z.strictObject({
   archived: count,
   logToday: count,
 });
+
+/** `toolbox:archive-size`: the archive's size in bytes (A7); only the Archive view asks. */
+export const toolboxArchiveSizeSchema = z.strictObject({ bytes: count });
