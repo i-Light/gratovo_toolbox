@@ -18,7 +18,8 @@ export const prototypeRefused = "Not available in prototype mode.";
  * - `find:*` (state, add, remove, start-at, start, stop, query, item, runs), `rules:set`: the queue
  *   and rules are files in `prototype-pipeline`; a search runs the Python example source
  *   (`source: "example"`), which reads `channels.json` and never touches the network, and the
- *   YouTube key is looked up for live only. `find:ideas` answers its stand-in on example data.
+ *   YouTube key is looked up for live only. `find:ideas` and `find:suggest-terms` answer a stand-in
+ *   on example data and never call Gemini.
  * - `insights:read`, `insights:list`, `insights:hide`, `insights:goal`: local reads of the open source
  *   and `pipeline.db` (read-only), and two local settings (`insights.hidden`, `insights.goal`); no
  *   secret, no network, no mail. None is refused.

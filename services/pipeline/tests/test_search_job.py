@@ -626,3 +626,47 @@ def test_the_free_proxy_provider_is_closed_before_end_on_every_way_out(
     lines = run.out.getvalue().splitlines()
     assert provider.closed_after == len(lines) - 1  # closed, then only the `end` line
     assert run.end()["state"] == {"done": "done", "stopped": "stopped"}.get(ending, "failed")
+
+
+class _WaitLog:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, str]] = []
+
+    def wait(self, reason: str, until: str) -> None:
+        self.calls.append(("wait", reason))
+        assert until.endswith("Z")
+
+    def resume(self, reason: str) -> None:
+        self.calls.append(("resume", reason))
+
+
+def test_scripted_waits_are_read_only_from_a_valid_test_variable() -> None:
+    assert example.test_waits({}) == {}
+    assert example.test_waits({example.WAITS_ENV: "not json"}) == {}
+    assert example.test_waits({example.WAITS_ENV: '{"a": ["bogus", 1]}'}) == {}
+    assert example.test_waits({example.WAITS_ENV: '{" A ": ["quota", 2]}'}) == {"a": ("quota", 2.0)}
+
+
+def test_a_scripted_keyword_rests_once_told_then_goes_on() -> None:
+    log = _WaitLog()
+    source = example.ExampleSource({"ai agents": ("routes", 0.0)}, log)
+    source.find_channels("AI agents", limit=10)
+    source.find_channels("ai agents", limit=10)
+    assert log.calls == [("wait", "routes"), ("resume", "routes")]
+    quiet = _WaitLog()
+    example.ExampleSource().find_channels("ai agents", limit=10)
+    assert quiet.calls == []
+
+
+def test_a_scripted_rest_is_spent_across_processes(tmp_path: Path) -> None:
+    spent = tmp_path / "spent.txt"
+    log = _WaitLog()
+    example.ExampleSource({"ai agents": ("quota", 0.0)}, log, spent).find_channels(
+        "ai agents", limit=5
+    )
+    again = _WaitLog()
+    example.ExampleSource({"ai agents": ("quota", 0.0)}, again, spent).find_channels(
+        "ai agents", limit=5
+    )
+    assert log.calls == [("wait", "quota"), ("resume", "quota")]
+    assert again.calls == []

@@ -215,11 +215,11 @@ function buildHandlers(context: HandlerContext): Handlers {
     },
     "find:state": () => find.state(),
     "find:add": ({ keywords }) => find.add(keywords),
-    "find:remove": ({ index }) => find.remove(index),
-    "find:retry": ({ index }) => find.retry(index),
+    "find:remove": ({ index, keyword }) => find.remove(index, keyword),
+    "find:retry": ({ index, keyword }) => find.retry(index, keyword),
     "find:count-weak": () => find.weakCount(),
     "find:requeue-weak": () => find.requeueWeak(),
-    "find:start-at": ({ index }) => find.startAt(index),
+    "find:start-at": ({ index, keyword }) => find.startAt(index, keyword),
     "find:start": () => find.start(),
     "find:stop": () => {
       find.stop();
@@ -231,6 +231,11 @@ function buildHandlers(context: HandlerContext): Handlers {
     "find:views": () => ({ views: readViews(openSource()) }),
     "find:views-set": ({ views }) => writeViews(openSource(), views),
     "find:ideas": ({ count }) => ideas.suggest(count),
+    "find:suggest-terms": ({ kind }) => ideas.suggestTerms(kind),
+    "find:keywords": (request) => find.keywords(request),
+    "find:lists": () => find.lists(),
+    "find:lists-set": (lists) => find.setLists(lists),
+    "find:generate": (request) => find.generate(request),
     "log:for": async ({ ref, limit }) => ({ lines: [...(await openSource().logFor(ref, limit))] }),
     "log:page": async (request) => {
       const page = await openSource().logPage(request);

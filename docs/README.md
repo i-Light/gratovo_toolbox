@@ -9,7 +9,7 @@
 | [setup.md](setup.md) | What the owner does by hand: the app's Supabase settings, adding members, roles, the team keys, and how changes reach the live project. |
 | [proxies-setup.md](proxies-setup.md) | Free proxies and AWS gateways for the search: getting them, putting them in the app, refreshing them, and what they can see. |
 | [lead-scripts.md](lead-scripts.md) | Helper scripts for comparing the app with the prototype in screenshots. |
-| [decisions/](decisions/) | Why the big choices were made (one short record each). |
+| [decisions/](decisions/) | Why the big choices were made (one short record each). The latest, [0023](decisions/0023-scraping-upgrade.md), is the scraping upgrade (step S): what was built, the archive keep list, the pending gateway leak test and S7, not built. |
 | [product/](product/README.md) | What the app is for: the product record, the owner's rules, the framework tasks, the parity checklist and the decisions map. |
 
 The old app's documents are in `legacy/` and stay there until the last step: [legacy/PROJECT_STRUCTURE.md](../legacy/PROJECT_STRUCTURE.md), `legacy/docs/plans/` and `legacy/pipeline/README.md`.

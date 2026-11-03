@@ -16,7 +16,12 @@ import type {
 } from "../pipeline/supervisor";
 
 import { failureLimit } from "@gratovo/ipc";
+import { readPipelineFacts } from "../insights/pipeline-facts";
 import { createFindService, type FindMode, type FindService } from "./find-service";
+
+// The real reads, counted: the scorer must not read pipeline.db's facts on each emit.
+vi.mock("../insights/pipeline-facts", { spy: true });
+const factsReads = vi.mocked(readPipelineFacts);
 
 const exampleKey = "example-key-not-real";
 const proxy = "http://user:example-pass@proxy.example.com:8080";
@@ -113,6 +118,8 @@ describe("the find service", () => {
   let clock: number;
   let emitted: FindState[];
   let service: FindService;
+  const queueRows = (): FindState["queue"]["current"] =>
+    service.keywords({ offset: 0, limit: 100, filter: "all" }).rows;
   let settings: (() => Start["settings"]) | undefined;
 
   function make(throttleMs?: number): FindService {
@@ -160,7 +167,7 @@ describe("the find service", () => {
   describe("the queue", () => {
     it("starts empty and ready, with the default rules", () => {
       const state = service.state();
-      expect(state.queue).toEqual([]);
+      expect(state.queue.total).toBe(0);
       expect(state.at).toBe(0);
       expect(state.run).toEqual({
         state: "ready",
@@ -176,25 +183,27 @@ describe("the find service", () => {
     it("adds trimmed keywords and skips blanks and repeats, in any case", () => {
       const result = service.add(["  AI Agents ", "ai agents", "", "   ", "Local LLM"]);
       expect(result).toEqual({ added: 2, skipped: 3 });
-      expect(service.state().queue.map((q) => q.keyword)).toEqual(["AI Agents", "Local LLM"]);
+      expect(queueRows().map((q) => q.keyword)).toEqual(["AI Agents", "Local LLM"]);
       expect(service.add(["LOCAL llm", "ai news"])).toEqual({ added: 1, skipped: 1 });
     });
 
-    it("stops adding at 500 entries", () => {
-      const many = Array.from({ length: 498 }, (_, i) => `ai topic ${String(i)}`);
+    it("stops adding at 10,000 entries", () => {
+      const many = Array.from({ length: 9998 }, (_, i) => `ai topic ${String(i)}`);
       service.add(many);
       expect(service.add(["one more", "two more", "three more"])).toEqual({
         added: 2,
         skipped: 1,
       });
-      expect(service.state().queue).toHaveLength(500);
+      expect(service.state().queue.total).toBe(10_000);
     });
 
     it("keeps the queue between service instances (the file)", () => {
       service.add(["ai agents", "ai news"]);
       service.startAt(1);
       const again = make();
-      expect(again.state().queue.map((q) => q.keyword)).toEqual(["ai agents", "ai news"]);
+      expect(
+        again.keywords({ offset: 0, limit: 100, filter: "all" }).rows.map((q) => q.keyword),
+      ).toEqual(["ai agents", "ai news"]);
       expect(again.state().at).toBe(1);
     });
 
@@ -202,7 +211,7 @@ describe("the find service", () => {
       service.add(["a one", "b two", "c three"]);
       service.startAt(2);
       expect(service.remove(0)).toEqual({ ok: true });
-      expect(service.state().queue.map((q) => q.keyword)).toEqual(["b two", "c three"]);
+      expect(queueRows().map((q) => q.keyword)).toEqual(["b two", "c three"]);
       expect(service.state().at).toBe(1);
       expect(service.remove(1)).toEqual({ ok: true });
       expect(service.state().at).toBe(1);
@@ -212,7 +221,7 @@ describe("the find service", () => {
       service.add(["a one"]);
       emitted = [];
       expect(service.remove(40)).toEqual({ ok: true });
-      expect(service.state().queue).toHaveLength(1);
+      expect(service.state().queue.total).toBe(1);
       expect(emitted).toHaveLength(0);
     });
 
@@ -227,7 +236,7 @@ describe("the find service", () => {
       expect(service.remove(0)).toEqual({ ok: false, problem: "running" });
       expect(service.startAt(0)).toEqual({ ok: false, problem: "running" });
       expect(service.add(["ai video tools"])).toEqual({ added: 1, skipped: 0 });
-      expect(service.state().queue).toHaveLength(4);
+      expect(service.state().queue.total).toBe(4);
       // The running job kept its own list.
       expect((supervisor.starts[0]?.job as SearchJob | undefined)?.keywords).toHaveLength(3);
     });
@@ -251,10 +260,10 @@ describe("the find service", () => {
     it("keeps example and live data apart, and follows a change of mode", () => {
       service.add(["example only"]);
       mode = "live";
-      expect(service.state().queue).toEqual([]);
+      expect(service.state().queue.total).toBe(0);
       service.add(["live only"]);
       mode = "example";
-      expect(service.state().queue.map((q) => q.keyword)).toEqual(["example only"]);
+      expect(queueRows().map((q) => q.keyword)).toEqual(["example only"]);
       expect(readFileSync(join(userData, "pipeline", "find.json"), "utf8")).toContain("live only");
     });
   });
@@ -418,10 +427,10 @@ describe("the find service", () => {
 
     it("marks a keyword running, then done with its counts, moving at on and saving", () => {
       supervisor.send(keyword(0, "started"));
-      expect(service.state().queue[0]?.state).toBe("running");
+      expect(queueRows()[0]?.state).toBe("running");
       supervisor.send(keyword(0, "done", { found: 12, kept: 4 }));
       const state = service.state();
-      expect(state.queue[0]).toEqual({
+      expect(queueRows()[0]).toMatchObject({
         keyword: "ai agents",
         state: "done",
         found: 12,
@@ -437,23 +446,23 @@ describe("the find service", () => {
 
     it("counts a keyword's incomplete searches: queued again twice, failed at the third", () => {
       supervisor.send(keyword(1, "incomplete"));
-      expect(service.state().queue[1]).toMatchObject({ state: "queued", failures: 1 });
+      expect(queueRows()[1]).toMatchObject({ state: "queued", failures: 1 });
       supervisor.send(keyword(1, "incomplete"));
-      expect(service.state().queue[1]).toMatchObject({ state: "queued", failures: 2 });
+      expect(queueRows()[1]).toMatchObject({ state: "queued", failures: 2 });
       supervisor.send(keyword(1, "incomplete"));
-      expect(service.state().queue[1]).toMatchObject({ state: "failed", failures: failureLimit });
+      expect(queueRows()[1]).toMatchObject({ state: "failed", failures: failureLimit });
     });
 
     it("queues a keyword again on a run-ending error without counting a failure", () => {
       supervisor.send(keyword(1, "started"));
       supervisor.send(keyword(1, "failed"));
-      expect(service.state().queue[1]).toMatchObject({ state: "queued", failures: 0 });
+      expect(queueRows()[1]).toMatchObject({ state: "queued", failures: 0 });
     });
 
     it("resets the failures when the keyword is done", () => {
       supervisor.send(keyword(1, "incomplete"));
       supervisor.send(keyword(1, "done", { found: 1, kept: 1 }));
-      expect(service.state().queue[1]).toMatchObject({ state: "done", failures: 0 });
+      expect(queueRows()[1]).toMatchObject({ state: "done", failures: 0 });
     });
 
     it("counts kept and swept channels and prepends the kept ones, capped at 100", () => {
@@ -511,7 +520,7 @@ describe("the find service", () => {
     it("puts running entries back to queued and points at the first one not done", () => {
       supervisor.finish({ kind: "ended", result: null, end: endLine({ state: "done", at: 3 }) });
       const state = service.state();
-      expect(state.queue[0]?.state).toBe("queued");
+      expect(queueRows()[0]?.state).toBe("queued");
       expect(state.at).toBe(0);
     });
 
@@ -911,7 +920,7 @@ describe("the find service", () => {
       expect(service.folder()).toBe(join(userData, "pipeline"));
       mode = "example";
       expect(service.state().run.state).toBe("running");
-      expect(service.state().queue[0]?.state).toBe("running");
+      expect(queueRows()[0]?.state).toBe("running");
     });
   });
 
@@ -927,12 +936,7 @@ describe("the find service", () => {
         keywords: ["b two", "c three", "d four"],
         startAt: 0,
       });
-      expect(service.state().queue.map((q) => q.state)).toEqual([
-        "queued",
-        "done",
-        "queued",
-        "queued",
-      ]);
+      expect(queueRows().map((q) => q.state)).toEqual(["queued", "done", "queued", "queued"]);
       expect(service.state().at).toBe(2);
     });
 
@@ -946,7 +950,7 @@ describe("the find service", () => {
       }
       supervisor.finish({ kind: "ended", result: null, end: endLine({ state: "stopped", at: 0 }) });
       expect(service.state().at).toBe(2);
-      expect(service.state().queue.map((q) => q.state)).toEqual(["done", "failed", "queued"]);
+      expect(queueRows().map((q) => q.state)).toEqual(["done", "failed", "queued"]);
       expect(await service.start()).toEqual({ ok: true });
       expect(supervisor.starts[1]?.job).toMatchObject({ keywords: ["c three"], startAt: 0 });
     });
@@ -967,21 +971,24 @@ describe("the find service", () => {
       for (let i = 0; i < failureLimit; i += 1) {
         supervisor.send(keyword(0, "incomplete"));
       }
+      // The list ends here: with "b two" still to do, the run would chain its next batch.
+      supervisor.send(keyword(1, "done", { found: 1, kept: 1 }));
       supervisor.finish({ kind: "ended", result: null, end: endLine() });
     }
 
     it("sets a failed entry back to queued with no failures", async () => {
       await failOne();
-      expect(service.state().queue[0]).toMatchObject({ state: "failed", failures: failureLimit });
+      expect(queueRows()[0]).toMatchObject({ state: "failed", failures: failureLimit });
       expect(service.retry(0)).toEqual({ ok: true });
-      expect(service.state().queue[0]).toMatchObject({ state: "queued", failures: 0 });
+      expect(queueRows()[0]).toMatchObject({ state: "queued", failures: 0 });
       expect(service.state().at).toBe(0);
     });
 
     it("is refused while a search runs", async () => {
       await failOne();
+      service.retry(0);
       expect(await service.start()).toEqual({ ok: true });
-      expect(service.retry(0)).toEqual({ ok: false, problem: "running" });
+      expect(service.retry(1)).toEqual({ ok: false, problem: "running" });
     });
   });
 
@@ -1053,7 +1060,7 @@ describe("the find service", () => {
       supervisor.send(keyword(1, "done", { found: 40, kept: 1 }));
       supervisor.finish({ kind: "ended", result: null, end: endLine({ state: "done", at: 2 }) });
       expect(service.requeueWeak()).toEqual({ ok: true, requeued: 1, added: 1, skipped: 0 });
-      expect(service.state().queue.map((q) => [q.keyword, q.state])).toEqual([
+      expect(queueRows().map((q) => [q.keyword, q.state])).toEqual([
         ["Found None", "queued"],
         ["found many", "done"],
         ["cut short", "queued"],
@@ -1068,7 +1075,7 @@ describe("the find service", () => {
       supervisor.finish({ kind: "ended", result: null, end: endLine({ state: "done", at: 1 }) });
       expect(service.state().at).toBe(1);
       service.requeueWeak();
-      expect(service.state().queue[0]).toEqual({
+      expect(queueRows()[0]).toMatchObject({
         keyword: "found none",
         state: "queued",
         found: 0,
@@ -1080,9 +1087,9 @@ describe("the find service", () => {
 
     it("stops at the queue's limit and counts what did not fit", () => {
       writeDb(rows);
-      service.add(Array.from({ length: 499 }, (_, i) => `filler ${String(i)}`));
+      service.add(Array.from({ length: 9999 }, (_, i) => `filler ${String(i)}`));
       expect(service.requeueWeak()).toEqual({ ok: true, requeued: 0, added: 1, skipped: 1 });
-      expect(service.state().queue).toHaveLength(500);
+      expect(service.state().queue.total).toBe(10_000);
     });
 
     it("is refused while a search runs", async () => {
@@ -1090,6 +1097,395 @@ describe("the find service", () => {
       service.add(["a one"]);
       expect(await service.start()).toEqual({ ok: true });
       expect(service.requeueWeak()).toEqual({ ok: false, problem: "running" });
+    });
+  });
+
+  describe("keywords at scale", () => {
+    const names = (prefix: string, n: number): string[] =>
+      Array.from({ length: n }, (_, i) => `${prefix}${String(i)}`);
+    const folder = (): string => join(userData, "example-pipeline");
+
+    function writeDb(): void {
+      mkdirSync(folder(), { recursive: true });
+      const db = new DatabaseSync(join(folder(), "pipeline.db"));
+      db.exec(
+        "CREATE TABLE keywords (keyword TEXT PRIMARY KEY, status TEXT NOT NULL, " +
+          "channels_found INTEGER NOT NULL DEFAULT 0, completed_at TEXT, in_range_found INTEGER)",
+      );
+      db.exec("CREATE TABLE channel_keywords (channel_id TEXT, keyword TEXT, discovered_at TEXT)");
+      db.exec(
+        "INSERT INTO keywords (keyword, status) VALUES ('Alpha  Setup', 'pending'), ('beta setup', 'done')",
+      );
+      db.exec("INSERT INTO channel_keywords VALUES ('UC1', 'gamma setup', '2026-10-01 10:00:00')");
+      db.close();
+    }
+
+    it("generates 3,000 keywords and a re-run adds none", () => {
+      const tools = names("tool", 50);
+      const angles = names("angle", 60);
+      const counted = service.generate({ tools, angles, add: false });
+      expect(counted).toMatchObject({ ok: true, fresh: 3000, repeats: 0, overCap: 0 });
+      expect(service.state().queue.total).toBe(0);
+      expect(service.generate({ tools, angles, add: true })).toMatchObject({ fresh: 3000 });
+      expect(service.state().queue.total).toBe(3000);
+      const again = service.generate({ tools, angles, add: true });
+      expect(again).toMatchObject({ ok: true, fresh: 0, repeats: 3000 });
+      expect(service.state().queue.total).toBe(3000);
+    });
+
+    it("skips what pipeline.db already knows and counts what is over the cap", () => {
+      writeDb();
+      const result = service.generate({
+        tools: ["alpha", "beta", "gamma", "delta"],
+        angles: ["setup"],
+        add: true,
+      });
+      expect(result).toMatchObject({ ok: true, fresh: 1, repeats: 3, overCap: 0 });
+      expect(queueRows().map((q) => q.keyword)).toEqual(["delta setup"]);
+      const capped = service.generate({
+        tools: names("t", 100),
+        angles: names("a", 100),
+        add: true,
+      });
+      expect(capped).toMatchObject({ fresh: 9999, overCap: 1 });
+      expect(service.state().queue.total).toBe(10_000);
+    });
+
+    it("keeps a removed keyword's origin, and a removed tool never touches origins", () => {
+      service.generate({ tools: ["claude"], angles: ["setup"], add: true });
+      service.remove(0);
+      service.setLists({ tools: [], angles: [] });
+      const file = JSON.parse(readFileSync(join(folder(), "keywords.json"), "utf8")) as {
+        tools: string[];
+        origins: Record<string, unknown>;
+      };
+      expect(file.tools).toEqual([]);
+      expect(file.origins["claude setup"]).toEqual({ tool: "claude", angle: "setup" });
+      expect(make().lists()).toEqual({ tools: [], angles: [] });
+    });
+
+    it("answers the default lists when there is no file", () => {
+      expect(service.lists().tools).toContain("claude code");
+      expect(service.lists().angles).toContain("setup");
+    });
+
+    it("retries a done keyword", () => {
+      service.add(["ai agents"]);
+      const entry = { keyword: "ai agents", state: "done", found: 9, kept: 3, failures: 0 };
+      writeFileSync(
+        join(folder(), "find.json"),
+        JSON.stringify({ queue: [entry], at: 1, rules: service.state().rules }),
+      );
+      const fresh = make();
+      expect(fresh.retry(0)).toEqual({ ok: true });
+      expect(fresh.keywords({ offset: 0, limit: 10, filter: "all" }).rows[0]).toMatchObject({
+        state: "queued",
+        found: 0,
+        kept: 0,
+      });
+      expect(fresh.state().at).toBe(0);
+    });
+
+    it("pages the queue with tool, angle and the place in the whole queue", () => {
+      service.add(["typed by hand"]);
+      service.generate({ tools: ["claude", "cursor"], angles: ["setup", "review"], add: true });
+      const page = service.keywords({ offset: 1, limit: 2, filter: "all" });
+      expect(page.total).toBe(5);
+      expect(page.rows.map((r) => [r.index, r.keyword, r.tool, r.angle])).toEqual([
+        [1, "claude setup", "claude", "setup"],
+        [2, "cursor review", "cursor", "review"],
+      ]);
+      expect(queueRows()[0]).toMatchObject({ tool: null, angle: null, rank: null });
+      expect(service.keywords({ offset: 0, limit: 10, filter: "done" }).total).toBe(0);
+      expect(service.keywords({ offset: 0, limit: 10, filter: "todo" }).total).toBe(5);
+    });
+
+    it("summarizes counts and bumps the version on each change", () => {
+      const before = service.state().queue;
+      service.add(["one", "two"]);
+      const after = service.state().queue;
+      expect(after).toMatchObject({ total: 2, queued: 2, running: 0, done: 0, failed: 0 });
+      expect(after.current.map((r) => r.keyword)).toEqual(["one"]);
+      expect(after.version).toBeGreaterThan(before.version);
+      service.remove(1);
+      expect(service.state().queue.version).toBeGreaterThan(after.version);
+      expect(service.entries()).toEqual([{ keyword: "one", found: 0, kept: 0 }]);
+    });
+
+    it("reads origins from own keys only: a keyword named constructor has none", () => {
+      service.add(["constructor", "toString", "__proto__"]);
+      expect(queueRows().map((r) => [r.keyword, r.tool, r.angle, r.rank])).toEqual([
+        ["constructor", null, null, null],
+        ["toString", null, null, null],
+        ["__proto__", null, null, null],
+      ]);
+      expect(service.state().queue.current[0]).toMatchObject({
+        keyword: "constructor",
+        tool: null,
+      });
+    });
+
+    it("stores an origin for a crossed __proto__ as an own key", () => {
+      service.generate({ tools: ["__proto__"], angles: ["{tool}"], add: true });
+      const row = queueRows().find((r) => r.keyword === "__proto__");
+      expect(row).toMatchObject({ tool: "__proto__", angle: "{tool}" });
+      expect(Object.getPrototypeOf({})).toBe(Object.prototype);
+    });
+
+    it("seeds the example data's empty origins from the example history (K13)", () => {
+      service.add(["claude code tutorial"]);
+      expect(queueRows()[0]).toMatchObject({ tool: "claude code", angle: "tutorial" });
+      mode = "live";
+      const live = make();
+      live.add(["claude code tutorial"]);
+      expect(live.keywords({ offset: 0, limit: 1, filter: "all" }).rows[0]).toMatchObject({
+        tool: null,
+        angle: null,
+      });
+    });
+
+    it("answers stale and changes nothing when the keyword is no longer at that place", () => {
+      service.add(["one", "two", "three"]);
+      expect(service.remove(1, "two")).toEqual({ ok: true });
+      expect(service.remove(1, "two")).toEqual({ ok: false, problem: "stale" });
+      expect(service.startAt(1, "Two")).toEqual({ ok: false, problem: "stale" });
+      expect(service.retry(5, "three")).toEqual({ ok: false, problem: "stale" });
+      expect(service.entries().map((e) => e.keyword)).toEqual(["one", "three"]);
+      expect(service.startAt(1, " THREE ")).toEqual({ ok: true });
+      expect(service.state().at).toBe(1);
+    });
+  });
+
+  describe("batches re-sorted by yield (plan S6, K9 and K10)", () => {
+    const folder = (): string => join(userData, "example-pipeline");
+    const jobWords = (n: number): string[] =>
+      (supervisor.starts[n]?.job as SearchJob | undefined)?.keywords ?? [];
+    const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
+
+    /** Five done keywords per tool: "strong" found 20 in range each, "weak" none. */
+    function writeYield(): void {
+      const db = new DatabaseSync(join(folder(), "pipeline.db"));
+      db.exec(
+        "CREATE TABLE keywords (keyword TEXT PRIMARY KEY, status TEXT NOT NULL, " +
+          "channels_found INTEGER NOT NULL DEFAULT 0, completed_at TEXT, in_range_found INTEGER)",
+      );
+      for (let i = 0; i < 5; i += 1) {
+        db.exec(
+          `INSERT INTO keywords VALUES ('strong past ${String(i)}', 'done', 20, '2026-11-01', 20)`,
+        );
+        db.exec(
+          `INSERT INTO keywords VALUES ('weak past ${String(i)}', 'done', 0, '2026-11-01', 0)`,
+        );
+      }
+      db.close();
+    }
+
+    /** `weak` keywords first, then `strong` ones, each with its origin in keywords.json. */
+    function queueOf(weak: number, strong: number): void {
+      const origins: Record<string, { tool: string; angle: string }> = {};
+      for (let i = 0; i < 5; i += 1) {
+        origins[`strong past ${String(i)}`] = { tool: "strong", angle: "past" };
+        origins[`weak past ${String(i)}`] = { tool: "weak", angle: "past" };
+      }
+      const words: string[] = [];
+      for (let i = 0; i < weak; i += 1) {
+        words.push(`w${String(i)}`);
+        origins[`w${String(i)}`] = { tool: "weak", angle: "now" };
+      }
+      for (let i = 0; i < strong; i += 1) {
+        words.push(`s${String(i)}`);
+        origins[`s${String(i)}`] = { tool: "strong", angle: "now" };
+      }
+      mkdirSync(folder(), { recursive: true });
+      writeFileSync(
+        join(folder(), "keywords.json"),
+        JSON.stringify({ tools: ["strong", "weak"], angles: ["now", "past"], origins }),
+      );
+      service.add(words);
+    }
+
+    function finishBatch(n: number): void {
+      for (let i = 0; i < jobWords(n).length; i += 1) {
+        supervisor.send(keyword(i, "done", { found: 1, kept: 0 }));
+      }
+      supervisor.finish({ kind: "ended", result: null, end: endLine() });
+    }
+
+    it("runs 450 keywords as 200, 200 and 50, re-sorting before each batch", async () => {
+      queueOf(250, 200);
+      expect(await service.start()).toEqual({ ok: true });
+      // No yield yet: the order is the added order.
+      expect(jobWords(0)).toHaveLength(200);
+      expect(jobWords(0).slice(0, 2)).toEqual(["w0", "w1"]);
+      supervisor.send({ type: "log", level: "info", text: "batch one" });
+      for (let i = 0; i < 200; i += 1) {
+        supervisor.send(keyword(i, "done", { found: 1, kept: 0 }));
+      }
+      // The pipeline wrote the yield while the first batch ran.
+      writeYield();
+      supervisor.finish({ kind: "ended", result: null, end: endLine() });
+      expect(service.state().run).toMatchObject({ state: "running", found: 200 });
+      expect(await service.start()).toEqual({ ok: false, problem: "running" });
+      await vi.waitFor(() => {
+        expect(supervisor.starts).toHaveLength(2);
+      });
+      // `at` (w200) keeps its place; the strong tool's keywords come before the weak ones.
+      // A chained batch holds nothing in place: its first keyword is re-sorted too (w200 goes back).
+      expect(jobWords(1)).toHaveLength(200);
+      expect(jobWords(1).slice(0, 3)).toEqual(["s0", "s1", "s2"]);
+      expect(jobWords(1).at(-1)).toBe("s199");
+      expect(service.state().at).toBe(200);
+      expect(service.keywords({ offset: 201, limit: 1, filter: "all" }).rows[0]).toMatchObject({
+        keyword: "s1",
+        rank: "up",
+      });
+      finishBatch(1);
+      await vi.waitFor(() => {
+        expect(supervisor.starts).toHaveLength(3);
+      });
+      expect(jobWords(2)).toEqual(Array.from({ length: 50 }, (_, i) => `w${String(i + 200)}`));
+      finishBatch(2);
+      await flush();
+      expect(supervisor.starts).toHaveLength(3);
+      const state = service.state();
+      expect(state.run).toMatchObject({ state: "done", found: 450, error: null });
+      expect(state.log.map((line) => line.text)).toContain("batch one");
+      expect(state.queue).toMatchObject({ total: 450, done: 450 });
+    });
+
+    it("re-sorts before the first batch and keeps the Start here keyword first", async () => {
+      queueOf(3, 2);
+      writeYield();
+      service.startAt(1);
+      expect(await service.start()).toEqual({ ok: true });
+      expect(jobWords(0)).toEqual(["w1", "s0", "s1", "w2"]);
+      expect(queueRows().map((r) => r.keyword)).toEqual(["w0", "w1", "s0", "s1", "w2"]);
+    });
+
+    describe("what does not chain", () => {
+      beforeEach(async () => {
+        await started();
+      });
+
+      it("a stop", async () => {
+        supervisor.send(keyword(0, "done", { found: 1, kept: 1 }));
+        supervisor.finish({ kind: "ended", result: null, end: endLine({ state: "stopped" }) });
+        await flush();
+        expect(supervisor.starts).toHaveLength(1);
+        expect(service.state().run.state).toBe("paused");
+      });
+
+      it("a failed batch", async () => {
+        supervisor.send(keyword(0, "done", { found: 1, kept: 1 }));
+        supervisor.finish({
+          kind: "ended",
+          result: null,
+          end: endLine({ state: "failed", error: { code: "quota", message: "spent" } }),
+        });
+        await flush();
+        expect(supervisor.starts).toHaveLength(1);
+        expect(service.state().run).toMatchObject({ state: "failed", error: "quota" });
+      });
+
+      it("a crash", async () => {
+        supervisor.send(keyword(0, "done", { found: 1, kept: 1 }));
+        supervisor.finish({ kind: "failed", reason: "crash" });
+        await flush();
+        expect(supervisor.starts).toHaveLength(1);
+      });
+
+      it("a batch that finished nothing", async () => {
+        supervisor.send(keyword(0, "incomplete"));
+        supervisor.finish({ kind: "ended", result: null, end: endLine() });
+        await flush();
+        expect(supervisor.starts).toHaveLength(1);
+        expect(service.state().run.state).toBe("done");
+      });
+
+      it("a sign-out between batches", async () => {
+        supervisor.send(keyword(0, "done", { found: 1, kept: 1 }));
+        supervisor.finish({ kind: "ended", result: null, end: endLine() });
+        await service.shutdown();
+        await flush();
+        expect(supervisor.starts).toHaveLength(1);
+      });
+    });
+
+    it("chains a batch that only failed a keyword for good", async () => {
+      await started();
+      for (let i = 0; i < failureLimit; i += 1) {
+        supervisor.send(keyword(0, "incomplete"));
+      }
+      supervisor.finish({ kind: "ended", result: null, end: endLine() });
+      await vi.waitFor(() => {
+        expect(supervisor.starts).toHaveLength(2);
+      });
+      expect(jobWords(1)).toEqual(["local llm", "ai news"]);
+    });
+
+    it("Stop between batches stops the chain, and Start works again after", async () => {
+      await started();
+      supervisor.send(keyword(0, "done", { found: 3, kept: 1 }));
+      supervisor.finish({ kind: "ended", result: null, end: endLine() });
+      service.stop();
+      expect(service.state().run).toMatchObject({ state: "paused", found: 3 });
+      await flush();
+      expect(supervisor.starts).toHaveLength(1);
+      expect(supervisor.stops).toBe(0);
+      expect(await service.start()).toEqual({ ok: true });
+      expect(jobWords(1)).toEqual(["local llm", "ai news"]);
+      expect(service.state().run).toMatchObject({ state: "running", found: 0 });
+    });
+
+    it("lets Remove and Start work at once after Stop between batches, while a launch still waits", async () => {
+      let release: (() => void) | null = null;
+      mode = "live";
+      service = make();
+      await started();
+      key = () =>
+        new Promise((resolve) => {
+          release = () => {
+            resolve(exampleKey);
+          };
+        });
+      supervisor.send(keyword(0, "done", { found: 3, kept: 1 }));
+      supervisor.finish({ kind: "ended", result: null, end: endLine() });
+      expect(service.remove(2)).toEqual({ ok: false, problem: "running" });
+      service.stop();
+      expect(service.state().run.state).toBe("paused");
+      expect(service.remove(2)).toEqual({ ok: true });
+      key = () => Promise.resolve(exampleKey);
+      expect(await service.start()).toEqual({ ok: true });
+      expect(jobWords(1)).toEqual(["local llm"]);
+      (release as (() => void) | null)?.();
+      await flush();
+      expect(supervisor.starts).toHaveLength(2);
+      expect(service.state().run.state).toBe("running");
+    });
+
+    it("reads pipeline.db's facts per batch and at the end, never per message or page", async () => {
+      queueOf(0, 250);
+      writeYield();
+      expect(await service.start()).toEqual({ ok: true });
+      const reads = factsReads.mock.calls.length;
+      for (let i = 0; i < 50; i += 1) {
+        supervisor.send(keyword(i, "started"));
+        supervisor.send(keyword(i, "done", { found: 1, kept: 0 }));
+        service.state();
+        service.keywords({ offset: 0, limit: 100, filter: "all" });
+      }
+      expect(factsReads.mock.calls.length).toBe(reads);
+    });
+
+    it("a next batch that can't start ends the run", async () => {
+      await started();
+      supervisor.send(keyword(0, "done", { found: 1, kept: 1 }));
+      supervisor.problem = "no_python";
+      supervisor.finish({ kind: "ended", result: null, end: endLine() });
+      await vi.waitFor(() => {
+        expect(service.state().run).toMatchObject({ state: "failed", error: "crash" });
+      });
+      expect(await service.start()).toEqual({ ok: false, problem: "no_python" });
     });
   });
 });

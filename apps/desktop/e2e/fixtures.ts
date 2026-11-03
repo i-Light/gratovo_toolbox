@@ -36,6 +36,8 @@ export interface LaunchOptions {
   supabase?: FakeSupabase;
   /** "frame" waits for the rail; "page" returns once the app's page has loaded (sign-in, waiting). */
   ready?: "frame" | "page";
+  /** Extra environment for the app (and so, for the search, the test's scripted waits). */
+  env?: Record<string, string>;
 }
 
 /**
@@ -55,7 +57,7 @@ export async function launchApp(
   errors: string[] = [],
   options: LaunchOptions = {},
 ): Promise<{ app: ElectronApplication; page: Page; errors: string[] }> {
-  const { supabase, ready = "frame" } = options;
+  const { supabase, ready = "frame", env = {} } = options;
   const app = await electron.launch({
     executablePath: electronBinary,
     args: [appDir],
@@ -65,6 +67,7 @@ export async function launchApp(
       GRATOVO_USER_DATA: userData,
       GRATOVO_SUPABASE_URL: supabase?.url ?? "",
       GRATOVO_SUPABASE_PUBLISHABLE_KEY: supabase?.key ?? "",
+      ...env,
     }),
     timeout: startTimeout,
   });

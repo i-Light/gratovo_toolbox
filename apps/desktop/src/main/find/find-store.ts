@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
+import { keywordKey } from "@gratovo/core/find";
 import { findRulesSchema, findStateSchema, type FindState } from "@gratovo/ipc";
 import { z } from "zod";
 
@@ -15,7 +16,7 @@ export const findFileName = "find.json";
 export type FindRules = FindState["rules"];
 
 export interface FindFile {
-  queue: FindState["queue"];
+  queue: FindQueueEntry[];
   at: number;
   rules: FindRules;
 }
@@ -54,10 +55,17 @@ export function pipelineRules(rules: FindRules): Omit<FindRules, "archiveDays"> 
 // A file written before step 4 has no median, uploads or archive rule: it keeps the rest of its
 // rules and takes the defaults for those three.
 const ruleShape = findRulesSchema.shape;
-const queueEntry = findStateSchema.shape.queue.element;
+// One stored entry: a queue row without the fields main joins in for the page (K2, K4).
+const queueEntry = findStateSchema.shape.queue.shape.current.element.omit({
+  index: true,
+  tool: true,
+  angle: true,
+  rank: true,
+});
+export type FindQueueEntry = z.output<typeof queueEntry>;
 const fileSchema = z.strictObject({
   // A file from before Q5 has no failure count: each entry starts at 0.
-  queue: z.array(queueEntry.extend({ failures: queueEntry.shape.failures.default(0) })).max(500),
+  queue: z.array(queueEntry.extend({ failures: queueEntry.shape.failures.default(0) })).max(10_000),
   at: findStateSchema.shape.at,
   rules: findRulesSchema.extend({
     minMedianViews: ruleShape.minMedianViews.default(null),
@@ -89,7 +97,7 @@ export function readFindFile(folder: string): FindFile {
   // edited by hand mustn't carry them: those entries are dropped.
   const seen = new Set<string>();
   const queue = parsed.data.queue.filter((entry) => {
-    const key = entry.keyword.toLowerCase();
+    const key = keywordKey(entry.keyword);
     if (entry.keyword !== entry.keyword.trim() || seen.has(key)) {
       return false;
     }

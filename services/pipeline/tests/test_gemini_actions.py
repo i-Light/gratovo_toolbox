@@ -63,7 +63,14 @@ def skills(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 def send_reply(text: str, model: str = "2.5 Pro") -> Callable[[dict[str, Any]], object]:
     """A scripted `send` handler answering with `text`."""
-    return lambda params: {"index": 0, "text": text, "html": "", "durationMs": 5, "model": model}
+    return lambda params: {
+        "index": 0,
+        "text": text,
+        "html": "",
+        "durationMs": 5,
+        "model": model,
+        "thinking": "High",
+    }
 
 
 # --- skill files -------------------------------------------------------------------
@@ -232,3 +239,53 @@ def test_run_action_dispatch(harness: Harness) -> None:
     with pytest.raises(GeminiError) as info:
         harness.gemini.action("action.nope", {})
     assert info.value.code == "BAD_PARAMS"
+
+
+def test_suggest_terms_parses_dedupes_caps_and_counts(harness: Harness) -> None:
+    reply = "\n".join(
+        [
+            "Sure:",
+            "1. Cursor",
+            "- cursor",  # duplicate within the reply
+            "Claude Code",  # in have
+            "* Windsurf",
+            "x" * 61,  # over 60 characters
+            "",
+            "Replit",
+        ]
+    )
+    fake = harness.attach({"send": send_reply(reply)})
+    result = harness.gemini.action(
+        "action.suggest_terms", {"kind": "tools", "have": ["claude code"], "count": 5}
+    )
+    assert result["terms"] == ["Cursor", "Windsurf", "Replit"]
+    assert result["dropped"] == 3
+    assert result["raw"] == reply
+    sent = fake.calls("send")[0]
+    assert sent["thinking"] == "high"
+    assert "List 5 more AI tools" in sent["text"]
+    assert "claude code" in sent["text"]
+
+
+def test_suggest_terms_angles_and_bad_params(harness: Harness) -> None:
+    fake = harness.attach({"send": send_reply("setup\ntutorial")})
+    result = harness.gemini.action("action.suggest_terms", {"kind": "angles", "count": 2})
+    assert result["terms"] == ["setup", "tutorial"]
+    assert "angles" in fake.calls("send")[0]["text"]
+    for bad in ({"kind": "x", "count": 2}, {"kind": "tools", "count": 31}):
+        with pytest.raises(GeminiError) as info:
+            harness.gemini.action("action.suggest_terms", bad)
+        assert info.value.code == "BAD_PARAMS"
+
+
+def test_every_action_send_asks_for_thinking_high_and_needs_it_confirmed(
+    harness: Harness,
+) -> None:
+    def unconfirmed(params: dict[str, Any]) -> object:
+        return {"index": 0, "text": "a\nb", "model": "m"}
+
+    fake = harness.attach({"send": unconfirmed})
+    with pytest.raises(GeminiError) as info:
+        harness.gemini.action("action.suggest_terms", {"kind": "tools", "count": 2})
+    assert info.value.code == "THINKING_NOT_SET"
+    assert fake.calls("send")[0]["thinking"] == "high"

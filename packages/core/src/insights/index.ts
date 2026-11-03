@@ -28,6 +28,7 @@ export { alertKey, alerts, wins } from "./alerts";
 export type { ReportParts } from "./alerts";
 export { overviewReport, readyIds, repliesWaitingIds, repliesWaitingList } from "./overview";
 export { otherRoutesLabel, routesMax, routesReport } from "./routes";
+export { keywordYield, yieldMax } from "./yield";
 export { drillIds, drillRecord, insightsReport } from "./report";
 export { creatorsOf, funnelReport, reachedIds, stuckIds } from "./funnel";
 export { brandFunnel, brandReachedIds, brandStuckIds, brandStuckRows } from "./funnel";

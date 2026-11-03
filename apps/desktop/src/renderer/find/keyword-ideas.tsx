@@ -14,7 +14,10 @@ export type IdeasState =
   | { readonly phase: "idle" }
   | { readonly phase: "loading" }
   | { readonly phase: "ready"; readonly keywords: readonly string[]; readonly dropped: number }
-  | { readonly phase: "problem"; readonly problem: "bridge_off" | "busy" | "failed" };
+  | {
+      readonly phase: "problem";
+      readonly problem: "bridge_off" | "busy" | "failed" | "thinking_not_set";
+    };
 
 /** The state of the Gemini request. Only one runs at a time; closing the panel doesn't cancel it. */
 export function useIdeas(): { readonly state: IdeasState; readonly ask: () => void } {
@@ -53,8 +56,6 @@ export function useIdeas(): { readonly state: IdeasState; readonly ask: () => vo
 
 interface PanelProps {
   readonly state: IdeasState;
-  /** The queue's keywords, to tell which ideas are already in the list. */
-  readonly have: readonly string[];
   readonly onAsk: () => void;
   readonly onClose: () => void;
   /** Called with the picked keywords; answers true when they were added. */
@@ -62,7 +63,7 @@ interface PanelProps {
 }
 
 /** The inline picker under the Keywords header (prototype `ai-read`). */
-export function KeywordIdeas({ state, have, onAsk, onClose, onAdd }: PanelProps) {
+export function KeywordIdeas({ state, onAsk, onClose, onAdd }: PanelProps) {
   const [off, setOff] = useState<ReadonlySet<string>>(new Set());
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -78,9 +79,8 @@ export function KeywordIdeas({ state, have, onAsk, onClose, onAdd }: PanelProps)
     },
   });
 
-  const owned = new Set(have.map((k) => k.toLowerCase()));
   const keywords = state.phase === "ready" ? state.keywords : [];
-  const picked = keywords.filter((k) => !owned.has(k.toLowerCase()) && !off.has(k));
+  const picked = keywords.filter((k) => !off.has(k));
 
   const add = async (): Promise<void> => {
     if (picked.length === 0 || busy) {
@@ -109,7 +109,9 @@ export function KeywordIdeas({ state, have, onAsk, onClose, onAdd }: PanelProps)
             ? text.bridgeOff
             : state.problem === "busy"
               ? text.working
-              : text.failed}
+              : state.problem === "thinking_not_set"
+                ? text.thinkingNotSet
+                : text.failed}
         </span>
         {state.problem === "bridge_off" ? (
           <Btn
@@ -136,16 +138,13 @@ export function KeywordIdeas({ state, have, onAsk, onClose, onAdd }: PanelProps)
         </div>
         <div className="fchips" role="group" aria-label={text.chipsLabel}>
           {keywords.map((k) => {
-            const dup = owned.has(k.toLowerCase());
-            const on = !dup && !off.has(k);
+            const on = !off.has(k);
             return (
               <button
                 key={k}
                 type="button"
                 className="chip"
                 aria-pressed={on}
-                disabled={dup}
-                data-tip={dup ? text.already : undefined}
                 onClick={() => {
                   setOff((cur) => {
                     const next = new Set(cur);

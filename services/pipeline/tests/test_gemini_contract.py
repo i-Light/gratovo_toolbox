@@ -783,7 +783,14 @@ ACCOUNT = {"name": "Ada Okafor", "email": "ada@example.com", "index": 0}
 
 
 def answer(text: str) -> dict[str, Any]:
-    return {"index": 0, "text": text, "html": "", "durationMs": 5, "model": "2.5 Pro"}
+    return {
+        "index": 0,
+        "text": text,
+        "html": "",
+        "durationMs": 5,
+        "model": "2.5 Pro",
+        "thinking": "High",
+    }
 
 
 def send(params: dict[str, Any]) -> dict[str, Any]:
@@ -1058,6 +1065,10 @@ def test_every_typed_result_the_daemon_produces_fits_mains_schema(
     channel = {"handle": "@ai-code-lab", "title": "AI Code Lab"}
     classified = live.call("action.classify_channel", {"channel": channel, "niche": "AI tools"})
     assert classified["result"]["brandFit"] == 4
+    terms = live.call(
+        "action.suggest_terms", {"kind": "tools", "have": ["claude"], "count": 5, "newChat": True}
+    )
+    assert terms["ok"] is True, terms
 
     created = live.call(
         "action.gem_create",

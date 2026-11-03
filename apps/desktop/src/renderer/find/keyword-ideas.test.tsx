@@ -12,10 +12,7 @@ import { Keywords } from "./keywords";
 const t = strings.findSearch.ideas;
 
 const state: FindState = {
-  queue: [
-    { keyword: "ai agents", state: "done", found: 10, kept: 3, failures: 0 },
-    { keyword: "claude code tutorial", state: "queued", found: 0, kept: 0, failures: 0 },
-  ],
+  queue: { total: 2, queued: 1, running: 0, done: 1, failed: 0, version: 1, current: [] },
   at: 1,
   rules: {} as FindState["rules"],
   run: { state: "paused", found: 0, kept: 0, swept: 0, error: null, wait: null },
@@ -46,6 +43,9 @@ beforeEach(() => {
             resolve(ideasAnswer);
           };
         });
+      }
+      if (channel === "find:keywords") {
+        return Promise.resolve({ ok: true, value: { total: 0, offset: 0, rows: [] } });
       }
       return Promise.resolve({ ok: true, value: { added: 2, skipped: 0 } });
     }) as unknown as Bridge["invoke"],
@@ -99,13 +99,11 @@ describe("keyword ideas", () => {
     expect(screen.queryByText(t.busy)).toBeNull();
   });
 
-  it("disables a chip already in the list and adds only the picked ones", async () => {
+  it("adds only the picked ones", async () => {
     await open(ready);
-    const dup = screen.getByRole("button", { name: "claude code tutorial" });
-    expect((dup as HTMLButtonElement).disabled).toBe(true);
-    expect(dup.getAttribute("data-tip")).toBe(t.already);
-    expect(screen.getByRole("button", { name: t.addSelected(2) })).toBeTruthy();
+    expect(screen.getByRole("button", { name: t.addSelected(3) })).toBeTruthy();
     await click(screen.getByRole("button", { name: "local llm setup" }));
+    await click(screen.getByRole("button", { name: "claude code tutorial" }));
     await click(screen.getByRole("button", { name: t.addSelected(1) }));
     expect(calls).toContainEqual(["find:add", { keywords: ["n8n ai automation"] }]);
     expect(screen.queryByText(t.title)).toBeNull();
@@ -134,6 +132,11 @@ describe("keyword ideas", () => {
     expect(screen.getByText(t.failed)).toBeTruthy();
     await click(screen.getByRole("button", { name: t.tryAgain }));
     expect(calls.filter(([c]) => c === "find:ideas")).toHaveLength(2);
+  });
+
+  it("thinking_not_set says the answer was not used", async () => {
+    await open({ ok: false, problem: "thinking_not_set" });
+    expect(screen.getByText(t.thinkingNotSet)).toBeTruthy();
   });
 
   it("asks only once while a request is out", async () => {

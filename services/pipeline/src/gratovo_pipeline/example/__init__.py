@@ -13,10 +13,13 @@ import hashlib
 import json
 import time
 from collections.abc import Mapping, Sequence
+from datetime import UTC, datetime, timedelta
 from importlib import resources
+from pathlib import Path
 from typing import Any, Final
 
 from gratovo_pipeline import run_control
+from gratovo_pipeline.protocol import WaitReason, WaitSink, utc_iso
 from gratovo_pipeline.search.context import Found
 from gratovo_pipeline.youtube import ChannelInfo, VideoInfo
 
@@ -135,8 +138,63 @@ class ExampleSweep:
         pass
 
 
+WAITS_ENV: Final = "GRATOVO_EXAMPLE_WAITS"
+
+
+def test_waits(environ: Mapping[str, str]) -> dict[str, tuple[WaitReason, float]]:
+    """The waits an end-to-end test asked for, as `{keyword: (reason, seconds)}`.
+
+    `GRATOVO_EXAMPLE_WAITS` is `{"<keyword>": ["routes" | "quota" | "api", seconds], ...}`. The app
+    puts it in the pipeline's environment only when unpackaged (`pipelineEnv`), and only the example
+    source reads it, so a real run, a live source and an installed app never see it. Anything
+    unreadable means no waits."""
+    raw = environ.get(WAITS_ENV, "")
+    if not raw:
+        return {}
+    try:
+        data = json.loads(raw)
+        waits: dict[str, tuple[WaitReason, float]] = {}
+        for k, v in data.items():
+            if v[0] == "routes" or v[0] == "quota" or v[0] == "api":
+                waits[str(k).strip().lower()] = (v[0], float(v[1]))
+        return waits
+    except ValueError, TypeError, AttributeError, IndexError, KeyError:
+        return {}
+
+
 class ExampleSource:
+    def __init__(
+        self,
+        waits: Mapping[str, tuple[WaitReason, float]] | None = None,
+        sink: WaitSink | None = None,
+        spent: Path | None = None,
+    ) -> None:
+        # `spent` lists the keywords that already rested, so a resumed run (a new process) goes on.
+        used: set[str] = set()
+        if spent is not None and spent.exists():
+            used = set(spent.read_text(encoding="utf-8").splitlines())
+        self._waits = {k: v for k, v in (waits or {}).items() if k not in used}
+        self._spent = spent
+        self._sink = sink
+
+    def _rest(self, keyword: str) -> None:
+        """Rests once for a keyword a test scripted: told as a wait, then a resume."""
+        entry = self._waits.pop(keyword.strip().lower(), None)
+        if entry is None or self._sink is None:
+            return
+        reason, seconds = entry
+        if self._spent is not None:
+            with self._spent.open("a", encoding="utf-8") as f:
+                f.write(keyword.strip().lower() + chr(10))
+        until = utc_iso(datetime.now(UTC) + timedelta(seconds=seconds))
+        self._sink.wait(reason, until)
+        try:
+            run_control.sleep(seconds)
+        finally:
+            self._sink.resume(reason)
+
     def find_channels(self, keyword: str, *, limit: int) -> Found:
+        self._rest(keyword)
         handles = _RESULTS.get(keyword.strip().lower()) or self._pick(keyword)
         shown = handles[:limit]
         return Found(

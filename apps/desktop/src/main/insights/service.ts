@@ -64,6 +64,8 @@ export interface InsightsServiceDeps {
   readonly catalog: () => Promise<readonly CatalogItem[]>;
   readonly archiveDays: () => number;
   readonly now: () => number;
+  /** Where each generated keyword came from, by `keywordKey` (S6); none when not given. */
+  readonly origins?: () => ReadonlyMap<string, { readonly tool: string; readonly angle: string }>;
 }
 
 export interface InsightsService {
@@ -161,6 +163,7 @@ export function createInsightsService(deps: InsightsServiceDeps): InsightsServic
       archiveDays: deps.archiveDays(),
       now: deps.now(),
       deals,
+      ...(deps.origins === undefined ? {} : { origins: deps.origins() }),
     });
   }
 

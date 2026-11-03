@@ -10,6 +10,7 @@ import type {
   StageEvent,
 } from "./inputs";
 import { keywordRows, keywordVerdict, liveGroup, searchReport } from "./search";
+import { keywordYield } from "./yield";
 import { reportWindow } from "./stats";
 
 const L = (y: number, m: number, d: number, h = 0) => new Date(y, m - 1, d, h).getTime();
@@ -110,6 +111,11 @@ const kw = (keyword: string, over: Partial<KeywordFacts> = {}): KeywordFacts => 
   found: 100,
   sweptByRules: 0,
   lastRun: null,
+  completedAt: null,
+  inRange: null,
+  newFound: null,
+  tool: null,
+  angle: null,
   ...over,
 });
 
@@ -584,5 +590,67 @@ describe("speed", () => {
     const r = report(i);
     expect(performance.now() - t0).toBeLessThan(300);
     expect(r.counts.live + r.counts.waiting).toBe(12_000);
+  });
+});
+
+describe("keywordYield", () => {
+  const span = { from: NOW - 30 * DAY, to: NOW };
+  const done = (
+    keyword: string,
+    tool: string | null,
+    angle: string | null,
+    inRange: number | null,
+    ago = 1,
+  ) => kw(keyword, { tool, angle, inRange, newFound: 10, completedAt: NOW - ago * DAY });
+
+  it("adds up by tool, angle and hand, best per keyword first", () => {
+    const rows = [
+      ...[1, 2, 3, 4, 5].map((i) => done(`a${String(i)}`, "claude code", "tutorial", 6)),
+      ...[1, 2, 3, 4, 5].map((i) => done(`b${String(i)}`, "chatgpt", "pricing", 1)),
+      done("typed", null, null, 4),
+    ];
+    const y = keywordYield(inputs({ keywords: rows }), span);
+    expect(y.byTool.map((r) => r.name)).toEqual(["claude code", "chatgpt"]);
+    expect(y.byTool[0]).toEqual({
+      name: "claude code",
+      keywords: 5,
+      inRange: 30,
+      newFound: 50,
+      perKeyword: 6,
+      judged: true,
+    });
+    expect(y.byAngle.map((r) => r.name)).toEqual(["tutorial", "pricing"]);
+    expect(y.byHand).toMatchObject({ keywords: 1, inRange: 4, perKeyword: 4, judged: false });
+  });
+
+  it("judges from 5 keywords, and keeps the unjudged rows in the list", () => {
+    const rows = [1, 2, 3, 4].map((i) => done(`a${String(i)}`, "mcp", "tips", 9));
+    expect(keywordYield(inputs({ keywords: rows }), span).byTool[0]?.judged).toBe(false);
+  });
+
+  it("groups tools by the scorer's key and shows the first spelling", () => {
+    const rows = [done("a", "Claude Code", "tips", 2), done("b", "claude code", "tips", 4)];
+    const y = keywordYield(inputs({ keywords: rows }), span);
+    expect(y.byTool).toHaveLength(1);
+    expect(y.byTool[0]).toMatchObject({ name: "Claude Code", keywords: 2, inRange: 6 });
+  });
+
+  it("lists judged rows before a lucky unjudged one", () => {
+    const rows = [
+      done("lucky", "lone", "tips", 20),
+      ...[1, 2, 3, 4, 5].map((i) => done(`s${String(i)}`, "steady", "tips", 2)),
+    ];
+    const y = keywordYield(inputs({ keywords: rows }), span);
+    expect(y.byTool.map((r) => r.name)).toEqual(["steady", "lone"]);
+  });
+
+  it("skips keywords outside the window, unfinished, or with no in-range number", () => {
+    const rows = [
+      done("old", "mcp", "tips", 9, 40),
+      done("null", "mcp", "tips", null),
+      kw("open", { tool: "mcp", angle: "tips", inRange: 3, completedAt: null }),
+    ];
+    const y = keywordYield(inputs({ keywords: rows }), span);
+    expect(y).toEqual({ byTool: [], byAngle: [], byHand: null });
   });
 });

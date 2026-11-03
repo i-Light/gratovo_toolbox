@@ -1,5 +1,5 @@
 import type { DataSource, InsightsLocalCreator } from "@gratovo/core/data";
-import { archiveDate, fitScore, type CatalogItem } from "@gratovo/core/find";
+import { archiveDate, fitScore, keywordKey, type CatalogItem } from "@gratovo/core/find";
 import type {
   ArchiveFacts,
   ChannelFacts,
@@ -40,6 +40,8 @@ export interface ReadInputsOptions {
    * and their events come as nothing, so no deal or money reading has anything to count. Default true.
    */
   readonly deals?: boolean;
+  /** Where each generated keyword came from, by `keywordKey` (S6); none when typed by hand. */
+  readonly origins?: ReadonlyMap<string, { readonly tool: string; readonly angle: string }>;
 }
 
 /** What a channel's uploads say, or why they don't (`ChannelFacts.read`). */
@@ -149,7 +151,9 @@ function lastRunOf(kb: KeywordBase, pipe: PipelineFacts): KeywordFacts["lastRun"
   return { at: end, fresh, live: 0, archived };
 }
 
-function keywordFacts(pipe: PipelineFacts): KeywordFacts[] {
+type ReadyOrigins = ReadInputsOptions["origins"];
+
+function keywordFacts(pipe: PipelineFacts, origins: ReadyOrigins): KeywordFacts[] {
   const found = new Map<string, { n: number; rules: number }>();
   const entry = (keyword: string): { n: number; rules: number } => {
     let kept = found.get(keyword);
@@ -169,12 +173,21 @@ function keywordFacts(pipe: PipelineFacts): KeywordFacts[] {
       kept.rules += hour.n;
     }
   }
-  return pipe.keywords.map((kb) => ({
-    keyword: kb.keyword,
-    found: found.get(kb.keyword)?.n ?? 0,
-    sweptByRules: found.get(kb.keyword)?.rules ?? 0,
-    lastRun: lastRunOf(kb, pipe),
-  }));
+  return pipe.keywords.map((kb) => {
+    const key = keywordKey(kb.keyword);
+    const origin = origins?.get(key);
+    return {
+      keyword: kb.keyword,
+      found: found.get(kb.keyword)?.n ?? 0,
+      sweptByRules: found.get(kb.keyword)?.rules ?? 0,
+      lastRun: lastRunOf(kb, pipe),
+      completedAt: kb.completedAt,
+      inRange: pipe.inRange.get(key) ?? null,
+      newFound: pipe.newFound.get(key) ?? null,
+      tool: origin?.tool ?? null,
+      angle: origin?.angle ?? null,
+    };
+  });
 }
 
 /** People's rejects by the reason on the creator's latest reject line (none: "unknown"). */
@@ -245,7 +258,7 @@ export function readInputs(o: ReadInputsOptions): InsightsInputs {
     messages: local.messages,
     inSequence: local.inSequence,
     mailboxes: local.mailboxes,
-    keywords: keywordFacts(pipe),
+    keywords: keywordFacts(pipe, o.origins),
     archive: archiveFacts(pipe, local.log, o.now),
     weeks: local.weeks,
     runs: pipe.runs,

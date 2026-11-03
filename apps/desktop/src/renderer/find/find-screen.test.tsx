@@ -13,6 +13,7 @@ import { exampleData } from "../lib/example-data";
 import { appStore, initAppStore, resetAppStoreForTests, selectRoute } from "../lib/store";
 import { strings } from "../strings";
 import { FindScreen } from "./find-screen";
+import type { QueueRow } from "@gratovo/ipc";
 
 const t = strings.findSearch;
 
@@ -36,39 +37,74 @@ const rules: FindState["rules"] = {
   languages: [],
 };
 
-type Queue = FindState["queue"];
-const kw = (
-  keyword: string,
-  state: Queue[number]["state"],
-  found = 0,
-  kept = 0,
-): Queue[number] => ({
+type Row = QueueRow;
+// The rows the fake `find:keywords` serves; `makeState` sets them and bumps the version.
+let allRows: Row[] = [];
+let queueVersion = 0;
+const kw = (keyword: string, state: Row["state"], found = 0, kept = 0): Row => ({
+  index: 0,
   keyword,
   state,
   found,
   kept,
   failures: 0,
+  tool: null,
+  angle: null,
+  rank: null,
 });
+type Over = Omit<Partial<FindState>, "queue"> & { queue?: Row[] };
 
-function makeState(over: Partial<FindState> = {}): FindState {
+function summary(rows: Row[], at: number): FindState["queue"] {
+  allRows = rows.map((r, index) => ({ ...r, index }));
+  queueVersion += 1;
+  const n = (state: Row["state"]): number => allRows.filter((r) => r.state === state).length;
+  const running = allRows.filter((r) => r.state === "running");
+  const atRow = allRows[at];
   return {
-    queue: [
-      kw("ai video editor", "done", 40, 10),
-      kw("claude code tips", "queued"),
-      kw("ai news today", "queued"),
-    ],
-    at: 1,
+    total: allRows.length,
+    queued: n("queued"),
+    running: n("running"),
+    done: n("done"),
+    failed: n("failed"),
+    version: queueVersion,
+    current: running.length > 0 ? running : atRow === undefined ? [] : [atRow],
+  };
+}
+
+/** Answers `find:keywords` from `allRows`, as main does. */
+function keywordsAnswer(input: unknown): unknown {
+  const { offset, limit, filter } = input as { offset: number; limit: number; filter: string };
+  const match = (r: Row): boolean =>
+    filter === "all" ||
+    (filter === "todo" ? r.state === "queued" || r.state === "running" : r.state === filter);
+  const filtered = allRows.filter(match);
+  return {
+    ok: true,
+    value: { total: filtered.length, offset, rows: filtered.slice(offset, offset + limit) },
+  };
+}
+
+function makeState(over: Over = {}): FindState {
+  const at = over.at ?? 1;
+  const rows = over.queue ?? [
+    kw("ai video editor", "done", 40, 10),
+    kw("claude code tips", "queued"),
+    kw("ai news today", "queued"),
+  ];
+  return {
+    at,
     rules,
     run: { state: "paused", found: 40, kept: 10, swept: 12, error: null, wait: null },
     log: [],
     kept: [],
     ...over,
+    queue: summary(rows, at),
   };
 }
 const withRun = (
   state: FindState["run"]["state"],
   extra: Partial<FindState["run"]> = {},
-  over: Partial<FindState> = {},
+  over: Over = {},
 ): FindState =>
   makeState({
     run: { state, found: 40, kept: 10, swept: 12, error: null, wait: null, ...extra },
@@ -109,6 +145,9 @@ function setup(state: FindState, answer: Record<string, unknown> = {}): void {
   };
   install((channel, input) => {
     calls.push([channel, input]);
+    if (channel === "find:keywords") {
+      return Promise.resolve(keywordsAnswer(input));
+    }
     return Promise.resolve(answers[channel] ?? { ok: true, value: { ok: true } });
   });
 }
@@ -323,20 +362,20 @@ describe("keywords", () => {
     expect(screen.queryByRole("button", { name: /^Remove/ })).toBeNull();
   });
 
-  it("calls find:start-at and find:remove with the row's index", async () => {
+  it("calls find:start-at and find:remove with the row's index and keyword", async () => {
     setup(makeState({ at: 0, queue: [kw("three", "queued"), kw("four", "queued")] }));
     await show();
     await click(screen.getByRole("button", { name: "Start here at four" }));
-    expect(calls).toContainEqual(["find:start-at", { index: 1 }]);
+    expect(calls).toContainEqual(["find:start-at", { index: 1, keyword: "four" }]);
     await click(screen.getByRole("button", { name: "Remove four" }));
-    expect(calls).toContainEqual(["find:remove", { index: 1 }]);
+    expect(calls).toContainEqual(["find:remove", { index: 1, keyword: "four" }]);
   });
 
   it("shows a failed entry with Retry, which calls find:retry", async () => {
     setup(makeState({ at: 0, queue: [kw("three", "failed")] }));
     await show();
     await click(screen.getByRole("button", { name: "Retry three" }));
-    expect(calls).toContainEqual(["find:retry", { index: 0 }]);
+    expect(calls).toContainEqual(["find:retry", { index: 0, keyword: "three" }]);
   });
 
   it("offers to search the weak keywords again, asks first, and shows the result", async () => {
@@ -573,7 +612,7 @@ describe("break-ui: worst case data", () => {
       ),
     );
     await show();
-    expect(screen.getAllByRole("listitem").length).toBe(500);
+    expect(screen.getAllByRole("listitem").length).toBe(100);
     expect(screen.getByText("100/500")).toBeTruthy();
     expect(screen.getAllByText("1,000,000").length).toBe(3);
   });

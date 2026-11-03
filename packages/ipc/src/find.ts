@@ -87,22 +87,67 @@ export const findRunStates = [
 /** Why a run failed. A code, never the pipeline's own text: the page words it. */
 export const findErrors = ["no_youtube_key", "blocked", "quota", "network", "crash"] as const;
 
+/** The queue's most keywords (plan S6, K0). */
+export const findQueueMax = 10_000;
+/** A queue position: 0 up to the last of the queue. */
+const queueIndex = z
+  .number()
+  .int()
+  .min(0)
+  .max(findQueueMax - 1);
+/** A count of keywords in the queue. */
+const queueCount = z.number().int().min(0).max(findQueueMax);
+/** A count of crossed keywords: the generator's lists hold at most 500 tools and 100 angles. */
+const crossCount = z
+  .number()
+  .int()
+  .min(0)
+  .max(500 * 100);
+/** A tool, angle or list entry: one line, at most 60 characters (plan S6, K11). */
+const term = z.string().min(1).max(60);
+
+/** One queue entry as main stores it in `find.json`. */
+export const findQueueEntrySchema = z.strictObject({
+  keyword: z.string().min(1).max(200),
+  state: z.enum(findKeywordStates),
+  found: count,
+  kept: count,
+  /** How many times the pipeline reported this keyword failed; 3 makes it `failed`. */
+  failures: z.number().int().min(0).max(99),
+});
+export type FindQueueEntry = z.output<typeof findQueueEntrySchema>;
+
+/** One queue row on the Find screen (plan S6, K2). `index` is the place in the whole queue. */
+export const findQueueRowSchema = z.strictObject({
+  index: queueIndex,
+  keyword: z.string().min(1).max(200),
+  state: z.enum(findKeywordStates),
+  found: count,
+  kept: count,
+  failures: z.number().int().min(0).max(99),
+  /** The tool and angle that made the keyword; null when typed by hand or from an idea. */
+  tool: term.nullable(),
+  angle: term.nullable(),
+  rank: z.enum(["up", "back"]).nullable(),
+});
+export type QueueRow = z.output<typeof findQueueRowSchema>;
+
 /** Everything the Find screen shows, in one read; `find:changed` carries it whole. */
 export const findStateSchema = z.strictObject({
-  queue: z
-    .array(
-      z.strictObject({
-        keyword: z.string().min(1).max(200),
-        state: z.enum(findKeywordStates),
-        found: count,
-        kept: count,
-        /** How many times the pipeline reported this keyword failed; 3 makes it `failed`. */
-        failures: z.number().int().min(0).max(99),
-      }),
-    )
-    .max(500),
+  /** A summary of the queue; its rows come a page at a time from `find:keywords` (plan S6, K2). */
+  queue: z.strictObject({
+    total: queueCount,
+    queued: queueCount,
+    running: queueCount,
+    done: queueCount,
+    failed: queueCount,
+    /** Bumps on every change to the queue; a page refetches when it moves. */
+    version: z.number().int().nonnegative(),
+    /** The running keywords, else the one at `at`. */
+    current: z.array(findQueueRowSchema).max(20),
+  }),
   /** The next keyword to run. */
-  at: z.number().int().min(0).max(500),
+  at: z.number().int().min(0).max(findQueueMax),
   rules: findRulesSchema,
   run: z.strictObject({
     state: z.enum(findRunStates),
@@ -146,14 +191,19 @@ export const findStateSchema = z.strictObject({
 });
 export type FindState = z.output<typeof findStateSchema>;
 
-const queueIndex = z.number().int().min(0).max(499);
-
 export const findAddRequestSchema = z.strictObject({
   keywords: z.array(z.string().min(1).max(200)).min(1).max(500),
 });
 export const findAddResultSchema = z.strictObject({ added: count, skipped: count });
 
-export const findIndexRequestSchema = z.strictObject({ index: queueIndex });
+/**
+ * `find:remove`, `find:retry` and `find:start-at`: a row's place and the keyword the page showed
+ * there. Main changes nothing and answers `stale` when that keyword is no longer at that place.
+ */
+export const findIndexRequestSchema = z.strictObject({
+  index: queueIndex,
+  keyword: z.string().min(1).max(200),
+});
 export const findWeakResultSchema = z.strictObject({ count });
 export const findRequeueResultSchema = z.discriminatedUnion("ok", [
   z.strictObject({ ok: z.literal(true), requeued: count, added: count, skipped: count }),
@@ -162,7 +212,7 @@ export const findRequeueResultSchema = z.discriminatedUnion("ok", [
 
 export const findEditResultSchema = z.discriminatedUnion("ok", [
   z.strictObject({ ok: z.literal(true) }),
-  z.strictObject({ ok: z.literal(false), problem: z.literal("running") }),
+  z.strictObject({ ok: z.literal(false), problem: z.enum(["running", "stale"]) }),
 ]);
 
 export const findStartResultSchema = z.discriminatedUnion("ok", [
@@ -410,7 +460,7 @@ export const findIdeasRequestSchema = z.strictObject({
 });
 
 /** Why no ideas came: the bridge or add-on is off, one request is already out, or it failed. */
-export const findIdeasProblems = ["bridge_off", "busy", "failed"] as const;
+export const findIdeasProblems = ["bridge_off", "busy", "failed", "thinking_not_set"] as const;
 
 export const findIdeasResultSchema = z.discriminatedUnion("ok", [
   z.strictObject({
@@ -420,6 +470,58 @@ export const findIdeasResultSchema = z.discriminatedUnion("ok", [
     dropped: z.number().int().min(0).max(1000),
   }),
   z.strictObject({ ok: z.literal(false), problem: z.enum(findIdeasProblems) }),
+]);
+
+/** The filters of the queue page (plan S6, K2). */
+export const findKeywordsFilters = ["all", "todo", "done", "failed"] as const;
+
+/** `find:keywords`: one page of the queue, 100 rows at most. */
+export const findKeywordsRequestSchema = z.strictObject({
+  offset: queueIndex,
+  limit: z.number().int().min(1).max(100),
+  filter: z.enum(findKeywordsFilters),
+});
+export const findKeywordsResultSchema = z.strictObject({
+  total: queueCount,
+  offset: queueIndex,
+  rows: z.array(findQueueRowSchema).max(100),
+});
+
+/** `find:lists`: the tools and angles the generator crosses (plan S6, K12). */
+export const findListsSchema = z.strictObject({
+  tools: z.array(term).max(500),
+  angles: z.array(term).max(100),
+});
+export const findListsResultSchema = findListsSchema;
+export const findListsSetResultSchema = z.strictObject({ ok: z.literal(true) });
+
+/** `find:generate`: the count of a crossing; `add` also queues it (plan S6, K12). */
+export const findGenerateRequestSchema = findListsSchema.extend({ add: z.boolean() });
+export const findGenerateResultSchema = z.discriminatedUnion("ok", [
+  z.strictObject({
+    ok: z.literal(true),
+    fresh: queueCount,
+    // A crossing is at most 500 tools x 100 angles: every one can be a repeat or past the cap.
+    repeats: crossCount,
+    overCap: crossCount,
+    sample: z.array(z.string().min(1).max(200)).max(12),
+  }),
+  z.strictObject({ ok: z.literal(false), problem: z.literal("running") }),
+]);
+
+/** `find:suggest-terms`: Gemini proposes more tools or angles (plan S6, K11). */
+export const findSuggestTermsRequestSchema = z.strictObject({
+  kind: z.enum(["tools", "angles"]),
+});
+export const findSuggestTermsProblems = [
+  "bridge_off",
+  "busy",
+  "failed",
+  "thinking_not_set",
+] as const;
+export const findSuggestTermsResultSchema = z.discriminatedUnion("ok", [
+  z.strictObject({ ok: z.literal(true), terms: z.array(term).max(30) }),
+  z.strictObject({ ok: z.literal(false), problem: z.enum(findSuggestTermsProblems) }),
 ]);
 
 /** `find:catalog`: the catalog was rebuilt; the page asks again. */

@@ -105,8 +105,28 @@ function world(): InsightsInputs {
     inSequence: [],
     archive: { ...emptyArchive, total: 100, byRules: 80, byPerson: 20 },
     keywords: [
-      { keyword: "kw1", found: 60, sweptByRules: 0, lastRun: null },
-      { keyword: "kw2", found: 10, sweptByRules: 0, lastRun: null },
+      {
+        keyword: "kw1",
+        found: 60,
+        sweptByRules: 0,
+        lastRun: null,
+        completedAt: null,
+        inRange: null,
+        newFound: null,
+        tool: null,
+        angle: null,
+      },
+      {
+        keyword: "kw2",
+        found: 10,
+        sweptByRules: 0,
+        lastRun: null,
+        completedAt: null,
+        inRange: null,
+        newFound: null,
+        tool: null,
+        angle: null,
+      },
     ],
   });
 }

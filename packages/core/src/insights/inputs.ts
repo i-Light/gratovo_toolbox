@@ -100,6 +100,14 @@ export interface KeywordFacts {
   readonly found: number;
   /** Of those, archived by the rules (never passed them). */
   readonly sweptByRules: number;
+  /** When its last run finished, in ms; null when never run. */
+  readonly completedAt: number | null;
+  /** Its in-range channels and new channels from the run (S6); null for those finished before. */
+  readonly inRange: number | null;
+  readonly newFound: number | null;
+  /** The generator's tool and angle it came from; null when typed by hand. */
+  readonly tool: string | null;
+  readonly angle: string | null;
   /** Its last run: channels new to us, already live, already archived; null when never run. */
   readonly lastRun: {
     readonly at: number;

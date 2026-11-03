@@ -66,6 +66,7 @@ _CHANNEL_OPTIONAL: Final = (
 _CHANNEL_COLUMNS: Final = (*_CHANNEL_REQUIRED, *_CHANNEL_OPTIONAL)
 _VIDEO_COLUMNS: Final = ("video_id", "channel_id", "title", "published_at", "view_count")
 _KEYWORD_COLUMNS: Final = ("keyword", "status", "channels_found", "added_at", "completed_at")
+_KEYWORD_YIELD: Final = ("new_found", "in_range_found")
 _LINK_COLUMNS: Final = ("channel_id", "keyword", "discovered_at", "source")
 _RUN_COLUMNS: Final = (
     "started_at",
@@ -211,6 +212,17 @@ def expand_archive(archive: dict[str, Any], pending: list[dict[str, Any]]) -> li
     return rows
 
 
+def _keyword_yield(keyword: dict[str, Any]) -> tuple[int | None, int | None]:
+    """(new_found, in_range_found) of an example keyword: the history's own numbers, else for a
+    done keyword a fixed share of its channels (about 70% new, about 40% of those in range)."""
+    new, in_range = (keyword.get(c) for c in _KEYWORD_YIELD)
+    if keyword["status"] != "done" or (new is not None and in_range is not None):
+        return new, in_range
+    found = keyword["channels_found"]
+    new = found * 7 // 10
+    return new, new * 4 // 10
+
+
 def load(conn: sqlite3.Connection, history: dict[str, Any]) -> ExampleLoadData:
     """Writes the history in one transaction (BEGIN IMMEDIATE, as the store's `_atomic`)."""
     channels = cast("list[dict[str, Any]]", history["channels"])
@@ -240,7 +252,13 @@ def load(conn: sqlite3.Connection, history: dict[str, Any]) -> ExampleLoadData:
                 for v in videos
             ],
         )
-        conn.executemany(_insert("keywords", _KEYWORD_COLUMNS), _rows(keywords, _KEYWORD_COLUMNS))
+        conn.executemany(
+            _insert("keywords", (*_KEYWORD_COLUMNS, *_KEYWORD_YIELD)),
+            [
+                (*row, *_keyword_yield(k))
+                for row, k in zip(_rows(keywords, _KEYWORD_COLUMNS), keywords, strict=True)
+            ],
+        )
         conn.executemany(_insert("channel_keywords", _LINK_COLUMNS), _rows(links, _LINK_COLUMNS))
         before = conn.execute("SELECT COALESCE(MAX(run_id), 0) FROM runs").fetchone()[0]
         conn.executemany(_insert("runs", _RUN_COLUMNS), _rows(runs, _RUN_COLUMNS))

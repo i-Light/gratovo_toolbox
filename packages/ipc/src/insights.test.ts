@@ -116,7 +116,19 @@ const inputs: InsightsInputs = {
       paused: false,
     },
   ],
-  keywords: [{ keyword: "ai agents", found: 20, sweptByRules: 5, lastRun: null }],
+  keywords: [
+    {
+      keyword: "ai agents",
+      found: 20,
+      sweptByRules: 5,
+      lastRun: null,
+      completedAt: null,
+      inRange: null,
+      newFound: null,
+      tool: null,
+      angle: null,
+    },
+  ],
   archive: {
     total: 100,
     byRules: 90,
@@ -554,5 +566,25 @@ describe("insights:goal", () => {
     expect(routes?.routes.length).toBeLessThanOrEqual(1000);
     const parsed = channels["insights:read"].response.safeParse(report);
     if (!parsed.success) throw new Error(parsed.error.message);
+  });
+
+  it("takes a search report with a yield", () => {
+    const row = {
+      name: "mcp",
+      keywords: 6,
+      inRange: 20,
+      newFound: 40,
+      perKeyword: 3.3,
+      judged: true,
+    };
+    const report = insightsReport("search", inputs, "7d");
+    const withYield = {
+      ...report,
+      yield: { byTool: [row], byAngle: [{ ...row, name: "tips" }], byHand: { ...row, name: "" } },
+    };
+    const parsed = channels["insights:read"].response.safeParse(withYield);
+    if (!parsed.success) throw new Error(parsed.error.message);
+    const tooMany = { ...withYield, yield: { ...withYield.yield, byTool: Array(501).fill(row) } };
+    expect(channels["insights:read"].response.safeParse(tooMany).success).toBe(false);
   });
 });
