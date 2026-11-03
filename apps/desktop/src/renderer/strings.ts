@@ -4428,6 +4428,14 @@ export const strings = {
       fromBox: (address: string): string => ` from ${address}`,
       cancel: "Cancel",
       cancelTip: "Take it out of the queue. It goes back to a draft.",
+      change: "Change time",
+      changeTip: "Move it to another time. It stays scheduled.",
+      changeLabel: (name: string): string => `Change when the email to ${name} goes`,
+      pick: "Pick a time…",
+      pickLabel: "Send time",
+      pickSet: "Set",
+      pickCancel: "Close",
+      movedLabel: (name: string): string => `Moved the scheduled email to ${name}`,
     },
     /** Reach > Mailboxes (D20; prototype reach.js MailCard). */
     mailboxes: {

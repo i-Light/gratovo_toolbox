@@ -37,10 +37,13 @@ export {
 } from "./mailbox-health";
 export {
   countryZones,
+  freeSlot,
   mondayAt9,
   morningIn,
   sendLaterHour,
   sendLaterLeadMs,
+  slotGapMs,
+  slotJitterMs,
   theirMorning,
   tomorrowAt9,
   zoneOf,

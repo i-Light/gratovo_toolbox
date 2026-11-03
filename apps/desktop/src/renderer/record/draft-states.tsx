@@ -13,6 +13,7 @@ import {
 import { useNow } from "../lib/use-now";
 import { strings } from "../strings";
 import { takeBack } from "./draft-actions";
+import { ChangeTime } from "./send-later";
 
 const text = strings.reach.card;
 const later = strings.reach.later;
@@ -158,7 +159,7 @@ export function ScheduledNote({ draft }: { readonly draft: OutreachDraft }) {
   const when = draft.sendAt === null ? "" : whenWords(draft.sendAt);
   return (
     <>
-      <span className="row" role="status" data-ui="reach.draft.scheduled">
+      <span className="row wrap" role="status" data-ui="reach.draft.scheduled">
         <Icon name="clock" />
         <span>
           {later.scheduledFor(when)}
@@ -174,6 +175,7 @@ export function ScheduledNote({ draft }: { readonly draft: OutreachDraft }) {
         >
           {later.cancel}
         </Btn>
+        <ChangeTime draft={draft} />
       </span>
       <span className="sp"></span>
       <Btn

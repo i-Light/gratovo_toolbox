@@ -25,7 +25,6 @@ import {
   createSender,
   holdMs,
   lateMs,
-  sendGapJitterMs,
   sendGapMs,
   sendVerdict,
   type CheckOutcome,
@@ -401,7 +400,6 @@ describe("the sender", () => {
         timers = timers.filter((t) => t.id !== handle);
       },
       newId: () => `id-${String(++ids)}`,
-      random: () => 0.5,
       log: (line) => lines.push(line),
     });
     // As the app does when a source opens (with nothing left from an earlier run here).
@@ -941,7 +939,7 @@ describe("the sender", () => {
   });
 
   describe("the gap between scheduled sends", () => {
-    const gap = sendGapMs + 0.5 * sendGapJitterMs;
+    const gap = sendGapMs;
     const scheduled = (id: string, over: Partial<Row> = {}): Row =>
       row(id, { state: "scheduled", sendAt: start + 60_000, approvedBy: me, ...over });
 

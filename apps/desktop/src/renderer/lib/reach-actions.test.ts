@@ -536,7 +536,9 @@ describe("Send later and mailbox settings", () => {
     expect(bridge.writes.at(-1)).toEqual([
       { kind: "draft.state", id: "d1", state: "scheduled", sendAt: at },
     ]);
-    expect(scheduleDraft("d1", at + 1)).toBe(false);
+    // A scheduled draft moves to the new time (Change time) and stays scheduled.
+    expect(scheduleDraft("d1", at + 60_000)).toBe(true);
+    expect(draft("d1")).toMatchObject({ state: "scheduled", sendAt: at + 60_000 });
     expect(cancelScheduled("d1")).toBe(true);
     expect(draft("d1")).toMatchObject({ state: "ready", sendAt: null });
     expect(toasts().at(-1)?.msg).toBe(later.cancelled);

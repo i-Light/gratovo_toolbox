@@ -1491,6 +1491,18 @@ export function describeDataSourceContract(
         });
       });
 
+      it("moves a scheduled draft to a new time and keeps it scheduled", async () => {
+        const source = start();
+        addDraft(source, "d1");
+        await source.write([state("d1", "scheduled", hold + 60_000)]);
+        await source.write([state("d1", "scheduled", hold + 3_600_000)]);
+        expect(source.outreach.draft("d1")).toMatchObject({
+          state: "scheduled",
+          approvedBy: "u1",
+          sendAt: hold + 3_600_000,
+        });
+      });
+
       it("never approves a draft that may have gone out: only It was sent or Send as new", async () => {
         const source = start();
         addDraft(source, "d1", { state: "failed" });

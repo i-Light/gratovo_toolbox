@@ -85,8 +85,6 @@ export interface SenderDeps {
   setTimer?: (run: () => void, ms: number) => unknown;
   clearTimer?: (handle: unknown) => void;
   newId?: () => string;
-  /** 0 to 1, for the spacing between scheduled sends; `Math.random` unless a test names another. */
-  random?: () => number;
   /** Kinds and codes only: never an address, a subject or a body. */
   log?: (line: string) => void;
 }
@@ -98,12 +96,12 @@ export const lateMs = 12 * 3_600_000;
 /** The longest timer: a far-off schedule is re-armed rather than overflow `setTimeout`. */
 const maxTimerMs = 3_600_000;
 /**
- * A scheduled send leaves at least this long after the last send from its mailbox, plus up to
- * `sendGapJitterMs`: thirty emails set for "their morning" go out over the morning, not in one
- * minute (real-use week, 2026-11-03). A person's Send now is never held.
+ * A scheduled send leaves at least this long after the last send from its mailbox. Send later
+ * already spreads a batch (`freeSlot`); this is the floor for anything that still comes due
+ * together, such as drafts left waiting while the app was closed. A person's Send now is never
+ * held.
  */
-export const sendGapMs = 4 * 60_000;
-export const sendGapJitterMs = 5 * 60_000;
+export const sendGapMs = 3 * 60_000;
 
 const sendable: readonly DraftState[] = ["approved", "scheduled"];
 
@@ -207,7 +205,6 @@ export function createSender(deps: SenderDeps): Sender {
       clearTimeout(handle as ReturnType<typeof setTimeout>);
     });
   const newId = deps.newId ?? randomUUID;
-  const random = deps.random ?? Math.random;
   const log =
     deps.log ??
     ((line: string) => {
@@ -510,7 +507,7 @@ export function createSender(deps: SenderDeps): Sender {
       drafts: [{ id, patch: { ...patch, state: "sending", problem: null } }],
     });
     deps.changed();
-    nextFree.set(boxKey(draft.mailbox), now() + sendGapMs + random() * sendGapJitterMs);
+    nextFree.set(boxKey(draft.mailbox), now() + sendGapMs);
 
     if (mode === "example") {
       await recordSent(
