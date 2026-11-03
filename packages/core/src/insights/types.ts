@@ -490,6 +490,27 @@ export interface RoutesReport {
   readonly routes: readonly RouteRow[];
 }
 
+/** One tool, angle or "typed by hand" in the yield panel (S6, K13). */
+export interface YieldRow {
+  readonly name: string;
+  /** Keywords finished in the period. */
+  readonly keywords: number;
+  readonly inRange: number;
+  readonly newFound: number;
+  /** In-range channels per keyword; null when there are no keywords. */
+  readonly perKeyword: number | null;
+  /** Whether there are enough keywords to trust `perKeyword` (judgedMin). */
+  readonly judged: boolean;
+}
+
+/** Search › Yield (S6, K13): what the period's finished keywords found, by where they came from. */
+export interface YieldReport {
+  readonly byTool: readonly YieldRow[];
+  readonly byAngle: readonly YieldRow[];
+  /** Keywords with no recorded tool and angle; null when none finished. */
+  readonly byHand: YieldRow | null;
+}
+
 export interface SearchReport {
   readonly tab: "search";
   readonly window: ReportWindow;
@@ -598,6 +619,8 @@ export interface SearchReport {
   };
   /** Null while `pipeline.db` has no `run_routes` table (no route data yet). */
   readonly routes: RoutesReport | null;
+  /** What the period's finished keywords found, by tool and angle (S6). */
+  readonly yield: YieldReport;
   readonly everything: {
     readonly found: number;
     readonly swept: number;

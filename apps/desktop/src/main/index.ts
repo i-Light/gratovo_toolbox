@@ -4,6 +4,8 @@ import { join } from "node:path";
 
 import { BrowserWindow, Menu, app, dialog, powerMonitor, session, shell } from "electron";
 
+import { exampleKeywordOrigins } from "@gratovo/core/data";
+
 import { createAccount } from "./account/account";
 import { builtPageUrl } from "./app-page";
 import { registerAppScheme, serveAppFiles } from "./app-protocol";
@@ -13,6 +15,7 @@ import { createArchiveService } from "./find/archive-service";
 import { createCatalog } from "./find/catalog";
 import { catalogChannels, createEmailFinder } from "./find/email-finder";
 import { createIdeas } from "./find/ideas";
+import { readKeywordLists } from "./find/keyword-lists-store";
 import { createImageNetwork, createImageService } from "./find/images";
 import { createFindService, searchRouting } from "./find/find-service";
 import { createHandlers } from "./handlers";
@@ -253,7 +256,7 @@ function start(): void {
             spawn(command, [...args], { ...options, stdio: "pipe", windowsHide: true }),
           python: () =>
             findPython({ packaged: app.isPackaged, appPath: app.getAppPath(), exists: existsSync }),
-          env: pipelineEnv(process.env),
+          env: pipelineEnv(process.env, !app.isPackaged),
           openLog: (logSecrets) =>
             openPipelineLog({
               folder: join(userData, "logs"),
@@ -442,6 +445,13 @@ function start(): void {
         catalog: async () => (await catalog.snapshot()).rows,
         archiveDays: () => find.state().rules.archiveDays,
         now: () => Date.now(),
+        origins: () => {
+          const folder = find.folder();
+          const own = folder === null ? {} : readKeywordLists(folder).origins;
+          // The example data's keywords.json starts empty: its origins come from the example history.
+          const base = account.findContext()?.mode === "example" ? exampleKeywordOrigins : {};
+          return new Map(Object.entries({ ...base, ...own }));
+        },
       });
       // Both give way when Start is pressed; the search starts once both have.
       yieldLane = async () => {
@@ -451,12 +461,14 @@ function start(): void {
       // example data. Nothing here starts the bridge.
       const ideas = createIdeas({
         mode: () => account.findContext()?.mode ?? null,
-        queue: () => find.state().queue,
+        queue: () => find.entries(),
+        lists: () => find.lists(),
         bridgeReady: async () => {
           const status = await geminiControl.status();
           return status.state === "listening" && status.addon.state === "connected";
         },
         generate: (params) => gemini.call("action.generate_keywords", params),
+        suggestTermsCall: (params) => gemini.call("action.suggest_terms", params),
       });
       // The old mailbox merge (D19) waits its turn on the quick lane, like the mail jobs.
       const importQueue = createQuickQueue({ run: (start) => runJob(quickLane, start) });

@@ -587,7 +587,7 @@ describe("the data channels through the dispatcher", () => {
       "sync:now": () => ({ state: "off" as const, pending: 0, refused: 0, lastSyncedAt: null }),
       "presence:set": () => ({}),
       "find:state": () => ({
-        queue: [],
+        queue: { total: 0, queued: 0, running: 0, done: 0, failed: 0, version: 0, current: [] },
         at: 0,
         rules: {
           countries: [],
@@ -626,6 +626,11 @@ describe("the data channels through the dispatcher", () => {
       "find:views": () => ({ views: [] }),
       "find:views-set": () => ({ ok: true as const }),
       "find:ideas": () => ({ ok: false as const, problem: "bridge_off" as const }),
+      "find:keywords": () => ({ total: 0, offset: 0, rows: [] }),
+      "find:lists": () => ({ tools: [], angles: [] }),
+      "find:lists-set": () => ({ ok: true as const }),
+      "find:generate": () => ({ ok: false as const, problem: "running" as const }),
+      "find:suggest-terms": () => ({ ok: false as const, problem: "bridge_off" as const }),
       "log:for": () => ({ lines: [] }),
       "log:page": () => ({ lines: [], more: false, people: [], total: 0 }),
       "toolbox:list": () => ({ version: 0, total: 0, items: [] }),

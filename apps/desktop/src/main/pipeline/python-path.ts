@@ -34,7 +34,10 @@ export function findPython(o: {
  * shell beyond it, and no secret (those go on stdin). `-I` makes Python ignore every `PYTHON*`
  * variable anyway, so the entry point sets UTF-8 itself.
  */
-export function pipelineEnv(env: Record<string, string | undefined>): Record<string, string> {
+export function pipelineEnv(
+  env: Record<string, string | undefined>,
+  testSeams = false,
+): Record<string, string> {
   // Windows names are case-insensitive, and a copied environment keeps whichever case it had.
   const read = (name: string): string | undefined => {
     const found = Object.keys(env).find((k) => k.toUpperCase() === name);
@@ -52,6 +55,12 @@ export function pipelineEnv(env: Record<string, string | undefined>): Record<str
     if (value !== undefined) {
       picked[as] = value;
     }
+  }
+  // The end-to-end tests script waits on the example source with this (the pipeline's
+  // `example.test_waits`). Only an unpackaged build passes `testSeams`, and only the example source reads it.
+  const waits = testSeams ? read("GRATOVO_EXAMPLE_WAITS") : undefined;
+  if (waits !== undefined) {
+    picked["GRATOVO_EXAMPLE_WAITS"] = waits;
   }
   return picked;
 }

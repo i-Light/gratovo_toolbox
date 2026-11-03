@@ -1,6 +1,7 @@
 import { existsSync, statSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 
+import { keywordKey } from "@gratovo/core/find";
 import { routeKinds, startOfWeek } from "@gratovo/core/insights";
 import type { RouteFact, RouteKind } from "@gratovo/core/insights";
 
@@ -65,6 +66,15 @@ export interface PipelineFacts {
   };
   readonly keywords: readonly KeywordBase[];
   readonly keywordHours: readonly KeywordHour[];
+  /**
+   * Every keyword `pipeline.db` knows, as `keywordKey`s: the `keywords` table (any status),
+   * `channel_keywords` and the archive's `found_via` (plan S6, K6).
+   */
+  readonly knownKeywords: ReadonlySet<string>;
+  /** Done keywords' in-range numbers by `keywordKey`; none for those finished before S6 (K7). */
+  readonly inRange: ReadonlyMap<string, number>;
+  /** Done keywords' new-channel numbers by `keywordKey`; same keys as `inRange` (S6-j). */
+  readonly newFound: ReadonlyMap<string, number>;
   /** Links by keyword: when each channel was found, in ms. */
   readonly linkTimes: ReadonlyMap<string, readonly number[]>;
   readonly pending: readonly {
@@ -101,6 +111,9 @@ export const emptyPipeline: PipelineFacts = {
   },
   keywords: [],
   keywordHours: [],
+  knownKeywords: new Set(),
+  inRange: new Map(),
+  newFound: new Map(),
   linkTimes: new Map(),
   pending: [],
   runs: [],
@@ -241,6 +254,45 @@ function readKeywordHours(db: Db): KeywordHour[] {
     }));
 }
 
+/** The keyword keys of the `keywords` table and `channel_keywords` (the archive's come apart). */
+function readKnownKeywords(db: Db): Set<string> {
+  const keys = new Set<string>();
+  for (const sql of [
+    "SELECT keyword FROM keywords",
+    "SELECT DISTINCT keyword FROM channel_keywords",
+  ]) {
+    try {
+      for (const row of db.prepare(sql).all()) {
+        keys.add(keywordKey(String(row["keyword"])));
+      }
+    } catch {
+      // A table that is not there knows nothing.
+    }
+  }
+  return keys;
+}
+
+/** Done keywords' in-range and new-channel numbers (schema 10); empty while the columns are missing. */
+function readYield(db: Db): { inRange: Map<string, number>; newFound: Map<string, number> } {
+  const inRange = new Map<string, number>();
+  const newFound = new Map<string, number>();
+  const cols = columnsOf(db, "keywords");
+  if (!cols.has("in_range_found")) {
+    return { inRange, newFound };
+  }
+  const sql = `SELECT keyword, in_range_found, ${
+    cols.has("new_found") ? "new_found" : "NULL AS new_found"
+  } FROM keywords WHERE status = 'done' AND in_range_found IS NOT NULL`;
+  for (const row of db.prepare(sql).all()) {
+    const key = keywordKey(String(row["keyword"]));
+    inRange.set(key, Number(row["in_range_found"]));
+    if (row["new_found"] !== null) {
+      newFound.set(key, Number(row["new_found"]));
+    }
+  }
+  return { inRange, newFound };
+}
+
 function readLinks(db: Db): Pick<PipelineFacts, "links" | "linkTimes"> {
   const links = new Map<string, string[]>();
   const linkTimes = new Map<string, number[]>();
@@ -330,6 +382,11 @@ function readFile(path: string): PipelineFacts {
     const failures = part(() => columnsOf(db, "channels").has("read_failures"), false);
     const runColumns = part(() => columnsOf(db, "runs"), new Set<string>());
     const archive = part(() => readArchive(db), null);
+    const keywordHours = part(() => readKeywordHours(db), []);
+    const yielded = part(() => readYield(db), {
+      inRange: new Map<string, number>(),
+      newFound: new Map<string, number>(),
+    });
     return {
       ...part(() => readLinks(db), { links: new Map(), linkTimes: new Map() }),
       retrying: failures
@@ -353,7 +410,15 @@ function readFile(path: string): PipelineFacts {
             })),
         [],
       ),
-      keywordHours: part(() => readKeywordHours(db), []),
+      keywordHours,
+      knownKeywords: part(() => {
+        const keys = readKnownKeywords(db);
+        for (const hour of keywordHours) {
+          keys.add(keywordKey(hour.keyword));
+        }
+        return keys;
+      }, new Set<string>()),
+      ...yielded,
       pending: part(
         () =>
           db

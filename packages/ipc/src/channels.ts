@@ -71,8 +71,17 @@ import {
   findEditResultSchema,
   findRequeueResultSchema,
   findWeakResultSchema,
+  findGenerateRequestSchema,
+  findGenerateResultSchema,
   findIdeasRequestSchema,
   findIdeasResultSchema,
+  findKeywordsRequestSchema,
+  findKeywordsResultSchema,
+  findListsResultSchema,
+  findListsSchema,
+  findListsSetResultSchema,
+  findSuggestTermsRequestSchema,
+  findSuggestTermsResultSchema,
   findIndexRequestSchema,
   findItemRequestSchema,
   findItemResultSchema,
@@ -268,6 +277,31 @@ export const channels = {
   "find:ideas": {
     request: findIdeasRequestSchema,
     response: findIdeasResultSchema,
+  },
+  /** One page of the queue, 100 rows at most, with its filter (plan S6, K2). */
+  "find:keywords": {
+    request: findKeywordsRequestSchema,
+    response: findKeywordsResultSchema,
+  },
+  /** The generator's tools and angles (plan S6, K12). */
+  "find:lists": {
+    request: z.strictObject({}),
+    response: findListsResultSchema,
+  },
+  /** Replaces the generator's tools and angles. */
+  "find:lists-set": {
+    request: findListsSchema,
+    response: findListsSetResultSchema,
+  },
+  /** Counts a crossing of tools and angles; `add: true` also queues it (plan S6, K12). */
+  "find:generate": {
+    request: findGenerateRequestSchema,
+    response: findGenerateResultSchema,
+  },
+  /** Gemini proposes more tools or angles for a person to accept (plan S6, K11). */
+  "find:suggest-terms": {
+    request: findSuggestTermsRequestSchema,
+    response: findSuggestTermsResultSchema,
   },
   /** One creator's activity lines, newest first (a record's Activity tab, D23). */
   "log:for": {

@@ -1,3 +1,4 @@
+import { keywordKey } from "@gratovo/core/find";
 import { ideasCountMax, type ChannelResponse } from "@gratovo/ipc";
 
 import type { GeminiParams } from "../pipeline/gemini-protocol";
@@ -17,9 +18,15 @@ import type { GeminiCall } from "../pipeline/gemini-service";
 export interface FindIdeas {
   /** Asks for `count` ideas (1 to 20); one request at a time. */
   suggest(count: number): Promise<ChannelResponse<"find:ideas">>;
+  /**
+   * Gemini proposes more tools or angles for the keyword generator (plan S6, K11). It shares the
+   * ideas' one-request gate: one request at a time, and sends 60 s apart across both.
+   */
+  suggestTerms(kind: "tools" | "angles"): Promise<ChannelResponse<"find:suggest-terms">>;
 }
 
 type Answer = ChannelResponse<"find:ideas">;
+type TermsAnswer = ChannelResponse<"find:suggest-terms">;
 
 /** One queue entry, as the Find service has it. */
 export interface IdeasQueueEntry {
@@ -39,6 +46,12 @@ export interface IdeasDeps {
   generate(
     params: GeminiParams<"action.generate_keywords">,
   ): Promise<GeminiCall<"action.generate_keywords">>;
+  /** The generator's current tools and angles (keywords.json), sent as `have`. Empty if absent. */
+  lists?: () => { readonly tools: readonly string[]; readonly angles: readonly string[] };
+  /** The bridge's `action.suggest_terms`. */
+  suggestTermsCall?: (
+    params: GeminiParams<"action.suggest_terms">,
+  ) => Promise<GeminiCall<"action.suggest_terms">>;
   /** Waits `ms`; a timer unless a test names another. */
   wait?: (ms: number) => Promise<void>;
   now?: () => number;
@@ -52,6 +65,15 @@ export const standInMs = 900;
 const standInCount = 8;
 /** The owner's least time between two Gemini sends. */
 export const sendGapMs = 60_000;
+/** How many terms one suggestion asks for, and the most one answer may hold. */
+const suggestCount = 20;
+const suggestMax = 30;
+const termMax = 60;
+/** The example stand-in's tools and angles (AI niche), for `suggestTerms`. */
+export const standInTerms: Readonly<Record<"tools" | "angles", readonly string[]>> = {
+  tools: ["Claude Code", "Cursor", "NotebookLM", "n8n", "Perplexity", "Gemini CLI", "Windsurf"],
+  angles: ["tutorial for beginners", "vs", "review", "workflow", "for small business", "news"],
+};
 /** The best keywords the topic names, and the fewest channels a keyword must have found. */
 const topicKeywords = 5;
 const topicMinFound = 3;
@@ -75,7 +97,7 @@ export const standInIdeas: readonly string[] = [
   "gemini 3 vs gpt 5",
 ];
 
-const key = (keyword: string): string => keyword.trim().toLowerCase().replace(/\s+/g, " ");
+const key = keywordKey;
 
 /**
  * The topic: the niche, and the five keywords that kept the largest share of what they found
@@ -171,7 +193,10 @@ export function createIdeas(deps: IdeasDeps): FindIdeas {
     if (!answer.ok) {
       // The code only: the bridge's message can quote the prompt.
       console.error(`Find: keyword ideas failed (${answer.error.code}).`);
-      return { ok: false, problem: "failed" };
+      return {
+        ok: false,
+        problem: answer.error.code === "THINKING_NOT_SET" ? "thinking_not_set" : "failed",
+      };
     }
     const queued = new Set(entries.map((entry) => key(entry.keyword)));
     const { keywords, repeats } = cleanIdeas(answer.result.keywords, queued, count);
@@ -182,7 +207,74 @@ export function createIdeas(deps: IdeasDeps): FindIdeas {
     };
   }
 
+  async function suggestStandIn(kind: "tools" | "angles"): Promise<TermsAnswer> {
+    await wait(standInMs);
+    return { ok: true, terms: [...standInTerms[kind]] };
+  }
+
+  async function suggestLive(kind: "tools" | "angles"): Promise<TermsAnswer> {
+    let ready: boolean;
+    try {
+      ready = await deps.bridgeReady();
+    } catch {
+      ready = false;
+    }
+    if (!ready || deps.suggestTermsCall === undefined) {
+      return { ok: false, problem: "bridge_off" };
+    }
+    if (now() - lastSend < sendGapMs) {
+      return { ok: false, problem: "busy" };
+    }
+    lastSend = now();
+    const have = (deps.lists?.() ?? { tools: [], angles: [] })[kind];
+    const answer = await deps.suggestTermsCall({
+      kind,
+      have: [...have],
+      count: suggestCount,
+      newChat: true,
+    });
+    if (!answer.ok) {
+      console.error(`Find: term suggestions failed (${answer.error.code}).`);
+      return {
+        ok: false,
+        problem: answer.error.code === "THINKING_NOT_SET" ? "thinking_not_set" : "failed",
+      };
+    }
+    const seen = new Set<string>();
+    const terms: string[] = [];
+    for (const raw of answer.result.terms) {
+      const term = raw.trim();
+      if (term === "" || term.length > termMax || seen.has(key(term))) {
+        continue;
+      }
+      seen.add(key(term));
+      terms.push(term);
+      if (terms.length >= suggestMax) {
+        break;
+      }
+    }
+    return { ok: true, terms };
+  }
+
   return {
+    async suggestTerms(kind) {
+      if (asking) {
+        return { ok: false, problem: "busy" };
+      }
+      const mode = deps.mode();
+      if (mode === null) {
+        return { ok: false, problem: "failed" };
+      }
+      asking = true;
+      try {
+        return mode === "example" ? await suggestStandIn(kind) : await suggestLive(kind);
+      } catch {
+        console.error("Find: term suggestions failed.");
+        return { ok: false, problem: "failed" };
+      } finally {
+        asking = false;
+      }
+    },
     async suggest(count) {
       const wanted = Math.max(1, Math.min(ideasCountMax, Math.floor(count)));
       if (asking) {
@@ -212,5 +304,6 @@ export function createIdeas(deps: IdeasDeps): FindIdeas {
 export function createStubIdeas(): FindIdeas {
   return {
     suggest: () => Promise.resolve({ ok: false, problem: "bridge_off" }),
+    suggestTerms: () => Promise.resolve({ ok: false, problem: "bridge_off" }),
   };
 }

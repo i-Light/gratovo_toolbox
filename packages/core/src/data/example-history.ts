@@ -1,6 +1,7 @@
 import { exampleSeed } from "./example";
 import { exampleDeals } from "./example-history-deals";
 import type { ExampleDeals } from "./example-history-deals";
+import { exampleYieldKeywords } from "./example-history-yield";
 import { exampleRunRoutes } from "./example-history-routes";
 import type { HistoryRouteRow } from "./example-history-routes";
 import type { Scenario } from "./example";
@@ -359,6 +360,9 @@ export interface HistoryKeywordRow {
   keyword: string;
   status: "done";
   channels_found: number;
+  /** Set on the generated keywords (S6-j); the loader works the others' out. */
+  new_found?: number;
+  in_range_found?: number;
   added_at: string;
   completed_at: string;
 }
@@ -2065,6 +2069,10 @@ function build(now: number, broke: boolean): ExampleHistory {
       keyword: s.keyword,
       status: "done",
       channels_found: (found[k] ?? 0) + (extraCount[k] ?? 0),
+      // The ones typed by hand: a few in-range channels each (the loader's share of all they found
+      // would be thousands).
+      new_found: 12 + ((k * 5) % 17),
+      in_range_found: 1 + ((k * 3) % 6),
       added_at: iso(first.start - HOUR),
       completed_at: iso(lastOne.start + lastOne.duration),
     };
@@ -2207,7 +2215,7 @@ function build(now: number, broke: boolean): ExampleHistory {
     pipeline: {
       channels,
       videos,
-      keywords: keywordRows,
+      keywords: [...keywordRows, ...exampleYieldKeywords(now, iso)],
       links,
       runs: runRows,
       runRoutes: exampleRunRoutes(runRows.map((r) => r.keywords_done)),

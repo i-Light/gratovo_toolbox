@@ -41,8 +41,8 @@ def _version_1_file(path: Path) -> None:
     conn.close()
 
 
-def test_a_new_file_is_created_at_version_8(conn: sqlite3.Connection) -> None:
-    assert store.SCHEMA_VERSION == 9
+def test_a_new_file_is_created_at_version_10(conn: sqlite3.Connection) -> None:
+    assert store.SCHEMA_VERSION == 10
     assert _version(conn) == store.SCHEMA_VERSION
     assert {"video_transcripts", "archived_videos"} <= _tables(conn)
 
@@ -72,13 +72,13 @@ def test_a_version_1_file_gains_video_transcripts_and_keeps_every_row(tmp_path: 
     conn.close()
 
 
-def test_a_file_newer_than_version_9_is_refused(tmp_path: Path) -> None:
+def test_a_file_newer_than_version_10_is_refused(tmp_path: Path) -> None:
     path = tmp_path / "pipeline.db"
     conn = store.get_connection(path)
-    conn.execute("PRAGMA user_version=10")
+    conn.execute("PRAGMA user_version=11")
     with pytest.raises(store.SchemaTooNewError):
         store.init_db(conn)
-    assert _version(conn) == 10, "the newer file is left as it was"
+    assert _version(conn) == 11, "the newer file is left as it was"
     assert "video_transcripts" not in _tables(conn)
     conn.close()
 
@@ -615,3 +615,34 @@ def test_a_version_8_file_gains_run_routes_and_keeps_its_runs(tmp_path: Path) ->
     ]  # fmt: skip
     assert run_id == 1
     conn.close()
+
+
+def test_a_version_9_file_gains_keyword_yield_and_init_twice_is_safe(tmp_path: Path) -> None:
+    path = tmp_path / "pipeline.db"
+    conn = store.get_connection(path)
+    store.init_db(conn)
+    store.seed_keywords(conn, ["claude code tutorial"])
+    store.mark_keyword_done(conn, "claude code tutorial", 5)
+    conn.executescript("ALTER TABLE keywords DROP COLUMN new_found;")
+    conn.executescript("ALTER TABLE keywords DROP COLUMN in_range_found;")
+    conn.execute("PRAGMA user_version=9")
+    conn.commit()
+    conn.close()
+
+    for _ in range(2):
+        conn = store.get_connection(path)
+        store.init_db(conn)
+        assert _version(conn) == store.SCHEMA_VERSION
+        row = store.get_keyword(conn, "claude code tutorial")
+        assert row is not None
+        assert (row["status"], row["new_found"], row["in_range_found"]) == ("done", None, None)
+        conn.close()
+
+
+def test_done_stores_the_yield_and_incomplete_leaves_it(conn: sqlite3.Connection) -> None:
+    store.seed_keywords(conn, ["ai video editor"])
+    store.mark_keyword_done(conn, "ai video editor", 9, new_found=6, in_range_found=2)
+    store.mark_keyword_incomplete(conn, "ai video editor", 9)
+    row = store.get_keyword(conn, "ai video editor")
+    assert row is not None
+    assert (row["new_found"], row["in_range_found"]) == (6, 2)

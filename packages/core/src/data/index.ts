@@ -167,6 +167,7 @@ export type {
 } from "./outreach-store";
 export type { InsightsLocal, InsightsLocalCreator, InsightsStore } from "./insights-store";
 export { exampleHistory } from "./example-history";
+export { exampleKeywordOrigins } from "./example-history-yield";
 export type {
   ExampleDeals,
   HistoryBrandDetailRow,

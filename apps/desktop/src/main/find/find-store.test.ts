@@ -234,3 +234,34 @@ describe("rulesFromOldFiles", () => {
     expect(rules).toEqual(current);
   });
 });
+
+describe("the find file's queue cap", () => {
+  let folder: string;
+  const entry = { keyword: "ai coding tools", state: "done", found: 12, kept: 4 };
+
+  beforeEach(() => {
+    folder = mkdtempSync(join(tmpdir(), "gratovo-find-"));
+  });
+  afterEach(() => {
+    rmSync(folder, { recursive: true, force: true });
+  });
+
+  it("reads an old find.json without failure counts, and keeps 10,000 keywords", () => {
+    const queue = Array.from({ length: 10_000 }, (_, i) => ({
+      ...entry,
+      keyword: "k" + String(i),
+    }));
+    const old = { queue, at: 9_999, rules: defaultRules() };
+    writeFileSync(join(folder, findFileName), JSON.stringify(old));
+    const file = readFindFile(folder);
+    expect(file.queue).toHaveLength(10_000);
+    expect(file.queue[0]).toMatchObject({ keyword: "k0", state: "done", failures: 0 });
+    expect(file.at).toBe(9_999);
+  });
+
+  it("refuses a file with 10,001 keywords and falls back to the defaults", () => {
+    const old = { queue: Array(10_001).fill(entry), at: 0, rules: defaultRules() };
+    writeFileSync(join(folder, findFileName), JSON.stringify(old));
+    expect(readFindFile(folder).queue).toEqual([]);
+  });
+});

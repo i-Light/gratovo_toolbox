@@ -65,6 +65,7 @@ export const bridgeMethods = [
 export const actionMethods = [
   "action.generate_keywords",
   "action.classify_channel",
+  "action.suggest_terms",
   "action.gem_create",
   "action.gem_update",
   "action.gem_read",
@@ -399,6 +400,13 @@ export const geminiParamsSchemas = {
     criteria: shortList.optional(),
     ...askCommon,
   }),
+  // Gemini proposes more tools or angles for the generator (plan S6, K11). Its own short prompt.
+  "action.suggest_terms": z.strictObject({
+    kind: z.enum(["tools", "angles"]),
+    have: shortList,
+    count: z.number().int().min(1).max(30),
+    newChat: z.literal(true),
+  }),
   "action.gem_create": z.strictObject({
     name: z.string().min(1).max(200),
     description: z.string().max(5000),
@@ -583,6 +591,11 @@ export const geminiResultSchemas = {
     brandFit: z.number().int().min(1).max(5),
     reasons: z.array(z.string()),
     redFlags: z.array(z.string()),
+    ...raw,
+  }),
+  "action.suggest_terms": z.looseObject({
+    terms: z.array(z.string()),
+    dropped: z.number().int().min(0),
     ...raw,
   }),
   "action.gem_create": z.looseObject({ url: z.string(), gemId: z.string(), name: z.string() }),

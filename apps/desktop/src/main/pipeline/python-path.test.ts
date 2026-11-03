@@ -48,4 +48,13 @@ describe("the pipeline's environment", () => {
   it("leaves out what isn't set", () => {
     expect(pipelineEnv({ SYSTEMROOT: "C:\\Windows" })).toEqual({ SystemRoot: "C:\\Windows" });
   });
+
+  it("passes the scripted test waits only when the caller allows test seams", () => {
+    const env = { SYSTEMROOT: "C:\\Windows", GRATOVO_EXAMPLE_WAITS: '{"a":["routes",2]}' };
+    expect(pipelineEnv(env)).toEqual({ SystemRoot: "C:\\Windows" });
+    expect(pipelineEnv(env, true)).toEqual({
+      SystemRoot: "C:\\Windows",
+      GRATOVO_EXAMPLE_WAITS: '{"a":["routes",2]}',
+    });
+  });
 });

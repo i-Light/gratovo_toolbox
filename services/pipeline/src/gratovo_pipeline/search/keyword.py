@@ -113,7 +113,13 @@ def process_keyword(search: Search, keyword: str) -> KeywordResult:
 
     outside = len(needing) - len(reading)
     if searched.complete:
-        store.mark_keyword_done(conn, keyword, channels_found=found)
+        store.mark_keyword_done(
+            conn,
+            keyword,
+            channels_found=found,
+            new_found=len(fresh),
+            in_range_found=len(kept),
+        )
         search.info(
             f'"{keyword}" done: {found} found, {len(kept)} kept'
             + (f", {outside} outside the countries." if outside else ".")

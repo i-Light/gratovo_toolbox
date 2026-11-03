@@ -44,7 +44,7 @@ type Discovered = dict[str, str]  # {handle: channel_id}
 type Row = dict[str, Any]
 type RunKind = Literal["search", "catch-up", "re-enrich"]
 
-SCHEMA_VERSION: Final = 9
+SCHEMA_VERSION: Final = 10
 
 # Version 7 columns, in the tables below (all nullable local facts, none shared):
 # - videos, from videos.list: like_count and comment_count are text like view_count (NULL when
@@ -79,7 +79,9 @@ CREATE TABLE IF NOT EXISTS keywords (
     search_settings TEXT,   -- JSON: the rules this keyword was last run with
     source TEXT NOT NULL DEFAULT 'local',  -- 'local' or 'remote' (from another machine's catalog)
     dirty INTEGER NOT NULL DEFAULT 1,      -- 1 = changed here since last announced
-    failures INTEGER NOT NULL DEFAULT 0    -- searches that stopped early; KEYWORD_GIVE_UP -> failed
+    failures INTEGER NOT NULL DEFAULT 0,   -- searches that stopped early; KEYWORD_GIVE_UP -> failed
+    new_found INTEGER,       -- channels this search found that were new; NULL = done before v10
+    in_range_found INTEGER   -- of those, the ones kept in range; NULL = done before v10
 );
 
 CREATE TABLE IF NOT EXISTS channels (
@@ -592,6 +594,15 @@ def _add_run_routes(conn: sqlite3.Connection) -> None:
     conn.executescript(RUN_ROUTES)
 
 
+def _add_keyword_yield(conn: sqlite3.Connection) -> None:
+    """Version 10. `keywords.new_found` and `in_range_found`, nullable (NULL = finished before
+    version 10, never judged), added only when missing."""
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(keywords)").fetchall()}
+    for name in ("new_found", "in_range_found"):
+        if name not in columns:
+            conn.execute(f"ALTER TABLE keywords ADD COLUMN {name} INTEGER")
+
+
 # What each version adds to the one before it, run in order on a file older than it. Version 1 is
 # SCHEMA itself; a new file runs SCHEMA and then every step. Each step is safe to run twice.
 MIGRATIONS: Final[dict[int, Callable[[sqlite3.Connection], object]]] = {
@@ -603,6 +614,7 @@ MIGRATIONS: Final[dict[int, Callable[[sqlite3.Connection], object]]] = {
     7: _add_more_facts,
     8: _add_archived_videos,
     9: _add_run_routes,
+    10: _add_keyword_yield,
 }
 
 # A second writer waits this long instead of failing at once with "database is locked". Far
@@ -720,11 +732,18 @@ def mark_keyword_started(
     conn.commit()
 
 
-def mark_keyword_done(conn: sqlite3.Connection, keyword: str, channels_found: int) -> None:
+def mark_keyword_done(
+    conn: sqlite3.Connection,
+    keyword: str,
+    channels_found: int,
+    new_found: int | None = None,
+    in_range_found: int | None = None,
+) -> None:
+    """`new_found` and `in_range_found` are the keyword's yield (NULL when not known)."""
     conn.execute(
         "UPDATE keywords SET status='done', completed_at=?, channels_found=?, failures=0, "
-        "  source='local', dirty=1 WHERE keyword=?",
-        (utc_now(), channels_found, keyword),
+        "  new_found=?, in_range_found=?, source='local', dirty=1 WHERE keyword=?",
+        (utc_now(), channels_found, new_found, in_range_found, keyword),
     )
     conn.commit()
 

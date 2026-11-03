@@ -1,4 +1,6 @@
 # Step S: the scraping upgrade
+**Status (2026-11-02): done.** S1 to S6 and S8 are built. S7 is not built: the owner closed the step without it. The gateway leak test is built and waits for the owner's click. What was built, what was measured and what is left is in [ADR 0023](decisions/0023-scraping-upgrade.md). The text below is the plan as written.
+
 
 Planned 2026-11-02 at the owner's request, to start the same day. The study it builds on is [scraping-omar-analysis.md](scraping-omar-analysis.md). Step P pauses at P3 while this step runs.
 

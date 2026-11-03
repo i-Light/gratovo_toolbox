@@ -112,7 +112,7 @@ export {
   savedViewsSchema,
   viewsSetMax,
 } from "./find";
-export type { FindEmailsEvent, FindState } from "./find";
+export type { FindEmailsEvent, FindState, QueueRow } from "./find";
 export {
   browserId,
   geminiAddonStates,

@@ -10,6 +10,7 @@ import {
   ideasTopic,
   sendGapMs,
   standInIdeas,
+  standInTerms,
   standInMs,
   type FindIdeas,
   type IdeasQueueEntry,
@@ -17,6 +18,12 @@ import {
 
 type Params = GeminiParams<"action.generate_keywords">;
 type Call = GeminiCall<"action.generate_keywords">;
+type TermParams = GeminiParams<"action.suggest_terms">;
+type TermCall = GeminiCall<"action.suggest_terms">;
+const termsAnswered = (terms: string[]): TermCall => ({
+  ok: true,
+  result: { terms, dropped: 0, raw: terms.join(", "), model: null },
+});
 
 const entry = (keyword: string, found = 0, kept = 0): IdeasQueueEntry => ({ keyword, found, kept });
 
@@ -32,6 +39,7 @@ describe("keyword ideas", () => {
   let generate: ReturnType<typeof vi.fn<(params: Params) => Promise<Call>>>;
   let clock: number;
   let ideas: FindIdeas;
+  let suggestCall: ReturnType<typeof vi.fn<(params: TermParams) => Promise<TermCall>>>;
 
   beforeEach(() => {
     vi.useFakeTimers();
@@ -42,7 +50,12 @@ describe("keyword ideas", () => {
       Promise.resolve(answered(["ai agents for lawyers"])),
     );
     clock = 10_000_000;
+    suggestCall = vi.fn<(params: TermParams) => Promise<TermCall>>(() =>
+      Promise.resolve(termsAnswered(["Claude Code", "claude code", " Cursor "])),
+    );
     ideas = createIdeas({
+      lists: () => ({ tools: ["n8n"], angles: ["review"] }),
+      suggestTermsCall: suggestCall,
       mode: () => mode,
       queue: () => queue,
       bridgeReady: () => ready(),
@@ -213,8 +226,85 @@ describe("keyword ideas", () => {
     expect(await ideas.suggest(5)).toMatchObject({ ok: true });
   });
 
+  it("answers thinking_not_set when the add-on did not confirm thinking", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const error = { code: "THINKING_NOT_SET", message: "x", details: {} } as const;
+    generate.mockResolvedValueOnce({ ok: false, error });
+    expect(await ideas.suggest(5)).toEqual({ ok: false, problem: "thinking_not_set" });
+    clock += sendGapMs;
+    suggestCall.mockResolvedValueOnce({ ok: false, error });
+    expect(await ideas.suggestTerms("tools")).toEqual({ ok: false, problem: "thinking_not_set" });
+  });
+
   it("answers failed when no data is open", async () => {
     mode = null;
     expect(await ideas.suggest(5)).toEqual({ ok: false, problem: "failed" });
+  });
+
+  describe("term suggestions", () => {
+    it("answers bridge_off when the bridge is off, calling nothing", async () => {
+      ready = () => Promise.resolve(false);
+      expect(await ideas.suggestTerms("tools")).toEqual({ ok: false, problem: "bridge_off" });
+      expect(suggestCall).not.toHaveBeenCalled();
+    });
+
+    it("asks in a fresh chat with the current list, and cleans the answer", async () => {
+      expect(await ideas.suggestTerms("angles")).toEqual({
+        ok: true,
+        terms: ["Claude Code", "Cursor"],
+      });
+      expect(suggestCall).toHaveBeenCalledWith({
+        kind: "angles",
+        have: ["review"],
+        count: 20,
+        newChat: true,
+      });
+    });
+
+    it("caps the terms at 30", async () => {
+      suggestCall.mockResolvedValueOnce(
+        termsAnswered(Array.from({ length: 45 }, (_, i) => `tool ${String(i)}`)),
+      );
+      const answer = await ideas.suggestTerms("tools");
+      expect(answer.ok && answer.terms.length).toBe(30);
+    });
+
+    it("answers busy within 60 s of an ideas send, and the other way round", async () => {
+      await ideas.suggest(5);
+      expect(await ideas.suggestTerms("tools")).toEqual({ ok: false, problem: "busy" });
+      clock += sendGapMs;
+      await ideas.suggestTerms("tools");
+      expect(await ideas.suggest(5)).toEqual({ ok: false, problem: "busy" });
+      expect(generate).toHaveBeenCalledOnce();
+      expect(suggestCall).toHaveBeenCalledOnce();
+    });
+
+    it("answers busy while one request is out", async () => {
+      let finish: (call: TermCall) => void = () => undefined;
+      suggestCall.mockImplementationOnce(
+        () =>
+          new Promise<TermCall>((resolve) => {
+            finish = resolve;
+          }),
+      );
+      const first = ideas.suggestTerms("tools");
+      expect(await ideas.suggest(5)).toEqual({ ok: false, problem: "busy" });
+      expect(await ideas.suggestTerms("tools")).toEqual({ ok: false, problem: "busy" });
+      finish(termsAnswered(["Cursor"]));
+      expect(await first).toEqual({ ok: true, terms: ["Cursor"] });
+    });
+
+    it("on the example data answers a stand-in after 0.9 s and never calls Gemini", async () => {
+      mode = "example";
+      let answer: unknown = null;
+      void ideas.suggestTerms("tools").then((value) => {
+        answer = value;
+      });
+      await vi.advanceTimersByTimeAsync(standInMs - 1);
+      expect(answer).toBeNull();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(answer).toEqual({ ok: true, terms: standInTerms.tools });
+      expect(suggestCall).not.toHaveBeenCalled();
+    });
   });
 });

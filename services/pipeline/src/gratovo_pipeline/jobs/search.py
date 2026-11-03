@@ -18,6 +18,7 @@ starts. How the run ends:
 from __future__ import annotations
 
 import contextlib
+import os
 import sqlite3
 import sys
 import threading
@@ -165,7 +166,11 @@ def _run(
         if source is not None:
             pacer = Pacer.off()
         elif cfg.source == "example":
-            source, pacer = example.ExampleSource(), Pacer.off()
+            # A test's scripted waits (each keyword rests once; a resume goes straight on).
+            scripted = example.test_waits(os.environ)
+            spent = cfg.data_dir / "example-waits-spent.txt" if scripted else None
+            source = example.ExampleSource(scripted, WaitCounter(emitter), spent)
+            pacer = Pacer.off()
         else:
             source, pacer = _live_source(cfg, emitter, providers)
             live_pool = True

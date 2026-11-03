@@ -111,7 +111,8 @@ class ModelNotFound(GeminiError):
 
 
 class ThinkingNotSet(GeminiError):
-    """The thinking level asked for could not be selected and read back; nothing was sent."""
+    """The thinking level could not be read back as set. The prompt may already have been sent and
+    answered (actions), or nothing was sent (client); either way the reply is not used."""
 
     code = "THINKING_NOT_SET"
 

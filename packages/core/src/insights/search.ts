@@ -3,6 +3,7 @@ import type { CreatorStage, RejectReason } from "../data/types";
 import type { ArchiveProfile, ChannelFacts, InsightsInputs, LogFact, StageEvent } from "./inputs";
 import { compareRates, median, rateOf, startOfDay, startOfWeek } from "./stats";
 import { routesReport } from "./routes";
+import { keywordYield } from "./yield";
 import { thresholds } from "./thresholds";
 import type {
   GroupProfile,
@@ -564,6 +565,7 @@ export function searchReport(inputs: InsightsInputs, window: ReportWindow): Sear
       ],
     },
     routes: routesReport(inputs.routes, window.current),
+    yield: keywordYield(inputs, window.current),
     everything: {
       found: everything,
       swept: archive.byRules,

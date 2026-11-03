@@ -52,7 +52,7 @@ function setup(overrides: Partial<Handlers> = {}) {
     })),
     "presence:set": vi.fn(() => ({})),
     "find:state": vi.fn(() => ({
-      queue: [],
+      queue: { total: 0, queued: 0, running: 0, done: 0, failed: 0, version: 0, current: [] },
       at: 0,
       rules: {
         countries: [],
@@ -91,6 +91,11 @@ function setup(overrides: Partial<Handlers> = {}) {
     "find:views": vi.fn(() => ({ views: [] })),
     "find:views-set": vi.fn(() => ({ ok: true as const })),
     "find:ideas": vi.fn(() => ({ ok: false as const, problem: "bridge_off" as const })),
+    "find:keywords": vi.fn(() => ({ total: 0, offset: 0, rows: [] })),
+    "find:lists": vi.fn(() => ({ tools: [], angles: [] })),
+    "find:lists-set": vi.fn(() => ({ ok: true as const })),
+    "find:generate": vi.fn(() => ({ ok: false as const, problem: "running" as const })),
+    "find:suggest-terms": vi.fn(() => ({ ok: false as const, problem: "bridge_off" as const })),
     "log:for": vi.fn(() => ({ lines: [] })),
     "log:page": vi.fn(() => ({ lines: [], more: false, people: [], total: 0 })),
     "toolbox:list": vi.fn(() => ({ version: 0, total: 0, items: [] })),

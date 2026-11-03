@@ -50,6 +50,11 @@ function findWith(overrides: Partial<HandlerContext["find"]> = {}): HandlerConte
     state: () => findState,
     folder: () => null,
     add: () => ({ added: 0, skipped: 0 }),
+    keywords: () => ({ total: 0, offset: 0, rows: [] }),
+    entries: () => [],
+    lists: () => ({ tools: [], angles: [] }),
+    setLists: () => ({ ok: true }),
+    generate: () => ({ ok: true, fresh: 0, repeats: 0, overCap: 0, sample: [] }),
     remove: () => ({ ok: true }),
     retry: () => ({ ok: true }),
     weakCount: () => ({ count: 0 }),
@@ -64,7 +69,7 @@ function findWith(overrides: Partial<HandlerContext["find"]> = {}): HandlerConte
 }
 
 const findState: FindState = {
-  queue: [],
+  queue: { total: 0, queued: 0, running: 0, done: 0, failed: 0, version: 0, current: [] },
   at: 0,
   rules: {
     countries: ["US"],
@@ -303,10 +308,13 @@ describe("the find handlers", () => {
     expect(await mine["find:state"]({})).toEqual(findState);
     expect(await mine["find:add"]({ keywords: ["ai agents"] })).toEqual({ added: 1, skipped: 0 });
     expect(add).toHaveBeenCalledWith(["ai agents"]);
-    expect(await mine["find:remove"]({ index: 2 })).toEqual({ ok: false, problem: "running" });
-    expect(remove).toHaveBeenCalledWith(2);
-    expect(await mine["find:start-at"]({ index: 1 })).toEqual({ ok: true });
-    expect(startAt).toHaveBeenCalledWith(1);
+    expect(await mine["find:remove"]({ index: 2, keyword: "ai news" })).toEqual({
+      ok: false,
+      problem: "running",
+    });
+    expect(remove).toHaveBeenCalledWith(2, "ai news");
+    expect(await mine["find:start-at"]({ index: 1, keyword: "ai agents" })).toEqual({ ok: true });
+    expect(startAt).toHaveBeenCalledWith(1, "ai agents");
     expect(await mine["find:start"]({})).toEqual({ ok: false, problem: "no_keywords" });
     expect(await mine["find:stop"]({})).toEqual({});
     expect(stop).toHaveBeenCalledOnce();
@@ -542,7 +550,7 @@ describe("keyword ideas", () => {
       account: accountWith(),
       find: findWith(),
       catalog: createStubCatalog(),
-      ideas: { suggest },
+      ideas: { suggest, suggestTerms: vi.fn() },
       ...createStubServices(),
     });
     expect(await mine["find:ideas"]({ count: 3 })).toEqual({

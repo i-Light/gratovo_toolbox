@@ -6,16 +6,50 @@ import { appEvents } from "./events";
 import {
   catalogItemSchema,
   facetsSchema,
+  findEditResultSchema,
   findFilterSchema,
+  findGenerateResultSchema,
+  findKeywordsResultSchema,
+  findListsSetResultSchema,
   findQueryResultSchema,
+  findQueueMax,
   findStateSchema,
+  findSuggestTermsResultSchema,
 } from "./find";
 
 const state = {
-  queue: [
-    { keyword: "ai coding tools", state: "done", found: 12, kept: 4, failures: 0 },
-    { keyword: "local llm tutorials", state: "queued", found: 0, kept: 0, failures: 0 },
-  ],
+  queue: {
+    total: 2,
+    queued: 1,
+    running: 0,
+    done: 1,
+    failed: 0,
+    version: 3,
+    current: [
+      {
+        index: 0,
+        keyword: "ai coding tools",
+        state: "done",
+        found: 12,
+        kept: 4,
+        failures: 0,
+        tool: "Claude Code",
+        angle: "tutorials",
+        rank: "up",
+      },
+      {
+        index: 1,
+        keyword: "local llm tutorials",
+        state: "queued",
+        found: 0,
+        kept: 0,
+        failures: 0,
+        tool: null,
+        angle: null,
+        rank: null,
+      },
+    ],
+  },
   at: 1,
   rules: {
     countries: ["US", "GB"],
@@ -122,15 +156,24 @@ describe("findStateSchema", () => {
 
   it("refuses a bad state", () => {
     expect(findStateSchema.safeParse({ ...state, extra: 1 }).success).toBe(false);
-    expect(findStateSchema.safeParse({ ...state, at: 501 }).success).toBe(false);
+    expect(findStateSchema.safeParse({ ...state, at: 10_001 }).success).toBe(false);
     expect(
       findStateSchema.safeParse({ ...state, run: { ...state.run, error: "boom text" } }).success,
     ).toBe(false);
     expect(
       findStateSchema.safeParse({
         ...state,
-        queue: [{ keyword: "", state: "queued", found: 0, kept: 0, failures: 0 }],
+        queue: { ...state.queue, current: [{ ...state.queue.current[1], keyword: "" }] },
       }).success,
+    ).toBe(false);
+    expect(
+      findStateSchema.safeParse({
+        ...state,
+        queue: { ...state.queue, current: Array(21).fill(state.queue.current[0]) },
+      }).success,
+    ).toBe(false);
+    expect(
+      findStateSchema.safeParse({ ...state, queue: { ...state.queue, total: 10_001 } }).success,
     ).toBe(false);
     expect(
       findStateSchema.safeParse({
@@ -154,19 +197,99 @@ describe("the find channels' requests", () => {
     expect(parseRequest("find:add", { keywords: ["a"], extra: 1 }).ok).toBe(false);
   });
 
-  it("limits the index of find:remove and find:start-at to 0..499", () => {
-    for (const channel of ["find:remove", "find:start-at"]) {
-      expect(parseRequest(channel, { index: 0 }).ok).toBe(true);
-      expect(parseRequest(channel, { index: 499 }).ok).toBe(true);
-      expect(parseRequest(channel, { index: 500 }).ok).toBe(false);
-      expect(parseRequest(channel, { index: -1 }).ok).toBe(false);
-      expect(parseRequest(channel, { index: 1.5 }).ok).toBe(false);
+  it("takes a row's index (0..9,999) and keyword on find:remove, find:retry and find:start-at", () => {
+    for (const channel of ["find:remove", "find:retry", "find:start-at"]) {
+      const at = (index: number): unknown => ({ index, keyword: "claude code mcp" });
+      expect(parseRequest(channel, at(0)).ok).toBe(true);
+      expect(parseRequest(channel, at(9_999)).ok).toBe(true);
+      expect(parseRequest(channel, at(10_000)).ok).toBe(false);
+      expect(parseRequest(channel, at(-1)).ok).toBe(false);
+      expect(parseRequest(channel, at(1.5)).ok).toBe(false);
+      expect(parseRequest(channel, { index: 0 }).ok).toBe(false);
+      expect(parseRequest(channel, { index: 0, keyword: "" }).ok).toBe(false);
     }
   });
 
-  it("limits the index of find:retry to 0..499", () => {
-    expect(parseRequest("find:retry", { index: 499 }).ok).toBe(true);
-    expect(parseRequest("find:retry", { index: 500 }).ok).toBe(false);
+  it("answers an edit ok, running or stale", () => {
+    for (const problem of ["running", "stale"]) {
+      expect(findEditResultSchema.safeParse({ ok: false, problem }).success).toBe(true);
+    }
+    expect(findEditResultSchema.safeParse({ ok: false, problem: "busy" }).success).toBe(false);
+  });
+
+  it("takes a queue of 10,000 keywords, and refuses 10,001", () => {
+    expect(findStateSchema.shape.queue.shape.total.safeParse(10_000).success).toBe(true);
+    expect(findStateSchema.shape.queue.shape.total.safeParse(10_001).success).toBe(false);
+    expect(findQueueMax).toBe(10_000);
+  });
+
+  it("answers find:keywords one page of at most 100 rows", () => {
+    const row = state.queue.current[0];
+    const request = { offset: 0, limit: 100, filter: "all" };
+    expect(parseRequest("find:keywords", request).ok).toBe(true);
+    expect(parseRequest("find:keywords", { ...request, offset: 9_999 }).ok).toBe(true);
+    expect(parseRequest("find:keywords", { ...request, offset: 10_000 }).ok).toBe(false);
+    expect(parseRequest("find:keywords", { ...request, limit: 101 }).ok).toBe(false);
+    expect(parseRequest("find:keywords", { ...request, limit: 0 }).ok).toBe(false);
+    expect(parseRequest("find:keywords", { ...request, filter: "weak" }).ok).toBe(false);
+    const page = { total: 2, offset: 0, rows: [row, state.queue.current[1]] };
+    expect(findKeywordsResultSchema.safeParse(page).success).toBe(true);
+    expect(
+      findKeywordsResultSchema.safeParse({ ...page, rows: Array(101).fill(row) }).success,
+    ).toBe(false);
+  });
+
+  it("takes the generator's lists and sets them, with their caps", () => {
+    expect(parseRequest("find:lists", {}).ok).toBe(true);
+    const lists = { tools: ["Claude Code"], angles: ["tutorials"] };
+    expect(parseRequest("find:lists-set", lists).ok).toBe(true);
+    expect(parseRequest("find:lists-set", { ...lists, tools: Array(501).fill("a") }).ok).toBe(
+      false,
+    );
+    expect(parseRequest("find:lists-set", { ...lists, angles: Array(101).fill("a") }).ok).toBe(
+      false,
+    );
+    expect(parseRequest("find:lists-set", { ...lists, tools: ["a".repeat(61)] }).ok).toBe(false);
+    expect(findListsSetResultSchema.safeParse({ ok: true }).success).toBe(true);
+    expect(findListsSetResultSchema.safeParse({ ok: false }).success).toBe(false);
+  });
+
+  it("takes find:generate's crossing and answers the count, or running", () => {
+    const request = { tools: ["Claude Code"], angles: ["tutorials"], add: false };
+    expect(parseRequest("find:generate", request).ok).toBe(true);
+    expect(parseRequest("find:generate", { ...request, add: "yes" }).ok).toBe(false);
+    const counted = {
+      ok: true,
+      fresh: 1,
+      repeats: 0,
+      overCap: 0,
+      sample: ["claude code tutorials"],
+    };
+    expect(findGenerateResultSchema.safeParse(counted).success).toBe(true);
+    expect(findGenerateResultSchema.safeParse({ ok: false, problem: "running" }).success).toBe(
+      true,
+    );
+    expect(findGenerateResultSchema.safeParse({ ok: false, problem: "busy" }).success).toBe(false);
+    const full = { ...counted, fresh: 0, repeats: 50_000, overCap: 50_000 };
+    expect(findGenerateResultSchema.safeParse(full).success).toBe(true);
+    expect(findGenerateResultSchema.safeParse({ ...full, repeats: 50_001 }).success).toBe(false);
+    expect(
+      findGenerateResultSchema.safeParse({ ...counted, sample: Array(13).fill("a") }).success,
+    ).toBe(false);
+  });
+
+  it("takes find:suggest-terms's kind and answers terms of at most 30, or a problem", () => {
+    expect(parseRequest("find:suggest-terms", { kind: "tools" }).ok).toBe(true);
+    expect(parseRequest("find:suggest-terms", { kind: "ideas" }).ok).toBe(false);
+    expect(findSuggestTermsResultSchema.safeParse({ ok: true, terms: ["Cursor"] }).success).toBe(
+      true,
+    );
+    expect(
+      findSuggestTermsResultSchema.safeParse({ ok: true, terms: Array(31).fill("a") }).success,
+    ).toBe(false);
+    for (const problem of ["bridge_off", "busy", "failed", "thinking_not_set"]) {
+      expect(findSuggestTermsResultSchema.safeParse({ ok: false, problem }).success).toBe(true);
+    }
   });
 
   it("takes no input on find:state, find:start, find:stop, find:count-weak and find:requeue-weak", () => {

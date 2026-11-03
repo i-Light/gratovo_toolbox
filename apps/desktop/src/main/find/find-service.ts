@@ -2,9 +2,18 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
-import type { CreatorState } from "@gratovo/core/data";
+import { exampleKeywordOrigins, type CreatorState } from "@gratovo/core/data";
+import {
+  buildScorer,
+  crossKeywords,
+  keywordKey,
+  reorderQueue,
+  type KeywordOrigin,
+  type KeywordScorer,
+} from "@gratovo/core/find";
 import { failureLimit, findErrors, type FindState } from "@gratovo/ipc";
 
+import { readPipelineFacts } from "../insights/pipeline-facts";
 import { redact, secretsOf } from "../pipeline/logs";
 import { gatewayUrlsForSearch } from "../pipeline/pipeline-secrets";
 import type { PipelineMessage, Start } from "../pipeline/protocol";
@@ -12,6 +21,12 @@ import type { PipelineExit, PipelineSupervisor } from "../pipeline/supervisor";
 import type { SecretStore } from "../secret-store";
 
 import { pipelineRules, readFindFile, writeFindFile, type FindFile } from "./find-store";
+import {
+  originsMax,
+  readKeywordLists,
+  writeKeywordLists,
+  type KeywordLists,
+} from "./keyword-lists-store";
 import { readKept } from "./results";
 
 /**
@@ -62,6 +77,17 @@ export interface FindServiceDeps {
   yieldLane?: () => Promise<void>;
 }
 
+export type KeywordFilter = "all" | "todo" | "done" | "failed";
+
+export interface GenerateResult {
+  fresh: number;
+  repeats: number;
+  overCap: number;
+  sample: string[];
+}
+
+export type EditResult = { ok: true } | { ok: false; problem: "running" | "stale" };
+
 export type StartProblem = "no_keywords" | "running" | "no_youtube_key" | "no_python";
 
 export interface FindService {
@@ -69,10 +95,32 @@ export interface FindService {
   /** The open find folder (where `pipeline.db` is); null when no source is open. */
   folder(): string | null;
   add(keywords: readonly string[]): { added: number; skipped: number };
-  remove(index: number): { ok: true } | { ok: false; problem: "running" };
-  startAt(index: number): { ok: true } | { ok: false; problem: "running" };
-  /** Sets a failed keyword back to queued with no failures. */
-  retry(index: number): { ok: true } | { ok: false; problem: "running" };
+  /** One page of the queue (plan S6, K2); `index` is the place in the whole queue. */
+  keywords(request: { offset: number; limit: number; filter: KeywordFilter }): {
+    total: number;
+    offset: number;
+    rows: QueueRow[];
+  };
+  /** Every queue entry's counts, for the ideas' topic. */
+  entries(): { keyword: string; found: number; kept: number }[];
+  /** The generator's tools and angles. */
+  lists(): { tools: string[]; angles: string[] };
+  setLists(lists: { tools: readonly string[]; angles: readonly string[] }): { ok: true };
+  /** Counts a crossing; with `add` it also queues the fresh keywords (plan S6, K12). */
+  generate(request: {
+    tools: readonly string[];
+    angles: readonly string[];
+    add: boolean;
+  }): ({ ok: true } & GenerateResult) | { ok: false; problem: "running" };
+  /**
+   * The edits name a row by its place and, from the page, its keyword: when the keyword is no
+   * longer at that place (the page showed an older queue) nothing changes and the answer is
+   * `stale`, so the page reads its rows again.
+   */
+  remove(index: number, keyword?: string): EditResult;
+  startAt(index: number, keyword?: string): EditResult;
+  /** Sets a failed or done keyword back to queued with no counts and no failures. */
+  retry(index: number, keyword?: string): EditResult;
   /** How many finished keywords found too little (read only from `pipeline.db`). */
   weakCount(): { count: number };
   /** Queues the weak keywords again: the ones in the queue reset, the rest appended while room. */
@@ -90,7 +138,14 @@ export interface FindService {
   shutdown(): Promise<void>;
 }
 
-const queueMax = 500;
+const queueMax = 10_000;
+/**
+ * The most keywords one job is sent (plan S6, K10). A longer list runs as chained batches, and
+ * the queue is re-sorted by yield before each one, so the order learns every 200 keywords. The
+ * pipeline's own limits (500 keywords, a 1 MiB start line) stay as they are.
+ */
+const batchMax = 200;
+const currentMax = 20;
 // Finished with no channels, or with fewer than 10 in the days a bug cut the results short.
 // Zero results count as weak only before S1's release (2026-11-03): after it, a zero is honest.
 const zeroCutoff = "2026-11-03";
@@ -107,7 +162,7 @@ function weakKeywords(dbPath: string, queue: FindFile["queue"]): string[] {
     return [];
   }
   const open = new Set(
-    queue.filter((entry) => entry.state !== "done").map((entry) => entry.keyword.toLowerCase()),
+    queue.filter((entry) => entry.state !== "done").map((entry) => keywordKey(entry.keyword)),
   );
   let db: DatabaseSync | undefined;
   try {
@@ -116,7 +171,7 @@ function weakKeywords(dbPath: string, queue: FindFile["queue"]): string[] {
     const seen = new Set<string>();
     return rows.flatMap((row) => {
       const keyword = typeof row.keyword === "string" ? row.keyword.trim() : "";
-      const key = keyword.toLowerCase();
+      const key = keywordKey(keyword);
       if (keyword === "" || seen.has(key) || open.has(key)) {
         return [];
       }
@@ -145,6 +200,7 @@ const logMax = 200;
 const keptMax = 100;
 const noData = "No data is open.";
 
+type QueueRow = FindState["queue"]["current"][number];
 type Run = FindState["run"];
 type Kept = FindState["kept"][number];
 
@@ -153,6 +209,12 @@ interface Session {
   queue: FindFile["queue"];
   at: number;
   rules: FindFile["rules"];
+  lists: KeywordLists;
+  /**
+   * The yield scorer for row ranks and the re-sort. Built when the session opens, before each
+   * batch and when a run ends, never per emit: reading `pipeline.db`'s facts is too slow for that.
+   */
+  scorer: KeywordScorer;
   run: Run;
   log: FindState["log"];
   /** The list a run is building; null means read it from `pipeline.db` when asked. */
@@ -192,6 +254,30 @@ export async function searchRouting(
   const proxyUrls = await urlList(secrets, "pipeline.proxies");
   const gatewayUrls = await gatewayUrlsForSearch(secrets);
   return { proxyUrls, gatewayUrls };
+}
+
+/** Whether the keyword the page named is not the one at `index` (any more). */
+function isStale(s: Session, index: number, keyword: string | undefined): boolean {
+  if (keyword === undefined) {
+    return false;
+  }
+  const entry = s.queue[index];
+  return entry === undefined || keywordKey(entry.keyword) !== keywordKey(keyword);
+}
+
+/** A keyword's origin, from the record's own keys only ("constructor" is no origin). */
+function originOf(s: Session, key: string): KeywordOrigin | null {
+  return Object.hasOwn(s.lists.origins, key) ? (s.lists.origins[key] ?? null) : null;
+}
+
+/** Sets an origin as an own key, so a keyword like "__proto__" can't reach the prototype. */
+function setOrigin(origins: KeywordLists["origins"], key: string, origin: KeywordOrigin): void {
+  Object.defineProperty(origins, key, {
+    value: origin,
+    enumerable: true,
+    writable: true,
+    configurable: true,
+  });
 }
 
 export function createFindService(deps: FindServiceDeps): FindService {
@@ -235,6 +321,13 @@ export function createFindService(deps: FindServiceDeps): FindService {
   let runIndexes: number[] = [];
   // The running job's secrets: blanked out of its log lines before they reach the page.
   let jobSecrets: string[] = [];
+  // Keywords the running batch finished, or failed for good: a batch that moved none never chains.
+  let batchMoved = 0;
+  // True from a batch's end until the next batch is handed to the supervisor (plan S6, K10), so a
+  // start, a remove or a generate answers `running`. Stop clears it: the edits work again at once,
+  // and the pending launch gives up when it wakes. `chainSeq` names the chain a launch belongs to.
+  let chainPending = false;
+  let chainSeq = 0;
   let lastEmit = Number.NEGATIVE_INFINITY;
   let timer: ReturnType<typeof setTimeout> | null = null;
 
@@ -245,7 +338,7 @@ export function createFindService(deps: FindServiceDeps): FindService {
 
   /** Whether this service's own search is starting or running. */
   function busy(): boolean {
-    return starting || searching;
+    return starting || searching || chainPending;
   }
 
   /** Where a source's queue and `pipeline.db` live: its own folder under the user data. */
@@ -261,12 +354,65 @@ export function createFindService(deps: FindServiceDeps): FindService {
     }
     const folder = folderFor(context);
     if (session?.folder !== folder) {
-      session = { folder, ...readFindFile(folder), run: readyRun(), log: [], kept: null };
+      const lists = readKeywordLists(folder);
+      // The example data's keywords.json starts empty: its origins come from the example history
+      // (plan S6, K13), the same ones Insights joins.
+      if (context.mode === "example" && Object.keys(lists.origins).length === 0) {
+        for (const [key, origin] of Object.entries(exampleKeywordOrigins)) {
+          setOrigin(lists.origins, key, { ...origin });
+        }
+      }
+      const opened: Session = {
+        folder,
+        ...readFindFile(folder),
+        lists,
+        scorer: buildScorer([]),
+        run: readyRun(),
+        log: [],
+        kept: null,
+      };
+      rescore(opened);
+      session = opened;
     }
     return { session, ...context };
   }
 
+  function saveLists(s: Session): void {
+    try {
+      writeKeywordLists(s.folder, s.lists);
+    } catch {
+      console.error("Find: the keyword lists could not be written.");
+    }
+  }
+
+  // Bumped on every change to the queue; the page refetches its page when it moves.
+  let version = 0;
+
+  /** Builds the session's scorer from `pipeline.db`'s done keywords and their origins. */
+  function rescore(s: Session): void {
+    const facts = readPipelineFacts(join(s.folder, "pipeline.db"));
+    s.scorer = buildScorer(
+      [...facts.inRange].map(([key, inRange]) => ({ origin: originOf(s, key), inRange })),
+    );
+  }
+
+  function rowOf(s: Session, index: number): QueueRow | null {
+    const entry = s.queue[index];
+    if (entry === undefined) {
+      return null;
+    }
+    const origin = originOf(s, keywordKey(entry.keyword));
+    return {
+      index,
+      ...entry,
+      tool: origin?.tool ?? null,
+      angle: origin?.angle ?? null,
+      rank: entry.state === "queued" ? s.scorer.rank(origin) : null,
+    };
+  }
+
   function save(s: Session): void {
+    version += 1;
     try {
       writeFindFile(s.folder, { queue: s.queue, at: s.at, rules: s.rules });
     } catch {
@@ -275,9 +421,27 @@ export function createFindService(deps: FindServiceDeps): FindService {
     }
   }
 
+  function summary(s: Session): FindState["queue"] {
+    const counts = { queued: 0, running: 0, done: 0, failed: 0 };
+    const running: number[] = [];
+    s.queue.forEach((entry, i) => {
+      counts[entry.state] += 1;
+      if (entry.state === "running" && running.length < currentMax) {
+        running.push(i);
+      }
+    });
+    const shown = running.length > 0 ? running : s.at < s.queue.length ? [s.at] : [];
+    return {
+      total: s.queue.length,
+      ...counts,
+      version,
+      current: shown.flatMap((i) => rowOf(s, i) ?? []),
+    };
+  }
+
   function build(s: Session): FindState {
     return {
-      queue: s.queue.map((entry) => ({ ...entry })),
+      queue: summary(s),
       at: s.at,
       rules: s.rules,
       run: { ...s.run },
@@ -356,6 +520,26 @@ export function createFindService(deps: FindServiceDeps): FindService {
     return indexes;
   }
 
+  /**
+   * Plan S6, K9: the queued entries after `at` re-sorted by yield (best first, ties keep their
+   * order), into the slots queued entries already hold. Done, failed and the entry at `at` (the
+   * person's "Start here") keep their place, and nothing is removed. Only between batches.
+   */
+  function reorder(s: Session, chained: boolean): void {
+    const entries = s.queue.map((entry) => {
+      const key = keywordKey(entry.keyword);
+      return { entry, state: entry.state, key, origin: originOf(s, key) };
+    });
+    // A chained batch's `at` is only the first keyword not done, not a person's "Start here":
+    // nothing is held in place then.
+    const sorted = reorderQueue(entries, chained ? s.at - 1 : s.at, s.scorer);
+    if (sorted.every((item, i) => item === entries[i])) {
+      return;
+    }
+    s.queue = sorted.map((item) => item.entry);
+    save(s);
+  }
+
   function message(s: Session, m: PipelineMessage): void {
     switch (m.type) {
       case "keyword": {
@@ -366,6 +550,7 @@ export function createFindService(deps: FindServiceDeps): FindService {
         }
         if (m.state === "started") {
           entry.state = "running";
+          version += 1;
         } else if (m.state === "done") {
           entry.state = "done";
           entry.failures = 0;
@@ -373,11 +558,13 @@ export function createFindService(deps: FindServiceDeps): FindService {
           entry.kept = m.kept ?? 0;
           s.at = firstUndone(s);
           s.run.found += m.found ?? 0;
+          batchMoved += 1;
           save(s);
         } else if (m.state === "incomplete") {
           // The search stopped early on an error, kept its channels and left the keyword pending.
           entry.failures = Math.min(entry.failures + 1, 99);
           entry.state = entry.failures >= failureLimit ? "failed" : "queued";
+          batchMoved += entry.state === "failed" ? 1 : 0;
           save(s);
         } else {
           // A run-ending error during this keyword: it is not the keyword's fault.
@@ -435,6 +622,39 @@ export function createFindService(deps: FindServiceDeps): FindService {
     searching = false;
     waits.clear();
     s.run.wait = null;
+    for (const entry of s.queue) {
+      if (entry.state === "running") {
+        entry.state = "queued";
+      }
+    }
+    s.at = firstUndone(s);
+    // The run's yield is in `pipeline.db` now: the ranks and the next re-sort use it.
+    rescore(s);
+    // Plan S6, K10: only a batch that ended `done` on its own chains. Continuous mode (S2, R6)
+    // lives inside the pipeline: with it on, a batch waits out the quota and still ends `done` at
+    // the end of its 200, and then chains; with it off, the quota ends the batch `failed` and the
+    // chain stops. Route and API waits also stay inside a batch. So the chain never sees a wait:
+    // it starts only after an end, and the waits of one batch are cleared before the next.
+    const context = account.findContext();
+    const chain =
+      how.kind === "ended" &&
+      how.end.state === "done" &&
+      !stopRequested &&
+      batchMoved > 0 &&
+      session === s &&
+      context !== null &&
+      todo(s).length > 0;
+    if (chain) {
+      // The run goes on: its counts, its log and its kept list stay as the page sees them.
+      s.run.state = "running";
+      chainPending = true;
+      chainSeq += 1;
+      save(s);
+      emitNow();
+      deps.onPipelineChanged?.();
+      void chainNext(s, context.mode, context.workerId, chainSeq);
+      return;
+    }
     if (how.kind === "ended") {
       const end = how.end;
       if (end.state === "done") {
@@ -454,16 +674,156 @@ export function createFindService(deps: FindServiceDeps): FindService {
       s.run.state = "failed";
       s.run.error = "crash";
     }
-    for (const entry of s.queue) {
-      if (entry.state === "running") {
-        entry.state = "queued";
-      }
-    }
-    s.at = firstUndone(s);
     s.kept = null;
     save(s);
     emitNow();
     deps.onPipelineChanged?.();
+  }
+
+  /**
+   * Hands one batch to the supervisor: the key, the routes and the skip list are looked up, then
+   * the queue is re-sorted and the next 200 still to do are sent. A `chain` number makes it the
+   * next batch of a run (plan S6, K10): it keeps the run's counts and log, and gives up once Stop
+   * or sign-out cleared `chainPending`. A first batch's caller holds `starting`.
+   */
+  async function launch(
+    s: Session,
+    mode: FindMode,
+    workerId: string,
+    chain: number | null,
+  ): Promise<{ ok: true } | { ok: false; problem: StartProblem }> {
+    const startedIn = generation;
+    const chained = chain !== null;
+    /** A chained launch gives up once Stop, sign-out or a newer chain took its place. */
+    const chainGone = (): boolean => chained && (!chainPending || chain !== chainSeq);
+    let youtubeKey: string | null = null;
+    if (mode === "live") {
+      try {
+        youtubeKey = (await account.teamKeys.youtubeKey()) ?? null;
+      } catch {
+        console.error("Find: the YouTube key lookup failed.");
+      }
+      if (youtubeKey === null || youtubeKey === "") {
+        return { ok: false, problem: "no_youtube_key" };
+      }
+    }
+    const { proxyUrls, gatewayUrls } = await searchRouting(secrets);
+    // The lookups above took time: the account may have signed out or changed (a live search
+    // must never start for someone no longer signed in). Another job on the lane is checked
+    // last, just before the start.
+    const now = account.findContext();
+    if (
+      generation !== startedIn ||
+      chainGone() ||
+      now === null ||
+      now.mode !== mode ||
+      now.workerId !== workerId ||
+      session !== s
+    ) {
+      return { ok: false, problem: "running" };
+    }
+    if (s.at >= s.queue.length) {
+      return { ok: false, problem: "no_keywords" };
+    }
+    // Plan S6, K9 and K10: re-sorted by yield, then the next 200 still to do.
+    rescore(s);
+    reorder(s, chained);
+    const indexes = todo(s).slice(0, batchMax);
+    if (indexes.length === 0) {
+      return { ok: false, problem: "no_keywords" };
+    }
+    const skip = await skipList();
+    // A lookup in the background gives way (plan D30): it stops between two channels and
+    // comes back after the search. Nothing is awaited between this and the start below, so
+    // it can't take the lane back first. Any other job (the import) still answers `running`.
+    if (isRunning() && deps.yieldLane !== undefined) {
+      await deps.yieldLane();
+    }
+    if (isRunning() || generation !== startedIn || session !== s || chainGone()) {
+      return { ok: false, problem: "running" };
+    }
+    stopRequested = false;
+    chainPending = false;
+    batchMoved = 0;
+    runStart = s.at;
+    runIndexes = indexes;
+    jobSecrets = secretsOf({ secrets: { youtubeKey, proxyUrls, gatewayUrls } });
+    // Set before the start, so an exit that came at once would still clear it.
+    searching = true;
+    const started = supervisor.start(
+      {
+        type: "start",
+        protocol: 1,
+        source: mode,
+        dataDir: s.folder,
+        worker: workerId,
+        job: {
+          kind: "search",
+          keywords: indexes.map((i) => s.queue[i]?.keyword ?? ""),
+          startAt: 0,
+          rules: pipelineRules(s.rules),
+          ...(skip.length === 0 ? {} : { skip }),
+        },
+        settings: searchSettings(deps.settings?.()),
+        secrets: { youtubeKey, proxyUrls, gatewayUrls },
+      },
+      {
+        onMessage: (m) => {
+          message(s, m);
+        },
+        onExit: (how) => {
+          exit(s, how);
+        },
+      },
+    );
+    if (!started.ok) {
+      searching = false;
+      // Still between batches: `chainNext` ends the run with this problem.
+      chainPending = chained;
+      return started;
+    }
+    waits.clear();
+    if (chained) {
+      s.run = { ...s.run, state: "running", error: null, wait: null };
+    } else {
+      s.run = { state: "running", found: 0, kept: 0, swept: 0, error: null, wait: null };
+      s.log = [];
+      s.kept = readKept(join(s.folder, "pipeline.db"), s.rules, keptMax);
+    }
+    emitNow();
+    return { ok: true };
+  }
+
+  /** The next batch of a chained run; a batch that can't start ends the run as the page shows. */
+  async function chainNext(
+    s: Session,
+    mode: FindMode,
+    workerId: string,
+    seq: number,
+  ): Promise<void> {
+    let result: Awaited<ReturnType<typeof launch>>;
+    try {
+      result = await launch(s, mode, workerId, seq);
+    } catch {
+      console.error("Find: the next batch could not start.");
+      result = { ok: false, problem: "running" };
+    }
+    if (result.ok || !chainPending || seq !== chainSeq) {
+      // Started, or Stop and sign-out already ended the run.
+      return;
+    }
+    chainPending = false;
+    if (result.problem === "no_keywords") {
+      s.run.state = "done";
+    } else if (result.problem === "running") {
+      // The lane was taken or the account changed: nothing is lost, Start goes on from here.
+      s.run.state = "paused";
+    } else {
+      s.run.state = "failed";
+      s.run.error = result.problem === "no_youtube_key" ? "no_youtube_key" : "crash";
+    }
+    s.kept = null;
+    emitNow();
   }
 
   return {
@@ -479,14 +839,14 @@ export function createFindService(deps: FindServiceDeps): FindService {
 
     add(keywords) {
       const { session: s } = open();
-      const seen = new Set(s.queue.map((entry) => entry.keyword.toLowerCase()));
+      const seen = new Set(s.queue.map((entry) => keywordKey(entry.keyword)));
       let added = 0;
       for (const raw of keywords) {
         const keyword = raw.trim();
-        if (keyword === "" || seen.has(keyword.toLowerCase()) || s.queue.length >= queueMax) {
+        if (keyword === "" || seen.has(keywordKey(keyword)) || s.queue.length >= queueMax) {
           continue;
         }
-        seen.add(keyword.toLowerCase());
+        seen.add(keywordKey(keyword));
         s.queue.push({ keyword, state: "queued", found: 0, kept: 0, failures: 0 });
         added += 1;
       }
@@ -495,10 +855,13 @@ export function createFindService(deps: FindServiceDeps): FindService {
       return { added, skipped: keywords.length - added };
     },
 
-    remove(index) {
+    remove(index, keyword) {
       const { session: s } = open();
       if (busy()) {
         return { ok: false, problem: "running" };
+      }
+      if (isStale(s, index, keyword)) {
+        return { ok: false, problem: "stale" };
       }
       if (index < s.queue.length) {
         s.queue.splice(index, 1);
@@ -511,20 +874,108 @@ export function createFindService(deps: FindServiceDeps): FindService {
       return { ok: true };
     },
 
-    retry(index) {
+    retry(index, keyword) {
       const { session: s } = open();
       if (busy()) {
         return { ok: false, problem: "running" };
       }
+      if (isStale(s, index, keyword)) {
+        return { ok: false, problem: "stale" };
+      }
       const entry = s.queue[index];
-      if (entry?.state === "failed") {
+      if (entry?.state === "failed" || entry?.state === "done") {
         entry.state = "queued";
+        entry.found = 0;
+        entry.kept = 0;
         entry.failures = 0;
         s.at = Math.min(s.at, index);
         save(s);
         emitNow();
       }
       return { ok: true };
+    },
+
+    keywords({ offset, limit, filter }) {
+      const { session: s } = open();
+      const wanted = (state: string): boolean =>
+        filter === "all" ||
+        (filter === "todo" ? state === "queued" || state === "running" : state === filter);
+      const indexes: number[] = [];
+      s.queue.forEach((entry, i) => {
+        if (wanted(entry.state)) {
+          indexes.push(i);
+        }
+      });
+      return {
+        total: indexes.length,
+        offset,
+        rows: indexes.slice(offset, offset + limit).flatMap((i) => rowOf(s, i) ?? []),
+      };
+    },
+
+    entries() {
+      const { session: s } = open();
+      return s.queue.map(({ keyword, found, kept }) => ({ keyword, found, kept }));
+    },
+
+    lists() {
+      const { session: s } = open();
+      return { tools: [...s.lists.tools], angles: [...s.lists.angles] };
+    },
+
+    setLists({ tools, angles }) {
+      const { session: s } = open();
+      s.lists = { ...s.lists, tools: [...tools], angles: [...angles] };
+      saveLists(s);
+      return { ok: true };
+    },
+
+    generate({ tools, angles, add }) {
+      const { session: s } = open();
+      if (add && (starting || chainPending)) {
+        return { ok: false, problem: "running" };
+      }
+      const facts = readPipelineFacts(join(s.folder, "pipeline.db"));
+      const known = new Set(s.queue.map((entry) => keywordKey(entry.keyword)));
+      let fresh = 0;
+      let repeats = 0;
+      let overCap = 0;
+      let origins = Object.keys(s.lists.origins).length;
+      const sample: string[] = [];
+      for (const crossed of crossKeywords(tools, angles)) {
+        const key = keywordKey(crossed.keyword);
+        if (known.has(key) || facts.knownKeywords.has(key)) {
+          repeats += 1;
+        } else if (known.size >= queueMax) {
+          overCap += 1;
+        } else {
+          known.add(key);
+          fresh += 1;
+          if (sample.length < 12) {
+            sample.push(crossed.keyword);
+          }
+          if (add) {
+            s.queue.push({
+              keyword: crossed.keyword,
+              state: "queued",
+              found: 0,
+              kept: 0,
+              failures: 0,
+            });
+            const had = Object.hasOwn(s.lists.origins, key);
+            if (origins < originsMax || had) {
+              origins += had ? 0 : 1;
+              setOrigin(s.lists.origins, key, { tool: crossed.tool, angle: crossed.angle });
+            }
+          }
+        }
+      }
+      if (add && fresh > 0) {
+        saveLists(s);
+        save(s);
+        emitNow();
+      }
+      return { ok: true, fresh, repeats, overCap, sample };
     },
 
     weakCount() {
@@ -543,22 +994,24 @@ export function createFindService(deps: FindServiceDeps): FindService {
         return { ok: false, problem: "running" };
       }
       const weak = weakKeywords(join(s.folder, "pipeline.db"), s.queue);
-      const byKeyword = new Map(s.queue.map((entry) => [entry.keyword.toLowerCase(), entry]));
+      const byKeyword = new Map(
+        s.queue.map((entry, i) => [keywordKey(entry.keyword), { entry, i }]),
+      );
       let requeued = 0;
       let added = 0;
       let skipped = 0;
       let lowest = s.queue.length;
       for (const keyword of weak) {
-        const key = keyword.toLowerCase();
-        const entry = byKeyword.get(key);
-        if (entry !== undefined) {
-          Object.assign(entry, { state: "queued", found: 0, kept: 0, failures: 0 });
-          lowest = Math.min(lowest, s.queue.indexOf(entry));
+        const key = keywordKey(keyword);
+        const found = byKeyword.get(key);
+        if (found !== undefined) {
+          Object.assign(found.entry, { state: "queued", found: 0, kept: 0, failures: 0 });
+          lowest = Math.min(lowest, found.i);
           requeued += 1;
         } else if (s.queue.length < queueMax && keyword.length <= 200) {
           const created = { keyword, state: "queued" as const, found: 0, kept: 0, failures: 0 };
           s.queue.push(created);
-          byKeyword.set(key, created);
+          byKeyword.set(key, { entry: created, i: s.queue.length - 1 });
           added += 1;
         } else {
           skipped += 1;
@@ -581,10 +1034,13 @@ export function createFindService(deps: FindServiceDeps): FindService {
       emitNow();
     },
 
-    startAt(index) {
+    startAt(index, keyword) {
       const { session: s } = open();
       if (busy()) {
         return { ok: false, problem: "running" };
+      }
+      if (isStale(s, index, keyword)) {
+        return { ok: false, problem: "stale" };
       }
       s.at = Math.min(index, s.queue.length);
       save(s);
@@ -601,98 +1057,22 @@ export function createFindService(deps: FindServiceDeps): FindService {
         return { ok: false, problem: "no_keywords" };
       }
       starting = true;
-      const startedIn = generation;
       try {
-        let youtubeKey: string | null = null;
-        if (mode === "live") {
-          try {
-            youtubeKey = (await account.teamKeys.youtubeKey()) ?? null;
-          } catch {
-            console.error("Find: the YouTube key lookup failed.");
-          }
-          if (youtubeKey === null || youtubeKey === "") {
-            return { ok: false, problem: "no_youtube_key" };
-          }
-        }
-        const { proxyUrls, gatewayUrls } = await searchRouting(secrets);
-        // The lookups above took time: the account may have signed out or changed (a live search
-        // must never start for someone no longer signed in). Another job on the lane is checked
-        // last, just before the start.
-        const now = account.findContext();
-        if (
-          generation !== startedIn ||
-          now === null ||
-          now.mode !== mode ||
-          now.workerId !== workerId ||
-          session !== s
-        ) {
-          return { ok: false, problem: "running" };
-        }
-        if (s.at >= s.queue.length) {
-          return { ok: false, problem: "no_keywords" };
-        }
-        const indexes = todo(s);
-        if (indexes.length === 0) {
-          return { ok: false, problem: "no_keywords" };
-        }
-        const skip = await skipList();
-        // A lookup in the background gives way (plan D30): it stops between two channels and
-        // comes back after the search. Nothing is awaited between this and the start below, so
-        // it can't take the lane back first. Any other job (the import) still answers `running`.
-        if (isRunning() && deps.yieldLane !== undefined) {
-          await deps.yieldLane();
-        }
-        if (isRunning() || generation !== startedIn || session !== s) {
-          return { ok: false, problem: "running" };
-        }
-        stopRequested = false;
-        runStart = s.at;
-        runIndexes = indexes;
-        jobSecrets = secretsOf({ secrets: { youtubeKey, proxyUrls, gatewayUrls } });
-        // Set before the start, so an exit that came at once would still clear it.
-        searching = true;
-        const started = supervisor.start(
-          {
-            type: "start",
-            protocol: 1,
-            source: mode,
-            dataDir: s.folder,
-            worker: workerId,
-            job: {
-              kind: "search",
-              keywords: indexes.map((i) => s.queue[i]?.keyword ?? ""),
-              startAt: 0,
-              rules: pipelineRules(s.rules),
-              ...(skip.length === 0 ? {} : { skip }),
-            },
-            settings: searchSettings(deps.settings?.()),
-            secrets: { youtubeKey, proxyUrls, gatewayUrls },
-          },
-          {
-            onMessage: (m) => {
-              message(s, m);
-            },
-            onExit: (how) => {
-              exit(s, how);
-            },
-          },
-        );
-        if (!started.ok) {
-          searching = false;
-          return started;
-        }
-        waits.clear();
-        s.run = { state: "running", found: 0, kept: 0, swept: 0, error: null, wait: null };
-        s.log = [];
-        s.kept = readKept(join(s.folder, "pipeline.db"), s.rules, keptMax);
-        emitNow();
-        return { ok: true };
+        return await launch(s, mode, workerId, null);
       } finally {
         starting = false;
       }
     },
 
     stop() {
+      if (chainPending && session !== null) {
+        // Between two batches: the next one is not started, and the run pauses here.
+        chainPending = false;
+        session.run.state = "paused";
+        session.kept = null;
+        emitNow();
+        return;
+      }
       if (!searching || session === null) {
         return;
       }
@@ -707,6 +1087,10 @@ export function createFindService(deps: FindServiceDeps): FindService {
     async shutdown() {
       generation += 1;
       stopRequested = true;
+      if (chainPending && session !== null) {
+        chainPending = false;
+        session.run.state = "paused";
+      }
       await supervisor.shutdown();
       if (timer !== null) {
         clearTimeout(timer);

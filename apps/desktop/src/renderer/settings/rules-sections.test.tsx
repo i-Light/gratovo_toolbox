@@ -35,7 +35,7 @@ const baseRules: FindState["rules"] = {
 };
 
 const findState = (rules: FindState["rules"] = baseRules): FindState => ({
-  queue: [],
+  queue: { total: 0, queued: 0, running: 0, done: 0, failed: 0, version: 0, current: [] },
   at: 0,
   rules,
   run: { state: "ready", found: 0, kept: 0, swept: 0, error: null, wait: null },

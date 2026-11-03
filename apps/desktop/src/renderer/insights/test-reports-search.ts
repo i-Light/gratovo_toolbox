@@ -220,6 +220,39 @@ export function searchReport(over: Partial<SearchReport> = {}): SearchReport {
         })),
       ],
     },
+    yield: {
+      byTool: [
+        {
+          name: "claude code",
+          keywords: 6,
+          inRange: 51,
+          newFound: 120,
+          perKeyword: 8.5,
+          judged: true,
+        },
+        { name: "chatgpt", keywords: 6, inRange: 12, newFound: 90, perKeyword: 2, judged: true },
+        { name: "runway", keywords: 2, inRange: 9, newFound: 30, perKeyword: 4.5, judged: false },
+      ],
+      byAngle: [
+        {
+          name: "tutorial",
+          keywords: 12,
+          inRange: 80,
+          newFound: 200,
+          perKeyword: 6.7,
+          judged: true,
+        },
+        {
+          name: "pricing",
+          keywords: 12,
+          inRange: 20,
+          newFound: 150,
+          perKeyword: 1.7,
+          judged: true,
+        },
+      ],
+      byHand: { name: "", keywords: 3, inRange: 6, newFound: 18, perKeyword: 2, judged: false },
+    },
     everything: {
       found: 162_400,
       swept: 141_600,
@@ -283,6 +316,7 @@ export function emptySearchReport(): SearchReport {
       profiles: [],
     },
     routes: null,
+    yield: { byTool: [], byAngle: [], byHand: null },
     everything: { found: 0, swept: 0, passed: 0, rejectedWaiting: 0, rejectedArchived: 0, live: 0 },
   });
 }

@@ -130,6 +130,27 @@ describe("the Search tab views", () => {
     expect(screen.getByText(t.routes.none)).toBeTruthy();
   });
 
+  it("Yield shows the rows, switches to angles and says when a row is too early", () => {
+    const s = setup("everything");
+    const y = t.yield;
+    const panel = s.container.querySelector('[data-ui="search.everything.yield"]') as HTMLElement;
+    expect(within(panel).getAllByText("claude code").length).toBeGreaterThan(0);
+    expect(within(panel).getByText("8.5", { selector: "td" })).toBeTruthy();
+    expect(within(panel).getByText(y.byHand)).toBeTruthy();
+    // runway (2 keywords) and the hand-typed row are too few to judge.
+    expect(within(panel).getAllByText(y.tooFew)).toHaveLength(2);
+    fireEvent.click(within(panel).getByRole("button", { name: y.byAngle }));
+    expect(within(panel).getAllByText("tutorial").length).toBeGreaterThan(0);
+    expect(within(panel).queryByText("claude code")).toBeNull();
+  });
+
+  it("Yield says so when no generated keyword finished", () => {
+    setup("everything", {
+      report: searchReport({ yield: { byTool: [], byAngle: [], byHand: null } }),
+    });
+    expect(screen.getByText(t.yield.none)).toBeTruthy();
+  });
+
   it("shows not known where a group has no value", () => {
     setup("archive");
     expect(screen.getAllByText(t.profile.notKnown).length).toBeGreaterThan(0);

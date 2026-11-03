@@ -58,8 +58,9 @@ class ScriptedGemini:
         new_chat: bool = True,
         model: str | None = None,
         timeout: float | None = None,
+        thinking: str | None = None,
     ) -> dict[str, Any]:
-        del wait, model, timeout
+        del wait, model, timeout, thinking
         self.prompts.append(prompt)
         self.new_chats.append(new_chat)
         if self.on_send is not None:
@@ -69,7 +70,7 @@ class ScriptedGemini:
         reply = self.replies.pop(0)
         if isinstance(reply, GeminiError):
             raise reply
-        return {"text": reply, "model": "2.5 Pro"}
+        return {"text": reply, "model": "2.5 Pro", "thinking": "High"}
 
 
 def as_gemini(scripted: ScriptedGemini) -> Gemini:

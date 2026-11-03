@@ -1,24 +1,24 @@
-import { failureLimit, type FindState } from "@gratovo/ipc";
+import { failureLimit, type FindState, type QueueRow } from "@gratovo/ipc";
 import { Btn, Icon, cx } from "@gratovo/ui";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 
 import { addMax, keywordMax, parseKeywords } from "../lib/find";
 import { strings } from "../strings";
+import { KeywordGen } from "./keyword-gen";
 import { KeywordIdeas, useIdeas } from "./keyword-ideas";
 
 const text = strings.findSearch.keywords;
 
 interface RowProps {
-  readonly index: number;
-  readonly item: FindState["queue"][number];
+  readonly item: QueueRow;
   /** The entry the search runs next. */
   readonly next: boolean;
   readonly canStartHere: boolean;
   readonly canRemove: boolean;
   readonly canRetry: boolean;
-  readonly onRetry: (index: number) => void;
-  readonly onStartHere: (index: number) => void;
-  readonly onRemove: (index: number) => void;
+  readonly onRetry: (index: number, keyword: string) => void;
+  readonly onStartHere: (index: number, keyword: string) => void;
+  readonly onRemove: (index: number, keyword: string) => void;
 }
 
 function Status({ item, next }: Pick<RowProps, "item" | "next">) {
@@ -55,7 +55,6 @@ function Status({ item, next }: Pick<RowProps, "item" | "next">) {
 }
 
 const Row = memo(function Row({
-  index,
   item,
   next,
   canStartHere,
@@ -65,16 +64,29 @@ const Row = memo(function Row({
   onStartHere,
   onRemove,
 }: RowProps) {
+  const { index } = item;
+  const madeBy = text.madeBy(item.tool, item.angle);
   return (
     <li className={cx("kw", item.state)} data-ui="find.search.keyword">
       <span className="n">{index + 1}</span>
-      <span className="q ell" title={item.keyword}>
-        {item.state === "done" ? (
-          <Icon name="check" size={13} className="kw-check" title={text.done} />
-        ) : null}
-        {item.keyword}
+      <span className="q" title={item.keyword}>
+        <span className="ell">
+          {item.state === "done" ? (
+            <Icon name="check" size={13} className="kw-check" title={text.done} />
+          ) : null}
+          {item.keyword}
+        </span>
+        {madeBy === "" ? null : <span className="kw-meta ell">{madeBy}</span>}
       </span>
       <span className="acts">
+        {item.rank === null ? null : (
+          <span
+            className="kw-rank"
+            data-tip={item.rank === "up" ? text.rankUpTip : text.rankBackTip}
+          >
+            {item.rank === "up" ? text.rankUp : text.rankBack}
+          </span>
+        )}
         <Status item={item} next={next} />
         {canRetry ? (
           <Btn
@@ -83,7 +95,7 @@ const Row = memo(function Row({
             icon="refresh"
             label={text.retryLabel(item.keyword)}
             onClick={() => {
-              onRetry(index);
+              onRetry(index, item.keyword);
             }}
           >
             {text.retry}
@@ -95,7 +107,7 @@ const Row = memo(function Row({
             size="sm"
             label={text.startHereLabel(item.keyword)}
             onClick={() => {
-              onStartHere(index);
+              onStartHere(index, item.keyword);
             }}
           >
             {text.startHere}
@@ -109,7 +121,7 @@ const Row = memo(function Row({
             label={text.removeLabel(item.keyword)}
             tip={text.remove}
             onClick={() => {
-              onRemove(index);
+              onRemove(index, item.keyword);
             }}
           />
         ) : null}
@@ -117,6 +129,180 @@ const Row = memo(function Row({
     </li>
   );
 });
+
+const pageSize = 100;
+type Filter = "all" | "todo" | "done" | "failed";
+const filters: readonly Filter[] = ["all", "todo", "done", "failed"];
+type EditChannel = "find:start-at" | "find:remove" | "find:retry";
+
+interface ListProps {
+  readonly queue: FindState["queue"];
+  readonly at: number;
+  readonly active: boolean;
+  /** Resolves true when main found the page stale (another keyword at that place). */
+  readonly onEdit: (channel: EditChannel, index: number, keyword: string) => Promise<boolean>;
+}
+
+/**
+ * The keyword list: one page of 100 at a time, with a filter and a pager. It asks main for its
+ * page and asks again when the queue's version moves (plan S6, K2).
+ */
+export function KeywordList({ queue, at, active, onEdit }: ListProps) {
+  const [filter, setFilter] = useState<Filter>("all");
+  const [offset, setOffset] = useState(0);
+  const [page, setPage] = useState<{ readonly total: number; readonly rows: readonly QueueRow[] }>({
+    total: 0,
+    rows: [],
+  });
+  const [failed, setFailed] = useState(false);
+  // Bumped when an edit came back stale: the page asks for its rows again.
+  const [reload, setReload] = useState(0);
+
+  useEffect(() => {
+    let current = true;
+    window.gratovo
+      .invoke("find:keywords", { offset, limit: pageSize, filter })
+      .then((result) => {
+        if (!current) {
+          return;
+        }
+        if (!result.ok) {
+          setFailed(true);
+          return;
+        }
+        setFailed(false);
+        const { total, rows } = result.value;
+        if (rows.length === 0 && total > 0 && offset >= total) {
+          // The list shrank under this page: go to the last page.
+          setOffset(Math.floor((total - 1) / pageSize) * pageSize);
+          return;
+        }
+        setPage({ total, rows });
+      })
+      .catch(() => {
+        if (current) {
+          setFailed(true);
+        }
+      });
+    return () => {
+      current = false;
+    };
+  }, [offset, filter, queue.version, reload]);
+
+  const edit = useCallback(
+    (channel: EditChannel, index: number, keyword: string): void => {
+      void onEdit(channel, index, keyword).then((stale) => {
+        if (stale) {
+          setReload((n) => n + 1);
+        }
+      });
+    },
+    [onEdit],
+  );
+  const retry = useCallback(
+    (index: number, keyword: string) => {
+      edit("find:retry", index, keyword);
+    },
+    [edit],
+  );
+  const startHere = useCallback(
+    (index: number, keyword: string) => {
+      edit("find:start-at", index, keyword);
+    },
+    [edit],
+  );
+  const remove = useCallback(
+    (index: number, keyword: string) => {
+      edit("find:remove", index, keyword);
+    },
+    [edit],
+  );
+
+  const { total, rows } = page;
+  const goNext = (): void => {
+    setFilter("all");
+    setOffset(Math.floor(Math.min(at, Math.max(queue.total - 1, 0)) / pageSize) * pageSize);
+  };
+
+  if (queue.total === 0) {
+    return <p className="hint">{text.empty}</p>;
+  }
+  return (
+    <div className="col tight" data-ui="find.search.keyword-list">
+      <div className="row wrap kw-bar">
+        <div className="seg" role="group" aria-label={text.filterLabel}>
+          {filters.map((f) => (
+            <button
+              key={f}
+              type="button"
+              aria-pressed={filter === f}
+              onClick={() => {
+                setFilter(f);
+                setOffset(0);
+              }}
+            >
+              {text.filters[f]}
+            </button>
+          ))}
+        </div>
+        {queue.queued + queue.running > 0 && at < queue.total ? (
+          <Btn size="sm" kind="ghost" onClick={goNext}>
+            {text.goNext}
+          </Btn>
+        ) : null}
+        <span className="kw-pager row" role="group" aria-label={text.pagerLabel}>
+          <span className="muted num" aria-live="polite">
+            {total === 0 ? "" : text.pageRange(offset + 1, offset + rows.length, total)}
+          </span>
+          <Btn
+            size="sm"
+            kind="ghost"
+            icon="chevL"
+            label={text.prevPage}
+            disabled={offset === 0}
+            onClick={() => {
+              setOffset(Math.max(0, offset - pageSize));
+            }}
+          />
+          <Btn
+            size="sm"
+            kind="ghost"
+            icon="chevR"
+            label={text.nextPage}
+            disabled={offset + pageSize >= total}
+            onClick={() => {
+              setOffset(offset + pageSize);
+            }}
+          />
+        </span>
+      </div>
+      {failed ? (
+        <p className="hint kw-bad" role="status">
+          {text.loadFailed}
+        </p>
+      ) : null}
+      {rows.length === 0 && !failed ? (
+        <p className="hint">{text.noneInFilter}</p>
+      ) : (
+        <ul className="kw-list" data-ui="find.search.queue" aria-label={text.listLabel}>
+          {rows.map((item) => (
+            <Row
+              key={`${String(item.index)}:${item.keyword}`}
+              item={item}
+              next={item.index === at && item.state !== "done"}
+              canStartHere={item.state === "queued" && item.index !== at && !active}
+              canRemove={item.state !== "running" && !active}
+              canRetry={(item.state === "failed" || item.state === "done") && !active}
+              onRetry={retry}
+              onStartHere={startHere}
+              onRemove={remove}
+            />
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 /** The keyword queue: the list, and the box to paste more into. */
 export function Keywords({ state }: { readonly state: FindState }) {
@@ -131,43 +317,28 @@ export function Keywords({ state }: { readonly state: FindState }) {
     state.run.state === "running" ||
     state.run.state === "waiting" ||
     state.run.state === "stopping";
-  const done = queue.filter((k) => k.state === "done").length;
   const ready = parseKeywords(draft);
 
   const edit = useCallback(
-    async (channel: "find:start-at" | "find:remove" | "find:retry", index: number) => {
+    async (channel: EditChannel, index: number, keyword: string): Promise<boolean> => {
       setNote(null);
       try {
-        const result = await window.gratovo.invoke(channel, { index });
+        const result = await window.gratovo.invoke(channel, { index, keyword });
         if (!result.ok) {
           setNote({ text: text.editFailed, bad: true });
         } else if (!result.value.ok) {
+          // A stale page needs no word: the list reads its rows again and shows the queue as it is.
+          if (result.value.problem === "stale") {
+            return true;
+          }
           setNote({ text: text.editRunning, bad: true });
         }
       } catch {
         setNote({ text: text.editFailed, bad: true });
       }
+      return false;
     },
     [],
-  );
-  const startHere = useCallback(
-    (index: number) => {
-      void edit("find:start-at", index);
-    },
-    [edit],
-  );
-  const remove = useCallback(
-    (index: number) => {
-      void edit("find:remove", index);
-    },
-    [edit],
-  );
-
-  const retry = useCallback(
-    (index: number) => {
-      void edit("find:retry", index);
-    },
-    [edit],
   );
 
   // How many finished keywords found too little; asked again when a run ends or the list changes.
@@ -178,6 +349,9 @@ export function Keywords({ state }: { readonly state: FindState }) {
     state.run.state === "running" ||
     state.run.state === "stopping" ||
     state.run.state === "waiting";
+  // Each ask reads pipeline.db, so not on every keyword of a run: once as it starts, once as it
+  // ends (the button is off while it runs anyway), and on each change of the queue between runs.
+  const weakKey = runActive ? -1 : queue.version;
   useEffect(() => {
     let current = true;
     window.gratovo
@@ -191,7 +365,7 @@ export function Keywords({ state }: { readonly state: FindState }) {
     return () => {
       current = false;
     };
-  }, [runActive, queue.length]);
+  }, [weakKey]);
   const requeue = async (): Promise<void> => {
     setAsking(false);
     setNote(null);
@@ -273,7 +447,7 @@ export function Keywords({ state }: { readonly state: FindState }) {
         <h3 id="find-kw-h">
           {text.title}{" "}
           <span className="muted num" style={{ fontWeight: 400 }}>
-            {text.count(queue.length, done)}
+            {text.count(queue.total, queue.done)}
           </span>
         </h3>
         <Btn
@@ -288,13 +462,7 @@ export function Keywords({ state }: { readonly state: FindState }) {
         </Btn>
       </div>
       {ideasOpen ? (
-        <KeywordIdeas
-          state={ideas.state}
-          have={queue.map((k) => k.keyword)}
-          onAsk={ideas.ask}
-          onClose={closeIdeas}
-          onAdd={addIdeas}
-        />
+        <KeywordIdeas state={ideas.state} onAsk={ideas.ask} onClose={closeIdeas} onAdd={addIdeas} />
       ) : null}
       {weak > 0 ? (
         <div className="col tight" data-ui="find.search.weak">
@@ -338,26 +506,8 @@ export function Keywords({ state }: { readonly state: FindState }) {
           ) : null}
         </div>
       ) : null}
-      {queue.length === 0 ? (
-        <p className="hint">{text.empty}</p>
-      ) : (
-        <ul className="kw-list" data-ui="find.search.queue" aria-label={text.listLabel}>
-          {queue.map((item, i) => (
-            <Row
-              key={`${String(i)}:${item.keyword}`}
-              index={i}
-              item={item}
-              next={i === at && item.state !== "done"}
-              canStartHere={item.state === "queued" && i !== at && !active}
-              canRemove={item.state !== "running" && !active}
-              canRetry={item.state === "failed" && !active}
-              onRetry={retry}
-              onStartHere={startHere}
-              onRemove={remove}
-            />
-          ))}
-        </ul>
-      )}
+      <KeywordGen />
+      <KeywordList queue={queue} at={at} active={active} onEdit={edit} />
       <div className="col tight">
         <textarea
           className="ta"

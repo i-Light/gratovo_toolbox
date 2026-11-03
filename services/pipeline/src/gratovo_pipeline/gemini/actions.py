@@ -42,6 +42,7 @@ from .errors import (
     GeminiError,
     GeminiPageError,
     SkillFileMissing,
+    ThinkingNotSet,
 )
 from .json_reply import extract_json, parse_json_reply
 from .pause import is_generic_error, is_refusal
@@ -150,8 +151,14 @@ def _ask(gemini: Gemini, params: Params, message: str, skill: str | None = None)
 def _send(
     gemini: Gemini, prompt: str, new_chat: bool, model: str | None, timeout: float
 ) -> tuple[str, str]:
-    result: Any = gemini.send(prompt, wait=True, new_chat=new_chat, model=model, timeout=timeout)
+    # The owner's rule: thinking high on every send. The level is set and read back; a reply with
+    # no confirmed level does not count, as in the drafting engine.
+    result: Any = gemini.send(
+        prompt, wait=True, new_chat=new_chat, model=model, timeout=timeout, thinking="high"
+    )
     reply = cast("dict[str, Any]", result) if isinstance(result, dict) else {}
+    if not reply.get("thinking"):
+        raise ThinkingNotSet(message="the add-on did not confirm the thinking level")
     raw: Any = reply.get("text")
     used_model: Any = reply.get("model")
     return (raw if isinstance(raw, str) else ""), (str(used_model) if used_model else "")
@@ -284,6 +291,60 @@ def generate_keywords(gemini: Gemini, params: Params, emit: Emit | None = None) 
     if not keywords:
         raise ActionParseFailed(message="no keywords found in the reply", details={"raw": raw})
     return {"keywords": keywords, "dropped": dropped, "raw": raw, "model": model}
+
+
+# --- action.suggest_terms ------------------------------------------------------------
+
+MAX_TERM_CHARS = 60
+MAX_HAVE = 1000
+_TERM_KINDS = ("tools", "angles")
+
+
+def _terms_message(kind: str, count: int, have: list[str]) -> str:
+    if kind == "tools":
+        ask = (
+            f"List {count} more AI tools or products that YouTube creators make videos about. "
+            "One per line, names only, no numbering."
+        )
+    else:
+        ask = (
+            f"List {count} more angles that YouTube videos about AI tools take, such as "
+            '"setup", "tutorial", "vs", "review". One per line, one to three words each, '
+            "no numbering."
+        )
+    lines = [ask, "Stay on AI tools and AI news. No AI music."]
+    if have:
+        lines.append("None of these: " + "; ".join(have[-AVOID_IN_PROMPT:]))
+    return "\n".join(lines)
+
+
+def suggest_terms(gemini: Gemini, params: Params) -> Params:
+    """Asks for `count` more `kind` ("tools" or "angles") terms that are not in `have`; returns
+    `{terms, dropped, raw, model}`. No skill file: the prompt is short and lives here."""
+    kind = _str(params.get("kind"))
+    if kind not in _TERM_KINDS:
+        raise GeminiError("BAD_PARAMS", "suggest_terms needs `kind` to be 'tools' or 'angles'")
+    count = _int(params.get("count"))
+    if not 1 <= count <= 30:
+        raise GeminiError("BAD_PARAMS", "suggest_terms needs `count` from 1 to 30")
+    have = _str_list(params.get("have"))
+    if len(have) > MAX_HAVE:
+        raise GeminiError("BAD_PARAMS", f"suggest_terms takes at most {MAX_HAVE} `have` terms")
+    raw, model = _ask(gemini, params, _terms_message(kind, count, have))
+    seen = {_norm(h) for h in have}
+    terms: list[str] = []
+    dropped = 0
+    for line in raw.splitlines():
+        term = _clean_keyword(line)
+        if not term or term.endswith(":") or term.startswith("```"):
+            continue
+        key = _norm(term)
+        if len(term) > MAX_TERM_CHARS or key in seen:
+            dropped += 1
+            continue
+        seen.add(key)
+        terms.append(term)
+    return {"terms": terms, "dropped": dropped, "raw": raw, "model": model}
 
 
 # --- action.classify_channel ----------------------------------------------------------
@@ -497,6 +558,7 @@ def _skill_deploy(gemini: Gemini, params: Params, emit: Emit | None = None) -> P
 ACTIONS: dict[str, Callable[..., Params]] = {
     "generate_keywords": generate_keywords,
     "classify_channel": classify_channel,
+    "suggest_terms": suggest_terms,
     # Registered by the contract (CONTRACT_GEMINI.md sections 3.4, 3.6); the bodies live in their
     # own modules and are looked up at call time.
     "gem_create": _gem_create,

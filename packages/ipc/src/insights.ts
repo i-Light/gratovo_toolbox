@@ -56,6 +56,7 @@ import type {
   SummaryPart,
   Win,
   WinLine,
+  YieldReport,
 } from "@gratovo/core/insights";
 import { z } from "zod";
 
@@ -339,6 +340,24 @@ const routesReport: z.ZodType<RoutesReport> = z.strictObject({
     .max(insightsRoutesMax),
 });
 
+/** The most rows a yield list holds (tools, angles). */
+export const insightsYieldMax = 500;
+
+const yieldRow = z.strictObject({
+  name: text,
+  keywords: count,
+  inRange: count,
+  newFound: count,
+  perKeyword: amount.nullable(),
+  judged: z.boolean(),
+});
+
+const yieldReport: z.ZodType<YieldReport> = z.strictObject({
+  byTool: z.array(yieldRow).max(insightsYieldMax),
+  byAngle: z.array(yieldRow).max(insightsYieldMax),
+  byHand: yieldRow.nullable(),
+});
+
 const searchReport: z.ZodType<SearchReport> = z.strictObject({
   tab: z.literal("search"),
   window,
@@ -400,6 +419,7 @@ const searchReport: z.ZodType<SearchReport> = z.strictObject({
     profiles: z.array(groupProfile).max(4),
   }),
   routes: routesReport.nullable(),
+  yield: yieldReport,
   everything: z.strictObject({
     found: count,
     swept: count,

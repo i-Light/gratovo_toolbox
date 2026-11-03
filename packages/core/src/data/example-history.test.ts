@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import { exampleSeed } from "./example";
 import { exampleHistory } from "./example-history";
+import { exampleKeywordOrigins } from "./example-history-yield";
 import { exampleRunRoutes } from "./example-history-routes";
 import type { ExampleHistory } from "./example-history";
 import { creatorStages, rejectReasons } from "./types";
@@ -172,7 +173,9 @@ describe("the catalog", () => {
 
   it("has 41 keywords with the planned story", () => {
     const h = history;
-    expect(h.pipeline.keywords).toHaveLength(41);
+    expect(
+      h.pipeline.keywords.filter((k) => exampleKeywordOrigins[k.keyword] === undefined),
+    ).toHaveLength(41);
     expect(h.pipeline.archive.keywords).toHaveLength(41);
     // Primary keyword of each live and waiting channel: its first link.
     const primary = new Map<string, string>();
@@ -753,5 +756,31 @@ describe("the example history's run routes", () => {
   it("is the same every time", () => {
     const again = required(exampleHistory(now, "normal"));
     expect(again.pipeline.runRoutes).toEqual(history.pipeline.runRoutes);
+  });
+});
+
+describe("the example history's generated keywords", () => {
+  it("has 72 done keywords, 12 tools by 6 angles, each with an origin and its numbers", () => {
+    const rows = history.pipeline.keywords.filter(
+      (k) => exampleKeywordOrigins[k.keyword] !== undefined,
+    );
+    expect(rows).toHaveLength(72);
+    const origins = Object.entries(exampleKeywordOrigins);
+    expect(origins).toHaveLength(72);
+    expect(new Set(origins.map(([, o]) => o.tool)).size).toBe(12);
+    expect(new Set(origins.map(([, o]) => o.angle)).size).toBe(6);
+    for (const k of rows) {
+      expect(exampleKeywordOrigins[k.keyword]).toBeDefined();
+      expect(k.new_found).toBeGreaterThanOrEqual(k.in_range_found ?? 0);
+      expect(Date.parse(k.completed_at)).toBeLessThanOrEqual(now);
+      expect(Date.parse(k.completed_at)).toBeGreaterThan(now - 30 * DAY);
+    }
+    const sumOf = (tool: string): number =>
+      rows
+        .filter((k) => exampleKeywordOrigins[k.keyword]?.tool === tool)
+        .reduce((n, k) => n + (k.in_range_found ?? 0), 0);
+    expect(sumOf("claude code")).toBeGreaterThan(sumOf("chatgpt") * 2);
+    const names = history.pipeline.keywords.map((k) => k.keyword.toLowerCase());
+    expect(new Set(names).size).toBe(names.length);
   });
 });

@@ -17,10 +17,10 @@ type RunState = FindState["run"]["state"];
  * restart interrupted partway reads as paused there.
  */
 function shownState({ run, queue, at }: FindState): RunState {
-  if ((run.state !== "ready" && run.state !== "done") || queue.length === 0) {
+  if ((run.state !== "ready" && run.state !== "done") || queue.total === 0) {
     return run.state;
   }
-  if (queue.every((k) => k.state === "done")) {
+  if (queue.done === queue.total) {
     return "done";
   }
   return run.state === "done" || at === 0 ? "ready" : "paused";
@@ -32,16 +32,16 @@ function waitingHeadline(wait: NonNullable<FindState["run"]["wait"]>): string {
 
 function headline(state: FindState): string {
   const { queue, at, run } = state;
-  const n = Math.min(at, Math.max(queue.length - 1, 0)) + 1;
+  const n = Math.min(at, Math.max(queue.total - 1, 0)) + 1;
   switch (shownState(state)) {
     case "running": {
-      const current = queue.find((k) => k.state === "running") ?? queue[at];
+      const current = queue.current[0];
       return text.searching(current?.keyword ?? "");
     }
     case "done":
       return text.done;
     case "ready":
-      return text.ready(queue.filter((k) => k.state !== "done").length);
+      return text.ready(queue.total - queue.done);
     case "paused":
       return text.paused(n);
     case "failed":
@@ -58,8 +58,7 @@ export function LiveRun({ state }: { readonly state: FindState }) {
   const { run, queue, at, log } = state;
   const running = run.state === "running" || run.state === "waiting";
   const stopping = run.state === "stopping";
-  const done = queue.filter((k) => k.state === "done").length;
-  const total = queue.length;
+  const { done, total } = queue;
   const finished = shownState(state) === "done";
   const [problem, setProblem] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
