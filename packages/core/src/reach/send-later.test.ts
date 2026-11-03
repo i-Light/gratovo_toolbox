@@ -2,9 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import {
   countryZones,
+  freeSlot,
   mondayAt9,
   morningIn,
   sendLaterLeadMs,
+  slotGapMs,
+  slotJitterMs,
   theirMorning,
   tomorrowAt9,
   zoneOf,
@@ -111,5 +114,28 @@ describe("theirMorning", () => {
     expect(theirMorning(null, late).at).toBe(new Date(2026, 9, 27, 9, 0).getTime());
     expect(theirMorning("Mars/Olympus_Mons", late).theirs).toBe(false);
     expect(theirMorning(null, late).at - late).toBeGreaterThan(hour);
+  });
+});
+
+describe("freeSlot", () => {
+  const nine = Date.UTC(2026, 10, 4, 14, 0);
+  const half = (): number => 0.5;
+  const step = slotGapMs + slotJitterMs / 2;
+
+  it("keeps the time asked for when nothing is near it", () => {
+    expect(freeSlot(nine, [], half)).toBe(nine);
+    expect(freeSlot(nine, [nine + slotGapMs, nine - slotGapMs], half)).toBe(nine);
+  });
+
+  it("spreads a batch set for the same minute, one gap and a random part apart", () => {
+    const taken: number[] = [];
+    for (let i = 0; i < 4; i++) {
+      taken.push(freeSlot(nine, taken, half));
+    }
+    expect(taken).toEqual([nine, nine + step, nine + 2 * step, nine + 3 * step]);
+  });
+
+  it("moves a time that falls just before a taken one to after it", () => {
+    expect(freeSlot(nine - 60_000, [nine], () => 0)).toBe(nine + slotGapMs);
   });
 });

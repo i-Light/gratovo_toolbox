@@ -192,3 +192,28 @@ export function theirMorning(
   }
   return { at: d.getTime(), theirs: false };
 }
+
+/** Scheduled emails from one mailbox are set at least this far apart (real-use week, 2026-11-03). */
+export const slotGapMs = 4 * 60_000;
+/** Up to this much more on a clash, so a morning's batch doesn't leave on a fixed beat. */
+export const slotJitterMs = 5 * 60_000;
+
+/**
+ * The first time at or after `at` that is at least `slotGapMs` from every time in `taken` (the
+ * mailbox's other scheduled emails). A clash moves it past that email by the gap and a random part
+ * of `slotJitterMs`: thirty emails set for "their morning" go out over the morning, not in one
+ * minute.
+ */
+export function freeSlot(
+  at: number,
+  taken: readonly number[],
+  random: () => number = Math.random,
+): number {
+  let slot = at;
+  for (const t of [...taken].sort((a, b) => a - b)) {
+    if (Math.abs(t - slot) < slotGapMs) {
+      slot = t + slotGapMs + Math.round(random() * slotJitterMs);
+    }
+  }
+  return slot;
+}

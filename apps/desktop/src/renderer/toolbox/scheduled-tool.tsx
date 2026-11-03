@@ -5,6 +5,7 @@ import { useMemo } from "react";
 import { peek } from "../lib/actions";
 import { cancelScheduled, dayWords } from "../lib/reach-actions";
 import { useApp } from "../lib/store";
+import { ChangeTime } from "../record/send-later";
 import { strings } from "../strings";
 
 const text = strings.toolbox.scheduled;
@@ -79,6 +80,7 @@ export function ScheduledTool() {
                 <span className="tiny muted">{text.from(d.mailbox)}</span>
               </span>
             </button>
+            <ChangeTime draft={d} label={strings.reach.later.changeLabel(name)} />
             <Btn
               size="sm"
               icon="x"

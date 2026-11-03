@@ -405,6 +405,7 @@ export function writeDraftState(
     return;
   }
   const to = write.state;
+  // A scheduled email may be moved to another time while it waits (real-use week, 2026-11-03).
   // A draft that may have gone out can only be recorded as sent or copied (D11): approving it
   // again would run its send once more.
   const mayHaveGone =
@@ -415,7 +416,7 @@ export function writeDraftState(
       ? fromTaken.includes(from)
       : to === "skipped"
         ? toSkipped.includes(from)
-        : fromReady.includes(from));
+        : fromReady.includes(from) || (to === "scheduled" && from === "scheduled"));
   if (!allowed) {
     refused(write.kind);
     return;

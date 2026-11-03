@@ -25,6 +25,7 @@ import {
   createSender,
   holdMs,
   lateMs,
+  sendGapMs,
   sendVerdict,
   type CheckOutcome,
   type SendMessage,
@@ -934,6 +935,42 @@ describe("the sender", () => {
       expect(timers[0]?.at).toBe(start + 3_600_000);
       sender.drop();
       expect(timers).toHaveLength(0);
+    });
+  });
+
+  describe("the gap between scheduled sends", () => {
+    const gap = sendGapMs;
+    const scheduled = (id: string, over: Partial<Row> = {}): Row =>
+      row(id, { state: "scheduled", sendAt: start + 60_000, approvedBy: me, ...over });
+
+    it("spreads drafts set for the same minute from one mailbox", async () => {
+      fake.put(scheduled("s1"));
+      fake.put(scheduled("s2", { creator: lab }));
+      sender.afterWrite();
+      await advance(60_000);
+      expect(send).toHaveBeenCalledTimes(1);
+      await advance(gap - 1);
+      expect(send).toHaveBeenCalledTimes(1);
+      await advance(1);
+      expect(send.mock.calls.map((c) => c[0].sendKey).sort()).toEqual(["draft-s1", "draft-s2"]);
+    });
+
+    it("keeps no gap between two mailboxes", async () => {
+      fake.put(scheduled("s1"));
+      fake.put(scheduled("s2", { creator: lab, mailbox: "omar@gratovo.ai" }));
+      sender.afterWrite();
+      await advance(60_000);
+      expect(send).toHaveBeenCalledTimes(2);
+    });
+
+    it("never holds a person's Send now", async () => {
+      fake.put(scheduled("s1"));
+      sender.afterWrite();
+      await advance(60_000);
+      fake.put(row("d1", { creator: lab }));
+      await approve("d1");
+      await advance(holdMs);
+      expect(send.mock.calls.map((c) => c[0].sendKey)).toEqual(["draft-s1", "draft-d1"]);
     });
   });
 

@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import type { OutreachDraft } from "@gratovo/core/data";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { slotGapMs, slotJitterMs } from "@gratovo/core/reach";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { installPersistence } from "../lib/persist";
@@ -108,5 +109,60 @@ describe("Send later", () => {
     render(<DraftCard draftId="d1" />);
     fireEvent.click(screen.getByRole("button", { name: later.cancel }));
     expect(draftOf("d1")?.state).toBe("ready");
+  });
+
+  it("sets a second email from the same mailbox a gap after the first, not in the same minute", () => {
+    const nine = new Date(2026, 9, 25, 9, 0, 0).getTime();
+    setup([aiDraft("d1", "c1", { state: "scheduled", sendAt: nine }), aiDraft("d2", "c1")]);
+    render(<DraftCard draftId="d2" />);
+    fireEvent.click(arrow());
+    act(() => {
+      items()[1]?.run();
+    });
+    const at = draftOf("d2")?.sendAt ?? 0;
+    expect(at).toBeGreaterThanOrEqual(nine + slotGapMs);
+    expect(at).toBeLessThanOrEqual(nine + slotGapMs + slotJitterMs);
+  });
+
+  it("moves a scheduled draft with Change time, and Undo puts the old time back", () => {
+    const monday = new Date(2026, 9, 26, 9, 0, 0).getTime();
+    setup([aiDraft("d1", "c1", { state: "scheduled", sendAt: monday })]);
+    render(<DraftCard draftId="d1" />);
+    fireEvent.click(screen.getByRole("button", { name: later.change }));
+    expect(items().map((i) => i.label)).toEqual([
+      later.theirMorning,
+      later.tomorrow,
+      later.monday,
+      later.pick,
+    ]);
+    act(() => {
+      items()[1]?.run();
+    });
+    expect(draftOf("d1")).toMatchObject({
+      state: "scheduled",
+      sendAt: new Date(2026, 9, 25, 9, 0, 0).getTime(),
+    });
+    act(() => {
+      appStore().getState().ui.toasts.at(-1)?.actions[0]?.run();
+    });
+    expect(draftOf("d1")).toMatchObject({ state: "scheduled", sendAt: monday });
+  });
+
+  it("moves a scheduled draft to a time typed in", () => {
+    setup([aiDraft("d1", "c1", { state: "scheduled", sendAt: now + 86_400_000 })]);
+    render(<DraftCard draftId="d1" />);
+    fireEvent.click(screen.getByRole("button", { name: later.change }));
+    act(() => {
+      items()[3]?.run();
+    });
+    fireEvent.change(screen.getByLabelText(later.pickLabel), {
+      target: { value: "2026-10-27T14:30" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: later.pickSet }));
+    expect(draftOf("d1")).toMatchObject({
+      state: "scheduled",
+      sendAt: new Date(2026, 9, 27, 14, 30, 0).getTime(),
+    });
+    expect(screen.queryByLabelText(later.pickLabel)).toBeNull();
   });
 });

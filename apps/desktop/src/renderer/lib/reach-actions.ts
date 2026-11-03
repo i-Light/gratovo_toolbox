@@ -3,6 +3,7 @@ import {
   canSend,
   draftGates,
   findMailbox,
+  freeSlot,
   isOpenDraft,
   parkChoices,
   planSteps,
@@ -446,13 +447,20 @@ export function whenWords(at: number): string {
 
 /**
  * Schedules a draft (D12, D21): `ready` becomes `scheduled` with `sendAt`; main sends at that
- * time like an approved draft. Refused, with a toast, while a gate holds it. Undo puts it back.
+ * time like an approved draft. A `scheduled` one moves to the new time. The time is the mailbox's
+ * first free slot at or after `at` (`freeSlot`), so a batch spreads out and the board shows when
+ * each one really goes. Refused, with a toast, while a gate holds it. Undo puts it back.
  */
 export function scheduleDraft(id: string, at: number): boolean {
   const draft = draftOf(id);
-  if (draft?.state !== "ready" || at <= Date.now()) {
+  if (
+    draft === undefined ||
+    (draft.state !== "ready" && draft.state !== "scheduled") ||
+    at <= Date.now()
+  ) {
     return false;
   }
+  const moving = draft.state === "scheduled";
   const gates = gatesOf(draft);
   if (!canSchedule(gates)) {
     const first = gates.find((g) => g.holdsSchedule);
@@ -464,8 +472,16 @@ export function scheduleDraft(id: string, at: number): boolean {
     return false;
   }
   const name = nameOf(draft);
-  const label =
-    draft.kind === "first"
+  const taken = reachNow()
+    .drafts.filter(
+      (d) =>
+        d.id !== id && d.state === "scheduled" && d.mailbox !== null && d.mailbox === draft.mailbox,
+    )
+    .flatMap((d) => (d.sendAt === null ? [] : [d.sendAt]));
+  const when = draft.mailbox === null ? at : freeSlot(at, taken);
+  const label = moving
+    ? t.later.movedLabel(name)
+    : draft.kind === "first"
       ? t.later.scheduledLabel.first(name)
       : draft.kind === "followUp"
         ? t.later.scheduledLabel.followUp(draft.followUp ?? 1, name)
@@ -474,17 +490,17 @@ export function scheduleDraft(id: string, at: number): boolean {
     label,
     (data) => {
       const target = data.reach.drafts.find((d) => d.id === id);
-      if (target?.state !== "ready") {
+      if (target?.state !== (moving ? "scheduled" : "ready")) {
         return false;
       }
       target.state = "scheduled";
-      target.sendAt = at;
+      target.sendAt = when;
       return true;
     },
     {
       log: false,
       toast: {
-        msg: t.later.toast(whenWords(at)),
+        msg: t.later.toast(whenWords(when)),
         sub: t.later.toastSub,
         icon: "clock",
       },
