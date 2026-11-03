@@ -85,6 +85,8 @@ export interface SenderDeps {
   setTimer?: (run: () => void, ms: number) => unknown;
   clearTimer?: (handle: unknown) => void;
   newId?: () => string;
+  /** 0 to 1, for the spacing between scheduled sends; `Math.random` unless a test names another. */
+  random?: () => number;
   /** Kinds and codes only: never an address, a subject or a body. */
   log?: (line: string) => void;
 }
@@ -95,11 +97,20 @@ export const holdMs = 10_000;
 export const lateMs = 12 * 3_600_000;
 /** The longest timer: a far-off schedule is re-armed rather than overflow `setTimeout`. */
 const maxTimerMs = 3_600_000;
+/**
+ * A scheduled send leaves at least this long after the last send from its mailbox, plus up to
+ * `sendGapJitterMs`: thirty emails set for "their morning" go out over the morning, not in one
+ * minute (real-use week, 2026-11-03). A person's Send now is never held.
+ */
+export const sendGapMs = 4 * 60_000;
+export const sendGapJitterMs = 5 * 60_000;
 
 const sendable: readonly DraftState[] = ["approved", "scheduled"];
 
 /** When an approved or scheduled draft leaves: its `sendAt`, else a hold from its last change. */
 const dueAt = (draft: StoredDraft): number => draft.sendAt ?? draft.updatedAt + holdMs;
+
+const boxKey = (address: string): string => address.trim().toLowerCase();
 
 const isSendable = (draft: StoredDraft): boolean => sendable.includes(draft.state);
 
@@ -196,6 +207,7 @@ export function createSender(deps: SenderDeps): Sender {
       clearTimeout(handle as ReturnType<typeof setTimeout>);
     });
   const newId = deps.newId ?? randomUUID;
+  const random = deps.random ?? Math.random;
   const log =
     deps.log ??
     ((line: string) => {
@@ -209,6 +221,17 @@ export function createSender(deps: SenderDeps): Sender {
   let current: { source: DataSource; id: string; done: Promise<void> } | null = null;
   // The drafts "It was sent" is recording now: a second click must not record it twice.
   const marking = new Set<string>();
+  // By mailbox: the earliest time its next scheduled send may leave.
+  const nextFree = new Map<string, number>();
+
+  /** When a draft may leave: its due time, and for a scheduled one, its mailbox's gap too. */
+  function readyAt(draft: StoredDraft): number {
+    const due = dueAt(draft);
+    if (draft.state !== "scheduled" || draft.mailbox === null) {
+      return due;
+    }
+    return Math.max(due, nextFree.get(boxKey(draft.mailbox)) ?? 0);
+  }
 
   function disarm(): void {
     if (timer !== null) {
@@ -230,7 +253,7 @@ export function createSender(deps: SenderDeps): Sender {
     if (waiting.length === 0) {
       return;
     }
-    const soonest = Math.min(...waiting.map(dueAt));
+    const soonest = Math.min(...waiting.map(readyAt));
     const delay = Math.min(maxTimerMs, Math.max(0, soonest - now()));
     timer = setTimer(() => {
       timer = null;
@@ -260,8 +283,8 @@ export function createSender(deps: SenderDeps): Sender {
     }
     const due = source.outreach
       .draftsIn(sendable)
-      .filter((d) => dueAt(d) <= at)
-      .sort((a, b) => dueAt(a) - dueAt(b))[0];
+      .filter((d) => readyAt(d) <= at)
+      .sort((a, b) => readyAt(a) - readyAt(b))[0];
     if (due === undefined) {
       arm();
       return;
@@ -487,6 +510,7 @@ export function createSender(deps: SenderDeps): Sender {
       drafts: [{ id, patch: { ...patch, state: "sending", problem: null } }],
     });
     deps.changed();
+    nextFree.set(boxKey(draft.mailbox), now() + sendGapMs + random() * sendGapJitterMs);
 
     if (mode === "example") {
       await recordSent(
