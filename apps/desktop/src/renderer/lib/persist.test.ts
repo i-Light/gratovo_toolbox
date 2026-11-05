@@ -234,6 +234,25 @@ describe("diffData", () => {
     ]);
   });
 
+  it("writes a move to never contact, whose reason travels in the log line", () => {
+    const c0 = base.creators[0] as AppData["creators"][number];
+    const never = {
+      ...c0,
+      stage: "never",
+      rejectReason: null,
+      rejectedAt: 9,
+      neverReason: "asked us to stop",
+    } as typeof c0;
+    const after = { ...base, creators: [never, ...base.creators.slice(1)] };
+    expect(diffData(base, after)).toEqual({
+      writes: [
+        { kind: "creator.stage", id: c0.id, stage: "never", handle: c0.handle, name: c0.name },
+      ],
+      unsupported: [],
+    });
+    expect(diffData(after, base).unsupported).toEqual([]);
+  });
+
   it("writes nothing for a reject reason or time that changes with the same stage", () => {
     const c0 = base.creators[0] as AppData["creators"][number];
     const after = {
