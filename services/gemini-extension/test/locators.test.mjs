@@ -850,3 +850,18 @@ test('a laid-out innerText with its lines is still the answer', (t) => {
   response.appendChild(panel);
   assert.equal(GB.responseTextRaw(response), 'One\n\nTwo');
 });
+
+test('a thinking level the picker already shows is confirmed without opening a menu', async (t) => {
+  const { GBC, d } = load(t, fx.finished('Answer text'));
+  let switcher = d.querySelector('button[data-test-id="bard-mode-menu-button"]');
+  if (!switcher) {
+    switcher = d.createElement('button');
+    switcher.setAttribute('data-test-id', 'bard-mode-menu-button');
+    d.body.appendChild(switcher);
+  }
+  switcher.textContent = 'Argon · High';
+  switcher.addEventListener('click', () => { throw new Error('the menu was opened'); });
+  const answer = await GBC.handle('set_thinking_level', { level: 'high' });
+  const level = answer.result || answer;
+  assert.equal(level.verified ?? level.ok, true, JSON.stringify(answer));
+});

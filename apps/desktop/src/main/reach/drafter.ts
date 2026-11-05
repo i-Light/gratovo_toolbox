@@ -601,7 +601,11 @@ export function createDrafter(deps: DrafterDeps): Drafter {
       return mapProposal(call.result);
     }
     const code = call.error.code;
-    console.error(`Reach: drafting failed (${code}).`);
+    // The bridge's own details say where a call stopped (a phase, a level); never a text.
+    console.error(
+      `Reach: drafting failed (${code}).`,
+      JSON.stringify(call.error.details).slice(0, 400),
+    );
     if (code === "PAUSED") {
       pausedUntil = pausedUntilOf(call.error) ?? now() + pauseFallbackMs;
       return { ok: false, problem: "paused", proposal: null };

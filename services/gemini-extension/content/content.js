@@ -457,6 +457,11 @@
     let clicked = false;
     let last = null;
     let offered = null;
+    // The picker shows the level beside the model ("Argon · High"): the page's own read-back, with
+    // no menu to open. The submenu often won't reopen right after a level is set, which failed every
+    // draft in a new tab with "The thinking-level submenu did not open" (real use, 2026-11-05).
+    const shown = () => new RegExp('(^|[^a-z])' + wanted + '($|[^a-z])', 'i').test(getModel().name || '');
+    if (shown()) return { level: wanted, changed: false, verified: true };
     for (let pass = 0; pass < 4; pass++) {
       let levels = null;
       try {
@@ -475,6 +480,8 @@
         clicked = true;
         await closeAllMenus();
         GB.clearCache();
+        for (let wait = 0; wait < 10 && !shown(); wait++) await GB.sleep(200);
+        if (shown()) return { level: wanted, changed: true, verified: true };
         continue;
       }
       await closeAllMenus();
