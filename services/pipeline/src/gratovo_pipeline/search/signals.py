@@ -41,14 +41,33 @@ BRAND_PATTERNS: Final = (
 _BRAND_STRIP: Final = " .,!:;\"'" + chr(0x2019)  # and the curly apostrophe
 
 
+# A disclosure said in the negative isn't one: "not affiliated with or sponsored by Anthropic",
+# "this video isn't sponsored", "unsponsored". The negative has to be in the same sentence.
+_NEGATIVE: Final = re.compile(
+    r"(?:\b(?:not|never|in no way)\b|n['\u2019]t\b)[^.!?;\n]{0,60}$|\b(?:un|non-?)$|\bno\s+$",
+    re.IGNORECASE,
+)
+
+
+def _negated(text: str, at: int) -> bool:
+    return _NEGATIVE.search(text[max(0, at - 80) : at]) is not None
+
+
 def detect_sponsorship(description: str | None) -> tuple[bool, list[str]]:
     """(is_sponsored, brands) for one video description."""
     if not description:
         return False, []
-    is_sponsored = any(phrase in description.lower() for phrase in SPONSOR_SIGNAL_PHRASES)
+    lowered = description.lower()
+    is_sponsored = any(
+        not _negated(lowered, match.start())
+        for phrase in SPONSOR_SIGNAL_PHRASES
+        for match in re.finditer(re.escape(phrase), lowered)
+    )
     brands: list[str] = []
     for pattern in BRAND_PATTERNS:
         for match in pattern.finditer(description):
+            if _negated(description, match.start()):
+                continue
             brand = match.group(1).strip(_BRAND_STRIP)
             if brand and brand not in brands:
                 brands.append(brand)
