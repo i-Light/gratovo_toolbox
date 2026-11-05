@@ -28,6 +28,7 @@ import type { GeminiCall } from "../pipeline/gemini-service";
 
 import {
   createDrafter,
+  proposeTimeoutS,
   kickDelayMs,
   mapProposal,
   standInMs,
@@ -430,7 +431,7 @@ describe("the drafter", () => {
         channelId: sam,
         contactEmail: confirmed(sam).email,
         threadId: `c:${sam}`,
-        timeoutS: 240,
+        timeoutS: proposeTimeoutS,
       });
       expect(call?.facts.agency?.sender).toBe("Moustafa");
     });
@@ -1129,7 +1130,7 @@ describe("the drafter", () => {
         channelId: sam,
         threadId: `c:${sam}`,
         steer: { note: "Make it warmer, without flattery." },
-        timeoutS: 240,
+        timeoutS: proposeTimeoutS,
       });
       expect(await drafter.rewrite("a", "shorter")).toEqual({ ok: false, problem: "busy" });
 

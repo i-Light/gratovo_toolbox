@@ -115,7 +115,7 @@ const missingOf = {
   rate: "rate",
 } as const;
 /** The engine's own time for one proposal, in seconds (the bridge adds its pacing). */
-export const proposeTimeoutS = 240;
+export const proposeTimeoutS = 480;
 /** A pause the bridge reported without a time: its own length (D6a). */
 const pauseFallbackMs = 30 * 60_000;
 
