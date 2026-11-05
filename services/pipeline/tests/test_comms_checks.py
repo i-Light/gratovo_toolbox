@@ -496,7 +496,7 @@ def test_the_shingles_follow_the_course_folder() -> None:
     ],
 )
 def test_a_channel_number_blocks_in_first_outreach(line: str) -> None:
-    case = {"no_channel_numbers": True, "facts": {}}
+    case: dict[str, Any] = {"no_channel_numbers": True, "facts": {}}
     found = checks.check(case, {"message": {"subject": "Hi", "body": f"Hi Sam,\n\n{line}"}})
     assert any(f["code"] == "CHANNEL_NUMBER" for f in found)
 

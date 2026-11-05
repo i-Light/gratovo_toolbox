@@ -168,7 +168,7 @@ def launch(
             | subprocess.DETACHED_PROCESS
             | subprocess.CREATE_BREAKAWAY_FROM_JOB
         )
-        kwargs["startupinfo"] = window_guard.minimized_startupinfo()
+        kwargs["startupinfo"] = window_guard.background_startupinfo()
     else:
         kwargs["start_new_session"] = True
     guard = None if headless else window_guard.WindowGuard(firefox).start()
