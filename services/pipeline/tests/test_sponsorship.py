@@ -145,3 +145,25 @@ def test_brands_are_deduplicated_and_written_as_json(conn: sqlite3.Connection) -
     signals.compute_sponsorship(conn, ["UC_dupe"])
 
     assert sponsorship(conn, "UC_dupe")[1] == ["AgentForge"]
+
+
+@pytest.mark.parametrize(
+    "description",
+    [
+        "An independent tutorial, not affiliated with or sponsored by Anthropic.",
+        "This is not affiliated with, sponsored by, or endorsed by OpenAI.",
+        "This video isn't sponsored.",
+        "This video is NOT sponsored by Acme",
+        "An unsponsored review.",
+        "A non-sponsored review.",
+        "No sponsored content here.",
+        "In no way represented, sponsored by, or endorsed by Acme.",
+    ],
+)
+def test_a_disclosure_said_in_the_negative_is_not_one(description: str) -> None:
+    assert signals.detect_sponsorship(description) == (False, [])
+
+
+def test_a_negative_in_another_sentence_does_not_cancel_a_disclosure() -> None:
+    description = "This is not a review. Sponsored by Acme.\nNot a course. Use code SAVE10"
+    assert signals.detect_sponsorship(description) == (True, ["Acme", "SAVE10"])
