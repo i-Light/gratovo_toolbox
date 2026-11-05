@@ -137,6 +137,10 @@ GOALS = {
     "decision": "Decide the next step in this deal and draft the message it needs, if any.",
 }
 
+NO_NUMBERS_GOAL = (
+    "Say no numbers about their channel: no views, subscribers, upload counts or sponsor shares."
+)
+
 # A reply with a stated aim (the Close step): the app asks for it by name, never by a template.
 REPLY_GOALS = {
     "decline_audience": (
@@ -272,6 +276,40 @@ def _creator(
     if row["sponsored_ratio"] is not None:
         facts["share_of_recent_videos_sponsored"] = round(float(row["sponsored_ratio"]), 2)
     return facts
+
+
+# Digits, with what they count, in our own earlier messages ("about 84k", "15%", "1.4M").
+_FIGURE = re.compile(r"\$?\b\d[\d,.]*\s?(?:[kKmM]\b|%)?")
+
+
+def _masked(text: str) -> str:
+    return _FIGURE.sub("[n]", text)
+
+
+def _without_channel_numbers(case: dict[str, Any], history: list[str]) -> list[str]:
+    """The owner's rule (2026-11-05): a first email to a creator, and the follow-ups that chase it,
+    use no numbers about the channel, so the model never sees any. Whether they are sponsored stays,
+    in words (INF-FIRST-12). Our earlier messages are masked: they carry figures from before the
+    rule. Returns the masked history."""
+    creator = _dict(_dict(case.get("facts")).get("creator"))
+    for key in ("subscribers", "median_views_last_30_days", "videos_last_30_days", "audience"):
+        creator.pop(key, None)
+    _dict(creator.get("latest_video")).pop("views", None)
+    ratio = _number(creator.pop("share_of_recent_videos_sponsored", None))
+    if ratio is not None:
+        creator["recent_sponsors"] = (
+            "none" if ratio <= 0 else "every video" if ratio >= 1 else "some"
+        )
+    for message in _objects(case.get("thread")):
+        if message.get("from") == "us":
+            message["body"] = _masked(_s(message.get("body")))
+            if message.get("subject"):
+                message["subject"] = _masked(_s(message.get("subject")))
+    case["no_channel_numbers"] = True
+    case["goal"] = f"{case.get('goal')} {NO_NUMBERS_GOAL}"
+    masked = [_masked(body) for body in history]
+    case["recent_messages"] = masked[:4]
+    return masked
 
 
 # --- main's facts (what the old code read from the app's tables) ------------------------------
@@ -636,5 +674,9 @@ def build_case(
         "employee_note": _steer_note(steer),
         "policy": policy,
     }
+    if side != "brand" and (
+        kind == "first" or (kind == "followUp" and not any(m["from"] == "them" for m in thread))
+    ):
+        history = _without_channel_numbers(case, history)
     case["overused_phrases"] = checks.overused_phrases(history, case)
     return case

@@ -7,6 +7,7 @@ import {
   isOpenDraft,
   parkChoices,
   planSteps,
+  slotGapMs,
 } from "@gratovo/core/reach";
 import type { Gate } from "@gratovo/core/reach";
 import type {
@@ -448,7 +449,7 @@ export function whenWords(at: number): string {
 /**
  * Schedules a draft (D12, D21): `ready` becomes `scheduled` with `sendAt`; main sends at that
  * time like an approved draft. A `scheduled` one moves to the new time. The time is the mailbox's
- * first free slot at or after `at` (`freeSlot`), so a batch spreads out and the board shows when
+ * first free slot at or after `at` (`freeSlot`), so a batch spreads across the day and the board shows when
  * each one really goes. Refused, with a toast, while a gate holds it. Undo puts it back.
  */
 export function scheduleDraft(id: string, at: number): boolean {
@@ -478,7 +479,11 @@ export function scheduleDraft(id: string, at: number): boolean {
         d.id !== id && d.state === "scheduled" && d.mailbox !== null && d.mailbox === draft.mailbox,
     )
     .flatMap((d) => (d.sendAt === null ? [] : [d.sendAt]));
-  const when = draft.mailbox === null ? at : freeSlot(at, taken);
+  const box = mailboxOf(draft.mailbox);
+  const when =
+    draft.mailbox === null
+      ? at
+      : freeSlot(at, taken, slotGapMs(box?.effectiveCap ?? box?.dailyCap ?? 30));
   const label = moving
     ? t.later.movedLabel(name)
     : draft.kind === "first"

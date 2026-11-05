@@ -159,7 +159,9 @@ def _send(
     reply = cast("dict[str, Any]", result) if isinstance(result, dict) else {}
     if not reply.get("thinking"):
         raise ThinkingNotSet(message="the add-on did not confirm the thinking level")
-    raw: Any = reply.get("text")
+    # `text` has its whitespace collapsed: a one-per-line answer reads as one long line, and every
+    # keyword and term was dropped (real-use week, 2026-11-05). `textRaw` keeps the lines.
+    raw: Any = reply.get("textRaw") or reply.get("text")
     used_model: Any = reply.get("model")
     return (raw if isinstance(raw, str) else ""), (str(used_model) if used_model else "")
 

@@ -289,3 +289,19 @@ def test_every_action_send_asks_for_thinking_high_and_needs_it_confirmed(
         harness.gemini.action("action.suggest_terms", {"kind": "tools", "count": 2})
     assert info.value.code == "THINKING_NOT_SET"
     assert fake.calls("send")[0]["thinking"] == "high"
+
+
+def test_a_one_per_line_answer_is_read_from_its_kept_lines(harness: Harness) -> None:
+    """The add-on's `text` collapses whitespace; only `textRaw` has the lines."""
+
+    def reply(_params: dict[str, Any]) -> object:
+        return {
+            "text": "Luma Pika Hailuo",
+            "textRaw": "Luma\nPika\nHailuo",
+            "model": "2.5 Pro",
+            "thinking": "high",
+        }
+
+    harness.attach({"send": reply})
+    result = harness.gemini.action("action.suggest_terms", {"kind": "tools", "count": 3})
+    assert result["terms"] == ["Luma", "Pika", "Hailuo"]

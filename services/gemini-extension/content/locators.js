@@ -879,10 +879,14 @@
   // innerText skips what is not laid out yet: an answer still in its reveal
   // animation (its paragraphs "pending") reads empty or short through it, while
   // the DOM already has all of it. The longer of the two is the answer.
+  // Firefox gives plain textContent as innerText for a page it isn't laying out (a minimized
+  // window, 2026-11-04): about as long, but its lines glued ("MachinePika"), so the line count
+  // must hold up too.
   function answerString(md) {
     const inner = typeof md.innerText === 'string' ? md.innerText : '';
     const built = blockText(md);
-    return norm(inner).length >= norm(built).length * 0.9 && inner ? inner : built;
+    const lines = (s) => s.split('\n').filter((l) => norm(l)).length;
+    return inner && norm(inner).length >= norm(built).length * 0.9 && lines(inner) * 2 > lines(built) ? inner : built;
   }
   function responseText(el) {
     if (!el) return '';

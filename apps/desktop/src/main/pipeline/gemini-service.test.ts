@@ -402,6 +402,9 @@ describe("how long main waits for the bridge", () => {
     expect(callTimeoutMs("bridge.ask", { prompt: "AI news keywords" })).toBe(
       (240 + promptGapS) * 1000 + 30_000,
     );
+    expect(callTimeoutMs("action.suggest_terms", { kind: "tools" })).toBe(
+      (240 + promptGapS) * 1000 + 30_000,
+    );
     expect(callTimeoutMs("action.gem_read", { gem: "abc" })).toBe(120_000);
     expect(callTimeoutMs("bridge.status", {})).toBe(30_000);
   });

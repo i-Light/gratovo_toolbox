@@ -9,10 +9,10 @@ import { strings } from "../strings";
 
 const text = strings.reach.banner;
 
-/** Starts the Gemini bridge (it sends no prompt); a failure says so in a toast. */
+/** Starts the bridge and opens its window (it sends no prompt); a failure says so in a toast. */
 async function startGemini(): Promise<void> {
   try {
-    const result = await window.gratovo.invoke("gemini:start", {});
+    const result = await window.gratovo.invoke("gemini:open-window", { browser: null });
     if (result.ok) {
       return;
     }

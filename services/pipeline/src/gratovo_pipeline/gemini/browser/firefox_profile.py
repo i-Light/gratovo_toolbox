@@ -70,8 +70,8 @@ MANAGED_PREFS: dict[str, Any] = {
     "extensions.autoDisableScopes": 10,
     "extensions.startupScanScopes": 5,
     "xpinstall.signatures.required": False,
-    # The Gemini window opens minimized and usually stays there or behind other
-    # windows: do not treat a covered window as hidden, keep a hidden page's
+    # The Gemini window opens and usually stays behind other windows, or a person
+    # minimizes it: do not treat a covered window as hidden, keep a hidden page's
     # timers at full speed, and do not throttle, unload or efficiency-mode it.
     "widget.windows.window_occlusion_tracking.enabled": False,
     "dom.timeout.enable_budget_timer_throttling": False,

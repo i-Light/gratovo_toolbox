@@ -136,13 +136,15 @@ def test_a_first_email_to_a_creator(conn: sqlite3.Connection) -> None:
         "handle": "@aiguy",
     }
     creator = case["facts"]["creator"]
-    assert creator["subscribers"] == 120000
-    assert creator["median_views_last_30_days"] == 90000
     assert creator["latest_video"]["title"] == "I tested every AI coding tool"
     assert creator["latest_video"]["moments"] == [{"at": "7:40", "quote": "Cursor won"}]
     assert case["facts"]["today"] == TODAY
     assert case["thread"] == []
     assert case["recent_messages"] == ["An email to someone else."]
+    assert case["no_channel_numbers"] is True
+    assert "views" not in creator["latest_video"]
+    for gone in ("subscribers", "median_views_last_30_days", "videos_last_30_days"):
+        assert gone not in creator
     agency = case["agency"]
     assert agency["name"] == "Gratovo"
     assert agency["sender"] == "Moustafa"
@@ -649,3 +651,62 @@ def test_readiness_matches_the_app() -> None:
         "audience"
     ]
     assert readiness.missing(READY_KIT, "female") == ["out of scope"]
+
+
+def _with_numbers() -> list[dict[str, str]]:
+    return [{"threadId": "t9", "body": "Your 84k views and 15% sponsored stood out."}]
+
+
+def test_first_outreach_shows_the_model_no_channel_numbers(conn: sqlite3.Connection) -> None:
+    case = live_case.build_case(
+        conn, {"kind": "first", "channelId": "UC_a"}, facts(recentOutbound=_with_numbers())
+    )
+    seen = json.dumps(case["facts"]["creator"]) + json.dumps(case["recent_messages"])
+    assert "120000" not in seen
+    assert "90000" not in seen
+    assert "84k" not in seen
+    assert "15%" not in seen
+    assert case["recent_messages"] == ["Your [n] views and [n] sponsored stood out."]
+    assert "no numbers" in case["goal"]
+
+
+def test_an_unanswered_follow_up_masks_our_own_earlier_numbers(conn: sqlite3.Connection) -> None:
+    t1 = thread(
+        "t1",
+        channel_id="UC_a",
+        messages=(("outbound", "About 84k a video.", "2026-10-14T09:00:00Z"),),
+    )
+    case = live_case.build_case(
+        conn, {"kind": "followUp", "threadId": "t1", "followUpNumber": 1}, facts(thread=t1)
+    )
+    assert case["no_channel_numbers"] is True
+    assert case["thread"][0]["body"] == "About [n] a video."
+    assert "subscribers" not in case["facts"]["creator"]
+
+
+def test_a_follow_up_after_they_replied_keeps_the_numbers(conn: sqlite3.Connection) -> None:
+    t1 = thread(
+        "t1",
+        channel_id="UC_a",
+        messages=(
+            ("outbound", "About 84k a video.", "2026-10-14T09:00:00Z"),
+            ("inbound", "Tell me more.", "2026-10-15T09:00:00Z"),
+            ("outbound", "Sure.", "2026-10-16T09:00:00Z"),
+        ),
+    )
+    case = live_case.build_case(
+        conn, {"kind": "followUp", "threadId": "t1", "followUpNumber": 1}, facts(thread=t1)
+    )
+    assert "no_channel_numbers" not in case
+    assert case["facts"]["creator"]["subscribers"] == 120000
+
+
+def test_a_reply_keeps_the_numbers(conn: sqlite3.Connection) -> None:
+    t1 = thread(
+        "t1",
+        channel_id="UC_a",
+        messages=(("inbound", "How many views do you need?", "2026-10-15T09:00:00Z"),),
+    )
+    reply = live_case.build_case(conn, {"kind": "reply", "threadId": "t1"}, facts(thread=t1))
+    assert reply["facts"]["creator"]["median_views_last_30_days"] == 90000
+    assert "no_channel_numbers" not in reply
