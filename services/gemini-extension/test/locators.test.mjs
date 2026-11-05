@@ -826,3 +826,27 @@ test('diagnostics object shape', (t) => {
   assert.equal(dg.elements.responses.found, false);
   assert.equal(dg.elements.responses.count, 0);
 });
+
+test('an answer keeps its lines when innerText is plain textContent (a window Firefox is not laying out)', (t) => {
+  const { GB, dom } = load(t, '<div></div>');
+  const doc = dom.window.document;
+  const panel = doc.createElement('div');
+  panel.className = 'markdown';
+  panel.innerHTML = '<p>Luma Dream Machine</p><p>Pika</p><p>Hailuo AI</p>';
+  Object.defineProperty(panel, 'innerText', { get: () => panel.textContent });
+  const response = doc.createElement('model-response');
+  response.appendChild(panel);
+  assert.deepEqual(GB.responseTextRaw(response).split('\n').filter(Boolean), ['Luma Dream Machine', 'Pika', 'Hailuo AI']);
+});
+
+test('a laid-out innerText with its lines is still the answer', (t) => {
+  const { GB, dom } = load(t, '<div></div>');
+  const doc = dom.window.document;
+  const panel = doc.createElement('div');
+  panel.className = 'markdown';
+  panel.innerHTML = '<p>One</p><p>Two</p>';
+  Object.defineProperty(panel, 'innerText', { get: () => 'One\n\nTwo' });
+  const response = doc.createElement('model-response');
+  response.appendChild(panel);
+  assert.equal(GB.responseTextRaw(response), 'One\n\nTwo');
+});

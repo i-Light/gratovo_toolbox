@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { BrowserWindow, Menu, app, dialog, powerMonitor, session, shell } from "electron";
 
 import { exampleKeywordOrigins } from "@gratovo/core/data";
+import type { GeminiStatus } from "@gratovo/ipc";
 
 import { createAccount } from "./account/account";
 import { builtPageUrl } from "./app-page";
@@ -463,9 +464,12 @@ function start(): void {
         mode: () => account.findContext()?.mode ?? null,
         queue: () => find.entries(),
         lists: () => find.lists(),
+        // Asked only when a person presses a Gemini button: an off bridge opens, so the press works.
         bridgeReady: async () => {
+          const on = (status: GeminiStatus): boolean =>
+            status.state === "listening" && status.addon.state === "connected";
           const status = await geminiControl.status();
-          return status.state === "listening" && status.addon.state === "connected";
+          return on(status) || on(await geminiControl.openWindow(null));
         },
         generate: (params) => gemini.call("action.generate_keywords", params),
         suggestTermsCall: (params) => gemini.call("action.suggest_terms", params),

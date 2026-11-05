@@ -610,8 +610,8 @@ def _launch_other(browser: str, url: str) -> None:
     startupinfo = None
     if sys.platform == "win32":
         creationflags = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS
-        startupinfo = window_guard.minimized_startupinfo()
-    # Minimized, and never in front of what the person is doing (window_guard.py).
+        startupinfo = window_guard.background_startupinfo()
+    # Behind the other windows, never in front of what the person is doing (window_guard.py).
     guard = window_guard.WindowGuard(path).start()
     try:
         subprocess.Popen(  # noqa: S603 - the browser found on this computer, and the Gemini URL

@@ -79,7 +79,7 @@ const lane = (name: string): HTMLElement =>
 
 let bridge = stubReachBridge();
 beforeEach(() => {
-  bridge = stubReachBridge({ "gemini:start": { state: "starting" } });
+  bridge = stubReachBridge({ "gemini:open-window": { state: "listening" } });
   resetAppStoreForTests({ screen: "reach", tab: "board" }, now);
   seed();
 });
@@ -205,7 +205,7 @@ describe("the banner", () => {
       fireEvent.click(screen.getByRole("button", { name: t.banner.start }));
       await Promise.resolve();
     });
-    expect(bridge.calls).toContainEqual(["gemini:start", {}]);
+    expect(bridge.calls).toContainEqual(["gemini:open-window", { browser: null }]);
   });
 
   it("names the time Gemini is paused until, and is quiet when Gemini is ready", () => {

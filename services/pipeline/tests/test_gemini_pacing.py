@@ -404,6 +404,7 @@ def test_the_prompt_methods_are_listed_once() -> None:
         "queue_add",
         "bridge.ask",
         "action.generate_keywords",
+        "action.suggest_terms",
         "action.classify_channel",
         "action.comms_propose",
     }

@@ -141,7 +141,7 @@ def launch(
 ) -> Session:
     """Starts Firefox on the managed profile with a debugging port; OSError when it cannot start.
 
-    The window opens minimized and does not take the focus (window_guard.py).
+    The window opens behind the others and does not take the focus (window_guard.py).
     """
     firefox_profile.ensure_profile(profile_dir, extra_prefs)
     port = free_port()

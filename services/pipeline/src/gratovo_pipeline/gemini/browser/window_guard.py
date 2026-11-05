@@ -1,23 +1,26 @@
-"""Keep a browser the bridge starts out of the way: minimized, never in front.
+"""Keep a browser the bridge starts out of the way: behind the other windows, never in front.
+
+Never minimized: a minimized Gemini page stalls, its answers time out and its text comes back
+without line breaks (real-use week, 2026-11-03 to 11-05).
 
 The app opens its Gemini browser in the background; the person should not
 find it covering what they were doing. Two layers, because neither is enough
 alone on Windows:
 
-  * `minimized_startupinfo()` asks the new process to show its first window
-    minimized and inactive (`SW_SHOWMINNOACTIVE`). Chrome and Edge honour it;
-    Firefox does not -- its launcher process hands over to the real browser
-    without passing the show state on.
+  * `background_startupinfo()` asks the new process to show its first window
+    inactive (`SW_SHOWNOACTIVATE`). Chrome and Edge honour it; Firefox does
+    not -- its launcher process hands over to the real browser without passing
+    the show state on.
   * `WindowGuard` snapshots the browser's windows before the launch, then
-    watches for a short while and minimizes (without activating) every new
-    browser window as it appears, and gives the focus back to whatever had it
-    if the browser took it. Firefox shows its first window again about half a
-    second after it starts, so a new window is held minimized until it has
-    stayed that way for `SETTLED_S`; after that it is left alone, and a window
-    the person restores stays where they put it.
+    watches for a short while and puts every new browser window at the bottom
+    of the stack (without activating it), and gives the focus back to whatever
+    had it if the browser took it. Firefox shows its first window again about
+    half a second after it starts, so a new window is held there for
+    `SETTLED_S`; after that it is left alone, and a window the person brings
+    forward stays where they put it.
 
-Everything here is best effort and a no-op off Windows: a window that is not
-minimized is an annoyance, never a failure.
+Everything here is best effort and a no-op off Windows: a window in front is
+an annoyance, never a failure.
 """
 
 import logging
@@ -31,7 +34,10 @@ from typing import Self
 
 log = logging.getLogger(__name__)
 
-SW_SHOWMINNOACTIVE = 7
+SW_SHOWNOACTIVATE = 4
+HWND_BOTTOM = 1
+#: SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE
+_SWP_QUIET = 0x0013
 _GWL_STYLE = -16
 _GWL_EXSTYLE = -20
 _WS_MINIMIZEBOX = 0x00020000
@@ -41,18 +47,18 @@ _PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
 
 #: How long a guard keeps watching for the browser's first windows.
 WATCH_S = 30.0
-#: A new window is let go once it has stayed minimized this long.
+#: A new window is let go after it has been held at the bottom this long.
 SETTLED_S = 3.0
 _POLL_S = 0.04
 
 
-def minimized_startupinfo() -> subprocess.STARTUPINFO | None:
-    """A STARTUPINFO that shows the first window minimized and inactive; None off Windows."""
+def background_startupinfo() -> subprocess.STARTUPINFO | None:
+    """A STARTUPINFO that shows the first window inactive; None off Windows."""
     if sys.platform != "win32":
         return None
     info = subprocess.STARTUPINFO()
     info.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-    info.wShowWindow = SW_SHOWMINNOACTIVE
+    info.wShowWindow = SW_SHOWNOACTIVATE
     return info
 
 
@@ -119,12 +125,12 @@ class _Win32:
 
 
 class WindowGuard:
-    """Minimizes the windows a launch opens: `start()` before the launch, `watch()` after."""
+    """Holds the windows a launch opens behind the others: `start()` before, `watch()` after."""
 
     def __init__(self, exe: str, *, watch_s: float = WATCH_S) -> None:
         self.exe = exe
         self.watch_s = watch_s
-        self.minimized: list[int] = []
+        self.held: list[int] = []
         self._api: _Win32 | None = None
         self._before: set[int] = set()
         self._foreground = 0
@@ -145,7 +151,7 @@ class WindowGuard:
         return self
 
     def watch(self) -> Self:
-        """Watches in the background for `watch_s` seconds, minimizing each new browser window."""
+        """Watches in the background for `watch_s` seconds, holding each new browser window back."""
         if self._api is not None and self._thread is None:
             self._thread = threading.Thread(
                 target=self._run, name="gemini-window-guard", daemon=True
@@ -176,7 +182,7 @@ class WindowGuard:
         api = self._api
         assert api is not None  # noqa: S101 - set by start() before watch()
         seen = set(self._before)
-        holding: dict[int, float] = {}  # window -> since when it has been minimized
+        holding: dict[int, float] = {}  # window -> when it was first held
         deadline = time.monotonic() + self.watch_s
         while not self._stop.is_set() and time.monotonic() < deadline:
             now = time.monotonic()
@@ -184,18 +190,17 @@ class WindowGuard:
                 for hwnd in self._browser_windows():
                     if hwnd not in seen:
                         seen.add(hwnd)
-                        holding[hwnd] = 0.0
-                        self.minimized.append(hwnd)
+                        holding[hwnd] = now
+                        self.held.append(hwnd)
+                        log.info("holding the new browser window %s behind the others", hwnd)
                     if hwnd not in holding:
                         continue
-                    if api.user32.IsIconic(hwnd):
-                        holding[hwnd] = holding[hwnd] or now
-                        if now - holding[hwnd] >= SETTLED_S:
-                            del holding[hwnd]
+                    if now - holding[hwnd] >= SETTLED_S:
+                        del holding[hwnd]
                         continue
-                    api.user32.ShowWindow(hwnd, SW_SHOWMINNOACTIVE)
-                    holding[hwnd] = 0.0
-                    log.info("minimized the new browser window %s", hwnd)
+                    if api.user32.IsIconic(hwnd):
+                        api.user32.ShowWindow(hwnd, SW_SHOWNOACTIVATE)
+                    api.user32.SetWindowPos(hwnd, HWND_BOTTOM, 0, 0, 0, 0, _SWP_QUIET)
                     self._give_focus_back(hwnd)
             except Exception:
                 log.debug("window guard pass failed", exc_info=True)

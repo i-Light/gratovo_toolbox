@@ -483,3 +483,30 @@ def test_the_shingles_follow_the_course_folder() -> None:
     with_course = checks.course_shingles()
     assert without < with_course
     assert "a real person watched the whole video before" in with_course
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        "You average about 84k a video.",
+        "Only 15% of your uploads are sponsored.",
+        "It hit 1.4M views.",
+        "You get 200,000 views each time.",
+        "Four of your last five went unsponsored.",
+    ],
+)
+def test_a_channel_number_blocks_in_first_outreach(line: str) -> None:
+    case = {"no_channel_numbers": True, "facts": {}}
+    found = checks.check(case, {"message": {"subject": "Hi", "body": f"Hi Sam,\n\n{line}"}})
+    assert any(f["code"] == "CHANNEL_NUMBER" for f in found)
+
+
+def test_a_title_with_a_number_is_their_words_and_stays() -> None:
+    title = "9 AI agents built one app"
+    case = {
+        "no_channel_numbers": True,
+        "facts": {"creator": {"recent_videos": [title]}},
+    }
+    body = f"Hi Sam,\n\nYour video {title} was a sharp idea."
+    found = checks.check(case, {"message": {"subject": "Hi", "body": body}})
+    assert not any(f["code"] == "CHANNEL_NUMBER" for f in found)

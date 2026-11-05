@@ -70,6 +70,7 @@ PROMPT_METHODS: frozenset[str] = frozenset(
         "queue_add",
         "bridge.ask",
         "action.generate_keywords",
+        "action.suggest_terms",
         "action.classify_channel",
         "action.comms_propose",
     }

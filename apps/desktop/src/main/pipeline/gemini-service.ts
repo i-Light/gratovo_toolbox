@@ -131,6 +131,7 @@ const bridgeDefaultS: Partial<Record<TypedGeminiMethod, number>> = {
   "bridge.ensure_window": 45,
   "bridge.install_addon": 90,
   "action.generate_keywords": 240,
+  "action.suggest_terms": 240,
   "action.classify_channel": 240,
   "action.gem_create": 180,
   "action.gem_update": 180,
@@ -183,6 +184,7 @@ export function callTimeoutMs(method: TypedGeminiMethod, params: unknown): numbe
         (seconds * 3 + commsProposeExtraS + commsProposePrompts * promptGapS) * 1000 + callSlackMs
       );
     case "bridge.ask":
+    case "action.suggest_terms":
     case "action.classify_channel":
       return (seconds + promptGapS) * 1000 + callSlackMs;
     default:

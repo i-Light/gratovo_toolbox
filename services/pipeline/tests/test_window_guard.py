@@ -1,5 +1,5 @@
-"""window_guard: new browser windows are held minimized until they settle; old ones are never
-touched (ported from the old test_window_guard)."""
+"""window_guard: new browser windows are held behind the others until they settle, never minimized;
+old ones are never touched."""
 
 import sys
 import time
@@ -19,7 +19,10 @@ class FakeUser32:
 
     def ShowWindow(self, hwnd: int, cmd: int) -> None:  # noqa: N802
         self.api.shown.append((hwnd, cmd))
-        self.api.iconic[hwnd] = cmd == window_guard.SW_SHOWMINNOACTIVE
+        self.api.iconic[hwnd] = False
+
+    def SetWindowPos(self, hwnd: int, after: int, *_rest: int) -> None:  # noqa: N802
+        self.api.placed.append((hwnd, after))
 
     def IsWindow(self, _hwnd: int) -> bool:  # noqa: N802
         return True
@@ -33,6 +36,7 @@ class FakeApi:
         self.windows = [1]
         self.iconic: dict[int, bool] = {}
         self.shown: list[tuple[int, int]] = []
+        self.placed: list[tuple[int, int]] = []
         self.fg = 99
         self.user32 = FakeUser32(self)
 
@@ -54,10 +58,10 @@ def make_guard(monkeypatch: pytest.MonkeyPatch, api: FakeApi) -> window_guard.Wi
     monkeypatch.setattr(window_guard.sys, "platform", "win32")
     monkeypatch.setattr(window_guard, "_POLL_S", 0.005)
     monkeypatch.setattr(window_guard, "SETTLED_S", 0.05)
-    return window_guard.WindowGuard(r"C:\ff\firefox.exe", watch_s=0.5).start()
+    return window_guard.WindowGuard(r"C:\ff\firefox.exe", watch_s=0.2).start()
 
 
-def test_a_new_window_is_minimized_again_when_the_browser_restores_it(
+def test_a_new_window_goes_behind_the_others_and_gives_the_focus_back(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     api = FakeApi()
@@ -65,16 +69,21 @@ def test_a_new_window_is_minimized_again_when_the_browser_restores_it(
     api.windows.append(2)
     api.fg = 2
     guard.watch()
-    for _ in range(200):
-        if api.shown:
-            break
-        time.sleep(0.005)
-    api.iconic[2] = False  # Firefox shows its first window again after starting
     guard.join()
-    minimized = [hwnd for hwnd, _ in api.shown]
-    assert minimized.count(2) >= 2
-    assert 1 not in minimized  # a window that was there before is left alone
+    assert (2, window_guard.HWND_BOTTOM) in api.placed
+    assert 1 not in [hwnd for hwnd, _ in api.placed]  # a window from before is left alone
     assert api.fg == 99  # the focus went back to where it was
+
+
+def test_a_new_window_is_never_left_minimized(monkeypatch: pytest.MonkeyPatch) -> None:
+    api = FakeApi()
+    guard = make_guard(monkeypatch, api)
+    api.windows.append(2)
+    api.iconic[2] = True
+    guard.watch()
+    guard.join()
+    assert (2, window_guard.SW_SHOWNOACTIVATE) in api.shown
+    assert api.iconic[2] is False
 
 
 def test_a_settled_window_is_let_go(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -82,13 +91,13 @@ def test_a_settled_window_is_let_go(monkeypatch: pytest.MonkeyPatch) -> None:
     guard = make_guard(monkeypatch, api)
     api.windows.append(2)
     guard.watch()
-    time.sleep(0.2)  # well past SETTLED_S
-    api.iconic[2] = False  # the person restored it
+    time.sleep(0.12)  # well past SETTLED_S
+    count = len(api.placed)
     guard.join()
-    assert [hwnd for hwnd, _ in api.shown] == [2]
+    assert len(api.placed) == count
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows only")
-def test_the_startupinfo_asks_for_minimized_and_inactive() -> None:
-    info: Any = window_guard.minimized_startupinfo()
-    assert info.wShowWindow == window_guard.SW_SHOWMINNOACTIVE
+def test_the_startupinfo_asks_for_inactive() -> None:
+    info: Any = window_guard.background_startupinfo()
+    assert info.wShowWindow == window_guard.SW_SHOWNOACTIVATE

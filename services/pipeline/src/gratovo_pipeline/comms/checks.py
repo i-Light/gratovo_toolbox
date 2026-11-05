@@ -160,6 +160,15 @@ AUDIENCE = re.compile(
     r"\b(views|viewers|subscribers|subs|followers|impressions|plays|watch(ers|ed)?|audience)\b",
     re.I,
 )
+# The owner's rule (2026-11-05): a first email to a creator, and the follow-ups that chase it, say
+# no numbers about the channel: a k, m or % figure, a count of views or videos, "4 of the last 5".
+CHANNEL_NUMBER = re.compile(
+    r"\b\d[\d,.]*\s?(?:k\b|m\b|%|million\b|thousand\b)"
+    r"|\b\d[\d,.]*\s+(?:[a-z-]+\s+)?(?:views?|viewers?|subscribers?|subs|followers?|videos?|uploads?)\b"
+    r"|\b(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten|half|a third|a quarter|two thirds)"
+    r"\s+of\s+(?:your|the|those|these|their)\b",
+    re.I,
+)
 MONEY_WORDS = re.compile(
     r"\b(code|commission|cut|fees?|upfront|up-front|deposit|discount|off|split|payout|pay|paid|"
     r"payment|"
@@ -603,6 +612,19 @@ def check(case: dict[str, Any], proposal: dict[str, Any] | None) -> list[Finding
                     "the price gate raised in needs_human)",
                 )
             )
+    if case.get("no_channel_numbers"):
+        for text in (own, own_subject):
+            found = CHANNEL_NUMBER.search(text)
+            if found:
+                findings.append(
+                    _f(
+                        "CHANNEL_NUMBER",
+                        "block",
+                        "OWNER-2026-11-05",
+                        f"'{found.group(0).strip()}' is a number about their channel: say it "
+                        "without numbers",
+                    )
+                )
     # copied course lines and repeats of our own earlier messages
     sh = _shingles(body)
     copied = sh & course_shingles()
