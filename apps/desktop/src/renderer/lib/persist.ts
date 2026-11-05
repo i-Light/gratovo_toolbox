@@ -215,8 +215,9 @@ export function diffData(
       before.creators,
       after.creators,
       (was, now) => {
-        // The reject reason and time move with the stage, and the contact's source and
-        // confidence with its address; on their own they write nothing.
+        // The reject reason and time move with the stage (a never reason is read back from its log
+        // line), and the contact's source and confidence with its address; on their own they write
+        // nothing.
         if (
           was === undefined ||
           !sameBut(
@@ -225,6 +226,7 @@ export function diffData(
             "stage",
             "rejectReason",
             "rejectedAt",
+            "neverReason",
             "email",
             "emailConfirmed",
             "contactName",
