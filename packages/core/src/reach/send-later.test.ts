@@ -7,7 +7,7 @@ import {
   morningIn,
   sendLaterLeadMs,
   slotGapMs,
-  slotJitterMs,
+  slotJitter,
   theirMorning,
   tomorrowAt9,
   zoneOf,
@@ -120,22 +120,37 @@ describe("theirMorning", () => {
 describe("freeSlot", () => {
   const nine = Date.UTC(2026, 10, 4, 14, 0);
   const half = (): number => 0.5;
-  const step = slotGapMs + slotJitterMs / 2;
+  const gap = slotGapMs(30);
+  const step = gap + Math.round(gap * slotJitter * 0.5);
 
-  it("keeps the time asked for when nothing is near it", () => {
-    expect(freeSlot(nine, [], half)).toBe(nine);
-    expect(freeSlot(nine, [nine + slotGapMs, nine - slotGapMs], half)).toBe(nine);
+  it("makes the gap the day divided by the daily limit, and never under its floor", () => {
+    expect(slotGapMs(30)).toBe(16 * 60_000);
+    expect(slotGapMs(20)).toBe(24 * 60_000);
+    expect(slotGapMs(500)).toBe(4 * 60_000);
   });
 
-  it("spreads a batch set for the same minute, one gap and a random part apart", () => {
+  it("keeps the time asked for when nothing is near it", () => {
+    expect(freeSlot(nine, [], gap, half)).toBe(nine);
+    expect(freeSlot(nine, [nine + gap, nine - gap], gap, half)).toBe(nine);
+  });
+
+  it("spreads a batch set for the same minute by the gap and a random part of it", () => {
     const taken: number[] = [];
     for (let i = 0; i < 4; i++) {
-      taken.push(freeSlot(nine, taken, half));
+      taken.push(freeSlot(nine, taken, gap, half));
     }
     expect(taken).toEqual([nine, nine + step, nine + 2 * step, nine + 3 * step]);
   });
 
+  it("a full day's limit covers the working day", () => {
+    const taken: number[] = [];
+    for (let i = 0; i < 30; i++) {
+      taken.push(freeSlot(nine, taken, gap, () => 0));
+    }
+    expect(Math.max(...taken) - nine).toBe(29 * gap);
+  });
+
   it("moves a time that falls just before a taken one to after it", () => {
-    expect(freeSlot(nine - 60_000, [nine], () => 0)).toBe(nine + slotGapMs);
+    expect(freeSlot(nine - 60_000, [nine], gap, () => 0)).toBe(nine + gap);
   });
 });

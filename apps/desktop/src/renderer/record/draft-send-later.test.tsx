@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import type { OutreachDraft } from "@gratovo/core/data";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { slotGapMs, slotJitterMs } from "@gratovo/core/reach";
+import { slotGapMs, slotJitter } from "@gratovo/core/reach";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { installPersistence } from "../lib/persist";
@@ -120,8 +120,9 @@ describe("Send later", () => {
       items()[1]?.run();
     });
     const at = draftOf("d2")?.sendAt ?? 0;
-    expect(at).toBeGreaterThanOrEqual(nine + slotGapMs);
-    expect(at).toBeLessThanOrEqual(nine + slotGapMs + slotJitterMs);
+    const gap = slotGapMs(goodMailbox(sam).effectiveCap);
+    expect(at).toBeGreaterThanOrEqual(nine + gap);
+    expect(at).toBeLessThanOrEqual(nine + gap + gap * slotJitter);
   });
 
   it("moves a scheduled draft with Change time, and Undo puts the old time back", () => {
