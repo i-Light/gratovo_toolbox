@@ -19,7 +19,7 @@ import { resetAppStoreForTests } from "../lib/store";
 import { strings } from "../strings";
 
 const t = strings.prototype.cmt;
-const cardUi = "today.placeholder.card";
+const cardUi = "today.head";
 
 function make(n: number, over: Partial<Comment> = {}): Comment {
   return {
