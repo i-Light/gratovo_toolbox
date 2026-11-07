@@ -249,3 +249,18 @@
     transition: none;
   }
 }
+
+.tdy-work {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.tdy-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px 16px;
+  margin: 0;
+}
+.tdy-facts dd {
+  margin: 0;
+}

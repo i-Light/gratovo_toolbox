@@ -2,7 +2,7 @@ import { overBudget, plannedMinutes, todayBuckets } from "@gratovo/core/today";
 import type { DayState, DoneEntry, TodayItem } from "@gratovo/core/today";
 import { Btn, Icon, Tag } from "@gratovo/ui";
 
-import { duration } from "../lib/format";
+import { clock, duration } from "../lib/format";
 import type { ItemWords } from "../lib/today";
 import { fitDay } from "../lib/today-actions";
 import { useApp } from "../lib/store";
@@ -169,7 +169,7 @@ export function DayBand({
               <Icon name="checkc" size={14} />
               <span className="ell">{newest.title}</span>
             </span>
-            <small className="muted">{text.undoHint}</small>
+            <small className="muted num">{text.newestAt(clock(newest.at))}</small>
           </div>
         )}
       </div>
