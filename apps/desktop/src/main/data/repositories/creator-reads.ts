@@ -27,8 +27,9 @@ export const listMax = 5000;
 /**
  * At most `limit` creators, in the order added. When there are more than that, the ones kept are:
  * every creator a deal names, then creators past `new` (the app stage set, or the legacy fields
- * not `newlyFound`/`new`), then the most recently pulled. The recency proxy is `rowid`, not
- * `updated_at`: pulled rows arrive in cursor order, and `updated_at` text with mixed offsets
+ * not `newlyFound`/`new`), leaving out rejected and never-contact creators who never wrote back,
+ * then the most recently pulled. A rejected creator who wrote back stays, so their reply still
+ * shows in Reach › Replies. The recency proxy is `rowid`, not `updated_at`: pulled rows arrive in cursor order, and `updated_at` text with mixed offsets
  * (`Z` and `+00:00`) does not sort as time. The name falls back to the handle; stage and email
  * are derived, and only the kept rows have their email read.
  */
@@ -50,6 +51,11 @@ export function listCreators(db: DatabaseSync, o: { limit?: number } = {}): Crea
          ORDER BY
            CASE
              WHEN EXISTS (SELECT 1 FROM deals d WHERE d.channel_id = s.channel_id) THEN 0
+             WHEN s.creator_stage IN ('rejected', 'never')
+               AND NOT EXISTS (
+                 SELECT 1 FROM outreach_messages m
+                 WHERE m.channel_id = s.channel_id AND m.direction = 'in'
+               ) THEN 2
              WHEN s.creator_stage IS NOT NULL
                OR NOT (s.vetting_status = 'newlyFound' AND s.pipeline_stage = 'new') THEN 1
              ELSE 2

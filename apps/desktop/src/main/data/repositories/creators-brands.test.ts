@@ -272,6 +272,19 @@ describe("creators", () => {
     expect(listCreators(db).map((c) => c.stage)).toEqual(["kit", "new"]);
   });
 
+  it("past the limit, leaves out rejected creators first, but keeps one who wrote back", () => {
+    db.exec(
+      `INSERT INTO channel_state (channel_id, handle, creator_stage, updated_at)
+       VALUES ('U1', '@wrote', 'rejected', 'x'), ('U2', '@quiet', 'rejected', 'x'),
+              ('U3', '@emailed', 'emailed', 'x'), ('U4', '@never', 'never', 'x')`,
+    );
+    db.exec(
+      `INSERT INTO outreach_messages (id, channel_id, direction, body, at)
+       VALUES ('m1', 'U1', 'in', 'No thanks', 1)`,
+    );
+    expect(listCreators(db, { limit: 2 }).map((c) => c.handle)).toEqual(["@wrote", "@emailed"]);
+  });
+
   it("is STRICT about types", () => {
     expect(() => {
       db.exec(

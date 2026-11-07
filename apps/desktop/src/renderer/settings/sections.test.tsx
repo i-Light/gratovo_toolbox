@@ -204,6 +204,29 @@ describe("Keyboard", () => {
   });
 });
 
+describe("Your day", () => {
+  const seg = (label: string, option: string) =>
+    within(group(label)).getByRole("button", { name: option });
+  const day = () => appStore().getState().data.settings.day;
+
+  it("shows both rows with the current values, picks 6 h, and Ctrl+Z undoes it", async () => {
+    render(<App />);
+    await openSection(tabs.day);
+    const hours = text.rows.dayHours.label;
+    const morning = text.rows.dayMorning.label;
+    expect(seg(hours, "4 h").getAttribute("aria-pressed")).toBe("true");
+    expect(seg(morning, "09:00").getAttribute("aria-pressed")).toBe("true");
+    await userEvent.click(seg(hours, "6 h"));
+    expect(day().hours).toBe(6);
+    await userEvent.click(seg(morning, "07:00"));
+    expect(day().morning).toBe(7);
+    press("z", { ctrlKey: true });
+    expect(day().morning).toBe(9);
+    press("z", { ctrlKey: true });
+    expect(day().hours).toBe(4);
+  });
+});
+
 describe("Notifications", () => {
   const sw = (label: string) => screen.getByRole("switch", { name: label });
   const tray = () => screen.queryByRole("dialog", { name: strings.top.notifications });

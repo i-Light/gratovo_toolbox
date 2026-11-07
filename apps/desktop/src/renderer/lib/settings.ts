@@ -36,7 +36,7 @@ export interface SettingsSection {
 export const settingsSections: readonly SettingsSection[] = [
   { key: "profile", group: "you", icon: "user", owner: false, arrives: null },
   { key: "appearance", group: "you", icon: "moon", owner: false, arrives: null },
-  { key: "day", group: "you", icon: "sun", owner: false, arrives: 7 },
+  { key: "day", group: "you", icon: "sun", owner: false, arrives: null },
   { key: "keyboard", group: "you", icon: "keyboard", owner: false, arrives: null },
   { key: "notifications", group: "you", icon: "bell", owner: false, arrives: null },
   { key: "search", group: "agency", icon: "scan", owner: false, arrives: null },
@@ -55,6 +55,8 @@ export type RowId =
   | "size"
   | "motion"
   | "rail"
+  | "dayHours"
+  | "dayMorning"
   | "letters"
   | "notify"
   | "rulesCountries"
@@ -96,6 +98,8 @@ export const settingsRows: readonly SettingsRow[] = [
   { section: "appearance", id: "size" },
   { section: "appearance", id: "motion" },
   { section: "appearance", id: "rail" },
+  { section: "day", id: "dayHours" },
+  { section: "day", id: "dayMorning" },
   { section: "keyboard", id: "letters" },
   { section: "notifications", id: "notify" },
   { section: "search", id: "rulesCountries" },

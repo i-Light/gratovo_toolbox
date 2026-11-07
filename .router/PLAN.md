@@ -217,6 +217,118 @@ Agents share the worktree: each edits only its files, never stages, stashes or r
 
 **State (2026-11-07):** X-1 to X-9 done, all at tier N with no escalation. The review found 1 high, 3 medium and 7 low findings; all were fixed in two N tasks (F1, F2), except `Route.list`, which stays mutable because `Notification.go` routes live in immer drafts. The screen check at 1440 dark found the triage card's tag words differed from the record's (fixed, X5 as built) and a prototype-mode gap on the board that predates P3 (PROGRESS, for P4).
 
+## P4: Today (contracts written 2026-11-07)
+
+Spec: migration plan step 7 part 1, GAPS §2 (focus, wrap-up, first day, snooze) and §3, v6 `today.js` and `engine.js:198-312` (questioned, not copied). Recon: `.router/CONTEXT.md` (P4). Branch `feat/p4-today`, built in the worktree `.claude/worktrees/p4` (the main checkout runs the owner's live app: don't build into its `apps/desktop/out`).
+
+### Decisions
+
+- **T1. The engine is pure** (`packages/core/src/today/`): it returns structured items, never words. The renderer words them from `strings.today` (one place for user-facing strings). Owners are carried on items (brand items take `brand.owner`, the rest null) but nothing filters by them: the Mine/Team switch, the team load card and Hand off come with P9 (as P3's X2).
+- **T2. Buckets and rules** (v6's order: closest to money first). Each item: `key`, `bucket`, `kind`, `ref`, `draft`, `due`, `age`, `minutes`, `quick`, `owner`.
+  - money (only when `seesMoney` and `parts.deals`): `invoice:<deal>` step `invoice` and no `invoice.sentAt` (due `goLiveAt`, 3 min); `collect:<deal>` sent, not paid, `invoice.dueAt <= now + 3 days` (due `invoice.dueAt`, 3); `payout:<deal>` `invoice.paidAt` set, no `paidCreatorAt`, step at or after `invoice` (due paidAt + 2 days, 2).
+  - deals (`parts.deals`): every deal not at step `invoice` or `pay` whose `dueAt` is set and `<= now + 2 days`: `deal:<deal>`, kind `nextdeal` at step `next` (5 min) else `deal` (8 min at `report`, else 4).
+  - replies: `replyItems(...)` in state `draft` or `your_move`: `reply:<creator>`, draft = the item's open draft or null, due = `lastIn.at`, `age: true`, 3 min.
+  - sends: open drafts (`isOpenDraft`) in state `ready` or `failed` whose kind is not `followUp` and that are not the creator's reply answer: `send:<draft>`, 1.5 min, `quick` when state `ready` and `problem === null`.
+  - followups: drafts of kind `followUp` in state `ready` or `failed`: `followup:<draft>`, due now, 1 min, quick. Brand pitch nudges `bnudge:<brand>` (`parts.deals`, status `pitched`, `pitched.at + 5 days <= now`, due that, 2 min, quick).
+  - close: creators at stage `kit`: `audience:<creator>`, 3 min. Brands (`parts.deals`): `found` → `qualify:<brand>` (4); `qualified` → `pitch:<brand>` (5).
+  - contacts: creators at stage `shortlisted`: `contact:<creator>`, 2 min, quick when `creator.email !== null`.
+  - finds: `newFinds > 0` → one item `finds`, `minutes = max(2, round(newFinds / 2))`.
+  - Snoozed keys (until > now) are left out. Sort: bucket order, then `due` ascending (null last), then key.
+- **T3. Left out of P4, with the reason:** v6's "Send all" follow-ups (owner, 2026-11-07: each email is looked at before it goes); the stalled-reply nudge and the 14-day warmth pulse (both need new draft goals and the comms engine; they come with the roster in P5); the Mine/Team switch, team load and Hand off (P9); the welcome callout (v6 chrome). Deal-tied drafts don't exist yet, so v6's "skip a deal with a reply waiting" has nothing to read.
+- **T4. The day state is local** (`local_settings` key `day`, no migration, never synced): `{hours, morning, snoozed: {[key]: {until, title}}, done: DoneEntry[], note, wrappedAt}`. Defaults: 4 hours, morning 9. `done` keeps today's and yesterday's entries only (at most 300); `note` at most 500 chars. It travels like `notify`: `Frame.day`, `AppData.settings.day`, the `data:write` kind `day.set`, `persist.ts` diffs it. Every change the person makes (snooze, bring back, move to tomorrow, fit to the day, wrap up, dismiss the note, the two settings) goes through `act()` so Ctrl Z undoes it; none writes an activity-log line.
+- **T5. "Done today" is recorded, not guessed from the log.** One tracker in the app shell (`useDoneTracker`, always mounted) keeps the last item list: a key that leaves the list and is not snoozed becomes a done entry `{key, title, bucket, at, minutes}` (a quiet store change: no undo entry, no toast, no log); a key that comes back the same day removes its entry. The tracker starts after the first list for a source and `me`, and restarts when either changes (no false "done" on load or on a prototype switch). `finds` is done only when it leaves the list.
+- **T6. Counts come from the engine.** The rail's Today count and planned minutes, and its Find, Reach, Close and Deliver counts, come from `todayItems` (`phaseCounts`), not from `Frame.counts` (which stays in the type, unread by the rail, until step 11's cleanup).
+- **T7. The screen** (`renderer/today/`): page head "Today, <date>" with the sub line (N things need you, about Xh Ym; start at the top; N late), Wrap up and Start focus (F). The day band: your N hours (a stacked bar by bucket, done and free, a legend, "Fit to Nh" when over: it snoozes the lowest items past the budget to tomorrow morning), Sending today (each mailbox's sends against its cap, with its status), Done today. The queue (left) and the work pane (right): chips All, Quick wins, Late with counts; buckets that fold, each with its count and minutes; rows with an icon, the title, the sub line, a quick-win mark and the due day or minutes; a Snoozed group (Bring back) and a Done today group (Undo on the newest). Keys: J/K and arrows move (passed on while the finds item is selected, so Review new keeps its own), F focus, Esc leaves focus, Z the snooze menu, O opens the record beside (peek). The selection and the view live in `ui.today` (not undoable).
+- **T8. The work pane** shows what the item needs, under a header (icon, title, why, Record (O), Snooze (Z)):
+  - reply, send, followup: the thread's last messages (`loadThread`, for reply) and the `DraftCard` when there is a draft; a reply with no draft yet says so and opens the record's Emails tab;
+  - audience: `AudienceCheck` and the thread; contact: `ContactBlock` (`asCatalogItem`); finds: the Review new stack (`Triage` with `useReview()`);
+  - money, deal and brand kinds (prototype only until steps 8 and 9): the record's one next step (`nextFor`) in words and Open the deal / Open the brand. Their own tools come with P5 and P7.
+  When an item leaves the list while selected, the next one is selected and a "<title>. This is the next one." line shows for 4.5 s with Undo.
+- **T9. Focus, wrap-up, first day, all clear, note.** Focus hides the head, band and queue and shows a bar (i of N, a meter, time left, minutes in, the keys, Leave focus). Wrap up: tiles (done and its minutes, emails sent of capacity, money steps when money shows, still open), the still-open list (8, then "and N more") with Move all to tomorrow, Tomorrow (snoozes coming back, follow-ups due, deal steps due: pure `tomorrowItems`), a note for tomorrow, Finish the day. The note shows at the top of Today the next day until dismissed. First day (no creators and no deals): four steps (search rules, the first search, mailboxes, and the team only where the Team screen shows). Nothing left: "Clear. Nothing else needs you today." with Wrap up.
+- **T10. Snooze times** (pure `snoozeOptions(now, morning)`): Later today (15:00, only before 14:00), Tomorrow morning, Next Monday morning, In two weeks (morning). Local time.
+- **T11. Settings › Your day** replaces the "arrives" shell: Length of your day (2, 3, 4, 5, 6 or 8 hours) and Snoozed items come back at (07:00 to 10:00). Shown in live too.
+- **T12. Live.** `liveWired.today = []`: Today shows in live with the buckets that have real data (replies, sends, follow-ups, audience checks, contacts, finds). Money, deal and brand items sit behind a new part `today.deals` in `liveHiddenParts`. Live opens on Today (`defaultRoute`), except before the import, which still opens Settings › Connections. The palette gains Start focus and Wrap up the day where Today shows.
+- **T13. The history's creators in prototype mode** (PROGRESS, found in P3): by the code they should be in the frame (`writeHistoryLocal` writes `channel_state`; `listCreators` has no stage filter). Diagnose by counting in a prototype run, fix at the cause in main, and test it, before the screen is checked.
+
+### Contracts
+
+```ts
+// packages/core/src/today/types.ts
+export const todayBuckets = ["money", "deals", "replies", "sends", "followups", "close", "contacts", "finds"] as const;
+export type TodayBucket = (typeof todayBuckets)[number];
+export type TodayKind = "invoice" | "collect" | "payout" | "deal" | "nextdeal" | "reply" | "send"
+  | "followup" | "bnudge" | "audience" | "qualify" | "pitch" | "contact" | "finds";
+export interface TodayItem {
+  readonly key: string;            // "<kind>:<id>", or "finds"
+  readonly bucket: TodayBucket;
+  readonly kind: TodayKind;
+  readonly ref: RecordRef | null;  // close/engine-types RecordRef; null for finds
+  readonly draft: string | null;   // the draft id the pane opens
+  readonly due: number | null;
+  readonly age: boolean;           // due is when it arrived (replies), not a deadline
+  readonly minutes: number;
+  readonly quick: boolean;
+  readonly owner: string | null;
+}
+export interface TodayInput {
+  readonly now: number;
+  readonly seesMoney: boolean;
+  readonly parts: { readonly deals: boolean };
+  readonly creators: readonly Creator[];
+  readonly brands: readonly Brand[];
+  readonly deals: readonly Deal[];
+  readonly reach: Pick<ReachData, "drafts" | "threads" | "sequences">;
+  readonly newFinds: number;
+  readonly snoozed: Readonly<Record<string, number>>;   // key -> until
+}
+export interface DoneEntry { readonly key: string; readonly title: string; readonly bucket: TodayBucket; readonly at: number; readonly minutes: number }
+export const dayHours = [2, 3, 4, 5, 6, 8] as const;
+export const morningHours = [7, 8, 9, 10] as const;
+export interface DayState {
+  readonly hours: (typeof dayHours)[number];
+  readonly morning: (typeof morningHours)[number];
+  readonly snoozed: Readonly<Record<string, { readonly until: number; readonly title: string }>>;
+  readonly done: readonly DoneEntry[];
+  readonly note: string;
+  readonly wrappedAt: number | null;
+}
+export const defaultDay: DayState;          // 4 h, morning 9, empty
+export const dayNoteMax = 500, doneMax = 300, snoozedMax = 500;
+
+// packages/core/src/today/engine.ts
+export function todayItems(input: TodayInput): TodayItem[];
+export function phaseCounts(items: readonly TodayItem[], newFinds: number): { find: number; reach: number; close: number; deliver: number };
+  // finds -> find += newFinds; contacts -> find += 1; replies, sends, followups -> reach; close -> close; money, deals -> deliver
+export function plannedMinutes(items: readonly TodayItem[]): number;
+export function overBudget(items: readonly TodayItem[], budgetMinutes: number, doneMinutes: number): string[]; // keys to defer, from the end of the sorted list
+export function snoozeOptions(now: number, morning: number): { later: number | null; tomorrow: number; monday: number; twoWeeks: number };
+export function tomorrowItems(input: TodayInput, day: DayState): { snoozed: number; followUps: number; dealSteps: number };
+export function pruneDay(day: DayState, now: number): DayState;  // drops done older than yesterday, past snoozes; caps lists
+
+// DataWrite (core data/types.ts) gains { kind: "day.set"; day: DayState }; Frame gains `day: DayState`.
+// ipc data.ts: dayStateSchema (strict, every bound above), in the write union and the frame schema.
+// main: apply "day.set" -> setSetting(db, "day", pruneDay(day, now)); frame read -> getSetting(db, "day") parsed with dayStateSchema, else defaultDay (live-source and account's empty frames: defaultDay).
+// renderer: AppData.settings.day; persist.ts writes day.set when it changed (as notify).
+// AppUi.today: { sel: string | null; filter: "all" | "quick" | "late"; folded: readonly TodayBucket[]; focusAt: number | null; wrap: boolean; justDone: { title: string; at: number } | null }
+```
+
+### Tasks
+
+Agents share the worktree: each edits only its files, never stages, stashes or resets; `strings.ts` edits are small, anchored in the task's own namespace. The lead commits.
+
+| id | Task | Tier | Depends | Files | Done-check |
+|---|---|---|---|---|---|
+| T0 | Contracts (this section), CONTEXT.md | H | — | .router | **done** |
+| T-0 | T13: count the frame's creators in a prototype run, find why the history's creators don't reach the board, fix it in main, with a test | N | T0 | main/insights, main/data (as the cause needs) | a main test fails before, passes after; a short note of the cause |
+| T-1 | The engine (T2, T10, contracts) with unit tests per rule, sort, snooze times, overBudget, tomorrowItems, pruneDay; exported from core's index | N | T0 | packages/core/src/today/* , core index | `vitest run packages/core/src/today` green; typecheck |
+| T-2 | The day state chain (T4): DataWrite, Frame, ipc schema (+test), main apply and read, the example day per scenario (normal: three done today and a note from yesterday; first: default), store, persist, frame.ts; `lib/today-actions.ts` (snooze, bringBack, moveToTomorrow, fitDay, wrapUp, dismissNote, setDayHours, setMorning) | N | T-1 | core data/types, example*, ipc data(+test), main sqlite-source, live-source, account, renderer lib/store, persist, frame, today-actions(+test) | vitest on ipc data, persist, today-actions; typecheck |
+| T-3 | The wiring: `lib/today.ts` (`useTodayInput`, `useTodayItems`, `itemWords(item, data)` from `strings.today`, `useDoneTracker` T5), the tracker mounted in app.tsx, the route to `today/today-screen.tsx`, the rail's counts (T6), wired.ts (`today`, part `today.deals`, defaultRoute T12), palette actions | N | T-2 | lib/today(+test), app/app.tsx, app/rail.tsx, lib/wired(+test), overlays/commands(+test), strings.today (words), today/today-screen.tsx (a stub the next task fills) | vitest on today, wired, commands, rail tests |
+| T-4 | The screen (T7, T9): head, day band, queue, keys, focus, wrap-up, first day, all clear, the note; `today.css`; `AppUi.today` | N | T-3 | today/*.tsx, today/today.css, lib/store (ui), strings.today, today/today-screen.test.tsx | vitest on the screen test (queue, chips, J/K, F, Esc, Z, wrap, first day) |
+| T-5 | The work pane (T8) and the snooze menu (T10) | N | T-4 | today/work-pane.tsx, today/snooze-menu.ts, strings.today, today/work-pane.test.tsx | vitest on the pane test (each kind renders its parts; next-one line) |
+| T-6 | Settings › Your day (T11) | N | T-2 | lib/settings, settings/settings-screen, settings/sections (or a new day-section.tsx), strings.settings, a test | vitest on the settings tests |
+| T-7 | One light Electron smoke test: prototype mode on, Today shows its buckets, J moves, Z snoozes an item into Snoozed, F enters focus and Esc leaves | N | all | e2e/p4-today.spec.ts | the spec passes |
+| T-8 | Screens at 1440 dark against v6 and the UI skills; review (`router-reviewer`); `pnpm verify`; docs (GAPS, status, PROGRESS, architecture); PR; merge | H | all | docs | `pnpm verify --status` green |
+
 ## P8a: Insights without deals and money (done 2026-10-29, ADR 0022)
 
 Spec: `docs/product/insights-design.md` (sections 2, 2a, 3.1 to 3.4, 3.6, 4, 5, 6). Mockups: `design/insights/*.jpg` (look at the picture of the tab you build). Code map: `.router/CONTEXT.md`. P8b (after P1) adds Money, Funnel › Brands, and the deal and money parts.

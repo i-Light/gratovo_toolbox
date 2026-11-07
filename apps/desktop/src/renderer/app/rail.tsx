@@ -4,11 +4,13 @@ import { memo, useEffect, useRef } from "react";
 
 import { signOut, useAccount } from "../lib/account";
 import { duration } from "../lib/format";
+import { plannedMinutes, phaseCounts } from "@gratovo/core/today";
 import { useNarrow } from "../lib/media";
 import { setPref, usePref } from "../lib/prefs";
 import { screens, type ScreenKey } from "../lib/routes";
 import { openMenu, openSetting, setShortcuts } from "../lib/actions";
 import { go, selectRoute, useApp } from "../lib/store";
+import { useTodayState } from "../lib/today";
 import { isScreenShown, isSettingsSectionShown } from "../lib/wired";
 import logoUrl from "../assets/logo.svg";
 import { strings } from "../strings";
@@ -88,7 +90,9 @@ export const Rail = memo(function Rail() {
   const settingsOpen = useApp((s) => selectRoute(s).screen === "settings");
   const accountMenuOpen = useApp((s) => s.ui.menu?.label === strings.menu.account);
   const source = useApp((s) => s.data.source);
-  const counts = useApp((s) => s.data.counts);
+  const { items, input } = useTodayState();
+  const phases = phaseCounts(items, input.newFinds);
+  const planned = plannedMinutes(items);
   const myName = useApp((s) => s.data.myName);
   const me = useApp((s) => s.data.team.find((m) => m.id === s.data.me));
   const collapsed = usePref("rail") === "min";
@@ -134,32 +138,32 @@ export const Rail = memo(function Rail() {
       </div>
       {nav(
         "today",
-        counts.today,
+        items.length,
         true,
-        counts.today > 0 ? rail.planned(duration(counts.plannedMinutes)) : rail.allClear,
+        items.length > 0 ? rail.planned(duration(planned)) : rail.allClear,
       )}
       {(["find", "reach", "close", "deliver"] as const).some(shown) ? (
         <div className="nav-h">{rail.pipeline}</div>
       ) : null}
       {nav(
         "find",
-        counts.find,
+        phases.find,
         undefined,
         source === "live" ? strings.screens.find.subLive : undefined,
       )}
       {nav(
         "reach",
-        counts.reach,
+        phases.reach,
         undefined,
         source === "live" ? strings.screens.reach.subLive : undefined,
       )}
       {nav(
         "close",
-        counts.close,
+        phases.close,
         undefined,
         source === "live" ? strings.screens.close.subLive : undefined,
       )}
-      {nav("deliver", counts.deliver)}
+      {nav("deliver", phases.deliver)}
       {(["insights", "toolbox", "team"] as const).some(shown) ? (
         <div className="nav-h">{rail.workbench}</div>
       ) : null}

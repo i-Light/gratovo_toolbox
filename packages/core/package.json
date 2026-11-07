@@ -10,7 +10,8 @@
     "./close": "./src/close/index.ts",
     "./find": "./src/find/index.ts",
     "./insights": "./src/insights/index.ts",
-    "./reach": "./src/reach/index.ts"
+    "./reach": "./src/reach/index.ts",
+    "./today": "./src/today/index.ts"
   },
   "dependencies": {
     "immer": "11.1.21"

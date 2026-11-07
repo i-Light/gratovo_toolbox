@@ -5,6 +5,7 @@
  * them without pulling in the store's immer.
  */
 
+import type { DayState } from "../today/types";
 import type { InsightsStore } from "./insights-store";
 import type { OutreachStore } from "./outreach-store";
 import type { PersonDraftState, ReachData, ReplyFactKey } from "./reach-types";
@@ -358,6 +359,8 @@ export interface Frame {
   /** Your open conflicts, not yet settled: at most 100. */
   readonly conflicts: readonly EditConflict[];
   readonly notify: NotifySettings;
+  /** The person's day (Today): kept on this computer only. */
+  readonly day: DayState;
   /** Whether `me` may see money. When false, every price is null and no money notification is here. */
   readonly seesMoney: boolean;
   /** Drafts, threads, sequences and mailboxes (plan step 6, D4). */
@@ -370,6 +373,8 @@ export type DataWrite =
   | { readonly kind: "notification.read"; readonly id: string; readonly read: boolean }
   /** Replaces the whole map. */
   | { readonly kind: "notify.set"; readonly notify: NotifySettings }
+  /** Replaces the day state. Local only: never queued for the server. */
+  | { readonly kind: "day.set"; readonly day: DayState }
   /** Trimmed, at most `nameMax`; `""` means unset. No profile row for `me`: a no-op. */
   | { readonly kind: "me.name"; readonly name: string }
   /** `id` is a UUID; the actor is always `me`. */

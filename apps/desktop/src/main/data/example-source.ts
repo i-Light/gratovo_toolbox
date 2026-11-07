@@ -241,6 +241,7 @@ function seed(db: DatabaseSync, now: number, scenario: Scenario): void {
       upsertNotification(db, notification);
     }
     setNotify(db, {});
+    setSetting(db, "day", fixtures.day);
     setSetting(db, "mail.settings", fixtures.mailSettings);
     setSetting(db, "reach.mailboxes", fixtures.reachMailboxes);
     if (fixtures.health !== null) {

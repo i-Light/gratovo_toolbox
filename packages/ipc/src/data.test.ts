@@ -2,10 +2,11 @@ import { DEAL_FLOW } from "@gratovo/core";
 import { kitView } from "@gratovo/core/close";
 import { creatorStages, exampleFrame, nameMax, type DataWrite } from "@gratovo/core/data";
 import { emptyFacets } from "@gratovo/core/find";
+import { dayNoteMax, defaultDay } from "@gratovo/core/today";
 import { describe, expect, it, vi } from "vitest";
 
 import { channels } from "./channels";
-import { creatorSchema, dataWriteSchema, frameSchema } from "./data";
+import { creatorSchema, dataWriteSchema, dayStateSchema, frameSchema } from "./data";
 import { createDispatcher, type Handlers } from "./dispatch";
 
 const frame = exampleFrame(Date.UTC(2026, 9, 20));
@@ -139,10 +140,36 @@ describe("frameSchema", () => {
   });
 });
 
+describe("dayStateSchema", () => {
+  it("accepts the default day", () => {
+    expect(dayStateSchema.safeParse(defaultDay).success).toBe(true);
+  });
+
+  it("accepts 2000 snoozed items and refuses 2001", () => {
+    const snoozed = (n: number) =>
+      Object.fromEntries(
+        Array.from({ length: n }, (_, k) => [`s${String(k)}`, { until: 1, title: "x" }]),
+      );
+    expect(dayStateSchema.safeParse({ ...defaultDay, snoozed: snoozed(2000) }).success).toBe(true);
+    expect(dayStateSchema.safeParse({ ...defaultDay, snoozed: snoozed(2001) }).success).toBe(false);
+  });
+
+  it("refuses hours that are not offered", () => {
+    expect(dayStateSchema.safeParse({ ...defaultDay, hours: 7 }).success).toBe(false);
+    expect(dayStateSchema.safeParse({ ...defaultDay, morning: 11 }).success).toBe(false);
+  });
+
+  it("refuses a note that is too long", () => {
+    const note = "x".repeat(dayNoteMax + 1);
+    expect(dayStateSchema.safeParse({ ...defaultDay, note }).success).toBe(false);
+  });
+});
+
 describe("dataWriteSchema", () => {
   const every: DataWrite[] = [
     { kind: "notification.read", id: "n1", read: true },
     { kind: "notify.set", notify: { reply: false, money: true } },
+    { kind: "day.set", day: defaultDay },
     { kind: "me.name", name: "Sam" },
     { kind: "me.name", name: "" },
     {

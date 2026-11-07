@@ -9,6 +9,7 @@ import type { FrameSource } from "@gratovo/core/data";
 import { getPrototype, setPanel, toggleCommenting } from "../lib/prototype";
 import { meIsOwner, rowsFor, settingsSections } from "../lib/settings";
 import { dealName, findRecord, go, recordName } from "../lib/store";
+import { startFocus, startWrap } from "../lib/today";
 import type { AppData } from "../lib/store";
 import { strings } from "../strings";
 import { brandSub, creatorSub, dealSub } from "./record-text";
@@ -107,6 +108,18 @@ export function actionCommands(source: FrameSource = "example"): readonly Comman
     a("rows", actions.density, () => {
       setPref("density", getPrefs().density === "compact" ? "" : "compact");
     }),
+    ...(isScreenShown("today", source)
+      ? [
+          a("sun", actions.startFocus, () => {
+            go("today");
+            startFocus();
+          }),
+          a("check", actions.wrapUp, () => {
+            go("today");
+            startWrap();
+          }),
+        ]
+      : []),
     ...proto,
   ];
 }

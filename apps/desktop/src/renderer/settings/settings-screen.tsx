@@ -15,6 +15,7 @@ import {
   ProfileSection,
   ShellSection,
 } from "./sections";
+import { DaySection } from "./day-section";
 import { ConnectionsSection } from "./connections-section";
 import { PrototypeSection } from "./prototype-section";
 import { SearchRulesSection } from "./search-rules-section";
@@ -31,6 +32,8 @@ function SectionView({ section }: { readonly section: SettingsSection }) {
       return <ProfileSection />;
     case "appearance":
       return <AppearanceSection />;
+    case "day":
+      return <DaySection />;
     case "keyboard":
       return <KeyboardSection />;
     case "notifications":

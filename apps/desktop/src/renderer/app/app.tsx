@@ -5,6 +5,7 @@ import { useDraftReadyToasts } from "../lib/dock";
 import { useKeys } from "../lib/keys";
 import { useNarrow } from "../lib/media";
 import { usePref } from "../lib/prefs";
+import { TodayProvider, useComputeToday, useDoneTracker } from "../lib/today";
 import { usePrototype } from "../lib/prototype";
 import { selectProblems, selectRoute, setRailOpen, useApp } from "../lib/store";
 import { useFirstRun } from "./first-run";
@@ -25,6 +26,7 @@ import { ReachScreen } from "../reach/reach-screen";
 import { CloseScreen } from "../close/close-screen";
 import { InsightsHost } from "../insights/insights-host";
 import { ToolboxScreen } from "../toolbox/toolbox-screen";
+import { TodayScreen } from "../today/today-screen";
 import { PlaceholderScreen } from "./placeholder-screen";
 import { ProblemsBar } from "./problems-bar";
 import { RecordPage } from "./record-page";
@@ -84,6 +86,8 @@ const Content = memo(function Content() {
         <InsightsHost key={screen} />
       ) : screen === "toolbox" ? (
         <ToolboxScreen key={screen} />
+      ) : screen === "today" ? (
+        <TodayScreen key={screen} />
       ) : (
         <PlaceholderScreen key={screen} screen={screen} />
       )}
@@ -128,7 +132,23 @@ function useDrawerFocus(open: boolean): void {
  * and the document key listener. It subscribes only to the rail preference and the drawer state;
  * each part below reads its own slice, so a change to one does not re-render the others.
  */
+function DoneTracker() {
+  useDoneTracker();
+  return null;
+}
+
+/** The app: one Today engine for the rail, the screen and the done tracker, around the frame. */
 export function App() {
+  const today = useComputeToday();
+  return (
+    <TodayProvider value={today}>
+      <DoneTracker />
+      <Frame />
+    </TodayProvider>
+  );
+}
+
+function Frame() {
   useGlobalKeys();
   useKeyListener();
   useFirstRun();

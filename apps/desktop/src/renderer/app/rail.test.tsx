@@ -35,20 +35,20 @@ describe("the rail", () => {
     expect(item(strings.screens.find.name).getAttribute("aria-current")).toBeNull();
   });
 
-  it("shows the counts and the planned time", () => {
+  it("shows the counts and the planned time, worked out from what needs you (the Today engine)", () => {
     render(<App />);
     const counts: [string, string][] = [
-      [strings.screens.today.name, "28"],
-      [strings.screens.find.name, "15"],
-      [strings.screens.reach.name, "10"],
-      [strings.screens.close.name, "6"],
-      [strings.screens.deliver.name, "7"],
+      [strings.screens.today.name, "29"],
+      [strings.screens.find.name, "4"],
+      [strings.screens.reach.name, "9"],
+      [strings.screens.close.name, "7"],
+      [strings.screens.deliver.name, "9"],
     ];
     for (const [name, count] of counts) {
       expect(within(item(name)).getByText(count)).toBeTruthy();
     }
     expect(
-      within(rail()).getByText(strings.rail.planned(strings.time.hoursMinutes(1, 30))),
+      within(rail()).getByText(strings.rail.planned(strings.time.hoursMinutes(1, 31))),
     ).toBeTruthy();
   });
 
@@ -150,13 +150,14 @@ describe("the rail's slices", () => {
 });
 
 describe("the live gate", () => {
-  it("lists only Find, Reach, Close, Insights, Toolbox and Settings access on live data", () => {
+  it("lists only Today, Find, Reach, Close, Insights, Toolbox and Settings access on live data", () => {
     initAppStore({ ...exampleData(Date.now()), source: "live" }, { screen: "find", tab: "search" });
     render(<Rail />);
     expect(within(rail()).getByRole("button", { name: /^Find/ })).toBeTruthy();
     expect(within(rail()).getByRole("button", { name: /^Reach/ })).toBeTruthy();
     expect(within(rail()).getByRole("button", { name: /^Close/ })).toBeTruthy();
-    for (const name of ["Today", "Deliver", "Team"]) {
+    expect(within(rail()).getByRole("button", { name: /^Today/ })).toBeTruthy();
+    for (const name of ["Deliver", "Team"]) {
       expect(within(rail()).queryByRole("button", { name: new RegExp(`^${name}`) })).toBeNull();
     }
   });

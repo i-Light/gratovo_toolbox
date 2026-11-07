@@ -119,7 +119,7 @@ describe("diffData", () => {
     const after: AppData = {
       ...base,
       notifications: [{ ...n0, read: !n0.read }, ...base.notifications.slice(1)],
-      settings: { notify: { reply: false } },
+      settings: { notify: { reply: false }, day: base.settings.day },
       myName: "Ada",
       log: [
         {
@@ -462,6 +462,13 @@ describe("installPersistence", () => {
       [{ kind: "notify.set", notify: { reply: false } }],
       [{ kind: "notify.set", notify: {} }],
     ]);
+  });
+
+  it("writes one day.set when the day changes", () => {
+    const base = exampleData(now);
+    const day = { ...base.settings.day, note: "Call Lina" };
+    const after = { ...base, settings: { ...base.settings, day } };
+    expect(diffData(base, after).writes).toEqual([{ kind: "day.set", day }]);
   });
 
   it("writes your name, and an empty name as unset", async () => {

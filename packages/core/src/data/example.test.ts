@@ -433,6 +433,7 @@ describe("exampleFrame", () => {
       mateRun: seed.mateRun(now),
       conflicts: [],
       notify: {},
+      day: seed.day,
       seesMoney: true,
       reach: { ...frame.reach, mailboxes: [], sender: null },
     });

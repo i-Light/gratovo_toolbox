@@ -59,8 +59,9 @@ C19. Deal step words (P1, 2026-10-30): v6's DEAL_FLOW items use rule codes and t
 - G-chord hint bar: MISSING (C12).
 
 ---
-## 3. Today (all MISSING; `today.js`, `engine.js:231-312`)
-Whole screen is a placeholder. v6 parts:
+## 3. Today (BUILT in P4, 2026-11-07; `today.js`, `engine.js:231-312`)
+**P4 state:** built: the engine (`core/today`), day band (budget, Fit to the day, sending today, done today), queue (chips, buckets, snoozed, done today), keys J/K/arrows, Z, O, F, Esc (Ctrl Enter sends through the draft card), the work pane per kind (draft, thread, audience check, contact block, Review new; money, deal and brand kinds show the step and open the record until P5 and P7 add their tools), focus, wrap-up, first day, all clear, the note for tomorrow, snooze, Settings › Your day, Start focus and Wrap up in the palette. Left out with the reason: Send all follow-ups (owner, 2026-11-07); stalled-reply nudge and warmth pulse (new draft goals, P5); Mine/Team, TeamLoad and Hand off (P9); Snapshot card (the Record button opens the peek); welcome callout (v6 chrome). The notification tray's "selects the Today item" is still open.
+v6 parts:
 - DayBand: "Your N hours" budget card, stacked bar by bucket + done today + free, legend, "Fit to Nh" button (`A.fitDayBudget`, defers lowest-priority items to tomorrow 09:00) (`today.js:11-29, engine.js:1489`). Mail card: sends left today across mailboxes (`today.js:30-42`).
 - Queue (list left, work pane right; split layout): filter chips (All / quick... `u.todayFilter`), rows grouped by 8 buckets in order: Get paid, Deal steps, Answer replies, Approve emails, Follow-ups due, Sign and pitch, Confirm contacts, Review new finds (`engine.js:220-228`); each row has time estimate, due, reason ("why"), owner avatar (`today.js:43-89`).
 - Keys: J/K next/previous, Ctrl Enter main action, Z snooze, H hand off, O open record beside, F focus (`today.js:263`).

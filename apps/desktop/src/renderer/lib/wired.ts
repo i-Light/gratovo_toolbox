@@ -14,6 +14,7 @@ import type { SectionKey } from "./settings";
 
 /** What the live app may show. A screen missing here is hidden; `tabs` lists the tabs it may show. */
 export const liveWired = {
+  today: [],
   find: ["search", "triage", "gallery", "contacts"],
   reach: ["board", "sequences", "inbox", "mailboxes"],
   close: ["roster"],
@@ -23,6 +24,7 @@ export const liveWired = {
   settings: [
     "profile",
     "appearance",
+    "day",
     "keyboard",
     "notifications",
     "search",
@@ -46,6 +48,7 @@ export const liveHiddenParts = [
   "insights.overview.revenue",
   "insights.goal.money",
   "record.deals",
+  "today.deals",
 ] as const;
 
 export type GatedPart = (typeof liveHiddenParts)[number];
@@ -102,8 +105,8 @@ export function firstShownTab(screen: ScreenKey, source: FrameSource): string | 
 
 /**
  * Where the app opens, and where a hidden route goes. Example data: Today. Live data: Settings >
- * Connections on a first run (the import has never happened), else Find > Search. While the import
- * state is unknown, Find > Search.
+ * Connections on a first run (the import has never happened), else Today. While the import
+ * state is unknown, Today.
  */
 export function defaultRoute(source: FrameSource, importState: ImportState): Route {
   if (source === "example") {
@@ -111,7 +114,7 @@ export function defaultRoute(source: FrameSource, importState: ImportState): Rou
   }
   return importState === "never"
     ? { screen: "settings", tab: "connections" }
-    : { screen: "find", tab: "search" };
+    : { screen: "today", tab: null };
 }
 
 /**

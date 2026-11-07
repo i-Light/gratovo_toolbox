@@ -1,0 +1,266 @@
+/* Today. Desktop, dark. Cards, chips, buckets, meters and rows are the shared ones in controls.css. */
+.tdy-band {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: var(--gap);
+  align-items: stretch;
+}
+.tdy-bar {
+  display: flex;
+  gap: 2px;
+  height: 10px;
+  border-radius: 5px;
+  overflow: hidden;
+  background: var(--sunk-2);
+}
+.tdy-bar > i {
+  display: block;
+  min-width: 3px;
+  height: 100%;
+}
+.tdy-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 12px;
+  color: var(--ink-2);
+}
+.tdy-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.tdy-legend li > i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.tdy-mail {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.tdy-mail li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.tdy-addr {
+  flex: 0 1 96px;
+  min-width: 0;
+  font-weight: 500;
+}
+.tdy-mail .meter {
+  flex: 1;
+  min-width: 40px;
+}
+.tdy-sent {
+  min-width: 40px;
+  text-align: end;
+  font-size: 12px;
+}
+.tdy-newest {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  color: var(--good);
+  font-weight: 500;
+}
+.tdy-newest .ell {
+  color: var(--ink);
+}
+
+.tdy-split {
+  display: grid;
+  grid-template-columns: minmax(340px, 400px) minmax(0, 1fr);
+  gap: var(--gap);
+  align-items: start;
+}
+.tdy-focus {
+  width: 100%;
+  max-width: 900px;
+  margin-inline: auto;
+}
+.tdy-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+}
+.tdy-queue {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  position: sticky;
+  top: 0;
+  max-height: calc(100vh - var(--top-h) - var(--pad) * 2);
+  overflow-y: auto;
+  padding-inline-end: 2px;
+}
+.tdy-chips {
+  gap: 6px;
+  flex-wrap: wrap;
+  padding-bottom: 4px;
+}
+.tdy-none {
+  padding: 8px 10px;
+}
+.tdy-row {
+  align-items: center;
+}
+.tdy-row .lt b {
+  font-size: var(--fs);
+}
+.tdy-ico {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--r-s);
+  display: grid;
+  place-items: center;
+  flex: none;
+  background: var(--sunk-2);
+  color: var(--ink-2);
+}
+.tdy-bolt {
+  display: inline-grid;
+  place-items: center;
+  color: var(--warn);
+  flex: none;
+}
+.tdy-due {
+  flex: none;
+  font-size: 11.5px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.tdy-due.late {
+  color: var(--crit);
+}
+.tdy-fold {
+  flex: none;
+  color: var(--muted);
+}
+.tdy-fold.shut {
+  opacity: 0.5;
+}
+.tdy-aside {
+  cursor: default;
+}
+
+.tdy-work-h {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.tdy-work-h .tdy-ico {
+  width: 36px;
+  height: 36px;
+}
+
+.tdy-focusbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  border: 1px solid var(--accent-line);
+  background: var(--accent-soft);
+  border-radius: var(--r-l);
+}
+.tdy-focus-meter {
+  width: 140px;
+}
+.tdy-keys {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tdy-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+}
+.tdy-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: var(--r-m);
+  background: var(--sunk);
+}
+.tdy-tile b {
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.tdy-plain {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--fs);
+}
+.tdy-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.tdy-step {
+  padding: 10px 12px;
+  background: var(--sunk);
+}
+.tdy-step:hover {
+  background: var(--sunk-2);
+}
+.tdy-n {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  flex: none;
+  font-weight: 600;
+  font-size: 12px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+.tdy-fold,
+.tdy-focus-meter > i {
+  transition: opacity 0.15s var(--ease-out);
+}
+@media (prefers-reduced-motion: reduce) {
+  .tdy-fold,
+  .tdy-focus-meter > i {
+    transition: none;
+  }
+}
+
+.tdy-work {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.tdy-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px 16px;
+  margin: 0;
+}
+.tdy-facts dd {
+  margin: 0;
+}

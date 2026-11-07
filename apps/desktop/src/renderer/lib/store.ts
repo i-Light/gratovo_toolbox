@@ -21,6 +21,8 @@ import type {
   ReachData,
 } from "@gratovo/core/data";
 import { emptyReach } from "@gratovo/core/data";
+import { defaultDay } from "@gratovo/core/today";
+import type { DayState, TodayBucket } from "@gratovo/core/today";
 import type { SyncStatus } from "@gratovo/ipc";
 import type { IconName } from "@gratovo/ui";
 import { useSyncExternalStore } from "react";
@@ -80,7 +82,7 @@ export interface AppData {
   /** Your changes that met a different value on the server: you choose which one stays. */
   readonly conflicts: readonly EditConflict[];
   /** Team-wide settings. A notification kind is on unless it is false here. */
-  readonly settings: { readonly notify: NotifySettings };
+  readonly settings: { readonly notify: NotifySettings; readonly day: DayState };
 }
 
 /** A button on a toast. */
@@ -197,6 +199,20 @@ export interface AppUi {
   readonly settingTarget: RowId | null;
   /** Whether the first-run import has happened; "unknown" until the Connections status loads. */
   readonly importState: ImportState;
+  /** The Today screen: the item picked, the chip, folded buckets, focus, wrap-up and the "next one" line. */
+  readonly today: {
+    readonly sel: string | null;
+    readonly filter: "all" | "quick" | "late";
+    readonly folded: readonly TodayBucket[];
+    readonly focusAt: number | null;
+    readonly wrap: boolean;
+    readonly justDone: {
+      readonly title: string;
+      readonly at: number;
+      /** The undo step that finished it, when Undo would take back that step; else null. */
+      readonly step: number | null;
+    } | null;
+  };
 }
 
 /** The whole state the app store holds. */
@@ -220,7 +236,7 @@ const emptyData: AppData = {
   mateRun: null,
   reach: emptyReach,
   conflicts: [],
-  settings: { notify: {} },
+  settings: { notify: {}, day: defaultDay },
 };
 
 /** Makes a store holding `data`, starting on `start`. */
@@ -252,6 +268,7 @@ export function createAppStore(
       settingFlash: null,
       settingTarget: null,
       importState: "unknown",
+      today: { sel: null, filter: "all", folded: [], focusAt: null, wrap: false, justDone: null },
     },
   });
 }
