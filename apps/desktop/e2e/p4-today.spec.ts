@@ -21,9 +21,11 @@ test.describe("P4 Today", () => {
     await page.getByRole("switch", { name: proto.switchLabel, exact: true }).click();
     await expect(page.locator('[data-ui="frame.top.proto"]')).toBeVisible({ timeout: 30_000 });
 
-    // G then T opens Today.
-    await page.keyboard.press("g");
-    await page.keyboard.press("t");
+    // The rail opens Today (a key chord right after the reload can land before the page listens).
+    await page
+      .getByRole("navigation", { name: strings.rail.label })
+      .getByRole("button", { name: new RegExp(`^${screens.today.name}`) })
+      .click();
     await expect(page.getByRole("heading", { level: 1, name: screens.today.name })).toBeVisible();
 
     const queue = page.locator('[data-ui="today.queue"]');
