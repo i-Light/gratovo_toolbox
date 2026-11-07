@@ -145,6 +145,15 @@ describe("dayStateSchema", () => {
     expect(dayStateSchema.safeParse(defaultDay).success).toBe(true);
   });
 
+  it("accepts 2000 snoozed items and refuses 2001", () => {
+    const snoozed = (n: number) =>
+      Object.fromEntries(
+        Array.from({ length: n }, (_, k) => [`s${String(k)}`, { until: 1, title: "x" }]),
+      );
+    expect(dayStateSchema.safeParse({ ...defaultDay, snoozed: snoozed(2000) }).success).toBe(true);
+    expect(dayStateSchema.safeParse({ ...defaultDay, snoozed: snoozed(2001) }).success).toBe(false);
+  });
+
   it("refuses hours that are not offered", () => {
     expect(dayStateSchema.safeParse({ ...defaultDay, hours: 7 }).success).toBe(false);
     expect(dayStateSchema.safeParse({ ...defaultDay, morning: 11 }).success).toBe(false);

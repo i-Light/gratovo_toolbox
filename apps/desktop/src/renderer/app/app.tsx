@@ -5,7 +5,7 @@ import { useDraftReadyToasts } from "../lib/dock";
 import { useKeys } from "../lib/keys";
 import { useNarrow } from "../lib/media";
 import { usePref } from "../lib/prefs";
-import { useDoneTracker } from "../lib/today";
+import { TodayProvider, useComputeToday, useDoneTracker } from "../lib/today";
 import { usePrototype } from "../lib/prototype";
 import { selectProblems, selectRoute, setRailOpen, useApp } from "../lib/store";
 import { useFirstRun } from "./first-run";
@@ -132,12 +132,27 @@ function useDrawerFocus(open: boolean): void {
  * and the document key listener. It subscribes only to the rail preference and the drawer state;
  * each part below reads its own slice, so a change to one does not re-render the others.
  */
+function DoneTracker() {
+  useDoneTracker();
+  return null;
+}
+
+/** The app: one Today engine for the rail, the screen and the done tracker, around the frame. */
 export function App() {
+  const today = useComputeToday();
+  return (
+    <TodayProvider value={today}>
+      <DoneTracker />
+      <Frame />
+    </TodayProvider>
+  );
+}
+
+function Frame() {
   useGlobalKeys();
   useKeyListener();
   useFirstRun();
   useDraftReadyToasts();
-  useDoneTracker();
   const railMin = usePref("rail") === "min";
   const railOpen = useApp((s) => s.ui.railOpen);
   const narrow = useNarrow();

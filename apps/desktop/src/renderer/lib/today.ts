@@ -1,7 +1,7 @@
 import { DEAL_FLOW } from "@gratovo/core";
 import { todayItems } from "@gratovo/core/today";
 import type { DayState, TodayInput, TodayItem } from "@gratovo/core/today";
-import { useEffect, useMemo, useRef } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef } from "react";
 
 import { useReviewCount } from "../find/triage";
 import { strings } from "../strings";
@@ -52,7 +52,13 @@ export interface TodayState {
   readonly now: number;
 }
 
-export function useTodayState(): TodayState {
+const TodayContext = createContext<TodayState | null>(null);
+
+/** Gives the screens one Today engine; mount it once in the app shell. */
+export const TodayProvider = TodayContext.Provider;
+
+/** Computes Today from the store. The shell does this once; everything else uses `useTodayState`. */
+export function useComputeToday(): TodayState {
   const now = useNow();
   const source = useApp((s) => s.data.source);
   const seesMoney = useApp((s) => s.data.seesMoney);
@@ -95,6 +101,19 @@ export function useTodayState(): TodayState {
   ]);
 }
 
+/**
+ * The shared Today state. Without a provider (a part rendered alone) it computes locally; whether
+ * there is a provider does not change while a component is mounted, so the hook order is stable.
+ */
+export function useTodayState(): TodayState {
+  const shared = useContext(TodayContext);
+  if (shared !== null) {
+    return shared;
+  }
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  return useComputeToday();
+}
+
 /** What Today is computed from, read from the store. */
 export function useTodayInput(): TodayInput {
   return useTodayState().input;
@@ -112,6 +131,36 @@ export interface ItemWords {
   readonly why: string;
 }
 
+const idIndexes = new WeakMap<object, Map<string, unknown>>();
+
+/** An id -> record map for a list, built once per array (the store replaces an array when it changes). */
+function byId<T extends { readonly id: string }>(list: readonly T[]): ReadonlyMap<string, T> {
+  let map = idIndexes.get(list) as Map<string, T> | undefined;
+  if (map === undefined) {
+    map = new Map(list.map((r) => [r.id, r]));
+    idIndexes.set(list, map);
+  }
+  return map;
+}
+
+type Thread = AppData["reach"]["threads"][number];
+const threadIndexes = new WeakMap<object, Map<string, Thread>>();
+
+/** The threads by creator, built once per array. */
+function threadByCreator(data: AppData): ReadonlyMap<string, Thread> {
+  let map = threadIndexes.get(data.reach.threads);
+  if (map === undefined) {
+    map = new Map();
+    for (const th of data.reach.threads) {
+      if (!map.has(th.creator)) {
+        map.set(th.creator, th);
+      }
+    }
+    threadIndexes.set(data.reach.threads, map);
+  }
+  return map;
+}
+
 const refName = (data: AppData, item: TodayItem): string => {
   const ref = item.ref;
   if (ref === null) {
@@ -119,7 +168,7 @@ const refName = (data: AppData, item: TodayItem): string => {
   }
   const list: readonly { readonly id: string; readonly name: string }[] =
     ref.kind === "creator" ? data.creators : data.brands;
-  return list.find((r) => r.id === ref.id)?.name ?? strings.record.unknownName;
+  return byId(list).get(ref.id)?.name ?? strings.record.unknownName;
 };
 
 /**
@@ -132,12 +181,10 @@ export function itemWords(
   opts: { readonly newFinds?: number; readonly now?: number } = {},
 ): ItemWords {
   const now = opts.now ?? Date.now();
-  const deal =
-    item.ref?.kind === "deal" ? data.deals.find((d) => d.id === item.ref?.id) : undefined;
-  const brandOfDeal = deal === undefined ? undefined : data.brands.find((b) => b.id === deal.brand);
-  const creatorOfDeal =
-    deal === undefined ? undefined : data.creators.find((c) => c.id === deal.creator);
-  const draft = data.reach.drafts.find((d) => d.id === item.draft);
+  const deal = item.ref?.kind === "deal" ? byId(data.deals).get(item.ref.id) : undefined;
+  const brandOfDeal = deal === undefined ? undefined : byId(data.brands).get(deal.brand);
+  const creatorOfDeal = deal === undefined ? undefined : byId(data.creators).get(deal.creator);
+  const draft = item.draft === null ? undefined : byId(data.reach.drafts).get(item.draft);
   const name = refName(data, item);
   const dealBrand = brandOfDeal?.name ?? strings.record.unknownName;
   const dealCreator = creatorOfDeal?.name ?? strings.record.unknownName;
@@ -184,7 +231,7 @@ export function itemWords(
           };
     }
     case "reply": {
-      const thread = data.reach.threads.find((th) => th.creator === item.ref?.id);
+      const thread = item.ref === null ? undefined : threadByCreator(data).get(item.ref.id);
       const reading = thread?.lastIn?.reading ?? null;
       return {
         title: t.titles.reply(name),
@@ -199,7 +246,7 @@ export function itemWords(
     }
     case "send":
       return {
-        title: t.titles.send(draft === undefined ? "Email" : kindLabel(draft), name),
+        title: t.titles.send(draft === undefined ? t.titles.emailFallback : kindLabel(draft), name),
         sub:
           draft?.state === "failed"
             ? t.subs.sendFailed
@@ -210,12 +257,15 @@ export function itemWords(
       };
     case "followup":
       return {
-        title: t.titles.followup(draft === undefined ? "Follow-up" : kindLabel(draft), name),
+        title: t.titles.followup(
+          draft === undefined ? t.titles.followupFallback : kindLabel(draft),
+          name,
+        ),
         sub: t.subs.followup(draft === undefined ? "" : dayWords(draft.createdAt)),
         why: t.why.followup,
       };
     case "bnudge": {
-      const brand = data.brands.find((b) => b.id === item.ref?.id);
+      const brand = item.ref === null ? undefined : byId(data.brands).get(item.ref.id);
       return {
         title: t.titles.bnudge(name),
         sub: t.subs.bnudge(brand?.pitched == null ? "" : ago(brand.pitched.at, now)),
@@ -226,14 +276,14 @@ export function itemWords(
       return { title: t.titles.audience(name), sub: t.subs.audience, why: t.why.audience };
     case "qualify":
     case "pitch": {
-      const brand = data.brands.find((b) => b.id === item.ref?.id);
+      const brand = item.ref === null ? undefined : byId(data.brands).get(item.ref.id);
       const sells = brand?.sells ?? "";
       return item.kind === "qualify"
         ? { title: t.titles.qualify(name), sub: t.subs.qualify(sells), why: t.why.qualify }
         : { title: t.titles.pitch(name), sub: t.subs.pitch(sells), why: t.why.pitch };
     }
     case "contact": {
-      const creator = data.creators.find((c) => c.id === item.ref?.id);
+      const creator = item.ref === null ? undefined : byId(data.creators).get(item.ref.id);
       return {
         title: t.titles.contact(name),
         sub: creator?.email == null ? t.subs.contactNone : t.subs.contactHas(creator.email),
@@ -250,21 +300,58 @@ export function itemWords(
  * creator, brand, deal or draft left the data (a scenario pick, a smaller frame) was not done.
  */
 export function stillThere(item: TodayItem, data: AppData): boolean {
-  if (item.draft !== null && !data.reach.drafts.some((d) => d.id === item.draft)) {
+  if (item.draft !== null && !byId(data.reach.drafts).has(item.draft)) {
     return false;
   }
   if (item.ref === null) {
     return data.creators.length > 0;
   }
   const { kind, id } = item.ref;
-  const list = kind === "creator" ? data.creators : kind === "brand" ? data.brands : data.deals;
-  return list.some((r) => r.id === id);
+  return kind === "creator"
+    ? byId(data.creators).has(id)
+    : kind === "brand"
+      ? byId(data.brands).has(id)
+      : byId(data.deals).has(id);
+}
+
+/** How long before a done entry the change that finished it may have been made, for Undo. */
+const undoWindowMs = 2000;
+
+/** The newest change Undo would take back, when it was made within the last 2 s; else null. */
+export function recentUndoStep(): number | null {
+  const top = appStore().peekUndo();
+  return top !== undefined && Date.now() - top.at <= undoWindowMs ? top.id : null;
+}
+
+/** The change behind the newest done entry; renderer-side, not part of the day state. */
+let lastDone: { readonly key: string; readonly step: number | null } | null = null;
+
+/** Whether Undo on this done entry would take back the change that finished it. */
+export function canUndoDone(key: string): boolean {
+  return (
+    lastDone !== null &&
+    lastDone.key === key &&
+    lastDone.step !== null &&
+    appStore().peekUndo()?.id === lastDone.step
+  );
+}
+
+/** `canUndoDone`, read again when the undo stack changes. */
+export function useCanUndoDone(key: string): boolean {
+  useApp(() => appStore().peekUndo()?.id ?? null);
+  return canUndoDone(key);
+}
+
+/** Forgets the change behind the newest done entry (tests). */
+export function resetDoneUndo(): void {
+  lastDone = null;
 }
 
 /**
  * Records "done" as the list changes (decision T5): a key that leaves the list and is not snoozed
  * is done; a key that is back on the list comes off the done list. Mount once in the app shell.
  * It starts after the first list for a source and person, and starts over when either changes.
+ * It does not wait for the catalog: only the finds key waits for the new-finds count.
  */
 export function useDoneTracker(): void {
   const { items, ready, now, input } = useTodayState();
@@ -273,49 +360,45 @@ export function useDoneTracker(): void {
   const prev = useRef<{
     sig: string;
     items: readonly TodayItem[];
-    titles: ReadonlyMap<string, string>;
+    data: AppData;
     newFinds: number;
   } | null>(null);
 
   useEffect(() => {
     const sig = `${source}:${me}`;
-    if (me === "" || !ready) {
-      if (me === "") {
-        prev.current = null;
-      }
+    if (me === "") {
+      prev.current = null;
       return;
     }
     const data = appStore().getState().data;
     const before = prev.current;
-    const titles = new Map<string, string>();
-    for (const item of items) {
-      titles.set(item.key, itemWords(item, data, { newFinds: input.newFinds, now }).title);
-    }
-    prev.current = { sig, items, titles, newFinds: input.newFinds };
-    if (before === null || before.sig !== sig) {
+    prev.current = { sig, items, data, newFinds: input.newFinds };
+    if (before === null || before.sig !== sig || before.items === items) {
       return;
     }
+    // Only the keys that left the list are worded, from the data they were last seen in.
     const gone = doneDiff(
       before.items.map((i) => i.key),
       items.map((i) => i.key),
       input.snoozed,
-    );
+    ).filter((key) => key !== "finds" || ready);
     const byKey = new Map(before.items.map((i) => [i.key, i]));
     for (const key of gone) {
       const was = byKey.get(key);
       if (was !== undefined && stillThere(was, data)) {
+        lastDone = { key, step: recentUndoStep() };
         recordDone({
           key,
-          title: before.titles.get(key) ?? "",
+          title: itemWords(was, before.data, { newFinds: before.newFinds, now }).title,
           bucket: was.bucket,
-          at: now,
+          at: Date.now(),
           minutes: was.minutes,
         });
       }
     }
     const done = new Set(data.settings.day.done.map((e) => e.key));
     for (const item of items) {
-      if (done.has(item.key)) {
+      if (done.has(item.key) && (item.key !== "finds" || ready)) {
         forgetDone(item.key);
       }
     }

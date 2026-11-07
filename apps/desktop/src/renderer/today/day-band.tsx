@@ -8,7 +8,7 @@ import { fitDay } from "../lib/today-actions";
 import { useApp } from "../lib/store";
 import { capacity } from "../reach/reach-view";
 import { strings } from "../strings";
-import { bucketHue } from "./today-view";
+import { bucketHue, listedTitle } from "./today-view";
 
 const text = strings.today.screen.band;
 const names = strings.today.screen.buckets;
@@ -83,6 +83,7 @@ export function DayBand({
   readonly day: DayState;
   readonly doneToday: readonly DoneEntry[];
 }) {
+  const seesMoney = useApp((s) => s.data.seesMoney);
   const budget = day.hours * 60;
   const planned = plannedMinutes(items);
   const doneMin = sum(doneToday.map((e) => e.minutes));
@@ -167,7 +168,7 @@ export function DayBand({
           <div className="col" style={{ gap: "4px" }}>
             <span className="tdy-newest">
               <Icon name="checkc" size={14} />
-              <span className="ell">{newest.title}</span>
+              <span className="ell">{listedTitle(newest, seesMoney)}</span>
             </span>
             <small className="muted num">{text.newestAt(clock(newest.at))}</small>
           </div>

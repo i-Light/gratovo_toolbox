@@ -206,7 +206,12 @@ export interface AppUi {
     readonly folded: readonly TodayBucket[];
     readonly focusAt: number | null;
     readonly wrap: boolean;
-    readonly justDone: { readonly title: string; readonly at: number } | null;
+    readonly justDone: {
+      readonly title: string;
+      readonly at: number;
+      /** The undo step that finished it, when Undo would take back that step; else null. */
+      readonly step: number | null;
+    } | null;
   };
 }
 

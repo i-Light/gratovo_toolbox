@@ -3,7 +3,7 @@ import { Btn, Icon } from "@gratovo/ui";
 import { useEffect, useState } from "react";
 
 import { peek, undo } from "../lib/actions";
-import { useApp } from "../lib/store";
+import { appStore, useApp } from "../lib/store";
 import type { ItemWords } from "../lib/today";
 import { strings } from "../strings";
 import { PaneBody } from "./pane-body";
@@ -17,6 +17,7 @@ const nextOneMs = 4500;
 function NextOne() {
   const just = useApp((s) => s.ui.today.justDone);
   const [born] = useState(() => Date.now());
+  const top = useApp(() => appStore().peekUndo()?.id ?? null);
   const [gone, setGone] = useState<number | null>(null);
   const at = just?.at ?? null;
   useEffect(() => {
@@ -40,9 +41,11 @@ function NextOne() {
     <div className="callout good" role="status" data-ui="today.work.next-one">
       <Icon name="checkc" />
       <span className="grow">{text.nextOne(just.title)}</span>
-      <Btn size="sm" onClick={undo}>
-        {text.undo}
-      </Btn>
+      {just.step !== null && just.step === top ? (
+        <Btn size="sm" onClick={undo}>
+          {text.undo}
+        </Btn>
+      ) : null}
     </div>
   );
 }

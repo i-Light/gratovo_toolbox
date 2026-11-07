@@ -1,16 +1,19 @@
 // @vitest-environment happy-dom
 import { todayBuckets, todayItems } from "@gratovo/core/today";
 import type { TodayItem } from "@gratovo/core/today";
-import { cleanup, renderHook } from "@testing-library/react";
+import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { strings } from "../strings";
+import { act as doAct } from "./actions";
 import {
   doneDiff,
   itemWords,
   startFocus,
   startWrap,
+  canUndoDone,
   stillThere,
+  useDoneTracker,
   useTodayInput,
   useTodayItems,
 } from "./today";
@@ -155,5 +158,125 @@ describe("stillThere", () => {
     expect(
       stillThere({ ...send, key: "finds", kind: "finds", ref: null, draft: null }, data()),
     ).toBe(false);
+  });
+});
+
+describe("useDoneTracker", () => {
+  const day = () => data().settings.day;
+  let base: readonly unknown[] = [];
+  beforeEach(() => {
+    base = data().settings.day.done;
+  });
+  const change = (recipe: (d: ReturnType<typeof data>) => void): void => {
+    act(() => {
+      appStore().bg((d) => {
+        recipe(d);
+      });
+    });
+  };
+  const setState = (draft: string, state: string): void => {
+    change((d) => {
+      (d.reach as { drafts: unknown }).drafts = d.reach.drafts.map((x) =>
+        x.id === draft ? { ...x, state } : x,
+      );
+    });
+  };
+  const sendItem = (): TodayItem => first("send");
+
+  it("records nothing on the first list", () => {
+    renderHook(() => {
+      useDoneTracker();
+    });
+    expect(day().done).toEqual(base);
+  });
+
+  it("does not take a source switch for work done", () => {
+    const draft = sendItem().draft as string;
+    renderHook(() => {
+      useDoneTracker();
+    });
+    change((d) => {
+      (d as { source: string }).source = "live";
+      (d.reach as { drafts: unknown }).drafts = d.reach.drafts.map((x) =>
+        x.id === draft ? { ...x, state: "sent" } : x,
+      );
+    });
+    expect(day().done).toEqual(base);
+  });
+
+  it("does not take a change of person for work done", () => {
+    const draft = sendItem().draft as string;
+    renderHook(() => {
+      useDoneTracker();
+    });
+    change((d) => {
+      (d as { me: string }).me = "someone-else";
+      (d.reach as { drafts: unknown }).drafts = d.reach.drafts.map((x) =>
+        x.id === draft ? { ...x, state: "sent" } : x,
+      );
+    });
+    expect(day().done).toEqual(base);
+  });
+
+  it("does not count a snoozed item that left", () => {
+    const send = sendItem();
+    renderHook(() => {
+      useDoneTracker();
+    });
+    change((d) => {
+      (d.settings as { day: unknown }).day = {
+        ...d.settings.day,
+        snoozed: { [send.key]: { until: Date.now() + 3_600_000, title: "x" } },
+      };
+    });
+    expect(day().done).toEqual(base);
+  });
+
+  it("records an item whose draft went to sent, then forgets it when it comes back", () => {
+    const send = sendItem();
+    const draft = send.draft as string;
+    const before = data().reach.drafts.find((x) => x.id === draft)?.state as string;
+    const title = itemWords(send, data()).title;
+    renderHook(() => {
+      useDoneTracker();
+    });
+    setState(draft, "sent");
+    const entry = day().done.find((e) => e.key === send.key);
+    expect(entry).toMatchObject({ title, bucket: "sends", minutes: send.minutes });
+    setState(draft, before);
+    expect(day().done.some((e) => e.key === send.key)).toBe(false);
+  });
+
+  it("offers Undo for the newest done entry only while its change is the newest", () => {
+    const send = sendItem();
+    const draft = send.draft as string;
+    renderHook(() => {
+      useDoneTracker();
+    });
+    act(() => {
+      doAct("Send it", (d) => {
+        (d.reach as { drafts: unknown }).drafts = d.reach.drafts.map((x) =>
+          x.id === draft ? { ...x, state: "sent" } : x,
+        );
+      });
+    });
+    expect(canUndoDone(send.key)).toBe(true);
+    act(() => {
+      doAct("Another change", (d) => {
+        d.settings.day = { ...d.settings.day, note: "n" };
+      });
+    });
+    expect(canUndoDone(send.key)).toBe(false);
+  });
+
+  it("does not count an item whose creator left the data", () => {
+    const send = sendItem();
+    renderHook(() => {
+      useDoneTracker();
+    });
+    change((d) => {
+      (d as { creators: unknown }).creators = d.creators.filter((c) => c.id !== send.ref?.id);
+    });
+    expect(day().done.some((e) => e.key === send.key)).toBe(false);
   });
 });

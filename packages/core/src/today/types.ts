@@ -94,4 +94,4 @@ export const defaultDay: DayState = {
 
 export const dayNoteMax = 500;
 export const doneMax = 300;
-export const snoozedMax = 500;
+export const snoozedMax = 2000;

@@ -53,6 +53,11 @@ describe("moveToTomorrow and fitDay", () => {
     expect(day().snoozed["send:b"]).toEqual({ until, title: "Email Tensor Talk" });
   });
 
+  it("keeps up to 2000 snoozes", () => {
+    moveToTomorrow(Array.from({ length: 2100 }, (_, i) => ({ key: `s:${String(i)}`, title: "x" })));
+    expect(Object.keys(day().snoozed)).toHaveLength(2000);
+  });
+
   it("fitDay does the same in one undo step", () => {
     fitDay(items);
     expect(Object.keys(day().snoozed)).toHaveLength(2);

@@ -8,6 +8,21 @@ import { strings } from "../strings";
 const text = strings.today.screen;
 const dayMs = 86_400_000;
 
+const moneyKey = /^(invoice|collect|payout):/;
+
+/**
+ * The title to list for a done or snoozed entry: the worded title, or a generic one for a money
+ * step when the person does not see money.
+ */
+export function listedTitle(
+  entry: { readonly key: string; readonly title: string; readonly bucket?: TodayBucket },
+  seesMoney: boolean,
+): string {
+  return !seesMoney && (entry.bucket === "money" || moneyKey.test(entry.key))
+    ? strings.today.titles.moneyStep
+    : entry.title;
+}
+
 /** Local midnight at the start of the day `now` falls in. */
 export function midnight(now: number): number {
   const d = new Date(now);

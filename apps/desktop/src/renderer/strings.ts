@@ -4912,6 +4912,11 @@ export const strings = {
   },
   today: {
     titles: {
+      /** The kind word when a draft is not in the data. */
+      emailFallback: "Email",
+      followupFallback: "Follow-up",
+      /** Stands in for a money step's title when the person does not see money. */
+      moneyStep: "A money step",
       invoice: (brand: string) => `Send ${brand}'s invoice`,
       collect: (brand: string, amount: string | null) =>
         amount === null ? `${brand} hasn't paid` : `${brand} hasn't paid ${amount}`,

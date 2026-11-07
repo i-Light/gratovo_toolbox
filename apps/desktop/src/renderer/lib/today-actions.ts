@@ -78,13 +78,20 @@ function pushToTomorrow(label: string, msg: (n: number) => string, items: readon
   if (items.length === 0) {
     return;
   }
+  // The day keeps a capped list: count what was really stored, not what was asked for.
+  const day = dayNow();
+  const until = snoozeOptions(Date.now(), day.morning).tomorrow;
+  const next = withSnoozed(day, items, until);
+  const stored = new Set(items.map((i) => i.key).filter((key) => Object.hasOwn(next.snoozed, key)));
+  if (stored.size === 0) {
+    return;
+  }
   act(
     label,
     (data) => {
-      const until = snoozeOptions(Date.now(), data.settings.day.morning).tomorrow;
-      data.settings.day = writable(withSnoozed(data.settings.day, items, until));
+      data.settings.day = writable(next);
     },
-    { log: false, toast: { msg: msg(items.length), icon: "clock" } },
+    { log: false, toast: { msg: msg(stored.size), icon: "clock" } },
   );
 }
 

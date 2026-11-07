@@ -203,15 +203,15 @@ function exampleDay(now: number): DayState {
     key: string,
     title: string,
     bucket: TodayBucket,
-    hours: number,
+    agoMin: number,
     minutes: number,
-  ): DoneEntry => ({ key, title, bucket, at: dayTime(now, 0, hours, 0), minutes });
+  ): DoneEntry => ({ key, title, bucket, at: now - agoMin * 60_000, minutes });
   return {
     ...defaultDay,
     done: [
-      done(`send:${id("c5")}`, "Approved the first email to The AI Desk", "sends", 11, 3),
-      done(`followup:${id("c4")}`, "Sent the follow-up to Tensor Talk", "followups", 10, 4),
-      done(`contact:${id("c3")}`, "Confirmed the contact for Code with Kai", "contacts", 9, 5),
+      done(`send:${id("c5")}`, "Approved the first email to The AI Desk", "sends", 25, 3),
+      done(`followup:${id("c4")}`, "Sent the follow-up to Tensor Talk", "followups", 70, 4),
+      done(`contact:${id("c3")}`, "Confirmed the contact for Code with Kai", "contacts", 125, 5),
     ],
     note: "Ask Lina about the two creators who asked for a rate card",
     wrappedAt: dayTime(now, -1, 18, 0),

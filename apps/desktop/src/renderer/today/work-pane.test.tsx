@@ -153,7 +153,7 @@ describe("the work pane", () => {
     vi.useFakeTimers();
     seed();
     appStore().ui((u) => {
-      u.today.justDone = { title: "Old thing", at: Date.now() };
+      u.today.justDone = { title: "Old thing", at: Date.now(), step: null };
     });
     await show(item("send"));
     expect(screen.getByRole("status").textContent).toContain(t.nextOne("Old thing"));

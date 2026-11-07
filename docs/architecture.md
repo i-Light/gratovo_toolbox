@@ -74,7 +74,7 @@ All reads and writes go through a `DataSource` interface. The **live** implement
 `packages/core` holds the pure TypeScript domain: entities (creator, brand, deal, draft, thread, mailbox, run, member), the deal flow and its checklists, and the money rules (Net 30, payout locked until the brand pays). It also holds:
 
 - **Fit scoring with reasons**, so nobody has to trust a bare number;
-- **the Today next-action engine:** buckets in money-first order, owners, snoozes and roles.
+- **the Today next-action engine** (`packages/core/src/today/`, step P part P4): eight buckets in money-first order, each item with its time, due day and quick-win mark, snoozes, the day's budget, and what comes back tomorrow. It returns keys and facts, not sentences; the page words them from `strings.today`. Owners ride on the items; nothing filters by them until team work (P9). The day itself (length, morning hour, snoozes, what got done, the note for tomorrow) is kept on this computer in `local_settings` under `day`, never synced. "Done today" is recorded by one tracker in the app shell when an item leaves the list while its records are still there.
 
 The core has no I/O, so it is unit-tested exhaustively. The prototype's `engine.js` is the reference implementation.
 

@@ -8,11 +8,12 @@ import type { CSSProperties, ReactNode } from "react";
 import { undo } from "../lib/actions";
 import { duration } from "../lib/format";
 import { whenWords } from "../lib/reach-actions";
-import { appStore } from "../lib/store";
+import { appStore, useApp } from "../lib/store";
+import { useCanUndoDone } from "../lib/today";
 import type { ItemWords } from "../lib/today";
 import { bringBack } from "../lib/today-actions";
 import { strings } from "../strings";
-import { bucketHue, bucketIcon, dueWords, isLate, kindIcon } from "./today-view";
+import { bucketHue, bucketIcon, dueWords, isLate, kindIcon, listedTitle } from "./today-view";
 import type { TodayFilter } from "./today-view";
 
 const text = strings.today.screen.queue;
@@ -38,6 +39,15 @@ const toggleBucket = (bucket: TodayBucket): void => {
       : [...ui.today.folded, bucket];
   });
 };
+
+/** Undo for the newest done entry: only while the change that finished it is still the newest. */
+function UndoDone({ doneKey }: { readonly doneKey: string }) {
+  return useCanUndoDone(doneKey) ? (
+    <Btn size="sm" icon="undo" onClick={undo}>
+      {text.undo}
+    </Btn>
+  ) : null;
+}
 
 function Row({
   item,
@@ -149,6 +159,7 @@ export function Queue({
   readonly doneToday: readonly DoneEntry[];
   readonly now: number;
 }) {
+  const seesMoney = useApp((s) => s.data.seesMoney);
   const [snoozedOpen, setSnoozedOpen] = useState(false);
   const [doneOpen, setDoneOpen] = useState(false);
   const counts: Record<TodayFilter, number> = {
@@ -225,7 +236,7 @@ export function Queue({
           {snoozed.map(([key, entry]) => (
             <div key={key} className="li tdy-aside" data-key={key}>
               <span className="lt">
-                <b>{entry.title}</b>
+                <b>{listedTitle({ key, ...entry }, seesMoney)}</b>
                 <small>{text.back(whenWords(entry.until))}</small>
               </span>
               <Btn
@@ -255,14 +266,10 @@ export function Queue({
           {doneToday.map((entry, i) => (
             <div key={entry.key} className="li done tdy-aside" data-key={entry.key}>
               <span className="lt">
-                <b>{entry.title}</b>
+                <b>{listedTitle(entry, seesMoney)}</b>
                 <small>{duration(entry.minutes)}</small>
               </span>
-              {i === 0 ? (
-                <Btn size="sm" icon="undo" onClick={undo}>
-                  {text.undo}
-                </Btn>
-              ) : null}
+              {i === 0 ? <UndoDone doneKey={entry.key} /> : null}
             </div>
           ))}
         </Group>

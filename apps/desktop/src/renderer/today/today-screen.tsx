@@ -6,8 +6,9 @@ import { peek } from "../lib/actions";
 import { duration } from "../lib/format";
 import { useKeys } from "../lib/keys";
 import { appStore, useApp } from "../lib/store";
-import { itemWords, startFocus, startWrap, useTodayState } from "../lib/today";
+import { itemWords, recentUndoStep, startFocus, startWrap, useTodayState } from "../lib/today";
 import type { ItemWords } from "../lib/today";
+import type { AppData } from "../lib/store";
 import { dismissNote } from "../lib/today-actions";
 import { isPartShown } from "../lib/wired";
 import { strings } from "../strings";
@@ -26,18 +27,27 @@ const text = strings.today.screen;
 /** The Today screen: what needs you, in order, with the day's hours, the mailboxes and what is done. */
 export function TodayScreen() {
   const { items, input, now } = useTodayState();
-  const data = useApp((s) => s.data);
+  const creators = useApp((s) => s.data.creators);
+  const brands = useApp((s) => s.data.brands);
+  const deals = useApp((s) => s.data.deals);
+  const drafts = useApp((s) => s.data.reach.drafts);
+  const threads = useApp((s) => s.data.reach.threads);
+  const mailboxes = useApp((s) => s.data.reach.mailboxes);
+  const seesMoney = useApp((s) => s.data.seesMoney);
+  const source = useApp((s) => s.data.source);
+  const day = useApp((s) => s.data.settings.day);
   const ui = useApp((s) => s.ui.today);
-  const day = data.settings.day;
   const start = midnight(now);
   const doneToday = useMemo(() => day.done.filter((e) => e.at >= start), [day.done, start]);
   const words = useMemo(() => {
+    // itemWords reads only these slices of the data.
+    const slice = { creators, brands, deals, reach: { drafts, threads }, seesMoney } as AppData;
     const map = new Map<string, ItemWords>();
     for (const item of items) {
-      map.set(item.key, itemWords(item, data, { newFinds: input.newFinds, now }));
+      map.set(item.key, itemWords(item, slice, { newFinds: input.newFinds, now }));
     }
     return map;
-  }, [items, data, input.newFinds, now]);
+  }, [items, creators, brands, deals, drafts, threads, seesMoney, input.newFinds, now]);
   const visible = useMemo(() => applyFilter(items, ui.filter, now), [items, ui.filter, now]);
 
   // The open item: the one picked, else the one at the old place in the list.
@@ -65,7 +75,11 @@ export function TodayScreen() {
       appStore().ui((u) => {
         u.today.sel = item?.key ?? null;
         if (gone && item !== undefined && was !== null) {
-          u.today.justDone = { title: titles.current.get(was) ?? "", at: Date.now() };
+          u.today.justDone = {
+            title: titles.current.get(was) ?? "",
+            at: Date.now(),
+            step: recentUndoStep(),
+          };
         }
       });
     }
@@ -131,9 +145,8 @@ export function TodayScreen() {
   const late = items.filter((i) => isLate(i, now)).length;
   const sub = items.length === 0 ? text.subNone : text.sub(items.length, duration(planned), late);
   const noteShown = day.note !== "" && day.wrappedAt !== null && day.wrappedAt < start;
-  const firstDay = data.creators.length === 0 && data.deals.length === 0;
-  const mailboxes = data.reach.mailboxes;
-  const showMoney = data.seesMoney && isPartShown("today.deals", data.source);
+  const firstDay = creators.length === 0 && deals.length === 0;
+  const showMoney = seesMoney && isPartShown("today.deals", source);
 
   const pane = ui.wrap ? (
     <WrapUp
