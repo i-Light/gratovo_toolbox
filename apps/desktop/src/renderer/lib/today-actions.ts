@@ -8,7 +8,7 @@ import {
 } from "@gratovo/core/today";
 
 import { strings } from "../strings";
-import { act } from "./actions";
+import { act, flashSetting } from "./actions";
 import { whenWords } from "./reach-actions";
 import { appStore } from "./store";
 
@@ -132,6 +132,7 @@ export function setDayHours(hours: DayState["hours"]): void {
     },
     { log: false },
   );
+  flashSetting("dayHours");
 }
 
 export function setMorning(morning: DayState["morning"]): void {
@@ -142,6 +143,7 @@ export function setMorning(morning: DayState["morning"]): void {
     },
     { log: false },
   );
+  flashSetting("dayMorning");
 }
 
 /**

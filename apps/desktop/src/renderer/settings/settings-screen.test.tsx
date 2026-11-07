@@ -106,7 +106,6 @@ describe("the settings screen", () => {
   });
 
   it.each([
-    ["day", 7],
     ["facts", 8],
     ["team", 9],
   ] as const)("says the %s section arrives with step %i", async (key, step) => {

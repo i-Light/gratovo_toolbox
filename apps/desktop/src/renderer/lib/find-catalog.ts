@@ -26,12 +26,20 @@ type ItemDetail = NonNullable<ChannelResponse<"find:item">["item"]>;
 
 export type CatalogLoad = "loading" | "ready" | "failed";
 
+/**
+ * The main-process bridge, or undefined where there is none (a page test that renders the frame
+ * without one, or with only part of one). Then the catalog hooks never answer, and counts that read them stay unknown.
+ */
+function bridge(): Partial<Window["gratovo"]> | undefined {
+  return (window as Partial<Pick<Window, "gratovo">>).gratovo;
+}
+
 /** Counts up each time main says the catalog was rebuilt, so the hooks ask again. */
 export function useCatalogTick(): number {
   const [tick, setTick] = useState(0);
   useEffect(
     () =>
-      window.gratovo.on("find:catalog", () => {
+      bridge()?.on?.("find:catalog", () => {
         setTick((n) => n + 1);
       }),
     [],
@@ -131,7 +139,11 @@ export function useCatalogQuery(params: QueryParams): {
         setAnswer({ key, value });
       }
     };
-    window.gratovo.invoke("find:query", request).then(
+    const api = bridge();
+    if (api?.invoke === undefined) {
+      return;
+    }
+    api.invoke("find:query", request).then(
       (result) => {
         if (!result.ok) {
           done(null);

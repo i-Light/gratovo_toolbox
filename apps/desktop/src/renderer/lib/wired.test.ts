@@ -17,7 +17,7 @@ import {
   startRoute,
 } from "./wired";
 
-const hidden: readonly ScreenKey[] = ["today", "deliver", "team"];
+const hidden: readonly ScreenKey[] = ["deliver", "team"];
 
 describe("on example data", () => {
   it("shows every screen, tab and section", () => {
@@ -41,12 +41,13 @@ describe("on example data", () => {
 });
 
 describe("on live data", () => {
-  it("shows only Find, Reach, Close, Insights, Toolbox, Settings and the record page", () => {
+  it("shows only Today, Find, Reach, Close, Insights, Toolbox, Settings and the record page", () => {
     for (const key of hidden) {
       expect(isScreenShown(key, "live")).toBe(false);
       expect(isTabShown(key, null, "live")).toBe(false);
     }
     for (const key of [
+      "today",
       "find",
       "reach",
       "close",
@@ -106,7 +107,7 @@ describe("on live data", () => {
   });
 
   it("hides the Settings sections that are not wired", () => {
-    for (const hiddenSection of ["day", "facts", "team"] as const) {
+    for (const hiddenSection of ["facts", "team"] as const) {
       expect(isSettingsSectionShown(hiddenSection, "live")).toBe(false);
     }
     for (const section of liveWired.settings) {
@@ -114,26 +115,27 @@ describe("on live data", () => {
     }
   });
 
-  it("opens on Connections on a first run, else on Find > Search", () => {
+  it("opens on Connections on a first run, else on Today", () => {
     expect(defaultRoute("live", "never")).toEqual({ screen: "settings", tab: "connections" });
-    expect(defaultRoute("live", "imported")).toEqual({ screen: "find", tab: "search" });
-    expect(defaultRoute("live", "unknown")).toEqual({ screen: "find", tab: "search" });
+    expect(defaultRoute("live", "imported")).toEqual({ screen: "today", tab: null });
+    expect(defaultRoute("live", "unknown")).toEqual({ screen: "today", tab: null });
   });
 
   it("sends a hidden hash to the default route and keeps a wired one", () => {
-    expect(startRoute("#/today", "live", "never")).toEqual({
+    expect(startRoute("#/deliver", "live", "never")).toEqual({
       screen: "settings",
       tab: "connections",
     });
-    expect(startRoute("", "live", "unknown")).toEqual({ screen: "find", tab: "search" });
-    expect(startRoute("#/deliver", "live", "unknown")).toEqual({ screen: "find", tab: "search" });
+    expect(startRoute("#/today", "live", "never")).toEqual({ screen: "today", tab: null });
+    expect(startRoute("", "live", "unknown")).toEqual({ screen: "today", tab: null });
+    expect(startRoute("#/deliver", "live", "unknown")).toEqual({ screen: "today", tab: null });
     expect(startRoute("#/reach/board", "live", "unknown")).toEqual({
       screen: "reach",
       tab: "board",
     });
-    expect(startRoute("#/settings/day", "live", "unknown")).toEqual({
-      screen: "find",
-      tab: "search",
+    expect(startRoute("#/settings/facts", "live", "unknown")).toEqual({
+      screen: "today",
+      tab: null,
     });
     expect(startRoute("#/settings/writing", "live", "never")).toEqual({
       screen: "settings",
@@ -158,6 +160,7 @@ describe("parts of a tab", () => {
       "insights.goal.money",
       "insights.deals",
       "record.deals",
+      "today.deals",
     ] as const) {
       expect(isPartShown(part, "example")).toBe(true);
       expect(isPartShown(part, "live")).toBe(false);
@@ -169,5 +172,11 @@ describe("parts of a tab", () => {
     expect(liveHiddenParts).toContain("insights.funnel.brands");
     // The synced legacy deals are never read on live: the part gates the data itself.
     expect(liveHiddenParts).toContain("insights.deals");
+  });
+
+  it("opens Today on live data with no deal parts", () => {
+    expect(liveWired.today).toEqual([]);
+    expect(isPartShown("today.deals", "live")).toBe(false);
+    expect(isPartShown("today.deals", "example")).toBe(true);
   });
 });

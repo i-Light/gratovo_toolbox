@@ -74,7 +74,7 @@ describe("settingsSections", () => {
     expect(arrives).toEqual({
       profile: null,
       appearance: null,
-      day: 7,
+      day: null,
       keyboard: null,
       notifications: null,
       search: null,
@@ -105,6 +105,8 @@ describe("settingsRows", () => {
       "appearance/size",
       "appearance/motion",
       "appearance/rail",
+      "day/dayHours",
+      "day/dayMorning",
       "keyboard/letters",
       "notifications/notify",
       "search/rulesCountries",
@@ -190,9 +192,9 @@ describe("searchSettings", () => {
     expect(searchSettings("  DARK ", true)).toEqual(searchSettings("dark", true));
   });
 
-  it("finds nothing for words that are not there, and no rows for sections that arrive later", () => {
+  it("finds nothing for words that are not there", () => {
     expect(searchSettings("zzzz", true)).toEqual({ rows: [], sections: [] });
-    expect(searchSettings("hours", true).rows).toEqual([]);
+    expect(searchSettings("hours", true).rows.map((r) => r.id)).toEqual(["dayHours"]);
   });
 });
 
@@ -215,6 +217,7 @@ describe("the live gate", () => {
     expect(keys).toEqual([
       "profile",
       "appearance",
+      "day",
       "keyboard",
       "notifications",
       "search",
@@ -223,7 +226,8 @@ describe("the live gate", () => {
     ]);
     expect(sectionsFor(true, "example")).toHaveLength(10);
     expect(rowsFor(true, "live")).toEqual(rowsFor(true, "example"));
-    expect(searchSettings("day", true, "live").sections.map((s) => s.key)).not.toContain("day");
+    expect(searchSettings("day", true, "live").sections.map((s) => s.key)).toContain("day");
+    expect(searchSettings("snoozed", true, "live").rows.map((r) => r.id)).toEqual(["dayMorning"]);
     expect(searchSettings("day", true, "example").sections.map((s) => s.key)).toContain("day");
   });
 });

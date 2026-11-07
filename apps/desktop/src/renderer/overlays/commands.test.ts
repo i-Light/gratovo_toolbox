@@ -6,7 +6,7 @@ import { initPrefs } from "../lib/prefs";
 import { screenOrder, screens } from "../lib/routes";
 import { appStore, resetAppStoreForTests, selectRoute } from "../lib/store";
 import { strings } from "../strings";
-import { buildCommands, maxResults } from "./commands";
+import { actionCommands, buildCommands, maxResults } from "./commands";
 
 const { groups } = strings.palette;
 
@@ -104,6 +104,25 @@ describe("buildCommands", () => {
   });
 });
 
+describe("the Today actions", () => {
+  const find = (label: string) => buildCommands(data(), [], label).find((r) => r.label === label);
+
+  it("Start focus goes to Today and starts focus", () => {
+    appStore().ui((ui) => {
+      ui.history = { entries: [{ screen: "reach", tab: "board" }], index: 0 } as never;
+    });
+    find(strings.palette.actions.startFocus)?.run();
+    expect(selectRoute(appStore().getState()).screen).toBe("today");
+    expect(appStore().getState().ui.today.focusAt).not.toBeNull();
+  });
+
+  it("Wrap up the day goes to Today and opens the wrap-up", () => {
+    find(strings.palette.actions.wrapUp)?.run();
+    expect(selectRoute(appStore().getState()).screen).toBe("today");
+    expect(appStore().getState().ui.today.wrap).toBe(true);
+  });
+});
+
 describe("the live gate", () => {
   const liveData = () => ({ ...data(), source: "live" as const });
 
@@ -111,6 +130,7 @@ describe("the live gate", () => {
     const rows = buildCommands(liveData(), [], "");
     const goTo = rows.filter((r) => r.group === groups.goTo).map((r) => r.label);
     expect(goTo).toEqual([
+      screens.today.name,
       screens.find.name,
       screens.reach.name,
       screens.close.name,
@@ -121,6 +141,9 @@ describe("the live gate", () => {
     const actions = rows.filter((r) => r.group === groups.actions).map((r) => r.label);
     expect(actions).toContain(strings.palette.actions.reviewFinds);
     expect(actions).toContain(strings.palette.actions.confirmContacts);
+    const all = actionCommands("live").map((r) => r.label);
+    expect(all).toContain(strings.palette.actions.startFocus);
+    expect(all).toContain(strings.palette.actions.wrapUp);
   });
 
   it("leaves brands and deals out of a search and the recent list, even when deals are synced", () => {
@@ -139,7 +162,7 @@ describe("the live gate", () => {
   });
 
   it("finds no hidden settings in a search", () => {
-    const rows = buildCommands(liveData(), [], "Your day");
+    const rows = buildCommands(liveData(), [], "Agency facts");
     expect(rows.some((r) => r.group === groups.settings)).toBe(false);
   });
 });

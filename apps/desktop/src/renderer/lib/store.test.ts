@@ -429,19 +429,19 @@ describe("the live gate", () => {
   it("sends a hidden screen or tab to the default route", () => {
     live();
     go("deliver");
-    expect(route()).toEqual({ screen: "find", tab: "search" });
+    expect(route()).toEqual({ screen: "today", tab: null });
     go("close", "brands");
-    expect(route()).toEqual({ screen: "find", tab: "search" });
+    expect(route()).toEqual({ screen: "today", tab: null });
     go("close", "roster");
     expect(route()).toEqual({ screen: "close", tab: "roster" });
     go("reach", "inbox");
     expect(route()).toEqual({ screen: "reach", tab: "inbox" });
-    go("today");
-    expect(route()).toEqual({ screen: "find", tab: "search" });
+    go("team");
+    expect(route()).toEqual({ screen: "today", tab: null });
     go("reach", "mailboxes");
     expect(route()).toEqual({ screen: "reach", tab: "mailboxes" });
-    go("settings", "day");
-    expect(route()).toEqual({ screen: "find", tab: "search" });
+    go("settings", "facts");
+    expect(route()).toEqual({ screen: "today", tab: null });
     go("settings", "writing");
     expect(route()).toEqual({ screen: "settings", tab: "writing" });
   });
@@ -449,7 +449,7 @@ describe("the live gate", () => {
   it("uses Connections as the default while the import has never happened", () => {
     live();
     setImportState("never");
-    go("today");
+    go("deliver");
     expect(route()).toEqual({ screen: "settings", tab: "connections" });
   });
 

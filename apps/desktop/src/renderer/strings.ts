@@ -180,6 +180,8 @@ export const strings = {
       shortcuts: "Show keyboard shortcuts",
       settings: "Open settings",
       density: "Switch density (comfortable / compact)",
+      startFocus: "Start focus",
+      wrapUp: "Wrap up the day",
     },
     goHint: (letter: string): string => `G ${letter.toUpperCase()}`,
     footer: {
@@ -536,6 +538,16 @@ export const strings = {
         words: "collapse expand",
         desc: "Collapsed keeps only the icons. Press [ anywhere to switch.",
       },
+      dayHours: {
+        label: "Length of your day",
+        words: "hours budget plan fit tomorrow",
+        desc: "Today plans your list against this. Fit to the day moves what's left past it to tomorrow.",
+      },
+      dayMorning: {
+        label: "Snoozed items come back at",
+        words: "morning snooze hour",
+        desc: "Tomorrow morning, next Monday and two weeks all mean this hour.",
+      },
       letters: {
         label: "Single-letter shortcuts",
         words: "keys screen reader dictation",
@@ -687,6 +699,8 @@ export const strings = {
       expanded: "Expanded",
       collapsed: "Collapsed",
     },
+    dayHoursOption: (n: number): string => `${String(n)} h`,
+    dayMorningOption: (n: number): string => `${String(n).padStart(2, "0")}:00`,
     on: "On",
     off: "Off",
     notify: {
@@ -4895,6 +4909,68 @@ export const strings = {
     dismissNote: "Clear the note",
     dayHours: "Set the hours for the day",
     morning: "Set the morning hour",
+  },
+  today: {
+    titles: {
+      invoice: (brand: string) => `Send ${brand}'s invoice`,
+      collect: (brand: string, amount: string | null) =>
+        amount === null ? `${brand} hasn't paid` : `${brand} hasn't paid ${amount}`,
+      payout: (creator: string, amount: string | null) =>
+        amount === null ? `Pay ${creator}` : `Pay ${creator} ${amount}`,
+      deal: (deal: string) => deal,
+      nextdeal: (brand: string) => `Pitch ${brand}'s next creator`,
+      reply: (creator: string) => `${creator} replied`,
+      send: (kind: string, creator: string) => `${kind} to ${creator}`,
+      followup: (kind: string, creator: string) => `${kind} to ${creator}`,
+      bnudge: (brand: string) => `Follow up with ${brand} on your pitch`,
+      audience: (creator: string) => `Check ${creator}'s audience`,
+      qualify: (brand: string) => `Qualify ${brand}`,
+      pitch: (brand: string) => `Pitch creators to ${brand}`,
+      contact: (creator: string) => `Confirm ${creator}'s email`,
+      finds: (n: number) =>
+        n === 1 ? "1 new channel to review" : `${String(n)} new channels to review`,
+      unknown: "Something to do",
+    },
+    subs: {
+      invoice: (deal: string, price: string | null) =>
+        price === null ? deal : `${price} · ${deal}`,
+      collect: (number: string | null, due: string) =>
+        number === null ? `Due ${due}` : `Invoice ${number} · due ${due}`,
+      payout: (brand: string, paid: string) => `${brand} paid ${paid}`,
+      deal: (step: string, task: string) => `${step} · ${task}`,
+      dealReady: "ready to move on",
+      nextdeal: "Their last deal is closed and paid",
+      replyDrafted: "Reply drafted",
+      replyWaiting: "Waiting for your answer",
+      sendReady: "Ready to send",
+      sendNeedsYou: "Needs you before it goes",
+      sendFailed: "Did not send. Try again",
+      followup: (since: string) => `No reply since ${since}`,
+      bnudge: (pitched: string) => `Pitched ${pitched} · 5 days with no answer`,
+      audience: "Media kit received",
+      qualify: (sells: string) => sells,
+      pitch: (sells: string) => sells,
+      contactHas: (email: string) => email,
+      contactNone: "No address yet",
+      finds: "From your searches",
+    },
+    why: {
+      invoice: "Invoices go out on go-live day, so the payment clock starts at once.",
+      collect: "The invoice is due. The creator's payout waits on this payment.",
+      payout: "The brand has paid, so the creator's payout is unlocked.",
+      deal: (step: string, due: string) => `${step} is due ${due}.`,
+      nextdeal: "A brand that just saw results is the easiest yes you will get.",
+      replyNone: "They wrote back.",
+      send: "Look it over, then send it.",
+      followup: "Most replies come after a follow-up, not the first email.",
+      bnudge: "Five days since your pitch with no reply. A short follow-up keeps it moving.",
+      audience: "Only creators with the right audience get signed. The kit is here.",
+      qualify: "Check the budget and find a contact.",
+      pitch: "Qualified, with a contact. Pitch one or two creators who fit.",
+      contact:
+        "A first email to a guessed address bounces and hurts the mailbox. Confirm it before anything goes.",
+      finds: "Kept by your search rules. Shortlist or reject each one.",
+    },
   },
   time: {
     dateLocale: "en-US",

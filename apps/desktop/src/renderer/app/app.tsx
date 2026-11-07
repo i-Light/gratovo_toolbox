@@ -5,6 +5,7 @@ import { useDraftReadyToasts } from "../lib/dock";
 import { useKeys } from "../lib/keys";
 import { useNarrow } from "../lib/media";
 import { usePref } from "../lib/prefs";
+import { useDoneTracker } from "../lib/today";
 import { usePrototype } from "../lib/prototype";
 import { selectProblems, selectRoute, setRailOpen, useApp } from "../lib/store";
 import { useFirstRun } from "./first-run";
@@ -25,6 +26,7 @@ import { ReachScreen } from "../reach/reach-screen";
 import { CloseScreen } from "../close/close-screen";
 import { InsightsHost } from "../insights/insights-host";
 import { ToolboxScreen } from "../toolbox/toolbox-screen";
+import { TodayScreen } from "../today/today-screen";
 import { PlaceholderScreen } from "./placeholder-screen";
 import { ProblemsBar } from "./problems-bar";
 import { RecordPage } from "./record-page";
@@ -84,6 +86,8 @@ const Content = memo(function Content() {
         <InsightsHost key={screen} />
       ) : screen === "toolbox" ? (
         <ToolboxScreen key={screen} />
+      ) : screen === "today" ? (
+        <TodayScreen key={screen} />
       ) : (
         <PlaceholderScreen key={screen} screen={screen} />
       )}
@@ -133,6 +137,7 @@ export function App() {
   useKeyListener();
   useFirstRun();
   useDraftReadyToasts();
+  useDoneTracker();
   const railMin = usePref("rail") === "min";
   const railOpen = useApp((s) => s.ui.railOpen);
   const narrow = useNarrow();

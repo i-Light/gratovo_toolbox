@@ -22,7 +22,7 @@ import type {
 } from "@gratovo/core/data";
 import { emptyReach } from "@gratovo/core/data";
 import { defaultDay } from "@gratovo/core/today";
-import type { DayState } from "@gratovo/core/today";
+import type { DayState, TodayBucket } from "@gratovo/core/today";
 import type { SyncStatus } from "@gratovo/ipc";
 import type { IconName } from "@gratovo/ui";
 import { useSyncExternalStore } from "react";
@@ -199,6 +199,15 @@ export interface AppUi {
   readonly settingTarget: RowId | null;
   /** Whether the first-run import has happened; "unknown" until the Connections status loads. */
   readonly importState: ImportState;
+  /** The Today screen: the item picked, the chip, folded buckets, focus, wrap-up and the "next one" line. */
+  readonly today: {
+    readonly sel: string | null;
+    readonly filter: "all" | "quick" | "late";
+    readonly folded: readonly TodayBucket[];
+    readonly focusAt: number | null;
+    readonly wrap: boolean;
+    readonly justDone: { readonly title: string; readonly at: number } | null;
+  };
 }
 
 /** The whole state the app store holds. */
@@ -254,6 +263,7 @@ export function createAppStore(
       settingFlash: null,
       settingTarget: null,
       importState: "unknown",
+      today: { sel: null, filter: "all", folded: [], focusAt: null, wrap: false, justDone: null },
     },
   });
 }
