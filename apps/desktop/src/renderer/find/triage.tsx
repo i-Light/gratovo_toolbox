@@ -17,6 +17,9 @@ const text = strings.findTriage;
 /** One page of Review new. */
 const pageSize = 40;
 
+/** An element that does something on Enter itself: the key is left to it. */
+const interactive = "button,a,summary,input,select,textarea,[role=button],[role=option],[role=tab]";
+
 /**
  * "Review results": the newest run opens Review new; an older one opens the gallery filtered to that
  * run (D26), since the gallery's filter carries the run.
@@ -96,6 +99,8 @@ export function Triage({ review }: { readonly review: Review }) {
   }, [creators, decided]);
   /** The channel whose reason row is open; a different channel starts closed. */
   const [reasonFor, setReasonFor] = useState<string | null>(null);
+  /** The channel whose Never contact form is open. */
+  const [neverFor, setNeverFor] = useState<string | null>(null);
 
   // A later page that has run empty (all decided) starts again from the first.
   const pageEmpty = status === "ready" && items.length === 0 && offset > 0 && total > 0;
@@ -109,6 +114,7 @@ export function Triage({ review }: { readonly review: Review }) {
   const item: TriageItem | undefined = items[index];
   const gold = items.filter(isGold).length;
   const reasonOpen = item !== undefined && reasonFor === item.id;
+  const neverOpen = item !== undefined && neverFor === item.id;
 
   const decide = (kind: "s" | RejectReason): void => {
     if (item === undefined) {
@@ -119,6 +125,7 @@ export function Triage({ review }: { readonly review: Review }) {
       setDecided((d) => new Set(d).add(item.id));
     }
     setReasonFor(null);
+    setNeverFor(null);
   };
   /* Past the last loaded channel, Next asks for the next page; Previous stops at the first one. */
   const step = (by: 1 | -1): void => {
@@ -141,6 +148,13 @@ export function Triage({ review }: { readonly review: Review }) {
     }
   };
 
+  const reasonKeys: Record<string, () => void> = {};
+  rejectReasons.forEach((reason, i) => {
+    reasonKeys[String(i + 1)] = () => {
+      decide(reason);
+    };
+  });
+
   useKeys(
     {
       s: () => {
@@ -149,17 +163,19 @@ export function Triage({ review }: { readonly review: Review }) {
       r: () => {
         setReasonFor(item === undefined || reasonOpen ? null : item.id);
       },
-      "1": () => {
-        decide(rejectReasons[0] ?? "ai");
+      ...reasonKeys,
+      n: () => {
+        if (item !== undefined) {
+          setNeverFor(item.id);
+          setReasonFor(null);
+        }
       },
-      "2": () => {
-        decide(rejectReasons[1] ?? "views");
-      },
-      "3": () => {
-        decide(rejectReasons[2] ?? "posting");
-      },
-      "4": () => {
-        decide(rejectReasons[3] ?? "audience");
+      enter: () => {
+        if (document.activeElement?.closest(interactive)) {
+          return false;
+        }
+        open();
+        return true;
       },
       arrowright: () => {
         step(1);
@@ -175,10 +191,11 @@ export function Triage({ review }: { readonly review: Review }) {
       },
       o: open,
       escape: () => {
-        if (!reasonOpen) {
+        if (!reasonOpen && !neverOpen) {
           return false;
         }
         setReasonFor(null);
+        setNeverFor(null);
         return true;
       },
     },
@@ -248,6 +265,10 @@ export function Triage({ review }: { readonly review: Review }) {
         onReasonOpen={(openIt) => {
           setReasonFor(openIt ? item.id : null);
         }}
+        neverOpen={neverOpen}
+        onNeverOpen={(openIt) => {
+          setNeverFor(openIt ? item.id : null);
+        }}
         onShortlist={() => {
           decide("s");
         }}
@@ -255,6 +276,7 @@ export function Triage({ review }: { readonly review: Review }) {
         onNever={(why) => {
           if (neverContact(item, why)) {
             setReasonFor(null);
+            setNeverFor(null);
           }
         }}
         onOpen={open}

@@ -180,10 +180,14 @@ export interface AppUi {
   readonly lastTab: Readonly<Partial<Record<ScreenKey, string>>>;
   readonly palette: boolean;
   readonly shortcuts: boolean;
+  /** True from G until the next key, Escape or the timeout: the hint bar shows the jump letters. */
+  readonly goArmed: boolean;
   readonly tray: "jobs" | "notifications" | null;
   readonly menu: OpenMenu | null;
   readonly peek: Peek | null;
   readonly toasts: readonly Toast[];
+  /** The draft dock: one draft, opened only when a person presses a toast's Open. */
+  readonly dock: { readonly draft: string; readonly min: boolean } | null;
   /** Records opened lately, newest first, at most 8. */
   readonly recent: readonly RecordRef[];
   readonly jobs: readonly Job[];
@@ -237,10 +241,12 @@ export function createAppStore(
       lastTab: start.tab === null ? {} : { [start.screen]: start.tab },
       palette: false,
       shortcuts: false,
+      goArmed: false,
       tray: null,
       menu: null,
       peek: null,
       toasts: [],
+      dock: null,
       recent: [],
       jobs: [],
       settingFlash: null,

@@ -3,6 +3,7 @@ import type { Creator, KitInput } from "@gratovo/core/data";
 
 import { strings } from "../strings";
 import { act, peek } from "./actions";
+import { openDock } from "./dock";
 import { parkCreator } from "./reach-actions";
 import { appStore, go } from "./store";
 import { toast } from "./toast";
@@ -89,6 +90,12 @@ export async function decline(creatorId: string): Promise<boolean> {
       ...(answer.draftId === null
         ? []
         : [
+            {
+              label: t.open,
+              run: () => {
+                openDock(answer.draftId ?? "");
+              },
+            },
             {
               label: t.reviewIt,
               run: () => {
@@ -179,6 +186,12 @@ export async function askMissing(creatorId: string): Promise<boolean> {
     sub: t.askedSub,
     icon: "mail",
     actions: [
+      {
+        label: t.open,
+        run: () => {
+          openDock(draftId);
+        },
+      },
       {
         label: t.reviewIt,
         run: () => {

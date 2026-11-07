@@ -179,3 +179,74 @@ describe("Check now", () => {
     expect(toasts().at(-1)?.msg).toBe("Example data has no mailbox to check.");
   });
 });
+
+describe("search and filter chips", () => {
+  const chip = (name: string): HTMLElement =>
+    within(screen.getByRole("group", { name: t.filtersLabel })).getByRole("button", {
+      name: new RegExp(`^${name}`),
+    });
+  const names = (): (string | null | undefined)[] =>
+    options().map((r) => r.querySelector("b")?.textContent);
+
+  it("counts every chip over all replies and filters by the one pressed", () => {
+    render(<Replies />);
+    expect(chip(t.filters.all).textContent).toContain("5");
+    expect(chip(t.filters.needs).textContent).toContain("2");
+    expect(chip(t.filters.interested).textContent).toContain("1");
+    expect(chip(t.filters.notnow).textContent).toContain("1");
+    expect(chip(t.filters.price).textContent).toContain("0");
+    expect(chip(t.filters.all).getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(chip(t.filters.needs));
+    expect(chip(t.filters.needs).getAttribute("aria-pressed")).toBe("true");
+    expect(names()).toEqual(["Prompt Lab", "Neural Notes"]);
+    expect(chip(t.filters.all).textContent).toContain("5");
+  });
+
+  it("searches by name and falls the selection to the first shown", async () => {
+    render(<Replies />);
+    await act(async () => {
+      fireEvent.click(options()[3] as HTMLElement);
+      await Promise.resolve();
+    });
+    fireEvent.change(screen.getByRole("searchbox", { name: t.searchLabel }), {
+      target: { value: "  neural " },
+    });
+    expect(names()).toEqual(["Neural Notes"]);
+    expect(options()[0]?.getAttribute("aria-selected")).toBe("true");
+  });
+
+  it("says nothing matches and resets with Show all replies", () => {
+    render(<Replies />);
+    fireEvent.click(chip(t.filters.price));
+    expect(screen.getByText(t.noMatchTitle)).toBeTruthy();
+    expect(screen.getByText(t.noMatch(t.filters.price))).toBeTruthy();
+    fireEvent.change(screen.getByRole("searchbox", { name: t.searchLabel }), {
+      target: { value: "zzz" },
+    });
+    expect(screen.getByText(t.noMatch("zzz"))).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: t.showAll }));
+    expect(options()).toHaveLength(5);
+    expect(chip(t.filters.all).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole<HTMLInputElement>("searchbox").value).toBe("");
+  });
+
+  it("steps J and K through the filtered list only", async () => {
+    render(<Replies />);
+    fireEvent.click(chip(t.filters.needs));
+    const { keyStack } = await import("../lib/keys");
+    const send = async (key: string, typing = false): Promise<void> => {
+      await act(async () => {
+        keyStack.dispatch(new KeyboardEvent("keydown", { key }), { typing, lettersOff: false });
+        await Promise.resolve();
+      });
+    };
+    await send("j");
+    expect(options()[1]?.getAttribute("aria-selected")).toBe("true");
+    await send("j");
+    expect(options()[1]?.getAttribute("aria-selected")).toBe("true");
+    await send("k", true);
+    expect(options()[1]?.getAttribute("aria-selected")).toBe("true");
+    await send("k");
+    expect(options()[0]?.getAttribute("aria-selected")).toBe("true");
+  });
+});

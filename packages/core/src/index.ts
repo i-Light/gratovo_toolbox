@@ -11,7 +11,7 @@ export {
   stepForward,
 } from "./history";
 export type { History } from "./history";
-export { createGoPrefix, createKeyStack, keyName } from "./keys";
+export { createGoPrefix, GO_PREFIX_MS, createKeyStack, keyName } from "./keys";
 export type {
   GoPrefix,
   KeyContext,

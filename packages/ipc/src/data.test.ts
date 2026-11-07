@@ -220,9 +220,10 @@ describe("the new write kinds", () => {
     expect(ok({ kind: "creator.stage", id: "", stage: "new", handle: "", name: "" })).toBe(false);
   });
 
-  it("creator.stage carries the handle and name, and a reject reason from the four", () => {
+  it("creator.stage carries the handle and name, and a reject reason from the five", () => {
     const base = { kind: "creator.stage", id: "c1", stage: "rejected", handle: "@a", name: "A" };
     expect(ok({ ...base, reason: "posting" })).toBe(true);
+    expect(ok({ ...base, reason: "bot" })).toBe(true);
     expect(ok({ ...base, reason: "boring" })).toBe(false);
     expect(ok({ ...base, reason: undefined })).toBe(false);
     expect(ok({ kind: "creator.stage", id: "c1", stage: "rejected" })).toBe(false);

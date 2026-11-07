@@ -218,6 +218,13 @@ describe("go prefix", () => {
     expect(go.take(key("t"), 2201)).toBeUndefined();
   });
 
+  it("disarm clears the arm", () => {
+    const go = createGoPrefix();
+    go.arm(1000);
+    go.disarm();
+    expect(go.take(key("t"), 1001)).toBeUndefined();
+  });
+
   it("returns undefined after the timeout", () => {
     const go = createGoPrefix();
     go.arm(1000);

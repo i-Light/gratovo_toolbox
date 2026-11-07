@@ -89,6 +89,8 @@ const tab: z.ZodType<ReportTab> = z.enum(reportTabs);
 const verdict = z.enum(verdicts);
 const difference = z.enum(["clear", "chance", "early"]);
 const reason = z.enum([...rejectReasons, "unknown"]);
+/** Every reason once, and "unknown". */
+const reasonsMax = rejectReasons.length + 1;
 const step = z.enum(creatorSteps);
 const goalStep = z.enum(goalSteps);
 const brandStep = z.enum(brandSteps);
@@ -181,7 +183,7 @@ const funnelRow: z.ZodType<FunnelRow> = z.strictObject({
 });
 
 const funnelExits: z.ZodType<FunnelExits> = z.strictObject({
-  triage: z.array(z.strictObject({ reason, count })).max(5),
+  triage: z.array(z.strictObject({ reason, count })).max(reasonsMax),
   saidNo: z.array(z.strictObject({ kind: z.enum(noKinds), count })).max(noKinds.length),
   audience: z
     .array(z.strictObject({ check: z.enum(audienceKeys), count }))
@@ -401,17 +403,17 @@ const searchReport: z.ZodType<SearchReport> = z.strictObject({
     undated: count,
     leaving: z.array(z.strictObject({ at: time, count })).max(7),
     mistakes: z.strictObject({ total: count, tomorrow: count, top: z.array(mistake).max(50) }),
-    reasons: z.array(reasonCount).max(5),
+    reasons: z.array(reasonCount).max(reasonsMax),
     topReasonKeywords: z.array(z.strictObject({ keyword: short, count })).max(3),
     secondLooks: z
       .array(z.strictObject({ reason, back: count, emailed: count, replied: count, signed: count }))
-      .max(5),
+      .max(reasonsMax),
   }),
   archive: z.strictObject({
     byRules: count,
     byPerson: count,
     ruleLabels: z.array(z.strictObject({ label: text, count })).max(200),
-    personReasons: z.array(reasonCount).max(5),
+    personReasons: z.array(reasonCount).max(reasonsMax),
     refoundThisWeek: count,
     broughtBack: ratio,
     growthPerWeek: amount,

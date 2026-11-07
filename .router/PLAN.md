@@ -165,6 +165,58 @@ Spec: ADR 0021 D6 ("the creator record"), GAPS C10, C11 and section 12, v6 `reco
 | R-5 | One light Electron smoke test: a signed creator's Deals tab opens a deal, and the deal's brand link opens the brand | N | R-4 | e2e | **done** |
 | R-6 | Screens at 1440 dark against v6 and the UI skills; review; `pnpm verify`; docs (architecture, status, PROGRESS); PR; merge | H | all | docs | **done** |
 
+## P3: Find, Reach and the frame (contracts written 2026-11-07)
+
+Spec: ADR 0021 D6 ("added without asking", and the Review new keys), GAPS C5, C7, C8, C9, C12, C13, §2, §4, §5; v6 `records.js:515-592`, `find.js:59-68`, `reach.js:179-262, 384-450, 487-495`, `app.js:362-438`, `ui.js:205-222`, `core.js:215-229`. Recon: `.router/CONTEXT.md`. Branch `feat/p3-find-reach-frame`, built in the worktree `.claude/worktrees/p3` (the main checkout runs the owner's live app during the 2026-11-07 email batch: don't build into its `apps/desktop/out`).
+
+### Decisions
+
+- **X1. Moved to P5:** brands on the Reach board, brand replies in Replies, and the Sequences Creators/Brands switch. All three show brand emails (pitches, brand threads, the 4-touch brand sequence), and the outreach model keys on creators only (`reach-types.ts`, `outreach-store.ts`). P5 builds brand outreach once, with Pitch, and these three come with it.
+- **X2. Moved to P9:** the board's Everyone/Mine switch. Creators have no owner; ownership is team data (ADR 0021 D7). P9 adds owners on example data and the switch with them.
+- **X3. Already built** (P2, checked 2026-11-07): the palette's Recent (`overlays/commands.ts` `recentCommands`, `ui.recent`, up to 8) and brand and deal results (`recordCommands`, behind `record.deals` in live). v6's palette actions Start focus and Wrap up come with Today (P4). The teammate "emailed this channel before" line is on the triage card already (`triage-card.tsx`, `CatalogItem.emailedBefore`).
+- **X4. Review new keys** (owner, ADR 0021 D6): R opens the reason row (unchanged), 1 to 5 reject with a reason, N opens the Never contact form (it asks why, as the button does), Enter and O both open the record, S shortlists, J/K and arrows step. A fifth reason `bot`, "Bot or fake engagement", joins `rejectReasons` (core `data/types.ts`) after the four; the archive tag for it is `irrelevant` (`creator-writes.ts`). Every list keyed by reason gains it (findActions and the three insights sets). The shortcut sheet and the keys hint say exactly this.
+- **X5. The triage card's extra facts** (v6 `records.js:518-545`, in plain words, no rule codes):
+  - Beside the name: the stars (`item.stars`, the record's `Stars` component moved to a shared file), the format tag (`talking_head` Talking head, `long_form` Long-form, `shorts` Shorts), and the bot risk: `watch` or `high` a crit tag "Bot risk: watch/high" with the note as its tip; `clean` a good tag "Organic comments checked"; null shows nothing (v6 claims "verified" by default; the app claims nothing it hasn't seen).
+  - A warning callout when `uploads30 > 20` or the bot risk is `high`: "Mostly Shorts or bought views: N uploads in 30 days, a M median." (with the bot note when there is one).
+  - The numbers: "12-video trimmed average" (when not null) and the median labelled with its stability ("median, steady" / "median, up and down") when known.
+  - Sponsors seen: a sponsor whose name matches a brand in the frame's brands (case-insensitive) is a chip that opens that brand's record beside (`peek`), only where `isPartShown("record.deals")`; any other sponsor stays a plain tag. Adding an unknown sponsor to Close › Brands is P5's (v6 `spotBrand`).
+  - "How the fit score adds up": a `<details>` fold-out with the fit's parts, the same list the fit chip's popover shows (extract it from `fit-chip.tsx` as `FitParts`).
+- **X6. Gallery signals:** `findSignals` becomes `gold, stars5, stable, longform, sponsored, email, confirmed, fresh`. `stars5` = `stars === 5`; `stable` = `viewStability === "stable"`; `longform` = `format === "long_form"`; null never matches. Labels "Five stars", "Steady views", "Long videos only", each with a tip. Facets, chips and the ipc schema follow `findSignals`.
+- **X7. Replies search and chips:** pure `replyFilters = ["all", "needs", "interested", "notnow", "price"]` and `replyMatches(item, filter)` / `replySearch(item, query)` in `core/reach/replies.ts`. needs = state `draft` or `your_move` (as `repliesToAnswer`); interested = latest reading's `replyType` in `inf.interested_vague`, `inf.agrees`, `inf.media_kit`, `inf.gives_rate`; notnow = `inf.later`; price = `inf.gives_rate` or a `rate` fact. The search matches the creator's name and handle, the reply's preview, and the reading's label and summary, case-insensitive. The queue gets a search box and the five chips with counts (labels All, Needs an answer, Interested, Not now, Talks price); an empty result says what didn't match and offers "Show all replies". The filter and search are kept for the visit (component state). J/K and arrows step through the filtered list.
+- **X8. Board and Mailboxes:** the Signed lane shows its first 6 cards, then "Show all N" (shows them all for the visit) and "Roster" (goes to Close › Roster). Mailboxes' rule callout gets a "Connect a mailbox" button that opens Settings › Connections at the mailboxes row (`openSetting("connections", "connMailboxes")`), shown only to someone who can see that section.
+- **X9. The G hint bar:** after G, a bar at the bottom of the window says "Jump to:" and each screen shown to this person with its letter, in rail order (`goLetters`, `isScreenShown`), until a key is taken, Esc, or the 1,200 ms prefix runs out. `ui.goArmed: boolean` in the store; `role="status"`; no animation beyond the frame's fade.
+- **X10. Stepping on the record page:** the record route gains `list: readonly RecordRef[] | null` (not in the hash). `openRecord(record, list?)` takes the list it is given, or the peek's list when the peek shows a record of the same kind. The page shows "i of N" with Previous and Next buttons and the peek's keys (Alt+Up, Alt+Down) when the list has more than one record and holds this one.
+- **X11. The draft dock** (owner, 2026-11-07: build it, opened only by a person): a panel docked bottom right holding one draft in the same `DraftCard`, with a header "Kind to Name", Minimise and Close. `ui.dock: {draft: string, min: boolean} | null`; `openDock(id)`, `closeDock()`, `toggleDockMin()`. It never opens by itself. A toast's **Open** button opens it:
+  - when a draft the person asked for turns `ready` (Draft it on the board, the answer re-draft after a reclassify, Ask for what's missing, Decline kindly): "Draft for Name is ready" with Open. The asked-for set is renderer state (`expectDraft(creatorId, kind)`), cleared when the toast fires or the visit ends; a background draft nobody asked for gets no toast;
+  - and the toasts that already announce a draft that exists (`askedSub`, `declinedSub`) gain Open.
+  The dock closes itself when its draft is no longer open (sent, scheduled, skipped). It shows in live too: it only reads drafts Reach already has.
+- **X5 as built** (lead, 2026-11-07): the format and bot-risk tags use the record header's words and tones (`creatorRecord.header`: "Long videos", "Bot risk low", "Bot risk: worth a look", "Bot risk high"), so the card and the record agree; the Gallery signal is "Long videos only" for the same reason.
+- **X12. Live mode:** everything here reads data live already has, so it shows in live, except the sponsor chips' link to a brand (behind `record.deals`). No new `liveWired` keys.
+
+### IPC
+
+No new channel. `findFilterSchema` follows `findSignals`; the `creator.stage` write's reason and the reads' `rejectReason` follow `rejectReasons`.
+
+### Tasks
+
+Agents share the worktree: each edits only its files, never stages, stashes or resets; `strings.ts` edits are small, anchored in the task's own namespace, re-read on a failed Edit. The lead commits.
+
+| id | Task | Tier | Depends | Files | Done-check |
+|---|---|---|---|---|---|
+| X0 | Contracts (this section), CONTEXT.md | H | — | .router | **done** |
+| X-1 | X4: the fifth reason and the keys; the shortcut sheet and hint | N | X0 | core/data/types, main creator-writes, strings (findActions, insights reasons, shortcuts, findTriage), find/triage.tsx, find/triage-card.tsx (the list only), triage.test, ipc data.test | `vitest run` on the touched tests; typecheck clean for these files |
+| X-3 | X6: gallery signals | N | X0 | core/find/types, filter(+test), ipc find(+test), find/gallery-facets, gallery-chips, strings.findGallery, gallery test | vitest on filter, ipc find, gallery tests |
+| X-4 | X7: Replies search and chips | N | X0 | core/reach/replies(+test), reach/replies.tsx, reach.css, strings.reach.replies, replies.test | vitest on both tests |
+| X-6 | X9: the G hint bar | N | X0 | lib/store.ts (ui flag), app/global-keys.ts, app/go-hint.tsx (new), app/app.tsx (mount), frame.css, strings, a test | vitest on the new test and global keys tests |
+| X-2 | X5: the triage card's extra facts | N | X-1 | find/triage-card.tsx, find/fit-chip.tsx, record/stars.tsx (moved from creator-record), find.css, strings.findTriage, triage.test | vitest triage, creator-record tests |
+| X-5 | X8: Signed cap and the Mailboxes link | N | X0 | reach/board.tsx, mailboxes.tsx, strings.reach, board.test, mailboxes.test | vitest on both |
+| X-7 | X10: stepping on the record page | N | X0 | lib/routes.ts, lib/actions.ts, app/record-page.tsx, overlays/peek.tsx, tests | vitest routes, actions, peek, a record-page test |
+| X-8 | X11: the draft dock | N | X-6, X-7 | lib/actions.ts or lib/dock.ts, lib/store.ts, app/draft-dock.tsx (new), app/app.tsx, lib/reach-actions.ts, lib/close-actions.ts, overlays.css, strings, a test | vitest on the new test, reach-actions, close-actions |
+| X-9 | One light Electron smoke test: prototype mode on, Review new shows the fit fold-out, 5 rejects with the bot reason, G shows the hint bar | N | all | e2e | the spec passes |
+| X-10 | Screens at 1440 dark against v6 and the UI skills; review (`router-reviewer`); `pnpm verify`; docs (GAPS, status, PROGRESS); PR; merge | H | all | docs | `pnpm verify --status` green |
+
+**State (2026-11-07):** X-1 to X-9 done, all at tier N with no escalation. The review found 1 high, 3 medium and 7 low findings; all were fixed in two N tasks (F1, F2), except `Route.list`, which stays mutable because `Notification.go` routes live in immer drafts. The screen check at 1440 dark found the triage card's tag words differed from the record's (fixed, X5 as built) and a prototype-mode gap on the board that predates P3 (PROGRESS, for P4).
+
 ## P8a: Insights without deals and money (done 2026-10-29, ADR 0022)
 
 Spec: `docs/product/insights-design.md` (sections 2, 2a, 3.1 to 3.4, 3.6, 4, 5, 6). Mockups: `design/insights/*.jpg` (look at the picture of the tab you build). Code map: `.router/CONTEXT.md`. P8b (after P1) adds Money, Funnel › Brands, and the deal and money parts.

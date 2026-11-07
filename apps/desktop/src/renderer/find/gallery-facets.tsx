@@ -132,7 +132,11 @@ export function GalleryFacets({
             on={filter.signals.includes(signal)}
             label={text.signals[signal]}
             n={facets.signals[signal]}
-            {...(signal === "gold" ? { tip: text.goldTip } : {})}
+            {...(signal === "gold"
+              ? { tip: text.goldTip }
+              : signal in text.signalTips
+                ? { tip: text.signalTips[signal as keyof typeof text.signalTips] }
+                : {})}
             onClick={() => {
               patchGalleryFilter({ signals: toggleIn(filter.signals, signal) });
             }}

@@ -6,6 +6,7 @@ import { useState } from "react";
 import type { KeyboardEvent, MouseEvent } from "react";
 
 import { openMenu } from "../lib/actions";
+import { showDock } from "../lib/dock";
 import { ago } from "../lib/format";
 import { kindLabel, rewriteDraft, scheduleDraft, sendDraft, skipDraft } from "../lib/reach-actions";
 import { useApp } from "../lib/store";
@@ -253,7 +254,29 @@ function Card({ draft }: { readonly draft: OutreachDraft }) {
 }
 
 /** One draft, as the prototype's draft card: header, text, gates and the footer. */
-export function DraftCard({ draftId }: { readonly draftId: string }) {
+export function DraftCard({
+  draftId,
+  inDock = false,
+}: {
+  readonly draftId: string;
+  /** True for the dock's own card, the one editor while the dock holds the draft. */
+  readonly inDock?: boolean;
+}) {
   const draft = useApp((s) => s.data.reach.drafts.find((d) => d.id === draftId));
-  return draft === undefined ? null : <Card draft={draft} />;
+  const held = useApp((s) => s.ui.dock?.draft === draftId);
+  if (draft === undefined) {
+    return null;
+  }
+  if (held && !inDock) {
+    return (
+      <div className="callout info" data-ui="reach.draft.indock">
+        <Icon name="send" />
+        <span className="grow">{strings.dock.elsewhere}</span>
+        <Btn size="sm" onClick={showDock}>
+          {strings.dock.showIt}
+        </Btn>
+      </div>
+    );
+  }
+  return <Card draft={draft} />;
 }

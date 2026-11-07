@@ -28,6 +28,12 @@ export function hasSignal(item: CatalogItem, signal: Signal): boolean {
   switch (signal) {
     case "gold":
       return isGold(item);
+    case "stars5":
+      return item.stars === 5;
+    case "stable":
+      return item.viewStability === "stable";
+    case "longform":
+      return item.format === "long_form";
     case "sponsored":
       return item.sponsors.length > 0;
     case "email":

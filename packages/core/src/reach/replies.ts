@@ -75,3 +75,49 @@ export function replyItems(
 export function repliesToAnswer(items: readonly ReplyItem[]): number {
   return items.filter((i) => i.state === "draft" || i.state === "your_move").length;
 }
+
+/** The chips on the Replies queue (X7). */
+export const replyFilters = ["all", "needs", "interested", "notnow", "price"] as const;
+export type ReplyFilter = (typeof replyFilters)[number];
+
+const interestedTypes: ReadonlySet<string> = new Set([
+  "inf.interested_vague",
+  "inf.agrees",
+  "inf.media_kit",
+  "inf.gives_rate",
+]);
+
+/** Whether a reply belongs under the chip. */
+export function replyMatches(item: ReplyItem, filter: ReplyFilter): boolean {
+  const reading = item.thread.lastIn?.reading ?? null;
+  const type = reading?.replyType ?? null;
+  switch (filter) {
+    case "all":
+      return true;
+    case "needs":
+      return item.state === "draft" || item.state === "your_move";
+    case "interested":
+      return type !== null && interestedTypes.has(type);
+    case "notnow":
+      return type === "inf.later";
+    case "price":
+      return type === "inf.gives_rate" || (reading?.facts.some((f) => f.key === "rate") ?? false);
+  }
+}
+
+/** Whether the search words are in the creator, the reply's first line or Gemini's reading. */
+export function replySearch(item: ReplyItem, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (q === "") {
+    return true;
+  }
+  const reading = item.thread.lastIn?.reading ?? null;
+  const hay = [
+    item.creator.name,
+    item.creator.handle,
+    item.thread.lastIn?.preview ?? "",
+    reading?.label ?? "",
+    reading?.summary ?? "",
+  ];
+  return hay.some((s) => s.toLowerCase().includes(q));
+}

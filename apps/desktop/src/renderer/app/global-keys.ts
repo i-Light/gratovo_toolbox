@@ -1,4 +1,4 @@
-import { createGoPrefix } from "@gratovo/core";
+import { createGoPrefix, GO_PREFIX_MS } from "@gratovo/core";
 import { useEffect } from "react";
 
 import { redo, setPalette, setShortcuts, undo } from "../lib/actions";
@@ -9,6 +9,23 @@ import { isScreenShown } from "../lib/wired";
 import { appStore, back, forward, go, selectRoute } from "../lib/store";
 
 const goPrefix = createGoPrefix();
+let goTimer: ReturnType<typeof setTimeout> | undefined;
+
+/** Sets the hint bar on or off and stops the pending timeout. */
+function setGoArmed(on: boolean): void {
+  clearTimeout(goTimer);
+  goTimer = undefined;
+  if (appStore().getState().ui.goArmed !== on) {
+    appStore().ui((ui) => {
+      ui.goArmed = on;
+    });
+  }
+  if (on) {
+    goTimer = setTimeout(() => {
+      setGoArmed(false);
+    }, GO_PREFIX_MS);
+  }
+}
 
 /**
  * The bottom key layer, always on: Ctrl+K and `/` for the palette, `?` for the shortcut sheet,
@@ -56,6 +73,7 @@ export function useGlobalKeys(): void {
     },
     g: () => {
       goPrefix.arm(Date.now());
+      setGoArmed(true);
     },
   });
 }
@@ -73,6 +91,14 @@ function goScreen(letter: string): ScreenKey | undefined {
 export function useKeyListener(): void {
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
+      if (appStore().getState().ui.goArmed) {
+        setGoArmed(false);
+        if (event.key === "Escape") {
+          goPrefix.disarm();
+          event.preventDefault();
+          return;
+        }
+      }
       const typing = isTyping(event.target);
       const lettersOff = getPrefs().letters === "off";
       if (!typing && !lettersOff && !keyStack.hasBarrier()) {
@@ -93,6 +119,8 @@ export function useKeyListener(): void {
     };
     document.addEventListener("keydown", onKey);
     return () => {
+      clearTimeout(goTimer);
+      goTimer = undefined;
       document.removeEventListener("keydown", onKey);
     };
   }, []);

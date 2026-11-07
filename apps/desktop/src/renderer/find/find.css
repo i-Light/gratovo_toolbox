@@ -1061,3 +1061,35 @@
 .gen-sample {
   overflow-wrap: anywhere;
 }
+.tr-facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.tr-facts:empty {
+  display: none;
+}
+.tr-sponsor {
+  font: inherit;
+  cursor: pointer;
+}
+.tr-sponsor:hover {
+  filter: brightness(1.15);
+}
+.tr-fold {
+  font-size: 12px;
+  color: var(--muted);
+}
+.tr-fold summary {
+  cursor: pointer;
+  width: fit-content;
+}
+.tr-fold ul {
+  margin: 6px 0 0;
+  padding: 0 0 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}

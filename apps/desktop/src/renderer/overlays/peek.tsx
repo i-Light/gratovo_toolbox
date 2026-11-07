@@ -84,7 +84,10 @@ export function Peek() {
           kind="ghost"
           icon="external"
           onClick={() => {
-            openRecord(peek.record);
+            openRecord(
+              peek.record,
+              list.length > 1 ? list.map((id) => ({ kind: peek.record.kind, id })) : undefined,
+            );
           }}
         >
           {text.fullPage}
