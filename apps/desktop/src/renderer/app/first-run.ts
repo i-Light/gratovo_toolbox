@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 
 import { appStore, go, selectRoute, setImportState, useApp } from "../lib/store";
+import { defaultRoute } from "../lib/wired";
 import { loadConnections } from "../settings/connections/use-connections";
 
 /** The first-run check runs once per app start; tests start it over. */
@@ -12,8 +13,8 @@ export function resetFirstRunForTests(): void {
 
 /**
  * First run (D1): on live data, reads the Connections status once. When the old data has never been
- * brought in, the live gate learns it, and an app that opened on Find > Search with nothing visited
- * yet moves to Settings > Connections, where "Bring in old data" waits. Does nothing on example data.
+ * brought in, the live gate learns it, and an app that opened on its default screen (Today) with
+ * nothing visited yet moves to Settings > Connections, where "Bring in old data" waits. Does nothing on example data.
  */
 export function useFirstRun(): void {
   const source = useApp((s) => s.data.source);
@@ -36,7 +37,8 @@ export function useFirstRun(): void {
       const state = appStore().getState();
       const route = selectRoute(state);
       const firstLoad = state.ui.history.entries.length === 1;
-      if (firstLoad && route.screen === "find" && route.tab === "search") {
+      const opened = defaultRoute("live", "unknown");
+      if (firstLoad && route.screen === opened.screen && route.tab === opened.tab) {
         go("settings", "connections");
       }
     });

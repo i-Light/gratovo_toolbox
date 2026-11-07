@@ -779,7 +779,7 @@ describe("first run", () => {
 
   it("moves a fresh live start to Connections once and tells the gate", async () => {
     install({ "connections:status": status() });
-    goLive({ screen: "find", tab: "search" });
+    goLive({ screen: "today", tab: null });
     const { rerender } = render(<Probe />);
     await flush();
     expect(route()).toMatchObject({ screen: "settings", tab: "connections" });
@@ -801,6 +801,15 @@ describe("first run", () => {
     await flush();
     expect(route()).toMatchObject({ screen: "find", tab: "search" });
     expect(appStore().getState().ui.importState).toBe("imported");
+  });
+
+  it("leaves a fresh live start that opened somewhere other than Today where it is", async () => {
+    install({ "connections:status": status() });
+    goLive({ screen: "find", tab: "search" });
+    render(<Probe />);
+    await flush();
+    expect(route()).toMatchObject({ screen: "find", tab: "search" });
+    expect(appStore().getState().ui.importState).toBe("never");
   });
 
   it("does nothing in example mode", async () => {
