@@ -56,6 +56,19 @@ describe("the record page list", () => {
     expect(at()).toBe(ch("c3"));
   });
 
+  it("keeps the page mounted and focus on Next while stepping", () => {
+    render(<App />);
+    act(() => {
+      openRecord(c("c1"), [c("c1"), c("c2"), c("c3")]);
+    });
+    const next = screen.getByRole("button", { name: new RegExp(`^${strings.peek.next}`) });
+    next.focus();
+    fireEvent.click(next);
+    expect(at()).toBe(ch("c2"));
+    expect(screen.getByRole("button", { name: new RegExp(`^${strings.peek.next}`) })).toBe(next);
+    expect(document.activeElement).toBe(next);
+  });
+
   it("leaves the keys to the side panel while it is open", () => {
     render(<App />);
     act(() => {

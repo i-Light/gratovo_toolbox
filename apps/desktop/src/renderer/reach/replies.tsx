@@ -321,8 +321,8 @@ export function Replies() {
               ))}
             </div>
           </div>
-          <div className="rp-list" role="listbox" aria-label={text.list}>
-            {items.length === 0 ? (
+          {items.length === 0 ? (
+            <div className="rp-list">
               <Empty
                 title={text.noMatchTitle}
                 action={
@@ -333,19 +333,22 @@ export function Replies() {
               >
                 {text.noMatch(query.trim() !== "" ? query.trim() : text.filters[filter])}
               </Empty>
-            ) : null}
-            {items.map((item) => (
-              <ReplyRow
-                key={item.creator.id}
-                item={item}
-                selected={item === cur}
-                now={now}
-                onPick={() => {
-                  setPicked(item.creator.id);
-                }}
-              />
-            ))}
-          </div>
+            </div>
+          ) : (
+            <div className="rp-list" role="listbox" aria-label={text.list}>
+              {items.map((item) => (
+                <ReplyRow
+                  key={item.creator.id}
+                  item={item}
+                  selected={item === cur}
+                  now={now}
+                  onPick={() => {
+                    setPicked(item.creator.id);
+                  }}
+                />
+              ))}
+            </div>
+          )}
         </div>
         <div className="rp-work" data-ui="reach.inbox.work">
           {cur === null ? null : <ReplyDetail key={cur.creator.id} item={cur} ids={ids} />}

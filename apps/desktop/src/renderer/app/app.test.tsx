@@ -32,6 +32,14 @@ const press = (key: string, init: KeyboardEventInit = {}, target: Document | Ele
   fireEvent.keyDown(target, { key, ...init });
 const appElement = (container: HTMLElement) => container.querySelector(".app");
 
+const syncStatus = (): HTMLElement => {
+  const el = document.querySelector<HTMLElement>("[data-ui='frame.top.save']");
+  if (el === null) {
+    throw new Error("no save chip");
+  }
+  return el;
+};
+
 describe("the top bar", () => {
   it("enables Back and Forward only when there is somewhere to go", async () => {
     render(<App />);
@@ -68,13 +76,13 @@ describe("the top bar", () => {
 
   it("says Saving while a save is running", () => {
     render(<App />);
-    expect(within(screen.getByRole("status")).getByText(strings.top.saved)).toBeTruthy();
+    expect(within(syncStatus()).getByText(strings.top.saved)).toBeTruthy();
     act(() => {
       appStore().ui((d) => {
         d.saving = true;
       });
     });
-    expect(within(screen.getByRole("status")).getByText(strings.top.saving)).toBeTruthy();
+    expect(within(syncStatus()).getByText(strings.top.saving)).toBeTruthy();
   });
 
   it("says Not saved after a failed save, and Saved again after a good one", () => {
@@ -87,9 +95,9 @@ describe("the top bar", () => {
       });
     };
     set(true);
-    expect(within(screen.getByRole("status")).getByText(strings.top.notSaved)).toBeTruthy();
+    expect(within(syncStatus()).getByText(strings.top.notSaved)).toBeTruthy();
     set(false);
-    expect(within(screen.getByRole("status")).getByText(strings.top.saved)).toBeTruthy();
+    expect(within(syncStatus()).getByText(strings.top.saved)).toBeTruthy();
   });
 });
 

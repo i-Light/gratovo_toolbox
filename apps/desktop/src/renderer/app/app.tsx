@@ -69,7 +69,7 @@ const Content = memo(function Content() {
     <main className="content" id="content" ref={ref} data-ui="frame.content">
       {screen === "record" ? (
         <RecordPage
-          key={`${String(kind)}${String(id)}`}
+          key="record"
           record={kind === undefined || id === undefined ? undefined : { kind, id }}
         />
       ) : screen === "settings" ? (

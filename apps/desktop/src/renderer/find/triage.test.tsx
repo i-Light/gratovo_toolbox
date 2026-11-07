@@ -307,6 +307,16 @@ describe("Review new", () => {
     });
   });
 
+  it("Enter on a focused button activates it and leaves the record closed", async () => {
+    stubFindBridge({ items: [gold] });
+    await show();
+    const btn = screen.getByRole("button", { name: new RegExp(`^${t.shortlist}`) });
+    btn.focus();
+    const down = fireEvent.keyDown(btn, { key: "Enter" });
+    expect(down).toBe(true);
+    expect(selectRoute(appStore().getState()).screen).not.toBe("record");
+  });
+
   it("N opens the Never contact form and Esc closes it", async () => {
     stubFindBridge({ items: [gold, plain] });
     await show();
@@ -378,7 +388,7 @@ describe("The card's extra facts", () => {
       viewStability: "stable",
     });
     expect(screen.getByRole("img", { name: strings.creatorRecord.header.stars(4) })).toBeTruthy();
-    expect(card().getByText(t.formats.long_form)).toBeTruthy();
+    expect(card().getByText(strings.creatorRecord.header.formats.long_form)).toBeTruthy();
     expect(card().getByText(t.trimmedAverage)).toBeTruthy();
     expect(card().getByText(formatCount(33_000))).toBeTruthy();
     expect(card().getByText(t.medianSteady)).toBeTruthy();
@@ -392,15 +402,14 @@ describe("The card's extra facts", () => {
     expect(document.querySelector("[data-ui='find.triage.warn']")).toBeNull();
   });
 
-  it("tags bot risk with the note as its tip, and a clean read as organic", async () => {
+  it("tags bot risk in the record's words, with the note beside a risky one", async () => {
     await only({ botRisk: { level: "watch", note: "Same comment on every video" } });
-    expect(
-      card().getByText(t.botRisk("watch")).closest("[data-tip]")?.getAttribute("data-tip"),
-    ).toBe("Same comment on every video");
+    expect(card().getByText(strings.creatorRecord.header.botRisk.watch)).toBeTruthy();
+    expect(card().getByText("Same comment on every video")).toBeTruthy();
     expect(document.querySelector("[data-ui='find.triage.warn']")).toBeNull();
     cleanup();
     await only({ botRisk: { level: "clean", note: null } });
-    expect(card().getByText(t.botClean)).toBeTruthy();
+    expect(card().getByText(strings.creatorRecord.header.botRisk.clean)).toBeTruthy();
   });
 
   it("warns on a high bot risk or more than 20 uploads in 30 days", async () => {
@@ -411,6 +420,10 @@ describe("The card's extra facts", () => {
     await only({ botRisk: { level: "high", note: "Views jump overnight" } });
     const high = document.querySelector("[data-ui='find.triage.warn']");
     expect(high?.textContent).toContain("Views jump overnight");
+    cleanup();
+    await only({ hasNumbers: false, botRisk: { level: "high", note: null } });
+    const bare = document.querySelector("[data-ui='find.triage.warn']");
+    expect(bare?.textContent).toBe(t.botHigh);
   });
 
   it("opens a known brand beside from a sponsor chip, and leaves other sponsors plain", async () => {

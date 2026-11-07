@@ -17,6 +17,9 @@ const text = strings.findTriage;
 /** One page of Review new. */
 const pageSize = 40;
 
+/** An element that does something on Enter itself: the key is left to it. */
+const interactive = "button,a,summary,input,select,textarea,[role=button],[role=option],[role=tab]";
+
 /**
  * "Review results": the newest run opens Review new; an older one opens the gallery filtered to that
  * run (D26), since the gallery's filter carries the run.
@@ -167,7 +170,13 @@ export function Triage({ review }: { readonly review: Review }) {
           setReasonFor(null);
         }
       },
-      enter: open,
+      enter: () => {
+        if (document.activeElement?.closest(interactive)) {
+          return false;
+        }
+        open();
+        return true;
+      },
       arrowright: () => {
         step(1);
       },

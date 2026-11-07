@@ -94,6 +94,7 @@ export function useKeyListener(): void {
       if (appStore().getState().ui.goArmed) {
         setGoArmed(false);
         if (event.key === "Escape") {
+          goPrefix.disarm();
           event.preventDefault();
           return;
         }

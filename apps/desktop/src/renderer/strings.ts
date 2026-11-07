@@ -1190,6 +1190,8 @@ export const strings = {
     close: "Close",
     ready: (name: string): string => `Draft for ${name} is ready`,
     open: "Open",
+    elsewhere: "This draft is open in the panel at the bottom right.",
+    showIt: "Show it",
   },
   /** A change of yours that met a teammate's (the choice toast; the notification text is built in main). */
   conflicts: {
@@ -1456,13 +1458,7 @@ export const strings = {
     medianSteady: "median, steady",
     medianVolatile: "median, up and down",
     trimmedAverage: "12-video trimmed average",
-    formats: {
-      talking_head: "Talking head",
-      long_form: "Long-form",
-      shorts: "Shorts",
-    } as const,
-    botRisk: (level: "watch" | "high"): string => `Bot risk: ${level}`,
-    botClean: "Organic comments checked",
+    botHigh: "Bot risk is high.",
     mostlyShorts: (uploads: number, median: string): string =>
       `Mostly Shorts or bought views: ${String(uploads)} uploads in 30 days with a ${median} median.`,
     openBrand: (name: string): string => `Open ${name}`,
@@ -1526,7 +1522,7 @@ export const strings = {
       gold: "Gold mine",
       stars5: "Five stars",
       stable: "Steady views",
-      longform: "Long-form only",
+      longform: "Long videos only",
       sponsored: "Sponsored before",
       email: "Has an email",
       confirmed: "Email confirmed",

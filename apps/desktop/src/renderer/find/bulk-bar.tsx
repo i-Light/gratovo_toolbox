@@ -20,7 +20,7 @@ export interface BulkBarProps {
 
 /** The bar under the channels while some are selected (D21). Give to… waits for step T. */
 export function BulkBar({ items, onShortlist, onReject, onCompare, onClear }: BulkBarProps) {
-  const [reason, setReason] = useState<RejectReason>(rejectReasons[0] ?? "ai");
+  const [reason, setReason] = useState<RejectReason>(rejectReasons[0]);
   const n = items.length;
   const shortlistable = items.filter((i) => i.stage === "new" || i.stage === "rejected");
   const rejectable = items.filter((i) => i.stage === "new" || i.stage === "shortlisted");

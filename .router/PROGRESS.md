@@ -1,6 +1,6 @@
 # Progress
 
-Step S (the scraping upgrade) is done: see [ADR 0023](../docs/decisions/0023-scraping-upgrade.md). Step P resumes at P3.
+Step S (the scraping upgrade) is done: see [ADR 0023](../docs/decisions/0023-scraping-upgrade.md). Step P resumed at P3 on 2026-11-07.
 
 The owner asked for the full prototype on 2026-10-27 (ADR 0021, migration plan step P). It runs now; steps 7 to 9 are built inside it and then wired. On 2026-10-30 the owner asked to finish step P: the parts run one after another, each its own pull request.
 
@@ -15,8 +15,11 @@ Working plan: [PLAN.md](PLAN.md). Gap list and conflicts: [GAPS.md](GAPS.md).
 | P1 | Foundations | **Done** 2026-10-30, merged as #40 (PLAN.md "P1: foundations", decisions F1-F10). Left for P2: the plain example copy (signed out) has no pipeline rows, so a creator record there shows little beyond the summary |
 | P8b | Insights' deals and money (Money, Funnel › Brands, the deal and money parts of Overview and Goal) | **Done** 2026-10-30, branch `feat/insights-p8b` (PLAN.md "P8b", decisions B1-B9; ADR 0022 addendum). Money stays behind the live gate until step 9 |
 | P2 | Records: the creator record's ten tabs and stage-aware Overview, the brand record, the deal record frame | **Done** 2026-10-30, branch `feat/records-p2` (PLAN.md "P2", decisions R1-R10). R10's pipeline rows for the plain example copy moved to P10 |
-| P3 | Find, Reach and frame additions | **Next** |
-| P4 to P7, P9, P10 | See PLAN.md | Not started |
+| P3 | Find, Reach and frame additions | **Done** 2026-11-07, branch `feat/p3-find-reach-frame` (PLAN.md "P3", decisions X1-X12). Brands on the Reach board, brand replies and the Sequences Creators/Brands switch moved to P5 (X1); the board's Everyone/Mine switch to P9 (X2). The owner chose to build the draft dock, opened only by a toast's Open button (X11) |
+| P4 | Today | **Next** |
+| P5 to P7, P9, P10 | See PLAN.md | Not started |
+
+**Found in P3's screen check (2026-11-07), for P4:** in prototype mode the Reach board shows only Signed, and Sequences is empty. Both list the frame's creators, which are the 46 seed creators; the six-month history's channels (over 1,000 "In sequence" in the Gallery) live only in the catalog, so their drafts count in Reach's sub line but get no card. Today (P4) reads the same creators, so P4 starts by bringing the history's outreach creators into the frame in prototype mode (or the board and Today read them the way the Gallery does). Also: in prototype mode Review new is empty (the history leaves nothing new); an example search fills it.
 
 Owner answers so far are in ADR 0021 D6. Still to put to the owner when their part starts: the creator record's tab names beyond Overview, Emails, Deals, Notes and Activity (proposed: Channel, Videos, Sponsors, Contacts, Audience), checked in prototype mode after P2.
 

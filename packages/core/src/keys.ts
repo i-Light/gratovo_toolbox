@@ -130,6 +130,8 @@ export interface GoPrefix {
    * Otherwise returns undefined and leaves the state as it was (an expired arm is cleared).
    */
   take(input: KeyInput, now: number): string | undefined;
+  /** Clears the arm, so the next key is not taken as the second key. */
+  disarm(): void;
 }
 
 /** How long the second key of "G then a letter" may take, in milliseconds. */
@@ -142,6 +144,10 @@ export function createGoPrefix(timeoutMs = GO_PREFIX_MS): GoPrefix {
   return {
     arm(now) {
       armedAt = now;
+    },
+
+    disarm() {
+      armedAt = undefined;
     },
 
     take(input, now) {

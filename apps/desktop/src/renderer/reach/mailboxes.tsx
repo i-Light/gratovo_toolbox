@@ -4,7 +4,8 @@ import { Btn, cx, Empty, Icon, Tag } from "@gratovo/ui";
 import type { IconName } from "@gratovo/ui";
 import { useEffect, useState } from "react";
 
-import { meIsOwner, sectionsFor } from "../lib/settings";
+import { meIsOwner } from "../lib/settings";
+import { isSettingsSectionShown } from "../lib/wired";
 import { openSetting } from "../lib/actions";
 import { sendTest, setMailbox } from "../lib/reach-actions";
 import { go, useApp } from "../lib/store";
@@ -278,7 +279,7 @@ export function Mailboxes() {
   const mailboxes = useApp((s) => s.data.reach.mailboxes);
   const owner = useApp((s) => meIsOwner(s.data));
   const source = useApp((s) => s.data.source);
-  const canConnect = sectionsFor(owner, source).some((s) => s.key === "connections");
+  const canConnect = owner && isSettingsSectionShown("connections", source);
   if (mailboxes.length === 0) {
     return (
       <div className="card">

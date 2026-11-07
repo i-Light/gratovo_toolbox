@@ -351,7 +351,7 @@ export function sendAsNew(id: string): Promise<boolean> {
 export async function draftNow(creatorId: string): Promise<boolean> {
   const result = await window.gratovo.invoke("reach:draft-now", { creatorId });
   if (result.ok && result.value.ok) {
-    expectDraft(creatorId);
+    expectDraft(creatorId, "first");
     toast({ msg: t.draftNowStarted, icon: "sparkle", tone: "info" });
     return true;
   }
@@ -977,7 +977,7 @@ export async function reclassifyReply(
     if (result.ok && result.value.ok) {
       const { rewritten } = result.value;
       if (rewritten) {
-        expectDraft(creatorId);
+        expectDraft(creatorId, "reply");
       }
       if (!rewritten && draft !== undefined) {
         rewrites.delete(draft.id);

@@ -1,6 +1,5 @@
-import { isOpenDraft } from "@gratovo/core/reach";
 import { Icon } from "@gratovo/ui";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 import { closeDock, toggleDockMin } from "../lib/dock";
 import { kindLabel } from "../lib/reach-actions";
@@ -19,7 +18,20 @@ export function DraftDock() {
   const name = useApp((s) =>
     draft === undefined ? "" : (s.data.creators.find((c) => c.id === draft.creator)?.name ?? ""),
   );
-  const gone = dock !== null && (draft === undefined || !isOpenDraft(draft));
+  // Done means sent, scheduled or skipped; a scheduled draft is no longer this person's to edit.
+  const gone =
+    dock !== null &&
+    (draft === undefined ||
+      draft.state === "sent" ||
+      draft.state === "scheduled" ||
+      draft.state === "skipped");
+  const ref = useRef<HTMLElement>(null);
+  const shownFor = dock === null || gone ? null : dock.draft;
+  useEffect(() => {
+    if (shownFor !== null) {
+      ref.current?.focus();
+    }
+  }, [shownFor]);
   useEffect(() => {
     if (gone) {
       closeDock();
@@ -31,6 +43,8 @@ export function DraftDock() {
   const word = dock.min ? t.expand : t.minimise;
   return (
     <aside
+      ref={ref}
+      tabIndex={-1}
       className={dock.min ? "qdock min" : "qdock"}
       role="region"
       aria-label={t.region}
@@ -61,7 +75,7 @@ export function DraftDock() {
       </div>
       {dock.min ? null : (
         <div className="qdock-b">
-          <DraftCard key={draft.id} draftId={draft.id} />
+          <DraftCard key={draft.id} draftId={draft.id} inDock />
         </div>
       )}
     </aside>

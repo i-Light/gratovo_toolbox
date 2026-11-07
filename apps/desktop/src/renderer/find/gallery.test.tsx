@@ -209,7 +209,7 @@ describe("the facets", () => {
     const pairs = [
       ["stars5", /Five stars/],
       ["stable", /Steady views/],
-      ["longform", /Long-form only/],
+      ["longform", /Long videos only/],
     ] as const;
     for (const [key, name] of pairs) {
       const opt = facets().getByRole("button", { name });

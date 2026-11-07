@@ -1,5 +1,5 @@
 import { formatCount, isGold, uploadsUnread, type CatalogItem, type Fit } from "@gratovo/core/find";
-import type { RejectReason } from "@gratovo/core/data";
+import { rejectReasons, type RejectReason } from "@gratovo/core/data";
 import { Btn, Icon, Tag } from "@gratovo/ui";
 import { useEffect, useRef, useState } from "react";
 
@@ -13,9 +13,10 @@ import { FitChip, FitParts } from "./fit-chip";
 import { Thumb, ThumbAvatar } from "./thumb";
 
 const text = strings.findTriage;
+/** The record header's words for format and bot risk, so the card and the record agree. */
+const header = strings.creatorRecord.header;
 
-/** The five reasons, in the order of the 1 to 5 keys. */
-export const rejectReasons: readonly RejectReason[] = ["ai", "views", "posting", "audience", "bot"];
+export { rejectReasons };
 
 /** How many sponsor tags show before "+n". */
 const sponsorTags = 3;
@@ -93,6 +94,7 @@ export function TriageCard({
       : undefined;
   const bot = item.botRisk;
   const botNote = bot?.note ?? null;
+  const showNumbers = numbers && !unread;
   const warn = item.uploads30 > 20 || bot?.level === "high";
   const before = item.emailedBefore;
   const who = before?.who ?? null;
@@ -138,17 +140,18 @@ export function TriageCard({
             <h2>{item.name}</h2>
             <div className="tr-facts" data-ui="find.triage.facts">
               {item.stars === null ? null : <Stars n={item.stars} />}
-              {item.format === null ? null : <Tag>{text.formats[item.format]}</Tag>}
-              {bot === null ? null : bot.level === "clean" ? (
-                <Tag tone="good" icon="check">
-                  {text.botClean}
-                </Tag>
-              ) : (
-                <span data-tip={botNote ?? undefined}>
-                  <Tag tone="crit" icon="alert">
-                    {text.botRisk(bot.level)}
+              {item.format === null ? null : <Tag tone="line">{header.formats[item.format]}</Tag>}
+              {bot === null ? null : (
+                <>
+                  <Tag
+                    tone={bot.level === "clean" ? "good" : bot.level === "watch" ? "warn" : "crit"}
+                  >
+                    {header.botRisk[bot.level]}
                   </Tag>
-                </span>
+                  {bot.level === "clean" || botNote === null ? null : (
+                    <small className="muted">{botNote}</small>
+                  )}
+                </>
               )}
             </div>
             <span className="muted">
@@ -172,8 +175,14 @@ export function TriageCard({
           <div className="callout warn" role="note" data-ui="find.triage.warn">
             <Icon name="alert" />
             <span className="grow">
-              <b>{text.mostlyShorts(item.uploads30, formatCount(item.medianViews))}</b>
-              {botNote === null ? "" : ` ${botNote}`}
+              {showNumbers ? (
+                <>
+                  <b>{text.mostlyShorts(item.uploads30, formatCount(item.medianViews))}</b>
+                  {botNote === null ? "" : ` ${botNote}`}
+                </>
+              ) : (
+                <b>{botNote ?? text.botHigh}</b>
+              )}
             </span>
           </div>
         ) : null}
