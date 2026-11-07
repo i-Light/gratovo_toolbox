@@ -4,6 +4,8 @@ import { Btn, cx, Empty, Icon, Tag } from "@gratovo/ui";
 import type { IconName } from "@gratovo/ui";
 import { useEffect, useState } from "react";
 
+import { meIsOwner, sectionsFor } from "../lib/settings";
+import { openSetting } from "../lib/actions";
 import { sendTest, setMailbox } from "../lib/reach-actions";
 import { go, useApp } from "../lib/store";
 import { strings } from "../strings";
@@ -274,6 +276,9 @@ function MailCard({ mailbox: m }: { readonly mailbox: MailboxView }) {
 /** Reach › Mailboxes (D20): one card per sending mailbox, with its health, limit and test. */
 export function Mailboxes() {
   const mailboxes = useApp((s) => s.data.reach.mailboxes);
+  const owner = useApp((s) => meIsOwner(s.data));
+  const source = useApp((s) => s.data.source);
+  const canConnect = sectionsFor(owner, source).some((s) => s.key === "connections");
   if (mailboxes.length === 0) {
     return (
       <div className="card">
@@ -309,6 +314,18 @@ export function Mailboxes() {
           {text.ruleBody}
           {slowed.length > 0 ? text.rightNow(slowed) : ""}
         </div>
+        {canConnect ? (
+          <Btn
+            size="sm"
+            icon="plus"
+            dataUi="reach.mailboxes.connect"
+            onClick={() => {
+              openSetting("connections", "connMailboxes");
+            }}
+          >
+            {text.connect}
+          </Btn>
+        ) : null}
       </div>
       <div className="rc-mgrid" data-ui="reach.mailboxes.grid">
         {mailboxes.map((m) => (

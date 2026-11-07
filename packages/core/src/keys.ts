@@ -132,8 +132,11 @@ export interface GoPrefix {
   take(input: KeyInput, now: number): string | undefined;
 }
 
+/** How long the second key of "G then a letter" may take, in milliseconds. */
+export const GO_PREFIX_MS = 1200;
+
 /** Makes the "G then a letter" helper. The timeout is how long the second key may take. */
-export function createGoPrefix(timeoutMs = 1200): GoPrefix {
+export function createGoPrefix(timeoutMs = GO_PREFIX_MS): GoPrefix {
   let armedAt: number | undefined;
 
   return {

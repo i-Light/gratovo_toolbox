@@ -200,7 +200,16 @@ export interface Fit {
 }
 
 /** The signals a channel can show, in facet order. */
-export const findSignals = ["gold", "sponsored", "email", "confirmed", "fresh"] as const;
+export const findSignals = [
+  "gold",
+  "stars5",
+  "stable",
+  "longform",
+  "sponsored",
+  "email",
+  "confirmed",
+  "fresh",
+] as const;
 
 export type Signal = (typeof findSignals)[number];
 

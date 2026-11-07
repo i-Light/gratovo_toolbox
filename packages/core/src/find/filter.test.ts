@@ -148,6 +148,28 @@ const all = [a, b, c, d, e, f];
 const ids = (items: readonly CatalogItem[]) => items.map((item) => item.id);
 
 describe("hasSignal", () => {
+  it("matches the stars5, stable and longform signals, and null never matches", () => {
+    expect(hasSignal(makeItem({ stars: 5 }), "stars5")).toBe(true);
+    expect(hasSignal(makeItem({ stars: 4 }), "stars5")).toBe(false);
+    expect(hasSignal(makeItem({ stars: null }), "stars5")).toBe(false);
+    expect(hasSignal(makeItem({ viewStability: "stable" }), "stable")).toBe(true);
+    expect(hasSignal(makeItem({ viewStability: null }), "stable")).toBe(false);
+    expect(hasSignal(makeItem({ format: "long_form" }), "longform")).toBe(true);
+    expect(hasSignal(makeItem({ format: null }), "longform")).toBe(false);
+  });
+
+  it("counts the new signals in the facets", () => {
+    const items = [
+      makeItem({ id: "x", stars: 5, format: "long_form" }),
+      makeItem({ id: "y", viewStability: "stable" }),
+      makeItem({ id: "z" }),
+    ];
+    const facets = facetCounts(items, emptyFindFilter);
+    expect(facets.signals.stars5).toBe(1);
+    expect(facets.signals.stable).toBe(1);
+    expect(facets.signals.longform).toBe(1);
+  });
+
   it("gold follows isGold", () => {
     expect(hasSignal(a, "gold")).toBe(true);
     expect(hasSignal(c, "gold")).toBe(false);
@@ -323,7 +345,16 @@ describe("facetCounts", () => {
       parked: 0,
       never: 0,
     });
-    expect(facets.signals).toEqual({ gold: 1, sponsored: 2, email: 3, confirmed: 1, fresh: 4 });
+    expect(facets.signals).toEqual({
+      gold: 1,
+      stars5: 0,
+      stable: 0,
+      longform: 0,
+      sponsored: 2,
+      email: 3,
+      confirmed: 1,
+      fresh: 4,
+    });
     expect(facets.countries).toEqual({ US: 2, GB: 1, IN: 1 });
     expect(facets.runs).toEqual({ "1": 2, "2": 2 });
   });
@@ -343,7 +374,16 @@ describe("facetCounts", () => {
   it("counts a signal with the other selected signals plus this one", () => {
     const facets = facetCounts(all, filterWith({ signals: ["sponsored"] }));
     // sponsored: a, f. gold with it: a. email with it: none. fresh with it: a, f.
-    expect(facets.signals).toEqual({ gold: 1, sponsored: 2, email: 0, confirmed: 0, fresh: 2 });
+    expect(facets.signals).toEqual({
+      gold: 1,
+      stars5: 0,
+      stable: 0,
+      longform: 0,
+      sponsored: 2,
+      email: 0,
+      confirmed: 0,
+      fresh: 2,
+    });
   });
 
   it("still applies the free text to every facet", () => {

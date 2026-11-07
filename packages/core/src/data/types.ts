@@ -42,10 +42,10 @@ export const creatorStages = [
 export type CreatorStage = (typeof creatorStages)[number];
 
 /**
- * Why a creator was turned down, in the order the reason row shows them (keys 1 to 4): not about
- * AI tools, too few views, not posting enough, an audience outside the US, UK, CA or AU.
+ * Why a creator was turned down, in the order the reason row shows them (keys 1 to 5): not about
+ * AI tools, too few views, not posting enough, an audience outside the US, UK, CA or AU, bot or fake engagement.
  */
-export const rejectReasons = ["ai", "views", "posting", "audience"] as const;
+export const rejectReasons = ["ai", "views", "posting", "audience", "bot"] as const;
 
 export type RejectReason = (typeof rejectReasons)[number];
 

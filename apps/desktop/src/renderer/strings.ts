@@ -99,6 +99,7 @@ export const strings = {
       delivery: "Delivery",
     },
   },
+  goHint: { label: "Jump to:" },
   rail: {
     label: "Main",
     pipeline: "Pipeline",
@@ -222,10 +223,11 @@ export const strings = {
         title: "Reviewing finds",
         rows: [
           ["S", "Shortlist"],
-          ["R", "Reject with the chosen reason"],
-          ["1 – 4", "Reject with that reason"],
-          ["→ / ←", "Skip / go back"],
-          ["Enter", "Open the channel"],
+          ["R", "Choose a reject reason"],
+          ["1 – 5", "Reject with that reason"],
+          ["N", "Never contact"],
+          ["J / K or → / ←", "Next / previous"],
+          ["Enter or O", "Open the channel"],
         ],
       },
       {
@@ -1180,6 +1182,15 @@ export const strings = {
     close: "Close",
   },
   toasts: { dismiss: "Dismiss" },
+  dock: {
+    region: "Draft",
+    title: (kind: string, name: string): string => `${kind} to ${name}`,
+    minimise: "Minimise",
+    expand: "Expand",
+    close: "Close",
+    ready: (name: string): string => `Draft for ${name} is ready`,
+    open: "Open",
+  },
   /** A change of yours that met a teammate's (the choice toast; the notification text is built in main). */
   conflicts: {
     toast: (label: string, theirName: string): string =>
@@ -1418,7 +1429,8 @@ export const strings = {
     position: (i: number, n: number): string => `${String(i)} of ${String(n)}`,
     tally: (shortlisted: number, rejected: number): string =>
       `${String(shortlisted)} shortlisted · ${String(rejected)} rejected`,
-    keysHint: "J is next, K is previous.",
+    keysHint:
+      "S shortlists, R or 1 to 5 rejects, N is never contact, J is next, K is previous, Enter opens it.",
     prev: "Previous",
     next: "Next",
     shortlist: "Shortlist",
@@ -1441,6 +1453,20 @@ export const strings = {
     views: (n: string): string => `${n} views`,
     viewsHidden: "Views hidden",
     medianViews: "median views",
+    medianSteady: "median, steady",
+    medianVolatile: "median, up and down",
+    trimmedAverage: "12-video trimmed average",
+    formats: {
+      talking_head: "Talking head",
+      long_form: "Long-form",
+      shorts: "Shorts",
+    } as const,
+    botRisk: (level: "watch" | "high"): string => `Bot risk: ${level}`,
+    botClean: "Organic comments checked",
+    mostlyShorts: (uploads: number, median: string): string =>
+      `Mostly Shorts or bought views: ${String(uploads)} uploads in 30 days with a ${median} median.`,
+    openBrand: (name: string): string => `Open ${name}`,
+    fitFold: "How the fit score adds up",
     uploads30: "uploads in 30 days",
     country: "channel country",
     latestUpload: "latest upload",
@@ -1498,12 +1524,20 @@ export const strings = {
     },
     signals: {
       gold: "Gold mine",
+      stars5: "Five stars",
+      stable: "Steady views",
+      longform: "Long-form only",
       sponsored: "Sponsored before",
       email: "Has an email",
       confirmed: "Email confirmed",
       fresh: "Never emailed",
     },
     goldTip: "Median views at least 40% of subscribers, posting 3–20 times a month",
+    signalTips: {
+      stars5: "Rated five stars from views, engagement and posting",
+      stable: "Views stay close to their average, not carried by one hit",
+      longform: "Long videos only, no Shorts",
+    },
     medianOptions: [
       [0, "Any"],
       [25_000, "25K+"],
@@ -1852,6 +1886,7 @@ export const strings = {
       askedToast: (name: string): string => `Asked ${name} for what’s missing`,
       askedSub: "The email is drafted and waits for your approval.",
       reviewIt: "Review it",
+      open: "Open",
       undo: "Undo",
       undoKept: "Their email had already gone out",
       undoKeptSub: "The creator is back where they were, but the email can’t be taken back.",
@@ -1975,6 +2010,7 @@ export const strings = {
           views: "too few views",
           posting: "posts too rarely",
           audience: "wrong audience",
+          bot: "bot or fake engagement",
           unknown: "no reason given",
         },
       },
@@ -2731,6 +2767,7 @@ export const strings = {
           views: "Too few views",
           posting: "Not posting enough",
           audience: "Audience outside your markets",
+          bot: "Bot or fake engagement",
           unknown: "No reason noted",
         },
         reasonsLower: {
@@ -2738,6 +2775,7 @@ export const strings = {
           views: "too few views",
           posting: "not posting enough",
           audience: "audience outside your markets",
+          bot: "bot or fake engagement",
           unknown: "rejected with no reason noted",
         },
         checks: {
@@ -3017,6 +3055,7 @@ export const strings = {
         views: "Too few views",
         posting: "Not posting enough",
         audience: "Audience outside",
+        bot: "Bot or fake engagement",
         unknown: "No reason recorded",
       },
       reasonWhy: {
@@ -3024,6 +3063,7 @@ export const strings = {
         views: "too few views",
         posting: "not posting enough",
         audience: "an audience outside your markets",
+        bot: "bot or fake engagement",
         unknown: "no recorded reason",
       },
       reasonShort: {
@@ -3031,6 +3071,7 @@ export const strings = {
         views: "views",
         posting: "posting",
         audience: "audience",
+        bot: "bot",
         unknown: "unknown reasons",
       },
       rejectedFor: (reason: string): string => `Rejected: ${reason}`,
@@ -3286,7 +3327,7 @@ export const strings = {
       },
       reasonsPanel: {
         counted: (n: string): string => `Why the ${n} waiting channels were rejected.`,
-        what: "A person rejects a channel for one of four reasons. The bars use one scale and count channels still waiting to be archived.",
+        what: "A person rejects a channel for one of five reasons. The bars use one scale and count channels still waiting to be archived.",
         headlineMost: (reason: string): string => `Most were rejected for ${reason}.`,
         headlineHalf: (reason: string): string => `Half were rejected for ${reason}.`,
         headlineTop: (reason: string, pct: string): string =>
@@ -3691,6 +3732,7 @@ export const strings = {
       views: "Too few views",
       posting: "Not posting enough",
       audience: "Audience outside US, UK, CA or AU",
+      bot: "Bot or fake engagement",
     },
     broughtBack: (name: string): string => `${name} is back in Review new`,
     never: (name: string): string => `${name} will never be emailed`,
@@ -4440,6 +4482,7 @@ export const strings = {
     /** Reach > Mailboxes (D20; prototype reach.js MailCard). */
     mailboxes: {
       label: "Mailboxes",
+      connect: "Connect a mailbox",
       ruleLead: "Bounces over 3% slow a mailbox down on its own.",
       ruleBody:
         " It drops to 20 sends a day and goes back to its normal limit once bounces are under 2%. Fewer bounces protect every address you send from.",
@@ -4550,6 +4593,8 @@ export const strings = {
     },
     board: {
       label: "Outreach board",
+      showAll: (n: number): string => `Show all ${String(n)}`,
+      roster: "Roster",
       lanes: {
         todraft: { name: "To draft", hint: "Confirmed, no email yet" },
         waiting: { name: "Waiting for you", hint: "Drafted, needs your OK" },
@@ -4667,6 +4712,19 @@ export const strings = {
     replies: {
       label: "Replies",
       list: "Replies",
+      searchLabel: "Search replies",
+      searchPlaceholder: "Search replies…",
+      filtersLabel: "Filter replies",
+      filters: {
+        all: "All",
+        needs: "Needs an answer",
+        interested: "Interested",
+        notnow: "Not now",
+        price: "Talks price",
+      },
+      noMatchTitle: "Nothing here",
+      noMatch: (what: string): string => `No reply matches "${what}".`,
+      showAll: "Show all replies",
       checkNow: "Check now",
       checking: "Checking…",
       emptyTitle: "No replies yet",

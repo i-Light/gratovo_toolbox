@@ -219,12 +219,60 @@ export function stepPeek(by: 1 | -1): void {
   });
 }
 
-/** Opens a record on its own page, remembering the screen it came from. Adds it to `recent`. */
-export function openRecord(record: RecordRef): void {
-  const from: ScreenKey = selectRoute(appStore().getState()).screen;
+/** Puts `list` on the current route (a record page) in place, without a new history entry. */
+function setRouteList(record: RecordRef, list: RecordRef[] | null): void {
+  appStore().ui((ui) => {
+    const route = ui.history.entries[ui.history.index];
+    if (route?.screen === "record" && route.record !== undefined) {
+      ui.history.entries[ui.history.index] = {
+        ...route,
+        record,
+        list,
+      };
+    }
+  });
+}
+
+/**
+ * Opens a record on its own page, remembering the screen it came from. Adds it to `recent`. The
+ * page can step through `list`; without one it takes the side panel's list when the panel shows a
+ * record of the same kind whose list holds this one, else none.
+ */
+export function openRecord(record: RecordRef, list?: readonly RecordRef[]): void {
+  const state = appStore().getState();
+  const from: ScreenKey = selectRoute(state).screen;
+  const p = state.ui.peek;
+  const fromPeek =
+    p !== null && p.list !== null && p.record.kind === record.kind && p.list.includes(record.id)
+      ? p.list.map((id): RecordRef => ({ kind: record.kind, id }))
+      : null;
+  const chosen = list === undefined ? fromPeek : list.map((r) => ({ kind: r.kind, id: r.id }));
   go("record", null, { record, from });
+  setRouteList(record, chosen);
   appStore().ui((ui) => {
     addRecent(ui, record);
+  });
+}
+
+/**
+ * On the record page, moves to the next (1) or previous (-1) record of its list; stays at the ends.
+ * It replaces the page's history entry (a step is not a place to go Back to), keeping the list and
+ * the screen it was opened from.
+ */
+export function stepRecord(by: 1 | -1): void {
+  const route = selectRoute(appStore().getState());
+  const { record, list } = route;
+  if (route.screen !== "record" || record === undefined || list == null) {
+    return;
+  }
+  const at = list.findIndex((r) => r.kind === record.kind && r.id === record.id);
+  const next = at < 0 ? undefined : list[at + by];
+  if (next === undefined) {
+    return;
+  }
+  setRouteList(next, list);
+  appStore().ui((ui) => {
+    addRecent(ui, next);
   });
 }
 

@@ -3,15 +3,19 @@ import type { RejectReason } from "@gratovo/core/data";
 import { Btn, Icon, Tag } from "@gratovo/ui";
 import { useEffect, useRef, useState } from "react";
 
+import { peek } from "../lib/actions";
 import { ago, unreadWords } from "../lib/format";
+import { useApp } from "../lib/store";
+import { isPartShown } from "../lib/wired";
+import { Stars } from "../record/stars";
 import { strings } from "../strings";
-import { FitChip } from "./fit-chip";
+import { FitChip, FitParts } from "./fit-chip";
 import { Thumb, ThumbAvatar } from "./thumb";
 
 const text = strings.findTriage;
 
-/** The four reasons, in the order of the 1 to 4 keys. */
-export const rejectReasons: readonly RejectReason[] = ["ai", "views", "posting", "audience"];
+/** The five reasons, in the order of the 1 to 5 keys. */
+export const rejectReasons: readonly RejectReason[] = ["ai", "views", "posting", "audience", "bot"];
 
 /** How many sponsor tags show before "+n". */
 const sponsorTags = 3;
@@ -41,6 +45,9 @@ export interface TriageCardProps {
   /** Whether the reason row is open (the R key or its button). */
   readonly reasonOpen: boolean;
   readonly onReasonOpen: (open: boolean) => void;
+  /** Whether the Never contact form is open (the N key or its button). */
+  readonly neverOpen: boolean;
+  readonly onNeverOpen: (open: boolean) => void;
   readonly onShortlist: () => void;
   readonly onReject: (reason: RejectReason) => void;
   readonly onNever: (reason: string) => void;
@@ -55,6 +62,8 @@ export function TriageCard({
   now,
   reasonOpen,
   onReasonOpen,
+  neverOpen,
+  onNeverOpen,
   onShortlist,
   onReject,
   onNever,
@@ -63,7 +72,7 @@ export function TriageCard({
   onNext,
 }: TriageCardProps) {
   const [menu, setMenu] = useState(false);
-  const [asking, setAsking] = useState(false);
+  const asking = neverOpen;
   const [why, setWhy] = useState("");
   const askRef = useRef<HTMLInputElement>(null);
   // The reason field opens under the person's hands: focus it when it appears.
@@ -76,13 +85,22 @@ export function TriageCard({
   const unread = uploadsUnread(item);
   const sponsors = item.sponsors.slice(0, sponsorTags);
   const more = item.sponsors.length - sponsors.length;
+  const brands = useApp((s) => s.data.brands);
+  const source = useApp((s) => s.data.source);
+  const brandOf = (sponsor: string) =>
+    isPartShown("record.deals", source)
+      ? brands.find((b) => b.name.toLowerCase() === sponsor.toLowerCase())
+      : undefined;
+  const bot = item.botRisk;
+  const botNote = bot?.note ?? null;
+  const warn = item.uploads30 > 20 || bot?.level === "high";
   const before = item.emailedBefore;
   const who = before?.who ?? null;
   const beforeAt = before?.at ?? null;
   const when = beforeAt === null ? null : ago(beforeAt, now);
   const closeNever = (): void => {
     setMenu(false);
-    setAsking(false);
+    onNeverOpen(false);
     setWhy("");
   };
   const confirmNever = (): void => {
@@ -118,6 +136,21 @@ export function TriageCard({
           <ThumbAvatar pic={item.pic} name={item.name} alt={text.picture(item.name)} />
           <div className="grow col t2 tr-name">
             <h2>{item.name}</h2>
+            <div className="tr-facts" data-ui="find.triage.facts">
+              {item.stars === null ? null : <Stars n={item.stars} />}
+              {item.format === null ? null : <Tag>{text.formats[item.format]}</Tag>}
+              {bot === null ? null : bot.level === "clean" ? (
+                <Tag tone="good" icon="check">
+                  {text.botClean}
+                </Tag>
+              ) : (
+                <span data-tip={botNote ?? undefined}>
+                  <Tag tone="crit" icon="alert">
+                    {text.botRisk(bot.level)}
+                  </Tag>
+                </span>
+              )}
+            </div>
             <span className="muted">
               {item.handle} ·{" "}
               {item.subscribers === null
@@ -135,6 +168,15 @@ export function TriageCard({
             </span>
           </div>
         )}
+        {warn ? (
+          <div className="callout warn" role="note" data-ui="find.triage.warn">
+            <Icon name="alert" />
+            <span className="grow">
+              <b>{text.mostlyShorts(item.uploads30, formatCount(item.medianViews))}</b>
+              {botNote === null ? "" : ` ${botNote}`}
+            </span>
+          </div>
+        ) : null}
         <div className="stats">
           <Stat
             value={
@@ -147,7 +189,13 @@ export function TriageCard({
                   ? formatCount(item.medianViews)
                   : text.unknown
             }
-            label={text.medianViews}
+            label={
+              item.viewStability === null
+                ? text.medianViews
+                : item.viewStability === "stable"
+                  ? text.medianSteady
+                  : text.medianVolatile
+            }
             muted={unread}
           />
           <Stat
@@ -161,6 +209,9 @@ export function TriageCard({
             label={text.uploads30}
             muted={unread}
           />
+          {item.trimmedAverage === null ? null : (
+            <Stat value={formatCount(item.trimmedAverage)} label={text.trimmedAverage} />
+          )}
           <Stat value={item.country ?? text.unknown} label={text.country} />
           <Stat
             value={
@@ -185,11 +236,27 @@ export function TriageCard({
               </Tag>
             </span>
           ) : null}
-          {sponsors.map((s) => (
-            <Tag key={s} tone="info">
-              {s}
-            </Tag>
-          ))}
+          {sponsors.map((s) => {
+            const brand = brandOf(s);
+            return brand === undefined ? (
+              <Tag key={s} tone="info">
+                {s}
+              </Tag>
+            ) : (
+              <button
+                key={s}
+                type="button"
+                className="tag info tr-sponsor"
+                data-ui="find.triage.sponsor"
+                data-tip={text.openBrand(brand.name)}
+                onClick={() => {
+                  peek({ kind: "brand", id: brand.id });
+                }}
+              >
+                {s}
+              </button>
+            );
+          })}
           {more > 0 ? <Tag>{text.sponsorsMore(more)}</Tag> : null}
           {item.sponsors.length === 0 ? (
             <span className="small muted">{text.sponsorsNone}</span>
@@ -201,6 +268,12 @@ export function TriageCard({
           </span>
           {item.keyword === null ? null : <span>{text.foundBy(item.keyword)}</span>}
         </div>
+        <details className="tr-fold" data-ui="find.triage.fit-parts">
+          <summary>{text.fitFold}</summary>
+          <ul>
+            <FitParts fit={item.fit} />
+          </ul>
+        </details>
       </article>
       <div className="actionbar">
         <Btn kind="pri" icon="check" kbd="S" onClick={onShortlist}>
@@ -254,7 +327,7 @@ export function TriageCard({
             ))}
           </div>
         ) : null}
-        {menu ? (
+        {menu || asking ? (
           asking ? (
             <form
               className="never-form"
@@ -292,7 +365,7 @@ export function TriageCard({
                 size="sm"
                 icon="x"
                 onClick={() => {
-                  setAsking(true);
+                  onNeverOpen(true);
                 }}
               >
                 {text.never}

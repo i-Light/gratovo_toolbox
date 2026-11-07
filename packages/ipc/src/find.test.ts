@@ -128,6 +128,16 @@ describe("the language rule and facet", () => {
   });
 });
 
+describe("the filter's signals", () => {
+  it("accepts the five-star, steady-views and long-form signals, and refuses unknown ones", () => {
+    const ok = { ...emptyFindFilter, signals: ["stars5", "stable", "longform"] };
+    expect(findFilterSchema.safeParse(ok).success).toBe(true);
+    expect(findFilterSchema.safeParse({ ...emptyFindFilter, signals: ["nope"] }).success).toBe(
+      false,
+    );
+  });
+});
+
 describe("findStateSchema", () => {
   it("takes the waiting state with its reason and time, and refuses a bad one", () => {
     const wait = { reason: "quota", until: "2026-11-02T09:30:00Z" };

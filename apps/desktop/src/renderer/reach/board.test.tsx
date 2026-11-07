@@ -298,4 +298,35 @@ describe("the Media kit and Signed lanes", () => {
       within(lane("signed")).getByText(t.board.sub.signedRate(strings.close.audience.hidden)),
     ).toBeTruthy();
   });
+
+  describe("the Signed lane", () => {
+    const seven = Array.from({ length: 7 }, (_, i) =>
+      aiCreator(`s${String(i)}`, `Signed Creator ${String(i)}`, { stage: "signed" }),
+    );
+    const cards = () => within(lane("signed")).getAllByRole("button", { name: /Signed Creator/ });
+
+    it("shows the first 6 and opens the rest on Show all", () => {
+      seedReach(seven, reachWith({}), "example");
+      render(<ReachScreen />);
+      const signed = within(lane("signed"));
+      expect(cards()).toHaveLength(6);
+      expect(signed.getByText("7")).toBeTruthy();
+      fireEvent.click(signed.getByRole("button", { name: t.board.showAll(7) }));
+      expect(cards()).toHaveLength(7);
+      expect(signed.queryByRole("button", { name: t.board.showAll(7) })).toBeNull();
+    });
+
+    it("goes to the Roster", () => {
+      seedReach(seven, reachWith({}), "example");
+      render(<ReachScreen />);
+      fireEvent.click(within(lane("signed")).getByRole("button", { name: t.board.roster }));
+      expect(selectRoute(appStore().getState())).toMatchObject({ screen: "close", tab: "roster" });
+    });
+
+    it("shows no row for 6 or fewer", () => {
+      seedReach(seven.slice(0, 6), reachWith({}), "example");
+      render(<ReachScreen />);
+      expect(document.querySelector('[data-ui="reach.lane.signed.more"]')).toBeNull();
+    });
+  });
 });

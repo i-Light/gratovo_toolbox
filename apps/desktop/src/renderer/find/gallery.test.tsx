@@ -204,6 +204,19 @@ describe("the facets", () => {
     expect(getPrefs().findFilter.stages).toEqual([]);
   });
 
+  it("gives the new signals their labels and tips", async () => {
+    await show();
+    const pairs = [
+      ["stars5", /Five stars/],
+      ["stable", /Steady views/],
+      ["longform", /Long-form only/],
+    ] as const;
+    for (const [key, name] of pairs) {
+      const opt = facets().getByRole("button", { name });
+      expect(opt.getAttribute("data-tip")).toBe(t.signalTips[key]);
+    }
+  });
+
   it("toggles a signal, and the gold one carries its tooltip", async () => {
     await show();
     const gold = facets().getByRole("button", { name: /Gold mine/ });

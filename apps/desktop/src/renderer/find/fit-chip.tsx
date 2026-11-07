@@ -18,6 +18,13 @@ export function fitTip(fit: Fit): string {
   );
 }
 
+/** The fit's parts as list items: each part's points out of its share, and why. */
+export function FitParts({ fit }: { readonly fit: Fit }) {
+  return fit.parts.map((p) => (
+    <li key={p.key}>{text.fitPart(text.fitParts[p.key], p.points, p.of, p.note)}</li>
+  ));
+}
+
 /**
  * The fit score as a ring and a number. It is a button: pressing it (Enter or Space too) opens a
  * small list of the five parts and why, so the score never has to be taken on trust and a keyboard
@@ -131,9 +138,7 @@ export function FitChip({ fit }: { readonly fit: Fit }) {
               top: `${String(pos?.top ?? -999)}px`,
             }}
           >
-            {fit.parts.map((p) => (
-              <li key={p.key}>{text.fitPart(text.fitParts[p.key], p.points, p.of, p.note)}</li>
-            ))}
+            <FitParts fit={fit} />
           </ul>
         </Floating>
       ) : null}

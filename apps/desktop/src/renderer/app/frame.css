@@ -453,3 +453,26 @@
     padding-block: 14px 120px;
   }
 }
+
+/* ---------- the G hint bar ---------- */
+.g-chord {
+  position: fixed;
+  bottom: 16px;
+  inset-inline: 0;
+  margin-inline: auto;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  z-index: 96;
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  padding: 7px 12px;
+  border-radius: 10px;
+  box-shadow: var(--shadow-2);
+  font-size: 12.5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  animation: fadeIn 0.12s ease;
+}

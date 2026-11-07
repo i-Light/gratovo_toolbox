@@ -1,12 +1,15 @@
 import { cx } from "@gratovo/ui";
 import { memo, useEffect, useLayoutEffect, useRef } from "react";
 
+import { useDraftReadyToasts } from "../lib/dock";
 import { useKeys } from "../lib/keys";
 import { useNarrow } from "../lib/media";
 import { usePref } from "../lib/prefs";
 import { usePrototype } from "../lib/prototype";
 import { selectProblems, selectRoute, setRailOpen, useApp } from "../lib/store";
 import { useFirstRun } from "./first-run";
+import { DraftDock } from "./draft-dock";
+import { GoHint } from "./go-hint";
 import { useGlobalKeys, useKeyListener } from "./global-keys";
 import { CommentLayer } from "../prototype/comment-layer";
 import { MenuLayer } from "../overlays/menu-layer";
@@ -129,6 +132,7 @@ export function App() {
   useGlobalKeys();
   useKeyListener();
   useFirstRun();
+  useDraftReadyToasts();
   const railMin = usePref("rail") === "min";
   const railOpen = useApp((s) => s.ui.railOpen);
   const narrow = useNarrow();
@@ -179,8 +183,10 @@ export function App() {
       <Palette />
       <Shortcuts />
       <MenuLayer />
+      <DraftDock />
       <Toasts />
       <Tooltip />
+      <GoHint />
       {protoOn ? <CommentLayer /> : null}
     </div>
   );

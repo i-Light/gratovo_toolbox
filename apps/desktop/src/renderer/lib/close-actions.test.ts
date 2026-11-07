@@ -82,7 +82,7 @@ describe("askMissing", () => {
     expect(toasts().at(-1)?.msg).toBe(t.draftOpen);
   });
 
-  it("toasts with Review it and Undo when the draft is made", async () => {
+  it("toasts with Open, Review it and Undo when the draft is made", async () => {
     seedCreators([kitCreator(passingKit({ ageBand: null }), "replied")]);
     stubReachBridge({ "close:ask": { ok: true, draftId: "d5" } });
     expect(await askMissing("c1")).toBe(true);
@@ -90,6 +90,6 @@ describe("askMissing", () => {
       toasts()
         .at(-1)
         ?.actions.map((a) => a.label),
-    ).toEqual([t.reviewIt, t.undo]);
+    ).toEqual([t.open, t.reviewIt, t.undo]);
   });
 });

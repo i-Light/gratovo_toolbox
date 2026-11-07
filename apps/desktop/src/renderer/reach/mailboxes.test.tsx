@@ -2,6 +2,7 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { adoptServerData } from "../lib/persist";
 import { aiDraft, goodMailbox, reachWith, stubReachBridge } from "../lib/reach-test-bridge";
 import { appStore, resetAppStoreForTests, selectRoute } from "../lib/store";
 import { strings } from "../strings";
@@ -187,5 +188,25 @@ describe("Reach > Mailboxes", () => {
     expect(toast()?.msg).toBe(t.testProblems.busy);
     await click(within(card(sam)).getByRole("button", { name: t.pause }));
     expect(toast()?.msg).toBe(t.setProblems.not_found);
+  });
+
+  it("offers Connect a mailbox to the owner and opens Connections", async () => {
+    seed(goodMailbox(sam));
+    render(<Mailboxes />);
+    await click(screen.getByRole("button", { name: t.connect }));
+    expect(selectRoute(appStore().getState())).toMatchObject({
+      screen: "settings",
+      tab: "connections",
+    });
+    expect(appStore().getState().ui.settingTarget).toBe("connMailboxes");
+  });
+
+  it("hides Connect a mailbox from a member", () => {
+    seed(goodMailbox(sam));
+    adoptServerData((d) => {
+      d.me = "u3";
+    });
+    render(<Mailboxes />);
+    expect(screen.queryByRole("button", { name: t.connect })).toBeNull();
   });
 });

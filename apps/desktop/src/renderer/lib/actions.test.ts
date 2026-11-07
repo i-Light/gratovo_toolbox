@@ -20,6 +20,7 @@ import {
   setPalette,
   setShortcuts,
   stepPeek,
+  stepRecord,
   toast,
   toggleTray,
   undo,
@@ -262,6 +263,41 @@ describe("peek and records", () => {
     expect(ui().peek?.record.id).toBe("c1");
   });
 
+  it("opens a record page with the panel's list when it holds the record", () => {
+    peek(c("c1"), ["c1", "c2", "c3"]);
+    openRecord(c("c2"));
+    expect(selectRoute(appStore().getState()).list).toEqual([c("c1"), c("c2"), c("c3")]);
+    peek(c("c1"), ["c1", "c2"]);
+    openRecord(c("c9"));
+    expect(selectRoute(appStore().getState()).list).toBeNull();
+    peek({ kind: "brand", id: "c1" }, ["c1", "c2"]);
+    openRecord(c("c2"));
+    expect(selectRoute(appStore().getState()).list).toBeNull();
+    openRecord(c("c2"), [c("c2"), c("c5")]);
+    expect(selectRoute(appStore().getState()).list).toEqual([c("c2"), c("c5")]);
+  });
+
+  it("steps on the record page, stays at the ends and replaces the history entry", () => {
+    openRecord(c("c1"), [c("c1"), c("c2"), c("c3")]);
+    const entries = appStore().getState().ui.history.entries.length;
+    stepRecord(-1);
+    expect(selectRoute(appStore().getState()).record).toEqual(c("c1"));
+    stepRecord(1);
+    stepRecord(1);
+    stepRecord(1);
+    const route = selectRoute(appStore().getState());
+    expect(route.record).toEqual(c("c3"));
+    expect(route.from).toBe("today");
+    expect(route.list).toHaveLength(3);
+    expect(appStore().getState().ui.history.entries).toHaveLength(entries);
+  });
+
+  it("does not step without a list", () => {
+    openRecord(c("c1"));
+    stepRecord(1);
+    expect(selectRoute(appStore().getState()).record).toEqual(c("c1"));
+  });
+
   it("opens a record page from the current screen and remembers it in recent", () => {
     appStore().ui((u) => {
       u.peek = { record: c("c1"), list: null };
@@ -272,6 +308,7 @@ describe("peek and records", () => {
       tab: null,
       record: c("c2"),
       from: "today",
+      list: null,
     });
     expect(ui().peek).toBeNull();
     expect(ui().recent).toEqual([c("c2")]);

@@ -367,6 +367,7 @@ describe("funnelExits", () => {
       views: 7,
       posting: 0,
       audience: 0,
+      bot: 0,
       unknown: 1,
     });
     expect(Object.fromEntries(e.saidNo.map((t) => [t.kind, t.count]))).toEqual({

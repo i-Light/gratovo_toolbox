@@ -32,6 +32,8 @@ export interface Route {
   readonly record?: RecordRef;
   /** The screen a record was opened from. */
   readonly from?: ScreenKey;
+  /** Only on the "record" screen: the records the page can step through (not in the URL hash; a mutable array so the store's drafts accept it). */
+  list?: RecordRef[] | null;
 }
 
 /** What the frame knows about a screen. */

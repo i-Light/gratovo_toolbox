@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import type { Creator, OutreachDraft, ThreadSummary } from "../data";
-import { repliesToAnswer, replyItems } from "./replies";
+import type { Creator, OutreachDraft, ReplyReading, ThreadSummary } from "../data";
+import {
+  repliesToAnswer,
+  replyFilters,
+  replyItems,
+  replyMatches,
+  replySearch,
+  type ReplyItem,
+} from "./replies";
 
 const creator = (id: string, name = id): Creator => ({
   id,
@@ -100,5 +107,68 @@ describe("replyItems", () => {
     );
     expect(items.map((i) => i.state)).toEqual(["closed", "closed"]);
     expect(repliesToAnswer(items)).toBe(0);
+  });
+});
+
+describe("replyMatches and replySearch", () => {
+  const read = (replyType: string | null, over: Partial<ReplyReading> = {}): ReplyReading => ({
+    replyType,
+    label: "Label",
+    summary: "Summary",
+    side: "creator",
+    corrected: false,
+    facts: [],
+    ...over,
+  });
+  const one = (
+    id: string,
+    reading: ReplyReading | null,
+    over: Partial<ThreadSummary> = {},
+    draftOpen = false,
+  ) => {
+    const t = thread(id, 10, over);
+    const lastIn = t.lastIn === null ? null : { ...t.lastIn, reading };
+    return replyItems(
+      [creator(id, `Name ${id}`)],
+      [{ ...t, lastIn }],
+      draftOpen ? [answer(`d-${id}`, id)] : [],
+    )[0] as ReplyItem;
+  };
+
+  it("lists the five chips", () => {
+    expect(replyFilters).toEqual(["all", "needs", "interested", "notnow", "price"]);
+  });
+
+  it("all matches everything; needs is a draft or your move", () => {
+    const move = one("a", null);
+    const drafted = one("b", null, {}, true);
+    const done = one("c", null, { answered: true });
+    expect([move, drafted, done].map((i) => replyMatches(i, "all"))).toEqual([true, true, true]);
+    expect([move, drafted, done].map((i) => replyMatches(i, "needs"))).toEqual([true, true, false]);
+  });
+
+  it("interested, not now and price read the latest reading", () => {
+    for (const type of ["inf.interested_vague", "inf.agrees", "inf.media_kit", "inf.gives_rate"]) {
+      expect(replyMatches(one("a", read(type)), "interested")).toBe(true);
+    }
+    expect(replyMatches(one("a", read("inf.later")), "interested")).toBe(false);
+    expect(replyMatches(one("a", read("inf.later")), "notnow")).toBe(true);
+    expect(replyMatches(one("a", read("inf.agrees")), "notnow")).toBe(false);
+    expect(replyMatches(one("a", read("inf.gives_rate")), "price")).toBe(true);
+    const fact = read("inf.other", { facts: [{ key: "rate", rate: 900, saved: false }] });
+    expect(replyMatches(one("a", fact), "price")).toBe(true);
+    expect(replyMatches(one("a", read("inf.agrees")), "price")).toBe(false);
+    expect(replyMatches(one("a", null), "interested")).toBe(false);
+  });
+
+  it("searches name, handle, preview, label and summary, ignoring case and spaces", () => {
+    const item = one(
+      "zed",
+      read("inf.agrees", { label: "Wants Details", summary: "Asks about CPM" }),
+    );
+    for (const q of ["NAME ZED", "@zed", "hi!", "wants details", " cpm ", ""]) {
+      expect(replySearch(item, q)).toBe(true);
+    }
+    expect(replySearch(item, "nothing like it")).toBe(false);
   });
 });

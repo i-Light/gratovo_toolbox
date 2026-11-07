@@ -72,5 +72,5 @@ export {
   readReplyFacts,
   replyCountriesMax,
 } from "./reply-facts";
-export { repliesToAnswer, replyItems } from "./replies";
-export type { ReplyItem, ReplyState } from "./replies";
+export { repliesToAnswer, replyFilters, replyItems, replyMatches, replySearch } from "./replies";
+export type { ReplyFilter, ReplyItem, ReplyState } from "./replies";

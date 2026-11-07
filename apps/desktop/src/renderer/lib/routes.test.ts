@@ -9,7 +9,7 @@ import {
   screenOrder,
   screens,
 } from "./routes";
-import type { Route } from "./routes";
+import type { RecordRef, Route } from "./routes";
 
 describe("routes", () => {
   it("round-trips every screen and tab through the hash", () => {
@@ -128,6 +128,9 @@ describe("routes", () => {
     expect(sameRoute(a, { ...a, record: { kind: "creator", id: "c2" } })).toBe(false);
     expect(sameRoute(a, { ...a, record: { kind: "brand", id: "c1" } })).toBe(false);
     expect(sameRoute(a, { ...a, from: "reach" })).toBe(false);
+    const list: RecordRef[] = [{ kind: "creator", id: "c1" }];
+    expect(sameRoute(a, { ...a, list })).toBe(true);
+    expect(routeToHash({ ...a, list })).toBe("#/record/creator/c1");
   });
 
   it("names the record screen from strings and keeps it out of the go letters", () => {

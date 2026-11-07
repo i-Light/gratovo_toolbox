@@ -1,5 +1,5 @@
 import { creatorStepIndex, creatorSteps } from "@gratovo/core/data";
-import { Btn, Icon, Tag } from "@gratovo/ui";
+import { Btn, Tag } from "@gratovo/ui";
 import type { ReactNode } from "react";
 
 import { FitChip } from "../find/fit-chip";
@@ -17,23 +17,11 @@ import { CreatorAudience } from "./creator-audience";
 import { ChannelTab, ContactsTab, DealsTab } from "./creator-tabs";
 import { RecordActivity } from "./record-activity";
 import { RecordShell, type RecordTab } from "./record-shell";
+import { Stars } from "./stars";
 import { Steps } from "./steps";
 import { useCreatorItem } from "./use-creator-item";
 
 const text = strings.creatorRecord;
-
-/** The star rating as five stars, filled up to the rating. */
-function Stars({ n }: { readonly n: number }) {
-  return (
-    <span className="cr-stars" role="img" aria-label={text.header.stars(n)} data-ui="record.stars">
-      {[1, 2, 3, 4, 5].map((i) => (
-        <span key={i} className={i <= n ? "on" : undefined}>
-          <Icon name="star" size={14} />
-        </span>
-      ))}
-    </span>
-  );
-}
 
 /** The header and the tab strip as grey shapes, for the moment before the channel arrives. */
 function Skeleton() {

@@ -531,3 +531,21 @@ button.rc-cap:hover {
   font-size: 11.5px;
   color: var(--muted);
 }
+
+/* Replies: the search box and the filter chips at the top of the queue (X7). */
+.rp-find {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 4px 8px;
+}
+.rp-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.rp-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}

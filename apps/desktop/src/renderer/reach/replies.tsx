@@ -1,6 +1,6 @@
 import type { ThreadMessage } from "@gratovo/core/data";
-import { replyItems } from "@gratovo/core/reach";
-import type { ReplyItem, ReplyState } from "@gratovo/core/reach";
+import { replyFilters, replyItems, replyMatches, replySearch } from "@gratovo/core/reach";
+import type { ReplyFilter, ReplyItem, ReplyState } from "@gratovo/core/reach";
 import { avatarColor, Avatar, Btn, cx, Empty, Icon, Tag } from "@gratovo/ui";
 import { useEffect, useMemo, useState } from "react";
 
@@ -194,7 +194,24 @@ export function Replies() {
   const now = useNow();
   const [picked, setPicked] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);
-  const items = useMemo(() => replyItems(creators, threads, drafts), [creators, threads, drafts]);
+  const [filter, setFilter] = useState<ReplyFilter>("all");
+  const [query, setQuery] = useState("");
+  const all = useMemo(() => replyItems(creators, threads, drafts), [creators, threads, drafts]);
+  const counts = useMemo(
+    () =>
+      Object.fromEntries(
+        replyFilters.map((f) => [f, all.filter((i) => replyMatches(i, f)).length]),
+      ),
+    [all],
+  );
+  const items = useMemo(
+    () => all.filter((i) => replyMatches(i, filter) && replySearch(i, query)),
+    [all, filter, query],
+  );
+  const showAll = (): void => {
+    setFilter("all");
+    setQuery("");
+  };
   const cur = items.find((i) => i.creator.id === picked) ?? items[0] ?? null;
   const ids = items.map((i) => i.creator.id);
   const move = (by: 1 | -1): boolean => {
@@ -235,7 +252,7 @@ export function Replies() {
       {checking ? text.checking : text.checkNow}
     </Btn>
   );
-  if (items.length === 0) {
+  if (all.length === 0) {
     return (
       <div className="col" data-ui="reach.replies">
         <div className="row">
@@ -270,23 +287,65 @@ export function Replies() {
         {checkButton}
       </div>
       <div className="rp-split">
-        <div
-          className={cx("card", "queue")}
-          data-ui="reach.inbox.queue"
-          role="listbox"
-          aria-label={text.list}
-        >
-          {items.map((item) => (
-            <ReplyRow
-              key={item.creator.id}
-              item={item}
-              selected={item === cur}
-              now={now}
-              onPick={() => {
-                setPicked(item.creator.id);
+        <div className={cx("card", "queue")} data-ui="reach.inbox.queue">
+          <div className="rp-find">
+            <input
+              className="inp"
+              type="search"
+              data-ui="reach.inbox.search"
+              placeholder={text.searchPlaceholder}
+              aria-label={text.searchLabel}
+              value={query}
+              onChange={(event) => {
+                setQuery(event.currentTarget.value);
               }}
             />
-          ))}
+            <div
+              className="rp-chips"
+              role="group"
+              aria-label={text.filtersLabel}
+              data-ui="reach.inbox.filters"
+            >
+              {replyFilters.map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  className="chip"
+                  aria-pressed={filter === f}
+                  onClick={() => {
+                    setFilter(f);
+                  }}
+                >
+                  {text.filters[f]} <span className="c">{counts[f]}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="rp-list" role="listbox" aria-label={text.list}>
+            {items.length === 0 ? (
+              <Empty
+                title={text.noMatchTitle}
+                action={
+                  <Btn size="sm" onClick={showAll}>
+                    {text.showAll}
+                  </Btn>
+                }
+              >
+                {text.noMatch(query.trim() !== "" ? query.trim() : text.filters[filter])}
+              </Empty>
+            ) : null}
+            {items.map((item) => (
+              <ReplyRow
+                key={item.creator.id}
+                item={item}
+                selected={item === cur}
+                now={now}
+                onPick={() => {
+                  setPicked(item.creator.id);
+                }}
+              />
+            ))}
+          </div>
         </div>
         <div className="rp-work" data-ui="reach.inbox.work">
           {cur === null ? null : <ReplyDetail key={cur.creator.id} item={cur} ids={ids} />}
