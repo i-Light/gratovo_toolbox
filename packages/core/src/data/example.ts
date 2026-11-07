@@ -1,5 +1,7 @@
 import { kitView } from "../close/audience";
 import { readReplyFacts } from "../reach/reply-facts";
+import { defaultDay } from "../today/types";
+import type { DayState, DoneEntry, TodayBucket } from "../today/types";
 
 import { seesMoney, sortRoles } from "./access";
 import { brokeSeed, firstSeed } from "./example-scenarios";
@@ -122,6 +124,8 @@ export interface ExampleSeed {
   mateRun(now: number): MateRun;
   /** What is broken in this copy; null when nothing is. */
   readonly health: ExampleHealth | null;
+  /** The `day` row of `local_settings`: what the person did and wrote down already. */
+  readonly day: DayState;
 }
 
 /** The example mail settings, in the shape Settings › Connections stores them. */
@@ -189,6 +193,28 @@ function normalSeed(now: number): ExampleSeed {
     },
     mateRun: (at) => mateRun(dayTime(at, 0, 9, 2)),
     health: null,
+    day: exampleDay(now),
+  };
+}
+
+/** Three things done today and a note from yesterday's wrap-up. */
+function exampleDay(now: number): DayState {
+  const done = (
+    key: string,
+    title: string,
+    bucket: TodayBucket,
+    hours: number,
+    minutes: number,
+  ): DoneEntry => ({ key, title, bucket, at: dayTime(now, 0, hours, 0), minutes });
+  return {
+    ...defaultDay,
+    done: [
+      done(`send:${id("c5")}`, "Approved the first email to The AI Desk", "sends", 11, 3),
+      done(`followup:${id("c4")}`, "Sent the follow-up to Tensor Talk", "followups", 10, 4),
+      done(`contact:${id("c3")}`, "Confirmed the contact for Code with Kai", "contacts", 9, 5),
+    ],
+    note: "Ask Lina about the two creators who asked for a rate card",
+    wrappedAt: dayTime(now, -1, 18, 0),
   };
 }
 
@@ -249,6 +275,7 @@ export function exampleFrame(now: number): Frame {
     mateRun: seed.mateRun(now),
     conflicts: [],
     notify: {},
+    day: seed.day,
     seesMoney: mine !== undefined && seesMoney(mine),
     reach: exampleReach(seed.outreach),
   };

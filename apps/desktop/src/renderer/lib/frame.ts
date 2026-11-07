@@ -83,6 +83,6 @@ export function toAppData(frame: Frame): AppData {
     mateRun: frame.mateRun,
     reach: frame.reach,
     conflicts: frame.conflicts,
-    settings: { notify: frame.notify },
+    settings: { notify: frame.notify, day: frame.day },
   };
 }

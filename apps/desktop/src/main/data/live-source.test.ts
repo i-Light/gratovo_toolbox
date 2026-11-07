@@ -4,6 +4,7 @@ import { join } from "node:path";
 
 import { emptyReach, exampleSeed } from "@gratovo/core/data";
 import type { DataSource } from "@gratovo/core/data";
+import { defaultDay } from "@gratovo/core/today";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { openDatabase } from "../db/open-database";
@@ -120,6 +121,7 @@ describe("live source", () => {
       conflicts: [],
       mateRun: null,
       notify: {},
+      day: defaultDay,
       seesMoney: false,
       reach: emptyReach,
     });

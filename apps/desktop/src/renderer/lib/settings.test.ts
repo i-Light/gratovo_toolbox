@@ -150,14 +150,17 @@ describe("notifyKind and notifShown", () => {
     const base = exampleData(now);
     const off: AppData = {
       ...base,
-      settings: { notify: { reply: false, money: true, search: false } },
+      settings: { ...base.settings, notify: { reply: false, money: true, search: false } },
     };
     expect(notifShown(base, note("reply"))).toBe(true);
     expect(notifShown(off, note("reply"))).toBe(false);
     expect(notifShown(off, note("wallet"))).toBe(true);
     expect(notifShown(off, note("pause"))).toBe(false);
     expect(notifShown(off, note("forward"))).toBe(true);
-    const problemsOff: AppData = { ...base, settings: { notify: { reply: false, search: false } } };
+    const problemsOff: AppData = {
+      ...base,
+      settings: { ...base.settings, notify: { reply: false, search: false } },
+    };
     expect(notifShown(problemsOff, note("alert"))).toBe(true);
   });
 });

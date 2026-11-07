@@ -4878,6 +4878,24 @@ export const strings = {
       blockedFindings: "The check found:",
     },
   },
+  todayActions: {
+    snoozed: (title: string, when: string) => `${title} comes back ${when}`,
+    snoozedSub: "Snoozed",
+    broughtBack: (title: string) => `${title} is back on Today`,
+    movedToTomorrow: (n: number) =>
+      n === 1 ? "Moved 1 item to tomorrow" : `Moved ${String(n)} items to tomorrow`,
+    fitDay: (n: number) =>
+      n === 1
+        ? "Moved 1 item to tomorrow to fit the day"
+        : `Moved ${String(n)} items to tomorrow to fit the day`,
+    snooze: "Snooze an item",
+    bringBack: "Bring an item back",
+    moveToTomorrow: "Move to tomorrow",
+    wrapUp: "Wrap up the day",
+    dismissNote: "Clear the note",
+    dayHours: "Set the hours for the day",
+    morning: "Set the morning hour",
+  },
   time: {
     dateLocale: "en-US",
     justNow: "just now",

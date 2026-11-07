@@ -1,3 +1,5 @@
+import { defaultDay } from "../today/types";
+
 import type { ExampleSeed } from "./example";
 import type { FrameNotification } from "./types";
 
@@ -45,6 +47,7 @@ export function firstSeed(base: ExampleSeed, now: number): ExampleSeed {
     reachMailboxes: {},
     outreach: { drafts: [], messages: [], sequences: [] },
     health: null,
+    day: defaultDay,
   };
 }
 

@@ -31,6 +31,15 @@ import {
   type RailCounts,
   type TeamMember,
 } from "@gratovo/core/data";
+import {
+  dayHours,
+  dayNoteMax,
+  doneMax,
+  morningHours,
+  snoozedMax,
+  todayBuckets,
+  type DayState,
+} from "@gratovo/core/today";
 import { z } from "zod";
 
 import { reachDataSchema } from "./reach";
@@ -87,6 +96,30 @@ export const notifySettingsSchema: z.ZodType<NotifySettings> = z.strictObject({
   handoff: z.exactOptional(z.boolean()),
   search: z.exactOptional(z.boolean()),
 } satisfies Record<NotifyKind, unknown>);
+
+const dayTitle = z.string().max(200);
+
+/** The person's day, kept on this computer: hours, snoozed items, what is done, the wrap-up note. */
+export const dayStateSchema: z.ZodType<DayState> = z.strictObject({
+  hours: z.literal(dayHours),
+  morning: z.literal(morningHours),
+  snoozed: z
+    .record(id, z.strictObject({ until: time, title: dayTitle }))
+    .refine((map) => Object.keys(map).length <= snoozedMax),
+  done: z
+    .array(
+      z.strictObject({
+        key: id,
+        title: dayTitle,
+        bucket: z.enum(todayBuckets),
+        at: time,
+        minutes: z.number(),
+      }),
+    )
+    .max(doneMax),
+  note: z.string().max(dayNoteMax),
+  wrappedAt: time.nullable(),
+});
 
 export const frameNotificationSchema: z.ZodType<FrameNotification> = z.strictObject({
   id,
@@ -234,6 +267,7 @@ export const frameSchema: z.ZodType<Frame> = z.strictObject({
   mateRun: mateRunSchema.nullable(),
   conflicts: z.array(editConflictSchema).max(conflictsMax),
   notify: notifySettingsSchema,
+  day: dayStateSchema,
   seesMoney: z.boolean(),
   reach: reachDataSchema,
 });
@@ -242,6 +276,7 @@ export const frameSchema: z.ZodType<Frame> = z.strictObject({
 export const dataWriteSchema: z.ZodType<DataWrite> = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("notification.read"), id, read: z.boolean() }),
   z.strictObject({ kind: z.literal("notify.set"), notify: notifySettingsSchema }),
+  z.strictObject({ kind: z.literal("day.set"), day: dayStateSchema }),
   z.strictObject({ kind: z.literal("me.name"), name: z.string().max(nameMax) }),
   z.strictObject({ kind: z.literal("log.add"), id, at: time, text, ...logRef }),
   z.strictObject({ kind: z.literal("log.remove"), id }),

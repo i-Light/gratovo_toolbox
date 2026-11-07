@@ -206,6 +206,9 @@ export function diffData(
   if (before.settings.notify !== after.settings.notify) {
     writes.push({ kind: "notify.set", notify: after.settings.notify });
   }
+  if (before.settings.day !== after.settings.day) {
+    writes.push({ kind: "day.set", day: after.settings.day });
+  }
   if (before.myName !== after.myName) {
     writes.push({ kind: "me.name", name: after.myName ?? "" });
   }

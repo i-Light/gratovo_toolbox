@@ -3,6 +3,9 @@ import type { DatabaseSync } from "node:sqlite";
 
 import { creatorStages, nameMax, noAccess, notifyKind, seesMoney } from "@gratovo/core/data";
 import type { KitInput } from "@gratovo/core/data";
+import { defaultDay, pruneDay } from "@gratovo/core/today";
+import type { DayState } from "@gratovo/core/today";
+import { dayStateSchema } from "@gratovo/ipc";
 import type {
   CreatorStage,
   DataSource,
@@ -120,6 +123,12 @@ export function createSqliteSource(db: DatabaseSync, options: SqliteSourceOption
     },
   });
 
+  /** The stored day, pruned at the clock; the default when missing or not valid. */
+  function readDay(): DayState {
+    const parsed = dayStateSchema.safeParse(getSetting(db, "day"));
+    return parsed.success ? pruneDay(parsed.data, clock()) : defaultDay;
+  }
+
   function readFrame(): Frame {
     const access = listMemberAccess(db);
     const team: TeamMember[] = listProfiles(db).map((profile) => {
@@ -160,6 +169,7 @@ export function createSqliteSource(db: DatabaseSync, options: SqliteSourceOption
       deals: money ? deals : deals.map(dealWithoutMoney),
       mateRun: extras.mateRun(),
       notify: getNotify(db),
+      day: readDay(),
       seesMoney: money,
       // The stored parts only. Main's Reach service overlays the runtime fields later: the
       // mailboxes (settings and Gmail's numbers), Gemini's state, the sender's name and the zones.
@@ -181,6 +191,9 @@ export function createSqliteSource(db: DatabaseSync, options: SqliteSourceOption
         return;
       case "notify.set":
         setNotify(db, write.notify);
+        return;
+      case "day.set":
+        setSetting(db, "day", pruneDay(write.day, clock()));
         return;
       case "me.name":
         setDisplayName(db, me, write.name.trim().slice(0, nameMax), clock());

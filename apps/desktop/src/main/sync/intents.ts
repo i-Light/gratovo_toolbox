@@ -378,9 +378,10 @@ export function recordIntent(
       return;
     }
     case "notification.read":
+    case "day.set":
     case "brand.notes":
     case "deal.notes":
-      // Stay local: a brand's or deal's notes have no Supabase column yet (R7), so nothing is
+      // Stay local: the day state never leaves this computer; a brand's or deal's notes have no Supabase column yet (R7), so nothing is
       // queued.
       applyLocal();
       return;
