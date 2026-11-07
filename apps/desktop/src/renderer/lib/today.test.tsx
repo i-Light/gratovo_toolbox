@@ -5,7 +5,15 @@ import { cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { strings } from "../strings";
-import { doneDiff, itemWords, startFocus, startWrap, useTodayInput, useTodayItems } from "./today";
+import {
+  doneDiff,
+  itemWords,
+  startFocus,
+  startWrap,
+  stillThere,
+  useTodayInput,
+  useTodayItems,
+} from "./today";
 import { appStore, resetAppStoreForTests } from "./store";
 
 const t = strings.today;
@@ -125,5 +133,27 @@ describe("the Today UI flags", () => {
     startWrap();
     expect(appStore().getState().ui.today.wrap).toBe(true);
     expect(appStore().getState().ui.today.focusAt).toBeNull();
+  });
+});
+
+describe("stillThere", () => {
+  it("is true while the item's records are in the data", () => {
+    expect(stillThere(first("send"), data())).toBe(true);
+    expect(stillThere(first("deal"), data())).toBe(true);
+  });
+
+  it("is false once the creator, deal or draft left the data (a scenario pick, not work done)", () => {
+    const send = first("send");
+    const deal = first("deal");
+    appStore().bg((d) => {
+      d.creators = [];
+      d.deals = [];
+      d.reach.drafts = [];
+    });
+    expect(stillThere(send, data())).toBe(false);
+    expect(stillThere(deal, data())).toBe(false);
+    expect(
+      stillThere({ ...send, key: "finds", kind: "finds", ref: null, draft: null }, data()),
+    ).toBe(false);
   });
 });

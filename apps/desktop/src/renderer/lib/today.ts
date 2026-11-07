@@ -246,6 +246,22 @@ export function itemWords(
 }
 
 /**
+ * Whether what an item points at is still in the data. An item that left the list because its
+ * creator, brand, deal or draft left the data (a scenario pick, a smaller frame) was not done.
+ */
+export function stillThere(item: TodayItem, data: AppData): boolean {
+  if (item.draft !== null && !data.reach.drafts.some((d) => d.id === item.draft)) {
+    return false;
+  }
+  if (item.ref === null) {
+    return data.creators.length > 0;
+  }
+  const { kind, id } = item.ref;
+  const list = kind === "creator" ? data.creators : kind === "brand" ? data.brands : data.deals;
+  return list.some((r) => r.id === id);
+}
+
+/**
  * Records "done" as the list changes (decision T5): a key that leaves the list and is not snoozed
  * is done; a key that is back on the list comes off the done list. Mount once in the app shell.
  * It starts after the first list for a source and person, and starts over when either changes.
@@ -287,7 +303,7 @@ export function useDoneTracker(): void {
     const byKey = new Map(before.items.map((i) => [i.key, i]));
     for (const key of gone) {
       const was = byKey.get(key);
-      if (was !== undefined) {
+      if (was !== undefined && stillThere(was, data)) {
         recordDone({
           key,
           title: before.titles.get(key) ?? "",
